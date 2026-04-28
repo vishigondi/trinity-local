@@ -15,8 +15,12 @@ See [docs/product-spec.md](docs/product-spec.md) for the full product spec and G
 - **Detects** provider switching — when you abandon one tool and finish in another
 - **Tracks** cost and model drift across providers over time
 - **Recommends** the right provider for the task, backed by evidence from your own usage
+- **k-NN advisory** — embedding-based routing suggestions using mined hard examples
 - **Runs councils** — cross-provider comparison with peer review and synthesis
 - **Reviews** — ask one provider to critique another's completed output
+- **Mines hard examples** — finds cross-provider routing conflicts via embedding similarity
+- **Evaluates** routing quality with 5-metric suite (reroute recall, needs_council P/R, switch prediction, top-2 provider accuracy, NN evidence quality)
+- **Analytics** — production observability for k-NN advisory: evidence spam, threshold brittleness, act rate, switch-after-acted rate
 - **Generates** weekly digests, static portal pages, and macOS notifications
 - **Dispatches** actions through macOS Shortcuts without running a server
 
@@ -30,6 +34,12 @@ See [docs/product-spec.md](docs/product-spec.md) for the full product spec and G
 
 ```bash
 pip install -e .
+```
+
+For embedding-based features (k-NN advisory, hard mining, eval):
+
+```bash
+pip install -e '.[mlx]'
 ```
 
 For tests:
@@ -76,6 +86,19 @@ trinity-local council-start --bundle <id> --members claude codex gemini --notify
 trinity-local review --task <task_id> --reviewer gemini
 ```
 
+### Research pipeline
+
+```bash
+# Mine hard examples (embedding-based cross-provider matching)
+trinity-local hard
+
+# Run 5-metric evaluation on hard examples
+trinity-local hardeval
+
+# k-NN advisory analytics report
+trinity-local analytics
+```
+
 ### See what's happening
 
 ```bash
@@ -83,6 +106,7 @@ trinity-local scoreboard              # Provider scores
 trinity-local action-list             # Pending actions
 trinity-local portal-html --open-browser  # Static launchpad
 trinity-local features --source all --limit 20  # Session features
+trinity-local adapters                # Provider adapter status
 ```
 
 ### macOS Shortcuts setup
@@ -104,9 +128,13 @@ File-Backed State (~/.trinity/)
    ↓
 Watcher Analysis (cost, outcomes, switching, drift)
    ↓
+k-NN Advisory (embedding neighbors from hard-example corpus)
+   ↓
 Signals (recommendations, council triggers, workflow suggestions)
    ↓
 Notifications / Static Portal / Shortcuts / Council
+   ↓
+Analytics (advisory log, evidence spam, threshold checks, product metrics)
 ```
 
 ## State
@@ -123,6 +151,13 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ├── review_pages/       # Review HTML
 ├── portal_pages/       # Static launchpad HTML
 ├── digest_pages/       # Weekly digest HTML
+├── cache/
+│   └── embeddings.jsonl  # Shared embedding cache
+├── research/
+│   └── hard_examples/  # Mined hard examples (k-NN corpus)
+├── analytics/
+│   ├── knn_advisory.jsonl        # Advisory event log
+│   └── knn_advisory_report.json  # Latest analytics report
 ├── cost_log.jsonl      # Per-session cost estimates
 ├── outcomes.jsonl      # Per-session outcomes for drift
 └── ...
@@ -131,9 +166,10 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ## Verified
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **54 passed**
-- CLI command registration — all 12 command modules
+- `pytest tests/ -v` — **123 passed** across 10 test files
+- CLI command registration — all 15 command modules
 - `watch-once`, `portal-html`, `digest`, `shortcut-setup` — all write correctly to `~/.trinity/`
+- `hard`, `hardeval`, `analytics` — research pipeline verified
 
 ## Documentation
 

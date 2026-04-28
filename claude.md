@@ -18,10 +18,12 @@ for the full product spec, GTM strategy, and roadmap.
 The current product center of gravity is:
 
 - watcher → task/action/cost/outcome/drift pipeline
+- **k-NN advisory layer** (embedding-based routing suggestions)
 - council (cross-provider comparison)
 - post-hoc review (Council-lite)
 - workflow suggestion → Shortcuts dispatch
 - weekly digest
+- **research pipeline** (hard mining, evaluation, analytics)
 
 Not:
 
@@ -37,7 +39,7 @@ Not:
 
 Entry: `src/trinity_local/main.py` — thin dispatcher only.
 
-Registered command groups (12 modules):
+Registered command groups (15 modules):
 
 | Module | Key Commands |
 |--------|-------------|
@@ -52,11 +54,15 @@ Registered command groups (12 modules):
 | `commands/workflow.py` | `workflow-create` |
 | `commands/digest.py` | `digest` |
 | `commands/review.py` | `review` |
+| `commands/adapters.py` | `adapters` |
+| `commands/status.py` | `status` |
+| `commands/helpers.py` | Internal utilities |
+| `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics` |
 
 ### Core Layers
 
 | Layer | Files | Purpose |
-|-------|-------|---------| 
+|-------|-------|---------|
 | Config | `config.py`, `config.json` | Provider definitions, role/task preferences, `trinity_home()` |
 | Providers | `providers.py` | Subprocess wrappers for CLI/MLX/Codex with latency tracking |
 | Coordinator | `coordinator.py` | Heuristic role→provider selection (LEGACY — used by `run` only) |
@@ -70,10 +76,18 @@ Registered command groups (12 modules):
 | Review | `review.py` | Post-hoc review: ask one provider to critique another's output |
 | Tasks | `task_runtime.py`, `task_schema.py` | Durable task records with recommendations |
 | Actions | `action_runtime.py`, `action_schema.py` | Pending actions: recommendation, start_council, review_ready, workflow_suggestion |
-| Watch | `watch_runtime.py` | Transcript scanner → cost/outcome/switching/task/action + drift check |
+| Watch | `watch_runtime.py` | Transcript scanner → cost/outcome/switching/task/action + k-NN advisory + drift check |
 | Portal | `portal_page.py` | Static HTML launchpad with `shortcuts://` dispatch links |
 | Shortcuts | `shortcuts_integration.py`, `dispatch_registry.py`, `shortcut_setup.py` | macOS Shortcuts bridge |
 | Notifications | `notifications.py` | Cross-platform native notifications (macOS focus) |
+| Adapters | `adapters.py` | Provider adapter detection and version tracking |
+| **Embeddings** | `embeddings/` (`__init__`, `backend_mlx`, `backend_tfidf`, `cache`) | Shared embedding layer (nomic-embed-text-v1.5, 512d Matryoshka, persistent cache) |
+| **k-NN Advisor** | `knn_advisor.py` | Advisory layer: queries hard-example corpus for routing advice |
+| **k-NN Analytics** | `knn_analytics.py` | Production observability: evidence spam, threshold brittleness, product metrics |
+| **Hard Mining** | `research/hard_mining.py` | Embedding-based cross-provider hard example mining |
+| **Hard Eval** | `research/hard_eval.py` | 5-metric evaluation suite for hard examples |
+| Replay | `research/replay.py` | Transcript replay and routing example generation |
+| Ranking | `research/ranking.py` | Heuristic vs k-NN ranking evaluation |
 
 ### Real Function Call Paths
 
@@ -88,8 +102,14 @@ watch-once
 → extract_session_features
 → compute_session_cost + append_session_cost
 → append_outcome
-→ _detect_provider_switch
-→ _build_recommendation (evidence-backed)
+→ _detect_provider_switch (embedding + word-overlap)
+  → if switch: mark_suggestion_outcome (analytics)
+→ _build_recommendation (heuristic, evidence-backed)
+→ _upgrade_recommendation (k-NN advisory)
+  → knn_advisor.advise → embed → k-NN lookup → KnnAdvice
+  → _log_advisory (analytics event)
+  → upgrade: recommendation → council if neighbors agree
+  → annotate: knn_method, top2, evidence
 → create_prompt_bundle
 → ensure_task_record → save_task_record → save_sync_record
 → optional create_workflow_suggestion_action
@@ -111,6 +131,29 @@ council-start
 → save_council_outcome → write_review_html
 → task_from_council → save_task_record → save_sync_record
 → create_review_ready_action
+```
+
+**Research pipeline:**
+
+```
+trinity-local hard
+→ mine_hard_via_embeddings
+  → scan 59k sessions, extract features
+  → sample 50/provider, embed prompts
+  → find cross-provider pairs (sim > 0.7)
+  → signal-based: switches, errors, long sessions
+→ save to ~/.trinity/research/hard_examples/
+
+trinity-local hardeval
+→ load hard examples
+→ run heuristic + k-NN evaluators
+→ report 5 metrics: reroute recall, needs_council P/R,
+  switch prediction, top-2 accuracy, NN evidence quality
+
+trinity-local analytics
+→ load ~/.trinity/analytics/knn_advisory.jsonl
+→ report: evidence spam, threshold brittleness,
+  act rate, switch-after-acted rate, alerts
 ```
 
 **Workflow suggestion:**
@@ -154,6 +197,14 @@ Live state is under `~/.trinity/` by default (overridable via `TRINITY_HOME`).
 ├── watcher/            # Cursor files for watch-loop resume
 ├── workflow_prompts/   # Generated workflow prompt artifacts
 ├── shortcut_setup/     # Shortcut installer recipe
+├── cache/
+│   └── embeddings.jsonl  # Persistent embedding cache
+├── research/
+│   ├── hard_examples/  # Mined hard examples (k-NN corpus)
+│   └── replay_examples/  # Replay-generated routing examples
+├── analytics/
+│   ├── knn_advisory.jsonl        # Every k-NN advisory call
+│   └── knn_advisory_report.json  # Latest analytics report
 ├── cost_log.jsonl      # Per-session cost estimates
 ├── outcomes.jsonl      # Per-session outcome records for drift
 ├── scoreboard.json     # Aggregate provider scores
@@ -181,23 +232,27 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - **`from __future__ import annotations`** in every module for PEP 604 style.
 - **Dataclasses everywhere** — no Pydantic, no attrs. Manual `to_dict()`.
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
-- **54 tests** across 7 test files. Pytest is configured as an optional dependency.
+  - `[mlx]` extras for sentence-transformers + embedding support.
+  - `[test]` extras for pytest.
+- **123 tests** across 10 test files. Pytest is configured as an optional dependency.
 
 ### Patterns
 
 - **Shared utilities**: `utils.py` provides `now_iso()` and `stable_id()`.
 - **Stable IDs**: All IDs are `sha1(prefix|parts...)[:16]` via `stable_id()`.
-- **JSONL append logs**: `cost_log.jsonl`, `outcomes.jsonl`, `runs.jsonl`, etc.
-- **JSON entity files**: Tasks, actions, bundles, outcomes, reviews are individual JSON files.
+- **JSONL append logs**: `cost_log.jsonl`, `outcomes.jsonl`, `runs.jsonl`, `knn_advisory.jsonl`, etc.
+- **JSON entity files**: Tasks, actions, bundles, outcomes, reviews, hard examples are individual JSON files.
 - **`to_dict()` filtering**: Strip `None`, empty strings, empty dicts, empty lists.
 - **`now_iso()`**: UTC ISO 8601 with `microsecond=0`.
 - **`trinity_home()`**: Returns `~/.trinity/` (or `$TRINITY_HOME`). All state paths go through this.
 - **`project_root()`**: Resolves to the git repo root. Used only for `config.json` and source code.
+- **Graceful degradation**: Features that depend on optional packages (embeddings, MLX) return None or fall back silently.
+- **Analytics never crash**: All analytics logging is wrapped in `try/except`. The watcher must never fail because of observability code.
 
 ### CLI structure
 
 - `main.py` is a thin dispatcher using `set_defaults(handler=...)`.
-- Command handlers live in `commands/` package (12 modules).
+- Command handlers live in `commands/` package (15 modules).
 - Every subcommand prints JSON to stdout and returns.
 - Config is only loaded for commands that need it.
 
@@ -207,50 +262,79 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 
 ### What's Working
 
-1. **Watcher pipeline** — scan → ingest → features → cost → outcome → switch detection → task → action → portal → notification. Full loop works.
-2. **Multi-provider ingestion** — four parsers handle real local formats with timestamp and token extraction.
-3. **Council with peer review** — member responses → anonymized peer review → synthesis. Flagship cross-provider feature.
-4. **Cost and drift tracking** — per-session cost estimation, rolling outcome comparison, drift alerting.
-5. **Evidence-backed recommendations** — queries outcome + cost logs for concrete evidence.
-6. **Post-hoc review** — Council-lite: ask one provider to critique another's output. Dark-themed HTML.
-7. **File-backed state** — one file = one entity. No joins. No migrations.
-8. **macOS-native dispatch** — `shortcuts://` URL bridge.
-9. **Test coverage** — 54 tests across 7 files, all passing.
+1. **Watcher pipeline** — scan → ingest → features → cost → outcome → switch detection → k-NN advisory → task → action → portal → notification. Full loop works.
+2. **k-NN advisory layer** — embedding-based routing suggestions integrated into the watcher. Can upgrade recommendations to council, add evidence, suggest reroutes. Advisory only, never autonomous.
+3. **Multi-provider ingestion** — four parsers handle real local formats with timestamp and token extraction.
+4. **Council with peer review** — member responses → anonymized peer review → synthesis. Flagship cross-provider feature.
+5. **Cost and drift tracking** — per-session cost estimation, rolling outcome comparison, drift alerting.
+6. **Evidence-backed recommendations** — queries outcome + cost logs + k-NN neighbors for concrete evidence.
+7. **Hard example mining** — embedding-based cross-provider matching finds routing conflicts (1,026 hard examples from 59k sessions).
+8. **5-metric evaluation** — reroute recall 38.7%, needs_council P/R 98%, top-2 provider 99.5%, NN agreement 96.6%.
+9. **Production analytics** — evidence spam check, threshold brittleness detection, act rate, switch-after-acted rate tracking.
+10. **Post-hoc review** — Council-lite: ask one provider to critique another's output. Dark-themed HTML.
+11. **File-backed state** — one file = one entity. No joins. No migrations.
+12. **macOS-native dispatch** — `shortcuts://` URL bridge.
+13. **Test coverage** — 123 tests across 10 files, all passing.
 
 ### What Needs Attention Next
 
-#### P0 (Done)
+#### Done (P0-P1)
 
 - ~~State directory migration~~ ✅
 - ~~Cross-provider switching detection~~ ✅
 - ~~Evidence-backed recommendations~~ ✅
 - ~~Post-hoc review~~ ✅
+- ~~Council partial failure handling~~ ✅
+- ~~Automatic Council trigger on switch~~ ✅
+- ~~Provider adapter hardening~~ ✅ (`trinity-local adapters`)
+- ~~Shortcut installer~~ ✅ (`trinity-local shortcut-setup`)
+- ~~Embeddings package~~ ✅ (nomic-embed-text-v1.5 via sentence-transformers)
+- ~~Hard example mining~~ ✅ (embedding-based cross-provider matching)
+- ~~Extended evaluation~~ ✅ (5-metric suite)
+- ~~k-NN advisory live rollout~~ ✅ (integrated into watcher)
+- ~~Production analytics~~ ✅ (evidence spam, threshold brittleness, product metrics)
 
-#### P1 (Next)
+#### Next
 
-- **Council partial failure handling.** If one member provider fails, continue with remaining.
-- **Automatic Council trigger.** When the watcher detects a switch with divergent outcomes.
-- **Shortcut installer.** Generate a downloadable `.shortcut` file.
-- **Provider adapter hardening.** Version detection, path discovery, `trinity-local adapters` command.
+- **Threshold tuning.** Per-task-kind council thresholds based on analytics data.
+- **Corpus refresh strategy.** When to re-mine hard examples (stale corpus warning after 7 days).
+- **Real switch tracking.** Watcher should detect temporal provider transitions within N minutes.
+- **TT integration.** If web transcripts (taste-terminal) are needed, requires a new parser.
 
 #### Lower Priority
 
-- **`_guess_task_kind()` is brittle.** Will be replaced by embedding-based classification (P2 research).
+- **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
 - **Portal auto-refresh.** Add `<meta http-equiv="refresh">` tag.
-- **`status` command.** One-shot summary.
 - **Watch loop graceful shutdown.** Signal handling or launchd wrapper.
+
+---
+
+## Key Product Metrics
+
+The analytics system (`trinity-local analytics`) tracks:
+
+| Metric | Purpose |
+|--------|---------|
+| `act_rate` | What % of suggestions are acted on? |
+| `switch_after_acted_rate` | Of acted-on suggestions, how many later switched? **The key metric — if this drops, the product is getting smarter.** |
+| `upgrade_rate` | How often does k-NN override heuristic? |
+| `evidence_count_p95` | Is evidence spam growing? |
+| `confidence_by_task_kind` | Is the threshold stable across task types? |
 
 ---
 
 ## Verified Status
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **54 passed**
-- Command registration — correct (12 command modules)
+- `pytest tests/ -v` — **123 passed** across 10 test files
+- Command registration — correct (15 command modules)
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`
 - `shortcut-setup` — writes to `~/.trinity/shortcut_setup/`
 - `digest --json` — clean output
+- `hard` — mines 1,026 hard examples from 59k sessions
+- `hardeval` — 5-metric eval: k-NN beats heuristic on all metrics
+- `analytics` — report with alerts, product metrics
 
 ---
 
@@ -261,3 +345,4 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - `main.py` is a dispatcher only. Add behavior in `commands/*` or runtime modules.
 - Keep the product centered on observing, comparing, dispatching, and learning.
 - Not on building another chat frontend.
+- Embeddings require `pip install -e '.[mlx]'` — all embedding features gracefully degrade without it.

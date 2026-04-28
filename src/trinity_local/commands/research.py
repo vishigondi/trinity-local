@@ -415,7 +415,8 @@ def handle_analytics(args):
     print(f"  Product metrics:")
     print(f"    suggestions tracked:  {report.suggestions_total}")
     print(f"    acted on:             {report.suggestions_acted_on} ({_fmt_pct(report.act_rate)})")
-    print(f"    later switched:       {report.later_switched_total} ({_fmt_pct(report.later_switch_rate)})")
+    print(f"    later switched (all): {report.later_switched_total} ({_fmt_pct(report.later_switch_rate)})")
+    print(f"    switch-after-acted:   {report.switch_after_acted_total} ({_fmt_pct(report.switch_after_acted_rate)})  ← key metric")
     if report.switch_targets:
         print(f"    switch targets:       {', '.join(f'{k}={v}' for k, v in report.switch_targets.items())}")
     print()

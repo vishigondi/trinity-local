@@ -193,6 +193,10 @@ class AdvisoryReport:
     act_rate: float | None = None
     later_switched_total: int = 0
     later_switch_rate: float | None = None
+    # The key product metric: of acted-on suggestions, how many switched anyway?
+    # If this drops over time, the product is getting smarter.
+    switch_after_acted_total: int = 0
+    switch_after_acted_rate: float | None = None
     switch_targets: dict[str, int] = field(default_factory=dict)
 
     # Alerts
@@ -300,6 +304,13 @@ def generate_report() -> AdvisoryReport:
     if with_outcome:
         report.later_switch_rate = len(switched) / len(with_outcome)
 
+    # The key product metric: of ACTED-ON suggestions, how many switched anyway?
+    acted_on = [e for e in with_outcome if e.suggestion_acted_on]
+    acted_then_switched = [e for e in acted_on if e.later_switched]
+    report.switch_after_acted_total = len(acted_then_switched)
+    if acted_on:
+        report.switch_after_acted_rate = len(acted_then_switched) / len(acted_on)
+
     target_counts: Counter[str] = Counter()
     for e in switched:
         if e.switch_target:
@@ -313,10 +324,11 @@ def generate_report() -> AdvisoryReport:
             f"Consider raising council_threshold or reducing noise."
         )
 
-    if report.later_switch_rate is not None and report.later_switch_rate > 0.3:
+    if report.switch_after_acted_rate is not None and report.switch_after_acted_rate > 0.3:
         report.alerts.append(
-            f"HIGH SWITCH-AFTER RATE: {report.later_switch_rate:.0%} of acted-on "
-            f"suggestions resulted in a later provider switch. "
+            f"HIGH SWITCH-AFTER-ACTED RATE: {report.switch_after_acted_rate:.0%} of "
+            f"acted-on suggestions resulted in a later provider switch "
+            f"({report.switch_after_acted_total}/{len(acted_on)}). "
             f"The advisory may be recommending the wrong provider."
         )
 

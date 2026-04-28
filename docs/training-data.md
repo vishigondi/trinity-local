@@ -309,13 +309,54 @@ Avoid training directly on raw free-form judgments at the beginning.
 
 ## Implementation Order
 
-1. Add a Gemini CLI ingester modeled after the existing Claude/Codex ingesters.
-2. Keep `cowork` as a separate source and preserve `slash_commands` + `mcp_servers`.
-3. Emit `SessionFeatures` and `TaskLink` records before `RoutingExample`.
-4. Build weak labels from cross-tool behavior.
-5. Train a small local ranker.
-6. Add LoRA or a richer local encoder only after the labels and compact windows
+1. ~~Add a Gemini CLI ingester modeled after the existing Claude/Codex ingesters.~~ ✅
+2. ~~Keep `cowork` as a separate source and preserve `slash_commands` + `mcp_servers`.~~ ✅
+3. ~~Emit `SessionFeatures` and `TaskLink` records before `RoutingExample`.~~ ✅
+4. ~~Build weak labels from cross-tool behavior.~~ ✅
+5. ~~Build shared embedding layer (nomic-embed-text-v1.5, sentence-transformers).~~ ✅
+6. ~~Mine hard examples via embedding-based cross-provider matching.~~ ✅
+7. ~~Build 5-metric evaluation suite for hard examples.~~ ✅
+8. ~~Integrate k-NN advisory into watcher (advisory only, heuristic fallback).~~ ✅
+9. ~~Production analytics for advisory layer.~~ ✅
+10. Train a small local ranker — **next**, when eval metrics stabilize.
+11. Add LoRA or a richer local encoder only after the labels and compact windows
    are stable.
+
+## Current Status
+
+### Embedding Backend
+
+- Model: `nomic-ai/nomic-embed-text-v1.5` (sentence-transformers, MPS accelerated)
+- Dimensions: 512 (Matryoshka)
+- Fallback: hash-projected TF-IDF (zero dependencies)
+- Cache: persistent JSONL at `~/.trinity/cache/embeddings.jsonl`
+
+### Hard Example Corpus
+
+- 59,447 sessions scanned
+- 1,026 hard examples mined (986 rerouted via embedding similarity, 40 needs_council)
+- 1,031 cross-provider pairs detected
+- Note: only 1 session in the entire corpus had tool errors — error-based mining
+  is nearly useless, embedding-based cross-provider matching is the real signal
+
+### Evaluation Results (k-NN vs heuristic on hard examples)
+
+| Metric | Heuristic | k-NN |
+|--------|-----------|------|
+| Reroute recall | 0% | **38.7%** |
+| needs_council precision | N/A | **98.1%** |
+| needs_council recall | 0% | **98.4%** |
+| Top-2 provider accuracy | N/A | **99.5%** |
+| NN label agreement | N/A | **96.6%** |
+
+### Production Analytics
+
+Key product metrics tracked:
+- `act_rate` — what % of suggestions are acted on
+- `switch_after_acted_rate` — of acted-on suggestions, how many later switched
+  (the key metric — if this drops over time, the product is getting smarter)
+- Evidence spam detection (avg/max/p95 evidence lines per recommendation)
+- Threshold brittleness across task kinds and provider pairs
 
 ## Product Direction
 
