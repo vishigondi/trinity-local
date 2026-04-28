@@ -491,7 +491,7 @@ def parse_cowork_session(meta_path: Path) -> SessionRecord | None:
             mcp_servers.append(item["name"])
 
     return SessionRecord(
-        provider="claude",
+        provider="cowork",
         session_id=session_id,
         source_path=str(audit_path),
         native_id=session_id,

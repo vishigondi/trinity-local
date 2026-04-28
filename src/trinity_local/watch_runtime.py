@@ -75,6 +75,18 @@ def _save_cursor(source: str, mtime: float) -> None:
     )
 
 
+def _normalize_providers_for_council(providers: list[str]) -> list[str]:
+    """Normalize provider list for council: map cowork→claude, dedupe, preserve order."""
+    result = []
+    seen = set()
+    for p in providers:
+        normalized = "claude" if p == "cowork" else p
+        if normalized not in seen:
+            result.append(normalized)
+            seen.add(normalized)
+    return result
+
+
 def _source_root(source: str) -> Path:
     home = Path.home()
     if source == "claude":
@@ -414,6 +426,8 @@ def _upgrade_recommendation(
         # Add council members if we don't have any
         if not members:
             members = advice.top2_providers[:2] or ["claude", "codex"]
+        # Normalize providers: map cowork→claude, remove duplicates
+        members = _normalize_providers_for_council(members)
         was_upgraded = True
 
     # Reroute suggestion: add to evidence, adjust recommended_provider

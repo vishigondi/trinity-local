@@ -187,7 +187,11 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ## Verified
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — base test suite is healthy; embedding-path tests depend on the Hugging Face model cache / network availability
+- `pytest tests/ -v` — **122 passed, 4 skipped**
+  - Base test suite is healthy
+  - k-NN embedding tests (4 skipped) require a cached HuggingFace model
+  - Model downloads on first use and requires network access
+  - Once cached, k-NN features work offline
 - 15 command modules registering 40 CLI subcommands
 - `watch-once`, `portal-html`, `digest`, `shortcut-install` — all write correctly to `~/.trinity/`
 - `hard`, `hardeval`, `analytics` — research pipeline verified

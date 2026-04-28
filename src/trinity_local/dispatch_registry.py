@@ -58,13 +58,13 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
     if action.name == "open_review":
         task_id = args.get("task_id") or action.task_id
         if task_id:
-            return f"trinity-local open-review --task {task_id}"
+            return f"trinity-local open-review --task {shlex.quote(str(task_id))}"
         outcome_id = args.get("outcome_id")
         if outcome_id:
-            return f"trinity-local open-review --outcome {outcome_id}"
+            return f"trinity-local open-review --outcome {shlex.quote(str(outcome_id))}"
         review_path = args.get("path")
         if review_path:
-            return f"trinity-local open-review --path '{review_path}'"
+            return f"trinity-local open-review --path {shlex.quote(str(review_path))}"
         return None
     if action.name == "start_council":
         bundle_id = args.get("bundle_id")
@@ -74,8 +74,8 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         if bundle_id and members and primary_provider:
             member_args = " ".join(shlex.quote(str(member)) for member in members)
             return (
-                f"trinity-local council-start --bundle {bundle_id} "
-                f"--members {member_args} --primary-provider {primary_provider} --cwd {cwd}"
+                f"trinity-local council-start --bundle {shlex.quote(str(bundle_id))} "
+                f"--members {member_args} --primary-provider {shlex.quote(str(primary_provider))} --cwd {shlex.quote(str(cwd))}"
             )
         return None
     if action.name == "workflow_create":
@@ -84,19 +84,19 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         target_provider = args.get("target_provider") or "cowork"
         if task_id and prompt_path:
             return (
-                f"trinity-local workflow-create --task {task_id} "
-                f"--prompt-path '{prompt_path}' --target-provider {target_provider}"
+                f"trinity-local workflow-create --task {shlex.quote(str(task_id))} "
+                f"--prompt-path {shlex.quote(str(prompt_path))} --target-provider {shlex.quote(str(target_provider))}"
             )
         return None
     if action.name == "open_path":
         path = args.get("path")
         if path:
-            return f"open '{path}'"
+            return f"open {shlex.quote(str(path))}"
         return None
     if action.name == "open_url":
         url = args.get("url")
         if url:
-            return f"open '{url}'"
+            return f"open {shlex.quote(str(url))}"
         return None
     if action.name == "run_applescript":
         script = args.get("script")
