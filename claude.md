@@ -304,7 +304,6 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 #### Lower Priority
 
 - **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
-- **Watch loop graceful shutdown.** Signal handling or launchd wrapper.
 
 ---
 
