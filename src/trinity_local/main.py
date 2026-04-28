@@ -9,6 +9,7 @@ from .commands import (
     digest,
     ingest,
     portal,
+    research,
     review,
     run,
     shortcuts,
@@ -39,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     review.register(subparsers)
     adapters.register(subparsers)
     status.register(subparsers)
+    research.register(subparsers)
 
     return parser
 
