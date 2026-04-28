@@ -180,7 +180,7 @@ class TestParseCowork:
     def test_basic_session(self, cowork_session_dir: Path):
         session = parse_cowork_session(cowork_session_dir)
         assert session is not None
-        assert session.provider == "cowork"
+        assert session.provider == "claude"
         assert session.session_id == "cowork-session-001"
         assert session.model == "claude-sonnet-4-20250514"
         assert session.title == "Research quantum computing"

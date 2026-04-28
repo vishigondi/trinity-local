@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -71,7 +72,7 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         primary_provider = args.get("primary_provider")
         cwd = args.get("cwd") or "."
         if bundle_id and members and primary_provider:
-            member_args = " ".join(str(member) for member in members)
+            member_args = " ".join(shlex.quote(str(member)) for member in members)
             return (
                 f"trinity-local council-start --bundle {bundle_id} "
                 f"--members {member_args} --primary-provider {primary_provider} --cwd {cwd}"
@@ -84,7 +85,7 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         if task_id and prompt_path:
             return (
                 f"trinity-local workflow-create --task {task_id} "
-                f"--prompt-path '{prompt_path}' --target-provider {target_provider} --open-prompt"
+                f"--prompt-path '{prompt_path}' --target-provider {target_provider}"
             )
         return None
     if action.name == "open_path":

@@ -197,6 +197,8 @@ Live state is under `~/.trinity/` by default (overridable via `TRINITY_HOME`).
 ├── watcher/            # Cursor files for watch-loop resume
 ├── workflow_prompts/   # Generated workflow prompt artifacts
 ├── shortcut_setup/     # Shortcut installer recipe
+├── bin/
+│   └── trinity-dispatch  # Dispatch wrapper script (created by setup.sh)
 ├── cache/
 │   └── embeddings.jsonl  # Persistent embedding cache
 ├── research/
@@ -220,7 +222,19 @@ Typed dispatch actions (used by Shortcuts bridge):
 - `run_command`, `open_review`, `start_council`, `workflow_create`
 - `open_path`, `open_url`, `run_applescript`
 
-The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell text.
+Flow:
+
+```
+macOS Shortcut "Trinity Dispatch"
+→ Receives JSON text input: {"name":"...", "args":{...}, "task_id":"...", "metadata":{...}}
+→ Passes to stdin: trinity-dispatch <json-payload>
+→ ~/.trinity/bin/trinity-dispatch (Python wrapper)
+  → dispatch_registry.make_dispatch_action(...)
+  → dispatch_registry.command_for_dispatch(...)
+  → exec /bin/zsh -lc '<command>'
+```
+
+The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injection so the venv's `trinity-local` is always resolvable. The Shortcut calls the wrapper via shell script action.
 
 ---
 
@@ -234,7 +248,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
   - `[mlx]` extras for sentence-transformers + embedding support.
   - `[test]` extras for pytest.
-- **119 passed, 4 skipped** across 10 `test_*.py` files. The 4 skips are in `test_knn_advisor.py` when the embeddings model is not cached.
+- **123 passed** across 12 `test_*.py` files.
 
 ### Patterns
 
@@ -305,11 +319,33 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 
 - **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
 
+#### Shortcut Dispatch Architecture
+
+The Trinity Dispatch shortcut integration (new, April 2026):
+
+1. **Shortcut setup** (`shortcut_setup.py`):
+   - Three-tier install: already installed? → bundled .shortcut file? → manual setup
+   - `write_dispatch_wrapper()` generates `~/.trinity/bin/trinity-dispatch` (Python executable)
+   - `run_installer()` signs bundled shortcut and opens import dialog
+
+2. **Dispatch wrapper** (generated `trinity-dispatch`):
+   - Reads JSON from stdin or argv[1]
+   - Calls `dispatch_registry.make_dispatch_action()` + `command_for_dispatch()`
+   - Injects venv bin into PATH before subprocess execution
+   - Runs command via `/bin/zsh -lc '<command>'`
+
+3. **Shortcut invocation** (macOS Shortcuts app):
+   - Get text input → Run shell script with wrapper
+   - Sets Input=text, Pass Input=to stdin
+
 #### Known Risks
 
 - **Legacy run stack.** `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` are marked LEGACY/deprecated but still present. Maintenance-drift risk — if core schemas change, legacy code may silently break. Not worth removing yet, but don't extend.
 - **watch_loop operator surface.** Errors now log to `analytics/watch_errors.jsonl` + optional notification, but there's no stronger operator surface (e.g., `trinity-local errors` command, error count in `status`). A recurring bug can still go unnoticed without checking the log file.
 - **`[mlx]` extra naming.** The `[mlx]` extra in `pyproject.toml` actually installs `sentence-transformers`, not a pure MLX stack. Name is slightly overloaded. Renaming to `[embeddings]` would be clearer but is a breaking change for existing installs.
+- ~~**Dispatch command injection risk**~~ ✅ Fixed in dispatch_registry.py:75 using `shlex.quote()` for proper shell escaping.
+- **Dispatch wrapper venv binding.** The wrapper's shebang points to the Python executable at install time. If venv is relocated/deleted, wrapper becomes stale. No validation of venv existence before execution.
+- **Shortcut import silent failure.** If `open <shortcut_file>` fails, user sees "import dialog opened" but nothing happens. No timeout/retry logic. `shortcuts sign` may not exist on older macOS versions.
 
 ---
 
@@ -329,16 +365,17 @@ The analytics system (`trinity-local analytics`) tracks:
 
 ## Verified Status
 
-- `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **119 passed, 4 skipped** across 10 `test_*.py` files
+- `pytest tests/ -v` — **123 passed** across 12 `test_*.py` files
 - 15 command modules registering 40 CLI subcommands
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`
-- `shortcut-install` — creates Trinity Dispatch shortcut
+- `shortcut-install` — creates Trinity Dispatch shortcut + dispatch wrapper
+- `setup.sh` — one-line setup: venv, package, config, wrapper, shortcut import
 - `digest --json` — clean output
 - `hard` — mines 1,026 hard examples from 59k sessions
 - `hardeval` — 5-metric eval: k-NN beats heuristic on all metrics
 - `analytics` — report structure verified (log is empty until live watch runs with corpus)
+- Dispatch wrapper (`~/.trinity/bin/trinity-dispatch`) — reads JSON from stdin, resolves to CLI commands
 
 ---
 

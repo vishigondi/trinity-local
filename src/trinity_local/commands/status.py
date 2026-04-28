@@ -73,7 +73,7 @@ def handle_status(args):
             "reviews": review_count,
             "councils": council_count,
             "cost_sessions": len(cost_log),
-            "cost_by_provider": {k: round(v, 4) for k, v in cost_summary.items()} if cost_summary else {},
+            "cost_by_provider": {k: v.total_cost_usd for k, v in cost_summary.items()} if cost_summary else {},
             "drift_alerts": len(drift_alerts),
         }, indent=2))
         return
@@ -103,8 +103,8 @@ def handle_status(args):
     # Costs
     if cost_summary:
         print(f"  Cost log:  {len(cost_log)} sessions tracked")
-        for provider, total_cost in sorted(cost_summary.items()):
-            print(f"    {provider}: ${total_cost:.4f}")
+        for provider, summary in sorted(cost_summary.items()):
+            print(f"    {provider}: ${summary.total_cost_usd:.4f}")
     else:
         print("  Cost log:  no sessions tracked yet")
     print()

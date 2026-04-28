@@ -2,9 +2,10 @@
 
 ## The One-Liner
 
-Trinity is a **local observation layer** that watches your AI coding sessions
-across providers and surfaces cross-provider insights that no single tool can
-see — without running servers, databases, or its own UX.
+Trinity is a **constitution compiler**: it watches your cross-provider coding
+behavior, extracts your taste through pairwise judgment, and learns a portable
+taste function that can score any (prompt, response) pair against your values.
+The router is the trivial part. The moat is the constitution.
 
 ---
 
@@ -48,7 +49,7 @@ duplicate it.
 These are problems that **require multi-provider observation** and cannot be
 solved by any individual CLI, no matter how good it gets:
 
-### 1. Cross-Provider Comparison (Council)
+### 1. Constitution Extraction Through Council
 
 > "Were the answers actually different? Which was better? Why?"
 
@@ -57,7 +58,15 @@ prompt through multiple providers, has each peer-review the others' answers
 anonymously, and synthesizes a verdict — all without the user manually
 copy-pasting between terminals.
 
-**No single provider can do this.** Each provider only sees its own output.
+But the real product: each Council run produces `(prompt, response_A, response_B,
+peer_review, your_judgment)`. That's RLHF data harvested from your own work.
+Trinity uses this pairwise judgment to extract a scalar taste function that
+learned to score any response against your constitution.
+
+The provider comparison is the cover story. The taste extraction is the moat.
+
+**No single provider can do this.** Each provider only sees its own output. Only
+you know which answers actually match your taste.
 
 ### 2. Behavioral Routing Intelligence
 
@@ -173,44 +182,60 @@ work.
 > "Your AI tools don't talk to each other. Trinity watches all of them and
 > tells you things none of them can."
 
-### Launch Sequence
+### Launch: Council-First
 
-**Phase A — Silent Observer (Week 1-2)**
+The blog post writes itself:
 
-Ship the watcher and digest only. Zero disruption to the user's existing
-workflow.
+> "I ran 50 of my favorite prompts through 4 AI coding tools. I had them peer-
+> review each other anonymously. The rankings surprised me. Here's the data —
+> run it on your own prompts."
+
+That **is** the product. Ship Council first. The watcher and digest are the
+scaffolding.
+
+**Why this order:**
+
+1. **Council is generative.** It produces a new artifact (cross-provider verdict)
+   that didn't exist before. Watcher and digest are diagnostic.
+
+2. **Council extracts constitutional data.** Every run feeds pairwise judgment
+   into the taste function. This is the actual moat.
+
+3. **Council is the proof.** k-NN advisory shows 38.7% reroute recall from
+   behavioral signal (heuristic: 0%). That gap is everything. Lead with it.
+
+**Phase A — Constitution Extraction (Launch)**
 
 1. User installs: `pip install -e .`
-2. User runs: `trinity-local watch-once --notify`
-3. Trinity scans their Claude, Codex, Gemini, and Cowork session histories
-4. Trinity surfaces: "You used Claude for 12 coding tasks and Codex for 3.
-   Codex had 0 errors. Claude had 4. Consider trying Codex for your next
-   coding task."
-5. User bookmarks the portal page
+2. User creates a bundle: `trinity-local bundle-create "Design the auth system"`
+3. User runs council: `trinity-local council-start --bundle <id> --members gemini codex --primary-provider claude`
+4. Trinity queries each provider, runs peer review, synthesizes a verdict
+5. User opens the review page, sees (prompt, 4 responses, peer feedback, ranking)
+6. User indicates which answer they prefer — this feeds the constitution learner
 
-**No behavior change required.** Trinity just watches and reports.
+**Every Council run produces RLHF data.**
 
-**Phase B — On-Demand Council (Week 3-4)**
+**Phase B — Autonomous Suggestion (Week 2+)**
 
-When the user has a task that matters, they can ask Trinity to compare:
+Once you have 10+ Council runs, the watcher learns your taste:
 
-1. User creates a bundle: `trinity-local bundle-create "Design the auth system"`
-2. User runs council: `trinity-local council-start --bundle <id> --members gemini codex --primary-provider claude`
-3. Trinity queries each provider, runs peer review, synthesizes
-4. User opens the review page and reads the comparison
+1. Watcher detects a new session in Claude
+2. Watcher runs `(prompt, response)` through the learned constitution scorer
+3. If confidence is low, suggests running a Council: "I'm not sure about this one"
+4. If confidence is high, routes proactively: "Gemini usually handles this better"
 
-**Only invoked when the user explicitly wants a second opinion.**
+**Gradually earns trust as the constitution matures.**
 
-**Phase C — Autonomous Suggestions (Week 5+)**
+**Phase C — Silent Observation (Week 1 onward, parallel)**
 
-The watcher starts making proactive suggestions:
+The watcher runs continuously (or on-demand):
 
-1. Watcher detects a new session in Claude Code
-2. Watcher creates a task with a recommendation: "Codex may be better for this"
-3. User sees the notification or portal card
-4. User clicks to run a council or switch tools
+1. Scans session histories across all providers
+2. Detects switches, abandoned sessions, repeated patterns
+3. Surfaces: cost comparison, silent model drift, workflow automation opportunities
+4. Portal and digest are always available
 
-**Gradually earns trust through accuracy.**
+**Scaffolding, not headline.**
 
 ### Distribution
 
@@ -222,9 +247,25 @@ The watcher starts making proactive suggestions:
 
 ### Success Metrics
 
+**Product Proof (Already Achieved)**
+
+- **k-NN advisory reroute recall: 38.7%** (heuristic: 0%)
+- **Needs-council precision: 98.4%** (heuristic: 60%)
+- **Top-2 provider accuracy: 99.5%**
+- **NN agreement on high-confidence suggestions: 96.6%**
+
+These metrics prove the core claim: behavioral signal embedded in hidden states
+beats keyword routing by an infinite margin (0% → 38.7% is undefined
+improvement). The TRINITY paper validates that this generalizes to multi-turn
+orchestration. We don't need multi-turn to prove the constitution exists; we
+already have it.
+
+**User Metrics (Tracking)**
+
 - Weekly active users running `watch-once` or `watch-loop`
 - Number of council runs per user per week
-- Percentage of watcher suggestions the user acts on
+- Constitution maturity: `switch_after_acted_rate` (how often the ranker's
+  suggestion is followed by a later switch)
 - User retention at 30 days (still running the watcher)
 
 ---
@@ -324,20 +365,42 @@ Training data comes from the watcher's existing corpus:
 No external API calls needed for training. No labeled dataset needed — the
 watcher generates weak labels continuously.
 
-**Stage 3: Learned Multi-Turn Coordinator (Long-Term)**
+**Stage 3: Constitution as Licensable Artifact (Long-Term)**
 
-The full TRINITY architecture: a coordinator SLM that sees the full transcript
-context and selects both agent and role per turn. This requires:
+Once you have learned your constitution (via Stage 2 + continuous Council runs),
+you can export it and let others instantiate their own constitution using your
+compiler.
 
-1. **Multi-turn council with transcript feedback** — the coordinator sees prior
-   turns and decides the next step (already partially built in council_runner)
-2. **sep-CMA-ES optimizer** — offline evolutionary search over the head
-   parameters using the watcher's corpus as the evaluation set
-3. **Singular value fine-tuning** — adapt a subset of the SLM's layers to
-   improve hidden-state separability for routing
+The API surface is minimal:
 
-This is the end state, but it's not needed until Stage 2 has enough data to
-show that routing quality matters.
+```
+POST /compile
+  body: { pairs: [{prompt, a, b, winner, reasoning}, ...] }
+  returns: { constitution_id, scalar_endpoint }
+
+POST /score
+  body: { prompt, response, constitution_id }
+  returns: { score, percentile }
+```
+
+That's the whole product. Two endpoints.
+
+- **`/compile`** ingests your taste data (from Council runs, watcher signals,
+  any labeled pairwise judgments) and trains a small linear head.
+- **`/score`** judges any (prompt, response) pair against a learned constitution.
+
+Everything else — routing, Council orchestration, agent orchestration — is
+built on top of `/score` by other people. You don't orchestrate agents. The
+constitution is what you ship.
+
+This is why you can stay local and free forever. You license the constitution,
+not the coordinator.
+
+**Why not multi-turn coordinator?** The paper trains on a fixed eval set
+(LiveCodeBench). You have a continuous behavioral signal, which is strictly
+more valuable. A learned ranker refreshed on 1,000+ examples is plausibly better
+than a fixed SLM. Don't chase the paper's sophistication until `switch_after_acted_rate`
+stops improving on its own.
 
 ### What We Can Reuse from the Paper
 
@@ -372,3 +435,29 @@ show that routing quality matters.
 3. **Closed-source model pool.** The paper uses GPT-5, Gemini 2.5 Pro, and
    Claude 4 Sonnet. We should keep our pool flexible — the local routing
    decision should work with whatever CLIs the user has installed.
+
+---
+
+## Trinity and the Broader Pattern
+
+This architecture is isomorphic to earlier work on spatial taste and pattern
+selection (Kintsugi / IPCo):
+
+| Layer | Trinity (Coding Taste) | IPCo (Spatial Taste) |
+|-------|------------------------|----------------------|
+| **Observation** | Watcher scans transcripts | Usage telemetry of pattern books |
+| **Pairwise judgment** | Council forces cross-provider comparison | Pattern book peer review (curator selection) |
+| **Constitution extraction** | k-NN learns routing from (prompt, response) pairs | SLM learns plan selection from (site, pattern) pairs |
+| **Taste licensing** | `/score` endpoint judges code | Design system judges spatial instantiations |
+
+The pattern: **give away the artifact (transcripts/patterns), license the
+constitution that learned to evaluate artifacts.**
+
+This is why Trinity can stay free. The moat is the taste function, not the
+router or the digest. The constitution is what scales to other coding domains,
+other users, and eventually other modalities.
+
+Den Outdoors is not Trinity's precedent because their plan selection is best.
+Den is the precedent because their selection function over plans is isomorphic
+to what Trinity learns — you're borrowing their constitution until you have
+enough pairwise data to formalize your own.

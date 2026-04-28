@@ -5,36 +5,68 @@
 Trinity watches Claude Code, Codex, Gemini, Cowork, and other agentic CLIs from the outside, learns which tool works best for which task, and surfaces insights no single provider can see — without running a server, owning the terminal, or becoming yet another UX.
 
 > **Your AI coding tools don't talk to each other. Trinity watches all of them and tells you what none of them can.**
->
-> Everyone has Claude Pro + ChatGPT Plus + Gemini Advanced. Three subscriptions, and still doesn't know which one to use for what. We copy-paste between tabs like animals.
 
-See [docs/product-spec.md](docs/product-spec.md) for the full product spec and GTM strategy.
+## Setup (one line)
 
-## Release Status
+```bash
+./setup.sh
+```
 
-`trinity-local` is currently an **alpha / developer preview** for technical users.
+That's it. This creates a virtual environment, installs Trinity, copies the default config, writes the local dispatch wrapper, imports the macOS Shortcut bridge, and adds Trinity to your shell `PATH`.
 
-Best fit:
+After setup, open a new terminal. You should be able to run `trinity-local ...` directly without activating `.venv` manually.
 
-- people already using Claude Code, Codex, Gemini, or Cowork
-- macOS-first workflows
-- users comfortable with local CLIs, static HTML artifacts, and manual setup
+If you want the current shell to pick it up immediately:
 
-This is not polished general-availability software yet.
+```bash
+source ~/.zshrc
+```
+
+If you're using bash instead of zsh:
+
+```bash
+source ~/.bash_profile
+```
+
+## Daily Usage
+
+Once set up, there are only three commands you need:
+
+```bash
+# Watch your AI sessions and surface insights
+trinity-local watch-once --notify
+
+# ...or keep watching in the background
+trinity-local watch-loop --notify
+
+# See what's happening
+trinity-local status
+```
+
+Trinity will send macOS notifications when it spots something — a better provider for your task, a repeated workflow worth automating, or a council comparison to run.
+
+### Open the dashboard
+
+```bash
+trinity-local portal-html --open-browser
+```
+
+### Weekly digest
+
+```bash
+trinity-local digest --open-browser
+```
 
 ## What It Does
 
 - **Watches** transcripts from Claude Code, Codex, Gemini CLI, and Cowork
-- **Extracts** session features: model, tokens, cost, latency, tool calls, completion signal
-- **Detects** provider switching — when you abandon one tool and finish in another
-- **Tracks** cost and model drift across providers over time
 - **Recommends** the right provider for the task, backed by evidence from your own usage
 - **k-NN advisory** — embedding-based routing suggestions using mined hard examples
+- **Detects** provider switching — when you abandon one tool and finish in another
+- **Tracks** cost and model drift across providers over time
 - **Runs councils** — cross-provider comparison with peer review and synthesis
-- **Reviews** — ask one provider to critique another's completed output
-- **Mines hard examples** — finds cross-provider routing conflicts via embedding similarity
-- **Evaluates** routing quality with 5-metric suite (reroute recall, needs_council P/R, switch prediction, top-2 provider accuracy, NN evidence quality)
-- **Analytics** — production observability for k-NN advisory: evidence spam, threshold brittleness, act rate, switch-after-acted rate
+- **Reviews** — ask one provider to critique another's output
+- **Analytics** — production observability: evidence spam, threshold brittleness, act/switch rates
 - **Generates** weekly digests, static portal pages, and macOS notifications
 - **Dispatches** actions through macOS Shortcuts without running a server
 
@@ -44,94 +76,7 @@ This is not polished general-availability software yet.
 - Python 3.10+
 - At least two of: `claude`, `gemini`, `codex`, Cowork
 
-## Install
-
-```bash
-pip install -e .
-```
-
-For embedding-based features (k-NN advisory, hard mining, eval):
-
-```bash
-pip install -e '.[mlx]'
-```
-
-For tests:
-
-```bash
-pip install -e '.[test]'
-pytest tests/ -v
-```
-
-Embeddings are optional, but recommended if you want the best routing quality.
-Without them, Trinity falls back to heuristics and TF-IDF-compatible behavior.
-
-## Quick Start
-
-## Recommended First-Run Flow
-
-1. Install the base package:
-
-```bash
-pip install -e .
-```
-
-2. If you want the full advisory and research path, install embedding support:
-
-```bash
-pip install -e '.[mlx]'
-```
-
-3. Check provider availability:
-
-```bash
-trinity-local adapters
-trinity-local status --json
-```
-
-4. Generate and install the macOS Shortcut bridge:
-
-```bash
-trinity-local shortcut-setup
-trinity-local shortcut-install
-```
-
-5. Render the static launchpad:
-
-```bash
-trinity-local portal-html --open-browser
-```
-
-6. Run the watcher on your local transcripts:
-
-```bash
-trinity-local watch-once --notify
-```
-
-7. Inspect what Trinity produced:
-
-```bash
-trinity-local action-list
-trinity-local analytics
-```
-
-### Watch your sessions
-
-```bash
-# Scan recent sessions, extract features, surface insights
-trinity-local watch-once --notify
-
-# Continuous background watcher
-trinity-local watch-loop --source claude --source gemini --source codex --source cowork --notify --interval 30
-```
-
-### Weekly digest
-
-```bash
-trinity-local digest                  # Summary in terminal
-trinity-local digest --open-browser   # Dark-themed HTML report
-trinity-local digest --json           # Machine-readable output
-```
+## Going Deeper
 
 ### Run a council comparison
 
@@ -143,7 +88,7 @@ trinity-local bundle-create "Design the auth system" --goal "Find the best appro
 trinity-local council-start --bundle <id> --members claude codex gemini --notify --open-browser
 ```
 
-### Post-hoc review (Council-lite)
+### Post-hoc review
 
 ```bash
 # Ask another provider to review a completed task
@@ -163,31 +108,31 @@ trinity-local hardeval
 trinity-local analytics
 ```
 
-### See what's happening
+### Inspect state
 
 ```bash
 trinity-local scoreboard              # Provider scores
 trinity-local action-list             # Pending actions
-trinity-local portal-html --open-browser  # Static launchpad
 trinity-local features --source all --limit 20  # Session features
 trinity-local adapters                # Provider adapter status
 ```
 
-### macOS Shortcuts setup
+### macOS Shortcut management
 
 ```bash
-trinity-local shortcut-setup          # Generates setup recipe at ~/.trinity/shortcut_setup/
-trinity-local shortcut-install        # Creates the Trinity Dispatch shortcut (opens Shortcuts app)
+trinity-local shortcut-install        # Import the Trinity Dispatch shortcut
+trinity-local shortcut-setup          # Write setup guide to ~/.trinity/shortcut_setup/
 ```
 
-## Known Limitations
+### Embedding support (optional)
 
-- macOS is the primary supported platform today.
-- Shortcuts onboarding is still partially manual.
-- Windows and Linux are not first-class UX targets yet.
-- The watcher and recommendation system are most useful once you have real transcript history.
-- Analytics and advisory metrics remain sparse until you have live watch activity and a hard-example corpus.
-- The legacy `run` command still exists, but it is not the product center.
+For the best routing quality (k-NN advisory, hard mining, eval), install embedding support:
+
+```bash
+./.venv/bin/pip install -e '.[mlx]'
+```
+
+Without embeddings, Trinity falls back to heuristics and TF-IDF-based matching. Everything still works — embeddings just make the recommendations more precise.
 
 ## How It Works
 
@@ -225,6 +170,8 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ├── review_pages/       # Review HTML
 ├── portal_pages/       # Static launchpad HTML
 ├── digest_pages/       # Weekly digest HTML
+├── bin/
+│   └── trinity-dispatch  # Shortcut dispatch wrapper
 ├── cache/
 │   └── embeddings.jsonl  # Shared embedding cache
 ├── research/
@@ -240,7 +187,7 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ## Verified
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **119 passed, 4 skipped** across 10 test files
+- `pytest tests/ -v` — base test suite is healthy; embedding-path tests depend on the Hugging Face model cache / network availability
 - 15 command modules registering 40 CLI subcommands
 - `watch-once`, `portal-html`, `digest`, `shortcut-install` — all write correctly to `~/.trinity/`
 - `hard`, `hardeval`, `analytics` — research pipeline verified

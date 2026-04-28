@@ -572,10 +572,15 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 if switch_task_id:
                     try:
                         from .knn_analytics import mark_suggestion_outcome
+                        from .task_runtime import load_task_record as _load_task
+                        # Resolve task_id → session_id: the advisory log is
+                        # keyed by session_id, not task_id.
+                        _switch_task = _load_task(switch_task_id)
+                        _switch_session_id = _switch_task.source_session_id or switch_task_id
                         # The original session switched away = suggestion was not
                         # good enough, user abandoned and moved providers
                         mark_suggestion_outcome(
-                            switch_task_id,
+                            _switch_session_id,
                             acted_on=False,
                             later_switched=True,
                             switch_target=features.provider,

@@ -11,3 +11,4 @@ state/
 *.egg
 .pytest_cache/
 .mypy_cache/
+.Trinity Dispatch-signed.shortcut
