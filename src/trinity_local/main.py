@@ -4,6 +4,7 @@ import argparse
 
 from .commands import (
     actions,
+    adapters,
     council,
     digest,
     ingest,
@@ -35,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     workflow.register(subparsers)
     digest.register(subparsers)
     review.register(subparsers)
+    adapters.register(subparsers)
 
     return parser
 

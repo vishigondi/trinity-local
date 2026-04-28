@@ -1,0 +1,128 @@
+"""Provider adapter discovery and status.
+
+Checks which provider CLIs are available, their versions, and transcript paths.
+Used by the ``adapters`` CLI command and the watcher at startup.
+"""
+from __future__ import annotations
+
+import subprocess
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class AdapterStatus:
+    """Status of a single provider adapter."""
+    provider: str
+    cli_name: str
+    installed: bool
+    version: str | None = None
+    transcript_root: str | None = None
+    transcript_count: int = 0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+_PROVIDER_SPECS: list[dict[str, Any]] = [
+    {
+        "provider": "claude",
+        "cli_name": "claude",
+        "version_args": ["claude", "--version"],
+        "transcript_root": lambda: Path.home() / ".claude" / "projects",
+        "glob": "**/*.jsonl",
+    },
+    {
+        "provider": "codex",
+        "cli_name": "codex",
+        "version_args": ["codex", "--version"],
+        "transcript_root": lambda: Path.home() / ".codex" / "sessions",
+        "glob": "**/rollout-*.jsonl",
+    },
+    {
+        "provider": "gemini",
+        "cli_name": "gemini",
+        "version_args": ["gemini", "--version"],
+        "transcript_root": lambda: Path.home() / ".gemini" / "tmp",
+        "glob": "**/session-*.json",
+    },
+    {
+        "provider": "cowork",
+        "cli_name": "claude-desktop",
+        "version_args": None,  # No CLI version command — desktop app
+        "transcript_root": lambda: (
+            Path.home() / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions"
+        ),
+        "glob": "local_*.json",
+    },
+]
+
+
+def _run_version(args: list[str]) -> str | None:
+    """Run a version command and return the first line of output."""
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        output = (result.stdout or result.stderr or "").strip()
+        if result.returncode == 0 and output:
+            return output.splitlines()[0].strip()
+        return None
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def _count_transcripts(root: Path, glob: str) -> int:
+    """Count transcript files under a root directory."""
+    if not root.exists():
+        return 0
+    try:
+        return sum(1 for _ in root.glob(glob))
+    except OSError:
+        return 0
+
+
+def check_adapter(spec: dict[str, Any]) -> AdapterStatus:
+    """Check one provider adapter."""
+    provider = spec["provider"]
+    cli_name = spec["cli_name"]
+    transcript_root: Path = spec["transcript_root"]()
+    glob = spec["glob"]
+
+    # Check CLI availability
+    version = None
+    installed = False
+    error = None
+
+    if spec["version_args"]:
+        version = _run_version(spec["version_args"])
+        installed = version is not None
+        if not installed:
+            error = f"{cli_name} not found in PATH"
+    else:
+        # Desktop app — check transcript dir existence
+        installed = transcript_root.exists()
+        if not installed:
+            error = f"Transcript directory not found: {transcript_root}"
+
+    transcript_count = _count_transcripts(transcript_root, glob)
+
+    return AdapterStatus(
+        provider=provider,
+        cli_name=cli_name,
+        installed=installed,
+        version=version,
+        transcript_root=str(transcript_root) if transcript_root.exists() else None,
+        transcript_count=transcript_count,
+        error=error,
+    )
+
+
+def check_all_adapters() -> list[AdapterStatus]:
+    """Check all known provider adapters."""
+    return [check_adapter(spec) for spec in _PROVIDER_SPECS]

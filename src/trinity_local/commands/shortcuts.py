@@ -9,7 +9,7 @@ from ..shortcuts_integration import (
     DEFAULT_SHORTCUT_NAME, build_dispatch_payload,
     build_shortcut_url, make_shortcut_invocation, run_shortcut,
 )
-from ..shortcut_setup import write_shortcut_setup
+from ..shortcut_setup import run_installer, write_installer_script, write_shortcut_setup
 
 
 def register(subparsers):
@@ -36,6 +36,11 @@ def register(subparsers):
     ssp = subparsers.add_parser("shortcut-setup", help="Write a setup recipe for the macOS Trinity Dispatch shortcut")
     ssp.add_argument("--shortcut-name", default=DEFAULT_SHORTCUT_NAME)
     ssp.set_defaults(handler=handle_shortcut_setup)
+
+    sip = subparsers.add_parser("shortcut-install", help="Create Trinity Dispatch shortcut (opens Shortcuts app)")
+    sip.add_argument("--shortcut-name", default=DEFAULT_SHORTCUT_NAME)
+    sip.add_argument("--dry-run", action="store_true", help="Write script only, don't run it")
+    sip.set_defaults(handler=handle_shortcut_install)
 
 
 def _resolve_action_name(raw: str) -> str:
@@ -89,3 +94,22 @@ def handle_action_shortcut(args):
 def handle_shortcut_setup(args):
     path = write_shortcut_setup(args.shortcut_name)
     print(json.dumps({"path": str(path), "shortcut_name": args.shortcut_name}, indent=2))
+
+
+def handle_shortcut_install(args):
+    setup_path = write_shortcut_setup(args.shortcut_name)
+    script_path = write_installer_script(args.shortcut_name)
+    if args.dry_run:
+        print(json.dumps({
+            "setup_path": str(setup_path),
+            "script_path": str(script_path),
+            "dry_run": True,
+        }, indent=2))
+        return
+    ok, message = run_installer(args.shortcut_name)
+    print(json.dumps({
+        "success": ok,
+        "message": message,
+        "setup_path": str(setup_path),
+        "script_path": str(script_path),
+    }, indent=2))

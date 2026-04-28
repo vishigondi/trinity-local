@@ -53,13 +53,23 @@ def run_council(
     peer_reviews: list[CouncilPeerReview] = []
     launches: list[LaunchEvent] = []
 
+    failed_members: list[str] = []
+
     for provider_name in member_providers:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
-            raise ProviderError(f"Unknown or disabled provider: {provider_name}")
+            failed_members.append(provider_name)
+            continue
         prompt = render_member_prompt(bundle)
         provider = make_provider(provider_config)
-        result = provider.run(prompt, cwd)
+        try:
+            result = provider.run(prompt, cwd)
+        except Exception as exc:
+            failed_members.append(provider_name)
+            continue
+        if result.returncode != 0 and not (result.stdout or "").strip():
+            failed_members.append(provider_name)
+            continue
         member = CouncilMemberResult(
             provider=provider_name,
             model=_provider_model(provider_config, member_model_overrides.get(provider_name)),
@@ -85,6 +95,12 @@ def run_council(
         append_launch_event(event)
         launches.append(event)
 
+    if not member_results:
+        raise ProviderError(
+            f"All council members failed: {failed_members}. "
+            "Cannot proceed with zero successful responses."
+        )
+
     label_to_provider = {
         f"Response {chr(ord('A') + index)}": member.provider
         for index, member in enumerate(member_results)
@@ -106,9 +122,12 @@ def run_council(
             reviewer_provider_name = member.provider
             reviewer_config = config.providers.get(reviewer_provider_name)
             if reviewer_config is None or not reviewer_config.enabled:
-                raise ProviderError(f"Unknown or disabled provider: {reviewer_provider_name}")
+                continue
             reviewer = make_provider(reviewer_config)
-            review_result = reviewer.run(review_prompt, cwd)
+            try:
+                review_result = reviewer.run(review_prompt, cwd)
+            except Exception:
+                continue
             sections = parse_peer_review_sections(review_result.stdout or review_result.stderr)
             ranked_labels = parse_ranking_labels(sections.get("ranking", ""))
             review = CouncilPeerReview(
@@ -205,6 +224,7 @@ def run_council(
             "primary_stderr": primary_result.stderr,
             "parsed_sections": sections,
             "peer_review_count": len(peer_reviews),
+            "failed_members": failed_members,
         },
     )
     outcome_path = save_council_outcome(final_outcome)

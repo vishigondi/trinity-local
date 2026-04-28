@@ -388,6 +388,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             switched_from, switch_task_id = _detect_provider_switch(
                 features, prompt, task_kind_guess
             )
+            force_council = False
             if switched_from:
                 outcome_rec = OutcomeRecord(
                     provider=switched_from,
@@ -399,6 +400,9 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                     timestamp=features.started_at or features.ended_at or "",
                 )
                 append_outcome(outcome_rec)
+                # Auto-trigger council: the user switched providers, so a
+                # cross-provider comparison is the most valuable action.
+                force_council = True
 
             rec = _build_recommendation(features)
             if rec is None:
@@ -444,7 +448,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 if notify:
                     notify_action(workflow_action)
             action = None
-            if recommendation.recommended_mode == "council" and members:
+            if (force_council or recommendation.recommended_mode == "council") and members:
                 if find_action(task_id=task.task_id, kind="start_council") is None:
                     action = create_council_start_action(
                         task=task,
