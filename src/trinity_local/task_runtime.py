@@ -1,0 +1,231 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from .council_schema import CouncilOutcome, PromptBundle
+from .scoreboard import state_dir
+from .task_schema import TaskRecord, TaskRecommendation, TaskRunRef, TaskSyncRecord
+from .utils import now_iso, stable_id
+
+# Aliases for backward compatibility within this module
+_now_iso = now_iso
+_stable_id = stable_id
+
+
+def tasks_dir() -> Path:
+    path = state_dir() / "tasks"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def task_sync_dir() -> Path:
+    path = state_dir() / "task_sync"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def task_index_path() -> Path:
+    return state_dir() / "tasks_index.jsonl"
+
+
+def create_task_record(
+    *,
+    bundle: PromptBundle,
+    title: str | None = None,
+    status: str = "suggested",
+    recommendation: TaskRecommendation | None = None,
+    tags: list[str] | None = None,
+    metadata: dict | None = None,
+) -> TaskRecord:
+    task_id = _stable_id(
+        "task",
+        bundle.task_cluster_id,
+        bundle.origin_provider or "",
+        bundle.origin_session_id or "",
+        bundle.task_text[:240],
+    )
+    inferred_title = title or (bundle.task_text.strip().splitlines()[0][:120] or "Untitled task")
+    return TaskRecord(
+        task_id=task_id,
+        task_cluster_id=bundle.task_cluster_id,
+        title=inferred_title,
+        status=status,
+        source_provider=bundle.origin_provider,
+        source_session_id=bundle.origin_session_id,
+        created_at=_now_iso(),
+        updated_at=_now_iso(),
+        task_text=bundle.task_text,
+        goal=bundle.goal or None,
+        comparison_instructions=bundle.comparison_instructions or None,
+        recommendation=recommendation,
+        current_provider=bundle.origin_provider,
+        current_mode="chat" if bundle.origin_provider else None,
+        tags=tags or [],
+        metadata=metadata or {},
+    )
+
+
+def save_task_record(task: TaskRecord) -> Path:
+    task.updated_at = _now_iso()
+    path = tasks_dir() / f"{task.task_id}.json"
+    path.write_text(json.dumps(task.to_dict(), indent=2), encoding="utf-8")
+    with task_index_path().open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"task_id": task.task_id, "updated_at": task.updated_at, "status": task.status}) + "\n")
+    return path
+
+
+def load_task_record(task_id_or_path: str) -> TaskRecord:
+    path = Path(task_id_or_path)
+    if not path.exists():
+        path = tasks_dir() / f"{task_id_or_path}.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    recommendation = raw.get("recommendation")
+    if recommendation:
+        raw["recommendation"] = TaskRecommendation(**recommendation)
+    raw["runs"] = [TaskRunRef(**run) for run in raw.get("runs", [])]
+    return TaskRecord(**raw)
+
+
+def find_task_by_cluster_id(task_cluster_id: str) -> TaskRecord | None:
+    for path in tasks_dir().glob("*.json"):
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if raw.get("task_cluster_id") == task_cluster_id:
+            return load_task_record(str(path))
+    return None
+
+
+def ensure_task_record(
+    *,
+    bundle: PromptBundle,
+    title: str | None = None,
+    status: str = "suggested",
+    recommendation: TaskRecommendation | None = None,
+    tags: list[str] | None = None,
+    metadata: dict | None = None,
+) -> TaskRecord:
+    existing = find_task_by_cluster_id(bundle.task_cluster_id)
+    if existing is not None:
+        if recommendation is not None:
+            existing.recommendation = recommendation
+        if title:
+            existing.title = title
+        if tags:
+            existing.tags = sorted(set([*existing.tags, *tags]))
+        if metadata:
+            existing.metadata.update(metadata)
+        existing.status = status or existing.status
+        existing.updated_at = _now_iso()
+        return existing
+    return create_task_record(
+        bundle=bundle,
+        title=title,
+        status=status,
+        recommendation=recommendation,
+        tags=tags,
+        metadata=metadata,
+    )
+
+
+def task_from_council(
+    *,
+    bundle: PromptBundle,
+    outcome: CouncilOutcome,
+    review_page_path: str,
+    launch_ids: list[str],
+) -> TaskRecord:
+    task = ensure_task_record(
+        bundle=bundle,
+        status="ready" if outcome.synthesis_output else "running",
+        metadata={"council": True},
+        tags=["council"],
+    )
+    task.current_provider = outcome.primary_provider
+    task.current_mode = "council"
+    task.status = "ready" if outcome.synthesis_output else "running"
+    task.winner_provider = outcome.winner_provider
+    task.agreement_score = outcome.agreement_score
+    task.needs_followup = outcome.needs_followup
+    task.review_page_path = review_page_path
+    task.council_run_id = outcome.council_run_id
+    task.launch_ids = sorted(set([*task.launch_ids, *launch_ids]))
+    task.runs = [
+        TaskRunRef(
+            kind="member",
+            provider=member.provider,
+            run_id=member.session_id or member.provider,
+            status="completed",
+            mode="council_member",
+            metadata={"model": member.model},
+        )
+        for member in outcome.member_results
+    ]
+    task.runs.append(
+        TaskRunRef(
+            kind="synthesis",
+            provider=outcome.primary_provider,
+            run_id=outcome.primary_session_id or outcome.council_run_id,
+            status="completed" if outcome.synthesis_output else "running",
+            mode="council_primary",
+            local_artifact_path=review_page_path,
+            metadata={
+                "model": outcome.primary_model,
+                "peer_review_count": len(outcome.peer_reviews),
+            },
+        )
+    )
+    task.metadata.update(
+        {
+            "member_count": len(outcome.member_results),
+            "peer_review_count": len(outcome.peer_reviews),
+            "difference_count": len(outcome.differences),
+        }
+    )
+    task.updated_at = _now_iso()
+    return task
+
+
+def make_sync_record(task: TaskRecord) -> TaskSyncRecord:
+    sync_runs = [
+        TaskRunRef(
+            kind=run.kind,
+            provider=run.provider,
+            run_id=run.run_id,
+            launched_at=run.launched_at,
+            status=run.status,
+            mode=run.mode,
+            metadata={k: v for k, v in run.metadata.items() if k in {"model", "peer_review_count"}},
+        )
+        for run in task.runs
+    ]
+    sync = TaskSyncRecord(
+        task_id=task.task_id,
+        task_cluster_id=task.task_cluster_id,
+        title=task.title,
+        status=task.status,
+        source_provider=task.source_provider,
+        current_provider=task.current_provider,
+        current_mode=task.current_mode,
+        winner_provider=task.winner_provider,
+        agreement_score=task.agreement_score,
+        needs_followup=task.needs_followup,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        council_run_id=task.council_run_id,
+        review_ready=bool(task.review_page_path),
+        recommendation=task.recommendation,
+        runs=sync_runs,
+        metadata={
+            "local_only": True,
+            "launch_count": len(task.launch_ids),
+            "tag_count": len(task.tags),
+        },
+    )
+    return sync
+
+
+def save_sync_record(task: TaskRecord) -> Path:
+    sync = make_sync_record(task)
+    path = task_sync_dir() / f"{task.task_id}.json"
+    path.write_text(json.dumps(sync.to_dict(), indent=2), encoding="utf-8")
+    return path

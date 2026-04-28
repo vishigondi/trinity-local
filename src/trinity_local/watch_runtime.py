@@ -1,0 +1,488 @@
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Iterator
+import re
+
+from .action_runtime import (
+    create_council_start_action,
+    create_recommendation_action,
+    create_workflow_suggestion_action,
+    find_action,
+    notify_action,
+    save_action,
+)
+from .cost_tracker import append_session_cost, compute_session_cost
+from .council_runtime import create_prompt_bundle, save_prompt_bundle
+from .drift import OutcomeRecord, append_outcome, check_drift
+from .feature_extractors import extract_session_features
+from .ingest import (
+    parse_claude_code_session,
+    parse_codex_session,
+    parse_cowork_session,
+    parse_gemini_cli_session,
+)
+from .portal_page import write_portal_html
+from .scoreboard import state_dir
+from .task_runtime import (
+    ensure_task_record,
+    load_task_record,
+    save_sync_record,
+    save_task_record,
+    tasks_dir,
+)
+from .task_schema import TaskRecommendation
+from .workflow_prompts import write_cowork_shortcut_prompt
+
+
+@dataclass
+class WatchResult:
+    scanned: int
+    tasks_written: int
+    actions_written: int
+    portal_path: str | None = None
+
+
+def watcher_dir() -> Path:
+    path = state_dir() / "watcher"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def watcher_cursor_path(source: str) -> Path:
+    return watcher_dir() / f"{source}_cursor.json"
+
+
+def _load_cursor(source: str) -> float:
+    path = watcher_cursor_path(source)
+    if not path.exists():
+        return datetime.now(timezone.utc).timestamp() - 900
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return 0.0
+    return float(raw.get("last_mtime", 0.0) or 0.0)
+
+
+def _save_cursor(source: str, mtime: float) -> None:
+    watcher_cursor_path(source).write_text(
+        json.dumps({"last_mtime": mtime}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _source_root(source: str) -> Path:
+    home = Path.home()
+    if source == "claude":
+        return home / ".claude" / "projects"
+    if source == "codex":
+        return home / ".codex" / "sessions"
+    if source == "gemini":
+        return home / ".gemini" / "tmp"
+    if source == "cowork":
+        return home / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions"
+    raise ValueError(f"Unknown source: {source}")
+
+
+def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
+    root = _source_root(source)
+    if not root.exists():
+        return
+    if source == "claude":
+        paths = root.rglob("*.jsonl")
+    elif source == "codex":
+        paths = root.rglob("rollout-*.jsonl")
+    elif source == "gemini":
+        paths = root.rglob("session-*.json")
+    else:
+        paths = root.rglob("local_*.json")
+    recent = []
+    for path in paths:
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if mtime > since_mtime:
+            recent.append((mtime, path))
+    for _, path in sorted(recent):
+        yield path
+
+
+def _parse_source_path(source: str, path: Path):
+    if source == "claude":
+        return parse_claude_code_session(path)
+    if source == "codex":
+        return parse_codex_session(path)
+    if source == "gemini":
+        project_name = path.parent.parent.name if path.parent.name == "chats" else None
+        return parse_gemini_cli_session(path, project_name=project_name)
+    if source == "cowork":
+        return parse_cowork_session(path)
+    raise ValueError(f"Unknown source: {source}")
+
+
+def _guess_task_kind(text: str, provider: str) -> str:
+    lowered = text.lower()
+    if any(term in lowered for term in ("stock", "research", "compare", "market", "investigate")):
+        return "research"
+    if any(term in lowered for term in ("debug", "bug", "error", "failing", "traceback")):
+        return "debugging"
+    if any(term in lowered for term in ("write", "draft", "email", "memo")):
+        return "writing"
+    if provider == "cowork":
+        return "cowork_general"
+    if any(term in lowered for term in ("code", "refactor", "repo", "function", "script")):
+        return "coding"
+    return "general"
+
+
+def _normalize_prompt_key(text: str) -> str:
+    lowered = text.lower()
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    tokens = [token for token in lowered.split() if len(token) > 2]
+    stop = {
+        "this",
+        "that",
+        "with",
+        "from",
+        "have",
+        "need",
+        "again",
+        "every",
+        "open",
+        "then",
+        "into",
+        "using",
+        "should",
+        "would",
+        "could",
+        "about",
+    }
+    filtered = [token for token in tokens if token not in stop]
+    return " ".join(filtered[:12]).strip()
+
+
+def _task_timestamp(task) -> datetime | None:
+    stamp = task.updated_at or task.created_at
+    if not stamp:
+        return None
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _similar_recent_task_count(*, prompt: str, provider: str, task_kind: str, exclude_task_id: str | None = None) -> int:
+    prompt_key = _normalize_prompt_key(prompt)
+    if not prompt_key:
+        return 0
+    cutoff = datetime.now(timezone.utc).timestamp() - (14 * 24 * 60 * 60)
+    count = 0
+    for path in tasks_dir().glob("*.json"):
+        try:
+            task = load_task_record(str(path))
+        except Exception:
+            continue
+        if exclude_task_id and task.task_id == exclude_task_id:
+            continue
+        ts = _task_timestamp(task)
+        if ts is None or ts.timestamp() < cutoff:
+            continue
+        other_text = (task.task_text or task.title or "").strip()
+        other_key = _normalize_prompt_key(other_text)
+        if not other_key:
+            continue
+        same_provider = (task.source_provider or provider) == provider
+        same_kind = task_kind in task.tags if task.tags else False
+        overlap = len(set(prompt_key.split()) & set(other_key.split()))
+        if same_provider and same_kind and (other_key == prompt_key or overlap >= 4):
+            count += 1
+    return count
+
+
+def _detect_provider_switch(
+    features, prompt: str, task_kind: str
+) -> tuple[str | None, str | None]:
+    """Check if a similar prompt appeared in a different provider recently.
+
+    Returns (switched_from_provider, matching_task_id) or (None, None).
+    """
+    prompt_key = _normalize_prompt_key(prompt)
+    if not prompt_key:
+        return None, None
+    cutoff = datetime.now(timezone.utc).timestamp() - 3600  # 60 min window
+    for path in tasks_dir().glob("*.json"):
+        try:
+            task = load_task_record(str(path))
+        except Exception:
+            continue
+        ts = _task_timestamp(task)
+        if ts is None or ts.timestamp() < cutoff:
+            continue
+        other_provider = task.source_provider
+        if not other_provider or other_provider == features.provider:
+            continue
+        other_text = (task.task_text or task.title or "").strip()
+        other_key = _normalize_prompt_key(other_text)
+        if not other_key:
+            continue
+        overlap = len(set(prompt_key.split()) & set(other_key.split()))
+        if other_key == prompt_key or overlap >= 4:
+            return other_provider, task.task_id
+    return None, None
+
+
+def _gather_evidence(features, task_kind: str) -> list[str]:
+    """Query outcome and cost logs to build evidence for recommendations."""
+    from .cost_tracker import load_cost_log, summarize_costs
+    from .drift import _load_outcomes
+
+    evidence: list[str] = []
+    # Check recent outcomes for this provider + task kind
+    outcomes = _load_outcomes()
+    provider_outcomes = [
+        o for o in outcomes
+        if o.provider == features.provider and o.task_kind == task_kind
+    ]
+    if len(provider_outcomes) >= 3:
+        completed = sum(1 for o in provider_outcomes[-10:] if o.completed)
+        total = min(len(provider_outcomes), 10)
+        rate = completed / total
+        evidence.append(
+            f"{features.provider} completed {completed}/{total} recent {task_kind} tasks "
+            f"({rate:.0%} completion rate)."
+        )
+        errored = sum(1 for o in provider_outcomes[-10:] if o.error_count > 0)
+        if errored > 0:
+            evidence.append(
+                f"{errored}/{total} of those sessions had tool errors."
+            )
+
+    # Compare providers by cost for this task kind
+    costs = load_cost_log(since_days=14)
+    task_costs = [c for c in costs if c.task_kind == task_kind]
+    if task_costs:
+        by_provider: dict[str, list[float]] = {}
+        for c in task_costs:
+            by_provider.setdefault(c.provider, []).append(c.total_cost_usd)
+        for p, p_costs in sorted(by_provider.items()):
+            if p != features.provider and len(p_costs) >= 2:
+                avg = sum(p_costs) / len(p_costs)
+                evidence.append(
+                    f"{p} averaged ${avg:.2f}/session for {task_kind} ({len(p_costs)} sessions)."
+                )
+    return evidence
+
+
+def _build_recommendation(features) -> tuple[TaskRecommendation, list[str], str] | None:
+    """Build an evidence-backed recommendation for this session."""
+    prompt = features.first_user_text or ""
+    if not prompt or features.extra.get("is_automated") or features.extra.get("is_low_signal_prompt"):
+        return None
+    task_kind = _guess_task_kind(prompt, features.provider)
+    evidence = _gather_evidence(features, task_kind)
+
+    if task_kind in {"research", "cowork_general"}:
+        reason = "Gemini is likely stronger for broad research and comparison."
+        if evidence:
+            reason = " ".join(evidence) + " " + reason
+        return (
+            TaskRecommendation(
+                recommended_provider="gemini",
+                recommended_mode="council",
+                reason=reason,
+                confidence=0.72,
+                evidence=evidence,
+            ),
+            ["gemini", "codex"],
+            "claude",
+        )
+    if task_kind in {"coding", "debugging"}:
+        reason = "Codex is likely stronger for execution-heavy coding work."
+        if evidence:
+            reason = " ".join(evidence) + " " + reason
+        return (
+            TaskRecommendation(
+                recommended_provider="codex",
+                recommended_mode="council",
+                reason=reason,
+                confidence=0.68,
+                evidence=evidence,
+            ),
+            ["codex", "claude"],
+            "claude",
+        )
+    return (
+        TaskRecommendation(
+            recommended_provider="claude",
+            recommended_mode="recommendation",
+            reason="Claude is still the best default for this task shape.",
+            confidence=0.55,
+            evidence=evidence,
+        ),
+        [],
+        "claude",
+    )
+
+
+def _workflow_reason(features, prompt: str, task_kind: str, task_id: str | None = None) -> str | None:
+    lowered = prompt.lower()
+    if any(term in lowered for term in ("again", "every time", "repeatedly", "repeat", "shortcut", "automate", "workflow")):
+        return "This task looks repetitive or explicitly automation-oriented. Trinity can prepare a Shortcut brief for Cowork."
+    repeat_count = _similar_recent_task_count(
+        prompt=prompt,
+        provider=features.provider,
+        task_kind=task_kind,
+        exclude_task_id=task_id,
+    )
+    if repeat_count >= 2:
+        return f"Trinity has seen this workflow pattern {repeat_count + 1} times recently. It may be worth turning it into a Shortcut or local automation."
+    if repeat_count >= 1 and features.provider == "cowork" and task_kind in {"research", "cowork_general"} and features.did_use_web:
+        return "This Cowork research pattern has repeated and may benefit from a Shortcut or lightweight automation."
+    return None
+
+
+def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
+    scanned = 0
+    tasks_written = 0
+    actions_written = 0
+    for source in sources:
+        last_mtime = _load_cursor(source)
+        max_mtime = last_mtime
+        for path in _iter_recent_paths(source, last_mtime):
+            scanned += 1
+            try:
+                max_mtime = max(max_mtime, path.stat().st_mtime)
+            except OSError:
+                pass
+            session = _parse_source_path(source, path)
+            if session is None:
+                continue
+            features = extract_session_features(session)
+            if features.extra.get("is_automated") or features.extra.get("is_low_signal_prompt"):
+                continue
+            prompt = (features.first_user_text or "").strip()
+            if not prompt:
+                continue
+
+            # --- Cost and outcome tracking (2.3, 2.5) ---
+            task_kind_guess = _guess_task_kind(prompt, features.provider)
+            cost = compute_session_cost(features, task_kind=task_kind_guess)
+            append_session_cost(cost)
+            outcome_rec = OutcomeRecord(
+                provider=features.provider,
+                model_id=features.model.normalized_model_id,
+                task_kind=task_kind_guess,
+                completed=bool(features.outcome.completed),
+                error_count=features.outcome.tool_errors_total or 0,
+                session_seconds=features.outcome.session_seconds,
+                timestamp=features.started_at or features.ended_at or "",
+            )
+            append_outcome(outcome_rec)
+
+            # --- Switching detection (3.1) ---
+            switched_from, switch_task_id = _detect_provider_switch(
+                features, prompt, task_kind_guess
+            )
+            if switched_from:
+                outcome_rec = OutcomeRecord(
+                    provider=switched_from,
+                    model_id=None,
+                    task_kind=task_kind_guess,
+                    completed=False,
+                    error_count=0,
+                    session_seconds=None,
+                    timestamp=features.started_at or features.ended_at or "",
+                )
+                append_outcome(outcome_rec)
+
+            rec = _build_recommendation(features)
+            if rec is None:
+                continue
+            recommendation, members, primary_provider = rec
+            task_kind = task_kind_guess
+            bundle = create_prompt_bundle(
+                task_cluster_id=session.session_id[:16] if not features.project_hint else f"{features.project_hint}-{session.session_id[:8]}",
+                task_text=prompt,
+                context_excerpt=features.final_text or "",
+                goal=f"Handle this {task_kind} task with the best provider.",
+                comparison_instructions="Prefer the strongest answer for the user's current task.",
+                origin_session_id=session.session_id,
+                origin_provider=features.provider,
+                metadata={"cwd": features.cwd or "", "source_path": session.source_path},
+            )
+            save_prompt_bundle(bundle)
+            task = ensure_task_record(
+                bundle=bundle,
+                title=prompt.splitlines()[0][:120],
+                status="suggested",
+                recommendation=recommendation,
+                tags=[task_kind],
+                metadata={"cwd": features.cwd or ".", "source_path": session.source_path},
+            )
+            save_task_record(task)
+            save_sync_record(task)
+            tasks_written += 1
+            workflow_reason = _workflow_reason(features, prompt, task_kind, task.task_id)
+            if workflow_reason and find_action(task_id=task.task_id, kind="workflow_suggestion") is None:
+                workflow_prompt_path = write_cowork_shortcut_prompt(
+                    task=task,
+                    features=features,
+                    workflow_reason=workflow_reason,
+                )
+                workflow_action = create_workflow_suggestion_action(
+                    task=task,
+                    prompt_path=str(workflow_prompt_path),
+                    workflow_reason=workflow_reason,
+                )
+                save_action(workflow_action)
+                actions_written += 1
+                if notify:
+                    notify_action(workflow_action)
+            action = None
+            if recommendation.recommended_mode == "council" and members:
+                if find_action(task_id=task.task_id, kind="start_council") is None:
+                    action = create_council_start_action(
+                        task=task,
+                        bundle_id=bundle.bundle_id,
+                        members=members,
+                        primary_provider=primary_provider,
+                        cwd=features.cwd or ".",
+                    )
+            else:
+                if find_action(task_id=task.task_id, kind="recommendation") is None:
+                    action = create_recommendation_action(
+                        task=task,
+                        bundle_id=bundle.bundle_id,
+                    )
+            if action is not None:
+                save_action(action)
+                actions_written += 1
+                if notify:
+                    notify_action(action)
+        _save_cursor(source, max_mtime)
+
+    # --- Drift check (runs once per watch_once pass) ---
+    if notify:
+        from .notifications import notify as _notify
+        alerts = check_drift()
+        for alert in alerts:
+            _notify(title="Trinity Drift Alert", message=alert.message)
+
+    portal_path = str(write_portal_html())
+    return WatchResult(
+        scanned=scanned,
+        tasks_written=tasks_written,
+        actions_written=actions_written,
+        portal_path=portal_path,
+    )
+
+
+def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: int = 30) -> None:
+    while True:
+        watch_once(sources=sources, notify=notify)
+        time.sleep(interval_seconds)

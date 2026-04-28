@@ -1,0 +1,140 @@
+{
+  "max_turns": 4,
+  "default_task_kind": "general",
+  "notifications": true,
+  "providers": {
+    "mlx": {
+      "type": "mlx",
+      "enabled": true,
+      "label": "MLX Small",
+      "model": "mlx-community/Qwen3-0.6B-4bit",
+      "command": [
+        "python3",
+        "-m",
+        "mlx_lm.generate"
+      ],
+      "args": [
+        "--temp",
+        "0.2",
+        "--max-tokens",
+        "900"
+      ],
+      "roles": [
+        "thinker",
+        "verifier"
+      ],
+      "task_kinds": [
+        "general",
+        "reasoning",
+        "coding"
+      ]
+    },
+    "claude": {
+      "type": "cli",
+      "enabled": true,
+      "label": "Claude",
+      "command": [
+        "claude",
+        "-p"
+      ],
+      "args": [],
+      "roles": [
+        "thinker",
+        "worker",
+        "verifier"
+      ],
+      "task_kinds": [
+        "general",
+        "reasoning",
+        "coding",
+        "writing"
+      ]
+    },
+    "gemini": {
+      "type": "cli",
+      "enabled": true,
+      "label": "Gemini",
+      "command": [
+        "gemini",
+        "-p"
+      ],
+      "args": [],
+      "roles": [
+        "thinker",
+        "verifier"
+      ],
+      "task_kinds": [
+        "general",
+        "reasoning",
+        "research"
+      ]
+    },
+    "codex": {
+      "type": "codex",
+      "enabled": true,
+      "label": "Codex",
+      "command": [
+        "codex",
+        "exec"
+      ],
+      "args": [
+        "--sandbox",
+        "workspace-write",
+        "--ask-for-approval",
+        "never"
+      ],
+      "roles": [
+        "worker",
+        "verifier"
+      ],
+      "task_kinds": [
+        "coding",
+        "debugging"
+      ]
+    }
+  },
+  "role_preferences": {
+    "thinker": [
+      "mlx",
+      "claude",
+      "gemini"
+    ],
+    "worker": [
+      "codex",
+      "claude",
+      "mlx"
+    ],
+    "verifier": [
+      "claude",
+      "gemini",
+      "mlx"
+    ]
+  },
+  "task_preferences": {
+    "coding": [
+      "codex",
+      "claude",
+      "mlx"
+    ],
+    "debugging": [
+      "codex",
+      "claude",
+      "gemini"
+    ],
+    "reasoning": [
+      "mlx",
+      "claude",
+      "gemini"
+    ],
+    "research": [
+      "gemini",
+      "claude",
+      "mlx"
+    ],
+    "general": [
+      "claude",
+      "mlx",
+      "gemini"
+    ]
+  }
+}
