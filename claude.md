@@ -305,6 +305,12 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 
 - **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
 
+#### Known Risks
+
+- **Legacy run stack.** `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` are marked LEGACY/deprecated but still present. Maintenance-drift risk — if core schemas change, legacy code may silently break. Not worth removing yet, but don't extend.
+- **watch_loop operator surface.** Errors now log to `analytics/watch_errors.jsonl` + optional notification, but there's no stronger operator surface (e.g., `trinity-local errors` command, error count in `status`). A recurring bug can still go unnoticed without checking the log file.
+- **`[mlx]` extra naming.** The `[mlx]` extra in `pyproject.toml` actually installs `sentence-transformers`, not a pure MLX stack. Name is slightly overloaded. Renaming to `[embeddings]` would be clearer but is a breaking change for existing installs.
+
 ---
 
 ## Key Product Metrics
