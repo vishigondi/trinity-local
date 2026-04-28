@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .base import Ranker
+from .fallback import FallbackRanker
 from .types import RoutingContext, RoutingDecision
 
 __all__ = ["Ranker", "RoutingContext", "RoutingDecision", "build_default_ranker"]
@@ -10,10 +11,9 @@ __all__ = ["Ranker", "RoutingContext", "RoutingDecision", "build_default_ranker"
 def build_default_ranker() -> Ranker:
     """Factory for the default ranker.
 
-    Currently returns a FallbackRanker (heuristic + k-NN with graceful fallback).
-    Will be the integration point for watcher migration (step 5).
+    Returns FallbackRanker: tries k-NN advisory (heuristic + embeddings),
+    falls back to pure heuristic if k-NN unavailable.
 
-    Raises:
-        NotImplementedError: Until backends are implemented (step 2–4).
+    This is the main backend for watcher routing (step 5+).
     """
-    raise NotImplementedError("Ranker backends not yet implemented. See step 2–4.")
+    return FallbackRanker()

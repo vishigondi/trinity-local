@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from trinity_local.ranker import RoutingContext, RoutingDecision, build_default_ranker
+from trinity_local.ranker.fallback import FallbackRanker
 from trinity_local.ranker.heuristic import HeuristicRanker
 from trinity_local.ranker.knn_ranker import KnnRanker
 
@@ -243,12 +244,72 @@ class TestKnnRanker:
         assert isinstance(decision.metadata, dict)
 
 
+class TestFallbackRanker:
+    """FallbackRanker: two-tier with graceful fallback."""
+
+    def test_returns_decision(self):
+        """FallbackRanker always returns a RoutingDecision."""
+        ranker = FallbackRanker()
+        ctx = RoutingContext(
+            task_text="Fix the database query",
+            task_kind="coding",
+            current_provider="claude",
+            session_id="sess-009",
+        )
+        decision = ranker.advise(ctx)
+        assert isinstance(decision, RoutingDecision)
+        assert decision.recommended_provider is not None
+
+    def test_backend_reflects_tier_used(self):
+        """Backend annotation shows which tier succeeded."""
+        ranker = FallbackRanker()
+        ctx = RoutingContext(
+            task_text="Compare algorithms",
+            task_kind="research",
+            current_provider="claude",
+            session_id="sess-010",
+        )
+        decision = ranker.advise(ctx)
+        # Without a corpus, will be "heuristic" or "knn" (knn with fallback)
+        # With a corpus, could be "knn"
+        assert decision.backend in {"heuristic", "knn", "fallback"}
+
+    def test_all_task_kinds(self):
+        """FallbackRanker handles all task kinds."""
+        ranker = FallbackRanker()
+        for task_kind in ["research", "coding", "debugging", "writing", "general"]:
+            ctx = RoutingContext(
+                task_text=f"Task: {task_kind}",
+                task_kind=task_kind,
+                current_provider="claude",
+                session_id=f"sess-{task_kind}",
+            )
+            decision = ranker.advise(ctx)
+            assert decision is not None
+            assert decision.recommended_provider is not None
+
+
 class TestBuildDefaultRanker:
-    """build_default_ranker() factory is a planning stub."""
+    """build_default_ranker() factory implementation."""
 
-    def test_not_implemented(self):
-        """Factory raises NotImplementedError until backends are ready."""
-        with pytest.raises(NotImplementedError):
-            from trinity_local.ranker import build_default_ranker
+    def test_returns_fallback_ranker(self):
+        """Factory returns a FallbackRanker instance."""
+        from trinity_local.ranker import build_default_ranker
 
-            build_default_ranker()
+        ranker = build_default_ranker()
+        assert isinstance(ranker, FallbackRanker)
+
+    def test_default_ranker_advises(self):
+        """Default ranker from factory can advise."""
+        from trinity_local.ranker import build_default_ranker
+
+        ranker = build_default_ranker()
+        ctx = RoutingContext(
+            task_text="Test task",
+            task_kind="coding",
+            current_provider="claude",
+            session_id="sess-factory-test",
+        )
+        decision = ranker.advise(ctx)
+        assert isinstance(decision, RoutingDecision)
+        assert decision.recommended_provider is not None
