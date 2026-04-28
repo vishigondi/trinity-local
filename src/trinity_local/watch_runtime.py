@@ -27,6 +27,7 @@ from .ingest import (
     parse_gemini_cli_session,
 )
 from .portal_page import write_portal_html
+from .ranker import RoutingContext, build_default_ranker
 from .scoreboard import state_dir
 from .task_runtime import (
     ensure_task_record,
@@ -45,6 +46,32 @@ class WatchResult:
     tasks_written: int
     actions_written: int
     portal_path: str | None = None
+
+
+def _decision_to_recommendation(
+    decision, provider: str
+) -> tuple[TaskRecommendation, list[str], str]:
+    """Convert RoutingDecision to TaskRecommendation + members + primary_provider.
+
+    Maps the unified ranker output back to the format expected by the watcher.
+    Primary provider is always the current provider (no autonomous provider switches).
+    """
+    mode = "council" if decision.needs_council else "recommendation"
+    reason = f"{decision.recommended_provider or provider} recommended with {decision.confidence:.0%} confidence."
+    if decision.metadata and decision.metadata.get("reason_suffix"):
+        reason += " " + decision.metadata["reason_suffix"]
+
+    return (
+        TaskRecommendation(
+            recommended_provider=decision.recommended_provider or provider,
+            recommended_mode=mode,
+            reason=reason,
+            confidence=decision.confidence,
+            evidence=decision.evidence,
+        ),
+        decision.top_k or [],
+        provider,
+    )
 
 
 def watcher_dir() -> Path:
@@ -602,17 +629,30 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                     except Exception:
                         pass  # Analytics must never break the watcher
 
-            rec = _build_recommendation(features)
-            if rec is None:
-                continue
-            # Upgrade with k-NN advisory (no-op if corpus unavailable)
-            rec = _upgrade_recommendation(
-                rec, prompt, features.provider,
-                session_id=session.session_id,
-                task_kind=task_kind_guess,
-            )
-            recommendation, members, primary_provider = rec
+            # Use unified ranker interface (heuristic + k-NN with fallback)
             task_kind = task_kind_guess
+            routing_ctx = RoutingContext(
+                task_text=prompt,
+                task_kind=task_kind,
+                current_provider=features.provider,
+                session_id=session.session_id,
+                task_id=None,
+                cwd=features.cwd,
+                source=source,
+                switched_from_provider=switched_from,
+                switched_from_task_id=switch_task_id,
+                has_web=features.did_use_web,
+                has_tools=features.did_use_tools,
+                has_edits=features.did_make_edits,
+                message_count=features.turn_count,
+            )
+            ranker = build_default_ranker()
+            decision = ranker.advise(routing_ctx)
+            if decision.recommended_provider is None:
+                continue
+            recommendation, members, primary_provider = _decision_to_recommendation(
+                decision, features.provider
+            )
             bundle = create_prompt_bundle(
                 task_cluster_id=session.session_id[:16] if not features.project_hint else f"{features.project_hint}-{session.session_id[:8]}",
                 task_text=prompt,
