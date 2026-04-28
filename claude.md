@@ -234,7 +234,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
   - `[mlx]` extras for sentence-transformers + embedding support.
   - `[test]` extras for pytest.
-- **123 tests** across 10 test files. Pytest is configured as an optional dependency.
+- **123 tests** across 10 `test_*.py` files. 4 tests in `test_knn_advisor.py` may skip if the embeddings model is not cached.
 
 ### Patterns
 
@@ -252,7 +252,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 ### CLI structure
 
 - `main.py` is a thin dispatcher using `set_defaults(handler=...)`.
-- Command handlers live in `commands/` package (15 modules).
+- Command handlers live in `commands/` package (15 modules, 40 subcommands).
 - Every subcommand prints JSON to stdout and returns.
 - Config is only loaded for commands that need it.
 
@@ -270,11 +270,11 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 6. **Evidence-backed recommendations** — queries outcome + cost logs + k-NN neighbors for concrete evidence.
 7. **Hard example mining** — embedding-based cross-provider matching finds routing conflicts (1,026 hard examples from 59k sessions).
 8. **5-metric evaluation** — reroute recall 38.7%, needs_council P/R 98%, top-2 provider 99.5%, NN agreement 96.6%.
-9. **Production analytics** — evidence spam check, threshold brittleness detection, act rate, switch-after-acted rate tracking.
+9. **Production analytics** — evidence spam check, threshold brittleness detection, act rate, switch-after-acted rate tracking. Note: the analytics log is populated only after live `watch-once` or `watch-loop` runs with a hard-example corpus present.
 10. **Post-hoc review** — Council-lite: ask one provider to critique another's output. Dark-themed HTML.
 11. **File-backed state** — one file = one entity. No joins. No migrations.
-12. **macOS-native dispatch** — `shortcuts://` URL bridge.
-13. **Test coverage** — 123 tests across 10 files, all passing.
+12. **macOS-native dispatch** — `shortcuts://` URL bridge. Portal includes `<meta http-equiv="refresh" content="30">`.
+13. **Test coverage** — 123 tests across 10 files (4 may skip if embeddings model not cached).
 
 ### What Needs Attention Next
 
@@ -304,7 +304,6 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 #### Lower Priority
 
 - **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
-- **Portal auto-refresh.** Add `<meta http-equiv="refresh">` tag.
 - **Watch loop graceful shutdown.** Signal handling or launchd wrapper.
 
 ---
@@ -326,15 +325,15 @@ The analytics system (`trinity-local analytics`) tracks:
 ## Verified Status
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **123 passed** across 10 test files
-- Command registration — correct (15 command modules)
+- `pytest tests/ -v` — **123 tests** across 10 `test_*.py` files (4 may skip if embeddings model not cached)
+- 15 command modules registering 40 CLI subcommands
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`
 - `shortcut-setup` — writes to `~/.trinity/shortcut_setup/`
 - `digest --json` — clean output
 - `hard` — mines 1,026 hard examples from 59k sessions
 - `hardeval` — 5-metric eval: k-NN beats heuristic on all metrics
-- `analytics` — report with alerts, product metrics
+- `analytics` — report structure verified (log is empty until live watch runs with corpus)
 
 ---
 

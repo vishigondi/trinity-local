@@ -316,9 +316,12 @@ Avoid training directly on raw free-form judgments at the beginning.
 5. ~~Build shared embedding layer (nomic-embed-text-v1.5, sentence-transformers).~~ ✅
 6. ~~Mine hard examples via embedding-based cross-provider matching.~~ ✅
 7. ~~Build 5-metric evaluation suite for hard examples.~~ ✅
-8. ~~Integrate k-NN advisory into watcher (advisory only, heuristic fallback).~~ ✅
+8. ~~Integrate k-NN advisory into watcher (advisory only, heuristic fallback).~~ ✅ — **shipped advisory ranker**
 9. ~~Production analytics for advisory layer.~~ ✅
-10. Train a small local ranker — **next**, when eval metrics stabilize.
+10. Train a **learned** local ranker — future. The shipped k-NN advisory (step 8)
+    is the current ranker. A learned ranker would replace the k-NN majority vote
+    with a trained classifier over embedding features. Only worth pursuing when
+    the `switch_after_acted_rate` metric from analytics provides enough signal.
 11. Add LoRA or a richer local encoder only after the labels and compact windows
    are stable.
 
