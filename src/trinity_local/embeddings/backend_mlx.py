@@ -66,29 +66,19 @@ class MlxEmbedder:
         self.model_path = model_path()
 
     def is_ready(self) -> bool:
-        """Check if sentence-transformers is importable AND model is cached locally.
+        """Check if sentence-transformers is importable.
 
-        Returns True only if both conditions are met:
-        - sentence-transformers package is installed
-        - Model files are already cached (not requiring network download)
+        Note: This is a simple check. The actual embed() call may still fail at runtime
+        (network issues, missing model, permissions, etc.). The embeddings module handles
+        these failures gracefully by falling back to TF-IDF.
 
-        In offline environments, this will return False even if the package is installed,
-        because SentenceTransformer requires downloading the model on first use.
+        This function is kept for observability (model_status()) but is NOT used for
+        critical decisions.
         """
         try:
             import sentence_transformers
+            return True
         except ImportError:
-            return False
-
-        # Check if model is already cached locally by looking for the model directory
-        # The sentence-transformers default cache is at ~/.cache/huggingface/hub/
-        try:
-            from pathlib import Path
-            hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-            # Model is cached if the directory exists and has content
-            model_dir = hf_cache / f"models--nomic-ai--nomic-embed-text-v1.5"
-            return model_dir.exists() and any(model_dir.iterdir())
-        except Exception:
             return False
 
     def _load(self) -> None:

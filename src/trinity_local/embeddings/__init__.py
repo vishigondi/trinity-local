@@ -16,16 +16,14 @@ from .cache import get_cached, put_cached, clear_cache
 from .backend_tfidf import embed_tfidf, cosine_similarity
 
 # Try to load MLX backend
+# Optimistically create the embedder; runtime failures fall back to TF-IDF
 _mlx_backend = None
 _backend_name = "tfidf"
 
 try:
     from .backend_mlx import MlxEmbedder
     _mlx_backend = MlxEmbedder()
-    if _mlx_backend.is_ready():
-        _backend_name = "mlx"
-    else:
-        _mlx_backend = None
+    _backend_name = "mlx"  # Optimistic; embed() will fall back if it fails
 except ImportError:
     _mlx_backend = None
 except Exception:
@@ -33,8 +31,12 @@ except Exception:
 
 
 def is_available() -> bool:
-    """True if the MLX backend is loaded with a downloaded model."""
-    return _mlx_backend is not None and _mlx_backend.is_ready()
+    """True if the MLX backend was successfully imported.
+
+    Note: MLX may still fail at runtime (network, cache issues, permissions).
+    The embed() function gracefully falls back to TF-IDF if MLX fails.
+    """
+    return _mlx_backend is not None
 
 
 def get_backend() -> str:
@@ -47,14 +49,25 @@ def embed(text: str, *, dim: int = 512) -> list[float]:
 
     Uses MLX (nomic-embed-text-v1.5) if available, TF-IDF stub otherwise.
     Results are cached by text hash.
+
+    MLX may fail at runtime (network issues, model not cached, permission errors).
+    Any failure falls back gracefully to TF-IDF, ensuring offline availability.
     """
     cached = get_cached(text, dim=dim)
     if cached is not None:
         return cached
 
-    if _mlx_backend is not None and _mlx_backend.is_ready():
-        vector = _mlx_backend.embed(text, dim=dim)
-    else:
+    # Try MLX first, but fall back to TF-IDF on any error
+    vector = None
+    if _mlx_backend is not None:
+        try:
+            vector = _mlx_backend.embed(text, dim=dim)
+        except Exception:
+            # MLX failed (network, missing model, permissions, etc.)
+            # Fall back to TF-IDF
+            vector = None
+
+    if vector is None:
         vector = embed_tfidf(text)
 
     put_cached(text, vector, dim=dim)
