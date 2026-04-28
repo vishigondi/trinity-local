@@ -209,11 +209,22 @@ def _detect_provider_switch(
 ) -> tuple[str | None, str | None]:
     """Check if a similar prompt appeared in a different provider recently.
 
+    Uses embedding cosine similarity (if MLX available) for robust matching,
+    falling back to word-overlap heuristic otherwise.
+
     Returns (switched_from_provider, matching_task_id) or (None, None).
     """
     prompt_key = _normalize_prompt_key(prompt)
     if not prompt_key:
         return None, None
+
+    # Check if embeddings are available for stronger matching
+    try:
+        from . import embeddings as emb
+        use_embeddings = emb.is_available()
+    except ImportError:
+        use_embeddings = False
+
     cutoff = datetime.now(timezone.utc).timestamp() - 3600  # 60 min window
     for path in tasks_dir().glob("*.json"):
         try:
@@ -227,12 +238,22 @@ def _detect_provider_switch(
         if not other_provider or other_provider == features.provider:
             continue
         other_text = (task.task_text or task.title or "").strip()
-        other_key = _normalize_prompt_key(other_text)
-        if not other_key:
+        if not other_text:
             continue
-        overlap = len(set(prompt_key.split()) & set(other_key.split()))
-        if other_key == prompt_key or overlap >= 4:
-            return other_provider, task.task_id
+
+        # Embedding-based matching (preferred)
+        if use_embeddings:
+            sim = emb.similarity(prompt, other_text)
+            if sim > 0.7:
+                return other_provider, task.task_id
+        else:
+            # Word-overlap fallback
+            other_key = _normalize_prompt_key(other_text)
+            if not other_key:
+                continue
+            overlap = len(set(prompt_key.split()) & set(other_key.split()))
+            if other_key == prompt_key or overlap >= 4:
+                return other_provider, task.task_id
     return None, None
 
 

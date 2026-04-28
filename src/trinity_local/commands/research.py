@@ -14,8 +14,12 @@ def register(subparsers):
     rp.add_argument("--json", dest="as_json", action="store_true")
     rp.set_defaults(handler=handle_replay)
 
-    ep = subparsers.add_parser("embed", help="Generate TF-IDF embeddings for replay examples")
+    ep = subparsers.add_parser("embed", help="Embed replay examples (MLX if available, TF-IDF fallback)")
     ep.add_argument("--json", dest="as_json", action="store_true")
+    ep.add_argument("--setup", action="store_true", help="Download the MLX embedding model")
+    ep.add_argument("--status", action="store_true", help="Show model and cache status")
+    ep.add_argument("--clear", action="store_true", help="Clear the embedding cache")
+    ep.add_argument("--dim", type=int, default=512, help="Embedding dimension (default: 512)")
     ep.set_defaults(handler=handle_embed)
 
     rkp = subparsers.add_parser("rank", help="Run ranking evaluation: heuristic vs k-NN")
@@ -63,16 +67,72 @@ def handle_replay(args):
 
 
 def handle_embed(args):
+    from .. import embeddings as emb
+
+    # Sub-commands
+    if args.setup:
+        message = emb.setup_model()
+        print(message)
+        return
+
+    if args.status:
+        status = emb.model_status()
+        if args.as_json:
+            print(json.dumps(status, indent=2))
+        else:
+            print(f"  Backend:    {status['backend']}")
+            print(f"  MLX ready:  {status['mlx_available']}")
+            if status['model_path']:
+                print(f"  Model:      {status['model_path']}")
+            print(f"  Cache:      {status['cache_entries']} entries ({status['cache_size_bytes']:,} bytes)")
+        return
+
+    if args.clear:
+        from ..embeddings.cache import clear_cache
+        count = clear_cache()
+        print(f"Cleared {count} cached embeddings.")
+        return
+
+    # Main: embed all replay examples using the shared embeddings package
     from ..research.replay import load_examples
-    from ..research.embeddings import build_tfidf_vectors, save_embeddings, embeddings_path
+    from ..research.embeddings import save_embeddings, EmbeddingRecord
+    import hashlib
 
     examples = load_examples()
     if not examples:
         print("No examples found. Run 'trinity-local replay' first.")
         return
 
+    backend = emb.get_backend()
+    dim = args.dim
     start = time.monotonic()
-    records = build_tfidf_vectors(examples)
+
+    records: list[EmbeddingRecord] = []
+    for ex in examples:
+        t = ex.transcript
+        parts: list[str] = []
+        if t.first_user_text:
+            parts.append(t.first_user_text[:1500])
+        if t.task_kind_hint:
+            parts.append(f"[task:{t.task_kind_hint}]")
+        tool_names = [tool.name for tool in t.tools[:5]]
+        if tool_names:
+            parts.append(f"[tools:{','.join(tool_names)}]")
+        text = " ".join(parts)
+        if not text.strip():
+            continue
+
+        vector = emb.embed(text, dim=dim)
+        records.append(EmbeddingRecord(
+            example_id=ex.example_id,
+            provider=ex.chosen_provider,
+            label=ex.label,
+            task_kind=t.task_kind_hint or "general",
+            method=backend,
+            vector=vector,
+            text_hash=hashlib.sha1(text.encode()).hexdigest()[:16],
+        ))
+
     path = save_embeddings(records)
     elapsed = time.monotonic() - start
 
@@ -80,16 +140,15 @@ def handle_embed(args):
         print(json.dumps({
             "examples": len(examples),
             "embeddings": len(records),
-            "vector_dim": len(records[0].vector) if records else 0,
-            "method": "tfidf",
+            "vector_dim": dim,
+            "method": backend,
             "path": str(path),
             "elapsed_seconds": round(elapsed, 2),
         }, indent=2))
         return
 
-    dim = len(records[0].vector) if records else 0
     print(f"Embedded {len(records)} examples in {elapsed:.1f}s")
-    print(f"  Method: TF-IDF (dim={dim})")
+    print(f"  Method: {backend} (dim={dim})")
     print(f"  Saved to: {path}")
 
 

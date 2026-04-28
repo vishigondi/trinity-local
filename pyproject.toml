@@ -21,6 +21,11 @@ where = ["src"]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+mlx = [
+    "sentence-transformers>=2.2",
+    "einops",
+    "torch>=2.0",
+]
 
 [tool.mypy]
 python_version = "3.10"
