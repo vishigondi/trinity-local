@@ -354,6 +354,9 @@ def _upgrade_recommendation(
     rec: tuple[TaskRecommendation, list[str], str],
     prompt: str,
     provider: str,
+    *,
+    session_id: str = "",
+    task_kind: str = "",
 ) -> tuple[TaskRecommendation, list[str], str]:
     """Upgrade a heuristic recommendation with k-NN advisory advice.
 
@@ -361,6 +364,7 @@ def _upgrade_recommendation(
       - Can promote recommendation → council (never downgrade)
       - Adds evidence from nearest neighbors
       - Annotates with k-NN metadata for observability
+      - Logs every call to the analytics log
       - Returns the original rec unchanged if k-NN is unavailable
     """
     try:
@@ -368,11 +372,25 @@ def _upgrade_recommendation(
     except ImportError:
         return rec
 
+    recommendation, members, primary_provider = rec
+    heuristic_mode = recommendation.recommended_mode or ""
+
     advice = knn_advise(prompt, provider)
     if advice is None:
+        # Log the miss
+        _log_advisory(
+            session_id=session_id,
+            provider=provider,
+            task_kind=task_kind,
+            prompt_len=len(prompt),
+            knn_available=False,
+            heuristic_mode=heuristic_mode,
+            final_mode=heuristic_mode,
+            was_upgraded=False,
+            recommended_provider=recommendation.recommended_provider or "",
+            evidence_count=len(recommendation.evidence),
+        )
         return rec
-
-    recommendation, members, primary_provider = rec
 
     # Annotate with k-NN metadata
     recommendation.knn_method = "embedding_knn"
@@ -384,6 +402,8 @@ def _upgrade_recommendation(
     # Add k-NN evidence
     recommendation.evidence = recommendation.evidence + advice.evidence
 
+    was_upgraded = False
+
     # Upgrade: recommendation → council (never downgrade council → recommendation)
     if advice.should_council and recommendation.recommended_mode != "council":
         recommendation.recommended_mode = "council"
@@ -394,6 +414,7 @@ def _upgrade_recommendation(
         # Add council members if we don't have any
         if not members:
             members = advice.top2_providers[:2] or ["claude", "codex"]
+        was_upgraded = True
 
     # Reroute suggestion: add to evidence, adjust recommended_provider
     if advice.reroute_provider and advice.reroute_similarity > 0.7:
@@ -406,7 +427,56 @@ def _upgrade_recommendation(
         if advice.reroute_provider != provider and advice.council_confidence > 0.5:
             recommendation.recommended_provider = advice.reroute_provider
 
+    # Log the advisory event
+    _log_advisory(
+        session_id=session_id,
+        provider=provider,
+        task_kind=task_kind,
+        prompt_len=len(prompt),
+        knn_available=True,
+        neighbor_count=advice.neighbor_count,
+        council_confidence=advice.council_confidence,
+        should_council=advice.should_council,
+        reroute_provider=advice.reroute_provider,
+        reroute_similarity=advice.reroute_similarity,
+        top2_providers=advice.top2_providers,
+        heuristic_mode=heuristic_mode,
+        final_mode=recommendation.recommended_mode or "",
+        was_upgraded=was_upgraded,
+        recommended_provider=recommendation.recommended_provider or "",
+        evidence_count=len(recommendation.evidence),
+    )
+
     return recommendation, members, primary_provider
+
+
+def _log_advisory(**kwargs) -> None:
+    """Write an advisory event to the analytics log. Best-effort, never raises."""
+    try:
+        from .knn_analytics import AdvisoryEvent, log_advisory_event
+
+        event = AdvisoryEvent(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            session_id=kwargs.get("session_id", ""),
+            provider=kwargs.get("provider", ""),
+            task_kind=kwargs.get("task_kind", ""),
+            prompt_len=kwargs.get("prompt_len", 0),
+            knn_available=kwargs.get("knn_available", False),
+            neighbor_count=kwargs.get("neighbor_count", 0),
+            council_confidence=kwargs.get("council_confidence", 0.0),
+            should_council=kwargs.get("should_council", False),
+            reroute_provider=kwargs.get("reroute_provider"),
+            reroute_similarity=kwargs.get("reroute_similarity", 0.0),
+            top2_providers=kwargs.get("top2_providers", []),
+            evidence_count=kwargs.get("evidence_count", 0),
+            heuristic_mode=kwargs.get("heuristic_mode", ""),
+            final_mode=kwargs.get("final_mode", ""),
+            was_upgraded=kwargs.get("was_upgraded", False),
+            recommended_provider=kwargs.get("recommended_provider", ""),
+        )
+        log_advisory_event(event)
+    except Exception:
+        pass  # Analytics must never break the watcher
 
 
 def _workflow_reason(features, prompt: str, task_kind: str, task_id: str | None = None) -> str | None:
@@ -498,11 +568,30 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 # cross-provider comparison is the most valuable action.
                 force_council = True
 
+                # Track "later switched" for the original task's advisory
+                if switch_task_id:
+                    try:
+                        from .knn_analytics import mark_suggestion_outcome
+                        # The original session switched away = suggestion was not
+                        # good enough, user abandoned and moved providers
+                        mark_suggestion_outcome(
+                            switch_task_id,
+                            acted_on=False,
+                            later_switched=True,
+                            switch_target=features.provider,
+                        )
+                    except Exception:
+                        pass  # Analytics must never break the watcher
+
             rec = _build_recommendation(features)
             if rec is None:
                 continue
             # Upgrade with k-NN advisory (no-op if corpus unavailable)
-            rec = _upgrade_recommendation(rec, prompt, features.provider)
+            rec = _upgrade_recommendation(
+                rec, prompt, features.provider,
+                session_id=session.session_id,
+                task_kind=task_kind_guess,
+            )
             recommendation, members, primary_provider = rec
             task_kind = task_kind_guess
             bundle = create_prompt_bundle(

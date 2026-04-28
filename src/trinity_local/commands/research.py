@@ -40,6 +40,10 @@ def register(subparsers):
     hep.add_argument("--json", dest="as_json", action="store_true")
     hep.set_defaults(handler=handle_hardeval)
 
+    ap = subparsers.add_parser("analytics", help="k-NN advisory analytics report")
+    ap.add_argument("--json", dest="as_json", action="store_true")
+    ap.set_defaults(handler=handle_analytics)
+
 
 def handle_replay(args):
     from ..research.replay import replay_all, examples_dir
@@ -361,3 +365,67 @@ def _fmt_pct(v):
 
 def _fmt_f(v):
     return f"{v:.4f}" if v is not None else "N/A"
+
+
+def handle_analytics(args):
+    from ..knn_analytics import generate_report, save_report
+
+    report = generate_report()
+    report_path = save_report(report)
+
+    if args.as_json:
+        print(json.dumps(report.to_dict(), indent=2))
+        return
+
+    print(f"k-NN Advisory Analytics")
+    print(f"  Total events: {report.total_events}")
+    print(f"  k-NN active:  {report.knn_active_count}")
+    print(f"  k-NN missed:  {report.knn_inactive_count}")
+    print()
+
+    # Evidence spam
+    print(f"  Evidence spam check:")
+    print(f"    avg lines/event: {report.evidence_count_avg:.1f}")
+    print(f"    max lines:       {report.evidence_count_max}")
+    print(f"    p95 lines:       {report.evidence_count_p95}")
+    print()
+
+    # Upgrade tracking
+    print(f"  Upgrade tracking:")
+    print(f"    upgrades:   {report.upgrades_total} ({_fmt_pct(report.upgrade_rate)})")
+    print(f"    council total:      {report.council_triggered}")
+    print(f"    council by heuristic: {report.council_by_heuristic}")
+    print(f"    council by k-NN:      {report.council_by_knn}")
+    print()
+
+    # Threshold analysis
+    if report.confidence_by_task_kind:
+        print(f"  Threshold by task kind:")
+        for kind, stats in sorted(report.confidence_by_task_kind.items()):
+            print(f"    {kind:16s}: mean={stats['mean']:.2f}  min={stats['min']:.2f}  max={stats['max']:.2f}  n={stats['count']}")
+        print()
+
+    if report.confidence_by_provider_pair:
+        print(f"  Reroute similarity by provider pair:")
+        for pair, stats in sorted(report.confidence_by_provider_pair.items()):
+            print(f"    {pair:20s}: mean={stats['mean']:.2f}  min={stats['min']:.2f}  max={stats['max']:.2f}  n={stats['count']}")
+        print()
+
+    # Product metrics
+    print(f"  Product metrics:")
+    print(f"    suggestions tracked:  {report.suggestions_total}")
+    print(f"    acted on:             {report.suggestions_acted_on} ({_fmt_pct(report.act_rate)})")
+    print(f"    later switched:       {report.later_switched_total} ({_fmt_pct(report.later_switch_rate)})")
+    if report.switch_targets:
+        print(f"    switch targets:       {', '.join(f'{k}={v}' for k, v in report.switch_targets.items())}")
+    print()
+
+    # Alerts
+    if report.alerts:
+        print(f"  ⚠ ALERTS:")
+        for alert in report.alerts:
+            print(f"    • {alert}")
+    else:
+        print(f"  ✓ No alerts")
+
+    print(f"\n  Report: {report_path}")
