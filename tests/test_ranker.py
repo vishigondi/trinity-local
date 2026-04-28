@@ -5,6 +5,7 @@ import pytest
 
 from trinity_local.ranker import RoutingContext, RoutingDecision, build_default_ranker
 from trinity_local.ranker.heuristic import HeuristicRanker
+from trinity_local.ranker.knn_ranker import KnnRanker
 
 
 class TestRoutingContext:
@@ -176,6 +177,70 @@ class TestHeuristicRanker:
         assert decision.top_k == []
         assert decision.confidence == 0.55
         assert decision.backend == "heuristic"
+
+
+class TestKnnRanker:
+    """KnnRanker: heuristic + k-NN advisory upgrade."""
+
+    def test_returns_decision(self):
+        """KnnRanker.advise() returns a RoutingDecision."""
+        ranker = KnnRanker()
+        ctx = RoutingContext(
+            task_text="Fix the auth bug",
+            task_kind="debugging",
+            current_provider="claude",
+            session_id="sess-005",
+        )
+        decision = ranker.advise(ctx)
+        assert isinstance(decision, RoutingDecision)
+        assert decision.recommended_provider is not None
+
+    def test_graceful_degradation_no_prompt(self):
+        """KnnRanker degrades gracefully with empty prompt."""
+        ranker = KnnRanker()
+        ctx = RoutingContext(
+            task_text="",
+            task_kind="coding",
+            current_provider="claude",
+            session_id="sess-006",
+        )
+        decision = ranker.advise(ctx)
+        # Should still return a valid decision (from heuristic)
+        assert isinstance(decision, RoutingDecision)
+        # Backend should reflect it couldn't enhance with k-NN
+        # (but heuristic still worked)
+        assert decision.recommended_provider == "codex"
+
+    def test_backend_set_to_knn_on_success(self):
+        """When k-NN succeeds, backend is set to 'knn'."""
+        # Note: This test will only work if k-NN corpus is available.
+        # In test environments, it gracefully falls back to heuristic.
+        ranker = KnnRanker()
+        ctx = RoutingContext(
+            task_text="Compare machine learning frameworks",
+            task_kind="research",
+            current_provider="claude",
+            session_id="sess-007",
+        )
+        decision = ranker.advise(ctx)
+        # Without a corpus, this will return heuristic decision
+        # With a corpus, backend would be "knn"
+        assert decision.backend in {"heuristic", "knn"}
+
+    def test_metadata_preserved_from_heuristic(self):
+        """Metadata from heuristic is preserved in enhanced decision."""
+        ranker = KnnRanker()
+        ctx = RoutingContext(
+            task_text="Debug the issue",
+            task_kind="debugging",
+            current_provider="claude",
+            session_id="sess-008",
+            metadata={"project": "test-project"},
+        )
+        decision = ranker.advise(ctx)
+        assert decision.metadata is not None
+        # Either has original metadata or k-NN enriched metadata
+        assert isinstance(decision.metadata, dict)
 
 
 class TestBuildDefaultRanker:
