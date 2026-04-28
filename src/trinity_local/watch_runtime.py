@@ -692,6 +692,37 @@ def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: in
     while not stop_event.is_set():
         try:
             watch_once(sources=sources, notify=notify)
-        except Exception:
-            pass  # Don't crash the loop on a single pass failure
+        except Exception as exc:
+            _log_watch_error(exc, notify=notify)
         stop_event.wait(timeout=interval_seconds)
+
+
+def _log_watch_error(exc: Exception, *, notify: bool = False) -> None:
+    """Best-effort error logging for watch_loop pass failures."""
+    import traceback
+
+    error_record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "error": str(exc),
+        "type": type(exc).__name__,
+        "traceback": traceback.format_exc(),
+    }
+
+    try:
+        from .config import trinity_home
+        error_log = trinity_home() / "analytics" / "watch_errors.jsonl"
+        error_log.parent.mkdir(parents=True, exist_ok=True)
+        with error_log.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(error_record) + "\n")
+    except Exception:
+        pass  # If we can't even log, don't crash the loop
+
+    if notify:
+        try:
+            from .notifications import notify as _notify
+            _notify(
+                title="Trinity Watcher Error",
+                message=f"Watch pass failed: {type(exc).__name__}: {exc}",
+            )
+        except Exception:
+            pass

@@ -287,7 +287,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - ~~Council partial failure handling~~ ✅
 - ~~Automatic Council trigger on switch~~ ✅
 - ~~Provider adapter hardening~~ ✅ (`trinity-local adapters`)
-- ~~Shortcut installer~~ ✅ (`trinity-local shortcut-setup`)
+- ~~Shortcut installer~~ ✅ (`trinity-local shortcut-install`)
 - ~~Embeddings package~~ ✅ (nomic-embed-text-v1.5 via sentence-transformers)
 - ~~Hard example mining~~ ✅ (embedding-based cross-provider matching)
 - ~~Extended evaluation~~ ✅ (5-metric suite)
@@ -329,7 +329,7 @@ The analytics system (`trinity-local analytics`) tracks:
 - 15 command modules registering 40 CLI subcommands
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`
-- `shortcut-setup` — writes to `~/.trinity/shortcut_setup/`
+- `shortcut-install` — creates Trinity Dispatch shortcut
 - `digest --json` — clean output
 - `hard` — mines 1,026 hard examples from 59k sessions
 - `hardeval` — 5-metric eval: k-NN beats heuristic on all metrics

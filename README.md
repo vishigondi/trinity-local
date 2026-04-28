@@ -112,7 +112,8 @@ trinity-local adapters                # Provider adapter status
 ### macOS Shortcuts setup
 
 ```bash
-trinity-local shortcut-setup          # Generates setup doc at ~/.trinity/shortcut_setup/
+trinity-local shortcut-setup          # Generates setup recipe at ~/.trinity/shortcut_setup/
+trinity-local shortcut-install        # Creates the Trinity Dispatch shortcut (opens Shortcuts app)
 ```
 
 ## How It Works
@@ -168,7 +169,7 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 - `python3 -m compileall src` — clean
 - `pytest tests/ -v` — **119 passed, 4 skipped** across 10 test files
 - 15 command modules registering 40 CLI subcommands
-- `watch-once`, `portal-html`, `digest`, `shortcut-setup` — all write correctly to `~/.trinity/`
+- `watch-once`, `portal-html`, `digest`, `shortcut-install` — all write correctly to `~/.trinity/`
 - `hard`, `hardeval`, `analytics` — research pipeline verified
 
 ## Documentation

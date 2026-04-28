@@ -1,4 +1,4 @@
-"""Handlers for shortcut-url, shortcut-run, action-shortcut, shortcut-setup."""
+"""Handlers for shortcut-url, shortcut-run, action-shortcut, shortcut-setup, shortcut-install."""
 from __future__ import annotations
 
 import json
