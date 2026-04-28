@@ -89,7 +89,10 @@ def load_task_record(task_id_or_path: str) -> TaskRecord:
 
 def find_task_by_cluster_id(task_cluster_id: str) -> TaskRecord | None:
     for path in tasks_dir().glob("*.json"):
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
         if raw.get("task_cluster_id") == task_cluster_id:
             return load_task_record(str(path))
     return None

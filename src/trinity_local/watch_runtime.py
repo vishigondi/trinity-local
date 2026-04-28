@@ -87,7 +87,7 @@ def watcher_cursor_path(source: str) -> Path:
 def _load_cursor(source: str) -> float:
     path = watcher_cursor_path(source)
     if not path.exists():
-        return datetime.now(timezone.utc).timestamp() - 900
+        return 0.0
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
@@ -418,9 +418,9 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 switched_from_provider=switched_from,
                 switched_from_task_id=switch_task_id,
                 has_web=features.did_use_web,
-                has_tools=features.did_use_tools,
-                has_edits=features.did_make_edits,
-                message_count=features.turn_count,
+                has_tools=features.did_use_mcp,
+                has_edits=features.did_edit_files,
+                message_count=len(session.messages),
             )
             ranker = build_default_ranker()
             decision = ranker.advise(routing_ctx)

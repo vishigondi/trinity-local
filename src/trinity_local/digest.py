@@ -14,6 +14,7 @@ from typing import Any
 
 from .config import trinity_home
 from .cost_tracker import CostSummary, load_cost_log, summarize_costs
+from .design_system import render_html_footer, render_html_head
 from .drift import DriftAlert, check_drift
 from .utils import now_iso
 
@@ -92,65 +93,76 @@ def _digest_pages_dir() -> Path:
 
 def render_digest_html(digest: WeeklyDigest) -> Path:
     """Render the digest as a static HTML page."""
-    parts: list[str] = []
-    parts.append("<!DOCTYPE html>")
-    parts.append('<html lang="en"><head>')
-    parts.append('<meta charset="utf-8">')
-    parts.append('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    parts.append("<title>Trinity Local — Weekly Digest</title>")
-    parts.append("<style>")
-    parts.append("""
-        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --accent: #58a6ff;
-                --green: #3fb950; --red: #f85149; --border: #30363d; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-               background: var(--bg); color: var(--text); padding: 2rem; max-width: 800px; margin: 0 auto; }
-        h1 { color: var(--accent); margin-bottom: 0.5rem; }
-        .meta { color: #8b949e; margin-bottom: 2rem; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-                padding: 1rem; margin-bottom: 1rem; }
-        .card h3 { color: var(--accent); margin-bottom: 0.5rem; }
-        .stat { display: inline-block; margin-right: 1.5rem; }
-        .stat-value { font-size: 1.5rem; font-weight: 600; }
-        .stat-label { color: #8b949e; font-size: 0.85rem; }
-        .alert { background: #f8514922; border-left: 3px solid var(--red); padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-radius: 0 6px 6px 0; }
-        .best-kind { display: inline-block; background: #3fb95022; color: var(--green); padding: 2px 8px;
-                     border-radius: 12px; font-size: 0.8rem; margin: 2px; }
-        .summary { display: flex; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; }
-    """)
-    parts.append("</style></head><body>")
-    parts.append("<h1>📊 Weekly Digest</h1>")
-    parts.append(f'<p class="meta">Generated {digest.generated_at} · Past {digest.period_days} days</p>')
-
-    # Summary cards
-    parts.append('<div class="summary">')
-    parts.append(f'<div class="stat"><div class="stat-value">{digest.total_sessions}</div><div class="stat-label">Total Sessions</div></div>')
-    parts.append(f'<div class="stat"><div class="stat-value">${digest.total_cost_usd:.2f}</div><div class="stat-label">Estimated Cost</div></div>')
-    parts.append(f'<div class="stat"><div class="stat-value">{len(digest.drift_alerts)}</div><div class="stat-label">Drift Alerts</div></div>')
-    parts.append('</div>')
+    head = render_html_head("Trinity — Weekly Digest")
+    footer = render_html_footer()
 
     # Per-provider cards
+    provider_cards = []
     for entry in digest.entries:
-        parts.append('<div class="card">')
-        parts.append(f"<h3>{entry.provider}</h3>")
-        parts.append(f'<span class="stat"><span class="stat-value">{entry.sessions}</span> <span class="stat-label">sessions</span></span>')
-        parts.append(f'<span class="stat"><span class="stat-value">${entry.total_cost_usd:.2f}</span> <span class="stat-label">cost</span></span>')
+        best_kinds = ""
         if entry.best_task_kinds:
-            parts.append("<div style='margin-top:0.5rem'>Best for: ")
-            for kind in entry.best_task_kinds:
-                parts.append(f'<span class="best-kind">{kind}</span>')
-            parts.append("</div>")
-        parts.append("</div>")
+            badges = "\n".join(f'<span class="badge">{kind}</span>' for kind in entry.best_task_kinds)
+            best_kinds = f'<div class="mb-md"><strong>Best for:</strong><div class="actions gap-sm" style="margin-top:8px;">{badges}</div></div>'
+        provider_cards.append(f"""
+            <section class="card">
+              <h3>{entry.provider}</h3>
+              <div class="meta">
+                <strong>{entry.sessions}</strong> sessions ·
+                <strong>${entry.total_cost_usd:.2f}</strong> estimated cost
+              </div>
+              {best_kinds}
+            </section>
+            """)
 
     # Drift alerts
+    drift_section = ""
     if digest.drift_alerts:
-        parts.append("<h2 style='margin:1.5rem 0 0.75rem;color:var(--red)'>⚠️ Drift Alerts</h2>")
-        for alert in digest.drift_alerts:
-            parts.append(f'<div class="alert">{alert.message}</div>')
+        alerts = "\n".join(
+            f'<div class="alert-box danger">{alert.message}</div>'
+            for alert in digest.drift_alerts
+        )
+        drift_section = f"""
+        <section class="card mb-lg">
+          <h2>Drift Alerts</h2>
+          {alerts}
+        </section>
+        """
 
-    parts.append("</body></html>")
+    html = f"""{head}
+  <main>
+    <section class="card">
+      <div class="eyebrow">Trinity</div>
+      <h1>Weekly Digest</h1>
+      <p class="lede">Generated {digest.generated_at} · Past {digest.period_days} days</p>
+    </section>
 
-    html = "\n".join(parts)
+    <section class="grid grid-cards">
+      <div class="summary-stat">
+        <div class="summary-stat-value">{digest.total_sessions}</div>
+        <div class="summary-stat-label">Total Sessions</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-stat-value">${digest.total_cost_usd:.2f}</div>
+        <div class="summary-stat-label">Estimated Cost</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-stat-value">{len(digest.drift_alerts)}</div>
+        <div class="summary-stat-label">Drift Alerts</div>
+      </div>
+    </section>
+
+    <section class="card mb-lg">
+      <h2>Provider Summary</h2>
+      <div class="grid grid-cards">
+        {''.join(provider_cards)}
+      </div>
+    </section>
+
+    {drift_section}
+  </main>
+{footer}
+"""
+
     out_path = _digest_pages_dir() / "digest.html"
     out_path.write_text(html, encoding="utf-8")
     return out_path

@@ -58,7 +58,7 @@ _corpus_cache: list[_CorpusEntry] | None = None
 
 
 def _hard_examples_dir() -> Path:
-    return trinity_home() / "research" / "hard_examples"
+    return trinity_home() / "research" / "examples"
 
 
 def _load_corpus(*, force: bool = False) -> list[_CorpusEntry]:

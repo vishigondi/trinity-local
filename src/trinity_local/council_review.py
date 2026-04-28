@@ -4,6 +4,7 @@ import html
 from pathlib import Path
 
 from .council_schema import CouncilOutcome, PromptBundle
+from .design_system import render_html_footer, render_html_head
 from .scoreboard import state_dir
 
 
@@ -68,10 +69,10 @@ def _peer_review_card(outcome: CouncilOutcome) -> str:
         </section>
         """
     return f"""
-    <section class="card" style="margin-top:16px;">
+    <section class="card mb-md">
       <h2>Peer Reviews</h2>
       {aggregate}
-      <div class="grid members">
+      <div class="grid grid-members">
         {review_cards or '<p class="meta">No peer reviews recorded.</p>'}
       </div>
     </section>
@@ -117,120 +118,32 @@ def render_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = No
         """
         peer_reviews = _peer_review_card(outcome)
 
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>trinity-local Council Review</title>
+    head = render_html_head("Trinity — Council Review")
+    footer = render_html_footer()
+
+    return f"""{head}
   <style>
-    :root {{
-      --bg: #f2efe8;
-      --ink: #111111;
-      --muted: #5b5b52;
-      --card: #fffdf7;
-      --line: #d7d1c2;
-      --accent: #1f5eff;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      background: linear-gradient(180deg, #f7f3ea 0%, var(--bg) 100%);
-      color: var(--ink);
-      font: 16px/1.5 Georgia, "Iowan Old Style", serif;
-    }}
-    main {{
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 20px 80px;
-    }}
-    h1, h2 {{ margin: 0 0 12px; }}
-    h1 {{ font-size: 2rem; }}
-    h2 {{ font-size: 1.1rem; }}
-    p.meta {{
-      color: var(--muted);
-      margin: 8px 0 0;
-    }}
-    .grid {{
-      display: grid;
-      gap: 16px;
-      margin-top: 16px;
-    }}
     .grid.two {{
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    }}
-    .grid.members {{
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    }}
-    .card {{
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }}
     pre {{
       white-space: pre-wrap;
       word-break: break-word;
-      margin: 0;
-      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    }}
-    .member .meta {{
-      color: var(--accent);
-      font: 600 12px/1.2 ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-    }}
-    .pillbar {{
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin: 12px 0 0;
-    }}
-    .pill {{
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: white;
-      font: 12px/1.2 ui-sans-serif, system-ui, sans-serif;
-      color: var(--muted);
-    }}
-    ul {{ margin: 0; padding-left: 18px; }}
-    table {{
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 16px;
-      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    }}
-    th, td {{
-      text-align: left;
-      border-bottom: 1px solid var(--line);
-      padding: 8px 6px;
-    }}
-    details summary {{
-      cursor: pointer;
-      color: var(--accent);
-      margin: 10px 0;
-      font: 600 12px/1.2 ui-sans-serif, system-ui, sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }}
   </style>
-</head>
-<body>
   <main>
-    <header class="card">
+    <section class="card">
+      <div class="eyebrow">Trinity</div>
       <h1>Council Review</h1>
       <p class="meta">Bundle: {_esc(bundle.bundle_id)} · Task cluster: {_esc(bundle.task_cluster_id)}</p>
       <div class="pillbar">
-        <span class="pill">Origin provider: {_esc(bundle.origin_provider or "unknown")}</span>
-        <span class="pill">Origin session: {_esc(bundle.origin_session_id or "unknown")}</span>
-        <span class="pill">Created: {_esc(bundle.created_at)}</span>
+        <span class="pill">Origin: {_esc(bundle.origin_provider or "unknown")}</span>
+        <span class="pill">Session: {_esc(bundle.origin_session_id or "unknown")}</span>
+        <span class="pill">{_esc(bundle.created_at)}</span>
       </div>
-    </header>
+    </section>
 
-    <section class="card" style="margin-top:16px;">
+    <section class="card mb-lg">
       <h2>Task</h2>
       <pre>{_esc(bundle.task_text)}</pre>
     </section>
@@ -246,7 +159,7 @@ def render_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = No
       </section>
     </section>
 
-    <section class="card" style="margin-top:16px;">
+    <section class="card mb-lg">
       <h2>Context Bundle</h2>
       <pre>{_esc(bundle.context_excerpt or "(none)")}</pre>
     </section>
@@ -254,15 +167,14 @@ def render_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = No
     {summary}
     {peer_reviews}
 
-    <section class="card" style="margin-top:16px;">
+    <section class="card mb-lg">
       <h2>Member Outputs</h2>
-      <div class="grid members">
+      <div class="grid grid-members">
         {member_cards or '<p class="meta">No council member results recorded yet.</p>'}
       </div>
     </section>
   </main>
-</body>
-</html>
+{footer}
 """
 
 

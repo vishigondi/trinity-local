@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import ProviderConfig, trinity_home
+from .design_system import render_html_footer, render_html_head
 from .providers import ProviderResult, make_provider
 from .utils import now_iso, stable_id
 
@@ -198,55 +199,68 @@ def load_review(review_id: str) -> ReviewResult | None:
 
 def render_review_html(review: ReviewResult) -> Path:
     """Render a review result as static HTML."""
-    parts: list[str] = []
-    parts.append("<!DOCTYPE html>")
-    parts.append('<html lang="en"><head>')
-    parts.append('<meta charset="utf-8">')
-    parts.append('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    parts.append(f"<title>Review: {review.task_id[:20]}</title>")
-    parts.append("<style>")
-    parts.append("""
-        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --accent: #58a6ff;
-                --green: #3fb950; --red: #f85149; --yellow: #d29922; --border: #30363d; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-               background: var(--bg); color: var(--text); padding: 2rem; max-width: 800px; margin: 0 auto; }
-        h1 { color: var(--accent); margin-bottom: 0.5rem; }
-        .meta { color: #8b949e; margin-bottom: 1.5rem; }
-        .verdict { background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-                   padding: 1rem; margin-bottom: 1rem; font-size: 1.1rem; }
-        .section { margin-bottom: 1.5rem; }
-        .section h2 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .issue { background: #f8514922; border-left: 3px solid var(--red); padding: 0.5rem 1rem; margin-bottom: 0.3rem; border-radius: 0 4px 4px 0; }
-        .suggestion { background: #3fb95022; border-left: 3px solid var(--green); padding: 0.5rem 1rem; margin-bottom: 0.3rem; border-radius: 0 4px 4px 0; }
-        .none { color: #8b949e; font-style: italic; }
-    """)
-    parts.append("</style></head><body>")
-    parts.append("<h1>🔍 Post-Hoc Review</h1>")
-    parts.append(f'<p class="meta">{review.reviewer_provider} reviewing {review.original_provider} · {review.reviewed_at}</p>')
+    head = render_html_head(f"Trinity — Review: {review.task_id[:20]}")
+    footer = render_html_footer()
 
-    parts.append(f'<div class="verdict">{review.verdict or "No verdict"}</div>')
-
-    parts.append('<div class="section"><h2>Issues</h2>')
+    issues_html = ""
     if review.issues:
-        for issue in review.issues:
-            parts.append(f'<div class="issue">{issue}</div>')
+        issues_html = "\n".join(
+            f'<div class="alert-box danger">{issue}</div>'
+            for issue in review.issues
+        )
     else:
-        parts.append('<div class="none">No issues found.</div>')
-    parts.append('</div>')
+        issues_html = '<p class="text-muted">No issues found.</p>'
 
-    parts.append('<div class="section"><h2>Suggestions</h2>')
+    suggestions_html = ""
     if review.suggestions:
-        for suggestion in review.suggestions:
-            parts.append(f'<div class="suggestion">{suggestion}</div>')
+        suggestions_html = "\n".join(
+            f'<div class="alert-box success">{suggestion}</div>'
+            for suggestion in review.suggestions
+        )
     else:
-        parts.append('<div class="none">No suggestions.</div>')
-    parts.append('</div>')
+        suggestions_html = '<p class="text-muted">No suggestions.</p>'
 
-    parts.append(f'<p class="meta">Elapsed: {review.elapsed_seconds:.1f}s</p>')
-    parts.append("</body></html>")
+    html = f"""{head}
+  <style>
+    .verdict-box {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 24px;
+      font-size: 16px;
+      line-height: 1.5;
+    }}
+  </style>
+  <main>
+    <section class="card">
+      <div class="eyebrow">Review</div>
+      <h1>Post-Hoc Review</h1>
+      <p class="meta">{review.reviewer_provider} reviewing {review.original_provider} · {review.reviewed_at}</p>
+    </section>
 
-    html = "\n".join(parts)
+    <section class="card">
+      <h2>Verdict</h2>
+      <div class="verdict-box">{review.verdict or "No verdict"}</div>
+    </section>
+
+    <section class="card">
+      <h2>Issues</h2>
+      {issues_html}
+    </section>
+
+    <section class="card">
+      <h2>Suggestions</h2>
+      {suggestions_html}
+    </section>
+
+    <section class="card" style="margin-bottom:32px;">
+      <p class="meta">Elapsed: {review.elapsed_seconds:.1f}s</p>
+    </section>
+  </main>
+{footer}
+"""
+
     reviews_html_dir = trinity_home() / "review_pages"
     reviews_html_dir.mkdir(parents=True, exist_ok=True)
     out_path = reviews_html_dir / f"{review.review_id}.html"

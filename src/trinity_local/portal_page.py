@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .action_runtime import list_actions
+from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
 from .scoreboard import state_dir
 from .shortcut_setup import write_shortcut_setup
@@ -109,127 +110,20 @@ def render_portal_html(*, title: str = "Trinity Launchpad", video_url: str | Non
         </section>
         """
     actions_json = _esc(json.dumps(embedded_actions))
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="30" />
-  <title>{_esc(title)}</title>
+    head = render_html_head(f"{title} — Trinity")
+    footer = render_html_footer()
+    return f"""{head}
   <style>
-    :root {{
-      --bg: #efe8dc;
-      --paper: #fffdf8;
-      --ink: #171512;
-      --muted: #6f675a;
-      --line: #d6ccb8;
-      --accent: #145b4b;
-      --accent-2: #db5c32;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(219,92,50,0.18), transparent 32%),
-        radial-gradient(circle at right 10%, rgba(20,91,75,0.18), transparent 26%),
-        linear-gradient(180deg, #f7f0e4 0%, var(--bg) 100%);
-      font: 16px/1.5 Georgia, "Iowan Old Style", serif;
-    }}
-    main {{
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 28px 18px 56px;
-    }}
-    .grid {{
-      display: grid;
-      gap: 18px;
-    }}
-    .cards {{
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }}
-    .card {{
-      background: var(--paper);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 20px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.05);
-    }}
-    .hero {{
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 20px;
-      align-items: center;
-      margin-bottom: 18px;
-    }}
-    @media (max-width: 860px) {{
-      .hero {{ grid-template-columns: 1fr; }}
-    }}
-    h1, h2, h3 {{ margin: 0 0 10px; }}
-    h1 {{ font-size: clamp(2rem, 4vw, 3.4rem); line-height: 0.95; }}
-    h2 {{ font-size: 1.45rem; }}
-    h3 {{ font-size: 1.15rem; }}
-    .eyebrow {{
-      margin-bottom: 10px;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font: 700 12px/1.1 ui-sans-serif, system-ui, sans-serif;
-    }}
-    .lede, .meta {{
-      color: var(--muted);
-      font-family: ui-sans-serif, system-ui, sans-serif;
-    }}
-    .actions {{
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }}
-    .button {{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      text-decoration: none;
-      color: var(--ink);
-      background: white;
-      cursor: pointer;
-      font: 600 13px/1.2 ui-sans-serif, system-ui, sans-serif;
-    }}
-    .button.primary {{
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }}
-    .button.ghost {{
-      background: transparent;
-    }}
-    video {{
-      width: 100%;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: #000;
-    }}
-    code, pre {{
-      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    }}
-    details {{
-      margin-top: 12px;
-    }}
     .tips {{
       display: grid;
-      gap: 10px;
-      margin-top: 20px;
+      gap: 12px;
+      margin-top: 16px;
+      padding-left: 20px;
     }}
     .tips li {{
-      margin-left: 18px;
+      color: var(--text-secondary);
     }}
   </style>
-</head>
-<body>
   <main>
     <section class="card">
       <div class="eyebrow">Trinity</div>
@@ -241,7 +135,7 @@ def render_portal_html(*, title: str = "Trinity Launchpad", video_url: str | Non
       </div>
     </section>
     {video_block}
-    <section class="card" style="margin-bottom:18px;">
+    <section class="card mb-lg">
       <h2>What This Page Can Do</h2>
       <ul class="tips">
         <li>Launch local automation through macOS Shortcuts links.</li>
@@ -250,7 +144,7 @@ def render_portal_html(*, title: str = "Trinity Launchpad", video_url: str | Non
         <li>Mirror pending council and review actions written by Trinity.</li>
       </ul>
     </section>
-    <section class="grid cards">
+    <section class="grid">
       {''.join(cards) or '<section class="card"><h3>No pending actions</h3><p class="lede">When Trinity suggests a reroute or finishes a council run, it will appear here.</p></section>'}
     </section>
   </main>
@@ -276,9 +170,7 @@ def render_portal_html(*, title: str = "Trinity Launchpad", video_url: str | Non
       }});
     }});
   </script>
-</body>
-</html>
-"""
+{footer}"""
 
 
 def write_portal_html(*, title: str = "Trinity Launchpad", video_url: str | None = None) -> Path:
