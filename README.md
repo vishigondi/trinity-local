@@ -10,6 +10,18 @@ Trinity watches Claude Code, Codex, Gemini, Cowork, and other agentic CLIs from 
 
 See [docs/product-spec.md](docs/product-spec.md) for the full product spec and GTM strategy.
 
+## Release Status
+
+`trinity-local` is currently an **alpha / developer preview** for technical users.
+
+Best fit:
+
+- people already using Claude Code, Codex, Gemini, or Cowork
+- macOS-first workflows
+- users comfortable with local CLIs, static HTML artifacts, and manual setup
+
+This is not polished general-availability software yet.
+
 ## What It Does
 
 - **Watches** transcripts from Claude Code, Codex, Gemini CLI, and Cowork
@@ -51,7 +63,57 @@ pip install -e '.[test]'
 pytest tests/ -v
 ```
 
+Embeddings are optional, but recommended if you want the best routing quality.
+Without them, Trinity falls back to heuristics and TF-IDF-compatible behavior.
+
 ## Quick Start
+
+## Recommended First-Run Flow
+
+1. Install the base package:
+
+```bash
+pip install -e .
+```
+
+2. If you want the full advisory and research path, install embedding support:
+
+```bash
+pip install -e '.[mlx]'
+```
+
+3. Check provider availability:
+
+```bash
+trinity-local adapters
+trinity-local status --json
+```
+
+4. Generate and install the macOS Shortcut bridge:
+
+```bash
+trinity-local shortcut-setup
+trinity-local shortcut-install
+```
+
+5. Render the static launchpad:
+
+```bash
+trinity-local portal-html --open-browser
+```
+
+6. Run the watcher on your local transcripts:
+
+```bash
+trinity-local watch-once --notify
+```
+
+7. Inspect what Trinity produced:
+
+```bash
+trinity-local action-list
+trinity-local analytics
+```
 
 ### Watch your sessions
 
@@ -117,6 +179,15 @@ trinity-local adapters                # Provider adapter status
 trinity-local shortcut-setup          # Generates setup recipe at ~/.trinity/shortcut_setup/
 trinity-local shortcut-install        # Creates the Trinity Dispatch shortcut (opens Shortcuts app)
 ```
+
+## Known Limitations
+
+- macOS is the primary supported platform today.
+- Shortcuts onboarding is still partially manual.
+- Windows and Linux are not first-class UX targets yet.
+- The watcher and recommendation system are most useful once you have real transcript history.
+- Analytics and advisory metrics remain sparse until you have live watch activity and a hard-example corpus.
+- The legacy `run` command still exists, but it is not the product center.
 
 ## How It Works
 
