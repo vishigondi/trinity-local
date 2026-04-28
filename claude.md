@@ -49,7 +49,7 @@ Registered command groups (15 modules):
 | `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-html` |
 | `commands/portal.py` | `portal-html`, `open-review` |
 | `commands/actions.py` | `action-list`, `action-suggest`, `action-council`, `action-notify`, `action-complete` |
-| `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup` |
+| `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`, `shortcut-install` |
 | `commands/watch.py` | `watch-once`, `watch-loop` |
 | `commands/workflow.py` | `workflow-create` |
 | `commands/digest.py` | `digest` |
@@ -234,7 +234,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
   - `[mlx]` extras for sentence-transformers + embedding support.
   - `[test]` extras for pytest.
-- **123 tests** across 10 `test_*.py` files. 4 tests in `test_knn_advisor.py` may skip if the embeddings model is not cached.
+- **119 passed, 4 skipped** across 10 `test_*.py` files. The 4 skips are in `test_knn_advisor.py` when the embeddings model is not cached.
 
 ### Patterns
 
@@ -274,7 +274,7 @@ The `Trinity Dispatch` Shortcut should branch on `name`, not guess from shell te
 10. **Post-hoc review** — Council-lite: ask one provider to critique another's output. Dark-themed HTML.
 11. **File-backed state** — one file = one entity. No joins. No migrations.
 12. **macOS-native dispatch** — `shortcuts://` URL bridge. Portal includes `<meta http-equiv="refresh" content="30">`.
-13. **Test coverage** — 123 tests across 10 files (4 may skip if embeddings model not cached).
+13. **Test coverage** — 119 passed, 4 skipped across 10 files. Skips are embedding-dependent k-NN advisor tests.
 
 ### What Needs Attention Next
 
@@ -325,7 +325,7 @@ The analytics system (`trinity-local analytics`) tracks:
 ## Verified Status
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **123 tests** across 10 `test_*.py` files (4 may skip if embeddings model not cached)
+- `pytest tests/ -v` — **119 passed, 4 skipped** across 10 `test_*.py` files
 - 15 command modules registering 40 CLI subcommands
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`

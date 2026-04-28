@@ -166,7 +166,7 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ## Verified
 
 - `python3 -m compileall src` — clean
-- `pytest tests/ -v` — **123 tests** across 10 test files (4 may skip if embeddings model not cached)
+- `pytest tests/ -v` — **119 passed, 4 skipped** across 10 test files
 - 15 command modules registering 40 CLI subcommands
 - `watch-once`, `portal-html`, `digest`, `shortcut-setup` — all write correctly to `~/.trinity/`
 - `hard`, `hardeval`, `analytics` — research pipeline verified
