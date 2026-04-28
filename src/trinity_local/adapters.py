@@ -1,7 +1,7 @@
 """Provider adapter discovery and status.
 
 Checks which provider CLIs are available, their versions, and transcript paths.
-Used by the ``adapters`` CLI command and the watcher at startup.
+Used by the ``adapters`` CLI command.
 """
 from __future__ import annotations
 

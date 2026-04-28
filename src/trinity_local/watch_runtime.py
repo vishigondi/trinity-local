@@ -347,10 +347,24 @@ def _workflow_reason(features, prompt: str, task_kind: str, task_id: str | None 
 
 
 def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
+    # --- Adapter validation at startup ---
+    validated_sources: list[str] = []
+    for source in sources:
+        root = _source_root(source)
+        if not root.exists():
+            if notify:
+                from .notifications import notify as _notify
+                _notify(
+                    title="Trinity Watcher",
+                    message=f"Skipping {source}: transcript directory not found at {root}",
+                )
+            continue
+        validated_sources.append(source)
+
     scanned = 0
     tasks_written = 0
     actions_written = 0
-    for source in sources:
+    for source in validated_sources:
         last_mtime = _load_cursor(source)
         max_mtime = last_mtime
         for path in _iter_recent_paths(source, last_mtime):
@@ -428,6 +442,11 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 tags=[task_kind],
                 metadata={"cwd": features.cwd or ".", "source_path": session.source_path},
             )
+            # --- Explicit switch linkage (Fix 3) ---
+            if switched_from:
+                task.switched_from_provider = switched_from
+                if switch_task_id:
+                    task.switched_from_task_id = switch_task_id
             save_task_record(task)
             save_sync_record(task)
             tasks_written += 1

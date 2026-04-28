@@ -54,6 +54,7 @@ def run_council(
     launches: list[LaunchEvent] = []
 
     failed_members: list[str] = []
+    failed_reviewers: list[str] = []
 
     for provider_name in member_providers:
         provider_config = config.providers.get(provider_name)
@@ -122,11 +123,13 @@ def run_council(
             reviewer_provider_name = member.provider
             reviewer_config = config.providers.get(reviewer_provider_name)
             if reviewer_config is None or not reviewer_config.enabled:
+                failed_reviewers.append(reviewer_provider_name)
                 continue
             reviewer = make_provider(reviewer_config)
             try:
                 review_result = reviewer.run(review_prompt, cwd)
             except Exception:
+                failed_reviewers.append(reviewer_provider_name)
                 continue
             sections = parse_peer_review_sections(review_result.stdout or review_result.stderr)
             ranked_labels = parse_ranking_labels(sections.get("ranking", ""))
@@ -180,9 +183,20 @@ def run_council(
     )
     # Reuse the generated synthesis prompt so it is tracked in metadata and on disk.
     primary_prompt = outcome.synthesis_prompt or primary_prompt or ""
+
+    # --- Primary synthesis with failure handling ---
+    synthesis_output = ""
+    synthesis_error = None
+    sections: dict[str, str] = {}
     primary = make_provider(primary_config)
-    primary_result = primary.run(primary_prompt, cwd)
-    sections = parse_synthesis_sections(primary_result.stdout or primary_result.stderr)
+    try:
+        primary_result = primary.run(primary_prompt, cwd)
+        synthesis_output = primary_result.stdout or primary_result.stderr or ""
+        sections = parse_synthesis_sections(synthesis_output)
+    except Exception as exc:
+        synthesis_error = str(exc)
+        synthesis_output = ""
+
     differences = []
     if "differences" in sections:
         differences = [
@@ -205,6 +219,19 @@ def run_council(
         elif "no" in follow or "false" in follow:
             needs_followup = False
 
+    final_metadata: dict = {
+        "cwd": str(cwd),
+        "peer_review_count": len(peer_reviews),
+        "failed_members": failed_members,
+        "failed_reviewers": failed_reviewers,
+    }
+    if synthesis_error:
+        final_metadata["synthesis_error"] = synthesis_error
+    else:
+        final_metadata["primary_returncode"] = primary_result.returncode
+        final_metadata["primary_stderr"] = primary_result.stderr
+        final_metadata["parsed_sections"] = sections
+
     final_outcome = create_council_outcome(
         bundle=bundle,
         primary_provider=primary_provider,
@@ -217,15 +244,8 @@ def run_council(
         winner_model=primary_model if winner_provider == primary_provider else None,
         needs_followup=needs_followup,
         differences=differences,
-        synthesis_output=primary_result.stdout or primary_result.stderr,
-        metadata={
-            "cwd": str(cwd),
-            "primary_returncode": primary_result.returncode,
-            "primary_stderr": primary_result.stderr,
-            "parsed_sections": sections,
-            "peer_review_count": len(peer_reviews),
-            "failed_members": failed_members,
-        },
+        synthesis_output=synthesis_output,
+        metadata=final_metadata,
     )
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_review_html(bundle, final_outcome)
@@ -258,3 +278,4 @@ def run_council(
         task_path=task_path,
         sync_path=sync_path,
     )
+

@@ -62,6 +62,8 @@ class TaskRecord:
     needs_followup: bool | None = None
     review_page_path: str | None = None
     council_run_id: str | None = None
+    switched_from_provider: str | None = None
+    switched_from_task_id: str | None = None
     launch_ids: list[str] = field(default_factory=list)
     runs: list[TaskRunRef] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -91,6 +93,8 @@ class TaskRecord:
             "needs_followup",
             "review_page_path",
             "council_run_id",
+            "switched_from_provider",
+            "switched_from_task_id",
         ):
             value = getattr(self, key)
             if value not in (None, "", {}, []):
