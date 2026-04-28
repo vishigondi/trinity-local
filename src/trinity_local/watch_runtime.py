@@ -350,6 +350,65 @@ def _build_recommendation(features) -> tuple[TaskRecommendation, list[str], str]
     )
 
 
+def _upgrade_recommendation(
+    rec: tuple[TaskRecommendation, list[str], str],
+    prompt: str,
+    provider: str,
+) -> tuple[TaskRecommendation, list[str], str]:
+    """Upgrade a heuristic recommendation with k-NN advisory advice.
+
+    Rules:
+      - Can promote recommendation → council (never downgrade)
+      - Adds evidence from nearest neighbors
+      - Annotates with k-NN metadata for observability
+      - Returns the original rec unchanged if k-NN is unavailable
+    """
+    try:
+        from .knn_advisor import advise as knn_advise
+    except ImportError:
+        return rec
+
+    advice = knn_advise(prompt, provider)
+    if advice is None:
+        return rec
+
+    recommendation, members, primary_provider = rec
+
+    # Annotate with k-NN metadata
+    recommendation.knn_method = "embedding_knn"
+    recommendation.knn_neighbor_count = advice.neighbor_count
+    recommendation.knn_council_confidence = advice.council_confidence
+    if advice.top2_providers:
+        recommendation.top2_providers = advice.top2_providers
+
+    # Add k-NN evidence
+    recommendation.evidence = recommendation.evidence + advice.evidence
+
+    # Upgrade: recommendation → council (never downgrade council → recommendation)
+    if advice.should_council and recommendation.recommended_mode != "council":
+        recommendation.recommended_mode = "council"
+        recommendation.reason = (
+            (recommendation.reason or "") +
+            f" [k-NN: {advice.council_confidence:.0%} neighbor agreement suggests council]"
+        )
+        # Add council members if we don't have any
+        if not members:
+            members = advice.top2_providers[:2] or ["claude", "codex"]
+
+    # Reroute suggestion: add to evidence, adjust recommended_provider
+    if advice.reroute_provider and advice.reroute_similarity > 0.7:
+        recommendation.reason = (
+            (recommendation.reason or "") +
+            f" [k-NN: similar session in {advice.reroute_provider} (sim={advice.reroute_similarity:.2f})]"
+        )
+        # If the k-NN suggests a different provider and confidence is decent,
+        # update the recommendation (but keep mode as-is)
+        if advice.reroute_provider != provider and advice.council_confidence > 0.5:
+            recommendation.recommended_provider = advice.reroute_provider
+
+    return recommendation, members, primary_provider
+
+
 def _workflow_reason(features, prompt: str, task_kind: str, task_id: str | None = None) -> str | None:
     lowered = prompt.lower()
     if any(term in lowered for term in ("again", "every time", "repeatedly", "repeat", "shortcut", "automate", "workflow")):
@@ -442,6 +501,8 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             rec = _build_recommendation(features)
             if rec is None:
                 continue
+            # Upgrade with k-NN advisory (no-op if corpus unavailable)
+            rec = _upgrade_recommendation(rec, prompt, features.provider)
             recommendation, members, primary_provider = rec
             task_kind = task_kind_guess
             bundle = create_prompt_bundle(

@@ -12,6 +12,11 @@ class TaskRecommendation:
     confidence: float | None = None
     evidence: list[str] = field(default_factory=list)
     created_at: str | None = None
+    # k-NN advisory metadata (set when embedding neighbors were consulted)
+    knn_method: str | None = None
+    knn_neighbor_count: int | None = None
+    knn_council_confidence: float | None = None
+    top2_providers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = {k: v for k, v in asdict(self).items() if v not in (None, "", {}, [])}
