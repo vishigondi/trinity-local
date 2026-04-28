@@ -5,6 +5,8 @@
 Trinity watches Claude Code, Codex, Gemini, Cowork, and other agentic CLIs from the outside, learns which tool works best for which task, and surfaces insights no single provider can see — without running a server, owning the terminal, or becoming yet another UX.
 
 > **Your AI coding tools don't talk to each other. Trinity watches all of them and tells you what none of them can.**
+>
+> Everyone has Claude Pro + ChatGPT Plus + Gemini Advanced. Three subscriptions, and still doesn't know which one to use for what. We copy-paste between tabs like animals.
 
 See [docs/product-spec.md](docs/product-spec.md) for the full product spec and GTM strategy.
 
