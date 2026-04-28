@@ -27,6 +27,19 @@ def register(subparsers):
     rkp.add_argument("--json", dest="as_json", action="store_true")
     rkp.set_defaults(handler=handle_rank)
 
+    hp = subparsers.add_parser("hard", help="Mine hard examples from transcripts")
+    hp.add_argument("--source", action="append", default=None,
+                     help="Source to scan. Repeatable.")
+    hp.add_argument("--limit", type=int, default=None, help="Max hard examples")
+    hp.add_argument("--json", dest="as_json", action="store_true")
+    hp.set_defaults(handler=handle_hard)
+
+    hep = subparsers.add_parser("hardeval", help="Evaluate on hard examples only")
+    hep.add_argument("--k", type=int, default=5, help="k for k-NN (default: 5)")
+    hep.add_argument("--dim", type=int, default=512, help="Embedding dimension")
+    hep.add_argument("--json", dest="as_json", action="store_true")
+    hep.set_defaults(handler=handle_hardeval)
+
 
 def handle_replay(args):
     from ..research.replay import replay_all, examples_dir
@@ -207,3 +220,144 @@ def handle_rank(args):
                 print(f"  → Heuristic still wins by {abs(delta):.1%}")
             else:
                 print(f"  → Tied")
+
+
+def handle_hard(args):
+    from ..research.hard_mining import (
+        mine_hard_via_embeddings,
+        save_hard_examples,
+        hard_examples_dir,
+    )
+
+    sources = args.source or ["claude", "codex", "gemini", "cowork"]
+    start = time.monotonic()
+    hard_examples, stats = mine_hard_via_embeddings(sources)
+    out_dir = save_hard_examples(hard_examples)
+    elapsed = time.monotonic() - start
+
+    if args.as_json:
+        print(json.dumps({
+            "sessions_scanned": stats.sessions_scanned,
+            "total_hard": stats.total_hard,
+            "switched": stats.switched,
+            "failed": stats.failed,
+            "needs_council": stats.needs_council,
+            "disagreement": stats.disagreement,
+            "rerouted": stats.rerouted,
+            "cross_provider_pairs": stats.cross_provider_pairs,
+            "errors": stats.errors,
+            "elapsed_seconds": round(elapsed, 2),
+            "output_dir": str(out_dir),
+        }, indent=2))
+        return
+
+    print(f"Hard mining complete in {elapsed:.1f}s")
+    print(f"  Scanned: {stats.sessions_scanned} sessions")
+    print(f"  Hard examples: {stats.total_hard}")
+    print()
+    print(f"  By type:")
+    print(f"    switched:      {stats.switched}")
+    print(f"    failed:        {stats.failed}")
+    print(f"    needs_council: {stats.needs_council}")
+    print(f"    disagreement:  {stats.disagreement}")
+    print(f"    rerouted:      {stats.rerouted} ({stats.cross_provider_pairs} cross-provider pairs)")
+    print(f"    errors:        {stats.errors}")
+    print(f"\n  Output: {out_dir}")
+
+
+def handle_hardeval(args):
+    from ..research.hard_mining import load_hard_examples
+    from ..research.hard_eval import run_hard_eval, save_hard_eval
+    from ..research.embeddings import EmbeddingRecord, save_embeddings
+    from .. import embeddings as emb
+    import hashlib
+
+    # Load hard examples
+    hard_examples_raw = load_hard_examples()
+    if not hard_examples_raw:
+        print("No hard examples found. Run 'trinity-local hard' first.")
+        return
+
+    # Convert to RoutingExamples for eval
+    hard_routing = [h.to_routing_example() for h in hard_examples_raw]
+    hard_types = {h.example_id: h.hard_type for h in hard_examples_raw}
+
+    # Embed the hard examples
+    dim = args.dim
+    backend = emb.get_backend()
+    start = time.monotonic()
+
+    records: list[EmbeddingRecord] = []
+    for ex in hard_routing:
+        t = ex.transcript
+        parts: list[str] = []
+        if t.first_user_text:
+            parts.append(t.first_user_text[:1500])
+        if t.task_kind_hint:
+            parts.append(f"[task:{t.task_kind_hint}]")
+        tool_names = [tool.name for tool in t.tools[:5]]
+        if tool_names:
+            parts.append(f"[tools:{','.join(tool_names)}]")
+        text = " ".join(parts)
+        if not text.strip():
+            continue
+
+        vector = emb.embed(text, dim=dim)
+        records.append(EmbeddingRecord(
+            example_id=ex.example_id,
+            provider=ex.chosen_provider,
+            label=ex.label,
+            task_kind=t.task_kind_hint or "general",
+            method=backend,
+            vector=vector,
+            text_hash=hashlib.sha1(text.encode()).hexdigest()[:16],
+        ))
+
+    # Run evaluation
+    reports = run_hard_eval(hard_routing, records, k=args.k, hard_types=hard_types)
+    report_path = save_hard_eval(reports)
+    elapsed = time.monotonic() - start
+
+    if args.as_json:
+        payload = {name: report.to_dict() for name, report in reports.items()}
+        payload["_elapsed_seconds"] = round(elapsed, 2)
+        payload["_report_path"] = str(report_path)
+        print(json.dumps(payload, indent=2))
+        return
+
+    print(f"Hard evaluation in {elapsed:.1f}s")
+    print(f"  Backend: {backend} (dim={dim})")
+    print(f"  Hard examples: {len(hard_routing)}")
+    print()
+
+    for name, report in reports.items():
+        print(f"  ── {name.upper()} ──")
+        print(f"    Total: {report.total_hard}")
+        if report.by_hard_type:
+            print(f"    By type: {', '.join(f'{k}={v}' for k, v in sorted(report.by_hard_type.items()))}")
+
+        print()
+        print(f"    1. Reroute recall:       {_fmt_pct(report.reroute_recall)}  ({report.reroute_detected}/{report.reroute_total})")
+        print(f"    2. needs_council prec:   {_fmt_pct(report.needs_council_precision)}")
+        print(f"       needs_council recall: {_fmt_pct(report.needs_council_recall)}")
+        print(f"    3. Switch accuracy:      {_fmt_pct(report.switch_accuracy)}  ({report.switch_correct}/{report.switch_total})")
+        print(f"    4. Top-2 provider acc:   {_fmt_pct(report.top2_provider_accuracy)}  ({report.top2_correct}/{report.top2_total})")
+        print(f"    5. NN avg similarity:    {_fmt_f(report.nn_avg_similarity)}")
+        print(f"       NN min similarity:    {_fmt_f(report.nn_min_similarity)}")
+        print(f"       NN label agreement:   {_fmt_pct(report.nn_avg_label_agreement)}")
+
+        if report.label_accuracy:
+            print(f"    Label accuracy: {', '.join(f'{k}={v:.0%}' for k, v in sorted(report.label_accuracy.items()))}")
+        if report.confusion:
+            print(f"    Confusion: {json.dumps(report.confusion)}")
+        print()
+
+    print(f"  Report: {report_path}")
+
+
+def _fmt_pct(v):
+    return f"{v:.1%}" if v is not None else "N/A"
+
+
+def _fmt_f(v):
+    return f"{v:.4f}" if v is not None else "N/A"
