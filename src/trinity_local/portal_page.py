@@ -114,6 +114,7 @@ def render_portal_html(*, title: str = "Trinity Launchpad", video_url: str | Non
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="30" />
   <title>{_esc(title)}</title>
   <style>
     :root {{

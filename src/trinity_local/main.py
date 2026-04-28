@@ -12,6 +12,7 @@ from .commands import (
     review,
     run,
     shortcuts,
+    status,
     tasks,
     watch,
     workflow,
@@ -37,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     digest.register(subparsers)
     review.register(subparsers)
     adapters.register(subparsers)
+    status.register(subparsers)
 
     return parser
 

@@ -506,6 +506,21 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
 
 
 def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: int = 30) -> None:
-    while True:
-        watch_once(sources=sources, notify=notify)
-        time.sleep(interval_seconds)
+    """Run watch_once in a loop with graceful shutdown on SIGINT/SIGTERM."""
+    import signal
+    import threading
+
+    stop_event = threading.Event()
+
+    def _handle_signal(signum, frame):
+        stop_event.set()
+
+    signal.signal(signal.SIGINT, _handle_signal)
+    signal.signal(signal.SIGTERM, _handle_signal)
+
+    while not stop_event.is_set():
+        try:
+            watch_once(sources=sources, notify=notify)
+        except Exception:
+            pass  # Don't crash the loop on a single pass failure
+        stop_event.wait(timeout=interval_seconds)
