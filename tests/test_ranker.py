@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from trinity_local.ranker import RoutingContext, RoutingDecision, build_default_ranker
+from trinity_local.ranker.heuristic import HeuristicRanker
 
 
 class TestRoutingContext:
@@ -108,6 +109,73 @@ class TestRoutingDecision:
         assert not hasattr(dec, "to_message")
         assert not hasattr(dec, "render_evidence")
         assert not hasattr(dec, "to_dict")  # No serio-friendly helpers
+
+
+class TestHeuristicRanker:
+    """HeuristicRanker: task-kind-based routing with evidence."""
+
+    def test_research_task_kind(self):
+        """Research/broad comparison → gemini council."""
+        ranker = HeuristicRanker()
+        ctx = RoutingContext(
+            task_text="Compare the top 5 machine learning frameworks",
+            task_kind="research",
+            current_provider="claude",
+            session_id="sess-001",
+        )
+        decision = ranker.advise(ctx)
+        assert decision.recommended_provider == "gemini"
+        assert decision.needs_council is True
+        assert decision.top_k == ["gemini", "codex"]
+        assert decision.confidence == 0.72
+        assert decision.backend == "heuristic"
+        assert any("research" in e.lower() for e in decision.evidence)
+
+    def test_coding_task_kind(self):
+        """Coding/execution → codex council."""
+        ranker = HeuristicRanker()
+        ctx = RoutingContext(
+            task_text="Fix the bug in the authentication module",
+            task_kind="coding",
+            current_provider="claude",
+            session_id="sess-002",
+        )
+        decision = ranker.advise(ctx)
+        assert decision.recommended_provider == "codex"
+        assert decision.needs_council is True
+        assert decision.top_k == ["codex", "claude"]
+        assert decision.confidence == 0.68
+        assert decision.backend == "heuristic"
+
+    def test_debugging_task_kind(self):
+        """Debugging/error triage → codex council."""
+        ranker = HeuristicRanker()
+        ctx = RoutingContext(
+            task_text="Why is this import failing?",
+            task_kind="debugging",
+            current_provider="claude",
+            session_id="sess-003",
+        )
+        decision = ranker.advise(ctx)
+        assert decision.recommended_provider == "codex"
+        assert decision.needs_council is True
+        assert decision.confidence == 0.68
+
+    def test_general_task_kind(self):
+        """General/writing/other → claude default."""
+        ranker = HeuristicRanker()
+        ctx = RoutingContext(
+            task_text="Help me draft an email",
+            task_kind="writing",
+            current_provider="claude",
+            session_id="sess-004",
+        )
+        decision = ranker.advise(ctx)
+        assert decision.recommended_provider == "claude"
+        assert decision.needs_council is False
+        assert decision.top_k == []
+        assert decision.confidence == 0.55
+        assert decision.backend == "heuristic"
 
 
 class TestBuildDefaultRanker:
