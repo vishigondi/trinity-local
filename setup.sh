@@ -101,7 +101,32 @@ if [ ! -f "config.json" ]; then
     cp config.example.json config.json
     ok "Created config.json"
 else
-    skip "config.json exists"
+    # Merge any providers from config.example.json that are missing in config.json.
+    # This ensures existing installs pick up fixes (e.g. Codex command update)
+    # without overwriting the user's own customisations.
+    MERGED=$(.venv/bin/python -c "
+import json, sys
+with open('config.json') as f:
+    user = json.load(f)
+with open('config.example.json') as f:
+    example = json.load(f)
+added = []
+user_providers = user.get('providers', {})
+for name, cfg in example.get('providers', {}).items():
+    if name not in user_providers:
+        user_providers[name] = cfg
+        added.append(name)
+user['providers'] = user_providers
+print(json.dumps(user, indent=2))
+sys.stderr.write(','.join(added))
+" 2>/tmp/trinity_config_added)
+    ADDED=$(cat /tmp/trinity_config_added)
+    echo "$MERGED" > config.json
+    if [ -n "$ADDED" ]; then
+        ok "config.json updated — added providers: $ADDED"
+    else
+        skip "config.json up to date"
+    fi
 fi
 
 # ── 4. Dispatch wrapper ───────────────────────────────────
@@ -157,8 +182,9 @@ for path in paths:
     print(f'  \033[0;32m✓\033[0m Trinity app added to {path.parent}')
 "
 
-# Refresh Dock so custom icon appears immediately
+# Restart Dock and Finder to flush icon caches so the custom icon appears
 killall Dock 2>/dev/null || true
+killall Finder 2>/dev/null || true
 
 # ── 7. Shell profile ───────────────────────────────────────
 step "Shell configuration"

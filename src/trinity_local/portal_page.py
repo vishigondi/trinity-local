@@ -166,6 +166,8 @@ def _register_app(app_path: Path) -> None:
     )
     if lsregister.exists():
         subprocess.run([str(lsregister), "-f", str(app_path)], capture_output=True)
+    # Touch the bundle to signal Finder that the icon changed
+    subprocess.run(["touch", str(app_path)], capture_output=True)
 
 
 def write_launchpad_app(destination_dir: Path, launchpad_path: Path) -> Path:
