@@ -33,7 +33,7 @@ EXAMPLE_PROMPTS = [
 PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
 CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 TRINITY_APP_NAME = "Trinity.app"
-LAUNCHPAD_ICON_RELATIVE_PATH = Path("assets") / "binary_code.jpg"
+LAUNCHPAD_ICON_RELATIVE_PATH = Path("assets") / "binary_code.png"
 LEGACY_LAUNCHPAD_LINK_NAMES = (
     "Trinity Launchpad.webloc",
     "Trinity.webloc",
