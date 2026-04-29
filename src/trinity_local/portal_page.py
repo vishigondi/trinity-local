@@ -12,6 +12,7 @@ from .council_status import council_status_dir
 from .council_runtime import council_outcomes_dir, load_prompt_bundle
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
+from .global_benchmarks import get_global_benchmarks, format_benchmark_display
 from .scoreboard import state_dir
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .signal_page import write_signal_page
@@ -296,6 +297,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     chart_data = _elo_chart_data(elo_snapshot)
     radar_data = _radar_chart_data(elo_snapshot)
     settings_links = _settings_links()
+    global_benchmarks = get_global_benchmarks()
 
     page_data = {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
@@ -308,6 +310,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         "settingsLinks": settings_links,
         "eloChart": chart_data,
         "radarChart": radar_data,
+        "globalBenchmarks": global_benchmarks,
         "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
     }
 
@@ -342,20 +345,16 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     }}
 
     .hero-shell {{
-      display: grid;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
       gap: 24px;
     }}
 
     .launch-grid {{
       display: grid;
       gap: 24px;
-      grid-template-columns: 1.35fr 0.9fr;
-    }}
-
-    @media (max-width: 900px) {{
-      .launch-grid {{
-        grid-template-columns: 1fr;
-      }}
+      grid-template-columns: 1fr;
     }}
 
     textarea {{
@@ -505,27 +504,160 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         opacity: 1;
       }}
     }}
+
+    .rating-toggle {{
+      display: flex;
+      gap: 12px;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      background: var(--surface-muted);
+    }}
+
+    .toggle-btn {{
+      padding: 6px 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-weight: 400;
+      transition: color 0.2s ease;
+    }}
+
+    .toggle-btn:disabled {{
+      opacity: 0.5;
+      cursor: not-allowed;
+    }}
+
+    .toggle-btn.active {{
+      color: var(--action);
+      font-weight: 600;
+    }}
+
+    .sharing-toggle {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 16px 0;
+    }}
+
+    .toggle-switch {{
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      cursor: pointer;
+    }}
+
+    .toggle-switch input {{
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }}
+
+    .toggle-slider {{
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }}
+
+    .toggle-slider:before {{
+      position: absolute;
+      content: '';
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }}
+
+    input:checked + .toggle-slider {{
+      background: var(--action);
+    }}
+
+    input:checked + .toggle-slider:before {{
+      transform: translateX(20px);
+    }}
+
+    .benchmark-table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }}
+
+    .benchmark-table thead {{
+      background: var(--surface-muted);
+      border-bottom: 1px solid var(--border);
+    }}
+
+    .benchmark-table th {{
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+    }}
+
+    .benchmark-table td {{
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }}
+
+    .benchmark-table tbody tr:hover {{
+      background: var(--surface-muted);
+    }}
+
+    .benchmark-category {{
+      font-weight: 500;
+      color: var(--text-primary);
+    }}
+
+    .benchmark-score {{
+      text-align: right;
+      color: var(--action);
+      font-weight: 500;
+    }}
+
+    .benchmark-unit {{
+      font-size: 12px;
+      color: var(--text-muted);
+      display: block;
+      font-weight: 400;
+    }}
   </style>
 
   <main>
     <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)">
-      <section class="card hero-shell" style="display: flex; justify-content: space-between; align-items: start;">
+      <section class="card hero-shell">
         <div>
           <div class="eyebrow">Trinity Launchpad</div>
           <h1>Run Your First Council</h1>
           <p class="lede">Ask the same question. See all the answers. Let Trinity compare real models on your real work.</p>
         </div>
-        <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7;" title="Settings">
+        <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.98 2.98l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m2.98-2.98l4.24-4.24M19.78 19.78l-4.24-4.24m-2.98-2.98l-4.24-4.24"></path>
+            <path d="M12 1v2m0 14v2M4.22 4.22l1.41 1.41m10.14 10.14l1.41 1.41M1 12h2m14 0h2M4.22 19.78l1.41-1.41m10.14-10.14l1.41-1.41"></path>
           </svg>
         </button>
       </section>
 
       <section class="settings-modal" v-if="settingsOpen" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
-        <div class="card" style="max-width: 400px; margin: 20px;">
-          <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 20px;">×</button>
+        <div class="card" style="max-width: 400px; margin: 20px; position: relative;">
+          <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 24px; opacity: 0.6; transition: opacity 0.2s;">×</button>
           <div class="eyebrow">Sharing</div>
           <h2>Anonymous benchmark settings</h2>
           <p class="meta">Telemetry is opt-in. Trinity can share anonymous Launchpad views and Elo summaries, but not raw prompts, outputs, code, or file paths.</p>
@@ -545,10 +677,16 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             </div>
           </div>
 
+          <div class="sharing-toggle">
+            <span class="meta">Sharing enabled</span>
+            <label class="toggle-switch">
+              <input type="checkbox" :checked="telemetryEnabled" @change="toggleSharing">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
           <div class="actions">
-            <a class="button primary" :href="settingsLinks.enable" @click="settingsOpen = false">Enable sharing</a>
-            <a class="button secondary" :href="settingsLinks.disable" @click="settingsOpen = false">Disable sharing</a>
-            <a class="button ghost" :href="settingsLinks.reset" @click="settingsOpen = false">Reset anonymous ID</a>
+            <button type="button" class="button ghost" @click="triggerSettingsAction(settingsLinks.reset)">Reset anonymous ID</button>
           </div>
         </div>
       </section>
@@ -583,11 +721,43 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       </section>
 
       <section class="card">
-        <div class="eyebrow">Your ratings</div>
-        <h2>Current provider scores</h2>
-        <p class="meta">These local scores are derived from completed councils. Public Elo comes later, once telemetry aggregation is live.</p>
-        <div class="chart-shell">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <div class="eyebrow">Ratings</div>
+            <h2>Current provider scores</h2>
+          </div>
+          <div class="rating-toggle">
+            <button @click="showGlobalRatings = false" :class="['toggle-btn', {{ active: !showGlobalRatings }}]">My ratings</button>
+            <button @click="showGlobalRatings = true" :class="['toggle-btn', {{ active: showGlobalRatings }}]" :disabled="!telemetryEnabled">Global ratings</button>
+          </div>
+        </div>
+        <p class="meta">{{{{ !showGlobalRatings ? 'Local scores from your completed councils.' : 'Global benchmarks from the Trinity community.' }}}}</p>
+
+        <div v-if="!showGlobalRatings" class="chart-shell">
           <canvas id="provider-elo-chart"></canvas>
+        </div>
+
+        <div v-if="showGlobalRatings">
+          <table class="benchmark-table">
+            <thead>
+              <tr>
+                <th>Benchmark</th>
+                <th v-for="provider in benchmarkProviders" style="text-align: right;">{{{{ provider.toUpperCase() }}}}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(data, category) in globalBenchmarks">
+                <td>
+                  <div class="benchmark-category">{{{{ category.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
+                  <span class="benchmark-unit">{{{{ data.benchmark }}}}</span>
+                </td>
+                <td v-for="provider in benchmarkProviders" style="text-align: right;">
+                  <span class="benchmark-score">{{{{ formatScore(data.models[provider], data.unit) }}}}</span>
+                  <span class="benchmark-unit">{{{{ data.unit }}}}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -770,6 +940,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         statusRotateHandle: null,
         currentStatusIndex: 0,
         settingsOpen: false,
+        showGlobalRatings: false,
         statusMessages: [
           'Running member responses...',
           'Peer review in progress...',
@@ -781,11 +952,25 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         telemetryEnabled: !!pageData.telemetry?.settings?.sharing_enabled,
         telemetryEndpoint: pageData.telemetry?.settings?.endpoint || '',
         shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
+        globalBenchmarks: pageData.globalBenchmarks || {{}},
+        benchmarkProviders: ['claude', 'gpt', 'gemini', 'mistral'],
         get currentStatusMessage() {{
           return this.statusMessages[this.currentStatusIndex % this.statusMessages.length];
         }},
         get hasRadarChart() {{
           return !!pageData.radarChart && pageData.radarChart.labels && pageData.radarChart.labels.length > 0;
+        }},
+        formatScore(score, unit) {{
+          if (score === null || score === undefined) {{
+            return '—';
+          }}
+          if (unit.includes('score')) {{
+            return score.toFixed(1);
+          }}
+          if (unit.includes('%')) {{
+            return score.toFixed(1);
+          }}
+          return score.toFixed(1);
         }},
         triggerShortcut(url) {{
           const link = document.createElement('a');
@@ -794,6 +979,16 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           document.body.appendChild(link);
           link.click();
           link.remove();
+        }},
+        triggerSettingsAction(url) {{
+          this.triggerShortcut(url);
+          this.settingsOpen = false;
+        }},
+        toggleSharing(event) {{
+          const isNowEnabled = event.target.checked;
+          const url = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
+          this.telemetryEnabled = isNowEnabled;
+          this.triggerShortcut(url);
         }},
         startCouncilPolling(token) {{
           if (this.statusPollHandle) {{
