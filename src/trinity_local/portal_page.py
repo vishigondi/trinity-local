@@ -104,26 +104,68 @@ def _find_launchpad_icon_source() -> Path | None:
 def _apply_launchpad_icon(app_path: Path, image_path: Path | None) -> None:
     if image_path is None or not image_path.exists():
         return
-    try:
-        from PIL import Image
-    except ImportError:
-        return
 
     resources_dir = app_path / "Contents" / "Resources"
     resources_dir.mkdir(parents=True, exist_ok=True)
     target_icon = resources_dir / "applet.icns"
-    with Image.open(image_path) as image:
-        image = image.convert("RGBA")
-        width, height = image.size
-        side = min(width, height)
-        left = (width - side) // 2
-        top = (height - side) // 2
-        square = image.crop((left, top, left + side, top + side))
-        square.save(
-            target_icon,
-            format="ICNS",
-            sizes=[(size, size) for size in (16, 32, 64, 128, 256, 512, 1024)],
+
+    # Remove Assets.car so our applet.icns takes precedence (osacompile bakes
+    # the default AppleScript icon into Assets.car which overrides loose icns files)
+    assets_car = resources_dir / "Assets.car"
+    if assets_car.exists():
+        assets_car.unlink()
+
+    # Build a proper .icns using macOS-native sips + iconutil (no PIL needed)
+    # sips requires --setProperty format png to truly convert JPEG→PNG;
+    # without it the output keeps the source format and iconutil rejects it.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        iconset = Path(tmpdir) / "icon.iconset"
+        iconset.mkdir()
+        entries = [
+            ("icon_16x16.png", 16),
+            ("icon_16x16@2x.png", 32),
+            ("icon_32x32.png", 32),
+            ("icon_32x32@2x.png", 64),
+            ("icon_128x128.png", 128),
+            ("icon_128x128@2x.png", 256),
+            ("icon_256x256.png", 256),
+            ("icon_256x256@2x.png", 512),
+            ("icon_512x512.png", 512),
+            ("icon_512x512@2x.png", 1024),
+        ]
+        for filename, size in entries:
+            subprocess.run(
+                [
+                    "sips", "-z", str(size), str(size),
+                    "--setProperty", "format", "png",
+                    str(image_path), "--out", str(iconset / filename),
+                ],
+                capture_output=True,
+            )
+        result = subprocess.run(
+            ["iconutil", "-c", "icns", str(iconset), "-o", str(target_icon)],
+            capture_output=True,
         )
+        if result.returncode != 0:
+            # Fallback: PIL if available
+            try:
+                from PIL import Image
+                with Image.open(image_path) as img:
+                    img = img.convert("RGBA")
+                    s = min(img.width, img.height)
+                    img = img.crop(((img.width - s) // 2, (img.height - s) // 2, (img.width + s) // 2, (img.height + s) // 2))
+                    img.save(target_icon, format="ICNS", sizes=[(sz, sz) for sz in (16, 32, 128, 256, 512)])
+            except Exception:
+                pass
+
+
+def _register_app(app_path: Path) -> None:
+    lsregister = Path(
+        "/System/Library/Frameworks/CoreServices.framework"
+        "/Frameworks/LaunchServices.framework/Support/lsregister"
+    )
+    if lsregister.exists():
+        subprocess.run([str(lsregister), "-f", str(app_path)], capture_output=True)
 
 
 def write_launchpad_app(destination_dir: Path, launchpad_path: Path) -> Path:
@@ -132,6 +174,7 @@ def write_launchpad_app(destination_dir: Path, launchpad_path: Path) -> Path:
     target = destination_dir / TRINITY_APP_NAME
     _compile_launchpad_app(target, _launchpad_applescript(launchpad_path))
     _apply_launchpad_icon(target, _find_launchpad_icon_source())
+    _register_app(target)
     return target
 
 
