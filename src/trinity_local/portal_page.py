@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -53,10 +54,17 @@ def _project_root() -> Path:
 
 def _default_launchpad_link_dirs() -> list[Path]:
     home = Path.home()
-    return [
-        home / "Desktop",
-        home / "Applications",
-    ]
+    destinations = []
+
+    # Try /Applications first (system-wide, visible to all users)
+    system_apps = Path("/Applications")
+    if system_apps.exists() and os.access(system_apps, os.W_OK):
+        destinations.append(system_apps)
+
+    # Always add Desktop (always writable and visible)
+    destinations.append(home / "Desktop")
+
+    return destinations
 
 
 def _remove_launchpad_artifact(path: Path) -> None:
