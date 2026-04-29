@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import AppConfig
+from .council_progress import (
+    cleanup_progress,
+    finalize_council_progress,
+    init_council_progress,
+    update_member_progress,
+    update_synthesis_progress,
+)
 from .council_review import write_unified_council_page
 from .council_runtime import (
     aggregate_peer_rankings,
@@ -58,6 +65,10 @@ def run_council(
     member_failures: list[dict[str, object]] = []
     reviewer_failures: list[dict[str, object]] = []
 
+    # Initialize progress tracking
+    council_id = bundle.bundle_id
+    init_council_progress(council_id, member_providers)
+
     for provider_name in member_providers:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
@@ -109,6 +120,8 @@ def run_council(
             },
         )
         member_results.append(member)
+        # Update progress tracking
+        update_member_progress(council_id, provider_name, result.stdout or result.stderr or "")
         event = create_launch_event(
             bundle=bundle,
             mode="council",
@@ -226,6 +239,7 @@ def run_council(
     primary_prompt = outcome.synthesis_prompt or primary_prompt or ""
 
     # --- Primary synthesis with failure handling ---
+    update_synthesis_progress(council_id, "running")
     synthesis_output = ""
     synthesis_error = None
     sections: dict[str, str] = {}
@@ -244,6 +258,8 @@ def run_council(
             "error": str(exc),
         }
         synthesis_output = ""
+    finally:
+        update_synthesis_progress(council_id, "done")
 
     differences = []
     if "differences" in sections:
@@ -300,6 +316,11 @@ def run_council(
     )
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(bundle, final_outcome)
+
+    # Mark progress as complete and clean up
+    finalize_council_progress(council_id)
+    cleanup_progress(council_id)
+
     primary_event = create_launch_event(
         bundle=bundle,
         mode="council",
