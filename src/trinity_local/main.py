@@ -6,6 +6,7 @@ from .commands import (
     actions,
     adapters,
     council,
+    daemon,
     digest,
     ingest,
     portal,
@@ -15,6 +16,7 @@ from .commands import (
     shortcuts,
     status,
     tasks,
+    telemetry,
     watch,
     workflow,
 )
@@ -40,6 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
     review.register(subparsers)
     adapters.register(subparsers)
     status.register(subparsers)
+    telemetry.register(subparsers)
+    daemon.register(subparsers)
     research.register(subparsers)
 
     return parser

@@ -512,7 +512,11 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
 
 
 def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: int = 30) -> None:
-    """Run watch_once in a loop with graceful shutdown on SIGINT/SIGTERM."""
+    """Run watch_once in a loop with graceful shutdown on SIGINT/SIGTERM.
+
+    Continuously scans transcript directories at interval_seconds. Safe to run in
+    a foreground terminal — press Ctrl+C to stop.
+    """
     import signal
     import threading
 
@@ -561,3 +565,48 @@ def _log_watch_error(exc: Exception, *, notify: bool = False) -> None:
             )
         except Exception:
             pass
+
+
+def get_transcript_dirs() -> list[Path]:
+    """Get all transcript directories from known providers."""
+    dirs: list[Path] = []
+    home = Path.home()
+    candidates = [
+        home / ".claude" / "projects",
+        home / ".codex" / "sessions",
+        home / ".gemini" / "tmp",
+        home / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            dirs.append(candidate)
+    return dirs
+
+
+def get_transcript_mtimes(dirs: list[Path]) -> dict[str, float]:
+    """Get modification times of all transcript files."""
+    mtimes: dict[str, float] = {}
+    for d in dirs:
+        try:
+            for transcript in d.rglob("*"):
+                if transcript.is_file():
+                    mtimes[str(transcript)] = transcript.stat().st_mtime
+        except Exception:
+            pass
+    return mtimes
+
+
+def has_transcripts_changed(prev_mtimes: dict[str, float]) -> bool:
+    """Check if any transcript files have been added or modified."""
+    current_mtimes = get_transcript_mtimes(get_transcript_dirs())
+
+    # Check for new files or modified files
+    for path, mtime in current_mtimes.items():
+        if path not in prev_mtimes or mtime != prev_mtimes[path]:
+            return True
+
+    # Check for deleted files
+    if len(current_mtimes) < len(prev_mtimes):
+        return True
+
+    return False

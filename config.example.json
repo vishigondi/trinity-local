@@ -79,9 +79,7 @@
       ],
       "args": [
         "--sandbox",
-        "workspace-write",
-        "--ask-for-approval",
-        "never"
+        "workspace-write"
       ],
       "roles": [
         "worker",

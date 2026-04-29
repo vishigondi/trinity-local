@@ -2,10 +2,13 @@
 
 ## The One-Liner
 
-Trinity is a **constitution compiler**: it watches your cross-provider coding
-behavior, extracts your taste through pairwise judgment, and learns a portable
-taste function that can score any (prompt, response) pair against your values.
-The router is the trivial part. The moat is the constitution.
+Trinity is a **council-first intelligence layer**: it compares real tasks
+across multiple providers, learns your taste from the choices you make, and
+turns that cross-provider memory into routing, workflow, and social artifacts
+that no single provider can generate.
+
+The council is the engine. The constitution is the moat. The social payload is
+the personal radar chart.
 
 ---
 
@@ -58,10 +61,10 @@ prompt through multiple providers, has each peer-review the others' answers
 anonymously, and synthesizes a verdict — all without the user manually
 copy-pasting between terminals.
 
-But the real product: each Council run produces `(prompt, response_A, response_B,
-peer_review, your_judgment)`. That's RLHF data harvested from your own work.
-Trinity uses this pairwise judgment to extract a scalar taste function that
-learned to score any response against your constitution.
+But the real product: each Council run produces `(prompt, response_A,
+response_B, peer_review, your_judgment)`. That's RLHF data harvested from your
+own work. Trinity uses this pairwise judgment to extract a scalar taste
+function that learns to score any response against your constitution.
 
 The provider comparison is the cover story. The taste extraction is the moat.
 
@@ -190,6 +193,12 @@ The blog post writes itself:
 > review each other anonymously. The rankings surprised me. Here's the data —
 > run it on your own prompts."
 
+The social version of the same launch is even stronger:
+
+> "I ran my real prompts through multiple AI tools. Trinity learned which
+> models actually win on my work. Here are my radar chart, my battle cards,
+> and my taste profile. Run it on your own prompts."
+
 That **is** the product. Ship Council first. The watcher and digest are the
 scaffolding.
 
@@ -204,6 +213,9 @@ scaffolding.
 3. **Council is the proof.** k-NN advisory shows 38.7% reroute recall from
    behavioral signal (heuristic: 0%). That gap is everything. Lead with it.
 
+4. **Council creates social objects.** Radar charts, battle cards, weekly
+   reports, and taste profiles are far more viral than workflow automation.
+
 **Phase A — Constitution Extraction (Launch)**
 
 1. User installs: `pip install -e .`
@@ -212,6 +224,10 @@ scaffolding.
 4. Trinity queries each provider, runs peer review, synthesizes a verdict
 5. User opens the review page, sees (prompt, 4 responses, peer feedback, ranking)
 6. User indicates which answer they prefer — this feeds the constitution learner
+7. Trinity turns that choice into:
+   - a council result artifact
+   - a winner history
+   - a future radar/taste-profile signal
 
 **Every Council run produces RLHF data.**
 
@@ -267,6 +283,46 @@ already have it.
 - Constitution maturity: `switch_after_acted_rate` (how often the ranker's
   suggestion is followed by a later switch)
 - User retention at 30 days (still running the watcher)
+
+**Social Metrics (Future)**
+
+- Radar generation rate
+- Battle card generation rate
+- Repeat council rate
+- Taste profile stability
+- Export/share intent proxy for council and profile artifacts
+
+### Telemetry Model
+
+Public benchmarking should use an **opt-in summary-sharing model**, not raw
+transcript upload:
+
+- consent during install
+- editable later from Launchpad settings
+- `launchpad_view` event on Launchpad open
+- `elo_snapshot` upload only when Elo changed or gone stale
+- no raw prompts, outputs, file paths, or repo contents by default
+
+See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload
+cadence.
+
+## Product Priorities
+
+Ranked by usefulness and takeoff potential:
+
+1. **One-click Council**
+2. **Watcher-triggered Council**
+3. **Post-council preference learning**
+4. **Personal model radar chart**
+5. **Council battle cards**
+6. **AI taste profile**
+7. **Best-provider recommendation before the user switches**
+8. **Weekly model report**
+9. **Council-to-worker handoff**
+10. **Workflow suggestion**
+
+Council is the first win. Radar is the breakout object. Watcher is how the
+system compounds.
 
 ---
 

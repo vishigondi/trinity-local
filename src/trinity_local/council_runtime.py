@@ -184,12 +184,18 @@ def render_primary_council_prompt(
     if review_sections:
         sections.append("Peer reviews:\n" + "\n\n".join(review_sections))
     sections.append(
-        "Return a synthesis with these sections exactly:\n"
-        "1. Agreement\n"
-        "2. Differences\n"
-        "3. Best Answer\n"
-        "4. Winner\n"
-        "5. Follow-up Needed"
+        "Your job is NOT to pick a winner. Your job is to help the user decide.\n\n"
+        "Return a decision-focused comparison with these sections:\n\n"
+        "## What Each Response Does Best\n"
+        "For each response, list its core strength with specific evidence.\n\n"
+        "## Key Tradeoffs\n"
+        "What criteria would make someone choose Response A vs B vs C?\n\n"
+        "## What Reviewers Found\n"
+        "What did peer reviewers agree on? Disagree on? What were the strongest criticisms?\n\n"
+        "## Decision Framework\n"
+        "If you prioritize X → choose this response.\n"
+        "If you prioritize Y → choose this response.\n"
+        "(Be specific about what matters for this particular task.)"
     )
     return "\n\n".join(sections)
 

@@ -380,3 +380,19 @@ Examples:
 - quick answer vs agent mode
 - research pass vs implementation pass
 - single-provider route vs council escalation
+
+## Why This Data Compounds
+
+The highest-value loop is not workflow automation first. It is:
+
+1. run a council on a real task
+2. let the user pick the best answer
+3. store that preference as routing and taste signal
+4. use repeated council history to generate:
+   - personal model radar chart
+   - council battle cards
+   - AI taste profile
+   - weekly model report
+
+The council is the engine. The watcher makes it proactive later. The social
+artifacts are how the product can spread.

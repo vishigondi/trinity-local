@@ -1,0 +1,94 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Trinity Launchpad
+      - heading "Run Your First Council" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Ask the same question. See all the answers. Let Trinity compare real models on your real work.
+    - generic [ref=e8]:
+      - article [ref=e9]:
+        - generic [ref=e10]: Council
+        - heading "Compare a task across models" [level=2] [ref=e11]
+        - paragraph [ref=e12]: This is the fastest first win. Trinity packages the task, runs the council, and opens the review page when it finishes.
+        - text: Task
+        - textbox "Task" [ref=e13]:
+          - /placeholder: Write a launch announcement for Trinity Local
+          - text: Write a launch announcement for Trinity Local
+        - generic [ref=e14]: Quick start examples
+        - generic [ref=e15]:
+          - button "Write a launch announcement for Trinity Local" [active] [ref=e16] [cursor=pointer]
+          - 'button "Research this company: [company name]" [ref=e17] [cursor=pointer]'
+          - button "Draft a product specification" [ref=e18] [cursor=pointer]
+          - button "Plan an onboarding email sequence" [ref=e19] [cursor=pointer]
+          - 'button "Debug this error: [error message]" [ref=e20] [cursor=pointer]'
+          - button "Explain this concept" [ref=e21] [cursor=pointer]
+          - button "Write a technical blog post outline" [ref=e22] [cursor=pointer]
+          - button "Create a project proposal" [ref=e23] [cursor=pointer]
+        - generic [ref=e24]:
+          - button "Launch Council" [ref=e25] [cursor=pointer]
+          - button "Clear" [ref=e26] [cursor=pointer]
+      - article [ref=e27]:
+        - generic [ref=e28]: Sharing
+        - heading "Anonymous benchmark settings" [level=2] [ref=e29]
+        - paragraph [ref=e30]: Telemetry is opt-in. Trinity can share anonymous Launchpad views and Elo summaries, but not raw prompts, outputs, code, or file paths.
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: Sharing enabled
+            - generic [ref=e34]: "On"
+          - generic [ref=e35]:
+            - generic [ref=e36]: Endpoint
+            - generic [ref=e37]: https://example.invalid/telemetry
+          - generic [ref=e38]:
+            - generic [ref=e39]: Anonymous ID
+            - code [ref=e40]: share_402079edfea49943
+        - generic [ref=e41]:
+          - link "Enable sharing" [ref=e42] [cursor=pointer]:
+            - /url: shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-enable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_enable%22%7D%7D
+          - link "Disable sharing" [ref=e43] [cursor=pointer]:
+            - /url: shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-disable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_disable%22%7D%7D
+          - link "Reset anonymous ID" [ref=e44] [cursor=pointer]:
+            - /url: shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-reset-id%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_reset%22%7D%7D
+    - generic [ref=e45]:
+      - generic [ref=e46]: Your ratings
+      - heading "Current provider scores" [level=2] [ref=e47]
+      - paragraph [ref=e48]: These local scores are derived from completed councils. Public Elo comes later, once telemetry aggregation is live.
+    - generic [ref=e51]:
+      - generic [ref=e52]: Recent councils
+      - heading "Rate and compare previous runs" [level=2] [ref=e53]
+      - paragraph [ref=e54]: Open the signal page to compare answers and record which model you preferred.
+      - generic [ref=e55]:
+        - article [ref=e56]:
+          - generic [ref=e57]: Council
+          - heading "why is the sky blue" [level=3] [ref=e58]
+          - paragraph [ref=e59]: No Winner Yet · 2026-04-29T01:25:53+00:00
+          - generic [ref=e60]:
+            - link "Rate & Compare" [ref=e61] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/signal_pages/council_1d8b857bae55874a.html
+            - link "Open Review" [ref=e62] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/review_pages/council_1d8b857bae55874a.html
+        - article [ref=e63]:
+          - generic [ref=e64]: Council
+          - heading "why did openai assume memory is a moat when it was a copy paste away?" [level=3] [ref=e65]
+          - paragraph [ref=e66]: No Winner Yet · 2026-04-29T01:13:14+00:00
+          - generic [ref=e67]:
+            - link "Rate & Compare" [ref=e68] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/signal_pages/council_b8293b8137cc77f6.html
+            - link "Open Review" [ref=e69] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/review_pages/council_b8293b8137cc77f6.html
+        - article [ref=e70]:
+          - generic [ref=e71]: Council
+          - heading "what will disaggregated prefill do to semi stocks. whare will the margins move" [level=3] [ref=e72]
+          - paragraph [ref=e73]: No Winner Yet · 2026-04-29T01:02:13+00:00
+          - generic [ref=e74]:
+            - link "Rate & Compare" [ref=e75] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/signal_pages/council_58ee4922fb6ce091.html
+            - link "Open Review" [ref=e76] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/review_pages/council_58ee4922fb6ce091.html
+        - article [ref=e77]:
+          - generic [ref=e78]: Council
+          - 'heading "Write a compelling launch announcement for Trinity Local that emphasizes: 1. Local-first…" [level=3] [ref=e79]'
+          - paragraph [ref=e80]: No Winner Yet · 2026-04-28T21:29:06+00:00
+          - generic [ref=e81]:
+            - link "Rate & Compare" [ref=e82] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/signal_pages/council_e6f8053caab02aee.html
+            - link "Open Review" [ref=e83] [cursor=pointer]:
+              - /url: file:///Users/openclaw/.trinity/review_pages/council_e6f8053caab02aee.html

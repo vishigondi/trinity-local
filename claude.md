@@ -3,27 +3,50 @@
 ## Project Identity
 
 Trinity Local is the **local intelligence layer for people who use multiple AI
-coding tools.** It watches Claude Code, Codex, Gemini, Cowork, and other
-agentic CLIs from the outside, learns which tool works best for which task, and
-surfaces insights no single provider can see — without running a server, owning
-the terminal, or becoming yet another UX.
+tools.** It watches Claude Code, Codex, Gemini, Cowork, and other agentic CLIs
+from the outside, learns which tool works best for which task, and surfaces
+insights no single provider can see — without running a server, owning the
+terminal, or becoming yet another UX.
 
-**Product mantra:** Do not become the agent. Watch the agents. Do not own the
-workflow. Learn from the workflow. The magic is not orchestration — it is
-cross-provider memory.
+**Product mantra:** Do not become the agent. Watch the agents. Lead with
+Council. Let the watcher earn trust later. Do not own the workflow. Learn from
+the workflow. The magic is not orchestration — it is cross-provider memory.
 
 See [product-spec.md](file:///Users/openclaw/projects/trinity-local/docs/product-spec.md)
 for the full product spec, GTM strategy, and roadmap.
 
 The current product center of gravity is:
 
+- council-first launch and review flow
 - watcher → task/action/cost/outcome/drift pipeline
 - **k-NN advisory layer** (embedding-based routing suggestions)
-- council (cross-provider comparison)
+- council (cross-provider comparison and taste extraction)
 - post-hoc review (Council-lite)
 - workflow suggestion → Shortcuts dispatch
 - weekly digest
 - **research pipeline** (hard mining, evaluation, analytics)
+
+The emerging social layer is:
+
+- personal model radar chart
+- council battle cards
+- AI taste profile
+- weekly model report
+
+The frontend stack is:
+
+- static HTML for all primary surfaces
+- `petite-vue` for interactive islands
+- `Chart.js` for radar / Elo / report visuals
+- `DESIGN.md` as the visual contract
+
+The telemetry model is:
+
+- opt-in during install
+- configurable later from Launchpad settings
+- `launchpad_view` heartbeat events
+- `elo_snapshot` summary uploads only when changed or stale
+- no raw transcript or prompt upload by default
 
 Not:
 
@@ -78,6 +101,9 @@ Registered command groups (15 modules):
 | Actions | `action_runtime.py`, `action_schema.py` | Pending actions: recommendation, start_council, review_ready, workflow_suggestion |
 | Watch | `watch_runtime.py` | Transcript scanner → cost/outcome/switching/task/action + k-NN advisory + drift check |
 | Portal | `portal_page.py` | Static HTML launchpad with `shortcuts://` dispatch links |
+| Signals | `signal_page.py` | Council rating / comparison surface for learning user preference |
+| Frontend | `docs/frontend-architecture.md`, `DESIGN.md`, `design_system.py` | Static-page UI architecture and visual system |
+| Telemetry | `docs/telemetry-spec.md` | Opt-in usage + Elo summary sharing model |
 | Shortcuts | `shortcuts_integration.py`, `dispatch_registry.py`, `shortcut_setup.py` | macOS Shortcuts bridge |
 | Notifications | `notifications.py` | Cross-platform native notifications (macOS focus) |
 | Adapters | `adapters.py` | Provider adapter detection and version tracking |
@@ -91,7 +117,7 @@ Registered command groups (15 modules):
 
 ### Real Function Call Paths
 
-**Watcher** (the main product loop):
+**Watcher** (the ongoing product loop, after council proves value):
 
 ```
 watch-once
@@ -132,6 +158,17 @@ council-start
 → task_from_council → save_task_record → save_sync_record
 → create_review_ready_action
 ```
+
+**Product order of operations:**
+
+1. User runs a council on a real task.
+2. User picks the winner or reviews the result.
+3. Trinity records the choice and outcome.
+4. Watcher later uses that growing memory to suggest councils, reroutes, and workflows.
+5. Future social artifacts summarize the learned picture:
+   - radar chart
+   - battle cards
+   - taste profile
 
 **Research pipeline:**
 
@@ -248,7 +285,7 @@ The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injectio
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
   - `[mlx]` extras for sentence-transformers + embedding support.
   - `[test]` extras for pytest.
-- **123 passed** across 12 `test_*.py` files.
+- **144 passed** in the current suite.
 
 ### Patterns
 
@@ -365,7 +402,7 @@ The analytics system (`trinity-local analytics`) tracks:
 
 ## Verified Status
 
-- `pytest tests/ -v` — **123 passed** across 12 `test_*.py` files
+- `pytest -q` — **144 passed**
 - 15 command modules registering 40 CLI subcommands
 - `watch-once --source cowork` — runs cleanly
 - `portal-html` — writes to `~/.trinity/portal_pages/`

@@ -7,6 +7,8 @@ from typing import Any
 
 DISPATCH_ACTIONS = {
     "run_command",
+    "launch_council",
+    "rate_council",
     "open_review",
     "start_council",
     "workflow_create",
@@ -55,6 +57,47 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
     args = action.args
     if action.name == "run_command":
         return str(args.get("command") or "").strip() or None
+    if action.name == "launch_council":
+        task = args.get("task")
+        if not task:
+            return None
+        goal = args.get("goal") or "Find the strongest answer."
+        cwd = args.get("cwd") or "."
+        members = args.get("members") or ["claude", "gemini", "codex"]
+        primary_provider = args.get("primary_provider") or "claude"
+        member_args = " ".join(shlex.quote(str(member)) for member in members)
+        parts = [
+            "trinity-local council-launch",
+            f"--task {shlex.quote(str(task))}",
+            f"--goal {shlex.quote(str(goal))}",
+            f"--members {member_args}",
+            f"--primary-provider {shlex.quote(str(primary_provider))}",
+            f"--cwd {shlex.quote(str(cwd))}",
+        ]
+        status_token = args.get("status_token")
+        if status_token:
+            parts.append(f"--status-token {shlex.quote(str(status_token))}")
+        if args.get("notify", True):
+            parts.append("--notify")
+        if args.get("open_browser", True):
+            parts.append("--open-browser")
+        if args.get("without_peer_review"):
+            parts.append("--without-peer-review")
+        return " ".join(parts)
+    if action.name == "rate_council":
+        council_id = args.get("council_id")
+        provider = args.get("provider")
+        answer_label = args.get("answer_label")
+        if not council_id or not provider:
+            return None
+        parts = [
+            "trinity-local council-rate",
+            f"--council {shlex.quote(str(council_id))}",
+            f"--provider {shlex.quote(str(provider))}",
+        ]
+        if answer_label:
+            parts.append(f"--answer-label {shlex.quote(str(answer_label))}")
+        return " ".join(parts)
     if action.name == "open_review":
         task_id = args.get("task_id") or action.task_id
         if task_id:

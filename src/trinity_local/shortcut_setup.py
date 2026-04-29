@@ -65,6 +65,8 @@ def _render_dispatch_wrapper(python_executable: str) -> str:
     # then resolve. If we resolve() first, symlinks chase to the Homebrew
     # framework dir which doesn't contain trinity-local.
     venv_bin = str(Path(python_executable).parent.resolve())
+    local_bin = str((Path.home() / ".local" / "bin").expanduser())
+    common_bins = [venv_bin, local_bin, "/opt/homebrew/bin", "/usr/local/bin"]
     return f"""#!{python_executable}
 from __future__ import annotations
 
@@ -76,10 +78,13 @@ import sys
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
 
 VENV_BIN = "{venv_bin}"
+EXTRA_PATHS = {common_bins!r}
 
 
 def main() -> int:
-    os.environ["PATH"] = VENV_BIN + ":" + os.environ.get("PATH", "")
+    current_path = os.environ.get("PATH", "")
+    merged = EXTRA_PATHS + ([current_path] if current_path else [])
+    os.environ["PATH"] = ":".join(part for part in merged if part)
 
     if len(sys.argv) >= 2:
         payload_text = sys.argv[1]
@@ -115,7 +120,7 @@ def main() -> int:
     # /bin/zsh -lc starts a login shell which reinitializes PATH from
     # shell profiles, losing os.environ changes.  Inject the venv bin
     # directly into the command so trinity-local is always resolvable.
-    wrapped = f'export PATH="{{VENV_BIN}}:$PATH"; {{command}}'
+    wrapped = f'export PATH="{":".join(common_bins)}:$PATH"; {{command}}'
     completed = subprocess.run(["/bin/zsh", "-lc", wrapped], check=False)
     return int(completed.returncode)
 
@@ -125,10 +130,31 @@ if __name__ == "__main__":
 """
 
 
+def _validate_python_executable(python_executable: str) -> bool:
+    """Verify that the Python executable still exists."""
+    return Path(python_executable).exists()
+
+
+def _validate_venv_bin(python_executable: str) -> bool:
+    """Verify that the venv bin directory still exists."""
+    venv_bin = Path(python_executable).parent.resolve()
+    return venv_bin.exists() and venv_bin.is_dir()
+
+
 def write_dispatch_wrapper(python_executable: str | None = None) -> Path:
-    """Write the trinity-dispatch wrapper script to ~/.trinity/bin/."""
+    """Write the trinity-dispatch wrapper script to ~/.trinity/bin/.
+
+    Validates that the Python executable and venv are still available.
+    Returns the path to the wrapper, which is created even if validation fails.
+    """
+    exec_path = python_executable or sys.executable
+    if not _validate_python_executable(exec_path):
+        raise FileNotFoundError(f"Python executable not found: {exec_path}")
+    if not _validate_venv_bin(exec_path):
+        raise FileNotFoundError(f"Virtual environment directory not found for {exec_path}")
+
     path = shortcut_bin_dir() / "trinity-dispatch"
-    script = _render_dispatch_wrapper(python_executable or sys.executable)
+    script = _render_dispatch_wrapper(exec_path)
     path.write_text(script, encoding="utf-8")
     path.chmod(0o755)
     return path
@@ -233,10 +259,20 @@ def run_installer(shortcut_name: str = DEFAULT_SHORTCUT_NAME) -> tuple[bool, str
 
     Returns (success, message).
     """
-    # Always write the setup guide and dispatch wrapper
+    # Always write the setup guide
     write_shortcut_setup(shortcut_name)
-    wrapper_path = write_dispatch_wrapper()
-    wrapper_msg = f"\n\n✅ Dispatch wrapper written to:\n   {wrapper_path}" if wrapper_path.exists() else ""
+
+    # Write dispatch wrapper with validation
+    wrapper_msg = ""
+    try:
+        wrapper_path = write_dispatch_wrapper()
+        wrapper_msg = f"\n\n✅ Dispatch wrapper written to:\n   {wrapper_path}" if wrapper_path.exists() else ""
+    except FileNotFoundError as exc:
+        return False, (
+            f"❌ Cannot create dispatch wrapper: {exc}\n\n"
+            f"The virtual environment may have been moved or deleted.\n"
+            f"Please run 'pip install -e .' again in your trinity-local directory."
+        )
 
     # 1. Already installed?
     if _shortcut_installed(shortcut_name):
@@ -287,4 +323,3 @@ def run_installer(shortcut_name: str = DEFAULT_SHORTCUT_NAME) -> tuple[bool, str
         return False, "Installer timed out."
     except OSError as exc:
         return False, str(exc)
-

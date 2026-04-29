@@ -460,8 +460,8 @@ th {
 }
 """
 
-def render_html_head(title: str = "Trinity") -> str:
-    """Render <head> with shared CSS."""
+def render_html_head(title: str = "Trinity", *, extra_head: str = "") -> str:
+    """Render <head> with shared CSS and optional extra markup."""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -471,6 +471,7 @@ def render_html_head(title: str = "Trinity") -> str:
   <style>
 {SHARED_CSS}
   </style>
+{extra_head}
 </head>
 <body>
 """

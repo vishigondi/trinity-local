@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import AppConfig
-from .council_review import write_review_html
+from .council_review import write_unified_council_page
 from .council_runtime import (
     aggregate_peer_rankings,
     append_launch_event,
@@ -55,11 +55,20 @@ def run_council(
 
     failed_members: list[str] = []
     failed_reviewers: list[str] = []
+    member_failures: list[dict[str, object]] = []
+    reviewer_failures: list[dict[str, object]] = []
 
     for provider_name in member_providers:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
             failed_members.append(provider_name)
+            member_failures.append(
+                {
+                    "provider": provider_name,
+                    "stage": "member",
+                    "reason": "provider_missing_or_disabled",
+                }
+            )
             continue
         prompt = render_member_prompt(bundle)
         provider = make_provider(provider_config)
@@ -67,9 +76,26 @@ def run_council(
             result = provider.run(prompt, cwd)
         except Exception as exc:
             failed_members.append(provider_name)
+            member_failures.append(
+                {
+                    "provider": provider_name,
+                    "stage": "member",
+                    "reason": "exception",
+                    "error": str(exc),
+                }
+            )
             continue
         if result.returncode != 0 and not (result.stdout or "").strip():
             failed_members.append(provider_name)
+            member_failures.append(
+                {
+                    "provider": provider_name,
+                    "stage": "member",
+                    "reason": "nonzero_returncode_without_stdout",
+                    "returncode": result.returncode,
+                    "stderr": result.stderr,
+                }
+            )
             continue
         member = CouncilMemberResult(
             provider=provider_name,
@@ -124,12 +150,27 @@ def run_council(
             reviewer_config = config.providers.get(reviewer_provider_name)
             if reviewer_config is None or not reviewer_config.enabled:
                 failed_reviewers.append(reviewer_provider_name)
+                reviewer_failures.append(
+                    {
+                        "provider": reviewer_provider_name,
+                        "stage": "peer_review",
+                        "reason": "provider_missing_or_disabled",
+                    }
+                )
                 continue
             reviewer = make_provider(reviewer_config)
             try:
                 review_result = reviewer.run(review_prompt, cwd)
-            except Exception:
+            except Exception as exc:
                 failed_reviewers.append(reviewer_provider_name)
+                reviewer_failures.append(
+                    {
+                        "provider": reviewer_provider_name,
+                        "stage": "peer_review",
+                        "reason": "exception",
+                        "error": str(exc),
+                    }
+                )
                 continue
             sections = parse_peer_review_sections(review_result.stdout or review_result.stderr)
             ranked_labels = parse_ranking_labels(sections.get("ranking", ""))
@@ -188,6 +229,7 @@ def run_council(
     synthesis_output = ""
     synthesis_error = None
     sections: dict[str, str] = {}
+    synthesis_failure: dict[str, object] | None = None
     primary = make_provider(primary_config)
     try:
         primary_result = primary.run(primary_prompt, cwd)
@@ -195,6 +237,12 @@ def run_council(
         sections = parse_synthesis_sections(synthesis_output)
     except Exception as exc:
         synthesis_error = str(exc)
+        synthesis_failure = {
+            "provider": primary_provider,
+            "stage": "primary_synthesis",
+            "reason": "exception",
+            "error": str(exc),
+        }
         synthesis_output = ""
 
     differences = []
@@ -224,9 +272,12 @@ def run_council(
         "peer_review_count": len(peer_reviews),
         "failed_members": failed_members,
         "failed_reviewers": failed_reviewers,
+        "member_failures": member_failures,
+        "reviewer_failures": reviewer_failures,
     }
     if synthesis_error:
         final_metadata["synthesis_error"] = synthesis_error
+        final_metadata["synthesis_failure"] = synthesis_failure
     else:
         final_metadata["primary_returncode"] = primary_result.returncode
         final_metadata["primary_stderr"] = primary_result.stderr
@@ -248,7 +299,7 @@ def run_council(
         metadata=final_metadata,
     )
     outcome_path = save_council_outcome(final_outcome)
-    review_path = write_review_html(bundle, final_outcome)
+    review_path = write_unified_council_page(bundle, final_outcome)
     primary_event = create_launch_event(
         bundle=bundle,
         mode="council",
@@ -278,4 +329,3 @@ def run_council(
         task_path=task_path,
         sync_path=sync_path,
     )
-

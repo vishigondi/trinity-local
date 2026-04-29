@@ -7,9 +7,29 @@ Trinity is a local intelligence layer, not a SaaS dashboard. The UI should feel 
 The primary surfaces are static HTML pages opened locally in the browser:
 - Launchpad
 - Council review pages
+- Signal / rating pages
 - Weekly digest pages
+- Future social pages:
+  - radar chart
+  - battle cards
+  - taste profile
 
 These surfaces should share one visual language so the product feels cohesive even though the pages are generated independently.
+
+## Frontend Stack Contract
+
+Trinity’s frontend stack is:
+
+- **static HTML** for structure and artifact durability
+- **`petite-vue`** for interactive islands
+- **`Chart.js`** for radar, Elo, and report visuals
+
+Design choices should assume:
+
+- pages open from disk
+- pages may be bookmarked and reopened later
+- interaction is page-local, not SPA-global
+- visuals may need to be screenshotable and shareable
 
 ## Visual Theme
 
@@ -195,11 +215,44 @@ These surfaces should share one visual language so the product feels cohesive ev
 - Raw model outputs should be expandable or visually subordinate.
 - The primary decision should be obvious without scrolling far.
 
+## Signal / Rating Guidance
+
+- Keep the page focused on one decision:
+  - compare
+  - choose
+  - confirm
+- This page should feel more like a guided passage than a dashboard.
+- Answer cards should be equally weighted until selection.
+- Confirmation state should feel rewarding but not gamified.
+
 ## Digest Guidance
 
 - Treat digest pages like editorial summaries.
 - Use stronger sectioning and narrative sequencing than the launchpad.
 - Emphasize trends, switches, and meaningful deltas over raw counts.
+
+## Chart Guidance
+
+- Charts should be used only when they add immediate comprehension.
+- Favor:
+  - radar charts
+  - compact bar charts
+  - simple line charts
+- Avoid chart junk, legends that dominate the page, or analyst-dashboard density.
+- Charts should inherit the paper-and-ink visual language:
+  - muted gridlines
+  - dark labels
+  - restrained accent palette
+
+## Social Artifact Guidance
+
+- Social pages should be screenshot-first.
+- The main object should read clearly in a crop:
+  - radar chart
+  - battle result
+  - taste profile summary
+- Keep supporting copy short.
+- Export pages should look intentional, not like a dashboard screenshot.
 
 ## Responsive Behavior
 

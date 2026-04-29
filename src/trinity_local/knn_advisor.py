@@ -57,8 +57,12 @@ class _CorpusEntry:
 _corpus_cache: list[_CorpusEntry] | None = None
 
 
-def _hard_examples_dir() -> Path:
-    return trinity_home() / "research" / "examples"
+def _corpus_dirs() -> list[Path]:
+    research_dir = trinity_home() / "research"
+    return [
+        research_dir / "hard_examples",
+        research_dir / "examples",
+    ]
 
 
 def _load_corpus(*, force: bool = False) -> list[_CorpusEntry]:
@@ -67,8 +71,13 @@ def _load_corpus(*, force: bool = False) -> list[_CorpusEntry]:
     if _corpus_cache is not None and not force:
         return _corpus_cache
 
-    corpus_dir = _hard_examples_dir()
-    if not corpus_dir.exists():
+    corpus_dir: Path | None = None
+    for candidate in _corpus_dirs():
+        if candidate.exists() and any(candidate.glob("*.json")):
+            corpus_dir = candidate
+            break
+
+    if corpus_dir is None:
         _corpus_cache = []
         return _corpus_cache
 
@@ -83,7 +92,7 @@ def _load_corpus(*, force: bool = False) -> list[_CorpusEntry]:
                 example_id=raw["example_id"],
                 provider=raw["chosen_provider"],
                 label=raw["label"],
-                hard_type=raw["hard_type"],
+                hard_type=raw.get("hard_type", "replay"),
                 prompt=prompt[:1500],
             ))
         except (json.JSONDecodeError, KeyError):

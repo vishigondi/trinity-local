@@ -5,22 +5,27 @@ import json
 from pathlib import Path
 
 from ..config import load_config
+from ..council_status import write_council_status
+from ..council_feedback import append_council_feedback
 from ..council_review import review_pages_dir, write_review_html
 from ..council_runner import run_council
 from ..council_runtime import (
     aggregate_peer_rankings,
+    create_prompt_bundle,
     create_council_outcome,
     load_council_outcome,
     load_prompt_bundle,
     render_member_prompt,
     render_peer_review_prompt,
     render_primary_council_prompt,
+    save_prompt_bundle,
     save_council_outcome,
 )
 from ..council_schema import CouncilMemberResult
 from ..action_runtime import create_review_ready_action, notify_action, save_action
 from ..notifications import notify, open_path
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
+from ..utils import stable_id
 from .helpers import load_member_results, load_peer_reviews, read_text_file
 
 
@@ -76,10 +81,38 @@ def register(subparsers):
     council_start_parser.add_argument("--members", nargs="+", required=True, help="Member providers to query")
     council_start_parser.add_argument("--primary-provider", required=True)
     council_start_parser.add_argument("--cwd", default=".", help="Working directory for provider runs")
+    council_start_parser.add_argument("--status-token", default=None, help="Launchpad status token for same-tab council tracking")
     council_start_parser.add_argument("--open-browser", action="store_true")
     council_start_parser.add_argument("--notify", action="store_true")
     council_start_parser.add_argument("--without-peer-review", action="store_true")
     council_start_parser.set_defaults(handler=handle_council_start)
+
+    council_launch_parser = subparsers.add_parser(
+        "council-launch",
+        help="Create a prompt bundle from task text, run council, and open the result",
+    )
+    council_launch_parser.add_argument("--task", required=True, help="Task text to compare across providers")
+    council_launch_parser.add_argument("--goal", default="Find the strongest answer.")
+    council_launch_parser.add_argument("--instructions", default="Prefer the strongest answer for the user's current task.")
+    council_launch_parser.add_argument("--context-file", default=None)
+    council_launch_parser.add_argument("--project-hint", default="")
+    council_launch_parser.add_argument("--members", nargs="+", default=["claude", "gemini", "codex"])
+    council_launch_parser.add_argument("--primary-provider", default="claude")
+    council_launch_parser.add_argument("--cwd", default=".")
+    council_launch_parser.add_argument("--status-token", default=None)
+    council_launch_parser.add_argument("--open-browser", action="store_true")
+    council_launch_parser.add_argument("--notify", action="store_true")
+    council_launch_parser.add_argument("--without-peer-review", action="store_true")
+    council_launch_parser.set_defaults(handler=handle_council_launch)
+
+    council_rate_parser = subparsers.add_parser(
+        "council-rate",
+        help="Record a user's preferred provider for a council result",
+    )
+    council_rate_parser.add_argument("--council", required=True)
+    council_rate_parser.add_argument("--provider", required=True)
+    council_rate_parser.add_argument("--answer-label", default=None)
+    council_rate_parser.set_defaults(handler=handle_council_rate)
 
 
 def handle_council_prompt(args):
@@ -193,6 +226,7 @@ def handle_council_start(args):
     config = load_config(args.config)
     bundle = load_prompt_bundle(args.bundle)
     cwd = Path(args.cwd).expanduser().resolve()
+    status_token = getattr(args, "status_token", None)
     task = ensure_task_record(
         bundle=bundle,
         status="running",
@@ -201,22 +235,52 @@ def handle_council_start(args):
     )
     task_path = save_task_record(task)
     sync_path = save_sync_record(task)
+    if status_token:
+        write_council_status(
+            status_token,
+            status="running",
+            task_text=bundle.task_text,
+            bundle_id=bundle.bundle_id,
+            metadata={"cwd": str(cwd)},
+        )
     if args.notify:
         notify("Trinity council running", f"Starting council for: {task.title}")
-    result = run_council(
-        config=config,
-        bundle=bundle,
-        member_providers=args.members,
-        primary_provider=args.primary_provider,
-        cwd=cwd,
-        with_peer_review=not args.without_peer_review,
-    )
+    try:
+        result = run_council(
+            config=config,
+            bundle=bundle,
+            member_providers=args.members,
+            primary_provider=args.primary_provider,
+            cwd=cwd,
+            with_peer_review=not args.without_peer_review,
+        )
+    except Exception as exc:
+        if status_token:
+            write_council_status(
+                status_token,
+                status="failed",
+                task_text=bundle.task_text,
+                bundle_id=bundle.bundle_id,
+                error=str(exc),
+                metadata={"cwd": str(cwd)},
+            )
+        raise
     final_task = load_task_record(str(result.task_path)) if result.task_path else task
     review_action = create_review_ready_action(
         task=final_task,
         command_hint=f"trinity-local open-review --task {final_task.task_id}",
     )
     review_action_path = save_action(review_action)
+    if status_token:
+        write_council_status(
+            status_token,
+            status="completed",
+            task_text=bundle.task_text,
+            bundle_id=bundle.bundle_id,
+            council_id=result.outcome.council_run_id,
+            review_path=str(result.review_path),
+            metadata={"cwd": str(cwd)},
+        )
     if args.notify:
         notify_action(review_action)
     opened = open_path(result.review_path) if args.open_browser else False
@@ -232,3 +296,42 @@ def handle_council_start(args):
             indent=2,
         )
     )
+
+
+def handle_council_launch(args):
+    status_token = getattr(args, "status_token", None)
+    metadata = {"launch_source": "launchpad"}
+    if args.project_hint:
+        metadata["project_hint"] = args.project_hint
+    bundle = create_prompt_bundle(
+        task_cluster_id=stable_id("cluster", args.project_hint, args.task[:400]),
+        task_text=args.task,
+        context_excerpt=read_text_file(args.context_file),
+        goal=args.goal,
+        comparison_instructions=args.instructions,
+        origin_provider="launchpad",
+        origin_session_id=status_token,
+        metadata=metadata,
+    )
+    save_prompt_bundle(bundle)
+    launch_args = type("CouncilLaunchArgs", (), {
+        "config": args.config,
+        "bundle": bundle.bundle_id,
+        "members": args.members,
+        "primary_provider": args.primary_provider,
+        "cwd": args.cwd,
+        "status_token": status_token,
+        "open_browser": args.open_browser,
+        "notify": args.notify,
+        "without_peer_review": args.without_peer_review,
+    })()
+    handle_council_start(launch_args)
+
+
+def handle_council_rate(args):
+    record = append_council_feedback(
+        council_id=args.council,
+        provider=args.provider,
+        answer_label=args.answer_label,
+    )
+    print(json.dumps({"feedback": record}, indent=2))
