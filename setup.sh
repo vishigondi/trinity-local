@@ -182,9 +182,6 @@ for path in paths:
     print(f'  \033[0;32m✓\033[0m Trinity app added to {path.parent}')
 "
 
-# Restart Dock to flush icon caches so the custom icon appears
-killall Dock 2>/dev/null || true
-
 # ── 7. Shell profile ───────────────────────────────────────
 step "Shell configuration"
 
