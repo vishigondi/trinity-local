@@ -9,6 +9,7 @@ DISPATCH_ACTIONS = {
     "run_command",
     "launch_council",
     "rate_council",
+    "stop_council",
     "open_review",
     "start_council",
     "workflow_create",
@@ -98,6 +99,11 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         if answer_label:
             parts.append(f"--answer-label {shlex.quote(str(answer_label))}")
         return " ".join(parts)
+    if action.name == "stop_council":
+        status_token = args.get("status_token")
+        if not status_token:
+            return None
+        return f"trinity-local council-stop --status-token {shlex.quote(str(status_token))}"
     if action.name == "open_review":
         task_id = args.get("task_id") or action.task_id
         if task_id:

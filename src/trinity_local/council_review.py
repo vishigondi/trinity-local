@@ -4,9 +4,12 @@ import html
 import json
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from .council_feedback import latest_feedback_by_council
 from .council_schema import CouncilOutcome, PromptBundle
+from .council_progress import council_progress_dir
+from .council_status import council_status_dir
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
 from .markdown_utils import render_markdown
@@ -288,6 +291,16 @@ def write_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = Non
 
 
 PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
+LIVE_COUNCIL_LOADING_MESSAGES = [
+    "Reticulating splines...",
+    "Generating witty dialog...",
+    "Tokenizing real life...",
+    "Convincing AI not to turn evil...",
+    "Computing chance of success...",
+    "Optimizing the optimizer...",
+    "Keeping all the 1's and removing all the 0's...",
+    "Pushing pixels...",
+]
 
 
 def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -> str:
@@ -532,4 +545,387 @@ def write_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) ->
     """Write unified council review + voting page."""
     path = review_pages_dir() / f"{outcome.council_run_id}.html"
     path.write_text(render_unified_council_page(bundle, outcome), encoding="utf-8")
+    return path
+
+
+def render_live_council_page() -> str:
+    head = render_html_head("Trinity — Council Running")
+    footer = render_html_footer()
+    launchpad_path = (state_dir() / "portal_pages" / "launchpad.html").resolve()
+    page_data = {
+        "launchpadUrl": f"file://{launchpad_path}",
+        "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
+        "progressScriptBaseUrl": "file://" + quote(str(council_progress_dir().resolve())),
+        "loadingMessages": LIVE_COUNCIL_LOADING_MESSAGES,
+        "shortcutName": DEFAULT_SHORTCUT_NAME,
+    }
+    return f"""{head}
+  <style>
+    .live-shell {{
+      display: grid;
+      gap: 24px;
+    }}
+
+    .launch-status {{
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      border: 1px solid rgba(37, 88, 71, 0.18);
+      border-radius: 18px;
+      background: rgba(37, 88, 71, 0.05);
+    }}
+
+    .spinner-row {{
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }}
+
+    .spinner {{
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid rgba(37, 88, 71, 0.18);
+      border-top-color: var(--action);
+      animation: trinity-spin 0.8s linear infinite;
+    }}
+
+    .status-message {{
+      font-weight: 500;
+      min-height: 24px;
+      color: var(--action);
+    }}
+
+    .provider-status-list {{
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }}
+
+    .provider-status-row {{
+      display: grid;
+      grid-template-columns: 88px 84px 1fr;
+      gap: 12px;
+      align-items: start;
+      font-size: 15px;
+    }}
+
+    .provider-status-name {{
+      font-weight: 600;
+      text-transform: lowercase;
+    }}
+
+    .provider-status-badge {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 74px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }}
+
+    .provider-status-badge.done {{
+      background: rgba(45, 106, 79, 0.1);
+      color: var(--success);
+      border-color: rgba(45, 106, 79, 0.28);
+    }}
+
+    .provider-status-badge.running {{
+      background: rgba(37, 88, 71, 0.08);
+      color: var(--action);
+      border-color: rgba(37, 88, 71, 0.22);
+    }}
+
+    .provider-status-badge.pending {{
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }}
+
+    .provider-status-badge.failed {{
+      background: rgba(139, 30, 30, 0.08);
+      color: #8b1e1e;
+      border-color: rgba(139, 30, 30, 0.2);
+    }}
+
+    .provider-status-detail {{
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }}
+
+    .provider-status-detail.empty {{
+      color: var(--text-muted);
+    }}
+
+    .live-actions {{
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }}
+
+    .live-actions .button {{
+      text-decoration: none;
+    }}
+
+    .status-error {{
+      color: #8b1e1e;
+    }}
+
+    @keyframes trinity-spin {{
+      to {{
+        transform: rotate(360deg);
+      }}
+    }}
+  </style>
+  <main>
+    <div id="live-council-app" v-scope="LiveCouncilApp(pageData)" @vue:mounted="init">
+      <section class="card">
+        <div class="eyebrow">Trinity</div>
+        <h1>Council Review</h1>
+        <p class="lede">This page will fill in automatically as the council finishes. You can leave and come back without losing the run.</p>
+      </section>
+
+      <section class="card launch-status">
+        <div class="spinner-row" v-if="busy">
+          <span class="spinner" aria-hidden="true"></span>
+          <strong>Council running</strong>
+        </div>
+        <strong v-if="!busy && !failed && !canceled">Council complete</strong>
+        <strong v-if="failed" class="status-error">Council failed</strong>
+        <strong v-if="canceled" class="status-error">Council stopped</strong>
+        <p class="meta" v-if="taskText">{{{{ taskText }}}}</p>
+        <p class="status-message" v-if="busy">{{{{ currentStatusMessage }}}}</p>
+        <p class="meta" v-if="busy">Trinity is running the council locally. This page will switch to the finished review as soon as it is ready.</p>
+        <div class="provider-status-list" v-if="providerStatusRows.length">
+          <div class="provider-status-row" v-for="row in providerStatusRows">
+            <div class="provider-status-name">{{{{ row.provider }}}}</div>
+            <div class="provider-status-badge" :class="row.statusClass">{{{{ row.statusLabel }}}}</div>
+            <div class="provider-status-detail" :class="{{ empty: !row.detail }}">{{{{ row.detail || '' }}}}</div>
+          </div>
+        </div>
+        <p class="status-error" v-if="errorText">{{{{ errorText }}}}</p>
+        <div class="live-actions">
+          <button type="button" class="button ghost" v-if="busy" @click="stopCouncil">Stop council</button>
+          <a class="button ghost" :href="launchpadUrl">Back to Launchpad</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
+  <script type="module">
+    import {{ createApp }} from '{PETITE_VUE_MODULE}';
+    const pageData = JSON.parse(document.getElementById('page-data').textContent);
+
+    function buildShortcutUrl(payload) {{
+      const name = encodeURIComponent(pageData.shortcutName || 'Trinity Dispatch');
+      const text = encodeURIComponent(JSON.stringify(payload));
+      return `shortcuts://run-shortcut?name=${{name}}&input=text&text=${{text}}`;
+    }}
+
+    window.__TRINITY_COUNCIL_STATUS__ = window.__TRINITY_COUNCIL_STATUS__ || {{}};
+    window.__TRINITY_COUNCIL_PROGRESS__ = window.__TRINITY_COUNCIL_PROGRESS__ || {{}};
+
+    function getParams() {{
+      const params = new URLSearchParams(window.location.search);
+      return {{
+        statusToken: params.get('status_token') || '',
+        taskText: params.get('task') || '',
+      }};
+    }}
+
+    function loadStatusScript(token, onComplete) {{
+      const base = pageData.statusScriptBaseUrl;
+      if (!base || !token) {{
+        onComplete(null);
+        return;
+      }}
+      const script = document.createElement('script');
+      script.src = `${{base}}/council_status_${{encodeURIComponent(token)}}.js?t=${{Date.now()}}`;
+      script.async = true;
+      script.onload = () => {{
+        const status = window.__TRINITY_COUNCIL_STATUS__?.[token];
+        onComplete(status || null);
+        script.remove();
+      }};
+      script.onerror = () => {{
+        onComplete(null);
+        script.remove();
+      }};
+      document.body.appendChild(script);
+    }}
+
+    function loadProgressScript(progressId, onComplete) {{
+      const base = pageData.progressScriptBaseUrl;
+      if (!base || !progressId) {{
+        onComplete(null);
+        return;
+      }}
+      const script = document.createElement('script');
+      script.src = `${{base}}/${{encodeURIComponent(progressId)}}.js?t=${{Date.now()}}`;
+      script.async = true;
+      script.onload = () => {{
+        const progress = window.__TRINITY_COUNCIL_PROGRESS__?.[progressId];
+        onComplete(progress || null);
+        script.remove();
+      }};
+      script.onerror = () => {{
+        onComplete(null);
+        script.remove();
+      }};
+      document.body.appendChild(script);
+    }}
+
+    function LiveCouncilApp(pageData) {{
+      const params = getParams();
+      return {{
+        statusToken: params.statusToken,
+        taskText: params.taskText,
+        memberProgress: null,
+        currentStatusIndex: 0,
+        statusPollHandle: null,
+        statusRotateHandle: null,
+        busy: true,
+        failed: false,
+        canceled: false,
+        errorText: '',
+        launchpadUrl: pageData.launchpadUrl,
+        init() {{
+          this.startPolling();
+        }},
+        get currentStatusMessage() {{
+          const message = pageData.loadingMessages[this.currentStatusIndex % pageData.loadingMessages.length] || 'Working...';
+          const synthesisStatus = this.memberProgress?.synthesis?.status;
+          if (synthesisStatus === 'running') {{
+            return 'Synthesizing the strongest answer...';
+          }}
+          const active = this.memberProgress?.active_provider;
+          if (active) {{
+            return `${{active}}: ${{message}}`;
+          }}
+          return message;
+        }},
+        get providerStatusRows() {{
+          const memberMap = this.memberProgress?.members || {{}};
+          const providers = Object.keys(memberMap);
+          return providers.map((provider) => {{
+            const item = memberMap[provider] || {{}};
+            const status = item.status || 'pending';
+            return {{
+              provider,
+              statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
+              statusClass: status === 'done' ? 'done' : status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'pending',
+              detail: status === 'done'
+                ? (item.reasoning_summary || 'Response ready.')
+                : status === 'failed'
+                  ? (item.reasoning_summary || 'Provider failed.')
+                  : '',
+            }};
+          }});
+        }},
+        loadMemberProgress(progressId) {{
+          if (!progressId) {{
+            return;
+          }}
+          loadProgressScript(progressId, (progress) => {{
+            if (progress) {{
+              this.memberProgress = progress;
+            }}
+          }});
+        }},
+        stopCouncil() {{
+          if (!this.statusToken) {{
+            return;
+          }}
+          const payload = {{
+            name: 'stop_council',
+            args: {{
+              status_token: this.statusToken,
+            }},
+            metadata: {{
+              kind: 'stop_council',
+              source: 'live_review',
+            }},
+          }};
+          window.location.href = buildShortcutUrl(payload);
+        }},
+        clearPolling() {{
+          if (this.statusPollHandle) {{
+            clearInterval(this.statusPollHandle);
+            this.statusPollHandle = null;
+          }}
+          if (this.statusRotateHandle) {{
+            clearInterval(this.statusRotateHandle);
+            this.statusRotateHandle = null;
+          }}
+        }},
+        startPolling() {{
+          if (!this.statusToken) {{
+            this.busy = false;
+            this.failed = true;
+            this.errorText = 'Missing council status token.';
+            return;
+          }}
+          this.statusRotateHandle = window.setInterval(() => {{
+            this.currentStatusIndex += 1;
+          }}, 2500);
+          const check = () => {{
+            loadStatusScript(this.statusToken, (status) => {{
+              if (!status) {{
+                return;
+              }}
+              this.taskText = status.task_text || this.taskText;
+              if (status.status === 'running') {{
+                this.busy = true;
+                this.failed = false;
+                this.canceled = false;
+                this.errorText = '';
+                const progressId = status.council_id || status.bundle_id || '';
+                this.loadMemberProgress(progressId);
+                return;
+              }}
+              if (status.status === 'completed' && status.review_path) {{
+                this.clearPolling();
+                window.location.href = `file://${{encodeURI(status.review_path)}}`;
+                return;
+              }}
+              if (status.status === 'failed') {{
+                this.clearPolling();
+                this.busy = false;
+                this.failed = true;
+                this.canceled = false;
+                this.errorText = status.error || 'Council failed.';
+                return;
+              }}
+              if (status.status === 'canceled') {{
+                this.clearPolling();
+                this.busy = false;
+                this.failed = false;
+                this.canceled = true;
+                this.errorText = status.error || 'Council stopped.';
+              }}
+            }});
+          }};
+          check();
+          this.statusPollHandle = window.setInterval(check, 1500);
+        }},
+      }};
+    }}
+
+    createApp({{ LiveCouncilApp, pageData }}).mount();
+  </script>
+{footer}"""
+
+
+def write_live_council_page(*, status_token: str = "", task_text: str = "") -> Path:
+    path = review_pages_dir() / "live_council.html"
+    path.write_text(render_live_council_page(), encoding="utf-8")
     return path

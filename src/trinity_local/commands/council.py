@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 from pathlib import Path
 
 from ..config import load_config
-from ..council_status import write_council_status
 from ..council_feedback import append_council_feedback
-from ..council_review import review_pages_dir, write_review_html
+from ..council_review import write_live_council_page, write_review_html
 from ..council_runner import run_council
 from ..council_runtime import (
     aggregate_peer_rankings,
@@ -22,6 +23,7 @@ from ..council_runtime import (
     save_council_outcome,
 )
 from ..council_schema import CouncilMemberResult
+from ..council_status import council_status_json_path, write_council_status
 from ..action_runtime import create_review_ready_action, notify_action, save_action
 from ..notifications import notify, open_path
 from ..portal_page import write_portal_html
@@ -114,6 +116,13 @@ def register(subparsers):
     council_rate_parser.add_argument("--provider", required=True)
     council_rate_parser.add_argument("--answer-label", default=None)
     council_rate_parser.set_defaults(handler=handle_council_rate)
+
+    council_stop_parser = subparsers.add_parser(
+        "council-stop",
+        help="Stop a running council launched from the launchpad",
+    )
+    council_stop_parser.add_argument("--status-token", required=True)
+    council_stop_parser.set_defaults(handler=handle_council_stop)
 
 
 def handle_council_prompt(args):
@@ -228,6 +237,8 @@ def handle_council_start(args):
     bundle = load_prompt_bundle(args.bundle)
     cwd = Path(args.cwd).expanduser().resolve()
     status_token = getattr(args, "status_token", None)
+    process_id = os.getpid()
+    process_group_id = os.getpgid(0)
     task = ensure_task_record(
         bundle=bundle,
         status="running",
@@ -236,6 +247,38 @@ def handle_council_start(args):
     )
     task_path = save_task_record(task)
     sync_path = save_sync_record(task)
+    original_sigterm = signal.getsignal(signal.SIGTERM)
+    original_sigint = signal.getsignal(signal.SIGINT)
+
+    def _mark_canceled(message: str) -> None:
+        task.status = "canceled"
+        save_task_record(task)
+        save_sync_record(task)
+        if status_token:
+            write_council_status(
+                status_token,
+                status="canceled",
+                task_text=bundle.task_text,
+                bundle_id=bundle.bundle_id,
+                council_id=bundle.bundle_id,
+                error=message,
+                metadata={
+                    "kind": "council",
+                    "members": list(args.members),
+                    "cwd": str(cwd),
+                    "pid": process_id,
+                    "process_group_id": process_group_id,
+                },
+            )
+        write_portal_html()
+
+    def _termination_handler(signum, _frame):  # type: ignore[no-untyped-def]
+        sig_name = signal.Signals(signum).name
+        _mark_canceled(f"Council stopped ({sig_name}).")
+        raise SystemExit(143)
+
+    signal.signal(signal.SIGTERM, _termination_handler)
+    signal.signal(signal.SIGINT, _termination_handler)
     if status_token:
         write_council_status(
             status_token,
@@ -243,7 +286,13 @@ def handle_council_start(args):
             task_text=bundle.task_text,
             bundle_id=bundle.bundle_id,
             council_id=bundle.bundle_id,
-            metadata={"cwd": str(cwd)},
+            metadata={
+                "kind": "council",
+                "members": list(args.members),
+                "cwd": str(cwd),
+                "pid": process_id,
+                "process_group_id": process_group_id,
+            },
         )
     if args.notify:
         notify("Trinity council running", f"Starting council for: {task.title}")
@@ -264,10 +313,19 @@ def handle_council_start(args):
                 task_text=bundle.task_text,
                 bundle_id=bundle.bundle_id,
                 error=str(exc),
-                metadata={"cwd": str(cwd)},
+                metadata={
+                    "kind": "council",
+                    "members": list(args.members),
+                    "cwd": str(cwd),
+                    "pid": process_id,
+                    "process_group_id": process_group_id,
+                },
             )
         write_portal_html()
         raise
+    finally:
+        signal.signal(signal.SIGTERM, original_sigterm)
+        signal.signal(signal.SIGINT, original_sigint)
     final_task = load_task_record(str(result.task_path)) if result.task_path else task
     review_action = create_review_ready_action(
         task=final_task,
@@ -282,7 +340,11 @@ def handle_council_start(args):
             bundle_id=bundle.bundle_id,
             council_id=result.outcome.council_run_id,
             review_path=str(result.review_path),
-            metadata={"cwd": str(cwd)},
+            metadata={
+                "kind": "council",
+                "members": list(args.members),
+                "cwd": str(cwd),
+            },
         )
     write_portal_html()
     if args.notify:
@@ -318,6 +380,8 @@ def handle_council_launch(args):
         metadata=metadata,
     )
     save_prompt_bundle(bundle)
+    if status_token:
+        write_live_council_page()
     launch_args = type("CouncilLaunchArgs", (), {
         "config": args.config,
         "bundle": bundle.bundle_id,
@@ -340,3 +404,57 @@ def handle_council_rate(args):
     )
     portal_path = write_portal_html()
     print(json.dumps({"feedback": record, "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_council_stop(args):
+    status_token = args.status_token
+    status_path = council_status_json_path(status_token)
+    if not status_path.exists():
+        print(json.dumps({"stopped": False, "reason": "status_not_found", "status_token": status_token}, indent=2))
+        return
+
+    raw = json.loads(status_path.read_text(encoding="utf-8"))
+    metadata = dict(raw.get("metadata") or {})
+    task_text = raw.get("task_text")
+    bundle_id = raw.get("bundle_id")
+    council_id = raw.get("council_id")
+    pid = metadata.get("pid")
+    pgid = metadata.get("process_group_id")
+
+    write_council_status(
+        status_token,
+        status="canceled",
+        task_text=task_text,
+        bundle_id=bundle_id,
+        council_id=council_id,
+        error="Council stopped by user.",
+        metadata=metadata,
+    )
+    write_portal_html()
+
+    killed = False
+    kill_error = None
+    try:
+        if pgid:
+            os.killpg(int(pgid), signal.SIGTERM)
+            killed = True
+        elif pid:
+            os.kill(int(pid), signal.SIGTERM)
+            killed = True
+    except OSError as exc:
+        kill_error = str(exc)
+        if "No such process" in kill_error:
+            killed = True
+
+    print(
+        json.dumps(
+            {
+                "stopped": killed,
+                "status_token": status_token,
+                "pid": pid,
+                "process_group_id": pgid,
+                "error": kill_error,
+            },
+            indent=2,
+        )
+    )

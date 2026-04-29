@@ -93,7 +93,7 @@ def handle_auto_ingest_enable(args):
     save_telemetry_settings(settings)
     install_success, install_message = daemon_install()
     start_success, start_message = (True, "")
-    if install_success and "already installed" in install_message:
+    if install_success:
         start_success, start_message = daemon_start()
     status_success, status_message = daemon_status()
     portal_path = write_portal_html()

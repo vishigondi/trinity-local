@@ -1,7 +1,12 @@
 """Tests for council review HTML rendering."""
 from __future__ import annotations
 
-from trinity_local.council_review import render_review_html, render_unified_council_page
+from trinity_local.council_review import (
+    render_live_council_page,
+    render_review_html,
+    render_unified_council_page,
+    write_live_council_page,
+)
 from trinity_local.council_schema import CouncilMemberResult, CouncilOutcome, PromptBundle
 
 
@@ -107,3 +112,16 @@ class TestCouncilReviewMarkdown:
         html = render_unified_council_page(bundle, outcome)
 
         assert 'class="answers-grid answers-grid-three"' in html
+
+    def test_live_council_page_renders_stop_control(self, patch_trinity_home):
+        html = render_live_council_page()
+
+        assert "Council Review" in html
+        assert "Stop council" in html
+        assert "statusScriptBaseUrl" in html
+        assert "progressScriptBaseUrl" in html
+        assert "stop_council" in html
+
+        path = write_live_council_page()
+        assert path.name == "live_council.html"
+        assert path.exists()

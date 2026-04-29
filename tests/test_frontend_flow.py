@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from trinity_local.adapters import AdapterStatus
 from trinity_local.commands.council import handle_council_launch
 from trinity_local.commands.telemetry import handle_auto_ingest_disable, handle_auto_ingest_enable
 from trinity_local.commands.watch import handle_watch_once
@@ -70,9 +71,21 @@ def _write_council_fixture(home: Path) -> tuple[str, str]:
 
 
 class TestLaunchpadFlow:
-    def test_write_portal_html_renders_primary_flow(self, patch_trinity_home: Path):
+    def test_write_portal_html_renders_primary_flow(self, patch_trinity_home: Path, monkeypatch):
         _write_council_fixture(patch_trinity_home)
         enable_telemetry(endpoint="https://telemetry.example/collect")
+        monkeypatch.setattr(
+            "trinity_local.portal_page.check_all_adapters",
+            lambda: [
+                AdapterStatus(provider="claude", cli_name="claude", installed=True, version="1.0.0"),
+                AdapterStatus(
+                    provider="codex",
+                    cli_name="codex",
+                    installed=False,
+                    error="codex not found in PATH",
+                ),
+            ],
+        )
 
         path = write_portal_html(title="Launchpad")
 
@@ -90,6 +103,11 @@ class TestLaunchpadFlow:
         assert "Ingest transcripts once now" in html
         assert "ACTIVE_OPERATION_KEY" in html
         assert "Reference evals" in html
+        assert "liveReviewUrl" in html
+        assert "View live review" in html
+        assert "Stop council" in html
+        assert "Codex CLI" in html
+        assert "npm install -g @openai/codex && codex --login" in html
         assert "{{ example }}" in html
         assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
         assert "{{ operation.label }}" in html
@@ -209,6 +227,16 @@ class TestDispatchFlow:
         assert "--notify" in command
         assert "--open-browser" in command
 
+    def test_stop_council_dispatch_maps_to_command(self):
+        action = make_dispatch_action(
+            "stop_council",
+            args={"status_token": "launch_123"},
+        )
+
+        command = command_for_dispatch(action)
+
+        assert command == "trinity-local council-stop --status-token launch_123"
+
 
 class TestCouncilLaunchCommand:
     def test_handle_council_launch_creates_bundle_and_delegates(
@@ -242,6 +270,7 @@ class TestCouncilLaunchCommand:
             notify=True,
             without_peer_review=False,
             config=None,
+            status_token="launch_token_123",
         )
 
         handle_council_launch(args)
@@ -254,13 +283,14 @@ class TestCouncilLaunchCommand:
         assert raw["goal"] == "Pick the strongest launch copy."
         assert raw["comparison_instructions"] == "Prefer the clearest and most persuasive draft."
         assert raw["origin_provider"] == "launchpad"
-        assert "origin_session_id" not in raw
+        assert raw["origin_session_id"] == "launch_token_123"
         assert raw["metadata"]["launch_source"] == "launchpad"
         assert raw["metadata"]["project_hint"] == "marketing"
         assert captured["members"] == ["claude", "gemini"]
         assert captured["primary_provider"] == "claude"
         assert captured["notify"] is True
         assert captured["open_browser"] is True
+        assert (patch_trinity_home / "review_pages" / "live_council.html").exists()
 
 
 class TestWatchStatusFlow:
@@ -324,6 +354,7 @@ class TestAutoIngestSettings:
         handle_auto_ingest_enable(SimpleNamespace())
         assert load_telemetry_settings().auto_ingest_transcript is True
         assert "install" in calls
+        assert "start" in calls
 
         handle_auto_ingest_disable(SimpleNamespace())
         assert load_telemetry_settings().auto_ingest_transcript is False
@@ -446,3 +477,38 @@ class TestCouncilFailureMetadata:
             "reason": "exception",
             "error": "Provider binary not found: claude",
         }
+
+
+class TestCouncilStopCommand:
+    def test_handle_council_stop_updates_status_and_kills_process(self, patch_trinity_home: Path, monkeypatch, capsys):
+        from trinity_local.commands.council import handle_council_stop
+        from trinity_local.council_status import write_council_status
+
+        write_council_status(
+            "launch_stop_123",
+            status="running",
+            task_text="Stop this council",
+            bundle_id="bundle_123",
+            council_id="bundle_123",
+            metadata={
+                "kind": "council",
+                "members": ["claude", "gemini", "codex"],
+                "pid": 111,
+                "process_group_id": 222,
+            },
+        )
+        monkeypatch.setattr("trinity_local.commands.council.write_portal_html", lambda: Path("/tmp/launchpad.html"))
+        killed: list[tuple[int, int]] = []
+        monkeypatch.setattr("trinity_local.commands.council.os.killpg", lambda pgid, sig: killed.append((pgid, sig)))
+
+        handle_council_stop(SimpleNamespace(status_token="launch_stop_123"))
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["stopped"] is True
+        assert payload["process_group_id"] == 222
+        assert killed
+
+        status_path = patch_trinity_home / "portal_pages" / "status" / "council_status_launch_stop_123.json"
+        updated = json.loads(status_path.read_text(encoding="utf-8"))
+        assert updated["status"] == "canceled"
+        assert updated["error"] == "Council stopped by user."

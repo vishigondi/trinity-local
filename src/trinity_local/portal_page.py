@@ -9,7 +9,9 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+from .adapters import check_all_adapters
 from .council_progress import council_progress_dir
+from .council_review import write_live_council_page
 from .council_status import council_status_dir
 from .council_runtime import council_outcomes_dir, load_prompt_bundle
 from .daemon_manager import daemon_status
@@ -263,6 +265,81 @@ def _daemon_launchpad_state() -> dict[str, object]:
     }
 
 
+def _provider_install_help(provider: str) -> tuple[str, str]:
+    if provider == "claude":
+        return ("Claude Code", "npm install -g @anthropic-ai/claude-code")
+    if provider == "codex":
+        return ("Codex CLI", "npm install -g @openai/codex && codex --login")
+    if provider == "gemini":
+        return ("Gemini CLI", "npm install -g @google/gemini-cli && gemini")
+    if provider == "cowork":
+        return ("Cowork / Claude Desktop", "Install Claude Desktop, then open Local Agent Mode once.")
+    pretty = provider.replace("_", " ").title()
+    return (pretty, f"Install {pretty} and rerun Trinity.")
+
+
+def _provider_health_data() -> dict[str, object]:
+    statuses = check_all_adapters()
+    providers: list[dict[str, object]] = []
+    missing_count = 0
+    for status in statuses:
+        label, install_command = _provider_install_help(status.provider)
+        detail_parts: list[str] = []
+        if status.version:
+            detail_parts.append(status.version)
+        if status.transcript_count:
+            detail_parts.append(f"{status.transcript_count} transcripts")
+        elif status.installed:
+            detail_parts.append("No transcripts yet")
+        if status.error and not status.installed:
+            detail_parts.append(status.error)
+        providers.append(
+            {
+                "provider": status.provider,
+                "label": label,
+                "installed": status.installed,
+                "detail": " · ".join(detail_parts),
+                "installCommand": install_command,
+            }
+        )
+        if not status.installed:
+            missing_count += 1
+    return {
+        "providers": providers,
+        "missingCount": missing_count,
+        "hasMissing": missing_count > 0,
+        "footerNote": "After installing, open a new terminal and run `trinity-local status`. Trinity will pick up newly installed providers automatically.",
+    }
+
+
+def _active_launchpad_operation() -> dict[str, object] | None:
+    candidates: list[dict[str, object]] = []
+    for path in council_status_dir().glob("council_status_*.json"):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if raw.get("status") != "running":
+            continue
+        metadata = dict(raw.get("metadata") or {})
+        kind = metadata.get("kind") or "council"
+        candidates.append(
+            {
+                "statusToken": raw.get("status_token") or path.stem.replace("council_status_", "", 1),
+                "kind": kind,
+                "status": "running",
+                "label": raw.get("task_text") or ("Scan recent transcripts once" if kind == "ingest" else "Council"),
+                "members": list(metadata.get("members") or ["claude", "gemini", "codex"]),
+                "progressId": raw.get("council_id") or raw.get("bundle_id") or "",
+                "updatedAt": raw.get("updated_at") or "",
+            }
+        )
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: str(item.get("updatedAt") or ""), reverse=True)
+    return candidates[0]
+
+
 def _elo_chart_data(snapshot: dict) -> dict:
     providers = snapshot.get("providers", {})
     labels = [provider.title() for provider in providers.keys()]
@@ -279,55 +356,6 @@ def _elo_chart_data(snapshot: dict) -> dict:
                 "borderRadius": 10,
             }
         ],
-    }
-
-
-def _radar_chart_data(snapshot: dict) -> dict | None:
-    providers = snapshot.get("providers", {})
-    if not providers:
-        return None
-
-    provider_names = list(providers.keys())
-    if len(provider_names) < 2:
-        return None
-
-    datasets = []
-    colors = [
-        {"bg": "rgba(37, 88, 71, 0.15)", "border": "#255847"},
-        {"bg": "rgba(88, 65, 37, 0.15)", "border": "#8b6f47"},
-        {"bg": "rgba(65, 37, 88, 0.15)", "border": "#6b4b8b"},
-        {"bg": "rgba(88, 37, 65, 0.15)", "border": "#8b4b6f"},
-    ]
-
-    for idx, provider_name in enumerate(provider_names):
-        provider_data = providers.get(provider_name, {})
-        elo = provider_data.get("elo", 1500)
-        elo_normalized = min(100, max(0, (elo - 1400) / 2))
-
-        total_games = provider_data.get("total_games", 0)
-        wins = provider_data.get("wins", 0)
-        win_rate = (wins / total_games * 100) if total_games > 0 else 0
-
-        color = colors[idx % len(colors)]
-        datasets.append({
-            "label": provider_name.replace("_", " ").title(),
-            "data": [
-                min(100, elo_normalized),
-                min(100, win_rate),
-                min(100, provider_data.get("consistency", 50)),
-            ],
-            "borderColor": color["border"],
-            "backgroundColor": color["bg"],
-            "borderWidth": 2,
-            "pointRadius": 5,
-            "pointBackgroundColor": color["border"],
-            "pointBorderColor": "#fff",
-            "pointBorderWidth": 2,
-        })
-
-    return {
-        "labels": ["Elo Rating", "Win Rate", "Consistency"],
-        "datasets": datasets,
     }
 
 
@@ -386,12 +414,14 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     telemetry = launchpad_telemetry_state()
     elo_snapshot = build_elo_snapshot()
     chart_data = _elo_chart_data(elo_snapshot)
-    radar_data = _radar_chart_data(elo_snapshot)
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
     daemon_state = _daemon_launchpad_state()
+    provider_health = _provider_health_data()
+    active_operation = _active_launchpad_operation()
     benchmark_providers = list(next(iter(global_benchmarks.values()))["models"].keys()) if global_benchmarks else []
     launchpad_path = (portal_pages_dir() / "launchpad.html").resolve()
+    live_review_path = write_live_council_page().resolve()
 
     page_data = {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
@@ -404,11 +434,13 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         "telemetry": telemetry,
         "settingsLinks": settings_links,
         "daemon": daemon_state,
+        "providerHealth": provider_health,
         "eloChart": chart_data,
-        "radarChart": radar_data,
         "globalBenchmarks": global_benchmarks,
         "benchmarkProviders": benchmark_providers,
         "launchpadUrl": f"file://{launchpad_path}",
+        "liveReviewUrl": f"file://{live_review_path}",
+        "activeOperation": active_operation,
         "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
         "progressScriptBaseUrl": "file://" + quote(str(council_progress_dir().resolve())),
         "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
@@ -508,6 +540,41 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       display: grid;
       gap: 8px;
       margin-top: 12px;
+    }}
+
+    .provider-health-list {{
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }}
+
+    .provider-health-item {{
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-muted);
+      display: grid;
+      gap: 10px;
+    }}
+
+    .provider-health-head {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }}
+
+    .provider-command {{
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }}
+
+    .provider-command code {{
+      flex: 1 1 240px;
+      word-break: break-word;
     }}
 
     .setting-row {{
@@ -698,6 +765,13 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
 
     .provider-status-detail.empty {{
       color: var(--text-muted);
+    }}
+
+    .launch-status-actions {{
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
     }}
 
     @keyframes trinity-spin {{
@@ -970,6 +1044,30 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               <span class="toggle-slider"></span>
             </label>
           </div>
+
+          <section class="provider-health-list" v-if="providerHealth.providers.length">
+            <div class="eyebrow">Providers</div>
+            <div class="provider-health-item" v-for="provider in providerHealth.providers">
+              <div class="provider-health-head">
+                <strong>{{{{ provider.label }}}}</strong>
+                <span :class="provider.installed ? 'badge success' : 'badge'">{{{{ provider.installed ? 'Installed' : 'Missing' }}}}</span>
+              </div>
+              <p class="meta" v-if="provider.detail">{{{{ provider.detail }}}}</p>
+              <div class="provider-command" v-if="!provider.installed">
+                <code>{{{{ provider.installCommand }}}}</code>
+                <button
+                  type="button"
+                  class="icon-action"
+                  @click="copyText(provider.installCommand)"
+                  title="Copy install command"
+                  aria-label="Copy install command"
+                >
+                  ⧉
+                </button>
+              </div>
+            </div>
+            <p class="meta" v-if="providerHealth.hasMissing">{{{{ providerHealth.footerNote }}}}</p>
+          </section>
         </div>
       </section>
 
@@ -1006,7 +1104,12 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
                     <div class="provider-status-detail" :class="{{ empty: !row.detail }}">{{{{ row.detail || '' }}}}</div>
                   </div>
                 </div>
-                <p class="status-error" v-if="launchError">{{{{ launchError }}}}</p>
+                <p class="status-error" v-if="launchError || operation?.error">{{{{ launchError || operation?.error }}}}</p>
+                <div class="launch-status-actions" v-if="operation">
+                  <button type="button" class="button ghost" v-if="operation.kind === 'council'" @click="openLiveReview">View live review</button>
+                  <button type="button" class="button ghost" v-if="operation.kind === 'council' && busy" @click="stopCurrentCouncil">Stop council</button>
+                  <button type="button" class="button ghost" v-if="!busy" @click="dismissOperation">Dismiss</button>
+                </div>
               </section>
         </article>
       </section>
@@ -1027,16 +1130,9 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         <div v-show="!showReferenceRatings" class="ratings-grid">
           <section class="chart-panel">
             <h3>Current provider scores</h3>
-            <p class="meta">Elo-style local rankings from your council picks.</p>
+            <p class="meta">Elo-style local rankings from your saved council preferences.</p>
             <div class="chart-shell">
               <canvas id="provider-elo-chart"></canvas>
-            </div>
-          </section>
-          <section class="chart-panel" v-if="hasRadarChart">
-            <h3>Provider performance profile</h3>
-            <p class="meta">Multi-dimensional comparison across Elo, win rate, and consistency.</p>
-            <div class="chart-shell">
-              <canvas id="provider-radar-chart"></canvas>
             </div>
           </section>
         </div>
@@ -1209,50 +1305,13 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       }});
     }}
 
-    function renderRadarChart() {{
-      if (!window.Chart) return;
-      const radarData = pageData.radarChart;
-      if (!radarData || !radarData.labels || !radarData.labels.length) return;
-      const ctx = document.getElementById('provider-radar-chart');
-      new Chart(ctx, {{
-        type: 'radar',
-        data: radarData,
-        options: {{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {{
-            legend: {{
-              position: 'bottom',
-              labels: {{
-                color: '#5f554d',
-                padding: 16,
-              }},
-            }},
-          }},
-          scales: {{
-            r: {{
-              min: 0,
-              max: 100,
-              ticks: {{
-                color: '#5f554d',
-                backdropColor: 'transparent',
-              }},
-              grid: {{
-                color: 'rgba(215, 204, 185, 0.45)',
-              }},
-            }},
-          }},
-        }},
-      }});
-    }}
-
     const ACTIVE_OPERATION_KEY = 'trinity:launchpad:active-operation';
 
-    function loadPersistedOperation() {{
+    function loadPersistedOperation(fallback = null) {{
       try {{
-        return JSON.parse(localStorage.getItem(ACTIVE_OPERATION_KEY) || 'null');
+        return JSON.parse(localStorage.getItem(ACTIVE_OPERATION_KEY) || 'null') || fallback;
       }} catch (_err) {{
-        return null;
+        return fallback;
       }}
     }}
 
@@ -1268,7 +1327,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       return {{
         prompt: '',
         launchError: '',
-        operation: loadPersistedOperation(),
+        operation: loadPersistedOperation(pageData.activeOperation || null),
         statusPollHandle: null,
         statusRotateHandle: null,
         currentStatusIndex: 0,
@@ -1277,6 +1336,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         memberProgress: null,
         examplePrompts: pageData.examplePrompts || [],
         settingsLinks: pageData.settingsLinks || {{}},
+        providerHealth: pageData.providerHealth || {{ providers: [], hasMissing: false, footerNote: '' }},
         telemetry: {{
           enabled: !!pageData.telemetry?.settings?.sharing_enabled,
           endpoint: pageData.telemetry?.settings?.endpoint || '',
@@ -1306,16 +1366,28 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           if (!this.operation) {{
             return '';
           }}
+          if (this.operation.status === 'failed') {{
+            return this.operation.kind === 'ingest' ? 'Transcript ingest failed' : 'Council failed';
+          }}
+          if (this.operation.status === 'canceled') {{
+            return 'Council stopped';
+          }}
           return this.operation.kind === 'ingest' ? 'Transcript ingest running' : 'Council running';
         }},
         get operationStatusNote() {{
           if (!this.operation) {{
             return '';
           }}
+          if (this.operation.status === 'canceled') {{
+            return 'This run was stopped before the final page was ready.';
+          }}
+          if (this.operation.status === 'failed') {{
+            return 'Something went wrong while Trinity was running locally.';
+          }}
           if (this.operation.kind === 'ingest') {{
             return 'Trinity is scanning recent transcripts once. This page will refresh when the new tasks and actions are ready.';
           }}
-          return 'Trinity Dispatch is running the council locally. This tab will open the result as soon as the review page is ready.';
+          return 'Trinity Dispatch is running the council locally. You can jump back into the live review page at any time while it finishes.';
         }},
         get currentStatusMessage() {{
           const messages = this.operation?.kind === 'ingest' ? this.ingestStatusMessages : this.councilStatusMessages;
@@ -1356,6 +1428,26 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             }};
           }});
         }},
+        liveReviewUrlFor(operation) {{
+          if (!operation?.statusToken) {{
+            return pageData.liveReviewUrl;
+          }}
+          const params = new URLSearchParams({{
+            status_token: operation.statusToken,
+            task: operation.label || '',
+          }});
+          return `${{pageData.liveReviewUrl}}?${{params.toString()}}`;
+        }},
+        copyText(value) {{
+          if (!value) {{
+            return;
+          }}
+          if (navigator.clipboard?.writeText) {{
+            navigator.clipboard.writeText(value).catch(() => null);
+            return;
+          }}
+          window.prompt('Copy this command:', value);
+        }},
         loadMemberProgress(progressId) {{
           if (!progressId) {{
             return;
@@ -1365,9 +1457,6 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               this.memberProgress = progress;
             }}
           }});
-        }},
-        get hasRadarChart() {{
-          return !!pageData.radarChart && pageData.radarChart.labels && pageData.radarChart.labels.length > 0;
         }},
         formatScore(score, unit) {{
           if (score === null || score === undefined) {{
@@ -1424,6 +1513,32 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             }},
           );
         }},
+        openLiveReview() {{
+          if (!this.operation) {{
+            return;
+          }}
+          window.location.href = this.liveReviewUrlFor(this.operation);
+        }},
+        dismissOperation() {{
+          this.launchError = '';
+          this.clearOperation();
+        }},
+        stopCurrentCouncil() {{
+          if (!this.operation?.statusToken || this.operation.kind !== 'council' || !this.busy) {{
+            return;
+          }}
+          const payload = {{
+            name: 'stop_council',
+            args: {{
+              status_token: this.operation.statusToken,
+            }},
+            metadata: {{
+              kind: 'stop_council',
+              source: 'launchpad',
+            }},
+          }};
+          this.triggerShortcut(buildShortcutUrl(payload));
+        }},
         beginOperation(operation) {{
           this.operation = {{
             ...operation,
@@ -1434,10 +1549,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           persistOperation(this.operation);
           this.startOperationPolling(operation.statusToken);
         }},
-        clearOperation() {{
-          this.operation = null;
-          this.memberProgress = null;
-          persistOperation(null);
+        stopOperationPolling() {{
           if (this.statusPollHandle) {{
             clearInterval(this.statusPollHandle);
             this.statusPollHandle = null;
@@ -1447,13 +1559,14 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             this.statusRotateHandle = null;
           }}
         }},
+        clearOperation() {{
+          this.operation = null;
+          this.memberProgress = null;
+          persistOperation(null);
+          this.stopOperationPolling();
+        }},
         startOperationPolling(token) {{
-          if (this.statusPollHandle) {{
-            clearInterval(this.statusPollHandle);
-          }}
-          if (this.statusRotateHandle) {{
-            clearInterval(this.statusRotateHandle);
-          }}
+          this.stopOperationPolling();
           this.currentStatusIndex = 0;
           this.statusRotateHandle = window.setInterval(() => {{
             this.currentStatusIndex++;
@@ -1479,17 +1592,29 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               }}
               if (status.status === 'failed') {{
                 this.launchError = status.error || 'Council failed.';
-                this.clearOperation();
+                this.operation = {{
+                  ...this.operation,
+                  status: 'failed',
+                  error: this.launchError,
+                }};
+                persistOperation(this.operation);
+                this.stopOperationPolling();
                 return;
               }}
-              if (status.status === 'completed' && status.review_path) {{
-                const operationKind = status.metadata?.kind || this.operation.kind;
+              if (status.status === 'canceled') {{
+                this.launchError = status.error || 'Council stopped.';
+                this.operation = {{
+                  ...this.operation,
+                  status: 'canceled',
+                  error: this.launchError,
+                }};
+                persistOperation(this.operation);
+                this.stopOperationPolling();
+                return;
+              }}
+              if (status.status === 'completed') {{
                 this.clearOperation();
-                if (operationKind === 'ingest') {{
-                  window.location.href = `file://${{encodeURI(status.review_path)}}`;
-                  return;
-                }}
-                window.location.href = `file://${{encodeURI(status.review_path)}}`;
+                window.location.reload();
               }}
             }});
           }};
@@ -1531,6 +1656,9 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             members: [...pageData.defaultMembers],
           }});
           this.triggerShortcut(buildShortcutUrl(payload));
+          window.setTimeout(() => {{
+            window.location.href = this.liveReviewUrlFor(this.operation);
+          }}, 120);
         }},
         ingestOnce() {{
           if (this.busy) {{
@@ -1562,7 +1690,6 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     createApp({{ LaunchpadApp, pageData }}).mount();
     maybeSendTelemetry();
     renderChart();
-    renderRadarChart();
   </script>
 {footer}"""
 
