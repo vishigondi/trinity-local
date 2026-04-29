@@ -994,6 +994,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         currentStatusIndex: 0,
         settingsOpen: false,
         showGlobalRatings: false,
+        memberProgress: null,
         statusMessages: [
           'Running member responses...',
           'Peer review in progress...',
@@ -1008,7 +1009,33 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: ['claude', 'gpt', 'gemini', 'mistral'],
         get currentStatusMessage() {{
+          if (this.memberProgress) {{
+            return this.formatMemberProgress();
+          }}
           return this.statusMessages[this.currentStatusIndex % this.statusMessages.length];
+        }},
+        loadMemberProgress(statusToken) {{
+          const councilId = statusToken.split('_')[1] || statusToken;
+          const progressPath = `${{this.statusScriptBaseUrl}}/../council_progress/${{councilId}}.json`;
+          fetch(progressPath)
+            .then(r => r.json())
+            .then(data => {{
+              this.memberProgress = data;
+            }})
+            .catch(() => {{
+              // Progress file not available yet, that's OK
+            }});
+        }},
+        formatMemberProgress() {{
+          if (!this.memberProgress) return this.statusMessages[0];
+          const members = this.memberProgress.members || {{}};
+          const parts = [];
+          for (const [provider, status] of Object.entries(members)) {{
+            const icon = status.status === 'done' ? '✓' : status.status === 'pending' ? '·' : '⏳';
+            const summary = status.reasoning_summary ? ` (${{status.reasoning_summary.substring(0, 40)}}...)` : '';
+            parts.push(`${{provider}}: ${{icon}}${{summary}}`);
+          }}
+          return parts.join(' · ') || this.statusMessages[0];
         }},
         get hasRadarChart() {{
           return !!pageData.radarChart && pageData.radarChart.labels && pageData.radarChart.labels.length > 0;
@@ -1055,6 +1082,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             this.currentStatusIndex++;
           }}, 2500);
           const check = () => {{
+            this.loadMemberProgress(token);
             loadStatusScript(token, (status) => {{
               if (!status) return;
               if (status.status === 'running') {{
@@ -1062,6 +1090,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               }}
               if (status.status === 'failed') {{
                 this.busy = false;
+                this.memberProgress = null;
                 this.launchError = status.error || 'Council failed.';
                 if (this.statusPollHandle) {{
                   clearInterval(this.statusPollHandle);
@@ -1075,6 +1104,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               }}
               if (status.status === 'completed' && status.review_path) {{
                 this.busy = false;
+                this.memberProgress = null;
                 if (this.statusPollHandle) {{
                   clearInterval(this.statusPollHandle);
                   this.statusPollHandle = null;
