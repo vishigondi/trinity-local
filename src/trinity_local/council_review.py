@@ -295,6 +295,8 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     council_id = outcome.council_run_id
     prior_feedback = latest_feedback_by_council().get(council_id, {})
     selected_provider = prior_feedback.get("provider")
+    selected_label = prior_feedback.get("answer_label")
+    launchpad_path = (state_dir() / "portal_pages" / "launchpad.html").resolve()
 
     # Build response cards with voting
     answers_html = []
@@ -320,11 +322,21 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
             "shortcut_url": shortcut.url,
         })
 
-        selected_class = " selected" if selected_provider == provider else ""
         body = render_markdown(output)
         answers_html.append(f"""
-    <article class="card answer-card{selected_class}" :class="{{selected: selectedAnswer === '{_esc(answer_label)}'}}">
-      <div class="eyebrow">{_esc(answer_label)}</div>
+    <article
+      class="card answer-card"
+      :class="{{selected: selectedLabel === '{_esc(answer_label)}'}}"
+      role="button"
+      tabindex="0"
+      @click="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
+      @keydown.enter.prevent="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
+      @keydown.space.prevent="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
+    >
+      <div class="answer-card-head">
+        <div class="eyebrow">{_esc(answer_label)}</div>
+        <span class="rank-badge" v-if="selectedLabel === '{_esc(answer_label)}'">Preferred</span>
+      </div>
       <h3>{_esc(provider.title())}</h3>
       <div class="markdown-body">{body}</div>
     </article>
@@ -342,10 +354,16 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     page_data = {
         "councilId": council_id,
         "answers": answers_payload,
+        "initialSelection": {
+            "provider": selected_provider or "",
+            "label": selected_label or "",
+        },
+        "launchpadUrl": f"file://{launchpad_path}",
     }
 
     # Use task text as title
     page_title = bundle.task_text or "Council Review"
+    answers_grid_class = "answers-grid answers-grid-three" if len(outcome.member_results) == 3 else "answers-grid"
 
     return f"""{head}
   <style>
@@ -356,15 +374,25 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
       margin-top: 24px;
     }}
 
+    .answers-grid-three {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+
     .answer-card {{
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
       cursor: pointer;
+      outline: none;
     }}
 
     .answer-card:hover {{
       transform: translateY(-3px);
       border-color: var(--action);
       box-shadow: 0 12px 30px rgba(37, 88, 71, 0.15);
+    }}
+
+    .answer-card:focus-visible {{
+      border-color: var(--action);
+      box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.14), 0 12px 30px rgba(37, 88, 71, 0.15);
     }}
 
     .answer-card.selected {{
@@ -383,61 +411,36 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
       border-color: var(--success);
     }}
 
-    .floating-actions {{
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
+    .answer-card-head {{
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      z-index: 100;
-      background: var(--surface);
-      padding: 12px 24px;
-      border-radius: 24px;
-      border: 1px solid var(--border);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }}
 
-    .floating-actions button {{
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
+    .rank-badge {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--success);
+      color: #fff;
+      font-size: 13px;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
     }}
 
-    .floating-actions button.primary {{
-      background: var(--action);
-      color: var(--action-text);
-    }}
-
-    .floating-actions button.primary:hover {{
-      background: var(--action-hover);
-    }}
-
-    .floating-actions button.secondary {{
-      background: var(--surface-muted);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }}
-
-    .floating-actions button.secondary:hover {{
-      background: var(--border);
-    }}
-
-    .floating-actions.hidden {{
-      display: none;
+    @media (max-width: 1200px) {{
+      .answers-grid-three {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
     }}
 
     @media (max-width: 768px) {{
-      .floating-actions {{
-        bottom: 16px;
-        left: 16px;
-        right: 16px;
-        transform: none;
-        gap: 8px;
+      .answers-grid,
+      .answers-grid-three {{
+        grid-template-columns: 1fr;
       }}
     }}
   </style>
@@ -457,21 +460,17 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
 
       <section class="mb-lg">
         <h2>Full Responses</h2>
-        <p class="meta">Click a "Prefer" button to record your choice. This trains Trinity's Elo scores.</p>
-        <div class="answers-grid">
+        <p class="meta">Click the answer you prefer. Trinity will save that choice for local ratings and future recommendations.</p>
+        <div class="{answers_grid_class}">
           {"".join(answers_html)}
         </div>
       </section>
 
-      <section class="card confirmation-box" v-if="selectedAnswer">
-        <div class="eyebrow">✓ Recorded</div>
-        <h2>Your preference is saved</h2>
-        <p class="meta">Trinity is learning your taste. This improves future council decisions and Elo rankings.</p>
+      <section class="card confirmation-box" v-if="feedbackSaved && selectedProvider">
+        <div class="eyebrow">Preference saved</div>
+        <h2>{{{{ selectedProviderTitle }}}} is currently your preferred answer</h2>
+        <p class="meta">Refreshing this page will keep the selected state. Trinity will use this choice for local ratings and future routing.</p>
       </section>
-    </div>
-
-    <div class="floating-actions" :class="{{hidden: !selectedAnswer}}" v-if="selectedAnswer">
-      <button class="primary" @click="backToLaunchpad">Back to Launchpad</button>
     </div>
   </main>
 
@@ -481,13 +480,46 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
     function CouncilApp(pageData) {{
+      const storageKey = `trinity:council-selection:${{pageData.councilId}}`;
+      let persisted = null;
+      try {{
+        persisted = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      }} catch (_err) {{
+        persisted = null;
+      }}
+      const initialProvider = persisted?.selectedProvider || pageData.initialSelection?.provider || '';
+      const initialLabel = persisted?.selectedLabel || pageData.initialSelection?.label || '';
+      const savedProvider = persisted?.savedProvider || pageData.initialSelection?.provider || '';
+      const initialAnswer = (pageData.answers || []).find((answer) => answer.label === initialLabel || answer.provider === initialProvider);
+
       return {{
-        selectedAnswer: '',
-        backToLaunchpad() {{
-          setTimeout(() => {{
-            window.location.href = 'launchpad.html';
-          }}, 500);
-        }}
+        selectedLabel: initialLabel,
+        selectedProvider: initialProvider,
+        selectedShortcutUrl: initialAnswer?.shortcut_url || '',
+        savedProvider,
+        storageKey,
+        feedbackSaved: !!savedProvider && savedProvider === initialProvider,
+        get selectedProviderTitle() {{
+          return this.selectedProvider ? this.selectedProvider.replace(/_/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase()) : '';
+        }},
+        persistSelection() {{
+          localStorage.setItem(this.storageKey, JSON.stringify({{
+            selectedLabel: this.selectedLabel,
+            selectedProvider: this.selectedProvider,
+            savedProvider: this.savedProvider,
+          }}));
+        }},
+        chooseAnswer(label, provider, shortcutUrl) {{
+          this.selectedLabel = label;
+          this.selectedProvider = provider;
+          this.selectedShortcutUrl = shortcutUrl;
+          this.savedProvider = this.selectedProvider;
+          this.feedbackSaved = true;
+          this.persistSelection();
+          if (shortcutUrl) {{
+            window.location.href = shortcutUrl;
+          }}
+        }},
       }};
     }}
 

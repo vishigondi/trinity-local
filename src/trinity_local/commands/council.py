@@ -24,6 +24,7 @@ from ..council_runtime import (
 from ..council_schema import CouncilMemberResult
 from ..action_runtime import create_review_ready_action, notify_action, save_action
 from ..notifications import notify, open_path
+from ..portal_page import write_portal_html
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
 from ..utils import stable_id
 from .helpers import load_member_results, load_peer_reviews, read_text_file
@@ -241,6 +242,7 @@ def handle_council_start(args):
             status="running",
             task_text=bundle.task_text,
             bundle_id=bundle.bundle_id,
+            council_id=bundle.bundle_id,
             metadata={"cwd": str(cwd)},
         )
     if args.notify:
@@ -264,6 +266,7 @@ def handle_council_start(args):
                 error=str(exc),
                 metadata={"cwd": str(cwd)},
             )
+        write_portal_html()
         raise
     final_task = load_task_record(str(result.task_path)) if result.task_path else task
     review_action = create_review_ready_action(
@@ -281,6 +284,7 @@ def handle_council_start(args):
             review_path=str(result.review_path),
             metadata={"cwd": str(cwd)},
         )
+    write_portal_html()
     if args.notify:
         notify_action(review_action)
     opened = open_path(result.review_path) if args.open_browser else False
@@ -334,4 +338,5 @@ def handle_council_rate(args):
         provider=args.provider,
         answer_label=args.answer_label,
     )
-    print(json.dumps({"feedback": record}, indent=2))
+    portal_path = write_portal_html()
+    print(json.dumps({"feedback": record, "portal_path": str(portal_path)}, indent=2))

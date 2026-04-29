@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from .council_progress import (
     cleanup_progress,
     finalize_council_progress,
     init_council_progress,
+    start_member_progress,
+    update_member_failure,
     update_member_progress,
     update_synthesis_progress,
 )
@@ -44,6 +47,17 @@ def _provider_model(config, override: str | None) -> str | None:
     return override or config.model
 
 
+@dataclass
+class MemberExecutionResult:
+    provider_name: str
+    provider_config: object | None = None
+    output_text: str = ""
+    returncode: int | None = None
+    stderr: str = ""
+    stdout: str = ""
+    error_payload: dict[str, object] | None = None
+
+
 def run_council(
     *,
     config: AppConfig,
@@ -68,60 +82,96 @@ def run_council(
     # Initialize progress tracking
     council_id = bundle.bundle_id
     init_council_progress(council_id, member_providers)
+    member_prompt = render_member_prompt(bundle)
 
-    for provider_name in member_providers:
+    def _run_member(provider_name: str) -> MemberExecutionResult:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
-            failed_members.append(provider_name)
-            member_failures.append(
-                {
+            update_member_failure(council_id, provider_name, "Provider missing or disabled.")
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                error_payload={
                     "provider": provider_name,
                     "stage": "member",
                     "reason": "provider_missing_or_disabled",
-                }
+                },
             )
-            continue
-        prompt = render_member_prompt(bundle)
+
         provider = make_provider(provider_config)
         try:
-            result = provider.run(prompt, cwd)
+            start_member_progress(council_id, provider_name)
+            result = provider.run(member_prompt, cwd)
         except Exception as exc:
-            failed_members.append(provider_name)
-            member_failures.append(
-                {
+            error_text = str(exc)
+            update_member_failure(council_id, provider_name, error_text)
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                provider_config=provider_config,
+                error_payload={
                     "provider": provider_name,
                     "stage": "member",
                     "reason": "exception",
-                    "error": str(exc),
-                }
+                    "error": error_text,
+                },
             )
-            continue
+
+        output_text = result.stdout or result.stderr or ""
         if result.returncode != 0 and not (result.stdout or "").strip():
-            failed_members.append(provider_name)
-            member_failures.append(
-                {
+            update_member_failure(council_id, provider_name, result.stderr or f"Exited with code {result.returncode}.")
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                provider_config=provider_config,
+                returncode=result.returncode,
+                stderr=result.stderr,
+                stdout=result.stdout,
+                error_payload={
                     "provider": provider_name,
                     "stage": "member",
                     "reason": "nonzero_returncode_without_stdout",
                     "returncode": result.returncode,
                     "stderr": result.stderr,
-                }
+                },
             )
+
+        update_member_progress(council_id, provider_name, output_text)
+        return MemberExecutionResult(
+            provider_name=provider_name,
+            provider_config=provider_config,
+            output_text=output_text,
+            returncode=result.returncode,
+            stderr=result.stderr,
+            stdout=result.stdout,
+        )
+
+    executions: dict[str, MemberExecutionResult] = {}
+    with ThreadPoolExecutor(max_workers=max(1, len(member_providers))) as executor:
+        future_map = {
+            executor.submit(_run_member, provider_name): provider_name
+            for provider_name in member_providers
+        }
+        for future in as_completed(future_map):
+            provider_name = future_map[future]
+            executions[provider_name] = future.result()
+
+    for provider_name in member_providers:
+        execution = executions[provider_name]
+        if execution.error_payload is not None:
+            failed_members.append(provider_name)
+            member_failures.append(execution.error_payload)
             continue
+        assert execution.provider_config is not None
         member = CouncilMemberResult(
             provider=provider_name,
-            model=_provider_model(provider_config, member_model_overrides.get(provider_name)),
+            model=_provider_model(execution.provider_config, member_model_overrides.get(provider_name)),
             session_id=None,
-            output_text=result.stdout or result.stderr,
+            output_text=execution.output_text,
             metadata={
-                "returncode": result.returncode,
-                "stderr": result.stderr,
-                "stdout": result.stdout,
+                "returncode": execution.returncode,
+                "stderr": execution.stderr,
+                "stdout": execution.stdout,
             },
         )
         member_results.append(member)
-        # Update progress tracking
-        update_member_progress(council_id, provider_name, result.stdout or result.stderr or "")
         event = create_launch_event(
             bundle=bundle,
             mode="council",

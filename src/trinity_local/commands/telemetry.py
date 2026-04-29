@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 
+from ..daemon_manager import daemon_install, daemon_start, daemon_status, daemon_stop
+from ..portal_page import write_portal_html
 from ..telemetry import (
     build_elo_snapshot,
     disable_telemetry,
@@ -35,6 +37,12 @@ def register(subparsers):
     endpoint.add_argument("--clear", action="store_true")
     endpoint.set_defaults(handler=handle_telemetry_endpoint)
 
+    ingest_enable = subparsers.add_parser("auto-ingest-enable", help="Enable automatic transcript ingestion")
+    ingest_enable.set_defaults(handler=handle_auto_ingest_enable)
+
+    ingest_disable = subparsers.add_parser("auto-ingest-disable", help="Disable automatic transcript ingestion")
+    ingest_disable.set_defaults(handler=handle_auto_ingest_disable)
+
 
 def handle_telemetry_show(args):
     settings = load_telemetry_settings()
@@ -52,17 +60,20 @@ def handle_telemetry_enable(args):
         share_usage_events=not args.without_usage_events,
         share_elo_summaries=not args.without_elo,
     )
-    print(json.dumps({"settings": settings.to_dict()}, indent=2))
+    portal_path = write_portal_html()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
 def handle_telemetry_disable(args):
     settings = disable_telemetry()
-    print(json.dumps({"settings": settings.to_dict()}, indent=2))
+    portal_path = write_portal_html()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
 def handle_telemetry_reset_id(args):
     settings = reset_share_install_id()
-    print(json.dumps({"settings": settings.to_dict()}, indent=2))
+    portal_path = write_portal_html()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
 def handle_telemetry_endpoint(args):
@@ -72,4 +83,49 @@ def handle_telemetry_endpoint(args):
     elif args.url:
         settings.endpoint = args.url
     path = save_telemetry_settings(settings)
-    print(json.dumps({"settings": settings.to_dict(), "path": str(path)}, indent=2))
+    portal_path = write_portal_html()
+    print(json.dumps({"settings": settings.to_dict(), "path": str(path), "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_auto_ingest_enable(args):
+    settings = load_telemetry_settings()
+    settings.auto_ingest_transcript = True
+    save_telemetry_settings(settings)
+    install_success, install_message = daemon_install()
+    start_success, start_message = (True, "")
+    if install_success and "already installed" in install_message:
+        start_success, start_message = daemon_start()
+    status_success, status_message = daemon_status()
+    portal_path = write_portal_html()
+    print(
+        json.dumps(
+            {
+                "settings": settings.to_dict(),
+                "portal_path": str(portal_path),
+                "daemon_install": {"success": install_success, "message": install_message},
+                "daemon_start": {"success": start_success, "message": start_message} if start_message else None,
+                "daemon_status": {"success": status_success, "message": status_message},
+            },
+            indent=2,
+        )
+    )
+
+
+def handle_auto_ingest_disable(args):
+    settings = load_telemetry_settings()
+    settings.auto_ingest_transcript = False
+    save_telemetry_settings(settings)
+    stop_success, stop_message = daemon_stop()
+    status_success, status_message = daemon_status()
+    portal_path = write_portal_html()
+    print(
+        json.dumps(
+            {
+                "settings": settings.to_dict(),
+                "portal_path": str(portal_path),
+                "daemon_stop": {"success": stop_success, "message": stop_message},
+                "daemon_status": {"success": status_success, "message": status_message},
+            },
+            indent=2,
+        )
+    )

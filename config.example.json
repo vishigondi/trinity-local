@@ -79,7 +79,8 @@
       ],
       "args": [
         "--sandbox",
-        "workspace-write"
+        "workspace-write",
+        "--skip-git-repo-check"
       ],
       "roles": [
         "worker",

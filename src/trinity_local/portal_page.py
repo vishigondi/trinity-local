@@ -9,14 +9,15 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+from .council_progress import council_progress_dir
 from .council_status import council_status_dir
 from .council_runtime import council_outcomes_dir, load_prompt_bundle
+from .daemon_manager import daemon_status
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
-from .global_benchmarks import get_global_benchmarks, format_benchmark_display
+from .global_benchmarks import get_global_benchmarks
 from .scoreboard import state_dir
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-from .signal_page import write_signal_page
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
 
 
@@ -33,6 +34,16 @@ EXAMPLE_PROMPTS = [
 
 PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
 CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+COUNCIL_LOADING_MESSAGES = [
+    "Reticulating splines...",
+    "Generating witty dialog...",
+    "Tokenizing real life...",
+    "Convincing AI not to turn evil...",
+    "Computing chance of success...",
+    "Optimizing the optimizer...",
+    "Keeping all the 1's and removing all the 0's...",
+    "Pushing pixels...",
+]
 TRINITY_APP_NAME = "Trinity.app"
 LAUNCHPAD_ICON_RELATIVE_PATH = Path("assets") / "binary_code.png"
 LEGACY_LAUNCHPAD_LINK_NAMES = (
@@ -227,7 +238,6 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
             except Exception:
                 pass
         council_id = raw.get("council_run_id") or path.stem
-        signal_path = write_signal_page(council_id)
         items.append(
             {
                 "council_id": council_id,
@@ -236,11 +246,21 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 "winner_provider": raw.get("winner_provider"),
                 "created_at": raw.get("created_at"),
                 "review_page_path": str((state_dir() / "review_pages" / f"{council_id}.html").resolve()),
-                "signal_page_path": str(signal_path.resolve()) if signal_path else None,
             }
         )
     items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
     return items[:limit]
+
+
+def _daemon_launchpad_state() -> dict[str, object]:
+    success, message = daemon_status()
+    normalized = message.lower()
+    return {
+        "success": success,
+        "message": message,
+        "running": "running" in normalized and "not running" not in normalized,
+        "installed": "not installed" not in normalized,
+    }
 
 
 def _elo_chart_data(snapshot: dict) -> dict:
@@ -336,10 +356,28 @@ def _settings_links() -> dict[str, str]:
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
+    auto_ingest_enable = make_shortcut_invocation(
+        dispatch=make_dispatch_action(
+            "run_command",
+            args={"command": "trinity-local auto-ingest-enable"},
+            metadata={"kind": "auto_ingest_enable"},
+        ),
+        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    )
+    auto_ingest_disable = make_shortcut_invocation(
+        dispatch=make_dispatch_action(
+            "run_command",
+            args={"command": "trinity-local auto-ingest-disable"},
+            metadata={"kind": "auto_ingest_disable"},
+        ),
+        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    )
     return {
         "enable": enable.url,
         "disable": disable.url,
         "reset": reset.url,
+        "autoIngestEnable": auto_ingest_enable.url,
+        "autoIngestDisable": auto_ingest_disable.url,
     }
 
 
@@ -351,20 +389,29 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     radar_data = _radar_chart_data(elo_snapshot)
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
+    daemon_state = _daemon_launchpad_state()
+    benchmark_providers = list(next(iter(global_benchmarks.values()))["models"].keys()) if global_benchmarks else []
+    launchpad_path = (portal_pages_dir() / "launchpad.html").resolve()
 
     page_data = {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "examplePrompts": EXAMPLE_PROMPTS,
         "defaultGoal": "Find the strongest answer.",
         "defaultMembers": ["claude", "gemini", "codex"],
+        "defaultIngestSources": ["cowork", "claude", "gemini", "codex"],
         "defaultPrimaryProvider": "claude",
         "recentCouncils": recent_councils,
         "telemetry": telemetry,
         "settingsLinks": settings_links,
+        "daemon": daemon_state,
         "eloChart": chart_data,
         "radarChart": radar_data,
         "globalBenchmarks": global_benchmarks,
+        "benchmarkProviders": benchmark_providers,
+        "launchpadUrl": f"file://{launchpad_path}",
         "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
+        "progressScriptBaseUrl": "file://" + quote(str(council_progress_dir().resolve())),
+        "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
     }
 
     recent_cards = "".join(
@@ -377,7 +424,6 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               <p class="meta">{_esc((item.get('winner_provider') or 'No winner yet').replace('_', ' ').title())} · {_esc(item.get('created_at') or 'unknown')}</p>
             </article>
           </a>
-          {f'<a href="file://{_esc(item["signal_page_path"])}" style="color: var(--action); font-weight: 600; text-decoration: none;">Rate & Compare</a>' if item.get('signal_page_path') else ''}
         </div>
         """
         for item in recent_councils
@@ -477,6 +523,47 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       border-top: none;
     }}
 
+    .setting-value {{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }}
+
+    .icon-action {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--action);
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      padding: 0;
+    }}
+
+    .icon-action:hover {{
+      border-color: var(--action);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37, 88, 71, 0.12);
+    }}
+
+    .icon-action:focus-visible {{
+      outline: 2px solid rgba(37, 88, 71, 0.28);
+      outline-offset: 2px;
+    }}
+
+    .icon-action:disabled {{
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }}
+
     .chart-shell {{
       position: relative;
       height: 280px;
@@ -541,6 +628,76 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       font-weight: 500;
       min-height: 24px;
       transition: opacity 0.3s ease;
+      color: var(--action);
+    }}
+
+    .provider-status-list {{
+      display: grid;
+      gap: 10px;
+      margin: 4px 0 0;
+    }}
+
+    .provider-status-row {{
+      display: grid;
+      grid-template-columns: 88px 84px 1fr;
+      gap: 12px;
+      align-items: start;
+      font-size: 15px;
+      color: var(--text-primary);
+    }}
+
+    .provider-status-name {{
+      font-weight: 600;
+      text-transform: lowercase;
+    }}
+
+    .provider-status-badge {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 74px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }}
+
+    .provider-status-badge.done {{
+      background: rgba(45, 106, 79, 0.1);
+      color: var(--success);
+      border-color: rgba(45, 106, 79, 0.28);
+    }}
+
+    .provider-status-badge.running {{
+      background: rgba(37, 88, 71, 0.08);
+      color: var(--action);
+      border-color: rgba(37, 88, 71, 0.22);
+    }}
+
+    .provider-status-badge.pending {{
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }}
+
+    .provider-status-badge.failed {{
+      background: rgba(139, 30, 30, 0.08);
+      color: #8b1e1e;
+      border-color: rgba(139, 30, 30, 0.2);
+    }}
+
+    .provider-status-detail {{
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }}
+
+    .provider-status-detail.empty {{
+      color: var(--text-muted);
     }}
 
     @keyframes trinity-spin {{
@@ -586,6 +743,15 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     .toggle-btn.active {{
       color: var(--action);
       font-weight: 600;
+      background: var(--surface);
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(37, 88, 71, 0.18);
+    }}
+
+    .toggle-btn:focus-visible {{
+      outline: 2px solid rgba(37, 88, 71, 0.28);
+      outline-offset: 2px;
+      border-radius: 6px;
     }}
 
     .sharing-toggle {{
@@ -690,10 +856,32 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       display: block;
       font-weight: 400;
     }}
+
+    .ratings-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 18px;
+    }}
+
+    .chart-panel {{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: var(--surface);
+    }}
+
+    .chart-panel h3 {{
+      margin-bottom: 8px;
+    }}
+
+    .chart-panel .meta {{
+      margin-bottom: 12px;
+    }}
   </style>
 
   <main>
-    <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)">
+    <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)" @vue:mounted="init">
       <section class="card hero-shell">
         <div>
           <div class="eyebrow">Trinity Launchpad</div>
@@ -701,45 +889,86 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           <p class="lede">Ask the same question. See all the answers. Let Trinity compare real models on your real work.</p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v2m0 14v2M4.22 4.22l1.41 1.41m10.14 10.14l1.41 1.41M1 12h2m14 0h2M4.22 19.78l1.41-1.41m10.14-10.14l1.41-1.41"></path>
-          </svg>
+          <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>
         </button>
       </section>
 
       <section class="settings-modal" v-if="settingsOpen" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
-        <div class="card" style="max-width: 400px; margin: 20px; position: relative;">
+        <div class="card" style="max-width: 460px; margin: 20px; position: relative;">
           <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 24px; opacity: 0.6; transition: opacity 0.2s;">×</button>
-          <div class="eyebrow">Sharing</div>
-          <h2>Anonymous benchmark settings</h2>
+          <div class="eyebrow">Settings</div>
+          <h2>Launchpad controls</h2>
           <p class="meta">Telemetry is opt-in. Trinity can share anonymous Launchpad views and Elo summaries, but not raw prompts, outputs, code, or file paths.</p>
 
           <div class="settings-list">
             <div class="setting-row">
               <span class="meta">Sharing enabled</span>
-              <span :class="telemetryEnabled ? 'badge success' : 'badge'">{{{{ telemetryEnabled ? 'On' : 'Off' }}}}</span>
+              <span :class="telemetry.enabled ? 'badge success' : 'badge'">{{{{ telemetry.enabled ? 'On' : 'Off' }}}}</span>
             </div>
             <div class="setting-row">
               <span class="meta">Endpoint</span>
-              <span class="meta">{{{{ telemetryEndpoint || 'Not configured' }}}}</span>
+              <span class="meta">{{{{ telemetry.endpoint || 'Not configured' }}}}</span>
             </div>
             <div class="setting-row">
               <span class="meta">Anonymous ID</span>
-              <code style="word-break: break-all;">{{{{ shareInstallId || 'unassigned' }}}}</code>
+              <div class="setting-value">
+                <code style="word-break: break-all;">{{{{ telemetry.shareInstallId || 'unassigned' }}}}</code>
+                <button
+                  type="button"
+                  class="icon-action"
+                  @click="resetAnonymousId"
+                  title="Generate a new anonymous sharing ID"
+                  aria-label="Reset anonymous ID"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 4v6h-6"></path>
+                    <path d="M1 20v-6h6"></path>
+                    <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path>
+                    <path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="meta">Auto ingest transcripts</span>
+              <div class="setting-value">
+                <span :class="telemetry.autoIngest ? 'badge success' : 'badge'">{{{{ telemetry.autoIngest ? 'On' : 'Off' }}}}</span>
+                <button
+                  type="button"
+                  class="icon-action"
+                  @click="ingestOnce"
+                  :disabled="busy"
+                  title="Ingest transcripts once now"
+                  aria-label="Ingest transcripts once now"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span class="meta">Watcher daemon</span>
+              <span class="meta">{{{{ telemetry.daemonMessage }}}}</span>
             </div>
           </div>
 
           <div class="sharing-toggle">
             <span class="meta">Sharing enabled</span>
             <label class="toggle-switch">
-              <input type="checkbox" :checked="telemetryEnabled" @change="toggleSharing">
+              <input type="checkbox" :checked="telemetry.enabled" @change="toggleSharing">
               <span class="toggle-slider"></span>
             </label>
           </div>
 
-          <div class="actions">
-            <button type="button" class="button ghost" @click="triggerSettingsAction(settingsLinks.reset)">Reset anonymous ID</button>
+          <div class="sharing-toggle" style="margin-top: 0;">
+            <span class="meta">Auto ingest transcripts</span>
+            <label class="toggle-switch">
+              <input type="checkbox" :checked="telemetry.autoIngest" @change="toggleAutoIngest">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
       </section>
@@ -761,15 +990,24 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             <button type="button" class="button primary" @click="launchCouncil" :disabled="busy">Launch Council</button>
           </div>
 
-          <section class="launch-status" v-if="busy || launchError">
-            <div class="spinner-row" v-if="busy">
-              <span class="spinner" aria-hidden="true"></span>
-              <strong class="status-message">{{{{ currentStatusMessage }}}}</strong>
-            </div>
-            <p class="subtle-note" v-if="busy">Trinity Dispatch is running the council locally. This tab will open the result as soon as the review page is ready.</p>
-            <p class="meta" v-if="busy && pendingPrompt">{{{{ pendingPrompt }}}}</p>
-            <p class="status-error" v-if="launchError">{{{{ launchError }}}}</p>
-          </section>
+              <section class="launch-status" v-if="operation || launchError">
+                <div class="spinner-row" v-if="busy">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <strong class="status-message">{{{{ operationHeading }}}}</strong>
+                </div>
+                <strong v-if="operation && !busy">{{{{ operationHeading }}}}</strong>
+                <p class="meta" v-if="operation && operation.label">{{{{ operation.label }}}}</p>
+                <p class="subtle-note" v-if="operation">{{{{ operationStatusNote }}}}</p>
+                <p class="status-message" v-if="busy">{{{{ currentStatusMessage }}}}</p>
+                <div class="provider-status-list" v-if="showProviderRows">
+                  <div class="provider-status-row" v-for="row in providerStatusRows">
+                    <div class="provider-status-name">{{{{ row.provider }}}}</div>
+                    <div class="provider-status-badge" :class="row.statusClass">{{{{ row.statusLabel }}}}</div>
+                    <div class="provider-status-detail" :class="{{ empty: !row.detail }}">{{{{ row.detail || '' }}}}</div>
+                  </div>
+                </div>
+                <p class="status-error" v-if="launchError">{{{{ launchError }}}}</p>
+              </section>
         </article>
       </section>
 
@@ -777,20 +1015,33 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <div>
             <div class="eyebrow">Ratings</div>
-            <h2>Current provider scores</h2>
+            <h2>My ratings</h2>
           </div>
           <div class="rating-toggle">
-            <button @click="showGlobalRatings = false" :class="['toggle-btn', {{ active: !showGlobalRatings }}]">My ratings</button>
-            <button @click="showGlobalRatings = true" :class="['toggle-btn', {{ active: showGlobalRatings }}]" :disabled="!telemetryEnabled">Global ratings</button>
+                <button @click="showReferenceRatings = false" :class="showReferenceRatings ? 'toggle-btn' : 'toggle-btn active'">My ratings</button>
+                <button @click="showReferenceRatings = true" :class="showReferenceRatings ? 'toggle-btn active' : 'toggle-btn'">Reference evals</button>
           </div>
         </div>
-        <p class="meta">{{{{ !showGlobalRatings ? 'Local scores from your completed councils.' : 'Global benchmarks from the Trinity community.' }}}}</p>
+        <p class="meta">{{{{ !showReferenceRatings ? 'Local scores and strengths from your saved council preferences.' : 'Public reference evals mapped to Trinity capability categories.' }}}}</p>
 
-        <div v-if="!showGlobalRatings" class="chart-shell">
-          <canvas id="provider-elo-chart"></canvas>
+        <div v-show="!showReferenceRatings" class="ratings-grid">
+          <section class="chart-panel">
+            <h3>Current provider scores</h3>
+            <p class="meta">Elo-style local rankings from your council picks.</p>
+            <div class="chart-shell">
+              <canvas id="provider-elo-chart"></canvas>
+            </div>
+          </section>
+          <section class="chart-panel" v-if="hasRadarChart">
+            <h3>Provider performance profile</h3>
+            <p class="meta">Multi-dimensional comparison across Elo, win rate, and consistency.</p>
+            <div class="chart-shell">
+              <canvas id="provider-radar-chart"></canvas>
+            </div>
+          </section>
         </div>
 
-        <div v-if="showGlobalRatings">
+        <div v-show="showReferenceRatings">
           <table class="benchmark-table">
             <thead>
               <tr>
@@ -814,19 +1065,10 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         </div>
       </section>
 
-      <section class="card" v-if="hasRadarChart">
-        <div class="eyebrow">Strengths</div>
-        <h2>Provider performance profile</h2>
-        <p class="meta">Multi-dimensional comparison across Elo rating, win rate, and consistency.</p>
-        <div class="chart-shell">
-          <canvas id="provider-radar-chart"></canvas>
-        </div>
-      </section>
-
       <section class="card">
         <div class="eyebrow">Recent councils</div>
-        <h2>Rate and compare previous runs</h2>
-        <p class="meta">Open the signal page to compare answers and record which model you preferred.</p>
+        <h2>Open previous council reviews</h2>
+        <p class="meta">Reopen any review page and save your preferred model directly there.</p>
         <div class="grid grid-2" style="margin-top: 20px;">
           {recent_cards}
         </div>
@@ -847,6 +1089,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     }}
 
     window.__TRINITY_COUNCIL_STATUS__ = window.__TRINITY_COUNCIL_STATUS__ || {{}};
+    window.__TRINITY_COUNCIL_PROGRESS__ = window.__TRINITY_COUNCIL_PROGRESS__ || {{}};
 
     function loadStatusScript(token, onComplete) {{
       const base = pageData.statusScriptBaseUrl;
@@ -857,6 +1100,27 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       script.onload = () => {{
         const status = window.__TRINITY_COUNCIL_STATUS__?.[token];
         onComplete(status || null);
+        script.remove();
+      }};
+      script.onerror = () => {{
+        onComplete(null);
+        script.remove();
+      }};
+      document.body.appendChild(script);
+    }}
+
+    function loadProgressScript(progressId, onComplete) {{
+      const base = pageData.progressScriptBaseUrl;
+      if (!base || !progressId) {{
+        onComplete(null);
+        return;
+      }}
+      const script = document.createElement('script');
+      script.src = `${{base}}/${{encodeURIComponent(progressId)}}.js?t=${{Date.now()}}`;
+      script.async = true;
+      script.onload = () => {{
+        const progress = window.__TRINITY_COUNCIL_PROGRESS__?.[progressId];
+        onComplete(progress || null);
         script.remove();
       }};
       script.onerror = () => {{
@@ -982,60 +1246,125 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       }});
     }}
 
+    const ACTIVE_OPERATION_KEY = 'trinity:launchpad:active-operation';
+
+    function loadPersistedOperation() {{
+      try {{
+        return JSON.parse(localStorage.getItem(ACTIVE_OPERATION_KEY) || 'null');
+      }} catch (_err) {{
+        return null;
+      }}
+    }}
+
+    function persistOperation(operation) {{
+      if (!operation) {{
+        localStorage.removeItem(ACTIVE_OPERATION_KEY);
+        return;
+      }}
+      localStorage.setItem(ACTIVE_OPERATION_KEY, JSON.stringify(operation));
+    }}
+
     function LaunchpadApp(pageData) {{
       return {{
         prompt: '',
-        busy: false,
         launchError: '',
-        pendingPrompt: '',
-        pendingStatusToken: '',
+        operation: loadPersistedOperation(),
         statusPollHandle: null,
         statusRotateHandle: null,
         currentStatusIndex: 0,
         settingsOpen: false,
-        showGlobalRatings: false,
+        showReferenceRatings: false,
         memberProgress: null,
-        statusMessages: [
-          'Running member responses...',
-          'Peer review in progress...',
-          'Synthesizing results...',
-          'Compiling analysis...',
-        ],
         examplePrompts: pageData.examplePrompts || [],
         settingsLinks: pageData.settingsLinks || {{}},
-        telemetryEnabled: !!pageData.telemetry?.settings?.sharing_enabled,
-        telemetryEndpoint: pageData.telemetry?.settings?.endpoint || '',
-        shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
+        telemetry: {{
+          enabled: !!pageData.telemetry?.settings?.sharing_enabled,
+          endpoint: pageData.telemetry?.settings?.endpoint || '',
+          shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
+          autoIngest: !!pageData.telemetry?.settings?.auto_ingest_transcript,
+          daemonMessage: pageData.daemon?.message || 'Watcher daemon status unavailable.',
+          daemonRunning: !!pageData.daemon?.running,
+        }},
         globalBenchmarks: pageData.globalBenchmarks || {{}},
-        benchmarkProviders: ['claude', 'gpt', 'gemini', 'mistral'],
+        benchmarkProviders: pageData.benchmarkProviders || [],
+        statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
+        councilStatusMessages: pageData.councilLoadingMessages || [],
+        ingestStatusMessages: [
+          'Scanning recent transcripts...',
+          'Extracting task signals...',
+          'Writing launchpad updates...',
+        ],
+        init() {{
+          if (this.operation?.statusToken) {{
+            this.startOperationPolling(this.operation.statusToken);
+          }}
+        }},
+        get busy() {{
+          return !!this.operation && this.operation.status === 'running';
+        }},
+        get operationHeading() {{
+          if (!this.operation) {{
+            return '';
+          }}
+          return this.operation.kind === 'ingest' ? 'Transcript ingest running' : 'Council running';
+        }},
+        get operationStatusNote() {{
+          if (!this.operation) {{
+            return '';
+          }}
+          if (this.operation.kind === 'ingest') {{
+            return 'Trinity is scanning recent transcripts once. This page will refresh when the new tasks and actions are ready.';
+          }}
+          return 'Trinity Dispatch is running the council locally. This tab will open the result as soon as the review page is ready.';
+        }},
         get currentStatusMessage() {{
-          if (this.memberProgress) {{
-            return this.formatMemberProgress();
+          const messages = this.operation?.kind === 'ingest' ? this.ingestStatusMessages : this.councilStatusMessages;
+          const message = messages[this.currentStatusIndex % messages.length] || 'Working...';
+          if (this.operation?.kind === 'council') {{
+            const synthesisStatus = this.memberProgress?.synthesis?.status;
+            if (synthesisStatus === 'running') {{
+              return 'Synthesizing the strongest answer...';
+            }}
+            const activeProvider = this.memberProgress?.active_provider;
+            if (activeProvider) {{
+              return `${{activeProvider}}: ${{message}}`;
+            }}
           }}
-          return this.statusMessages[this.currentStatusIndex % this.statusMessages.length];
+          return message;
         }},
-        loadMemberProgress(statusToken) {{
-          const councilId = statusToken.split('_')[1] || statusToken;
-          const progressPath = `${{this.statusScriptBaseUrl}}/../council_progress/${{councilId}}.json`;
-          fetch(progressPath)
-            .then(r => r.json())
-            .then(data => {{
-              this.memberProgress = data;
-            }})
-            .catch(() => {{
-              // Progress file not available yet, that's OK
-            }});
+        get showProviderRows() {{
+          return this.operation?.kind === 'council' && this.providerStatusRows.length > 0;
         }},
-        formatMemberProgress() {{
-          if (!this.memberProgress) return this.statusMessages[0];
-          const members = this.memberProgress.members || {{}};
-          const parts = [];
-          for (const [provider, status] of Object.entries(members)) {{
-            const icon = status.status === 'done' ? '✓' : status.status === 'pending' ? '·' : '⏳';
-            const summary = status.reasoning_summary ? ` (${{status.reasoning_summary.substring(0, 40)}}...)` : '';
-            parts.push(`${{provider}}: ${{icon}}${{summary}}`);
+        get providerStatusRows() {{
+          if (this.operation?.kind !== 'council') {{
+            return [];
           }}
-          return parts.join(' · ') || this.statusMessages[0];
+          const memberMap = this.memberProgress?.members || {{}};
+          const providers = this.operation?.members || Object.keys(memberMap);
+          return providers.map((provider) => {{
+            const item = memberMap[provider] || {{}};
+            const status = item.status || 'pending';
+            return {{
+              provider,
+              statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
+              statusClass: status === 'done' ? 'done' : status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'pending',
+              detail: status === 'done'
+                ? (item.reasoning_summary || 'Response ready.')
+                : status === 'failed'
+                  ? (item.reasoning_summary || 'Provider failed.')
+                  : '',
+            }};
+          }});
+        }},
+        loadMemberProgress(progressId) {{
+          if (!progressId) {{
+            return;
+          }}
+          loadProgressScript(progressId, (progress) => {{
+            if (progress) {{
+              this.memberProgress = progress;
+            }}
+          }});
         }},
         get hasRadarChart() {{
           return !!pageData.radarChart && pageData.radarChart.labels && pageData.radarChart.labels.length > 0;
@@ -1060,17 +1389,65 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           link.click();
           link.remove();
         }},
-        triggerSettingsAction(url) {{
+        scheduleLaunchpadReload(delay = 1400) {{
+          window.setTimeout(() => {{
+            window.location.reload();
+          }}, delay);
+        }},
+        triggerSettingsAction(url, beforeTrigger = null) {{
+          if (beforeTrigger) {{
+            beforeTrigger();
+          }}
           this.triggerShortcut(url);
           this.settingsOpen = false;
+          this.scheduleLaunchpadReload();
         }},
         toggleSharing(event) {{
           const isNowEnabled = event.target.checked;
           const url = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
-          this.telemetryEnabled = isNowEnabled;
-          this.triggerShortcut(url);
+          this.telemetry.enabled = isNowEnabled;
+          this.triggerSettingsAction(url);
         }},
-        startCouncilPolling(token) {{
+        toggleAutoIngest(event) {{
+          const isNowEnabled = event.target.checked;
+          const url = isNowEnabled ? this.settingsLinks.autoIngestEnable : this.settingsLinks.autoIngestDisable;
+          this.telemetry.autoIngest = isNowEnabled;
+          this.telemetry.daemonRunning = isNowEnabled;
+          this.telemetry.daemonMessage = 'Updating watcher daemon…';
+          this.triggerSettingsAction(url);
+        }},
+        resetAnonymousId() {{
+          this.triggerSettingsAction(
+            this.settingsLinks.reset,
+            () => {{
+              this.telemetry.shareInstallId = 'resetting…';
+            }},
+          );
+        }},
+        beginOperation(operation) {{
+          this.operation = {{
+            ...operation,
+            status: 'running',
+          }};
+          this.launchError = '';
+          this.memberProgress = null;
+          persistOperation(this.operation);
+          this.startOperationPolling(operation.statusToken);
+        }},
+        clearOperation() {{
+          this.operation = null;
+          this.memberProgress = null;
+          persistOperation(null);
+          if (this.statusPollHandle) {{
+            clearInterval(this.statusPollHandle);
+            this.statusPollHandle = null;
+          }}
+          if (this.statusRotateHandle) {{
+            clearInterval(this.statusRotateHandle);
+            this.statusRotateHandle = null;
+          }}
+        }},
+        startOperationPolling(token) {{
           if (this.statusPollHandle) {{
             clearInterval(this.statusPollHandle);
           }}
@@ -1082,36 +1459,35 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             this.currentStatusIndex++;
           }}, 2500);
           const check = () => {{
-            this.loadMemberProgress(token);
             loadStatusScript(token, (status) => {{
               if (!status) return;
+              if (!this.operation) {{
+                return;
+              }}
               if (status.status === 'running') {{
+                const progressId = status.council_id || status.bundle_id || this.operation.progressId || '';
+                this.operation = {{
+                  ...this.operation,
+                  label: status.task_text || this.operation.label,
+                  progressId,
+                }};
+                persistOperation(this.operation);
+                if (this.operation.kind === 'council') {{
+                  this.loadMemberProgress(progressId);
+                }}
                 return;
               }}
               if (status.status === 'failed') {{
-                this.busy = false;
-                this.memberProgress = null;
                 this.launchError = status.error || 'Council failed.';
-                if (this.statusPollHandle) {{
-                  clearInterval(this.statusPollHandle);
-                  this.statusPollHandle = null;
-                }}
-                if (this.statusRotateHandle) {{
-                  clearInterval(this.statusRotateHandle);
-                  this.statusRotateHandle = null;
-                }}
+                this.clearOperation();
                 return;
               }}
               if (status.status === 'completed' && status.review_path) {{
-                this.busy = false;
-                this.memberProgress = null;
-                if (this.statusPollHandle) {{
-                  clearInterval(this.statusPollHandle);
-                  this.statusPollHandle = null;
-                }}
-                if (this.statusRotateHandle) {{
-                  clearInterval(this.statusRotateHandle);
-                  this.statusRotateHandle = null;
+                const operationKind = status.metadata?.kind || this.operation.kind;
+                this.clearOperation();
+                if (operationKind === 'ingest') {{
+                  window.location.href = `file://${{encodeURI(status.review_path)}}`;
+                  return;
                 }}
                 window.location.href = `file://${{encodeURI(status.review_path)}}`;
               }}
@@ -1121,16 +1497,15 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           this.statusPollHandle = window.setInterval(check, 1500);
         }},
         launchCouncil() {{
+          if (this.busy) {{
+            return;
+          }}
           const prompt = this.prompt.trim();
           if (!prompt) {{
             window.alert('Please enter a task first.');
             return;
           }}
           const statusToken = `launch_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
-          this.busy = true;
-          this.launchError = '';
-          this.pendingPrompt = prompt;
-          this.pendingStatusToken = statusToken;
           this.prompt = '';
           const payload = {{
             name: 'launch_council',
@@ -1149,7 +1524,36 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               source: 'launchpad',
             }},
           }};
-          this.startCouncilPolling(statusToken);
+          this.beginOperation({{
+            kind: 'council',
+            statusToken,
+            label: prompt,
+            members: [...pageData.defaultMembers],
+          }});
+          this.triggerShortcut(buildShortcutUrl(payload));
+        }},
+        ingestOnce() {{
+          if (this.busy) {{
+            return;
+          }}
+          const statusToken = `ingest_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
+          const command = `trinity-local watch-once --notify --status-token ${{statusToken}}`;
+          const payload = {{
+            name: 'run_command',
+            args: {{
+              command,
+            }},
+            metadata: {{
+              kind: 'launchpad_ingest_once',
+              source: 'launchpad',
+            }},
+          }};
+          this.beginOperation({{
+            kind: 'ingest',
+            statusToken,
+            label: 'Scan recent transcripts once',
+          }});
+          this.settingsOpen = false;
           this.triggerShortcut(buildShortcutUrl(payload));
         }},
       }};

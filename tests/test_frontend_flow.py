@@ -6,15 +6,18 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from trinity_local.commands.council import handle_council_launch
+from trinity_local.commands.telemetry import handle_auto_ingest_disable, handle_auto_ingest_enable
+from trinity_local.commands.watch import handle_watch_once
 from trinity_local.config import AppConfig, ProviderConfig
+from trinity_local.council_feedback import append_council_feedback
 from trinity_local.council_runner import run_council
 from trinity_local.council_runtime import create_prompt_bundle, save_prompt_bundle
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
 from trinity_local.portal_page import install_launchpad_shortcuts, write_portal_html
 from trinity_local.providers import ProviderError, ProviderResult
-from trinity_local.signal_page import write_signal_page
 from trinity_local.shortcut_setup import _render_dispatch_wrapper
 from trinity_local.telemetry import (
+    build_elo_snapshot,
     disable_telemetry,
     enable_telemetry,
     launchpad_telemetry_state,
@@ -68,7 +71,7 @@ def _write_council_fixture(home: Path) -> tuple[str, str]:
 
 class TestLaunchpadFlow:
     def test_write_portal_html_renders_primary_flow(self, patch_trinity_home: Path):
-        _, council_id = _write_council_fixture(patch_trinity_home)
+        _write_council_fixture(patch_trinity_home)
         enable_telemetry(endpoint="https://telemetry.example/collect")
 
         path = write_portal_html(title="Launchpad")
@@ -77,33 +80,26 @@ class TestLaunchpadFlow:
         html = path.read_text(encoding="utf-8")
         assert "Run Your First Council" in html
         assert "launch_council" in html
-        assert "Anonymous benchmark settings" in html
+        assert "Launchpad controls" in html
         assert "petite-vue@0.4.1" in html
         assert "chart.umd.min.js" in html
         assert "Write a launch announcement for Trinity Local" in html
-        assert "Rate & Compare" in html
+        assert "Open previous council reviews" in html
         assert "telemetry-enable" in html
+        assert "auto-ingest-enable" in html
+        assert "Ingest transcripts once now" in html
+        assert "ACTIVE_OPERATION_KEY" in html
+        assert "Reference evals" in html
         assert "{{ example }}" in html
-        assert "{{ telemetryEnabled ? 'On' : 'Off' }}" in html
-        assert "{{ pendingPrompt }}" in html
+        assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
+        assert "{{ operation.label }}" in html
+        assert "councilLoadingMessages" in html
+        assert "Reticulating splines..." in html
+        assert "Queued" in html
+        assert "Running" in html
         assert "@{ example }" not in html
-
-        signal_path = patch_trinity_home / "signal_pages" / f"{council_id}.html"
-        assert signal_path.exists()
-
-    def test_signal_page_writes_real_rating_links(self, patch_trinity_home: Path):
-        _, council_id = _write_council_fixture(patch_trinity_home)
-
-        path = write_signal_page(council_id)
-
-        assert path is not None
-        assert path.exists()
-        html = path.read_text(encoding="utf-8")
-        assert "Which answer do you prefer?" in html
-        assert "rate_council" in html
-        assert "Selection recorded" in html
-        assert "shortcuts://run-shortcut" in html
-        assert "Choose Gemini" in html
+        assert "signal_page" not in html
+        assert "Open review and choose winner" not in html
 
     def test_install_launchpad_shortcuts_writes_desktop_and_app_links(self, patch_trinity_home: Path, tmp_path: Path):
         _write_council_fixture(patch_trinity_home)
@@ -169,6 +165,22 @@ class TestTelemetryFlow:
 
         disabled = disable_telemetry()
         assert disabled.sharing_enabled is False
+
+    def test_elo_snapshot_prefers_saved_council_feedback(self, patch_trinity_home: Path):
+        _write_council_fixture(patch_trinity_home)
+
+        baseline = build_elo_snapshot()
+        assert baseline["providers"]["gemini"]["elo"] > baseline["providers"]["claude"]["elo"]
+
+        append_council_feedback(
+            council_id="council_test_launchpad",
+            provider="claude",
+            answer_label="A",
+        )
+        updated = build_elo_snapshot()
+        assert updated["providers"]["claude"]["elo"] > updated["providers"]["gemini"]["elo"]
+        assert updated["providers"]["claude"]["wins"] == 1
+        assert updated["providers"]["claude"]["total_games"] == 1
 
 
 class TestDispatchFlow:
@@ -249,6 +261,73 @@ class TestCouncilLaunchCommand:
         assert captured["primary_provider"] == "claude"
         assert captured["notify"] is True
         assert captured["open_browser"] is True
+
+
+class TestWatchStatusFlow:
+    def test_watch_once_with_status_token_writes_completion_status(self, monkeypatch):
+        captured: list[dict] = []
+
+        def fake_write_status(token, **payload):
+            captured.append({"token": token, **payload})
+
+        def fake_watch_once(*, sources, notify):
+            return SimpleNamespace(
+                scanned=3,
+                tasks_written=1,
+                actions_written=2,
+                portal_path="/tmp/launchpad.html",
+            )
+
+        monkeypatch.setattr("trinity_local.commands.watch.write_council_status", fake_write_status)
+        monkeypatch.setattr("trinity_local.commands.watch.watch_once", fake_watch_once)
+
+        args = SimpleNamespace(
+            sources=["claude", "codex"],
+            notify=True,
+            status_token="ingest_test_token",
+        )
+
+        handle_watch_once(args)
+
+        assert captured[0]["status"] == "running"
+        assert captured[0]["metadata"]["kind"] == "ingest"
+        assert captured[-1]["status"] == "completed"
+        assert captured[-1]["review_path"] == "/tmp/launchpad.html"
+        assert captured[-1]["metadata"]["actions_written"] == 2
+
+
+class TestAutoIngestSettings:
+    def test_auto_ingest_enable_disable_controls_daemon(self, patch_trinity_home: Path, monkeypatch):
+        calls: list[str] = []
+
+        monkeypatch.setattr(
+            "trinity_local.commands.telemetry.daemon_install",
+            lambda: (calls.append("install") or True, "installed"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.telemetry.daemon_start",
+            lambda: (calls.append("start") or True, "started"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.telemetry.daemon_stop",
+            lambda: (calls.append("stop") or True, "stopped"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.telemetry.daemon_status",
+            lambda: (True, "running"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.telemetry.write_portal_html",
+            lambda: Path("/tmp/launchpad.html"),
+        )
+
+        handle_auto_ingest_enable(SimpleNamespace())
+        assert load_telemetry_settings().auto_ingest_transcript is True
+        assert "install" in calls
+
+        handle_auto_ingest_disable(SimpleNamespace())
+        assert load_telemetry_settings().auto_ingest_transcript is False
+        assert "stop" in calls
 
 
 class TestDispatchWrapper:

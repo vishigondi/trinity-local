@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .council_feedback import latest_feedback_by_council
 from .council_runtime import council_outcomes_dir
 from .scoreboard import state_dir
 from .utils import now_iso
@@ -28,6 +29,7 @@ class TelemetrySettings:
     last_elo_upload_at: str | None = None
     last_elo_hash: str | None = None
     last_upload_status: str | None = None
+    auto_ingest_transcript: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -137,21 +139,28 @@ def build_elo_snapshot(window: str = "all_time") -> dict[str, Any]:
     k = 24.0
     ratings: dict[str, float] = {}
     matchups: dict[str, dict[str, int]] = {}
+    provider_stats: dict[str, dict[str, int]] = {}
     council_count = 0
+    feedback_by_council = latest_feedback_by_council()
 
     for raw in _iter_council_payloads():
-        winner = raw.get("winner_provider")
+        council_id = raw.get("council_run_id") or ""
         members = [
             item.get("provider")
             for item in raw.get("member_results", [])
             if isinstance(item, dict) and item.get("provider")
         ]
         unique_members = list(dict.fromkeys(members))
+        feedback = feedback_by_council.get(council_id, {})
+        winner = feedback.get("provider") or raw.get("winner_provider")
         if not winner or winner not in unique_members or len(unique_members) < 2:
             continue
         council_count += 1
         for provider in unique_members:
             ratings.setdefault(provider, base)
+            stats = provider_stats.setdefault(provider, {"wins": 0, "total_games": 0})
+            stats["total_games"] += 1
+        provider_stats[winner]["wins"] += 1
 
         for loser in unique_members:
             if loser == winner:
@@ -166,10 +175,19 @@ def build_elo_snapshot(window: str = "all_time") -> dict[str, Any]:
             pair = matchups.setdefault(pair_key, {})
             pair[f"{winner}_wins"] = pair.get(f"{winner}_wins", 0) + 1
 
-    providers = {
-        provider: {"elo": int(round(score))}
-        for provider, score in sorted(ratings.items())
-    }
+    providers = {}
+    for provider, score in sorted(ratings.items()):
+        stats = provider_stats.get(provider, {"wins": 0, "total_games": 0})
+        total_games = stats.get("total_games", 0)
+        wins = stats.get("wins", 0)
+        win_rate = (wins / total_games * 100.0) if total_games else 0.0
+        providers[provider] = {
+            "elo": int(round(score)),
+            "wins": wins,
+            "total_games": total_games,
+            "win_rate": round(win_rate, 1),
+            "consistency": round(win_rate, 1) if total_games else 50.0,
+        }
 
     return {
         "version": TELEMETRY_VERSION,

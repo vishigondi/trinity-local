@@ -72,7 +72,12 @@ class CLIProvider(BaseProvider):
 
 class CodexProvider(BaseProvider):
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
-        command = [*self.config.command, *self.config.args, prompt]
+        command = [*self.config.command]
+        args = list(self.config.args)
+        if "--skip-git-repo-check" not in args:
+            args.append("--skip-git-repo-check")
+        command.extend(args)
+        command.append(prompt)
         return self._run_command(command, cwd)
 
 
