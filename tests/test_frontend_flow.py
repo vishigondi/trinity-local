@@ -97,6 +97,8 @@ class TestLaunchpadFlow:
         assert "petite-vue@0.4.1" in html
         assert "chart.umd.min.js" in html
         assert "Write a launch announcement for Trinity Local" in html
+        assert "Top used council queries" in html
+        assert "Matching previous council queries" in html
         assert "Open previous council reviews" in html
         assert "telemetry-enable" in html
         assert "auto-ingest-enable" in html
@@ -108,7 +110,10 @@ class TestLaunchpadFlow:
         assert "Stop council" in html
         assert "Codex CLI" in html
         assert "npm install -g @openai/codex && codex --login" in html
-        assert "{{ example }}" in html
+        assert "councilSuggestions" in html
+        assert "filteredCouncilSuggestions" in html
+        assert "Quick start examples" not in html
+        assert "examplePrompts" not in html
         assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
         assert "{{ operation.label }}" in html
         assert "councilLoadingMessages" in html

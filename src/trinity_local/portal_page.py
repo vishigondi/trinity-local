@@ -254,6 +254,59 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
     return items[:limit]
 
 
+def _normalize_council_query(text: str) -> str:
+    return " ".join(text.split()).strip().lower()
+
+
+def _load_council_query_suggestions(limit: int = 8) -> list[str]:
+    ranked: dict[str, dict[str, object]] = {}
+    for path in council_outcomes_dir().glob("*.json"):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        bundle_id = raw.get("bundle_id")
+        if not bundle_id:
+            continue
+        try:
+            bundle = load_prompt_bundle(bundle_id)
+        except Exception:
+            continue
+        prompt = (bundle.task_text or "").strip()
+        if len(prompt) < 8:
+            continue
+        key = _normalize_council_query(prompt)
+        if not key:
+            continue
+        created_at = str(raw.get("created_at") or bundle.created_at or "")
+        entry = ranked.setdefault(
+            key,
+            {"prompt": prompt, "count": 0, "latest": created_at},
+        )
+        entry["count"] = int(entry.get("count", 0)) + 1
+        if created_at >= str(entry.get("latest") or ""):
+            entry["latest"] = created_at
+            entry["prompt"] = prompt
+
+    ordered = sorted(
+        ranked.values(),
+        key=lambda item: (int(item["count"]), str(item["latest"]), str(item["prompt"]).lower()),
+        reverse=True,
+    )
+    suggestions = [str(item["prompt"]) for item in ordered[:limit]]
+
+    existing = {_normalize_council_query(item) for item in suggestions}
+    for prompt in EXAMPLE_PROMPTS:
+        key = _normalize_council_query(prompt)
+        if key in existing:
+            continue
+        suggestions.append(prompt)
+        existing.add(key)
+        if len(suggestions) >= limit:
+            break
+    return suggestions[:limit]
+
+
 def _daemon_launchpad_state() -> dict[str, object]:
     success, message = daemon_status()
     normalized = message.lower()
@@ -414,6 +467,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     telemetry = launchpad_telemetry_state()
     elo_snapshot = build_elo_snapshot()
     chart_data = _elo_chart_data(elo_snapshot)
+    council_suggestions = _load_council_query_suggestions(limit=8)
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
     daemon_state = _daemon_launchpad_state()
@@ -425,7 +479,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
 
     page_data = {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
-        "examplePrompts": EXAMPLE_PROMPTS,
+        "councilSuggestions": council_suggestions,
         "defaultGoal": "Find the strongest answer.",
         "defaultMembers": ["claude", "gemini", "codex"],
         "defaultIngestSources": ["cowork", "claude", "gemini", "codex"],
@@ -507,28 +561,55 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
       box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.1);
     }}
 
-    .examples-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 8px;
-      margin-top: 8px;
-    }}
-
-    .example-btn {{
-      padding: 10px 12px;
-      background: var(--surface-muted);
+    .suggestions-panel {{
+      margin-top: 14px;
       border: 1px solid var(--border);
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 13px;
-      color: var(--text-secondary);
-      text-align: left;
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 16px 36px rgba(57, 44, 26, 0.12);
+      overflow: hidden;
     }}
 
-    .example-btn:hover {{
-      border-color: var(--action);
+    .suggestions-header {{
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }}
+
+    .suggestion-item {{
+      width: 100%;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      border-top: 1px solid rgba(215, 204, 185, 0.5);
+      cursor: pointer;
+      text-align: left;
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.4;
+      transition: background 0.18s ease, color 0.18s ease;
+    }}
+
+    .suggestion-item:first-of-type {{
+      border-top: none;
+    }}
+
+    .suggestion-item:hover,
+    .suggestion-item:focus-visible {{
+      background: rgba(37, 88, 71, 0.06);
       color: var(--action);
-      background: var(--surface);
+      outline: none;
+    }}
+
+    .suggestion-empty {{
+      padding: 14px 16px;
+      color: var(--text-muted);
+      font-size: 14px;
     }}
 
     .telemetry-box {{
@@ -1077,11 +1158,24 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           <h2>Compare a task across models</h2>
           <p class="meta">This is the fastest first win. Trinity packages the task, runs the council, and opens the review page when it finishes.</p>
           <label class="label mb-sm" for="council-prompt">Task</label>
-          <textarea id="council-prompt" v-model="prompt" placeholder="Write a launch announcement for Trinity Local"></textarea>
+          <textarea
+            id="council-prompt"
+            v-model="prompt"
+            placeholder="Ask a council question..."
+            @focus="openSuggestions"
+            @input="handlePromptInput"
+            @blur="closeSuggestionsSoon"
+          ></textarea>
 
-          <div class="label mb-sm" style="margin-top: 16px;">Quick start examples</div>
-          <div class="examples-grid">
-            <button type="button" class="example-btn" v-for="example in examplePrompts" @click="prompt = example">{{{{ example }}}}</button>
+          <div class="suggestions-panel" v-if="showSuggestions">
+            <div class="suggestions-header">{{{{ suggestionsHeader }}}}</div>
+            <button
+              type="button"
+              class="suggestion-item"
+              v-for="suggestion in filteredCouncilSuggestions"
+              @mousedown.prevent="applySuggestion(suggestion)"
+            >{{{{ suggestion }}}}</button>
+            <div class="suggestion-empty" v-if="!filteredCouncilSuggestions.length">No matching council queries yet.</div>
           </div>
 
           <div class="actions" style="margin-top: 18px;">
@@ -1326,6 +1420,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     function LaunchpadApp(pageData) {{
       return {{
         prompt: '',
+        suggestionsOpen: false,
         launchError: '',
         operation: loadPersistedOperation(pageData.activeOperation || null),
         statusPollHandle: null,
@@ -1334,7 +1429,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
         settingsOpen: false,
         showReferenceRatings: false,
         memberProgress: null,
-        examplePrompts: pageData.examplePrompts || [],
+        councilSuggestions: pageData.councilSuggestions || [],
         settingsLinks: pageData.settingsLinks || {{}},
         providerHealth: pageData.providerHealth || {{ providers: [], hasMissing: false, footerNote: '' }},
         telemetry: {{
@@ -1358,6 +1453,27 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           if (this.operation?.statusToken) {{
             this.startOperationPolling(this.operation.statusToken);
           }}
+        }},
+        get normalizedPrompt() {{
+          return (this.prompt || '').trim().toLowerCase();
+        }},
+        get filteredCouncilSuggestions() {{
+          const suggestions = this.councilSuggestions || [];
+          const query = this.normalizedPrompt;
+          if (!query) {{
+            return suggestions.slice(0, 6);
+          }}
+          const queryTokens = query.split(/\\s+/).filter(Boolean);
+          return suggestions.filter((item) => {{
+            const value = item.toLowerCase();
+            return queryTokens.every((token) => value.includes(token));
+          }}).slice(0, 6);
+        }},
+        get showSuggestions() {{
+          return this.suggestionsOpen && !this.busy && this.councilSuggestions.length > 0;
+        }},
+        get suggestionsHeader() {{
+          return this.normalizedPrompt ? 'Matching previous council queries' : 'Top used council queries';
         }},
         get busy() {{
           return !!this.operation && this.operation.status === 'running';
@@ -1539,6 +1655,21 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           }};
           this.triggerShortcut(buildShortcutUrl(payload));
         }},
+        openSuggestions() {{
+          this.suggestionsOpen = true;
+        }},
+        closeSuggestionsSoon() {{
+          window.setTimeout(() => {{
+            this.suggestionsOpen = false;
+          }}, 120);
+        }},
+        handlePromptInput() {{
+          this.suggestionsOpen = true;
+        }},
+        applySuggestion(suggestion) {{
+          this.prompt = suggestion;
+          this.suggestionsOpen = false;
+        }},
         beginOperation(operation) {{
           this.operation = {{
             ...operation,
@@ -1546,6 +1677,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
           }};
           this.launchError = '';
           this.memberProgress = null;
+          this.suggestionsOpen = false;
           persistOperation(this.operation);
           this.startOperationPolling(operation.statusToken);
         }},
