@@ -1024,7 +1024,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
               </div>
             </div>
             <div class="setting-row">
-              <span class="meta">Watcher daemon</span>
+              <span class="meta">Auto-ingest daemon</span>
               <span class="meta">{{{{ telemetry.daemonMessage }}}}</span>
             </div>
           </div>
@@ -1121,8 +1121,8 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
             <h2>My ratings</h2>
           </div>
           <div class="rating-toggle">
-                <button @click="showReferenceRatings = false" :class="showReferenceRatings ? 'toggle-btn' : 'toggle-btn active'">My ratings</button>
-                <button @click="showReferenceRatings = true" :class="showReferenceRatings ? 'toggle-btn active' : 'toggle-btn'">Reference evals</button>
+                <button type="button" class="toggle-btn" :class="{{ active: !showReferenceRatings }}" :aria-pressed="!showReferenceRatings">My ratings</button>
+                <button type="button" class="toggle-btn" :class="{{ active: showReferenceRatings }}" :aria-pressed="showReferenceRatings">Reference evals</button>
           </div>
         </div>
         <p class="meta">{{{{ !showReferenceRatings ? 'Local scores and strengths from your saved council preferences.' : 'Public reference evals mapped to Trinity capability categories.' }}}}</p>
