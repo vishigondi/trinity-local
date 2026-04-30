@@ -16,6 +16,7 @@ from .config import trinity_home
 from .cost_tracker import CostSummary, load_cost_log, summarize_costs
 from .design_system import render_html_footer, render_html_head
 from .drift import DriftAlert, check_drift
+from .state_paths import digest_pages_dir
 from .utils import now_iso
 
 
@@ -86,9 +87,8 @@ def generate_digest(*, period_days: int = 7) -> WeeklyDigest:
 
 
 def _digest_pages_dir() -> Path:
-    path = trinity_home() / "digest_pages"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Deprecated — use state_paths.digest_pages_dir() instead."""
+    return digest_pages_dir()
 
 
 def render_digest_html(digest: WeeklyDigest) -> Path:

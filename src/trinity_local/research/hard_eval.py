@@ -15,15 +15,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..config import trinity_home
+from ..state_paths import research_dir
 from ..training_schema import RoutingExample
 from .embeddings import EmbeddingRecord, cosine_similarity
-
-
-def _research_dir() -> Path:
-    path = trinity_home() / "research"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 @dataclass
@@ -330,7 +324,7 @@ def _eval_knn(
 
 def save_hard_eval(reports: dict[str, HardEvalReport]) -> Path:
     """Save hard evaluation report."""
-    path = _research_dir() / "hard_eval_report.json"
+    path = research_dir() / "hard_eval_report.json"
     payload = {name: report.to_dict() for name, report in reports.items()}
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path

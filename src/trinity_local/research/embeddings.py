@@ -20,14 +20,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..config import trinity_home
+from ..state_paths import research_dir
 from ..training_schema import RoutingExample
-
-
-def _research_dir() -> Path:
-    path = trinity_home() / "research"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 @dataclass
@@ -162,7 +156,7 @@ def build_tfidf_vectors(
 # ---------------------------------------------------------------------------
 
 def embeddings_path() -> Path:
-    return _research_dir() / "embeddings.jsonl"
+    return research_dir() / "embeddings.jsonl"
 
 
 def save_embeddings(records: list[EmbeddingRecord]) -> Path:

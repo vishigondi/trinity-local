@@ -12,32 +12,17 @@ from .council_schema import (
     LaunchEvent,
     PromptBundle,
 )
-from .scoreboard import state_dir
+from .state_paths import (
+    council_outcomes_dir,
+    council_runs_path,
+    launch_events_path,
+    prompt_bundles_dir,
+)
 from .utils import now_iso, stable_id
 
 # Aliases for backward compatibility within this module
 _now_iso = now_iso
 _stable_id = stable_id
-
-
-def prompt_bundles_dir() -> Path:
-    path = state_dir() / "prompt_bundles"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def council_runs_path() -> Path:
-    return state_dir() / "council_runs.jsonl"
-
-
-def launch_events_path() -> Path:
-    return state_dir() / "launch_events.jsonl"
-
-
-def council_outcomes_dir() -> Path:
-    path = state_dir() / "council_outcomes"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def create_prompt_bundle(
@@ -312,35 +297,69 @@ def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
     return CouncilOutcome(**raw)
 
 
+def _normalize_section_header(line: str) -> str:
+    normalized = line.strip()
+    normalized = re.sub(r"^#+\s*", "", normalized)
+    normalized = re.sub(r"^\*+\s*", "", normalized)
+    normalized = re.sub(r"^\d+[\.\)]\s*", "", normalized)
+    normalized = re.sub(r"\*+$", "", normalized)
+    normalized = normalized.rstrip(":").strip().lower()
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized
+
+
+def _extract_named_sections(
+    text: str,
+    section_aliases: list[tuple[str, tuple[str, ...]]],
+) -> dict[str, str]:
+    alias_lookup: dict[str, str] = {}
+    for key, aliases in section_aliases:
+        for alias in aliases:
+            alias_lookup[_normalize_section_header(alias)] = key
+
+    matches: list[tuple[str, int]] = []
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        normalized = _normalize_section_header(line)
+        key = alias_lookup.get(normalized)
+        if key:
+            matches.append((key, idx))
+
+    if not matches:
+        return {}
+
+    extracted: dict[str, str] = {}
+    for position, (key, start_idx) in enumerate(matches):
+        end_idx = matches[position + 1][1] if position + 1 < len(matches) else len(lines)
+        body = "\n".join(lines[start_idx + 1:end_idx]).strip()
+        if body and key not in extracted:
+            extracted[key] = body
+    return extracted
+
+
 def parse_synthesis_sections(text: str) -> dict[str, str]:
-    patterns = {
-        "agreement": r"(?:^|\n)(?:1\.\s*Agreement|Agreement)\s*\n(.+?)(?=\n(?:2\.\s*Differences|Differences)\b|\Z)",
-        "differences": r"(?:^|\n)(?:2\.\s*Differences|Differences)\s*\n(.+?)(?=\n(?:3\.\s*Best Answer|Best Answer)\b|\Z)",
-        "best_answer": r"(?:^|\n)(?:3\.\s*Best Answer|Best Answer)\s*\n(.+?)(?=\n(?:4\.\s*Winner|Winner)\b|\Z)",
-        "winner": r"(?:^|\n)(?:4\.\s*Winner|Winner)\s*\n(.+?)(?=\n(?:5\.\s*Follow-up Needed|Follow-up Needed)\b|\Z)",
-        "followup": r"(?:^|\n)(?:5\.\s*Follow-up Needed|Follow-up Needed)\s*\n(.+?)\s*$",
-    }
-    out: dict[str, str] = {}
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, flags=re.DOTALL | re.IGNORECASE)
-        if match:
-            out[key] = match.group(1).strip()
-    return out
+    return _extract_named_sections(
+        text,
+        [
+            ("agreement", ("agreement", "what reviewers found", "reviewer findings")),
+            ("differences", ("differences", "key differences", "key tradeoffs", "tradeoffs")),
+            ("best_answer", ("best answer", "best overall answer", "strongest answer", "what each response does best")),
+            ("winner", ("winner", "decision framework", "recommendation", "recommended answer")),
+            ("followup", ("follow-up needed", "followup needed", "follow-up", "followup", "next step", "next steps")),
+        ],
+    )
 
 
 def parse_peer_review_sections(text: str) -> dict[str, str]:
-    patterns = {
-        "agreement": r"(?:^|\n)Agreement\s*\n(.+?)(?=\nStrengths\b|\Z)",
-        "strengths": r"(?:^|\n)Strengths\s*\n(.+?)(?=\nWeaknesses\b|\Z)",
-        "weaknesses": r"(?:^|\n)Weaknesses\s*\n(.+?)(?=\nFINAL RANKING\b|\Z)",
-        "ranking": r"(?:^|\n)FINAL RANKING\s*\n(.+?)\s*$",
-    }
-    out: dict[str, str] = {}
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, flags=re.DOTALL | re.IGNORECASE)
-        if match:
-            out[key] = match.group(1).strip()
-    return out
+    return _extract_named_sections(
+        text,
+        [
+            ("agreement", ("agreement", "shared assessment", "where i agree")),
+            ("strengths", ("strengths", "best points", "strong points")),
+            ("weaknesses", ("weaknesses", "concerns", "issues", "criticisms")),
+            ("ranking", ("final ranking", "ranking", "ranked order")),
+        ],
+    )
 
 
 def parse_ranking_labels(ranking_text: str) -> list[str]:

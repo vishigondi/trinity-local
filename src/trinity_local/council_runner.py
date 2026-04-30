@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
 from .config import AppConfig
-from .council_progress import (
-    cleanup_progress,
-    finalize_council_progress,
-    init_council_progress,
+from .council_status import (
+    finalize_council_run_state,
+    init_council_run_state,
+    load_council_status,
     start_member_progress,
     update_member_failure,
     update_member_progress,
@@ -68,6 +69,7 @@ def run_council(
     member_model_overrides: dict[str, str] | None = None,
     primary_model_override: str | None = None,
     with_peer_review: bool = True,
+    run_state_token: str | None = None,
 ) -> CouncilRunResult:
     member_model_overrides = member_model_overrides or {}
     member_results: list[CouncilMemberResult] = []
@@ -79,15 +81,30 @@ def run_council(
     member_failures: list[dict[str, object]] = []
     reviewer_failures: list[dict[str, object]] = []
 
-    # Initialize progress tracking
+    try:
+        os.setpgrp()
+    except OSError:
+        pass
+
     council_id = bundle.bundle_id
-    init_council_progress(council_id, member_providers)
+    state_token = run_state_token or council_id
+    if load_council_status(state_token) is None:
+        init_council_run_state(
+            state_token,
+            task_text=bundle.task_text,
+            bundle_id=bundle.bundle_id,
+            council_id=council_id,
+            members=member_providers,
+            runner_pid=os.getpid(),
+            runner_pgid=os.getpgid(0),
+            metadata={"kind": "council"},
+        )
     member_prompt = render_member_prompt(bundle)
 
     def _run_member(provider_name: str) -> MemberExecutionResult:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
-            update_member_failure(council_id, provider_name, "Provider missing or disabled.")
+            update_member_failure(state_token, provider_name, "Provider missing or disabled.")
             return MemberExecutionResult(
                 provider_name=provider_name,
                 error_payload={
@@ -99,11 +116,11 @@ def run_council(
 
         provider = make_provider(provider_config)
         try:
-            start_member_progress(council_id, provider_name)
+            start_member_progress(state_token, provider_name)
             result = provider.run(member_prompt, cwd)
         except Exception as exc:
             error_text = str(exc)
-            update_member_failure(council_id, provider_name, error_text)
+            update_member_failure(state_token, provider_name, error_text)
             return MemberExecutionResult(
                 provider_name=provider_name,
                 provider_config=provider_config,
@@ -117,7 +134,7 @@ def run_council(
 
         output_text = result.stdout or result.stderr or ""
         if result.returncode != 0 and not (result.stdout or "").strip():
-            update_member_failure(council_id, provider_name, result.stderr or f"Exited with code {result.returncode}.")
+            update_member_failure(state_token, provider_name, result.stderr or f"Exited with code {result.returncode}.")
             return MemberExecutionResult(
                 provider_name=provider_name,
                 provider_config=provider_config,
@@ -133,7 +150,7 @@ def run_council(
                 },
             )
 
-        update_member_progress(council_id, provider_name, output_text)
+        update_member_progress(state_token, provider_name, output_text)
         return MemberExecutionResult(
             provider_name=provider_name,
             provider_config=provider_config,
@@ -289,7 +306,7 @@ def run_council(
     primary_prompt = outcome.synthesis_prompt or primary_prompt or ""
 
     # --- Primary synthesis with failure handling ---
-    update_synthesis_progress(council_id, "running")
+    update_synthesis_progress(state_token, "running")
     synthesis_output = ""
     synthesis_error = None
     sections: dict[str, str] = {}
@@ -309,7 +326,7 @@ def run_council(
         }
         synthesis_output = ""
     finally:
-        update_synthesis_progress(council_id, "done")
+        update_synthesis_progress(state_token, "done")
 
     differences = []
     if "differences" in sections:
@@ -367,10 +384,6 @@ def run_council(
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(bundle, final_outcome)
 
-    # Mark progress as complete and clean up
-    finalize_council_progress(council_id)
-    cleanup_progress(council_id)
-
     primary_event = create_launch_event(
         bundle=bundle,
         mode="council",
@@ -391,6 +404,13 @@ def run_council(
     )
     task_path = save_task_record(task)
     sync_path = save_sync_record(task)
+
+    finalize_council_run_state(
+        state_token,
+        status="completed",
+        council_id=final_outcome.council_run_id,
+        review_path=str(review_path),
+    )
 
     return CouncilRunResult(
         outcome=final_outcome,

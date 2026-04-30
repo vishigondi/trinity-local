@@ -22,6 +22,8 @@ from ..ingest import (
     parse_cowork_session,
     parse_gemini_cli_session,
 )
+from ..state_paths import research_dir, replay_examples_dir
+from ..task_kinds import guess_task_kind
 from ..training_schema import (
     ModelDescriptor,
     RoutingExample,
@@ -32,16 +34,9 @@ from ..training_schema import (
 from ..utils import stable_id
 
 
-def research_dir() -> Path:
-    path = trinity_home() / "research"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def examples_dir() -> Path:
-    path = research_dir() / "examples"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Backward-compat wrapper — delegates to state_paths.replay_examples_dir()."""
+    return replay_examples_dir()
 
 
 @dataclass
@@ -79,17 +74,8 @@ def _weak_label(features: SessionFeatures) -> str:
 
 
 def _guess_task_kind(text: str) -> str:
-    """Minimal task kind classifier (mirrors watch_runtime._guess_task_kind)."""
-    lowered = text.lower()
-    if any(t in lowered for t in ("stock", "research", "compare", "market", "investigate")):
-        return "research"
-    if any(t in lowered for t in ("debug", "bug", "error", "failing", "traceback")):
-        return "debugging"
-    if any(t in lowered for t in ("write", "draft", "email", "memo")):
-        return "writing"
-    if any(t in lowered for t in ("code", "refactor", "repo", "function", "script")):
-        return "coding"
-    return "general"
+    """Compatibility wrapper around the shared task kind classifier."""
+    return guess_task_kind(text)
 
 
 def _features_to_example(features: SessionFeatures) -> RoutingExample | None:

@@ -38,9 +38,11 @@ The fastest first win is a council:
 # Create a prompt bundle
 trinity-local bundle-create "Write a launch announcement for Trinity Local" --goal "Find the strongest answer"
 
-# Run a council
+# Run a council (watch live progress as members respond)
 trinity-local council-start --bundle <id> --members claude gemini codex --primary-provider claude --notify --open-browser
 ```
+
+Trinity will show live progress (✓ done, ⏳ running, · pending) with reasoning summaries as each member completes.
 
 After that, there are only three commands you need:
 
@@ -63,6 +65,22 @@ Trinity will send macOS notifications when it spots something — a better provi
 trinity-local portal-html --open-browser
 ```
 
+The dashboard polls council progress every 1.5 seconds during execution and reloads after settings changes.
+
+### Configure auto-ingest transcript (optional)
+
+Trinity can automatically ingest transcripts from your AI tools in the background:
+
+```bash
+# Enable automatic transcript ingestion
+trinity-local auto-ingest-enable
+
+# Disable it later
+trinity-local auto-ingest-disable
+```
+
+You can also toggle this from the dashboard settings.
+
 ### Weekly digest
 
 ```bash
@@ -74,22 +92,23 @@ trinity-local digest --open-browser
 Trinity is built around this sequence:
 
 1. **Run a council** on a real task
-2. **Pick the best answer**
-3. **Let Trinity learn your taste**
-4. **Let the watcher surface future councils and reroutes**
-5. **Later, automate repeated workflows**
+2. **Watch live progress** as members respond with reasoning summaries
+3. **Pick the best answer**
+4. **Let Trinity learn your taste**
+5. **Let the watcher surface future councils and reroutes**
+6. **Later, automate repeated workflows**
 
-Council is the first win. Watcher and workflow suggestions become more valuable after Trinity has seen real choices.
+Council is the first win. Watcher and workflow suggestions become more valuable after Trinity has seen real choices. Live progress makes councils feel interactive instead of opaque.
 
 ## What It Does
 
-- **Runs councils first** — compare the same task across providers with peer review and synthesis
-- **Watches** transcripts from Claude Code, Codex, Gemini CLI, and Cowork
+- **Runs councils first** — compare the same task across providers with peer review, synthesis, and live progress tracking
+- **Shows live progress** — watch council members respond in real-time with reasoning summaries (✓ done, ⏳ running, · pending)
+- **Watches** transcripts from Claude Code, Codex, Gemini CLI, and Cowork (optionally auto-ingests in the background)
 - **Recommends** the right provider for the task, backed by evidence from your own usage
 - **k-NN advisory** — embedding-based routing suggestions using mined hard examples
 - **Detects** provider switching — when you abandon one tool and finish in another
 - **Tracks** cost and model drift across providers over time
-- **Runs councils** — cross-provider comparison with peer review and synthesis
 - **Reviews** — ask one provider to critique another's output
 - **Analytics** — production observability: evidence spam, threshold brittleness, act/switch rates
 - **Generates** weekly digests, static portal pages, and macOS notifications
@@ -246,21 +265,32 @@ All mutable state lives under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ## Verified
 
 - `python3 -m compileall src` — clean
-- `pytest -q` — **144 passed**
+- `pytest -q` — **165 passed** (Phase 0 refactor checkpoint)
 - Graceful fallback: if MLX fails at runtime, `embed()` falls back to TF-IDF
 - 15 command modules registering 40 CLI subcommands
 - `watch-once`, `portal-html`, `digest`, `shortcut-install` — all write correctly to `~/.trinity/`
 - `hard`, `hardeval`, `analytics` — research pipeline verified
+- `council-start` — live progress tracking with file-based JSON/JS polling (1.5s refresh)
+- `auto-ingest-enable`/`auto-ingest-disable` — daemon lifecycle management with telemetry persistence
+- `portal-html` — on-demand reload after settings changes, live progress polling during council execution
 
 ## Documentation
 
 - [claude.md](claude.md) — Architecture, coding conventions, development guide
+- [docs/scale-plan.md](docs/scale-plan.md) — Active refactor + distribution plan: Phase 0 stability work (in progress), then MCP server, skills, hooks, growth flywheel
 - [docs/product-spec.md](docs/product-spec.md) — Product spec, GTM strategy, roadmap
 - [docs/frontend-architecture.md](docs/frontend-architecture.md) — Static HTML + `petite-vue` + `Chart.js` frontend spec
 - [docs/telemetry-spec.md](docs/telemetry-spec.md) — Opt-in telemetry, launchpad view events, Elo snapshot sharing
 - [docs/training-data.md](docs/training-data.md) — Training data plan and session formats
 - [docs/launcher-patterns.md](docs/launcher-patterns.md) — macOS Shortcuts dispatch research
 - [DESIGN.md](DESIGN.md) — visual system and UI rules
+
+## Roadmap
+
+The next big arc is making Trinity available to every Claude Code, Gemini CLI, and Codex CLI user with one command. See [docs/scale-plan.md](docs/scale-plan.md) for the full plan, which covers:
+
+- **Phase 0** — refactor + stability (in progress: embedding fix done, council run-state unified, dispatch wrapper portable, etc.)
+- **Phase 1+** — MCP server (`trinity-local --mcp`), `install-mcp` cross-CLI installer, skills, ambient `Stop` hook, vendor-hosted JS, update mechanism, leaderboard
 
 ## Product Mantra
 

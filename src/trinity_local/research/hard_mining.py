@@ -20,6 +20,7 @@ from typing import Any
 
 from ..config import trinity_home
 from ..feature_extractors import extract_session_features
+from ..state_paths import hard_examples_dir
 from ..training_schema import (
     ModelDescriptor,
     OutcomeSignals,
@@ -32,10 +33,7 @@ from ..utils import stable_id
 from .replay import _guess_task_kind, _iter_source_sessions, examples_dir
 
 
-def hard_examples_dir() -> Path:
-    path = trinity_home() / "research" / "hard_examples"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+# hard_examples_dir is now imported from state_paths above
 
 
 @dataclass

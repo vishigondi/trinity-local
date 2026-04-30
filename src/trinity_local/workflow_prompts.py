@@ -2,15 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .scoreboard import state_dir
+from .state_paths import workflow_prompt_dir
 from .task_schema import TaskRecord
 from .training_schema import SessionFeatures
-
-
-def workflow_prompt_dir() -> Path:
-    path = state_dir() / "workflow_prompts"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def render_cowork_shortcut_prompt(*, task: TaskRecord, features: SessionFeatures, workflow_reason: str) -> str:

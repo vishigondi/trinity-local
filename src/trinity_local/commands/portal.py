@@ -7,7 +7,7 @@ from pathlib import Path
 from ..council_review import review_pages_dir
 from ..council_runtime import load_council_outcome
 from ..notifications import open_path
-from ..portal_page import write_portal_html
+from ..refresh import refresh_launchpad
 from ..task_runtime import load_task_record
 
 
@@ -26,7 +26,7 @@ def register(subparsers):
 
 
 def handle_portal_html(args):
-    path = write_portal_html(title=args.title, video_url=args.video_url)
+    path = refresh_launchpad(title=args.title, video_url=args.video_url)
     opened = open_path(path) if args.open_browser else False
     print(json.dumps({"path": str(path), "opened": opened}, indent=2))
 

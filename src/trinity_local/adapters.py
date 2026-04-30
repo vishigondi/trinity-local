@@ -10,6 +10,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .subprocess_utils import run_with_runtime_env
+
 
 @dataclass
 class AdapterStatus:
@@ -63,7 +65,7 @@ _PROVIDER_SPECS: list[dict[str, Any]] = [
 def _run_version(args: list[str]) -> str | None:
     """Run a version command and return the first line of output."""
     try:
-        result = subprocess.run(
+        result = run_with_runtime_env(
             args,
             capture_output=True,
             text=True,

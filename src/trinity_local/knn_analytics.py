@@ -17,13 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .config import trinity_home
+from .state_paths import analytics_dir
 
 
 def _analytics_dir() -> Path:
-    path = trinity_home() / "analytics"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Deprecated — use state_paths.analytics_dir() instead."""
+    return analytics_dir()
 
 
 def _advisory_log_path() -> Path:

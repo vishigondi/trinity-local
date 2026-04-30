@@ -8,19 +8,13 @@ from urllib.parse import quote
 
 from .council_feedback import latest_feedback_by_council
 from .council_schema import CouncilOutcome, PromptBundle
-from .council_progress import council_progress_dir
 from .council_status import council_status_dir
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
 from .markdown_utils import render_markdown
-from .scoreboard import state_dir
+from .portal_runtime import portal_runtime_js
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-
-
-def review_pages_dir() -> Path:
-    path = state_dir() / "review_pages"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from .state_paths import portal_pages_dir, review_pages_dir
 
 
 def _esc(value: str | None) -> str:
@@ -108,186 +102,6 @@ def _peer_review_card(outcome: CouncilOutcome) -> str:
     """
 
 
-def render_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = None) -> str:
-    member_cards = ""
-    if outcome is not None:
-        member_cards = "\n".join(
-            _member_card(member.provider, member.model, member.output_text)
-            for member in outcome.member_results
-        )
-
-    differences = ""
-    if outcome and outcome.differences:
-        differences = "".join(f"<li>{_esc(item)}</li>" for item in outcome.differences)
-
-    summary = ""
-    peer_reviews = ""
-    if outcome:
-        summary = f"""
-        <section class="card">
-          <h2>Primary Synthesis</h2>
-          <div class="markdown-body">{render_markdown(outcome.synthesis_output or "(pending)")}</div>
-        </section>
-        <section class="grid two">
-          <section class="card">
-            <h2>Winner</h2>
-            <p>{_esc(outcome.winner_provider or "unknown")} · {_esc(outcome.winner_model or "unknown")}</p>
-            <p>Agreement score: {_esc(str(outcome.agreement_score) if outcome.agreement_score is not None else "n/a")}</p>
-            <p>Follow-up needed: {_esc(str(outcome.needs_followup) if outcome.needs_followup is not None else "n/a")}</p>
-          </section>
-          <section class="card">
-            <h2>Differences</h2>
-            <ul>{differences or "<li>None recorded.</li>"}</ul>
-          </section>
-        </section>
-        <section class="card">
-          <h2>Synthesis Prompt Sent To Primary Model</h2>
-          <div class="markdown-body">{render_markdown(outcome.synthesis_prompt or "(not generated)")}</div>
-        </section>
-        """
-        peer_reviews = _peer_review_card(outcome)
-
-    head = render_html_head("Trinity — Council Review")
-    footer = render_html_footer()
-    origin_label = bundle.origin_provider or bundle.metadata.get("launch_source") or "Direct Council"
-    session_label = bundle.origin_session_id
-    created_label = _pretty_timestamp(bundle.created_at) or bundle.created_at
-    pills = [f'<span class="pill">Origin: {_esc(_pretty_label(origin_label))}</span>']
-    if session_label:
-        pills.append(f'<span class="pill">Run: {_esc(session_label)}</span>')
-    if created_label:
-        pills.append(f'<span class="pill">{_esc(created_label)}</span>')
-
-    return f"""{head}
-  <style>
-    .grid.two {{
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    }}
-    pre {{
-      white-space: pre-wrap;
-      word-break: break-word;
-    }}
-    .markdown-body {{
-      line-height: 1.65;
-      color: var(--text-primary);
-    }}
-    .markdown-body > :first-child {{
-      margin-top: 0;
-    }}
-    .markdown-body > :last-child {{
-      margin-bottom: 0;
-    }}
-    .markdown-body p,
-    .markdown-body ul,
-    .markdown-body ol,
-    .markdown-body pre {{
-      margin: 0 0 14px 0;
-    }}
-    .markdown-body h1,
-    .markdown-body h2,
-    .markdown-body h3,
-    .markdown-body h4,
-    .markdown-body h5,
-    .markdown-body h6 {{
-      margin: 0 0 12px 0;
-      line-height: 1.2;
-    }}
-    .markdown-body ul,
-    .markdown-body ol {{
-      padding-left: 20px;
-    }}
-    .markdown-body code {{
-      font-family: "SFMono-Regular", Menlo, monospace;
-      background: rgba(37, 88, 71, 0.08);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.95em;
-    }}
-    .markdown-body pre.md-code-block {{
-      background: var(--surface-muted);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      overflow-x: auto;
-    }}
-    .markdown-body pre.md-code-block code {{
-      background: transparent;
-      padding: 0;
-      border-radius: 0;
-    }}
-    .markdown-body a {{
-      color: var(--action);
-      text-decoration: none;
-    }}
-    .markdown-body a:hover {{
-      text-decoration: underline;
-    }}
-    .markdown-body table {{
-      width: 100%;
-      border-collapse: collapse;
-      margin: 12px 0;
-    }}
-    .markdown-body th, .markdown-body td {{
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      padding: 8px;
-      font-size: 14px;
-    }}
-    .markdown-body th {{
-      background: var(--surface-muted);
-      font-weight: 600;
-    }}
-  </style>
-  <main>
-    <section class="card">
-      <div class="eyebrow">Trinity</div>
-      <h1>Council Review</h1>
-      <p class="meta">Bundle: {_esc(bundle.bundle_id)}</p>
-      <div class="pillbar">
-        {"".join(pills)}
-      </div>
-    </section>
-
-    <section class="card mb-lg">
-      <h2>Task</h2>
-      <div class="markdown-body">{render_markdown(bundle.task_text)}</div>
-    </section>
-
-    <section class="grid two">
-      <section class="card">
-        <h2>Goal</h2>
-        <div class="markdown-body">{render_markdown(bundle.goal or "(none)")}</div>
-      </section>
-      <section class="card">
-        <h2>Comparison Instructions</h2>
-        <div class="markdown-body">{render_markdown(bundle.comparison_instructions or "(none)")}</div>
-      </section>
-    </section>
-
-    <section class="card mb-lg">
-      <h2>Context Bundle</h2>
-      <div class="markdown-body">{render_markdown(bundle.context_excerpt or "(none)")}</div>
-    </section>
-
-    {summary}
-    {peer_reviews}
-
-    <section class="card mb-lg">
-      <h2>Member Outputs</h2>
-      <div class="grid grid-members">
-        {member_cards or '<p class="meta">No council member results recorded yet.</p>'}
-      </div>
-    </section>
-  </main>
-{footer}
-"""
-
-
-def write_review_html(bundle: PromptBundle, outcome: CouncilOutcome | None = None) -> Path:
-    suffix = outcome.council_run_id if outcome is not None else bundle.bundle_id
-    path = review_pages_dir() / f"{suffix}.html"
-    path.write_text(render_review_html(bundle, outcome), encoding="utf-8")
-    return path
 
 
 PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
@@ -309,7 +123,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     prior_feedback = latest_feedback_by_council().get(council_id, {})
     selected_provider = prior_feedback.get("provider")
     selected_label = prior_feedback.get("answer_label")
-    launchpad_path = (state_dir() / "portal_pages" / "launchpad.html").resolve()
+    launchpad_path = (portal_pages_dir() / "launchpad.html").resolve()
 
     # Build response cards with voting
     answers_html = []
@@ -493,16 +307,9 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
     function CouncilApp(pageData) {{
-      const storageKey = `trinity:council-selection:${{pageData.councilId}}`;
-      let persisted = null;
-      try {{
-        persisted = JSON.parse(localStorage.getItem(storageKey) || 'null');
-      }} catch (_err) {{
-        persisted = null;
-      }}
-      const initialProvider = persisted?.selectedProvider || pageData.initialSelection?.provider || '';
-      const initialLabel = persisted?.selectedLabel || pageData.initialSelection?.label || '';
-      const savedProvider = persisted?.savedProvider || pageData.initialSelection?.provider || '';
+      const initialProvider = pageData.initialSelection?.provider || '';
+      const initialLabel = pageData.initialSelection?.label || '';
+      const savedProvider = pageData.initialSelection?.provider || '';
       const initialAnswer = (pageData.answers || []).find((answer) => answer.label === initialLabel || answer.provider === initialProvider);
 
       return {{
@@ -510,17 +317,9 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         selectedProvider: initialProvider,
         selectedShortcutUrl: initialAnswer?.shortcut_url || '',
         savedProvider,
-        storageKey,
         feedbackSaved: !!savedProvider && savedProvider === initialProvider,
         get selectedProviderTitle() {{
           return this.selectedProvider ? this.selectedProvider.replace(/_/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase()) : '';
-        }},
-        persistSelection() {{
-          localStorage.setItem(this.storageKey, JSON.stringify({{
-            selectedLabel: this.selectedLabel,
-            selectedProvider: this.selectedProvider,
-            savedProvider: this.savedProvider,
-          }}));
         }},
         chooseAnswer(label, provider, shortcutUrl) {{
           this.selectedLabel = label;
@@ -528,7 +327,6 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
           this.selectedShortcutUrl = shortcutUrl;
           this.savedProvider = this.selectedProvider;
           this.feedbackSaved = true;
-          this.persistSelection();
           if (shortcutUrl) {{
             window.location.href = shortcutUrl;
           }}
@@ -551,11 +349,10 @@ def write_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) ->
 def render_live_council_page() -> str:
     head = render_html_head("Trinity — Council Running")
     footer = render_html_footer()
-    launchpad_path = (state_dir() / "portal_pages" / "launchpad.html").resolve()
+    launchpad_path = (portal_pages_dir() / "launchpad.html").resolve()
     page_data = {
         "launchpadUrl": f"file://{launchpad_path}",
         "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
-        "progressScriptBaseUrl": "file://" + quote(str(council_progress_dir().resolve())),
         "loadingMessages": LIVE_COUNCIL_LOADING_MESSAGES,
         "shortcutName": DEFAULT_SHORTCUT_NAME,
     }
@@ -712,9 +509,8 @@ def render_live_council_page() -> str:
           </div>
         </div>
         <p class="status-error" v-if="errorText">{{{{ errorText }}}}</p>
-        <div class="live-actions">
-          <button type="button" class="button ghost" v-if="busy" @click="stopCouncil">Stop council</button>
-          <a class="button ghost" :href="launchpadUrl">Back to Launchpad</a>
+        <div class="live-actions" v-if="busy">
+          <button type="button" class="button ghost" @click="stopCouncil">Stop council</button>
         </div>
       </section>
     </div>
@@ -725,14 +521,7 @@ def render_live_council_page() -> str:
     import {{ createApp }} from '{PETITE_VUE_MODULE}';
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
-    function buildShortcutUrl(payload) {{
-      const name = encodeURIComponent(pageData.shortcutName || 'Trinity Dispatch');
-      const text = encodeURIComponent(JSON.stringify(payload));
-      return `shortcuts://run-shortcut?name=${{name}}&input=text&text=${{text}}`;
-    }}
-
-    window.__TRINITY_COUNCIL_STATUS__ = window.__TRINITY_COUNCIL_STATUS__ || {{}};
-    window.__TRINITY_COUNCIL_PROGRESS__ = window.__TRINITY_COUNCIL_PROGRESS__ || {{}};
+    {portal_runtime_js()}
 
     function getParams() {{
       const params = new URLSearchParams(window.location.search);
@@ -742,46 +531,22 @@ def render_live_council_page() -> str:
       }};
     }}
 
-    function loadStatusScript(token, onComplete) {{
-      const base = pageData.statusScriptBaseUrl;
-      if (!base || !token) {{
-        onComplete(null);
-        return;
+    function normalizeStatus(raw, fallback = null) {{
+      if (!raw) {{
+        return fallback;
       }}
-      const script = document.createElement('script');
-      script.src = `${{base}}/council_status_${{encodeURIComponent(token)}}.js?t=${{Date.now()}}`;
-      script.async = true;
-      script.onload = () => {{
-        const status = window.__TRINITY_COUNCIL_STATUS__?.[token];
-        onComplete(status || null);
-        script.remove();
+      return {{
+        ...fallback,
+        ...raw,
+        statusToken: raw.statusToken || raw.status_token || fallback?.statusToken || '',
+        taskText: raw.taskText || raw.task_text || fallback?.taskText || '',
+        activeProvider: raw.activeProvider || raw.active_provider || fallback?.activeProvider || null,
+        activeProviders: raw.activeProviders || raw.active_providers || fallback?.activeProviders || [],
+        members: raw.members || fallback?.members || {{}},
+        synthesis: raw.synthesis || fallback?.synthesis || {{}},
+        reviewPath: raw.reviewPath || raw.review_path || fallback?.reviewPath || '',
+        error: raw.error || fallback?.error || '',
       }};
-      script.onerror = () => {{
-        onComplete(null);
-        script.remove();
-      }};
-      document.body.appendChild(script);
-    }}
-
-    function loadProgressScript(progressId, onComplete) {{
-      const base = pageData.progressScriptBaseUrl;
-      if (!base || !progressId) {{
-        onComplete(null);
-        return;
-      }}
-      const script = document.createElement('script');
-      script.src = `${{base}}/${{encodeURIComponent(progressId)}}.js?t=${{Date.now()}}`;
-      script.async = true;
-      script.onload = () => {{
-        const progress = window.__TRINITY_COUNCIL_PROGRESS__?.[progressId];
-        onComplete(progress || null);
-        script.remove();
-      }};
-      script.onerror = () => {{
-        onComplete(null);
-        script.remove();
-      }};
-      document.body.appendChild(script);
     }}
 
     function LiveCouncilApp(pageData) {{
@@ -789,7 +554,7 @@ def render_live_council_page() -> str:
       return {{
         statusToken: params.statusToken,
         taskText: params.taskText,
-        memberProgress: null,
+        runState: null,
         currentStatusIndex: 0,
         statusPollHandle: null,
         statusRotateHandle: null,
@@ -803,18 +568,18 @@ def render_live_council_page() -> str:
         }},
         get currentStatusMessage() {{
           const message = pageData.loadingMessages[this.currentStatusIndex % pageData.loadingMessages.length] || 'Working...';
-          const synthesisStatus = this.memberProgress?.synthesis?.status;
+          const synthesisStatus = this.runState?.synthesis?.status;
           if (synthesisStatus === 'running') {{
             return 'Synthesizing the strongest answer...';
           }}
-          const active = this.memberProgress?.active_provider;
+          const active = this.runState?.activeProvider;
           if (active) {{
             return `${{active}}: ${{message}}`;
           }}
           return message;
         }},
         get providerStatusRows() {{
-          const memberMap = this.memberProgress?.members || {{}};
+          const memberMap = this.runState?.members || {{}};
           const providers = Object.keys(memberMap);
           return providers.map((provider) => {{
             const item = memberMap[provider] || {{}};
@@ -829,16 +594,6 @@ def render_live_council_page() -> str:
                   ? (item.reasoning_summary || 'Provider failed.')
                   : '',
             }};
-          }});
-        }},
-        loadMemberProgress(progressId) {{
-          if (!progressId) {{
-            return;
-          }}
-          loadProgressScript(progressId, (progress) => {{
-            if (progress) {{
-              this.memberProgress = progress;
-            }}
           }});
         }},
         stopCouncil() {{
@@ -888,8 +643,7 @@ def render_live_council_page() -> str:
                 this.failed = false;
                 this.canceled = false;
                 this.errorText = '';
-                const progressId = status.council_id || status.bundle_id || '';
-                this.loadMemberProgress(progressId);
+                this.runState = normalizeStatus(status, this.runState);
                 return;
               }}
               if (status.status === 'completed' && status.review_path) {{

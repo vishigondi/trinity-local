@@ -54,9 +54,19 @@ def config_path(explicit: str | None = None) -> Path:
     return project_root() / "config.json"
 
 
-def load_config(explicit: str | None = None) -> AppConfig:
+def load_config(explicit: str | None = None, *, required: bool = True) -> AppConfig:
+    """Load configuration from disk.
+
+    Args:
+        explicit: explicit path to config.json; uses project_root()/config.json if None.
+        required: if True (default), raises FileNotFoundError when the config
+            file is missing.  When False, returns a minimal empty config instead
+            — useful for read-only CLI commands that only inspect state.
+    """
     path = config_path(explicit)
     if not path.exists():
+        if not required:
+            return _empty_config()
         raise FileNotFoundError(
             f"Missing config file at {path}. Copy config.example.json to config.json first."
         )
@@ -87,4 +97,16 @@ def load_config(explicit: str | None = None) -> AppConfig:
         task_preferences={
             key: list(value) for key, value in raw.get("task_preferences", {}).items()
         },
+    )
+
+
+def _empty_config() -> AppConfig:
+    """Return a minimal config with no providers — used when config is optional."""
+    return AppConfig(
+        max_turns=4,
+        default_task_kind="general",
+        notifications=False,
+        providers={},
+        role_preferences={},
+        task_preferences={},
     )

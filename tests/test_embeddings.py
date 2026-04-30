@@ -136,3 +136,15 @@ class TestPublicAPI:
         status = embeddings.model_status()
         assert "backend" in status
         assert "cache_entries" in status
+
+    def test_tfidf_fallback_respects_requested_dim(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        from trinity_local import embeddings
+
+        monkeypatch.setattr(embeddings, "_mlx_backend", None)
+        vec = embeddings.embed("fallback vector", dim=512)
+
+        assert len(vec) == 512
+        assert get_cached("fallback vector", dim=512) == vec

@@ -4,20 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .scoreboard import state_dir
+from .runtime_env import project_venv_root, runtime_path_prefix
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME
-
-
-def shortcut_setup_dir() -> Path:
-    path = state_dir() / "shortcut_setup"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def shortcut_bin_dir() -> Path:
-    path = state_dir() / "bin"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from .state_paths import shortcut_bin_dir, shortcut_setup_dir
 
 
 def render_shortcut_setup_markdown(shortcut_name: str = DEFAULT_SHORTCUT_NAME) -> str:
@@ -61,72 +50,38 @@ def write_shortcut_setup(shortcut_name: str = DEFAULT_SHORTCUT_NAME) -> Path:
 
 
 def _render_dispatch_wrapper(python_executable: str) -> str:
-    # Use .parent first (the venv's bin/ dir where entry points live),
-    # then resolve. If we resolve() first, symlinks chase to the Homebrew
-    # framework dir which doesn't contain trinity-local.
-    venv_bin = str(Path(python_executable).parent.resolve())
-    local_bin = str((Path.home() / ".local" / "bin").expanduser())
-    common_bins = [venv_bin, local_bin, "/opt/homebrew/bin", "/usr/local/bin"]
-    return f"""#!{python_executable}
-from __future__ import annotations
+    venv_root = str(project_venv_root(python_executable))
+    path_prefix = runtime_path_prefix(python_executable)
+    return f"""#!/bin/sh
+set -eu
 
-import json
-import os
-import subprocess
-import sys
+TRINITY_VENV_ROOT="{venv_root}"
+TRINITY_PATH_PREFIX="{path_prefix}"
 
-from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
+choose_python() {{
+  for candidate in \
+    "$TRINITY_VENV_ROOT/bin/python3" \
+    "$TRINITY_VENV_ROOT/bin/python" \
+    "$(command -v python3 2>/dev/null || true)" \
+    "$(command -v python 2>/dev/null || true)"
+  do
+    [ -n "$candidate" ] || continue
+    [ -x "$candidate" ] || continue
+    if "$candidate" -c 'import trinity_local.dispatch_runner' >/dev/null 2>&1; then
+      printf '%s\\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}}
 
-VENV_BIN = "{venv_bin}"
-EXTRA_PATHS = {common_bins!r}
+PYTHON_BIN="$(choose_python)" || {{
+  echo "trinity-dispatch: unable to locate a Python interpreter with trinity_local installed" >&2
+  exit 1
+}}
 
-
-def main() -> int:
-    current_path = os.environ.get("PATH", "")
-    merged = EXTRA_PATHS + ([current_path] if current_path else [])
-    os.environ["PATH"] = ":".join(part for part in merged if part)
-
-    if len(sys.argv) >= 2:
-        payload_text = sys.argv[1]
-    else:
-        payload_text = sys.stdin.read()
-
-    if not payload_text.strip():
-        print("trinity-dispatch: empty payload", file=sys.stderr)
-        return 1
-
-    try:
-        raw = json.loads(payload_text)
-    except json.JSONDecodeError as exc:
-        print(f"trinity-dispatch: invalid JSON: {{exc}}", file=sys.stderr)
-        return 1
-
-    try:
-        action = make_dispatch_action(
-            raw["name"],
-            args=raw.get("args", {{}}),
-            task_id=raw.get("task_id"),
-            metadata=raw.get("metadata", {{}}),
-        )
-    except Exception as exc:
-        print(f"trinity-dispatch: invalid action: {{exc}}", file=sys.stderr)
-        return 1
-
-    command = command_for_dispatch(action)
-    if not command:
-        print(f"trinity-dispatch: no command mapping for action {{action.name}}", file=sys.stderr)
-        return 1
-
-    # /bin/zsh -lc starts a login shell which reinitializes PATH from
-    # shell profiles, losing os.environ changes.  Inject the venv bin
-    # directly into the command so trinity-local is always resolvable.
-    wrapped = f'export PATH="{":".join(common_bins)}:$PATH"; {{command}}'
-    completed = subprocess.run(["/bin/zsh", "-lc", wrapped], check=False)
-    return int(completed.returncode)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+export PATH="$TRINITY_PATH_PREFIX:$PATH"
+exec "$PYTHON_BIN" -m trinity_local.dispatch_runner "$@"
 """
 
 
@@ -137,7 +92,7 @@ def _validate_python_executable(python_executable: str) -> bool:
 
 def _validate_venv_bin(python_executable: str) -> bool:
     """Verify that the venv bin directory still exists."""
-    venv_bin = Path(python_executable).parent.resolve()
+    venv_bin = project_venv_root(python_executable) / "bin"
     return venv_bin.exists() and venv_bin.is_dir()
 
 

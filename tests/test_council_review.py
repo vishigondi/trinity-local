@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from trinity_local.council_review import (
     render_live_council_page,
-    render_review_html,
     render_unified_council_page,
     write_live_council_page,
 )
@@ -39,17 +38,18 @@ class TestCouncilReviewMarkdown:
             created_at="2026-04-28T12:05:00+00:00",
         )
 
-        html = render_review_html(bundle, outcome)
+        html = render_unified_council_page(bundle, outcome)
 
-        assert "Origin: Direct Council" in html
-        assert "Session: unknown" not in html
-        assert "Origin: unknown" not in html
-        assert '<div class="markdown-body"><h1>Launch task</h1>' in html
-        assert "<strong>strongest</strong>" in html
-        assert "<code>specificity</code>" in html
-        assert '<a href="https://example.com">clarity</a>' in html
-        assert '<pre class="md-code-block"><code>print(&#x27;hello&#x27;)</code></pre>' in html
+        # Synthesis output is markdown-rendered
         assert "<h1>The Strongest Answer</h1>" in html
+        assert "<strong>Gemini</strong>" in html
+        # Member output is markdown-rendered
+        assert "<h2>Best take</h2>" in html
+        assert '<pre class="md-code-block"><code>print(&#x27;hello&#x27;)</code></pre>' in html
+        # Page structure
+        assert "Council Review" in html
+        assert "Comparative Analysis" in html
+        assert "Full Responses" in html
 
     def test_unified_page_uses_clickable_cards_for_preference(self):
         bundle = PromptBundle(
@@ -83,7 +83,8 @@ class TestCouncilReviewMarkdown:
         assert "role=\"button\"" in html
         assert "tabindex=\"0\"" in html
         assert "Preferred</span>" in html
-        assert "trinity:council-selection:${pageData.councilId}" in html
+        assert "initialSelection" in html
+        assert "trinity:council-selection:${pageData.councilId}" not in html
         assert "signal_page" not in html
 
     def test_unified_page_uses_three_column_layout_for_three_members(self):
@@ -119,7 +120,7 @@ class TestCouncilReviewMarkdown:
         assert "Council Review" in html
         assert "Stop council" in html
         assert "statusScriptBaseUrl" in html
-        assert "progressScriptBaseUrl" in html
+        assert "progressScriptBaseUrl" not in html
         assert "stop_council" in html
 
         path = write_live_council_page()

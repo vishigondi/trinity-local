@@ -75,7 +75,7 @@ class TestLaunchpadFlow:
         _write_council_fixture(patch_trinity_home)
         enable_telemetry(endpoint="https://telemetry.example/collect")
         monkeypatch.setattr(
-            "trinity_local.portal_page.check_all_adapters",
+            "trinity_local.portal_data.check_all_adapters",
             lambda: [
                 AdapterStatus(provider="claude", cli_name="claude", installed=True, version="1.0.0"),
                 AdapterStatus(
@@ -103,7 +103,6 @@ class TestLaunchpadFlow:
         assert "telemetry-enable" in html
         assert "auto-ingest-enable" in html
         assert "Ingest transcripts once now" in html
-        assert "ACTIVE_OPERATION_KEY" in html
         assert "Reference evals" in html
         assert "liveReviewUrl" in html
         assert "View live review" in html
@@ -114,12 +113,17 @@ class TestLaunchpadFlow:
         assert "filteredCouncilSuggestions" in html
         assert "Quick start examples" not in html
         assert "examplePrompts" not in html
+        assert "ACTIVE_OPERATION_KEY" not in html
+        assert "progressScriptBaseUrl" not in html
+        assert "loadProgressScript" not in html
         assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
         assert "{{ operation.label }}" in html
         assert "councilLoadingMessages" in html
         assert "Reticulating splines..." in html
         assert "Queued" in html
         assert "Running" in html
+        assert "@click=\"showReferenceRatings = false\"" in html
+        assert "@click=\"showReferenceRatings = true\"" in html
         assert "@{ example }" not in html
         assert "signal_page" not in html
         assert "Open review and choose winner" not in html
@@ -134,23 +138,23 @@ class TestLaunchpadFlow:
             (target / "Contents" / "Resources").mkdir(parents=True, exist_ok=True)
             (target / "Contents" / "Info.plist").write_text(script, encoding="utf-8")
 
-        import trinity_local.portal_page as portal_page
+        import trinity_local.portal_install as portal_install
 
-        original_compile = portal_page._compile_launchpad_app
-        original_find_icon = portal_page._find_launchpad_icon_source
-        original_apply_icon = portal_page._apply_launchpad_icon
-        portal_page._compile_launchpad_app = fake_compile
-        portal_page._find_launchpad_icon_source = lambda: None
-        portal_page._apply_launchpad_icon = lambda app_path, image_path: None
+        original_compile = portal_install._compile_launchpad_app
+        original_find_icon = portal_install._find_launchpad_icon_source
+        original_apply_icon = portal_install._apply_launchpad_icon
+        portal_install._compile_launchpad_app = fake_compile
+        portal_install._find_launchpad_icon_source = lambda: None
+        portal_install._apply_launchpad_icon = lambda app_path, image_path: None
         try:
             written = install_launchpad_shortcuts(
                 launchpad_path=launchpad_path,
                 destinations=[desktop_dir, applications_dir],
             )
         finally:
-            portal_page._compile_launchpad_app = original_compile
-            portal_page._find_launchpad_icon_source = original_find_icon
-            portal_page._apply_launchpad_icon = original_apply_icon
+            portal_install._compile_launchpad_app = original_compile
+            portal_install._find_launchpad_icon_source = original_find_icon
+            portal_install._apply_launchpad_icon = original_apply_icon
 
         assert len(written) == 2
         app_path = applications_dir / "Trinity.app"
@@ -352,7 +356,7 @@ class TestAutoIngestSettings:
             lambda: (True, "running"),
         )
         monkeypatch.setattr(
-            "trinity_local.commands.telemetry.write_portal_html",
+            "trinity_local.commands.telemetry.refresh_launchpad",
             lambda: Path("/tmp/launchpad.html"),
         )
 
@@ -370,10 +374,13 @@ class TestDispatchWrapper:
     def test_render_dispatch_wrapper_includes_common_bin_paths(self):
         script = _render_dispatch_wrapper("/Users/openclaw/projects/trinity-local/.venv/bin/python3")
 
+        assert 'TRINITY_VENV_ROOT="/Users/openclaw/projects/trinity-local/.venv"' in script
         assert "/Users/openclaw/.local/bin" in script
         assert "/opt/homebrew/bin" in script
         assert "/usr/local/bin" in script
-        assert "EXTRA_PATHS" in script
+        assert "TRINITY_VENV_ROOT" in script
+        assert "TRINITY_PATH_PREFIX" in script
+        assert "-m trinity_local.dispatch_runner" in script
 
 
 class TestCouncilFailureMetadata:
@@ -502,7 +509,7 @@ class TestCouncilStopCommand:
                 "process_group_id": 222,
             },
         )
-        monkeypatch.setattr("trinity_local.commands.council.write_portal_html", lambda: Path("/tmp/launchpad.html"))
+        monkeypatch.setattr("trinity_local.commands.council.refresh_launchpad", lambda: Path("/tmp/launchpad.html"))
         killed: list[tuple[int, int]] = []
         monkeypatch.setattr("trinity_local.commands.council.os.killpg", lambda pgid, sig: killed.append((pgid, sig)))
 

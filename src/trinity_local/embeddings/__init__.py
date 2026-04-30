@@ -68,7 +68,7 @@ def embed(text: str, *, dim: int = 512) -> list[float]:
             vector = None
 
     if vector is None:
-        vector = embed_tfidf(text)
+        vector = embed_tfidf(text, dim=dim)
 
     put_cached(text, vector, dim=dim)
     return vector

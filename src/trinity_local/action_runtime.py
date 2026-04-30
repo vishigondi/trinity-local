@@ -6,7 +6,7 @@ from pathlib import Path
 from .action_schema import PendingAction
 from .dispatch_registry import command_for_dispatch, make_dispatch_action
 from .notifications import notify
-from .scoreboard import state_dir
+from .state_paths import actions_dir
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .utils import now_iso, stable_id
 from .task_schema import TaskRecord
@@ -15,12 +15,6 @@ from .task_schema import TaskRecord
 # Aliases for backward compatibility within this module
 _now_iso = now_iso
 _stable_id = stable_id
-
-
-def actions_dir() -> Path:
-    path = state_dir() / "actions"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def create_recommendation_action(

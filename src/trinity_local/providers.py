@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import ProviderConfig
+from .subprocess_utils import run_with_runtime_env
 
 
 @dataclass
@@ -38,7 +39,7 @@ class BaseProvider:
         self._ensure_binary()
         t0 = time.monotonic()
         try:
-            completed = subprocess.run(
+            completed = run_with_runtime_env(
                 command,
                 cwd=str(cwd),
                 capture_output=True,

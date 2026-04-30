@@ -5,6 +5,7 @@ import argparse
 from .commands import (
     actions,
     adapters,
+    cache,
     council,
     daemon,
     digest,
@@ -12,7 +13,6 @@ from .commands import (
     portal,
     research,
     review,
-    run,
     shortcuts,
     status,
     tasks,
@@ -29,7 +29,6 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Register all command groups
-    run.register(subparsers)
     ingest.register(subparsers)
     tasks.register(subparsers)
     council.register(subparsers)
@@ -45,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     telemetry.register(subparsers)
     daemon.register(subparsers)
     research.register(subparsers)
+    cache.register(subparsers)
 
     return parser
 

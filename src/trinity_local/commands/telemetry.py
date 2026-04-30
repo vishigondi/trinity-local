@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 
 from ..daemon_manager import daemon_install, daemon_start, daemon_status, daemon_stop
-from ..portal_page import write_portal_html
+from ..refresh import refresh_launchpad
 from ..telemetry import (
     build_elo_snapshot,
     disable_telemetry,
@@ -60,19 +60,19 @@ def handle_telemetry_enable(args):
         share_usage_events=not args.without_usage_events,
         share_elo_summaries=not args.without_elo,
     )
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
 def handle_telemetry_disable(args):
     settings = disable_telemetry()
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
 def handle_telemetry_reset_id(args):
     settings = reset_share_install_id()
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
 
 
@@ -83,7 +83,7 @@ def handle_telemetry_endpoint(args):
     elif args.url:
         settings.endpoint = args.url
     path = save_telemetry_settings(settings)
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "path": str(path), "portal_path": str(portal_path)}, indent=2))
 
 
@@ -96,7 +96,7 @@ def handle_auto_ingest_enable(args):
     if install_success:
         start_success, start_message = daemon_start()
     status_success, status_message = daemon_status()
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(
         json.dumps(
             {
@@ -117,7 +117,7 @@ def handle_auto_ingest_disable(args):
     save_telemetry_settings(settings)
     stop_success, stop_message = daemon_stop()
     status_success, status_message = daemon_status()
-    portal_path = write_portal_html()
+    portal_path = refresh_launchpad()
     print(
         json.dumps(
             {

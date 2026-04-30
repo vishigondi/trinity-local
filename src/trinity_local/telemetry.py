@@ -10,7 +10,7 @@ from typing import Any
 
 from .council_feedback import latest_feedback_by_council
 from .council_runtime import council_outcomes_dir
-from .scoreboard import state_dir
+from .state_paths import state_dir, telemetry_settings_dir, analytics_dir
 from .utils import now_iso
 
 
@@ -36,19 +36,12 @@ class TelemetrySettings:
         return {k: v for k, v in payload.items() if v not in ("", None, [], {})}
 
 
-def telemetry_settings_dir() -> Path:
-    path = state_dir() / "settings"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def telemetry_settings_path() -> Path:
     return telemetry_settings_dir() / "telemetry.json"
 
 
 def telemetry_events_path() -> Path:
-    path = state_dir() / "analytics" / "telemetry_events.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path = analytics_dir() / "telemetry_events.jsonl"
     return path
 
 

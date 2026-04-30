@@ -12,9 +12,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .config import ProviderConfig, trinity_home
+from .config import ProviderConfig
 from .design_system import render_html_footer, render_html_head
 from .providers import ProviderResult, make_provider
+from .state_paths import review_pages_dir, reviews_dir
 from .utils import now_iso, stable_id
 
 
@@ -159,22 +160,16 @@ def run_review(
     )
 
 
-def _reviews_dir() -> Path:
-    path = trinity_home() / "reviews"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def save_review(review: ReviewResult) -> Path:
     """Save a review result as a JSON file."""
-    path = _reviews_dir() / f"{review.review_id}.json"
+    path = reviews_dir() / f"{review.review_id}.json"
     path.write_text(json.dumps(review.to_dict(), indent=2), encoding="utf-8")
     return path
 
 
 def load_review(review_id: str) -> ReviewResult | None:
     """Load a review result by ID."""
-    path = _reviews_dir() / f"{review_id}.json"
+    path = reviews_dir() / f"{review_id}.json"
     if not path.exists():
         return None
     try:
@@ -261,8 +256,6 @@ def render_review_html(review: ReviewResult) -> Path:
 {footer}
 """
 
-    reviews_html_dir = trinity_home() / "review_pages"
-    reviews_html_dir.mkdir(parents=True, exist_ok=True)
-    out_path = reviews_html_dir / f"{review.review_id}.html"
+    out_path = review_pages_dir() / f"{review.review_id}.html"
     out_path.write_text(html, encoding="utf-8")
     return out_path

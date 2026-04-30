@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .scoreboard import state_dir
+from .state_paths import council_feedback_path as _state_council_feedback_path
 from .utils import now_iso
 
 
 def council_feedback_path() -> Path:
-    return state_dir() / "council_feedback.jsonl"
+    return _state_council_feedback_path()
 
 
 def append_council_feedback(*, council_id: str, provider: str, answer_label: str | None = None) -> dict:

@@ -26,9 +26,9 @@ from .ingest import (
     parse_cowork_session,
     parse_gemini_cli_session,
 )
-from .portal_page import write_portal_html
+from .refresh import refresh_launchpad
 from .ranker import RoutingContext, build_default_ranker
-from .scoreboard import state_dir
+from .state_paths import analytics_dir, state_dir, watcher_dir
 from .task_runtime import (
     ensure_task_record,
     load_task_record,
@@ -37,6 +37,7 @@ from .task_runtime import (
     tasks_dir,
 )
 from .task_schema import TaskRecommendation
+from .task_kinds import guess_task_kind
 from .workflow_prompts import write_cowork_shortcut_prompt
 
 
@@ -73,11 +74,6 @@ def _decision_to_recommendation(
         provider,
     )
 
-
-def watcher_dir() -> Path:
-    path = state_dir() / "watcher"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def watcher_cursor_path(source: str) -> Path:
@@ -165,18 +161,7 @@ def _parse_source_path(source: str, path: Path):
 
 
 def _guess_task_kind(text: str, provider: str) -> str:
-    lowered = text.lower()
-    if any(term in lowered for term in ("stock", "research", "compare", "market", "investigate")):
-        return "research"
-    if any(term in lowered for term in ("debug", "bug", "error", "failing", "traceback")):
-        return "debugging"
-    if any(term in lowered for term in ("write", "draft", "email", "memo")):
-        return "writing"
-    if provider == "cowork":
-        return "cowork_general"
-    if any(term in lowered for term in ("code", "refactor", "repo", "function", "script")):
-        return "coding"
-    return "general"
+    return guess_task_kind(text, provider=provider)
 
 
 def _normalize_prompt_key(text: str) -> str:
@@ -502,7 +487,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
         for alert in alerts:
             _notify(title="Trinity Drift Alert", message=alert.message)
 
-    portal_path = str(write_portal_html())
+    portal_path = str(refresh_launchpad())
     return WatchResult(
         scanned=scanned,
         tasks_written=tasks_written,
@@ -548,9 +533,7 @@ def _log_watch_error(exc: Exception, *, notify: bool = False) -> None:
     }
 
     try:
-        from .config import trinity_home
-        error_log = trinity_home() / "analytics" / "watch_errors.jsonl"
-        error_log.parent.mkdir(parents=True, exist_ok=True)
+        error_log = analytics_dir() / "watch_errors.jsonl"
         with error_log.open("a", encoding="utf-8") as f:
             f.write(json.dumps(error_record) + "\n")
     except Exception:

@@ -72,7 +72,7 @@ class TestBuildReviewPrompt:
 
 class TestRenderReviewHtml:
     def test_renders_html(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("trinity_local.review.trinity_home", lambda: tmp_path)
+        monkeypatch.setattr("trinity_local.review.review_pages_dir", lambda: tmp_path)
         review = ReviewResult(
             review_id="test-review-001",
             task_id="task-001",

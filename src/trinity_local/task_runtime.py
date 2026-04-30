@@ -4,25 +4,13 @@ import json
 from pathlib import Path
 
 from .council_schema import CouncilOutcome, PromptBundle
-from .scoreboard import state_dir
+from .state_paths import state_dir, tasks_dir, task_sync_dir
 from .task_schema import TaskRecord, TaskRecommendation, TaskRunRef, TaskSyncRecord
 from .utils import now_iso, stable_id
 
 # Aliases for backward compatibility within this module
 _now_iso = now_iso
 _stable_id = stable_id
-
-
-def tasks_dir() -> Path:
-    path = state_dir() / "tasks"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def task_sync_dir() -> Path:
-    path = state_dir() / "task_sync"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def task_index_path() -> Path:

@@ -7,14 +7,17 @@ from ..adapters import check_all_adapters
 from ..action_runtime import list_actions
 from ..cost_tracker import load_cost_log, summarize_costs
 from ..drift import check_drift
-from ..scoreboard import state_dir
-from ..task_runtime import tasks_dir
+from ..scoreboard import load_scoreboard
+from ..state_paths import state_dir, tasks_dir, analytics_dir
 
 
 def register(subparsers):
     parser = subparsers.add_parser("status", help="Show Trinity system status summary")
     parser.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
     parser.set_defaults(handler=handle_status)
+
+    scoreboard_parser = subparsers.add_parser("scoreboard", help="Print aggregate provider scores")
+    scoreboard_parser.set_defaults(handler=handle_scoreboard)
 
 
 def _count_files(directory, pattern="*.json"):
@@ -56,6 +59,9 @@ def handle_status(args):
     council_dir = home / "council_outcomes"
     council_count = _count_files(council_dir) if council_dir.exists() else 0
 
+    # Watch errors
+    watch_error_count, last_watch_error = _watch_error_summary()
+
     if args.as_json:
         print(json.dumps({
             "trinity_home": str(home),
@@ -75,6 +81,10 @@ def handle_status(args):
             "cost_sessions": len(cost_log),
             "cost_by_provider": {k: v.total_cost_usd for k, v in cost_summary.items()} if cost_summary else {},
             "drift_alerts": len(drift_alerts),
+            "watch_errors": {
+                "count": watch_error_count,
+                "last_error_at": last_watch_error,
+            },
         }, indent=2))
         return
 
@@ -118,6 +128,41 @@ def handle_status(args):
         print("  Drift:     no alerts")
     print()
 
+    # Watch errors
+    if watch_error_count > 0:
+        print(f"  ⚠  {watch_error_count} watch-loop error(s)")
+        if last_watch_error:
+            print(f"    Last error: {last_watch_error}")
+    else:
+        print("  Watch:     no errors")
+    print()
+
     # State location
     print(f"  State:     {home}")
     print()
+
+
+def _watch_error_summary() -> tuple[int, str | None]:
+    """Return (error_count, last_error_timestamp) from watch_errors.jsonl."""
+    error_log = analytics_dir() / "watch_errors.jsonl"
+    if not error_log.exists():
+        return 0, None
+    count = 0
+    last_ts: str | None = None
+    try:
+        for line in error_log.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            count += 1
+            try:
+                record = json.loads(line)
+                last_ts = record.get("timestamp", last_ts)
+            except json.JSONDecodeError:
+                continue
+    except OSError:
+        pass
+    return count, last_ts
+
+
+def handle_scoreboard(args):
+    print(json.dumps(load_scoreboard(), indent=2, sort_keys=True))

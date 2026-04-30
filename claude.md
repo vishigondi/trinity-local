@@ -15,6 +15,9 @@ the workflow. The magic is not orchestration — it is cross-provider memory.
 See [product-spec.md](file:///Users/openclaw/projects/trinity-local/docs/product-spec.md)
 for the full product spec, GTM strategy, and roadmap.
 
+See [scale-plan.md](file:///Users/openclaw/projects/trinity-local/docs/scale-plan.md)
+for the active refactor + distribution plan (Phase 0 stability work, MCP server, skills, hooks, growth flywheel).
+
 The current product center of gravity is:
 
 - council-first launch and review flow
@@ -50,7 +53,7 @@ The telemetry model is:
 
 Not:
 
-- the older `run` coordinator loop (LEGACY)
+- a legacy `run` coordinator loop (removed in Phase 0)
 - a standalone chat UX
 - an always-on daemon
 
@@ -66,7 +69,6 @@ Registered command groups (15 modules):
 
 | Module | Key Commands |
 |--------|-------------|
-| `commands/run.py` | `run` (LEGACY — deprecated) |
 | `commands/ingest.py` | `features`, `examples` |
 | `commands/tasks.py` | `task-create`, `task-show`, `task-sync`, `bundle-create`, `launch-create` |
 | `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-html` |
@@ -78,7 +80,8 @@ Registered command groups (15 modules):
 | `commands/digest.py` | `digest` |
 | `commands/review.py` | `review` |
 | `commands/adapters.py` | `adapters` |
-| `commands/status.py` | `status` |
+| `commands/status.py` | `status`, `scoreboard` |
+| `commands/cache.py` | `cache-stats`, `cache-clear` |
 | `commands/helpers.py` | Internal utilities |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics` |
 
@@ -88,9 +91,12 @@ Registered command groups (15 modules):
 |-------|-------|---------|
 | Config | `config.py`, `config.json` | Provider definitions, role/task preferences, `trinity_home()` |
 | Providers | `providers.py` | Subprocess wrappers for CLI/MLX/Codex with latency tracking |
-| Coordinator | `coordinator.py` | Heuristic role→provider selection (LEGACY — used by `run` only) |
-| Runner | `runner.py` | Multi-turn Thinker/Worker/Verifier loop (LEGACY) |
-| Council | `council_runner.py`, `council_runtime.py`, `council_schema.py` | Multi-model comparison with peer review and synthesis |
+| Council | `council_runner.py`, `council_status.py`, `council_runtime.py`, `council_schema.py` | Multi-model comparison with peer review, synthesis, and live progress tracking. `council_progress.py` retained as a thin backward-compat shim that re-exports from `council_status.py`. |
+| **Refresh** | `refresh.py` | Centralized `refresh_launchpad()` — replaces scattered `write_portal_html()` calls |
+| **State Paths** | `state_paths.py` | Single source of truth for all `~/.trinity/` directory and file path helpers |
+| **Runtime Env** | `runtime_env.py`, `subprocess_utils.py` | Shared PATH-injection env builder + `run_with_runtime_env()` helper used by providers, adapters, dispatch_runner, shortcut_setup |
+| **Task Kinds** | `task_kinds.py` | Single `guess_task_kind()` classifier — deduplicated from watch_runtime + research/replay |
+| **Dispatch Runner** | `dispatch_runner.py` | Shell-launcher dispatch wrapper logic — runtime venv detection, no absolute Python shebang |
 | Ingest | `ingest.py` | Parsers for Claude Code, Codex, Gemini CLI, Cowork sessions |
 | Features | `feature_extractors.py`, `training_schema.py` | Compact session features and model descriptors |
 | Cost | `cost_tracker.py` | Per-session cost estimation, JSONL cost log, provider aggregation |
@@ -100,10 +106,10 @@ Registered command groups (15 modules):
 | Tasks | `task_runtime.py`, `task_schema.py` | Durable task records with recommendations |
 | Actions | `action_runtime.py`, `action_schema.py` | Pending actions: recommendation, start_council, review_ready, workflow_suggestion |
 | Watch | `watch_runtime.py` | Transcript scanner → cost/outcome/switching/task/action + k-NN advisory + drift check |
-| Portal | `portal_page.py` | Static HTML launchpad with `shortcuts://` dispatch links |
+| Portal | `portal_page.py` | Static HTML launchpad with `shortcuts://` dispatch links and live council progress polling |
 | Signals | `signal_page.py` | Council rating / comparison surface for learning user preference |
 | Frontend | `docs/frontend-architecture.md`, `DESIGN.md`, `design_system.py` | Static-page UI architecture and visual system |
-| Telemetry | `docs/telemetry-spec.md` | Opt-in usage + Elo summary sharing model |
+| Telemetry | `telemetry.py`, `docs/telemetry-spec.md` | Opt-in usage + Elo summary sharing model + auto-ingest transcript setting |
 | Shortcuts | `shortcuts_integration.py`, `dispatch_registry.py`, `shortcut_setup.py` | macOS Shortcuts bridge |
 | Notifications | `notifications.py` | Cross-platform native notifications (macOS focus) |
 | Adapters | `adapters.py` | Provider adapter detection and version tracking |
@@ -151,12 +157,18 @@ council-start
 → commands/council.py:handle_council_start
 → ensure_task_record
 → run_council
-→ render_member_prompt → provider subprocess calls
-→ optional render_peer_review_prompt → peer review calls
-→ synthesis call
-→ save_council_outcome → write_review_html
+  → init_council_progress (writes unified status file via council_status.py)
+  → ThreadPoolExecutor: parallel member runs
+    → start_member_progress (mark running)
+    → provider subprocess calls (via subprocess_utils.run_with_runtime_env)
+    → update_member_progress or update_member_failure
+  → optional peer review (serial, one per member)
+  → update_synthesis_progress (running → done)
+  → finalize_council_progress
+→ save_council_outcome → write_unified_council_page
 → task_from_council → save_task_record → save_sync_record
 → create_review_ready_action
+→ refresh_launchpad()  ← centralized via refresh.py
 ```
 
 **Product order of operations:**
@@ -226,6 +238,7 @@ Live state is under `~/.trinity/` by default (overridable via `TRINITY_HOME`).
 ├── actions/            # Pending action records
 ├── prompt_bundles/     # Saved prompt bundles
 ├── council_outcomes/   # Council outcome records
+├── council_progress/   # Live council progress files (JSON + JS) for polling
 ├── reviews/            # Post-hoc review results (JSON)
 ├── review_pages/       # Review static HTML
 ├── portal_pages/       # Static launchpad HTML
@@ -234,6 +247,7 @@ Live state is under `~/.trinity/` by default (overridable via `TRINITY_HOME`).
 ├── watcher/            # Cursor files for watch-loop resume
 ├── workflow_prompts/   # Generated workflow prompt artifacts
 ├── shortcut_setup/     # Shortcut installer recipe
+├── settings/           # Telemetry and user settings
 ├── bin/
 │   └── trinity-dispatch  # Dispatch wrapper script (created by setup.sh)
 ├── cache/
@@ -265,13 +279,13 @@ Flow:
 macOS Shortcut "Trinity Dispatch"
 → Receives JSON text input: {"name":"...", "args":{...}, "task_id":"...", "metadata":{...}}
 → Passes to stdin: trinity-dispatch <json-payload>
-→ ~/.trinity/bin/trinity-dispatch (Python wrapper)
-  → dispatch_registry.make_dispatch_action(...)
-  → dispatch_registry.command_for_dispatch(...)
-  → exec /bin/zsh -lc '<command>'
+→ ~/.trinity/bin/trinity-dispatch (shell launcher)
+  → exec python3 -m trinity_local.dispatch_runner
+  → dispatch_runner reads payload, calls make_dispatch_action + command_for_dispatch
+  → exec /bin/zsh -lc '<command>' with build_runtime_env()
 ```
 
-The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injection so the venv's `trinity-local` is always resolvable. The Shortcut calls the wrapper via shell script action.
+The wrapper is now a shell launcher (not an absolute-shebang Python script). It uses `runtime_env.runtime_path_prefix()` to resolve a working `python3`, then dispatches to `trinity_local.dispatch_runner.main()`. Survives venv relocation.
 
 ---
 
@@ -285,7 +299,7 @@ The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injectio
 - **No runtime dependencies** — `pyproject.toml` declares `dependencies = []`.
   - `[mlx]` extras for sentence-transformers + embedding support.
   - `[test]` extras for pytest.
-- **144 passed** in the current suite.
+- **165 passed** in the current suite (Phase 0 refactor checkpoint).
 
 ### Patterns
 
@@ -316,7 +330,7 @@ The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injectio
 1. **Watcher pipeline** — scan → ingest → features → cost → outcome → switch detection → k-NN advisory → task → action → portal → notification. Full loop works.
 2. **k-NN advisory layer** — embedding-based routing suggestions integrated into the watcher. Can upgrade recommendations to council, add evidence, suggest reroutes. Advisory only, never autonomous.
 3. **Multi-provider ingestion** — four parsers handle real local formats with timestamp and token extraction.
-4. **Council with peer review** — member responses → anonymized peer review → synthesis. Flagship cross-provider feature.
+4. **Council with peer review and live progress** — member responses → anonymized peer review → synthesis with live polling of member status (✓ done, ⏳ running, · pending). Parallel execution of council members via ThreadPoolExecutor. Flagship cross-provider feature.
 5. **Cost and drift tracking** — per-session cost estimation, rolling outcome comparison, drift alerting.
 6. **Evidence-backed recommendations** — queries outcome + cost logs + k-NN neighbors for concrete evidence.
 7. **Hard example mining** — embedding-based cross-provider matching finds routing conflicts (1,026 hard examples from 59k sessions).
@@ -324,8 +338,9 @@ The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injectio
 9. **Production analytics** — evidence spam check, threshold brittleness detection, act rate, switch-after-acted rate tracking. Note: the analytics log is populated only after live `watch-once` or `watch-loop` runs with a hard-example corpus present.
 10. **Post-hoc review** — Council-lite: ask one provider to critique another's output. Dark-themed HTML.
 11. **File-backed state** — one file = one entity. No joins. No migrations.
-12. **macOS-native dispatch** — `shortcuts://` URL bridge. Portal includes `<meta http-equiv="refresh" content="30">`.
-13. **Test coverage** — 119 passed, 4 skipped across 10 files. Skips are embedding-dependent k-NN advisor tests.
+12. **macOS-native dispatch** — `shortcuts://` URL bridge. Portal reloads after settings changes and polls council progress every 1.5 seconds during execution.
+13. **Auto-ingest transcript** — optional daemon-backed automatic transcript ingestion, configurable from telemetry settings. Controlled by `auto-ingest-enable`/`auto-ingest-disable` commands.
+14. **Test coverage** — 165 passed. Covers council lifecycle, progress tracking, telemetry settings, state persistence, embedding dim correctness, and council parsing regression cases.
 
 ### What Needs Attention Next
 
@@ -344,17 +359,36 @@ The wrapper (`shortcut_setup.py:_render_dispatch_wrapper`) handles PATH injectio
 - ~~Extended evaluation~~ ✅ (5-metric suite)
 - ~~k-NN advisory live rollout~~ ✅ (integrated into watcher)
 - ~~Production analytics~~ ✅ (evidence spam, threshold brittleness, product metrics)
+- ~~Live council progress tracking~~ ✅ (`council_progress.py` with file-based JSON/JS polling, reasoning summaries)
+- ~~Parallel council member execution~~ ✅ (ThreadPoolExecutor for concurrent member runs)
+- ~~Auto-ingest transcript setting~~ ✅ (daemon-backed, daemon lifecycle in telemetry commands)
+- ~~Embedding fallback dimension mismatch~~ ✅ (Phase 0 #1 — `embed_tfidf(text, dim=dim)` honored)
+- ~~Unified council run-state~~ ✅ (Phase 0 #2 — consolidated into `council_status.py`; `council_progress.py` is shim)
+- ~~Remove browser-owned product state~~ ✅ (Phase 0 #3 — `ACTIVE_OPERATION_KEY` localStorage gone)
+- ~~Centralize Launchpad refresh~~ ⚠️ (Phase 0 #6 — `refresh.py` exists, partial migration)
+- ~~Standardize subprocess + runtime env~~ ✅ (Phase 0 #7+#8 — `subprocess_utils.py` + `runtime_env.py`)
+- ~~State path migration~~ ⚠️ (Phase 0 #9 — `state_paths.py` expanded, partial adoption)
+- ~~Harden council parsing~~ ✅ (Phase 0 #10 — regression tests in `tests/test_council_runtime.py`)
+- ~~Deduplicate task-kind classification~~ ✅ (Phase 0 #12 — `task_kinds.py`)
+- ~~Dispatch wrapper portability~~ ✅ (Phase 0 #13 — shell launcher + `dispatch_runner.py`)
 
-#### Next
+#### Next (remaining Phase 0 work — see `docs/scale-plan.md`)
+
+- **Split `portal_page.py`** (#4) — still 1,858 lines
+- **Share polling runtime JS** (#5) — depends on #4
+- **Finish `state_paths.py` migration** (#9) — delete duplicate `*_dir()` functions in `council_runtime.py`, `council_review.py`, `review.py`, `task_runtime.py`, `telemetry.py`, research modules
+- **Normalize config loading** (#11) — soft-fail for read-only commands
+- **Operator surfaces** (#14) — `trinity-local cache-stats`, `cache-clear`, watch-loop error count in `status`
+- **Complete `council-html` deprecation** (#15) — always route through `write_unified_council_page`
+- **Add `runner_pid`/`runner_pgid` to council run-state** for clean stop semantics (deferred from #2)
+
+#### Future (post-Phase-0)
 
 - **Threshold tuning.** Per-task-kind council thresholds based on analytics data.
 - **Corpus refresh strategy.** When to re-mine hard examples (stale corpus warning after 7 days).
 - **Real switch tracking.** Watcher should detect temporal provider transitions within N minutes.
-- **TT integration.** If web transcripts (taste-terminal) are needed, requires a new parser.
-
-#### Lower Priority
-
-- **`_guess_task_kind()` refinement.** Currently keyword-based. Embedding-based classification would be more robust.
+- **MCP server** + cross-CLI distribution (Phase 1+, see `docs/scale-plan.md`).
+- **Embedding-based task-kind classification** to replace keyword matching in `task_kinds.py`.
 
 #### Shortcut Dispatch Architecture
 
@@ -377,11 +411,11 @@ The Trinity Dispatch shortcut integration (new, April 2026):
 
 #### Known Risks
 
-- **Legacy run stack.** `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` are marked LEGACY/deprecated but still present. Maintenance-drift risk — if core schemas change, legacy code may silently break. Not worth removing yet, but don't extend.
-- **watch_loop operator surface.** Errors now log to `analytics/watch_errors.jsonl` + optional notification, but there's no stronger operator surface (e.g., `trinity-local errors` command, error count in `status`). A recurring bug can still go unnoticed without checking the log file.
+- ~~**Legacy run stack**~~ ✅ Deleted in Phase 0 — `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` removed. `scoreboard` command moved to `commands/status.py`.
+- ~~**watch_loop operator surface**~~ ✅ Fixed in Phase 0 #14 — `trinity-local status` now shows watch-loop error count and last error from `analytics/watch_errors.jsonl`.
 - **`[mlx]` extra naming.** The `[mlx]` extra in `pyproject.toml` actually installs `sentence-transformers`, not a pure MLX stack. Name is slightly overloaded. Renaming to `[embeddings]` would be clearer but is a breaking change for existing installs.
 - ~~**Dispatch command injection risk**~~ ✅ Fixed in dispatch_registry.py:75 using `shlex.quote()` for proper shell escaping.
-- **Dispatch wrapper venv binding.** The wrapper's shebang points to the Python executable at install time. If venv is relocated/deleted, wrapper becomes stale. No validation of venv existence before execution.
+- ~~**Dispatch wrapper venv binding**~~ ✅ Fixed in Phase 0 #13 — wrapper is now a shell launcher with runtime venv detection via `runtime_env.runtime_path_prefix()`. Survives venv relocation.
 - **Shortcut import silent failure.** If `open <shortcut_file>` fails, user sees "import dialog opened" but nothing happens. No timeout/retry logic. `shortcuts sign` may not exist on older macOS versions.
 
 ---
@@ -402,16 +436,19 @@ The analytics system (`trinity-local analytics`) tracks:
 
 ## Verified Status
 
-- `pytest -q` — **144 passed**
-- 15 command modules registering 40 CLI subcommands
+- `pytest -q` — **165 passed** (Phase 0 in progress — all legacy modules removed, state paths migrated)
+- 15 command modules registering 40+ CLI subcommands (`scoreboard`, `cache-stats`, `cache-clear` added in Phase 0)
 - `watch-once --source cowork` — runs cleanly
-- `portal-html` — writes to `~/.trinity/portal_pages/`
+- `portal-html` — writes to `~/.trinity/portal_pages/` with live council progress polling (1.5s) and on-demand reload after settings changes
 - `shortcut-install` — creates Trinity Dispatch shortcut + dispatch wrapper
 - `setup.sh` — one-line setup: venv, package, config, wrapper, shortcut import
 - `digest --json` — clean output
 - `hard` — mines 1,026 hard examples from 59k sessions
 - `hardeval` — 5-metric eval: k-NN beats heuristic on all metrics
 - `analytics` — report structure verified (log is empty until live watch runs with corpus)
+- `council-start` — parallel member execution, live progress tracking with reasoning summaries
+- `auto-ingest-enable` — daemon install + start with telemetry settings persistence
+- `auto-ingest-disable` — daemon stop with telemetry settings persistence
 - Dispatch wrapper (`~/.trinity/bin/trinity-dispatch`) — reads JSON from stdin, resolves to CLI commands
 
 ---

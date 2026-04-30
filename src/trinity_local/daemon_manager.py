@@ -4,7 +4,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .scoreboard import state_dir
+from .state_paths import state_dir
 
 
 DAEMON_LABEL = "com.trinity.local.watch"

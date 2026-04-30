@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..config import load_config
 from ..council_feedback import append_council_feedback
-from ..council_review import write_live_council_page, write_review_html
+from ..council_review import write_live_council_page, write_unified_council_page
 from ..council_runner import run_council
 from ..council_runtime import (
     aggregate_peer_rankings,
@@ -23,10 +23,15 @@ from ..council_runtime import (
     save_council_outcome,
 )
 from ..council_schema import CouncilMemberResult
-from ..council_status import council_status_json_path, write_council_status
+from ..council_status import (
+    council_status_json_path,
+    init_council_run_state,
+    load_council_status,
+    write_council_status,
+)
 from ..action_runtime import create_review_ready_action, notify_action, save_action
 from ..notifications import notify, open_path
-from ..portal_page import write_portal_html
+from ..refresh import refresh_launchpad
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
 from ..utils import stable_id
 from .helpers import load_member_results, load_peer_reviews, read_text_file
@@ -57,7 +62,7 @@ def register(subparsers):
 
     html_parser = subparsers.add_parser("council-html", help="Generate a local HTML review page")
     html_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    html_parser.add_argument("--outcome", default=None, help="Council outcome id or path")
+    html_parser.add_argument("--outcome", required=True, help="Council outcome id or path")
     html_parser.set_defaults(handler=handle_council_html)
 
     council_run_parser = subparsers.add_parser("council-run", help="Launch member providers and synthesize a council result")
@@ -193,8 +198,8 @@ def handle_council_outcome(args):
 
 def handle_council_html(args):
     bundle = load_prompt_bundle(args.bundle)
-    outcome = load_council_outcome(args.outcome) if args.outcome else None
-    path = write_review_html(bundle, outcome)
+    outcome = load_council_outcome(args.outcome)
+    path = write_unified_council_page(bundle, outcome)
     print(json.dumps({"path": str(path)}, indent=2))
 
 
@@ -216,6 +221,7 @@ def handle_council_run(args):
         member_model_overrides=overrides,
         primary_model_override=args.primary_model_override,
         with_peer_review=not args.without_peer_review,
+        run_state_token=bundle.bundle_id,
     )
     print(
         json.dumps(
@@ -270,7 +276,7 @@ def handle_council_start(args):
                     "process_group_id": process_group_id,
                 },
             )
-        write_portal_html()
+        refresh_launchpad()
 
     def _termination_handler(signum, _frame):  # type: ignore[no-untyped-def]
         sig_name = signal.Signals(signum).name
@@ -280,12 +286,12 @@ def handle_council_start(args):
     signal.signal(signal.SIGTERM, _termination_handler)
     signal.signal(signal.SIGINT, _termination_handler)
     if status_token:
-        write_council_status(
+        init_council_run_state(
             status_token,
-            status="running",
             task_text=bundle.task_text,
             bundle_id=bundle.bundle_id,
             council_id=bundle.bundle_id,
+            members=list(args.members),
             metadata={
                 "kind": "council",
                 "members": list(args.members),
@@ -304,6 +310,7 @@ def handle_council_start(args):
             primary_provider=args.primary_provider,
             cwd=cwd,
             with_peer_review=not args.without_peer_review,
+            run_state_token=status_token or bundle.bundle_id,
         )
     except Exception as exc:
         if status_token:
@@ -321,7 +328,7 @@ def handle_council_start(args):
                     "process_group_id": process_group_id,
                 },
             )
-        write_portal_html()
+        refresh_launchpad()
         raise
     finally:
         signal.signal(signal.SIGTERM, original_sigterm)
@@ -332,7 +339,7 @@ def handle_council_start(args):
         command_hint=f"trinity-local open-review --task {final_task.task_id}",
     )
     review_action_path = save_action(review_action)
-    if status_token:
+    if status_token and load_council_status(status_token) is None:
         write_council_status(
             status_token,
             status="completed",
@@ -346,7 +353,7 @@ def handle_council_start(args):
                 "cwd": str(cwd),
             },
         )
-    write_portal_html()
+    refresh_launchpad()
     if args.notify:
         notify_action(review_action)
     opened = open_path(result.review_path) if args.open_browser else False
@@ -402,8 +409,11 @@ def handle_council_rate(args):
         provider=args.provider,
         answer_label=args.answer_label,
     )
-    portal_path = write_portal_html()
-    print(json.dumps({"feedback": record, "portal_path": str(portal_path)}, indent=2))
+    outcome = load_council_outcome(args.council)
+    bundle = load_prompt_bundle(outcome.bundle_id)
+    review_path = write_unified_council_page(bundle, outcome)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"feedback": record, "portal_path": str(portal_path), "review_path": str(review_path)}, indent=2))
 
 
 def handle_council_stop(args):
@@ -418,8 +428,8 @@ def handle_council_stop(args):
     task_text = raw.get("task_text")
     bundle_id = raw.get("bundle_id")
     council_id = raw.get("council_id")
-    pid = metadata.get("pid")
-    pgid = metadata.get("process_group_id")
+    pid = raw.get("runner_pid") or metadata.get("pid")
+    pgid = raw.get("runner_pgid") or metadata.get("process_group_id")
 
     write_council_status(
         status_token,
@@ -430,7 +440,7 @@ def handle_council_stop(args):
         error="Council stopped by user.",
         metadata=metadata,
     )
-    write_portal_html()
+    refresh_launchpad()
 
     killed = False
     kill_error = None

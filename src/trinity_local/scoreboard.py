@@ -5,19 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import trinity_home
-
-
-@dataclass
-class ScoreEntry:
-    provider: str
-    task_kind: str
-    score: float
-    successes: int
-    failures: int
-
-
-def state_dir() -> Path:
-    return trinity_home()
+from .state_paths import state_dir  # canonical source; re-exported for backward compat
 
 
 def scoreboard_path() -> Path:

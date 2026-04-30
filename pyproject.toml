@@ -21,6 +21,7 @@ where = ["src"]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+mcp = ["mcp>=1.0"]
 mlx = [
     "sentence-transformers>=2.2",
     "einops",
