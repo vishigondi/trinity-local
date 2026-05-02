@@ -23,7 +23,7 @@ class TestFindCostRate:
 
     def test_gemini_flash(self):
         rate = _find_cost_rate("gemini-2.5-flash-preview")
-        assert rate["input"] == 0.15
+        assert rate["input"] == 0.30
 
     def test_unknown_model(self):
         rate = _find_cost_rate("totally-unknown-model-v9")
