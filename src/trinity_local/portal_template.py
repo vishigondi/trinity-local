@@ -1236,8 +1236,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
+        providerModels: pageData.providerModels || {{}},
         personalRoutingTable: pageData.personalRoutingTable || null,
         tasteLenses: pageData.tasteLenses || null,
+        formatProviderLabel,
         copiedKey: '',
         copyLens(text, key) {{
           if (!text) return;
