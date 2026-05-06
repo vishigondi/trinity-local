@@ -386,6 +386,16 @@ def create_council_outcome(
         primary_model or "",
         now_iso(),
     )
+    # Embed the task_text directly on the outcome metadata so the post-hoc
+    # council review page (loaded by ?council_id=... only) has the prompt
+    # without needing a separate fetch of the bundle JSON. Truncate to 5000
+    # chars to keep the outcome JSON bounded — the original is always still
+    # available in the bundle for full-text retrieval.
+    final_metadata = dict(metadata or {})
+    if "task_text" not in final_metadata and bundle.task_text:
+        text = bundle.task_text
+        final_metadata["task_text"] = text if len(text) <= 5000 else text[:5000] + "\n[…truncated; full text in bundle]"
+
     return CouncilOutcome(
         council_run_id=council_run_id,
         bundle_id=bundle.bundle_id,
@@ -405,7 +415,7 @@ def create_council_outcome(
         mode=mode,
         chain_steps=chain_steps or [],
         created_at=now_iso(),
-        metadata=metadata or {},
+        metadata=final_metadata,
     )
 
 

@@ -641,6 +641,30 @@ def render_live_council_page() -> str:
       gap: 24px;
     }}
 
+    .task-collapsible {{
+      margin: 0 0 12px;
+      padding: 14px 16px;
+      background: rgba(37, 88, 71, 0.04);
+      border-left: 3px solid rgba(37, 88, 71, 0.3);
+      border-radius: 0 6px 6px 0;
+    }}
+    .task-collapsible > summary {{
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 600;
+      color: #1a1a1a;
+      list-style: none;
+    }}
+    .task-collapsible > summary::-webkit-details-marker {{ display: none; }}
+    .task-collapsible > summary::before {{
+      content: "▸ ";
+      color: rgba(37, 88, 71, 0.6);
+      margin-right: 4px;
+    }}
+    .task-collapsible[open] > summary::before {{
+      content: "▾ ";
+    }}
+
     .page-header-bar {{
       display: flex;
       justify-content: flex-start;
@@ -923,7 +947,11 @@ def render_live_council_page() -> str:
         <div class="page-header-bar">
           <a class="button ghost" :href="pageData.launchpadUrl">Back to Launchpad</a>
         </div>
-        <h1 v-if="taskText">{{{{ taskText }}}}</h1>
+        <h1 v-if="taskText && taskText.length <= 240">{{{{ taskText }}}}</h1>
+        <details v-if="taskText && taskText.length > 240" class="task-collapsible" :open="taskText.length <= 600">
+          <summary>{{{{ taskText.slice(0, 200) }}}}…</summary>
+          <p style="white-space: pre-wrap; margin: 12px 0 0;">{{{{ taskText }}}}</p>
+        </details>
         <p class="lede" v-if="busy">This page will fill in automatically as the council finishes. You can leave and come back without losing the run.</p>
       </section>
 
@@ -1086,10 +1114,13 @@ def render_live_council_page() -> str:
       metadata.chairman_provider = outcome.primary_provider || metadata.chairman_provider || '';
       metadata.chairman_model = outcome.primary_model || metadata.chairman_model || '';
       metadata.council_id = outcome.council_run_id || metadata.council_id || '';
+      // Outcome JSON has no top-level task_text — the writer puts it in
+      // metadata.task_text so the post-hoc page can render it without
+      // needing a second fetch of the bundle.
       return {{
         status: 'completed',
         statusToken: '',
-        taskText: outcome.task_text || '',
+        taskText: outcome.task_text || metadata.task_text || '',
         memberOrder,
         members,
         synthesis: {{

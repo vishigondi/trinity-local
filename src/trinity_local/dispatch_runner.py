@@ -42,11 +42,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"trinity-dispatch: no command mapping for action {action.name}", file=sys.stderr)
         return 1
 
+    # Suppress stdout so the macOS Shortcut runner doesn't pick up paths
+    # from JSON output and auto-open them (which caused the launchpad to
+    # spawn in a new tab seconds after a council was launched). Stderr is
+    # preserved so failures still surface via the Shortcut's error path.
     wrapped = f'export PATH="{runtime_path_prefix()}:$PATH"; {command}'
     completed = subprocess.run(
         ["/bin/zsh", "-lc", wrapped],
         check=False,
         env=build_runtime_env(),
+        stdout=subprocess.DEVNULL,
     )
     return int(completed.returncode)
 
