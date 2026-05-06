@@ -49,29 +49,70 @@ def _truncate(text: str, length: int = 88) -> str:
 
 
 def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
-    items: list[dict[str, str | None]] = []
-    for path in council_outcomes_dir().glob("*.json"):
+    """Group council outcomes into threads (one card per chain_root_id).
+
+    A "thread" here is the sequence of refine/continue/auto-chain rounds
+    rooted at one initial question. The card title comes from the root
+    round's prompt, the meta line shows the LATEST round's winner and
+    timestamp, and the link points at `live_council.html?thread_id=<root>`
+    so opening the card reveals every round on one scrollable page.
+    """
+    threads: dict[str, dict] = {}
+    for path in council_outcomes_dir().glob("council_*.json"):
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+        council_id = raw.get("council_run_id") or path.stem
+        metadata = raw.get("metadata") or {}
+        chain_root_id = metadata.get("chain_root_id") or council_id
+        round_number = int(metadata.get("round_number") or 1)
+        created_at = str(raw.get("created_at") or "")
         bundle_id = raw.get("bundle_id")
+
+        thread = threads.setdefault(
+            chain_root_id,
+            {
+                "chain_root_id": chain_root_id,
+                "segment_count": 0,
+                "root_bundle_id": None,
+                "root_title": None,
+                "latest_winner": None,
+                "latest_created_at": "",
+            },
+        )
+        thread["segment_count"] += 1
+        # Earliest round = round_number 1 (or smallest round_number) carries
+        # the original prompt for the title.
+        if round_number == 1 or thread["root_bundle_id"] is None:
+            thread["root_bundle_id"] = bundle_id
+            thread["root_council_id"] = council_id
+        # Latest round drives meta line.
+        if created_at >= thread["latest_created_at"]:
+            thread["latest_created_at"] = created_at
+            thread["latest_winner"] = raw.get("winner_provider")
+
+    items: list[dict[str, str | None]] = []
+    for thread in threads.values():
         prompt = "[Council prompt unavailable]"
-        if bundle_id:
+        if thread["root_bundle_id"]:
             try:
-                bundle = load_prompt_bundle(bundle_id)
+                bundle = load_prompt_bundle(thread["root_bundle_id"])
                 prompt = bundle.task_text.strip() or prompt
             except Exception:
                 pass
-        council_id = raw.get("council_run_id") or path.stem
         items.append(
             {
-                "council_id": council_id,
-                "bundle_id": bundle_id,
+                "council_id": thread.get("root_council_id") or thread["chain_root_id"],
+                "chain_root_id": thread["chain_root_id"],
+                "bundle_id": thread["root_bundle_id"],
                 "title": _truncate(prompt),
-                "winner_provider": raw.get("winner_provider"),
-                "created_at": raw.get("created_at"),
-                "review_page_path": str((review_pages_dir() / f"{council_id}.html").resolve()),
+                "winner_provider": thread["latest_winner"],
+                "created_at": thread["latest_created_at"],
+                "segment_count": thread["segment_count"],
+                "review_page_path": str(
+                    (review_pages_dir() / "live_council.html").resolve()
+                ),
             }
         )
     items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
@@ -412,18 +453,31 @@ def _load_taste_lenses() -> dict | None:
 
 
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:
-    return "".join(
-        f"""
+    def _card(item: dict[str, str | None]) -> str:
+        thread_id = item.get("chain_root_id") or item.get("council_id")
+        review_path = item.get("review_page_path")
+        if not review_path or not thread_id:
+            return ""
+        href = f"file://{_esc(str(review_path))}?thread_id={_esc(str(thread_id))}"
+        winner = (item.get("winner_provider") or "No winner yet").replace("_", " ").title()
+        created_at = item.get("created_at") or "unknown"
+        seg_count = int(item.get("segment_count") or 1)
+        rounds_badge = (
+            f' · <span style="opacity: 0.7;">{seg_count} rounds</span>'
+            if seg_count > 1
+            else ""
+        )
+        return f"""
         <div style="display: flex; flex-direction: column; gap: 12px;">
-          <a href="file://{_esc(item['review_page_path'])}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
+          <a href="{href}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
             <article class="card council-card">
-              <div class="eyebrow">Council</div>
+              <div class="eyebrow">Thread</div>
               <h3 class="council-title">{_esc(str(item['title']))}</h3>
-              <p class="meta">{_esc((item.get('winner_provider') or 'No winner yet').replace('_', ' ').title())} · {_esc(item.get('created_at') or 'unknown')}</p>
+              <p class="meta">{_esc(winner)} · {_esc(created_at)}{rounds_badge}</p>
             </article>
           </a>
         </div>
         """
-        for item in recent_councils
-        if item.get('review_page_path')
-    ) or '<p class="meta">No councils yet. Launch one above to get started.</p>'
+
+    cards = "".join(_card(item) for item in recent_councils)
+    return cards or '<p class="meta">No councils yet. Launch one above to get started.</p>'
