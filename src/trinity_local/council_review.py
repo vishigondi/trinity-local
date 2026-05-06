@@ -971,7 +971,7 @@ def render_live_council_page() -> str:
 
       <div class="chain-segment" v-for="(seg, segIndex) in segments" :key="seg.key" :data-seg-key="seg.key">
         <section class="card chain-segment-divider" v-if="segments.length > 1 || seg.refinementText">
-          <div class="eyebrow">Round {{{{ seg.roundNumber }}}}{{{{ seg.converged ? ' · models converged' : '' }}}}</div>
+          <div class="eyebrow">Round {{{{ seg.roundNumber || (segIndex + 1) }}}}{{{{ seg.converged ? ' · models converged' : '' }}}}</div>
           <p v-if="seg.refinementText" class="meta refinement-prompt" style="margin: 6px 0 0;">↳ {{{{ seg.refinementText }}}}</p>
         </section>
 
@@ -1489,6 +1489,10 @@ def render_live_council_page() -> str:
             members: memberOrder,
             refinementText: refinementText || '',
           }});
+          // Optimistic round number so the divider reads "Round N+1" while
+          // the new round is still streaming. The completion handler will
+          // overwrite this with the canonical round_number from the outcome.
+          newSeg.roundNumber = (last.roundNumber || 1) + 1;
           this.segments.push(newSeg);
           // Auto-scroll the new segment into view after render.
           requestAnimationFrame(() => {{
