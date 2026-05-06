@@ -33,18 +33,12 @@ def notify(title: str, message: str) -> None:
     system = platform.system().lower()
     try:
         if system == "darwin":
-            trinity_app = _find_trinity_app()
-            if trinity_app and shutil.which("open"):
-                # Route through Trinity.app so the notification inherits the
-                # app's bundle identity (icon + click-target) instead of
-                # appearing as Script Editor.
-                subprocess.run(
-                    ["open", "-a", str(trinity_app), "--args", "notify", title, message],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                return
+            # Use osascript directly. We previously routed through
+            # Trinity.app for icon polish, but that side-effect-launched
+            # the launchpad in a new tab on every council start /
+            # completion / rate event — Trinity.app's default action is
+            # "open launchpad" and the --args notify hint didn't suppress
+            # it. Generic Script Editor icon is the smaller bug.
             if shutil.which("osascript"):
                 script = (
                     f'display notification "{_escape_applescript(message)}" '
