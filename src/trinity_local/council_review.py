@@ -940,113 +940,134 @@ def render_live_council_page() -> str:
         align-items: flex-start;
       }}
     }}
+
+    .chain-segment-divider {{
+      margin: 32px 0 8px;
+      padding: 12px 18px;
+      background: rgba(37, 88, 71, 0.04);
+      border-left: 3px solid rgba(37, 88, 71, 0.3);
+      border-radius: 0 8px 8px 0;
+    }}
+
+    .refinement-prompt {{
+      font-style: italic;
+      color: var(--text-primary);
+    }}
   </style>
   <main>
     <div id="live-council-app" v-scope="LiveCouncilApp(pageData)" @vue:mounted="init">
       <section class="card mb-lg">
         <div class="page-header-bar">
           <a class="button ghost" :href="pageData.launchpadUrl">Back to Launchpad</a>
+          <a class="button ghost" v-if="threadViewUrl" :href="threadViewUrl">View full thread</a>
         </div>
-        <h1 v-if="taskText && taskText.length <= 240">{{{{ taskText }}}}</h1>
-        <details v-if="taskText && taskText.length > 240" class="task-collapsible" :open="taskText.length <= 600">
-          <summary>{{{{ taskText.slice(0, 200) }}}}…</summary>
-          <p style="white-space: pre-wrap; margin: 12px 0 0;">{{{{ taskText }}}}</p>
+        <h1 v-if="threadTaskText && threadTaskText.length <= 240">{{{{ threadTaskText }}}}</h1>
+        <details v-if="threadTaskText && threadTaskText.length > 240" class="task-collapsible" :open="threadTaskText.length <= 600">
+          <summary>{{{{ threadTaskText.slice(0, 200) }}}}…</summary>
+          <p style="white-space: pre-wrap; margin: 12px 0 0;">{{{{ threadTaskText }}}}</p>
         </details>
-        <p class="lede" v-if="busy">This page will fill in automatically as the council finishes. You can leave and come back without losing the run.</p>
+        <p class="lede" v-if="anyBusy">Each round fills in below as it completes. You can leave and come back without losing the run.</p>
       </section>
 
-      <section class="card launch-status mb-lg" v-if="busy || failed || canceled">
-        <div class="spinner-row" v-if="busy">
-          <span class="spinner" aria-hidden="true"></span>
-          <strong>Council running</strong>
-        </div>
-        <strong v-if="failed" class="status-error">Council failed</strong>
-        <strong v-if="canceled" class="status-error">Council stopped</strong>
-        <p class="status-message" v-if="busy">{{{{ currentStatusMessage }}}}</p>
-        <p class="status-error" v-if="errorText">{{{{ errorText }}}}</p>
-        <div class="live-actions" v-if="busy">
-          <button type="button" class="button ghost" @click="stopCouncil">Stop council</button>
-        </div>
-      </section>
+      <div class="chain-segment" v-for="(seg, segIndex) in segments" :key="seg.key" :data-seg-key="seg.key">
+        <section class="card chain-segment-divider" v-if="segments.length > 1 || seg.refinementText">
+          <div class="eyebrow">Round {{{{ seg.roundNumber }}}}{{{{ seg.converged ? ' · models converged' : '' }}}}</div>
+          <p v-if="seg.refinementText" class="meta refinement-prompt" style="margin: 6px 0 0;">↳ {{{{ seg.refinementText }}}}</p>
+        </section>
 
-      <section class="card synthesis-section mb-lg" v-if="analysisRow">
-        <div class="provider-status-header">
-          <h2 style="margin: 0;">{{{{ analysisRow.label }}}}</h2>
-          <div class="provider-status-badge" :class="analysisRow.statusClass" v-if="analysisRow.statusClass !== 'done'">{{{{ analysisRow.statusLabel }}}}</div>
-        </div>
-        <div class="markdown-body" v-if="analysisRow.responseHtml" v-html="analysisRow.responseHtml" style="margin-top: 12px;"></div>
-        <p class="meta" v-else style="margin-top: 8px;">{{{{ analysisRow.detail }}}}</p>
-      </section>
+        <section class="card launch-status mb-lg" v-if="seg.busy || seg.failed || seg.canceled">
+          <div class="spinner-row" v-if="seg.busy">
+            <span class="spinner" aria-hidden="true"></span>
+            <strong>Council running</strong>
+          </div>
+          <strong v-if="seg.failed" class="status-error">Council failed</strong>
+          <strong v-if="seg.canceled" class="status-error">Council stopped</strong>
+          <p class="status-message" v-if="seg.busy">{{{{ currentStatusMessageFor(seg) }}}}</p>
+          <p class="status-error" v-if="seg.errorText">{{{{ seg.errorText }}}}</p>
+          <div class="live-actions" v-if="seg.busy && segIndex === segments.length - 1">
+            <button type="button" class="button ghost" @click="stopCouncil">Stop council</button>
+          </div>
+        </section>
 
-      <section class="card mb-lg" v-if="routingLabel">
-        <div class="eyebrow">Routing label</div>
-        <div class="routing-label-grid">
-          <div v-if="routingLabel.winner">
-            <strong>Winner:</strong> {{{{ formatProviderLabel(routingLabel.winner) }}}}<span v-if="routingLabel.runner_up"> · runner-up: {{{{ formatProviderLabel(routingLabel.runner_up) }}}}</span>
-            <span v-if="routingLabel.confidence"> · confidence: {{{{ routingLabel.confidence }}}}</span>
+        <section class="card synthesis-section mb-lg" v-if="analysisRowFor(seg)">
+          <div class="provider-status-header">
+            <h2 style="margin: 0;">{{{{ analysisRowFor(seg).label }}}}</h2>
+            <div class="provider-status-badge" :class="analysisRowFor(seg).statusClass" v-if="analysisRowFor(seg).statusClass !== 'done'">{{{{ analysisRowFor(seg).statusLabel }}}}</div>
           </div>
-          <div v-if="routingLabel.agreed_claims && routingLabel.agreed_claims.length">
-            <strong>Agreed claims</strong>
-            <ul><li v-for="c in routingLabel.agreed_claims">{{{{ c }}}}</li></ul>
-          </div>
-          <div v-if="routingLabel.disagreed_claims && routingLabel.disagreed_claims.length">
-            <strong>Disagreed claims</strong>
-            <ul>
-              <li v-for="d in routingLabel.disagreed_claims">
-                <span>{{{{ d.claim }}}}</span>
-                <span v-if="d.providers_for && d.providers_for.length" class="meta"> — for: {{{{ formatProviders(d.providers_for) }}}}</span>
-                <span v-if="d.providers_against && d.providers_against.length" class="meta"> · against: {{{{ formatProviders(d.providers_against) }}}}</span>
-                <div v-if="d.why_matters" class="meta">{{{{ d.why_matters }}}}</div>
-              </li>
-            </ul>
-          </div>
-          <div v-if="routingLabel.user_likely_values && routingLabel.user_likely_values.length">
-            <strong>User-fit signals (from /me):</strong> <span class="meta">{{{{ routingLabel.user_likely_values.join(', ') }}}}</span>
-          </div>
-          <div v-if="routingLabel.routing_lesson">
-            <strong>Routing lesson:</strong> <span class="meta">{{{{ routingLabel.routing_lesson }}}}</span>
-          </div>
-          <div v-if="routingLabel.eval_seed">
-            <strong>Eval seed:</strong> <span class="meta">{{{{ routingLabel.eval_seed }}}}</span>
-          </div>
-        </div>
-      </section>
+          <div class="markdown-body" v-if="analysisRowFor(seg).responseHtml" v-html="analysisRowFor(seg).responseHtml" style="margin-top: 12px;"></div>
+          <p class="meta" v-else style="margin-top: 8px;">{{{{ analysisRowFor(seg).detail }}}}</p>
+        </section>
 
-      <section class="mb-lg" v-if="memberRows.length">
-        <h2>Full Responses</h2>
-        <p class="meta" v-if="completed">Click the answer you prefer. Trinity saves that choice for local ratings and future routing.</p>
-        <div :class="memberRows.length === 3 ? 'answers-grid answers-grid-three' : 'answers-grid'">
-          <article
-            class="provider-status-row"
-            :class="{{ selected: selectedProvider === row.provider, clickable: completed && row.statusClass === 'done' }}"
-            v-for="row in memberRows"
-            :key="row.provider"
-            :role="completed && row.statusClass === 'done' ? 'button' : null"
-            :tabindex="completed && row.statusClass === 'done' ? 0 : null"
-            @click="completed && row.statusClass === 'done' ? chooseMember(row.provider, row.answerLabel) : null"
-            @keydown.enter.prevent="completed && row.statusClass === 'done' ? chooseMember(row.provider, row.answerLabel) : null"
-            @keydown.space.prevent="completed && row.statusClass === 'done' ? chooseMember(row.provider, row.answerLabel) : null"
-          >
-            <div class="provider-status-header">
-              <div class="provider-status-name">{{{{ row.label }}}}</div>
-              <div class="provider-status-badge" :class="row.statusClass" v-if="row.statusClass !== 'done'">{{{{ row.statusLabel }}}}</div>
-              <div class="provider-status-badge done" v-if="selectedProvider === row.provider">Preferred</div>
+        <section class="card mb-lg" v-if="routingLabelFor(seg)">
+          <div class="eyebrow">Routing label</div>
+          <div class="routing-label-grid">
+            <div v-if="routingLabelFor(seg).winner">
+              <strong>Winner:</strong> {{{{ formatProviderLabel(routingLabelFor(seg).winner) }}}}<span v-if="routingLabelFor(seg).runner_up"> · runner-up: {{{{ formatProviderLabel(routingLabelFor(seg).runner_up) }}}}</span>
+              <span v-if="routingLabelFor(seg).confidence"> · confidence: {{{{ routingLabelFor(seg).confidence }}}}</span>
             </div>
-            <div class="provider-status-response markdown-body" v-if="row.responseHtml" v-html="row.responseHtml"></div>
-            <pre class="provider-status-response" v-else-if="row.responseText">{{{{ row.responseText }}}}</pre>
-            <div class="provider-status-detail" v-else :class="{{ empty: !row.detail }}">{{{{ row.detail }}}}</div>
-          </article>
-        </div>
-      </section>
+            <div v-if="routingLabelFor(seg).agreed_claims && routingLabelFor(seg).agreed_claims.length">
+              <strong>Agreed claims</strong>
+              <ul><li v-for="c in routingLabelFor(seg).agreed_claims">{{{{ c }}}}</li></ul>
+            </div>
+            <div v-if="routingLabelFor(seg).disagreed_claims && routingLabelFor(seg).disagreed_claims.length">
+              <strong>Disagreed claims</strong>
+              <ul>
+                <li v-for="d in routingLabelFor(seg).disagreed_claims">
+                  <span>{{{{ d.claim }}}}</span>
+                  <span v-if="d.providers_for && d.providers_for.length" class="meta"> — for: {{{{ formatProviders(d.providers_for) }}}}</span>
+                  <span v-if="d.providers_against && d.providers_against.length" class="meta"> · against: {{{{ formatProviders(d.providers_against) }}}}</span>
+                  <div v-if="d.why_matters" class="meta">{{{{ d.why_matters }}}}</div>
+                </li>
+              </ul>
+            </div>
+            <div v-if="routingLabelFor(seg).user_likely_values && routingLabelFor(seg).user_likely_values.length">
+              <strong>User-fit signals (from /me):</strong> <span class="meta">{{{{ routingLabelFor(seg).user_likely_values.join(', ') }}}}</span>
+            </div>
+            <div v-if="routingLabelFor(seg).routing_lesson">
+              <strong>Routing lesson:</strong> <span class="meta">{{{{ routingLabelFor(seg).routing_lesson }}}}</span>
+            </div>
+            <div v-if="routingLabelFor(seg).eval_seed">
+              <strong>Eval seed:</strong> <span class="meta">{{{{ routingLabelFor(seg).eval_seed }}}}</span>
+            </div>
+          </div>
+        </section>
 
-      <section class="card confirmation-box" v-if="selectedProvider">
-        <div class="eyebrow">Preference saved</div>
-        <h2>{{{{ selectedProviderTitle }}}} is your preferred answer</h2>
-        <p class="meta">Trinity uses this for local ratings and future routing.</p>
-      </section>
+        <section class="mb-lg" v-if="memberRowsFor(seg).length">
+          <h2>Full Responses</h2>
+          <p class="meta" v-if="seg.completed">Click the answer you prefer. Trinity saves that choice for local ratings and future routing.</p>
+          <div :class="memberRowsFor(seg).length === 3 ? 'answers-grid answers-grid-three' : 'answers-grid'">
+            <article
+              class="provider-status-row"
+              :class="{{ selected: seg.selectedProvider === row.provider, clickable: seg.completed && row.statusClass === 'done' }}"
+              v-for="row in memberRowsFor(seg)"
+              :key="row.provider"
+              :role="seg.completed && row.statusClass === 'done' ? 'button' : null"
+              :tabindex="seg.completed && row.statusClass === 'done' ? 0 : null"
+              @click="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
+              @keydown.enter.prevent="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
+              @keydown.space.prevent="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
+            >
+              <div class="provider-status-header">
+                <div class="provider-status-name">{{{{ row.label }}}}</div>
+                <div class="provider-status-badge" :class="row.statusClass" v-if="row.statusClass !== 'done'">{{{{ row.statusLabel }}}}</div>
+                <div class="provider-status-badge done" v-if="seg.selectedProvider === row.provider">Preferred</div>
+              </div>
+              <div class="provider-status-response markdown-body" v-if="row.responseHtml" v-html="row.responseHtml"></div>
+              <pre class="provider-status-response" v-else-if="row.responseText">{{{{ row.responseText }}}}</pre>
+              <div class="provider-status-detail" v-else :class="{{ empty: !row.detail }}">{{{{ row.detail }}}}</div>
+            </article>
+          </div>
+        </section>
 
-      <section class="card chain-actions" v-if="completed && councilId">
-        <div class="eyebrow">Round {{{{ roundNumber }}}}{{{{ converged ? ' · models converged' : '' }}}}</div>
+        <section class="card confirmation-box" v-if="seg.selectedProvider">
+          <div class="eyebrow">Preference saved</div>
+          <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} is your preferred answer</h2>
+          <p class="meta">Trinity uses this for local ratings and future routing.</p>
+        </section>
+      </div>
+
+      <section class="card chain-actions" v-if="canChainNext">
+        <div class="eyebrow">Continue this thread</div>
         <h2 v-if="!chainBusy">Continue the conversation</h2>
         <h2 v-if="chainBusy">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy">
@@ -1060,7 +1081,6 @@ def render_live_council_page() -> str:
         <div class="chain-button-row" v-if="!chainBusy">
           <button type="button" class="button primary" @click="startContinue">Continue (one round)</button>
           <button type="button" class="button ghost" @click="startAutoChain">Auto-chain (up to 3 rounds, stop when converged)</button>
-          <a class="button ghost" v-if="reviewPath" :href="reviewPath">Open full review</a>
         </div>
         <div class="chain-refine-row" v-if="!chainBusy">
           <input
@@ -1090,12 +1110,32 @@ def render_live_council_page() -> str:
       return {{
         statusToken: params.get('status_token') || '',
         councilId: params.get('council_id') || '',
+        threadId: params.get('thread_id') || '',
         taskText: params.get('task') || '',
         fallbackMembers: (params.get('members') || '')
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean),
       }};
+    }}
+
+    window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {{}};
+
+    function loadThreadScript(threadId, onComplete) {{
+      const base = pageData.outcomeScriptBaseUrl || '';
+      if (!base || !threadId) {{ onComplete(null); return; }}
+      delete window.__TRINITY_COUNCIL_THREAD__[threadId];
+      const script = document.createElement('script');
+      const cacheBuster = '?t=' + Date.now();
+      script.src = base + '/_thread_' + encodeURIComponent(threadId) + '.js' + cacheBuster;
+      script.async = true;
+      script.onload = () => {{
+        const manifest = window.__TRINITY_COUNCIL_THREAD__?.[threadId] || null;
+        onComplete(manifest);
+        script.remove();
+      }};
+      script.onerror = () => {{ onComplete(null); script.remove(); }};
+      document.body.appendChild(script);
     }}
 
     function outcomeToRunState(outcome) {{
@@ -1179,107 +1219,75 @@ def render_live_council_page() -> str:
         .join(' ');
     }}
 
-    function LiveCouncilApp(pageData) {{
-      const params = getParams();
-      const initialRunState = normalizeStatus({{
-        status: params.statusToken ? 'running' : 'pending',
-        statusToken: params.statusToken,
-        taskText: params.taskText,
-        memberOrder: params.fallbackMembers,
-        members: Object.fromEntries(params.fallbackMembers.map((provider) => [provider, {{ status: 'pending' }}])),
-        synthesis: {{ status: 'pending' }},
-      }});
+    function makeSegment({{statusToken='', councilId='', taskText='', refinementText='', members=[]}}) {{
+      const status = statusToken ? 'running' : 'pending';
       return {{
-        statusToken: params.statusToken,
-        taskText: params.taskText,
-        runState: initialRunState,
-        currentStatusIndex: 0,
-        statusPollHandle: null,
-        statusRotateHandle: null,
-        busy: !!params.statusToken,
+        key: 'seg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+        councilId,
+        statusToken,
+        taskText,
+        refinementText,
+        runState: normalizeStatus({{
+          status,
+          statusToken,
+          taskText,
+          memberOrder: members,
+          members: Object.fromEntries(members.map((p) => [p, {{ status: 'pending' }}])),
+          synthesis: {{ status: 'pending' }},
+        }}, null),
+        busy: !!statusToken,
+        completed: false,
         failed: false,
         canceled: false,
-        completed: false,
         errorText: '',
-        councilId: params.councilId || '',
-        reviewPath: '',
         roundNumber: 1,
         converged: false,
+        selectedProvider: '',
+        currentStatusIndex: 0,
+      }};
+    }}
+
+    function LiveCouncilApp(pageData) {{
+      const params = getParams();
+      return {{
+        threadTaskText: params.taskText,
+        threadId: params.threadId || '',
+        threadViewUrl: '',
+        segments: [],
+        statusPollHandle: null,
+        statusRotateHandle: null,
         chainBusy: false,
         chainStatusHeading: '',
         chainStatusDetail: '',
         refinePrompt: '',
-        selectedProvider: '',
-        get selectedProviderTitle() {{
-          if (!this.selectedProvider) return '';
-          return formatProviderLabel(this.selectedProvider);
-        }},
-        // Bridge so v-html templates can prettify provider names that come
-        // from the chairman's structured Routing JSON (always lowercase per
-        // the spec). Without these, "winner: codex" rendered raw lowercase
-        // in the routing-label section.
         formatProviderLabel(provider) {{ return formatProviderLabel(provider); }},
         formatProviders(names) {{
           if (!Array.isArray(names)) return '';
           return names.map((n) => formatProviderLabel(n)).join(', ');
         }},
-        chooseMember(provider, answerLabel) {{
-          if (!this.councilId) return;
-          const payload = {{
-            name: 'rate_council',
-            args: {{
-              council_id: this.councilId,
-              provider,
-              answer_label: answerLabel,
-            }},
-            metadata: {{ kind: 'council_feedback', source: 'unified_review' }},
-          }};
-          this._fireShortcut(buildShortcutUrl(payload));
-          this.selectedProvider = provider;
+        get anyBusy() {{
+          return this.segments.some((s) => s.busy);
         }},
-        init() {{
-            if (this.statusToken) {{
-              this.startPolling();
-            }} else if (this.councilId) {{
-              this.loadOutcome(this.councilId);
-            }}
+        get canChainNext() {{
+          if (this.segments.length === 0) return false;
+          const last = this.segments[this.segments.length - 1];
+          return !!(last.completed && last.councilId);
         }},
-        loadOutcome(councilId) {{
-          loadOutcomeScript(councilId, (outcome) => {{
-            if (!outcome) {{
-              this.failed = true;
-              this.errorText = 'Could not load council outcome.';
-              this.busy = false;
-              return;
-            }}
-            const rs = outcomeToRunState(outcome);
-            if (!rs) return;
-            this.runState = rs;
-            this.taskText = rs.taskText || this.taskText;
-            this.councilId = rs.metadata?.council_id || councilId;
-            this.busy = false;
-            this.failed = false;
-            this.canceled = false;
-            this.completed = true;
-            this.roundNumber = rs.metadata?.round_number || 1;
-            this.converged = !!rs.metadata?.converged;
-          }});
-        }},
-        get currentStatusMessage() {{
-          const message = pageData.loadingMessages[this.currentStatusIndex % pageData.loadingMessages.length] || 'Working...';
-          const synthesisStatus = this.runState?.synthesis?.status;
+        currentStatusMessageFor(seg) {{
+          const message = pageData.loadingMessages[seg.currentStatusIndex % pageData.loadingMessages.length] || 'Working...';
+          const synthesisStatus = seg.runState?.synthesis?.status;
           if (synthesisStatus === 'running') {{
             return 'Synthesizing the strongest answer...';
           }}
-          const active = this.runState?.activeProvider;
+          const active = seg.runState?.activeProvider;
           if (active) {{
             return `${{formatProviderLabel(active)}}: ${{message}}`;
           }}
           return message;
         }},
-        get memberRows() {{
-          const memberMap = this.runState?.members || {{}};
-          const providers = Object.keys(memberMap).length ? Object.keys(memberMap) : (this.runState?.memberOrder || []);
+        memberRowsFor(seg) {{
+          const memberMap = seg.runState?.members || {{}};
+          const providers = Object.keys(memberMap).length ? Object.keys(memberMap) : (seg.runState?.memberOrder || []);
           return providers.map((provider, idx) => {{
             const item = memberMap[provider] || {{}};
             const status = item.status || 'pending';
@@ -1287,7 +1295,7 @@ def render_live_council_page() -> str:
             const model = item.model || '';
             return {{
               provider,
-              answerLabel: String.fromCharCode(65 + idx),  // A, B, C
+              answerLabel: String.fromCharCode(65 + idx),
               label: model ? `${{baseLabel}} (${{model}})` : baseLabel,
               statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
               statusClass: status === 'done' ? 'done' : status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'pending',
@@ -1301,20 +1309,20 @@ def render_live_council_page() -> str:
             }};
           }});
         }},
-        get routingLabel() {{
-          return this.runState?.synthesis?.routing_label || null;
+        routingLabelFor(seg) {{
+          return seg.runState?.synthesis?.routing_label || null;
         }},
-        get analysisRow() {{
-          const synthesisStatus = this.runState?.synthesis?.status || 'pending';
-          const memberPending = this.memberRows.some((row) => row.statusClass === 'pending' || row.statusClass === 'running');
-          const chairmanProvider = this.runState?.metadata?.chairman_provider || '';
-          const chairmanModel = this.runState?.metadata?.chairman_model || '';
+        analysisRowFor(seg) {{
+          const synthesisStatus = seg.runState?.synthesis?.status || 'pending';
+          const memberPending = this.memberRowsFor(seg).some((row) => row.statusClass === 'pending' || row.statusClass === 'running');
+          const chairmanProvider = seg.runState?.metadata?.chairman_provider || '';
+          const chairmanModel = seg.runState?.metadata?.chairman_model || '';
           const chairmanLabel = chairmanProvider
             ? formatProviderLabel(chairmanProvider) + (chairmanModel ? ` (${{chairmanModel}})` : '')
             : '';
           const analysisLabel = chairmanLabel ? `Analysis · ${{chairmanLabel}}` : 'Analysis';
-          const synthesisHtml = this.runState?.synthesis?.response_html || '';
-          const synthesisText = this.runState?.synthesis?.response_text || '';
+          const synthesisHtml = seg.runState?.synthesis?.response_html || '';
+          const synthesisText = seg.runState?.synthesis?.response_text || '';
           return {{
             label: analysisLabel,
             statusLabel: synthesisStatus === 'done' ? 'Done' : synthesisStatus === 'failed' ? 'Failed' : synthesisStatus === 'running' ? 'Running' : 'Queued',
@@ -1332,19 +1340,114 @@ def render_live_council_page() -> str:
                     : 'Ready to start final comparison.',
           }};
         }},
-        stopCouncil() {{
-          if (!this.statusToken) {{
-            return;
+        chooseMember(seg, provider, answerLabel) {{
+          if (!seg.councilId) return;
+          const payload = {{
+            name: 'rate_council',
+            args: {{
+              council_id: seg.councilId,
+              provider,
+              answer_label: answerLabel,
+            }},
+            metadata: {{ kind: 'council_feedback', source: 'unified_review' }},
+          }};
+          this._fireShortcut(buildShortcutUrl(payload));
+          this._patchSegment(seg.key, {{ selectedProvider: provider }});
+        }},
+        init() {{
+          if (params.threadId) {{
+            this.loadThread(params.threadId);
+          }} else if (params.statusToken) {{
+            const seg = makeSegment({{
+              statusToken: params.statusToken,
+              taskText: params.taskText,
+              members: params.fallbackMembers,
+            }});
+            this.segments.push(seg);
+            this.startPolling();
+          }} else if (params.councilId) {{
+            const seg = makeSegment({{ councilId: params.councilId, taskText: params.taskText }});
+            this.segments.push(seg);
+            this._loadOutcomeIntoSegment(seg, params.councilId);
           }}
+        }},
+        loadThread(threadId) {{
+          loadThreadScript(threadId, (manifest) => {{
+            const ids = (manifest?.segments || []).map((s) => s.council_id);
+            if (!ids.length) {{
+              // Fallback: treat threadId as a council_id
+              const seg = makeSegment({{ councilId: threadId }});
+              this.segments.push(seg);
+              this._loadOutcomeIntoSegment(seg, threadId);
+              return;
+            }}
+            // Load all in parallel; render order matches manifest order.
+            const segs = ids.map((cid) => makeSegment({{ councilId: cid }}));
+            segs.forEach((s) => this.segments.push(s));
+            segs.forEach((s, idx) => this._loadOutcomeIntoSegment(s, ids[idx]));
+          }});
+        }},
+        _loadOutcomeIntoSegment(seg, councilId) {{
+          loadOutcomeScript(councilId, (outcome) => {{
+            const idx = this.segments.findIndex((s) => s.key === seg.key);
+            if (idx === -1) return;
+            // Replace the segment object via splice so petite-vue's array
+            // proxy fires reactivity. Direct property mutation on the
+            // existing object is unreliable when the object was created in
+            // a sync push and only nested-property-mutated from async load.
+            const current = this.segments[idx];
+            if (!outcome) {{
+              this.segments.splice(idx, 1, Object.assign({{}}, current, {{
+                failed: true,
+                errorText: 'Could not load council outcome.',
+                busy: false,
+              }}));
+              return;
+            }}
+            const rs = outcomeToRunState(outcome);
+            if (!rs) return;
+            const next = Object.assign({{}}, current, {{
+              runState: rs,
+              taskText: rs.taskText || current.taskText,
+              councilId: rs.metadata?.council_id || councilId,
+              busy: false,
+              failed: false,
+              canceled: false,
+              completed: true,
+              roundNumber: rs.metadata?.round_number || 1,
+              converged: !!rs.metadata?.converged,
+            }});
+            this.segments.splice(idx, 1, next);
+            if (!this.threadTaskText) {{
+              this.threadTaskText = rs.taskText || this.threadTaskText;
+            }}
+            // Track the chain root id so we can show "View full thread"
+            // when this single-council page is part of a multi-segment chain.
+            const chainRoot = rs.metadata?.chain_root_id || next.councilId;
+            if (chainRoot && this.segments.length === 1 && !this.threadId) {{
+              this._maybeOfferThreadLink(chainRoot);
+            }}
+          }});
+        }},
+        _maybeOfferThreadLink(chainRootId) {{
+          // Probe the thread manifest. If it has more than one segment,
+          // surface the "View full thread" button.
+          loadThreadScript(chainRootId, (manifest) => {{
+            const count = (manifest?.segments || []).length;
+            if (count > 1) {{
+              const url = new URL(window.location.href);
+              url.search = '?thread_id=' + encodeURIComponent(chainRootId);
+              this.threadViewUrl = url.toString();
+            }}
+          }});
+        }},
+        stopCouncil() {{
+          const last = this.segments[this.segments.length - 1];
+          if (!last?.statusToken) return;
           const payload = {{
             name: 'stop_council',
-            args: {{
-              status_token: this.statusToken,
-            }},
-            metadata: {{
-              kind: 'stop_council',
-              source: 'live_review',
-            }},
+            args: {{ status_token: last.statusToken }},
+            metadata: {{ kind: 'stop_council', source: 'live_review' }},
           }};
           window.location.href = buildShortcutUrl(payload);
         }},
@@ -1359,13 +1462,14 @@ def render_live_council_page() -> str:
           a.click();
           a.remove();
         }},
-        _startChainAction(actionName, additionalArgs, heading, detail) {{
-          if (!this.councilId) return;
+        _startChainAction(actionName, additionalArgs, refinementText, heading, detail) {{
+          const last = this.segments[this.segments.length - 1];
+          if (!last?.councilId) return;
           const newToken = this._newStatusToken();
           const payload = {{
             name: actionName,
             args: Object.assign(
-              {{ council_id: this.councilId, status_token: newToken }},
+              {{ council_id: last.councilId, status_token: newToken }},
               additionalArgs || {{}},
             ),
             metadata: {{ kind: actionName, source: 'live_council' }},
@@ -1374,55 +1478,43 @@ def render_live_council_page() -> str:
           this.chainStatusHeading = heading;
           this.chainStatusDetail = detail;
           this._fireShortcut(buildShortcutUrl(payload));
-          // Reset polling to the new token in-place — no navigation.
           this.clearPolling();
-          this.statusToken = newToken;
-          this.completed = false;
-          this.failed = false;
-          this.canceled = false;
-          this.busy = true;
-          this.errorText = '';
-          this.runState = normalizeStatus({{
-            status: 'running',
+          this.refinePrompt = '';
+          // Append a NEW segment for the next round; prior rounds stay
+          // visible above so the page reads as a scrollable thread.
+          const memberOrder = Object.keys(last.runState?.members || {{}});
+          const newSeg = makeSegment({{
             statusToken: newToken,
-            taskText: this.taskText,
-            memberOrder: Object.keys(this.runState?.members || {{}}),
-            members: Object.fromEntries(Object.keys(this.runState?.members || {{}}).map((p) => [p, {{ status: 'pending' }}])),
-            synthesis: {{ status: 'pending' }},
+            taskText: this.threadTaskText,
+            members: memberOrder,
+            refinementText: refinementText || '',
+          }});
+          this.segments.push(newSeg);
+          // Auto-scroll the new segment into view after render.
+          requestAnimationFrame(() => {{
+            const el = document.querySelector('[data-seg-key="' + newSeg.key + '"]');
+            el?.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
           }});
           this.startPolling();
-          // Once the new round writes status, the chainBusy spinner hides
-          // (gated on `completed`); no need to flip it off manually here.
           setTimeout(() => {{ this.chainBusy = false; }}, 800);
         }},
         startContinue() {{
           if (this.chainBusy) return;
-          this._startChainAction(
-            'council_continue',
-            null,
-            'Starting next round…',
-            "Each model is reading the others' answers and refining.",
-          );
+          this._startChainAction('council_continue', null, '', 'Starting next round…',
+            "Each model is reading the others' answers and refining.");
         }},
         startAutoChain() {{
           if (this.chainBusy) return;
-          this._startChainAction(
-            'council_auto_chain',
-            {{ max_rounds: 3 }},
+          this._startChainAction('council_auto_chain', {{ max_rounds: 3 }}, '',
             'Auto-chaining…',
-            'Models will iterate up to 3 rounds, stopping when the chairman declares convergence.',
-          );
+            'Models will iterate up to 3 rounds, stopping when the chairman declares convergence.');
         }},
         startRefine() {{
           if (this.chainBusy) return;
           const prompt = (this.refinePrompt || '').trim();
           if (!prompt) return;
-          this._startChainAction(
-            'council_refine',
-            {{ prompt: prompt }},
-            'Refining…',
-            'Each model is incorporating your new directive into a refined answer.',
-          );
+          this._startChainAction('council_refine', {{ prompt }}, prompt, 'Refining…',
+            'Each model is incorporating your new directive into a refined answer.');
         }},
         clearPolling() {{
           if (this.statusPollHandle) {{
@@ -1434,61 +1526,70 @@ def render_live_council_page() -> str:
             this.statusRotateHandle = null;
           }}
         }},
+        _patchSegment(key, patch) {{
+          const idx = this.segments.findIndex((s) => s.key === key);
+          if (idx === -1) return null;
+          const next = Object.assign({{}}, this.segments[idx], patch);
+          this.segments.splice(idx, 1, next);
+          return next;
+        }},
         startPolling() {{
-          if (!this.statusToken) {{
-            this.busy = false;
-            this.failed = true;
-            this.errorText = 'Missing council status token.';
+          const seg0 = this.segments[this.segments.length - 1];
+          if (!seg0?.statusToken) {{
+            if (seg0) {{
+              this._patchSegment(seg0.key, {{ busy: false, failed: true, errorText: 'Missing council status token.' }});
+            }}
             return;
           }}
+          const segKey = seg0.key;
           this.statusRotateHandle = window.setInterval(() => {{
-            this.currentStatusIndex += 1;
+            const cur = this.segments.find((s) => s.key === segKey);
+            if (!cur) return;
+            this._patchSegment(segKey, {{ currentStatusIndex: (cur.currentStatusIndex || 0) + 1 }});
           }}, 2500);
           const check = () => {{
-            loadStatusScript(this.statusToken, (status) => {{
-              if (!status) {{
-                return;
-              }}
-              this.taskText = status.task_text || this.taskText;
+            const cur = this.segments.find((s) => s.key === segKey);
+            if (!cur?.statusToken) {{ this.clearPolling(); return; }}
+            loadStatusScript(cur.statusToken, (status) => {{
+              if (!status) return;
+              if (!this.threadTaskText) this.threadTaskText = status.task_text || this.threadTaskText;
+              const ref = this.segments.find((s) => s.key === segKey);
+              if (!ref) return;
               if (status.status === 'running') {{
-                this.busy = true;
-                this.failed = false;
-                this.canceled = false;
-                this.errorText = '';
-                this.runState = normalizeStatus(status, this.runState);
+                this._patchSegment(segKey, {{
+                  busy: true, failed: false, canceled: false, errorText: '',
+                  runState: normalizeStatus(status, ref.runState),
+                }});
                 return;
               }}
               if (status.status === 'completed') {{
                 this.clearPolling();
-                this.busy = false;
-                this.failed = false;
-                this.canceled = false;
-                this.completed = true;
-                this.runState = normalizeStatus(status, this.runState);
-                this.councilId = status.council_id || this.councilId;
-                this.roundNumber = (status.metadata && status.metadata.round_number) || 1;
-                this.converged = !!(status.metadata && status.metadata.converged);
-                if (this.councilId) {{
-                  // Reload from the canonical outcome JSONP so the page
-                  // shows the durable record (with rendered HTML).
-                  this.loadOutcome(this.councilId);
+                const next = this._patchSegment(segKey, {{
+                  busy: false, failed: false, canceled: false, completed: true,
+                  runState: normalizeStatus(status, ref.runState),
+                  councilId: status.council_id || ref.councilId,
+                  roundNumber: (status.metadata && status.metadata.round_number) || 1,
+                  converged: !!(status.metadata && status.metadata.converged),
+                }});
+                if (next?.councilId) {{
+                  this._loadOutcomeIntoSegment(next, next.councilId);
                 }}
                 return;
               }}
               if (status.status === 'failed') {{
                 this.clearPolling();
-                this.busy = false;
-                this.failed = true;
-                this.canceled = false;
-                this.errorText = status.error || 'Council failed.';
+                this._patchSegment(segKey, {{
+                  busy: false, failed: true, canceled: false,
+                  errorText: status.error || 'Council failed.',
+                }});
                 return;
               }}
               if (status.status === 'canceled') {{
                 this.clearPolling();
-                this.busy = false;
-                this.failed = false;
-                this.canceled = true;
-                this.errorText = status.error || 'Council stopped.';
+                this._patchSegment(segKey, {{
+                  busy: false, failed: false, canceled: true,
+                  errorText: status.error || 'Council stopped.',
+                }});
               }}
             }});
           }};

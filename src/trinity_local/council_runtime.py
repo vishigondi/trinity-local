@@ -456,7 +456,59 @@ def save_council_outcome(outcome: CouncilOutcome) -> Path:
         f"{json.dumps(jsonp_payload)};\n"
     )
     append_council_outcome(outcome)
+    update_thread_manifest(outcome)
     return path
+
+
+def _read_thread_manifest(path: Path) -> dict:
+    """Parse a JSONP thread manifest. The file has two assignments — the
+    first is the `... || {}` namespace bootstrap (which is not valid JSON),
+    the second is the actual `[id] = {...}` payload. Pull the JSON object
+    out of the assignment line, ignoring the bootstrap."""
+    text = path.read_text()
+    match = re.search(r"\]\s*=\s*(\{.*\})\s*;", text, flags=re.DOTALL)
+    if not match:
+        raise ValueError(f"thread manifest missing payload assignment: {path}")
+    return json.loads(match.group(1))
+
+
+def update_thread_manifest(outcome: CouncilOutcome) -> Path:
+    """Write/update the JSONP thread manifest for this outcome's chain.
+
+    Each chain (rooted at chain_root_id) gets one
+    `_thread_<chain_root_id>.js` file listing its segments in order. The
+    live council page reads this when a `?thread_id=` URL is opened so it
+    can stack every round of the same conversation on one scrollable page.
+    """
+    metadata = outcome.metadata or {}
+    chain_root_id = metadata.get("chain_root_id") or outcome.council_run_id
+    manifest_path = council_outcomes_dir() / f"_thread_{chain_root_id}.js"
+
+    segments: list[dict] = []
+    if manifest_path.exists():
+        try:
+            payload = _read_thread_manifest(manifest_path)
+            segments = list(payload.get("segments") or [])
+        except Exception:
+            segments = []
+
+    entry = {
+        "council_id": outcome.council_run_id,
+        "round_number": int(metadata.get("round_number") or 1),
+        "started_at": metadata.get("started_at") or outcome.created_at,
+        "parent_council_id": metadata.get("parent_council_id"),
+    }
+    segments = [s for s in segments if s.get("council_id") != outcome.council_run_id]
+    segments.append(entry)
+    segments.sort(key=lambda s: (s.get("round_number") or 1, s.get("started_at") or ""))
+
+    manifest = {"chain_root_id": chain_root_id, "segments": segments}
+    manifest_path.write_text(
+        "window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {};\n"
+        f"window.__TRINITY_COUNCIL_THREAD__[{json.dumps(chain_root_id)}] = "
+        f"{json.dumps(manifest)};\n"
+    )
+    return manifest_path
 
 
 def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:

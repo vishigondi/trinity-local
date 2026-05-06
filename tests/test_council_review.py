@@ -128,8 +128,12 @@ class TestCouncilReviewMarkdown:
         assert "progressScriptBaseUrl" not in html
         assert "stop_council" in html
         assert "fallbackMembers" in html
-        assert "memberOrder: params.fallbackMembers" in html
-        assert "Object.keys(memberMap).length ? Object.keys(memberMap) : (this.runState?.memberOrder || [])" in html
+        assert "members: params.fallbackMembers" in html
+        assert "Object.keys(memberMap).length ? Object.keys(memberMap) : (seg.runState?.memberOrder || [])" in html
+        # Threading UX: page renders stacked segments and supports ?thread_id= mode.
+        assert "segments: []" in html
+        assert "loadThreadScript" in html
+        assert "_thread_" in html
 
         path = write_live_council_page()
         assert path.name == "live_council.html"

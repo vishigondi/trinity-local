@@ -119,3 +119,74 @@ class TestChairmanPromptOrdering:
         assert me_pos > 0, "User profile section missing"
         assert task_pos > me_pos, "task must come AFTER /me"
         assert member_pos > task_pos, "members must come AFTER task"
+
+
+class TestThreadManifest:
+    def _outcome(self, council_id: str, *, root: str | None = None, parent: str | None = None, round_number: int = 1, started_at: str = ""):
+        from trinity_local.council_schema import CouncilOutcome
+
+        metadata = {"round_number": round_number}
+        if root:
+            metadata["chain_root_id"] = root
+        if parent:
+            metadata["parent_council_id"] = parent
+        if started_at:
+            metadata["started_at"] = started_at
+        return CouncilOutcome(
+            council_run_id=council_id,
+            bundle_id="b",
+            task_cluster_id="c",
+            primary_provider="claude",
+            created_at=started_at or "2026-05-06T00:00:00",
+            metadata=metadata,
+        )
+
+    def test_root_only_writes_single_segment(self, tmp_path, monkeypatch):
+        from trinity_local.council_runtime import update_thread_manifest
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        path = update_thread_manifest(self._outcome("root1"))
+
+        from trinity_local.council_runtime import _read_thread_manifest
+        text = path.read_text()
+        assert "_thread_root1.js" in str(path)
+        assert "root1" in text
+        body = _read_thread_manifest(path)
+        assert body["chain_root_id"] == "root1"
+        assert len(body["segments"]) == 1
+        assert body["segments"][0]["council_id"] == "root1"
+        assert body["segments"][0]["round_number"] == 1
+
+    def test_appends_chained_segments_in_order(self, tmp_path, monkeypatch):
+        from trinity_local.council_runtime import update_thread_manifest
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        update_thread_manifest(self._outcome("root1", started_at="2026-05-06T00:00:00"))
+        update_thread_manifest(self._outcome("c2", root="root1", parent="root1", round_number=2, started_at="2026-05-06T00:01:00"))
+        path = update_thread_manifest(self._outcome("c3", root="root1", parent="c2", round_number=3, started_at="2026-05-06T00:02:00"))
+
+        from trinity_local.council_runtime import _read_thread_manifest
+        body = _read_thread_manifest(path)
+        assert [s["council_id"] for s in body["segments"]] == ["root1", "c2", "c3"]
+        assert body["segments"][2]["parent_council_id"] == "c2"
+
+    def test_re_save_is_idempotent(self, tmp_path, monkeypatch):
+        from trinity_local.council_runtime import update_thread_manifest
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        update_thread_manifest(self._outcome("root1"))
+        update_thread_manifest(self._outcome("c2", root="root1", parent="root1", round_number=2))
+        path = update_thread_manifest(self._outcome("c2", root="root1", parent="root1", round_number=2))
+
+        from trinity_local.council_runtime import _read_thread_manifest
+        body = _read_thread_manifest(path)
+        # c2 appears once even after re-save
+        ids = [s["council_id"] for s in body["segments"]]
+        assert ids.count("c2") == 1
+        assert ids == ["root1", "c2"]
