@@ -694,7 +694,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 24px; opacity: 0.6; transition: opacity 0.2s;">×</button>
           <div class="eyebrow">Settings</div>
           <h2>Launchpad controls</h2>
-          <p class="meta">Telemetry is opt-in. Trinity can share anonymous Launchpad views and Elo summaries, but not raw prompts, outputs, code, or file paths.</p>
+          <p class="meta">Telemetry is opt-in. Trinity can share anonymous Launchpad views and routing labels (provider scores by task type, winner, confidence) — never raw prompts, outputs, code, or file paths.</p>
+          <p class="meta" style="margin-top: 8px; padding: 10px 12px; background: rgba(37, 88, 71, 0.06); border-left: 3px solid rgba(37, 88, 71, 0.4); border-radius: 0 6px 6px 0; font-size: 13px;">
+            <b>Catch more issues like the bugs you've hit by enabling sharing.</b>
+            Anonymous usage events let Trinity surface broken flows (silent dispatches, stale tabs, missing prompts) across users — issues a single install can't see on its own.
+          </p>
 
           <div class="settings-list">
             <div class="setting-row">
