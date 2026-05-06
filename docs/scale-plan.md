@@ -1,12 +1,24 @@
 # Trinity Local: Scale to Every Claude Code User
 
-> **Status (v1 ship):** Items 1–5 of the v1 plan are landed. Phase 8 mechanics
-> in flight — peer review removed; memory index live; Chairman Routing JSON +
-> verifier-shaped `judge` shipping; chain-mode council shipping; canonical 5
-> MCP tools (`route` / `judge` / `run_council` / `record_outcome` /
-> `search_prompts`); `replay-history` writes the personal routing table.
+> **Status (v1.1 shipped):** Canonical **6 MCP tools** — `route` /
+> `run_council` (subsumes `judge` via `responses=[...]`) / `record_outcome` /
+> `search_prompts` / `get_persona` / `get_council_status`. Hot-path
+> search/autofill/replay are **embedding-free** (substring + recency +
+> replay-value heuristics; no nomic on the read path). Personal routing
+> table is **computed on demand** from `council_outcomes/*.json` (mtime+size
+> cache, no durable state file). `/me-build` IS a single chairman call over
+> MMR-sampled prompts (rejection-aware embedding distance for sample
+> selection; ~/.taste/ no longer required). Memory tier collapsed:
+> `PromptNode` + `TurnWindow` only (`TranscriptNode` retired). Iteration
+> commands collapsed: `council-iterate --rounds N [--prompt P]` replaces
+> council-continue/refine/auto-chain. Pair-wise `/me` lenses surface on
+> the launchpad with copy-to-socials buttons. **Phase 9 (learned tiny
+> coordinator) is aspirational** — sibling-repo work, not in this code.
 > See `~/.claude/plans/whimsical-imagining-firefly.md` for the focused v1
-> execution plan; this file is the long-form Phase 0–9 reference.
+> execution plan; this file is the long-form Phase 0–9 reference. **Many
+> later sections of this file pre-date these changes** and reference dropped
+> features (TranscriptNode, judge, peer-review) — treat status block above
+> as canonical.
 
 ---
 

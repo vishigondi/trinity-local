@@ -4,11 +4,11 @@
 
 ## Project Identity
 
-Trinity is the **routing substrate** beneath every AI harness. Claude Code, Codex, Gemini CLI, Cowork, ChatGPT, Claude.ai already own the work surface. Trinity owns one question: **"Which intelligence should be used here, and how confident are we?"** The harness asks. Trinity answers — silently 80% of the time, with a council and a verifier-shaped verdict the other 20%.
+**Trinity Local is a local evidence ledger for model choice.** It compares providers when model choice is uncertain, persists the chairman's Routing JSON plus the user's verdict / rejection signal as one labeled outcome, and recomputes the user's personal routing table and `/me` taste lenses from that ledger on demand. This repo ships a **synthesizer over provider outputs + a local evidence ledger** — not the HRM/TRM/Qwen-conductor learned-coordinator architecture, which lives in future / sibling work.
 
-**The wedge is trust calibration, not cost optimization.** Cost savings are a side effect. The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."*
+**The wedge is trust calibration, not cost optimization.** The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."* The shareable artifact is the user's `/me` lenses (pair-wise model-said / user-substituted / why-it-matters cards), not council verdicts.
 
-**The moat is personal data.** Per-user routing tables built from each user's own councils. Frontier providers can't replicate this without breaking their enterprise privacy promises. Trinity rides on subsidized consumer subscriptions ($20–$200/mo Claude / ChatGPT / Gemini Plus tiers) and never pays per call.
+**The moat is the ledger.** Every run, replay, rating, and rejection becomes a row that improves routing judgment without adding new control paths. Frontier providers can't replicate this — they don't see the cross-model preference signal, and Trinity's `/me` content stays local. Trinity rides on subsidized consumer subscriptions ($20–$200/mo Claude / ChatGPT / Gemini Plus tiers) and never pays per call.
 
 ## Architectural commitments (load-bearing, not negotiable)
 

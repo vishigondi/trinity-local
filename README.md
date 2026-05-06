@@ -13,14 +13,15 @@ A **routing substrate**, not a workspace. The harness (Claude Code / Codex / Gem
 
 Two surfaces:
 
-1. **MCP server** — five tools available to any MCP-compatible harness:
-   - `route(task, ...)` — which model should I use? *(no model calls; cheap)*
-   - `judge(task, responses[])` — given N candidate outputs, return the verifier-shaped verdict (agreed claims, disagreed claims with why-it-matters, winner, routing lesson, eval seed)
-   - `run_council(task, members, mode)` — run the task across multiple models. Parallel by default; `mode="chain"` runs sequential refinement.
+1. **MCP server (opt-in)** — six tools available to any MCP-compatible harness once you run `trinity-local install-mcp`:
+   - `route(task, ...)` — which model should I use? *(no model calls; cheap; honors `latency`/`budget`)*
+   - `run_council(task, members, mode, responses=[...])` — run the task across multiple models. Parallel by default; `mode="chain"` runs sequential refinement. **Pass `responses=[...]`** with pre-supplied member outputs to skip dispatch and get only the chairman's verifier-shaped verdict (agreed claims, disagreed claims with why-it-matters, winner, routing lesson, eval seed). This subsumes the former `judge` tool.
    - `record_outcome(council_run_id, user_winner, ...)` — close the supervision loop. Without this Trinity is just a switchboard; with it, Trinity learns.
-   - `search_prompts(query)` — find similar past prompts worth replaying, ranked by replay-value across your full AI history.
+   - `search_prompts(query)` — find past prompts worth replaying. Ranks by substring + recency + replay-value heuristics across your full AI history (no embedding model on the read path).
+   - `get_persona()` — return `~/.trinity/me.md` (the user's `/me` document; pair-wise rejection lenses + vocabulary + abstract lenses).
+   - `get_council_status(council_run_id)` — poll an in-flight or completed council; for harnesses without filesystem access.
 
-2. **Launchpad** — `~/.trinity/portal_pages/launchpad.html`. Type a prompt; autofill suggests replay candidates from your taste history with reason chips. Click → council. See the live response stream, the structured Routing JSON verdict, and the personal routing table that emerges as you accumulate councils.
+2. **Launchpad** — `~/.trinity/portal_pages/launchpad.html`. Type a prompt; autofill suggests replay candidates from your taste history with reason chips. Click → council. See the live response stream, the structured Routing JSON verdict, the personal routing table that emerges as you accumulate councils, and **your `/me` taste lenses** (pair-wise rejection cards distilled from your prompt history; copyable to socials with one click).
 
 ## What Trinity is *not*
 
