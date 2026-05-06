@@ -103,25 +103,25 @@ What to copy:
 
 ## Conclusion
 
-The best immediate architecture is:
+The shipped architecture is:
 
-1. File watchers detect transcript changes.
-2. Trinity writes `TaskRecord` and `PendingAction` files.
-3. A static launchpad page renders pending actions.
+1. **Direct prompt → council** is the primary path: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click fires `launch_council` via Shortcut.
+2. Trinity writes `TaskRecord`, `PromptBundle`, and `CouncilOutcome` files.
+3. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
 4. Launch actions use `shortcuts://run-shortcut?...`.
-5. A single macOS Shortcut named `Trinity Dispatch` executes the local command.
-6. Finished runs emit new actions such as `review_ready`.
+5. A single macOS Shortcut named `Trinity Dispatch` executes the local command via `~/.trinity/bin/trinity-dispatch`.
+6. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
+7. **Watchers are secondary** (`watch-once`, `watch-loop`) — opt-in for users who want background suggestion of council-worthy prompts. The primary path doesn't require them.
 
-## Next watcher layer
+## Watcher layer (optional)
 
-Watcher responsibilities should be narrow:
+When enabled, watcher responsibilities are narrow:
 
 - detect meaningful new transcript activity
 - derive or update a `TaskRecord`
 - decide whether to emit:
-  - `recommendation`
   - `start_council`
-  - `review_ready`
+  - `recommendation`
   - `workflow_suggestion`
 - regenerate the launchpad page
 - optionally send a local notification
@@ -133,14 +133,23 @@ Watcher should not:
 - attempt direct browser automation
 - be the source of truth for task state
 
-## Action priority
+## Action taxonomy
 
-If multiple pending actions exist for the same task:
+Current dispatch actions (`src/trinity_local/dispatch_registry.py`):
 
-1. `start_council`
-2. `review_ready`
-3. `workflow_suggestion`
-4. `recommendation`
+- `launch_council` — primary path; user picks members + task
+- `rate_council` — record user's winner choice (closes the supervision loop via `record_outcome`)
+- `stop_council` — cancel an in-flight council
+- `open_review` — open the unified council page
+- `start_council` — alternative entry from a prepared bundle
+- `council_iterate` — canonical iteration action (replaces continue/refine/auto-chain). Args: `{rounds: int, prompt: str|None}`. Legacy aliases (`council_continue`, `council_refine`, `council_auto_chain`) still accepted as input — they map to `council_iterate` via the dispatch shim — so old launchpad URLs and saved Shortcuts keep working.
+- `open_path`, `open_url`, `run_applescript` — generic dispatch helpers
 
-This keeps the launchpad from becoming noisy and ensures the primary CTA is
-always the most actionable one.
+If multiple pending actions exist for the same task, priority order:
+
+1. `launch_council` / `start_council`
+2. `rate_council`
+3. `open_review`
+4. `recommendation` / `workflow_suggestion`
+
+This keeps the launchpad from becoming noisy and ensures the primary CTA is always the most actionable one.

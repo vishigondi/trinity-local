@@ -18,7 +18,7 @@ Trinity is a **routing substrate** — the layer underneath every AI harness tha
 
 The router is the implementation. The verifier is the value. The personal preference graph is the moat. The closed loop with state and replay is the product that doesn't exist yet.
 
-**Reading list:** RouteLLM (router baseline), LLM-Blender (generator-verifier asymmetry), Conductor / Fugu (recursive self-orchestration), Sakana TRINITY (tiny coordinator over frontier models). Trinity sits at the convergence: a small learned controller (Phase 9) over frontier models, with a verifier head, that recursively refines via chain mode.
+**Reading list (research context, not current shipped identity):** RouteLLM (router baseline), LLM-Blender (generator-verifier asymmetry), Conductor / Fugu (recursive self-orchestration), Sakana TRINITY (tiny coordinator over frontier models). These are the research patterns Trinity Local's *evidence ledger* generates supervision signal for — when a learned controller is eventually trained against the ledger (Phase 9 future work; not in this repo), the ledger is the right shape to feed it. **Today's repo ships the ledger and the synthesizer, not the controller.**
 
 ---
 
@@ -234,9 +234,9 @@ The blog post writes itself:
 Why this order:
 
 1. **Council is generative.** It produces a new artifact (cross-provider verdict) that didn't exist before.
-2. **Council extracts constitutional data.** Every run feeds pairwise judgment into the personal routing table.
-3. **Council is the proof.** The k-NN advisor + chairman synthesis already validates the multi-provider thesis.
-4. **Council creates social objects.** Radar charts, agreement/disagreement breakdowns, and `/me` profiles are far more shareable than workflow automation.
+2. **Council extracts constitutional data.** Every run feeds Routing JSON into the local evidence ledger; the personal routing table aggregates on demand.
+3. **Council is the proof.** Multi-provider chairman synthesis with verifier-shaped Routing JSON (agreed_claims / disagreed_claims with why_matters) already validates the multi-provider thesis.
+4. **`/me` lenses are the shareable social object.** Pair-wise principles distilled from your prompt history (title + why-it-matters per implicit rejection); copyable to socials with one click. Verbatim prompts stay local — only the principle ships.
 
 ### Distribution
 
@@ -264,7 +264,7 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 2. **Append-only logs for history.** JSONL files for runs, launches, and council outcomes. Never rewrite history.
 3. **Static HTML for UI.** The launchpad is regenerated from file state. No React. No build step. No WebSocket. Open in any browser.
 4. **Filesystem is the index.** Computed views (e.g., the personal routing table) walk canonical directories on demand and cache by mtime. No durable secondary state files for derived data.
-5. **CLI for power users.** Every operation is a `trinity-local <subcommand>`. No configuration UI.
+5. **CLI for power users.** Every operation is a `trinity-local <subcommand>`. The launchpad has minimal in-page settings (telemetry sharing toggle, anonymous-id reset, ingest controls, auto-chain enable/disable) — no full configuration app.
 6. **Minimal dependencies.** Python stdlib + numpy. Optional `[mlx]` extras for embedding writes during seed and embedding-MMR sampling during `me-build`.
 
 ---

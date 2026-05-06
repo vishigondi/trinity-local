@@ -18,14 +18,9 @@ Shortcuts / local-helper execution model.
 
 Trinity is not building a hosted app shell. It is generating local artifacts:
 
-- Launchpad
-- Council review pages
-- Signal / rating pages
-- Weekly digests
-- Future social pages:
-  - radar chart
-  - battle cards
-  - taste profile
+- **Launchpad** (`portal_pages/launchpad.html`) — autofill, personal routing table card, **pair-wise `/me` lenses card with copy buttons**, recent councils, settings modal
+- **Unified council page** (`portal_pages/status/...`) — single page handling both in-flight (`?status_token=`) and post-hoc (`?council_id=`) views. Member streaming, chairman synthesis, structured Routing label section, **rating buttons inline** (no separate Signal/Rating page)
+- Future surfaces (deferred): weekly Elo report, leaderboard view, radar/battle/taste-profile social cards. The shipped social object is the `/me` lens card (see DESIGN.md Social Artifact Guidance)
 
 Those pages need:
 
@@ -253,38 +248,24 @@ Show the council result:
 
 ---
 
-## Signal / Rating Page
+## Council Rating (inline, not a separate page)
 
-### Purpose
+The rating UI is part of the **unified council review page**, not a separate Signal page. After members finish and the chairman synthesises, the same page exposes per-member rating buttons. Selecting a winner fires the `record_outcome` dispatch action which:
 
-Capture user preference after a council:
-
-- which answer was better?
-- what provider won?
-
-### Stack
-
-- static HTML shell
-- `petite-vue` for answer selection state and confirmation state
-
-### Responsibilities
-
-- make rating easy
-- keep the flow focused
-- turn council comparison into taste signal
+- updates `CouncilOutcome.metadata.user_verdict`
+- propagates the verdict to the originating `PromptNode` (via `memory.record_council_outcome`)
+- triggers a `personal_routing_table` re-aggregation on next launchpad render (no durable file; recomputed from `council_outcomes/*.json` on demand)
 
 ### UX pattern
 
-Borrow from Twine-like passage flow:
-
-1. compare
-2. choose
-3. confirm
-4. return or continue
+1. read the synthesis (agreed claims / disagreed claims with why_matters)
+2. choose a winner from the per-member cards
+3. confirmation state, no full-page transition
+4. continue scrolling or close the page — `record_outcome` already wrote
 
 ---
 
-## Weekly Digest
+## Weekly Digest (deferred)
 
 ### Purpose
 
@@ -387,16 +368,17 @@ They should not attempt to turn the browser into the orchestrator.
 
 ## Recommended Directory / File Pattern
 
-Keep generated-page code close to the page type:
+Keep generated-page code close to the page type. Current shipped modules:
 
-- `portal_page.py`
-- `signal_page.py`
-- `council_review.py`
-- `digest.py`
-- future:
-  - `radar_page.py`
-  - `battle_card_page.py`
-  - `taste_profile_page.py`
+- `portal_page.py` — launchpad orchestrator
+- `portal_template.py` — launchpad HTML/CSS/JS template (includes settings modal, autofill, personal-routing-table card, /me lenses card)
+- `portal_data.py` — assembles the JSON payload the launchpad reads
+- `portal_runtime.py` — refresh + open-in-browser plumbing
+- `council_review.py` — unified council page (handles both `?status_token=` in-flight and `?council_id=` post-hoc views; rating UI is inline)
+- `me_lenses.py` — parses `~/.trinity/me.md` into structured taste lenses for the launchpad card
+- `council_share.py` — was deleted along with the `--safe` Privacy-Safe Share Card. (The `council-share` CLI command is still in `commands/council.py` and copies the unified review HTML to Desktop.)
+
+Future surfaces (deferred): `digest_page.py`, `radar_page.py`, `battle_card_page.py`. The `/me` lens cards subsume the social-artifact role for now.
 
 Keep shared frontend helpers in:
 

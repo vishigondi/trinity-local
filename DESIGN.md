@@ -5,16 +5,11 @@
 Trinity is a local intelligence layer, not a SaaS dashboard. The UI should feel calm, trustworthy, and slightly editorial: more like a well-designed field notebook or control desk than an analytics product. Favor legibility, hierarchy, and restraint over visual novelty.
 
 The primary surfaces are static HTML pages opened locally in the browser:
-- Launchpad (with autofill suggestions, personal routing table card, recent councils)
-- Council review pages (comparative analysis + structured Routing label section + per-provider answers grid)
-- Live council pages (member responses stream as each finishes; chairman synthesis status)
-- Signal / rating pages
-- Future social pages:
-  - radar chart
-  - battle cards
-  - taste profile
+- **Launchpad** (autofill suggestions; personal routing table card with provider scores per `task_type`; **pair-wise `/me` lenses card with copy-to-socials buttons** — title + why-it-matters per principle, no verbatim prompts; recent councils)
+- **Unified council page** — single page handling both in-flight (`?status_token=...`) and post-hoc (`?council_id=...`) views. Member responses stream as each finishes; chairman synthesis status; structured Routing label section; per-member rating buttons (the rating interaction lives inside this page, not a separate Signal/Rating page)
+- Future surfaces: weekly Elo report (deferred); local leaderboard view over `compute_personal_routing_table()` (currently rendered as the launchpad card)
 
-These surfaces should share one visual language so the product feels cohesive even though the pages are generated independently.
+These surfaces share one visual language so the product feels cohesive even though the pages are generated independently. The `/me` lens cards are the **shareable social artifact** — pair-wise model/user context stays local for the chairman; only the principle (title + why-it-matters) ships to clipboard.
 
 ## Frontend Stack Contract
 
@@ -215,44 +210,37 @@ Design choices should assume:
 - Raw model outputs should be expandable or visually subordinate.
 - The primary decision should be obvious without scrolling far.
 
-## Signal / Rating Guidance
+## Council Rating Interaction
 
-- Keep the page focused on one decision:
-  - compare
-  - choose
-  - confirm
-- This page should feel more like a guided passage than a dashboard.
-- Answer cards should be equally weighted until selection.
+The rating UI lives **inside the unified council review page**, not a separate Signal page. Inline guidance:
+
+- Answer cards are equally weighted until the user selects a winner.
 - Confirmation state should feel rewarding but not gamified.
-
-## Digest Guidance
-
-- Treat digest pages like editorial summaries.
-- Use stronger sectioning and narrative sequencing than the launchpad.
-- Emphasize trends, switches, and meaningful deltas over raw counts.
+- Selecting a winner fires `record_outcome` (via the launchpad shortcut dispatch) which updates `CouncilOutcome.metadata.user_verdict` and propagates to the originating `PromptNode`.
+- Disagreed-claims block reads as a passage, not a table — the structured Routing JSON is the substrate, the prose is the experience.
 
 ## Chart Guidance
 
-- Charts should be used only when they add immediate comprehension.
+- Charts only when they add immediate comprehension.
 - Favor:
-  - radar charts
-  - compact bar charts
-  - simple line charts
+  - compact bar charts (provider scores per task_type on the personal routing table card)
+  - simple line charts (Elo trajectory)
 - Avoid chart junk, legends that dominate the page, or analyst-dashboard density.
-- Charts should inherit the paper-and-ink visual language:
+- Charts inherit the paper-and-ink visual language:
   - muted gridlines
   - dark labels
   - restrained accent palette
 
 ## Social Artifact Guidance
 
-- Social pages should be screenshot-first.
-- The main object should read clearly in a crop:
-  - radar chart
-  - battle result
-  - taste profile summary
-- Keep supporting copy short.
-- Export pages should look intentional, not like a dashboard screenshot.
+The shipped social artifact is the **`/me` lens card** — title + why-it-matters per principle, copyable to socials with one click.
+
+- Per-card Copy emits one principle as a short, paste-ready block.
+- Section-level "Copy all" emits every principle in one bundle, headed with "The principles I encode by what I redirect away from:".
+- Verbatim model/user prompt content is **never** in the share text — it stays local for the chairman.
+- Cards should read clearly in a crop; supporting copy is short.
+
+(Future surfaces — radar/battle/taste-profile pages — are deferred. The /me lens cards subsume the "shareable taste artifact" use case for now.)
 
 ## Responsive Behavior
 

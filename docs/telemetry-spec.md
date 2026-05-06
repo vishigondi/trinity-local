@@ -99,11 +99,14 @@ The copy should clearly distinguish:
 
 Users must be able to:
 
-- enable sharing
-- disable sharing
-- preview shared payload
-- see last successful upload time
-- reset anonymous share identity
+- enable sharing (shipped — launchpad settings modal)
+- disable sharing (shipped)
+- reset anonymous share identity (shipped — `telemetry-reset-id` CLI; modal button)
+- configure endpoint URL (shipped)
+
+**Future / not yet implemented:**
+- preview shared payload (UI not built; the shared event shape is documented below in this file, but no in-launchpad preview exists)
+- see last successful upload time (no `last_upload_at` field tracked in `~/.trinity/settings/telemetry.json` today)
 
 Recommended settings fields:
 
@@ -308,21 +311,24 @@ If the hash is unchanged, the snapshot does not need to be re-uploaded.
 
 ---
 
-## Public Aggregate Model
+## Public Aggregate Model (deferred)
 
-The backend should compute:
+**Status: not implemented in code today.** Current `telemetry.py` only supports a configurable endpoint URL with default-off; there is no aggregation backend, no `last_upload_at` round-trip, no public-Elo response shape.
+
+When/if a backend is built, the natural shape is:
+
+The backend computes:
 
 - public provider Elo
 - task-kind public Elo
 - matchup win/loss aggregates
 - percentile ranges
-- global radar normalization ranges
 
-The backend should return:
+The backend returns:
 
 - public Elo
 - public task-kind Elo
-- percentile / benchmark data for future radar pages
+- percentile / benchmark data for future leaderboard surfaces
 
 This allows Trinity to render:
 
