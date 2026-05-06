@@ -59,6 +59,16 @@ def council_status_js_path(status_token: str) -> Path:
     return council_status_dir() / f"council_status_{status_token}.js"
 
 
+def outcomes_log_path() -> Path:
+    return state_dir() / "outcomes.jsonl"
+
+
+def research_dir() -> Path:
+    path = state_dir() / "research"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def shortcut_setup_dir() -> Path:
     path = state_dir() / "shortcut_setup"
     path.mkdir(parents=True, exist_ok=True)
@@ -73,6 +83,12 @@ def shortcut_bin_dir() -> Path:
 
 def cache_dir() -> Path:
     path = state_dir() / "cache"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def models_dir() -> Path:
+    path = state_dir() / "models"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -114,12 +130,6 @@ def reviews_dir() -> Path:
     return path
 
 
-def digest_pages_dir() -> Path:
-    path = state_dir() / "digest_pages"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def telemetry_settings_dir() -> Path:
     path = state_dir() / "settings"
     path.mkdir(parents=True, exist_ok=True)
@@ -138,10 +148,22 @@ def watcher_dir() -> Path:
     return path
 
 
-def workflow_prompt_dir() -> Path:
-    path = state_dir() / "workflow_prompts"
+def memory_dir() -> Path:
+    path = state_dir() / "memory"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def prompt_nodes_path() -> Path:
+    return memory_dir() / "prompt_nodes.jsonl"
+
+
+def turn_windows_path() -> Path:
+    return memory_dir() / "turn_windows.jsonl"
+
+
+def ingest_cursors_path() -> Path:
+    return memory_dir() / "cursors.json"
 
 
 def hard_examples_dir() -> Path:

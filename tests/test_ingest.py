@@ -215,3 +215,131 @@ class TestParseCowork:
         assert session is not None
         assert session.started_at == "2026-04-04T09:00:00Z"
         assert session.ended_at == "2026-04-04T09:00:10Z"
+
+
+# ---------------------------------------------------------------------------
+# Parsing-fix regressions (§8.3): sidechain, API-error, polymorphic content
+# ---------------------------------------------------------------------------
+
+class TestClaudeCodeParsingFixes:
+    def test_sidechain_user_turn_tagged(self, tmp_path: Path):
+        path = tmp_path / "sc-session.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "user", "timestamp": "2026-05-01T00:00:00Z",
+                "isSidechain": True,
+                "message": {"role": "user", "content": "subagent prompt"},
+            }) + "\n")
+            f.write(json.dumps({
+                "type": "user", "timestamp": "2026-05-01T00:00:01Z",
+                "message": {"role": "user", "content": "real user prompt"},
+            }) + "\n")
+        session = parse_claude_code_session(path)
+        assert session is not None
+        assert len(session.messages) == 2
+        assert session.messages[0].extra.get("is_sidechain") is True
+        assert session.messages[1].extra.get("is_sidechain") is None
+
+    def test_api_error_assistant_tagged(self, tmp_path: Path):
+        path = tmp_path / "api-err-session.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant", "timestamp": "2026-05-01T00:00:00Z",
+                "isApiErrorMessage": True,
+                "message": {
+                    "model": "<synthetic>",
+                    "content": [{"type": "text", "text": "API Error: 404 not found"}],
+                },
+            }) + "\n")
+        session = parse_claude_code_session(path)
+        assert session is not None
+        assert len(session.messages) == 1
+        msg = session.messages[0]
+        assert msg.extra.get("is_api_error") is True
+        assert msg.extra.get("is_synthetic") is True
+        assert msg.model is None  # synthetic model not propagated
+
+    def test_polymorphic_content_text_blocks_only(self, tmp_path: Path):
+        path = tmp_path / "poly-session.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "type": "assistant", "timestamp": "2026-05-01T00:00:00Z",
+                "message": {
+                    "model": "claude-sonnet-4-20250514",
+                    "content": [
+                        {"type": "text", "text": "Reading file..."},
+                        {"type": "tool_use", "id": "t1", "name": "read", "input": {"path": "x"}},
+                        {"type": "text", "text": "Done."},
+                    ],
+                },
+            }) + "\n")
+        session = parse_claude_code_session(path)
+        assert session is not None
+        msg = session.messages[0]
+        # text blocks concatenated, tool_use blocks excluded from text
+        assert msg.text == "Reading file...\nDone."
+        # but tool_use block captured in tool_calls
+        assert len(msg.tool_calls) == 1
+        assert msg.tool_calls[0]["name"] == "read"
+
+
+class TestIterPromptTurns:
+    def test_excludes_sidechain_and_api_errors(self, tmp_path: Path):
+        from trinity_local.ingest import iter_prompt_turns
+        path = tmp_path / "mixed-session.jsonl"
+        entries = [
+            {"type": "user", "timestamp": "t0", "isSidechain": True,
+             "message": {"role": "user", "content": "subagent prompt"}},
+            {"type": "user", "timestamp": "t1",
+             "message": {"role": "user", "content": "real prompt one"}},
+            {"type": "assistant", "timestamp": "t2",
+             "message": {"model": "claude-x", "content": [{"type": "text", "text": "First answer."}]}},
+            {"type": "user", "timestamp": "t3",
+             "message": {"role": "user", "content": "real prompt two"}},
+            {"type": "assistant", "timestamp": "t4", "isApiErrorMessage": True,
+             "message": {"model": "<synthetic>", "content": [{"type": "text", "text": "API Error"}]}},
+            {"type": "assistant", "timestamp": "t5",
+             "message": {"model": "claude-x", "content": [{"type": "text", "text": "Second answer."}]}},
+        ]
+        with path.open("w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+        session = parse_claude_code_session(path)
+        assert session is not None
+        turns = list(iter_prompt_turns(session))
+        assert len(turns) == 2
+        assert turns[0].text == "real prompt one"
+        assert turns[0].turn_index == 0
+        assert turns[0].following_assistant_text == "First answer."
+        assert turns[1].text == "real prompt two"
+        assert turns[1].turn_index == 1
+        assert turns[1].preceding_assistant_text == "First answer."
+        # API-error skipped, so the next substantive assistant is "Second answer."
+        assert turns[1].following_assistant_text == "Second answer."
+
+    def test_empty_user_messages_excluded(self, tmp_path: Path):
+        from trinity_local.ingest import iter_prompt_turns
+        path = tmp_path / "empty-session.jsonl"
+        entries = [
+            {"type": "user", "timestamp": "t0", "message": {"role": "user", "content": "   "}},
+            {"type": "user", "timestamp": "t1", "message": {"role": "user", "content": "real"}},
+        ]
+        with path.open("w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+        session = parse_claude_code_session(path)
+        assert session is not None
+        turns = list(iter_prompt_turns(session))
+        assert len(turns) == 1
+        assert turns[0].text == "real"
+
+    def test_works_across_providers(self, codex_session_file: Path):
+        """iter_prompt_turns is provider-agnostic — works on any SessionRecord."""
+        from trinity_local.ingest import iter_prompt_turns
+        session = parse_codex_session(codex_session_file)
+        assert session is not None
+        turns = list(iter_prompt_turns(session))
+        # codex fixture has one user message
+        assert len(turns) == 1
+        assert turns[0].provider == "codex"
+        assert turns[0].text == "Write a test for the auth module"

@@ -47,7 +47,7 @@ class TestCouncilReviewMarkdown:
         assert "<h2>Best take</h2>" in html
         assert '<pre class="md-code-block"><code>print(&#x27;hello&#x27;)</code></pre>' in html
         # Page structure
-        assert "Council Review" in html
+        assert "Back to Launchpad" in html
         assert "Comparative Analysis" in html
         assert "Full Responses" in html
 
@@ -76,7 +76,7 @@ class TestCouncilReviewMarkdown:
         html = render_unified_council_page(bundle, outcome)
 
         assert "Click the answer you prefer." in html
-        assert "Back to Launchpad" not in html
+        assert "Back to Launchpad" in html
         assert "confirm your preference in the floating bar" not in html
         assert "floating-actions" not in html
         assert "@click=\"chooseAnswer(" in html
@@ -117,11 +117,19 @@ class TestCouncilReviewMarkdown:
     def test_live_council_page_renders_stop_control(self, patch_trinity_home):
         html = render_live_council_page()
 
-        assert "Council Review" in html
+        assert "Back to Launchpad" in html
         assert "Stop council" in html
         assert "statusScriptBaseUrl" in html
+        assert "window.addEventListener('pageshow'" in html
+        assert "back_forward" in html
+        assert "base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`" in html
+        assert "formatProviderLabel" in html
+        assert "label: analysisLabel" in html
         assert "progressScriptBaseUrl" not in html
         assert "stop_council" in html
+        assert "fallbackMembers" in html
+        assert "memberOrder: params.fallbackMembers" in html
+        assert "Object.keys(memberMap).length ? Object.keys(memberMap) : (this.runState?.memberOrder || [])" in html
 
         path = write_live_council_page()
         assert path.name == "live_council.html"

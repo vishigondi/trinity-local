@@ -1,11 +1,114 @@
-"""Heuristic ranker: task-kind-based routing with outcome/cost evidence."""
+"""Heuristic ranker: task-kind-based routing with outcome/cost evidence.
+
+Also exposes `prompt_calls_for_council(task_text) -> (escalate, signals)` —
+a structural-shape detector used by route() to escalate prompts that ask for
+a comparison even when task_kind is something pedestrian. Folded in from the
+former standalone `prompt_shape.py`; same logic, one fewer top-level module.
+"""
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .base import Ranker
 from .types import RoutingContext, RoutingDecision
+
+
+# Patterns that capture distinct alternative labels — used for ≥2-label gating.
+_LABEL_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    # `A)` at start of line:   "A) first option..."
+    ("labeled_alternatives_paren_after", re.compile(
+        r"(?:^|\n)\s*([A-G])\)\s+\S",
+        re.MULTILINE,
+    )),
+    # `(A)` at start of line:  "(A) first option..."
+    ("labeled_alternatives_paren_around", re.compile(
+        r"(?:^|\n)\s*\(([A-G])\)\s+\S",
+        re.MULTILINE,
+    )),
+    # `1.` at start of line:   "1. first option..."
+    ("numbered_alternatives", re.compile(
+        r"(?:^|\n)\s*([1-9])\.\s+\S",
+        re.MULTILINE,
+    )),
+]
+
+# Strong comparative phrases — any single match escalates.
+_COMPARATIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    # "option A" / "approach 1" / "design B" / "candidate C" / "proposal X"
+    ("named_candidates", re.compile(
+        r"\b(?:option|approach|candidate|alternative|design|proposal)\s+[A-G1-9]\b",
+        re.IGNORECASE,
+    )),
+    # "vs.", "versus"
+    ("vs", re.compile(r"\b(?:vs\.?|versus)\b", re.IGNORECASE)),
+    # "which X (is|are|wins|works|fits) (best|better|strongest|right)"
+    # plus "which (is|one) (best|...)"
+    # plus "which X best" (e.g. "which design best fits…")
+    ("which_best", re.compile(
+        r"\bwhich(?:\s+\w+){0,3}\s+(?:is|are|wins|works|fits|fit|best|better|strongest|stronger|right|wrong)\b",
+        re.IGNORECASE,
+    )),
+    # "tradeoffs", "trade-offs", "pros and cons"
+    ("tradeoffs", re.compile(
+        r"\b(?:tradeoffs?|trade-offs?|pros and cons)\b",
+        re.IGNORECASE,
+    )),
+    # "compare", "comparison", "compare X to Y"
+    ("compare", re.compile(r"\bcompare\b|\bcomparison\b", re.IGNORECASE)),
+    # "pick the best/winner", "choose between", "rank these"
+    ("pick_among", re.compile(
+        r"\b(?:"
+        r"pick the (?:best|right|winner|strongest)|"
+        r"choose between|"
+        r"rank (?:these|the (?:options|candidates|alternatives|designs|approaches))"
+        r")\b",
+        re.IGNORECASE,
+    )),
+    # "reasonable people disagree", "two senior engineers"
+    ("reasonable_disagreement", re.compile(
+        r"\b(?:reasonable(?:ly)? disagree|two senior engineers)\b",
+        re.IGNORECASE,
+    )),
+    # "failure mode of the (loser|losing|other|two|three)" — strong signal
+    # that the user wants the chairman to identify why losers lost.
+    ("failure_mode", re.compile(
+        r"\bfailure mode\b|\bweakness(?:es)? of\b|\bwhy (?:the )?(?:loser|losing)\b",
+        re.IGNORECASE,
+    )),
+    # "best of", "strongest of these/the following/the options/etc."
+    ("superlative_among", re.compile(
+        r"\bof (?:these|the following|the above|the options?|the candidates?|the alternatives?|the designs?|the approaches?)\b",
+        re.IGNORECASE,
+    )),
+]
+
+
+def prompt_calls_for_council(task_text: str) -> tuple[bool, list[str]]:
+    """Return (should_escalate_to_council, matched_signals).
+
+    Escalates if EITHER:
+      - ≥2 distinct labeled alternatives appear (paren-after, paren-around, or numbered)
+      - any comparative-phrase pattern fires
+
+    The label pattern requires distinct labels to avoid false-positives on a
+    lone "1." in the middle of regular prose.
+    """
+    if not task_text:
+        return False, []
+
+    signals: list[str] = []
+    for label, pattern in _LABEL_PATTERNS:
+        n = len(set(pattern.findall(task_text)))
+        if n >= 2:
+            signals.append(f"{label}({n})")
+
+    for label, pattern in _COMPARATIVE_PATTERNS:
+        if pattern.search(task_text):
+            signals.append(label)
+
+    return (len(signals) > 0, signals)
 
 
 class HeuristicRanker(Ranker):
@@ -55,8 +158,7 @@ class HeuristicRanker(Ranker):
         )
 
     def _gather_evidence(self, context: RoutingContext) -> list[str]:
-        """Query outcome and cost logs to build evidence."""
-        from ..cost_tracker import load_cost_log
+        """Query outcome logs to build evidence."""
         from ..drift import _load_outcomes
 
         evidence: list[str] = []
@@ -83,22 +185,5 @@ class HeuristicRanker(Ranker):
                     )
         except Exception:
             pass  # Gracefully degrade if outcome logs unavailable
-
-        # Compare providers by cost for this task kind
-        try:
-            costs = load_cost_log(since_days=14)
-            task_costs = [c for c in costs if c.task_kind == context.task_kind]
-            if task_costs:
-                by_provider: dict[str, list[float]] = {}
-                for c in task_costs:
-                    by_provider.setdefault(c.provider, []).append(c.total_cost_usd)
-                for p, p_costs in sorted(by_provider.items()):
-                    if p != context.current_provider and len(p_costs) >= 2:
-                        avg = sum(p_costs) / len(p_costs)
-                        evidence.append(
-                            f"{p} averaged ${avg:.2f}/session for {context.task_kind} ({len(p_costs)} sessions)."
-                        )
-        except Exception:
-            pass  # Gracefully degrade if cost logs unavailable
 
         return evidence

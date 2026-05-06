@@ -7,22 +7,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 
-from ..config import trinity_home
-
-
-def _cache_dir() -> Path:
-    path = trinity_home() / "cache"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from ..state_paths import embeddings_cache_path
 
 
 def _cache_path() -> Path:
-    return _cache_dir() / "embeddings.jsonl"
+    return embeddings_cache_path()
 
 
-def _text_key(text: str, dim: int = 512) -> str:
+def _text_key(text: str, dim: int = 768) -> str:
     """Cache key: hash of text + dimension."""
     h = hashlib.sha1(text.encode("utf-8", errors="replace")).hexdigest()[:16]
     return f"{h}:{dim}"
@@ -57,14 +50,14 @@ def _load_index() -> dict[str, list[float]]:
     return _index
 
 
-def get_cached(text: str, *, dim: int = 512) -> list[float] | None:
+def get_cached(text: str, *, dim: int = 768) -> list[float] | None:
     """Look up a cached vector. Returns None on miss."""
     index = _load_index()
     key = _text_key(text, dim)
     return index.get(key)
 
 
-def put_cached(text: str, vector: list[float], *, dim: int = 512) -> None:
+def put_cached(text: str, vector: list[float], *, dim: int = 768) -> None:
     """Store a vector in the cache."""
     index = _load_index()
     key = _text_key(text, dim)

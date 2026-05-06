@@ -1,20 +1,19 @@
-"""Handlers for portal-html, open-review."""
+"""Portal and review command handlers."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from ..council_review import review_pages_dir
 from ..council_runtime import load_council_outcome
 from ..notifications import open_path
 from ..refresh import refresh_launchpad
+from ..state_paths import review_pages_dir
 from ..task_runtime import load_task_record
 
 
 def register(subparsers):
     pp = subparsers.add_parser("portal-html", help="Generate a bookmarkable static launchpad page")
     pp.add_argument("--title", default="Trinity Launchpad")
-    pp.add_argument("--video-url", default=None)
     pp.add_argument("--open-browser", action="store_true")
     pp.set_defaults(handler=handle_portal_html)
 
@@ -26,7 +25,7 @@ def register(subparsers):
 
 
 def handle_portal_html(args):
-    path = refresh_launchpad(title=args.title, video_url=args.video_url)
+    path = refresh_launchpad(title=args.title)
     opened = open_path(path) if args.open_browser else False
     print(json.dumps({"path": str(path), "opened": opened}, indent=2))
 

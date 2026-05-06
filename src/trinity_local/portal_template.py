@@ -100,15 +100,139 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       outline: none;
     }}
 
-    .suggestion-empty {{
-      padding: 14px 16px;
-      color: var(--text-muted);
-      font-size: 14px;
+    .suggestion-text {{
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }}
 
-    .telemetry-box {{
-      display: grid;
+    .suggestion-thread {{
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }}
+
+    .suggestion-thread-label {{
+      font-weight: 600;
+      margin-right: 6px;
+    }}
+
+    .suggestion-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+    }}
+
+    .suggestion-chip {{
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(37, 88, 71, 0.08);
+      color: var(--action);
+      border: 1px solid rgba(37, 88, 71, 0.18);
+    }}
+
+    .suggestion-winner {{
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }}
+
+    /* Pair-wise /me lens cards */
+    .lens-card {{
+      border-left: 3px solid #cf222e;
+      background: rgba(207, 34, 46, 0.04);
+      padding: 14px 16px 12px 18px;
+      margin: 12px 0;
+      border-radius: 0 6px 6px 0;
+      position: relative;
+    }}
+    .lens-header {{
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
       gap: 12px;
+      margin-bottom: 8px;
+    }}
+    .lens-header h4 {{
+      margin: 0;
+      font-size: 15px;
+      color: #1a1a1a;
+      flex: 1;
+    }}
+    .lens-row {{
+      margin: 4px 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }}
+    .lens-label {{
+      display: inline-block;
+      min-width: 8em;
+      font-weight: 600;
+      color: #555;
+    }}
+    .model-label {{ color: #1a73e8; }}
+    .user-label {{ color: #1a7f37; }}
+    .why-label {{ color: #6b3fa0; }}
+    .lens-quote {{
+      color: #333;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 13px;
+    }}
+    .lens-why {{
+      color: #444;
+      font-style: italic;
+    }}
+    .lens-section-row {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }}
+    .lens-section-row h3 {{
+      margin: 24px 0 8px;
+    }}
+    .lens-vocab,
+    .lens-abstract {{
+      padding-left: 20px;
+      color: #444;
+      font-size: 14px;
+    }}
+    .lens-vocab li,
+    .lens-abstract li {{
+      margin: 6px 0;
+    }}
+    .copy-btn {{
+      flex-shrink: 0;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1a1a1a;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, border-color 0.15s;
+    }}
+    .copy-btn:hover {{
+      background: #eaeef2;
+      border-color: #afb8c1;
+    }}
+    .copy-btn:active {{
+      background: #d0d7de;
     }}
 
     .settings-list {{
@@ -232,11 +356,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       margin-bottom: 8px;
     }}
 
-    .subtle-note {{
-      font-size: 14px;
-      color: var(--text-muted);
-    }}
-
     .launch-status {{
       display: grid;
       gap: 12px;
@@ -290,7 +409,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
     .provider-status-name {{
       font-weight: 600;
-      text-transform: lowercase;
     }}
 
     .provider-status-badge {{
@@ -499,6 +617,35 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       font-weight: 500;
     }}
 
+    .routing-table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 12px;
+    }}
+
+    .routing-table thead {{
+      background: var(--surface-muted);
+      border-bottom: 1px solid var(--border);
+    }}
+
+    .routing-table th {{
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-primary);
+    }}
+
+    .routing-table td {{
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }}
+
+    .routing-table tbody tr:hover {{
+      background: var(--surface-muted);
+    }}
+
     .benchmark-unit {{
       font-size: 12px;
       color: var(--text-muted);
@@ -534,8 +681,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="card hero-shell">
         <div>
           <div class="eyebrow">Trinity Launchpad</div>
-          <h1>Run Your First Council</h1>
-          <p class="lede">Ask the same question. See all the answers. Let Trinity compare real models on your real work.</p>
+          <h1>{{{{ heroTitle }}}}</h1>
+          <p class="lede">{{{{ heroLede }}}}</p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>
@@ -579,9 +726,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               </div>
             </div>
             <div class="setting-row">
-              <span class="meta">Auto ingest transcripts</span>
+              <span class="meta">Ingest transcripts</span>
               <div class="setting-value">
-                <span :class="telemetry.autoIngest ? 'badge success' : 'badge'">{{{{ telemetry.autoIngest ? 'On' : 'Off' }}}}</span>
                 <button
                   type="button"
                   class="icon-action"
@@ -598,10 +744,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 </button>
               </div>
             </div>
-            <div class="setting-row">
-              <span class="meta">Auto-ingest daemon</span>
-              <span class="meta">{{{{ telemetry.daemonMessage }}}}</span>
-            </div>
           </div>
 
           <div class="sharing-toggle">
@@ -613,14 +755,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </div>
 
           <div class="sharing-toggle" style="margin-top: 0;">
-            <span class="meta">Auto ingest transcripts</span>
+            <span class="meta">Auto-chain new councils (run consensus rounds until convergence, max 3)</span>
             <label class="toggle-switch">
-              <input type="checkbox" :checked="telemetry.autoIngest" @change="toggleAutoIngest">
+              <input type="checkbox" :checked="telemetry.autoChainEnabled" @change="toggleAutoChain">
               <span class="toggle-slider"></span>
             </label>
           </div>
 
-          <section class="provider-health-list" v-if="providerHealth.providers.length">
+          <section class="provider-health-list" v-if="providerHealth.hasMissing">
             <div class="eyebrow">Providers</div>
             <div class="provider-health-item" v-for="provider in providerHealth.providers">
               <div class="provider-health-head">
@@ -668,8 +810,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               class="suggestion-item"
               v-for="suggestion in filteredCouncilSuggestions"
               @mousedown.prevent="applySuggestion(suggestion)"
-            >{{{{ suggestion }}}}</button>
-            <div class="suggestion-empty" v-if="!filteredCouncilSuggestions.length">No matching council queries yet.</div>
+            >
+              <div class="suggestion-text">{{{{ suggestionText(suggestion) }}}}</div>
+              <div class="suggestion-thread" v-if="suggestionPriorPreview(suggestion)">
+                <span class="suggestion-thread-label">Prior thread:</span>
+                <span class="suggestion-thread-text">{{{{ suggestionPriorPreview(suggestion) }}}}</span>
+              </div>
+              <div class="suggestion-meta" v-if="suggestionWinner(suggestion)">
+                <span class="suggestion-winner">Winner: {{{{ suggestionWinner(suggestion) }}}}</span>
+              </div>
+            </button>
           </div>
 
           <div class="actions" style="margin-top: 18px;">
@@ -683,18 +833,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 </div>
                 <strong v-if="operation && !busy">{{{{ operationHeading }}}}</strong>
                 <p class="meta" v-if="operation && operation.label">{{{{ operation.label }}}}</p>
-                <p class="subtle-note" v-if="operation">{{{{ operationStatusNote }}}}</p>
                 <p class="status-message" v-if="busy">{{{{ currentStatusMessage }}}}</p>
                 <div class="provider-status-list" v-if="showProviderRows">
                   <div class="provider-status-row" v-for="row in providerStatusRows">
-                    <div class="provider-status-name">{{{{ row.provider }}}}</div>
+                    <div class="provider-status-name">{{{{ row.label }}}}</div>
                     <div class="provider-status-badge" :class="row.statusClass">{{{{ row.statusLabel }}}}</div>
                     <div class="provider-status-detail" :class="{{ empty: !row.detail }}">{{{{ row.detail || '' }}}}</div>
                   </div>
                 </div>
                 <p class="status-error" v-if="launchError || operation?.error">{{{{ launchError || operation?.error }}}}</p>
                 <div class="launch-status-actions" v-if="operation">
-                  <button type="button" class="button ghost" v-if="operation.kind === 'council'" @click="openLiveReview">View live review</button>
+                  <a class="button ghost" v-if="operation.kind === 'council' && busy" :href="liveCouncilUrl">Open council page</a>
                   <button type="button" class="button ghost" v-if="operation.kind === 'council' && busy" @click="stopCurrentCouncil">Stop council</button>
                   <button type="button" class="button ghost" v-if="!busy" @click="dismissOperation">Dismiss</button>
                 </div>
@@ -703,62 +852,133 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <div>
-            <div class="eyebrow">Ratings</div>
-            <h2>My ratings</h2>
-          </div>
-          <div class="rating-toggle">
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{{ active: !showReferenceRatings }}"
-                  :aria-pressed="!showReferenceRatings"
-                  @click="showReferenceRatings = false"
-                >My ratings</button>
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{{ active: showReferenceRatings }}"
-                  :aria-pressed="showReferenceRatings"
-                  @click="showReferenceRatings = true"
-                >Reference evals</button>
-          </div>
-        </div>
-        <p class="meta">{{{{ !showReferenceRatings ? 'Local scores and strengths from your saved council preferences.' : 'Public reference evals mapped to Trinity capability categories.' }}}}</p>
+        <div class="eyebrow">Ratings</div>
+        <h2>Your providers across capability categories</h2>
+        <p class="meta" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
+          Aggregated from {{{{ personalRoutingTable.councils_aggregated }}}} replay councils · /100. Categories aligned with the LMArena leaderboard so they can be compared against external evals later.
+        </p>
+        <p class="meta" v-else>
+          Once you run <code>trinity-local replay-history --limit 20</code>, this chart fills in with per-category strength for each provider, computed from your own council preferences.
+        </p>
 
-        <div v-show="!showReferenceRatings" class="ratings-grid">
-          <section class="chart-panel">
-            <h3>Current provider scores</h3>
-            <p class="meta">Elo-style local rankings from your saved council preferences.</p>
-            <div class="chart-shell">
-              <canvas id="provider-elo-chart"></canvas>
-            </div>
-          </section>
+        <div class="chart-shell">
+          <canvas id="personal-preference-chart"></canvas>
         </div>
 
-        <div v-show="showReferenceRatings">
-          <table class="benchmark-table">
-            <thead>
-              <tr>
-                <th>Benchmark</th>
-                <th v-for="provider in benchmarkProviders" style="text-align: right;">{{{{ provider.toUpperCase() }}}}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(data, category) in globalBenchmarks">
-                <td>
-                  <div class="benchmark-category">{{{{ category.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
-                  <span class="benchmark-unit">{{{{ data.benchmark }}}}</span>
-                </td>
-                <td v-for="provider in benchmarkProviders" style="text-align: right;">
-                  <span class="benchmark-score">{{{{ formatScore(data.models[provider], data.unit) }}}}</span>
-                  <span class="benchmark-unit">{{{{ data.unit }}}}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <p class="meta" style="margin-top: 12px;">
+          <span v-for="provider in benchmarkProviders" style="margin-right: 14px;">
+            <strong>{{{{ provider.toUpperCase() }}}}</strong>
+            <span v-if="providerModels && providerModels[provider]"> · {{{{ providerModels[provider] }}}}</span>
+          </span>
+        </p>
+
+        <details style="margin-top: 16px;">
+          <summary class="meta" style="cursor: pointer;">Local Elo (raw)</summary>
+          <div class="chart-shell" style="margin-top: 8px;">
+            <canvas id="provider-elo-chart"></canvas>
+          </div>
+        </details>
+      </section>
+
+      <section class="card" v-if="personalRoutingTable">
+        <div class="eyebrow">Personal routing table</div>
+        <h2>Best model per task type, from your own councils</h2>
+        <p class="meta">
+          Computed from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} replay councils over your taste history.
+          Run more: <code>trinity-local replay-history --limit 20</code>
+        </p>
+        <table class="routing-table">
+          <thead>
+            <tr>
+              <th>Task type</th>
+              <th>Best</th>
+              <th v-for="provider in routingTableProviders" style="text-align: right;">{{{{ provider.toUpperCase() }}}}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(scores, taskType) in personalRoutingTable.by_task_type">
+              <td>
+                <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
+              </td>
+              <td><span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span></td>
+              <td v-for="provider in routingTableProviders" style="text-align: right;">
+                <span class="benchmark-score" v-if="scores[provider]">{{{{ scores[provider].overall.toFixed(1) }}}}</span>
+                <span class="benchmark-unit" v-if="!scores[provider]">—</span>
+                <span class="benchmark-unit" v-if="scores[provider]">n={{{{ scores[provider].n }}}}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" v-if="!personalRoutingTable">
+        <div class="eyebrow">Personal routing table</div>
+        <h2>Run replay-history to learn which model works best for you</h2>
+        <p class="meta">
+          Trinity will re-run your highest-leverage past prompts against the current model lineup
+          and show you per-task-type winners. One overnight run gives you a personal routing plan.
+        </p>
+        <pre class="md-code-block"><code>trinity-local replay-history --limit 20</code></pre>
+      </section>
+
+      <section class="card" v-if="tasteLenses">
+        <div class="eyebrow">Your taste, distilled</div>
+        <h2>Pair-wise lenses from your /me</h2>
+        <p class="meta">
+          The chairman read your prompt history and surfaced what you redirect AWAY from.
+          Each card below is yours to share — copy any one to put it on socials.
+          Refresh by running <code>trinity-local me-build</code>.
+        </p>
+
+        <h3 style="margin-top: 24px; font-size: 15px; color: #444;" v-if="tasteLenses.rejections.length">Implicit rejections (the moat)</h3>
+        <div class="lens-card" v-for="(lens, idx) in tasteLenses.rejections" :key="'lens-' + idx">
+          <div class="lens-header">
+            <h4>{{{{ lens.title }}}}</h4>
+            <button class="copy-btn" @click="copyLens(lens.share_text, 'lens-' + idx)" :title="copiedKey === 'lens-' + idx ? 'Copied' : 'Copy to clipboard'">
+              <span v-if="copiedKey === 'lens-' + idx">✓ Copied</span>
+              <span v-else>Copy</span>
+            </button>
+          </div>
+          <p class="lens-row"><span class="lens-label model-label">Model said:</span> <span class="lens-quote">{{{{ lens.model_frame }}}}</span></p>
+          <p class="lens-row"><span class="lens-label user-label">You substituted:</span> <span class="lens-quote">{{{{ lens.user_substituted }}}}</span></p>
+          <p class="lens-row"><span class="lens-label why-label">Why this matters:</span> <span class="lens-why">{{{{ lens.why_matters }}}}</span></p>
         </div>
+
+        <div class="lens-section-row" v-if="tasteLenses.vocabulary.length">
+          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Vocabulary</h3>
+          <button class="copy-btn" @click="copyLens(tasteLenses.vocabulary_share_text, 'vocab')">
+            <span v-if="copiedKey === 'vocab'">✓ Copied</span>
+            <span v-else>Copy all</span>
+          </button>
+        </div>
+        <ul class="lens-vocab" v-if="tasteLenses.vocabulary.length">
+          <li v-for="v in tasteLenses.vocabulary" :key="v.phrase">
+            <b>"{{{{ v.phrase }}}}"</b> — {{{{ v.meaning }}}}
+          </li>
+        </ul>
+
+        <div class="lens-section-row" v-if="tasteLenses.abstract_lenses.length">
+          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Abstract lenses</h3>
+          <button class="copy-btn" @click="copyLens(tasteLenses.abstract_lenses_share_text, 'lenses')">
+            <span v-if="copiedKey === 'lenses'">✓ Copied</span>
+            <span v-else>Copy all</span>
+          </button>
+        </div>
+        <ul class="lens-abstract" v-if="tasteLenses.abstract_lenses.length">
+          <li v-for="l in tasteLenses.abstract_lenses" :key="l.statement">→ {{{{ l.statement }}}}</li>
+        </ul>
+      </section>
+
+      <section class="card" v-if="!tasteLenses">
+        <div class="eyebrow">Your taste, distilled</div>
+        <h2>Run me-build to extract your pair-wise taste lenses</h2>
+        <p class="meta">
+          The chairman reads your prompt history and surfaces a /me document with
+          implicit rejections (model-said vs. you-substituted), vocabulary you
+          repeat, and abstract lenses your interactions encode. Each card is
+          shareable — paste a single lens to socials without exposing the prompts.
+        </p>
+        <pre class="md-code-block"><code>trinity-local me-build</code></pre>
       </section>
 
       <section class="card">
@@ -824,39 +1044,115 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
     function renderChart() {{
       if (!window.Chart) return;
-      const chartData = pageData.eloChart;
-      if (!chartData || !chartData.labels || !chartData.labels.length) return;
-      const ctx = document.getElementById('provider-elo-chart');
-      new Chart(ctx, {{
-        type: 'bar',
-        data: chartData,
-        options: {{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {{
-            legend: {{ display: false }},
-          }},
-          scales: {{
-            y: {{
-              min: 1400,
-              ticks: {{
-                color: '#5f554d',
-              }},
-              grid: {{
-                color: 'rgba(215, 204, 185, 0.45)',
-              }},
-            }},
-            x: {{
-              ticks: {{
-                color: '#5f554d',
-              }},
-              grid: {{
-                display: false,
-              }},
+      const baseScales = {{
+        y: {{ ticks: {{ color: '#5f554d' }}, grid: {{ color: 'rgba(215, 204, 185, 0.45)' }} }},
+        x: {{ ticks: {{ color: '#5f554d' }}, grid: {{ display: false }} }},
+      }};
+
+      const eloData = pageData.eloChart;
+      const eloCtx = document.getElementById('provider-elo-chart');
+      if (eloCtx && eloData && eloData.labels && eloData.labels.length) {{
+        new Chart(eloCtx, {{
+          type: 'bar',
+          data: eloData,
+          options: {{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {{ legend: {{ display: false }} }},
+            scales: {{
+              y: {{ ...baseScales.y, min: 1400 }},
+              x: baseScales.x,
             }},
           }},
-        }},
-      }});
+        }});
+      }}
+
+      // Provider color palette shared across both /100 charts.
+      const palette = {{
+        claude: 'rgba(213, 130, 79, 0.85)',
+        gemini: 'rgba(86, 120, 156, 0.85)',
+        codex: 'rgba(78, 138, 109, 0.85)',
+        mlx: 'rgba(124, 96, 130, 0.85)',
+      }};
+
+      // Trinity task_kind → reference-eval category. Mirrors the server-side
+      // mapping in ranker/chairman_picker.py so the two charts share an X-axis.
+      const TASK_KIND_TO_CATEGORY = {{
+        coding: 'coding',
+        debugging: 'coding',
+        research: 'intelligence',
+        writing: 'intelligence',
+        general: 'intelligence',
+        cowork_general: 'intelligence',
+      }};
+
+      const benchmarks = pageData.globalBenchmarks || {{}};
+      const providers = pageData.benchmarkProviders || [];
+      const categories = Object.keys(benchmarks);
+      const labels = categories.map((c) => c.charAt(0).toUpperCase() + c.slice(1));
+
+      function buildGroupedBar(ctxId, datasets) {{
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+        new Chart(ctx, {{
+          type: 'bar',
+          data: {{ labels, datasets }},
+          options: {{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#5f554d' }} }} }},
+            scales: {{
+              y: {{ ...baseScales.y, min: 0, max: 100 }},
+              x: baseScales.x,
+            }},
+          }},
+        }});
+      }}
+
+      // Reference evals chart.
+      if (providers.length && categories.length) {{
+        const datasets = providers.map((provider) => ({{
+          label: provider.charAt(0).toUpperCase() + provider.slice(1),
+          data: categories.map((cat) => {{
+            const v = benchmarks[cat]?.models?.[provider];
+            return (v === null || v === undefined) ? null : v;
+          }}),
+          backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
+          borderRadius: 4,
+        }}));
+        buildGroupedBar('reference-evals-chart', datasets);
+      }}
+
+      // Personal preference chart — same X-axis, data from
+      // personal_routing_table, aggregated by category mapping. Personal
+      // scores are 0-10; scale to /100 to share the y-axis.
+      const personal = pageData.personalRoutingTable;
+      const personalCtx = document.getElementById('personal-preference-chart');
+      if (personalCtx && personal && providers.length && categories.length) {{
+        const byTaskType = personal.by_task_type || {{}};
+        const personalDatasets = providers.map((provider) => ({{
+          label: provider.charAt(0).toUpperCase() + provider.slice(1),
+          data: categories.map((cat) => {{
+            // Average overall scores for any task_kind that maps to this category.
+            const scores = [];
+            for (const [taskKind, providerScores] of Object.entries(byTaskType)) {{
+              if (TASK_KIND_TO_CATEGORY[taskKind] !== cat) continue;
+              const entry = providerScores?.[provider];
+              if (entry && typeof entry.overall === 'number') {{
+                scores.push(entry.overall);
+              }}
+            }}
+            if (!scores.length) return null;
+            const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+            return Math.round(mean * 10 * 10) / 10;  // 0-10 → 0-100, 1 decimal
+          }}),
+          backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
+          borderRadius: 4,
+        }}));
+        // Only render if at least one bar has data.
+        const hasAny = personalDatasets.some((d) => d.data.some((v) => v !== null));
+        if (hasAny) buildGroupedBar('personal-preference-chart', personalDatasets);
+      }}
     }}
 
     function normalizeOperation(raw, fallback = null) {{
@@ -883,12 +1179,35 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       }};
     }}
 
+    function formatProviderLabel(provider) {{
+      if (!provider) {{
+        return '';
+      }}
+      const normalized = String(provider).trim().toLowerCase();
+      const labels = {{
+        claude: 'Claude',
+        gemini: 'Gemini',
+        codex: 'Codex',
+        mlx: 'MLX',
+        openai: 'OpenAI',
+      }};
+      if (labels[normalized]) {{
+        return labels[normalized];
+      }}
+      return normalized
+        .split(/[_\\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+    }}
+
     function LaunchpadApp(pageData) {{
+      const initialOperation = normalizeOperation(pageData.activeOperation || null);
       return {{
         prompt: '',
         suggestionsOpen: false,
         launchError: '',
-        operation: normalizeOperation(pageData.activeOperation || null),
+        operation: initialOperation,
         statusPollHandle: null,
         statusRotateHandle: null,
         currentStatusIndex: 0,
@@ -901,12 +1220,54 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           enabled: !!pageData.telemetry?.settings?.sharing_enabled,
           endpoint: pageData.telemetry?.settings?.endpoint || '',
           shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
-          autoIngest: !!pageData.telemetry?.settings?.auto_ingest_transcript,
-          daemonMessage: pageData.daemon?.message || 'Watcher daemon status unavailable.',
-          daemonRunning: !!pageData.daemon?.running,
+          autoChainEnabled: !!pageData.telemetry?.settings?.auto_chain_enabled,
         }},
+        liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
+        personalRoutingTable: pageData.personalRoutingTable || null,
+        tasteLenses: pageData.tasteLenses || null,
+        copiedKey: '',
+        copyLens(text, key) {{
+          if (!text) return;
+          const restore = () => {{ this.copiedKey = ''; }};
+          const setCopied = () => {{
+            this.copiedKey = key;
+            setTimeout(restore, 1800);
+          }};
+          if (navigator.clipboard?.writeText) {{
+            navigator.clipboard.writeText(text).then(setCopied, () => {{
+              this._copyFallback(text);
+              setCopied();
+            }});
+          }} else {{
+            this._copyFallback(text);
+            setCopied();
+          }}
+        }},
+        _copyFallback(text) {{
+          // file:// pages on some browsers block navigator.clipboard. Use the
+          // legacy textarea + execCommand path so the lens copies even when
+          // the launchpad is opened directly from disk.
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try {{ document.execCommand('copy'); }} catch (_) {{ /* ignore */ }}
+          document.body.removeChild(ta);
+        }},
+        get routingTableProviders() {{
+          if (!this.personalRoutingTable?.by_task_type) return [];
+          const set = new Set();
+          for (const taskType in this.personalRoutingTable.by_task_type) {{
+            for (const provider in this.personalRoutingTable.by_task_type[taskType]) {{
+              set.add(provider);
+            }}
+          }}
+          return Array.from(set).sort();
+        }},
         statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
         councilStatusMessages: pageData.councilLoadingMessages || [],
         ingestStatusMessages: [
@@ -926,22 +1287,62 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           const suggestions = this.councilSuggestions || [];
           const query = this.normalizedPrompt;
           if (!query) {{
-            return suggestions.slice(0, 6);
+            return suggestions.slice(0, 8);
           }}
           const queryTokens = query.split(/\\s+/).filter(Boolean);
           return suggestions.filter((item) => {{
-            const value = item.toLowerCase();
+            const value = (typeof item === 'string' ? item : (item.text || '')).toLowerCase();
             return queryTokens.every((token) => value.includes(token));
-          }}).slice(0, 6);
+          }}).slice(0, 8);
+        }},
+        suggestionText(item) {{
+          if (typeof item === 'string') return item;
+          return item?.text || '';
+        }},
+        suggestionReasons(item) {{
+          if (typeof item === 'string') return [];
+          return Array.isArray(item?.reasons) ? item.reasons : [];
+        }},
+        suggestionWinner(item) {{
+          if (typeof item === 'string') return null;
+          if (!item?.winner) return null;
+          const w = String(item.winner);
+          return w.charAt(0).toUpperCase() + w.slice(1);
+        }},
+        suggestionPriorPreview(item) {{
+          if (typeof item === 'string') return '';
+          return item?.priorAssistantPreview || '';
+        }},
+        suggestionPriorFull(item) {{
+          if (typeof item === 'string') return '';
+          return item?.priorAssistantText || '';
         }},
         get showSuggestions() {{
-          return this.suggestionsOpen && !this.busy && this.councilSuggestions.length > 0;
+          return this.suggestionsOpen && !this.busy && this.filteredCouncilSuggestions.length > 0;
         }},
         get suggestionsHeader() {{
           return this.normalizedPrompt ? 'Matching previous council queries' : 'Top used council queries';
         }},
         get busy() {{
           return !!this.operation && this.operation.status === 'running';
+        }},
+        get heroTitle() {{
+          if (this.operation?.kind === 'council' && this.busy) {{
+            return 'Council in Progress';
+          }}
+          if (this.operation?.kind === 'ingest' && this.busy) {{
+            return 'Ingest in Progress';
+          }}
+          return 'Run Your First Council';
+        }},
+        get heroLede() {{
+          if (this.operation?.kind === 'council' && this.busy) {{
+            return 'Three models enter. One answer wins. Watch the council unfold in real time.';
+          }}
+          if (this.operation?.kind === 'ingest' && this.busy) {{
+            return 'Trinity is refreshing your local context and getting the launchpad ready.';
+          }}
+          return 'Ask the same question. See all the answers. Let Trinity compare real models on your real work.';
         }},
         get operationHeading() {{
           if (!this.operation) {{
@@ -955,20 +1356,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           return this.operation.kind === 'ingest' ? 'Transcript ingest running' : 'Council running';
         }},
-        get operationStatusNote() {{
-          if (!this.operation) {{
+        get liveCouncilUrl() {{
+          if (!this.operation?.statusToken || !this.liveReviewUrlBase) {{
             return '';
           }}
-          if (this.operation.status === 'canceled') {{
-            return 'This run was stopped before the final page was ready.';
+          const params = new URLSearchParams();
+          params.set('status_token', this.operation.statusToken);
+          if (this.operation.label) {{
+            params.set('task', this.operation.label);
           }}
-          if (this.operation.status === 'failed') {{
-            return 'Something went wrong while Trinity was running locally.';
+          if (this.operation.memberOrder?.length) {{
+            params.set('members', this.operation.memberOrder.join(','));
           }}
-          if (this.operation.kind === 'ingest') {{
-            return 'Trinity is scanning recent transcripts once. This page will refresh when the new tasks and actions are ready.';
-          }}
-          return 'Trinity Dispatch is running the council locally. You can jump back into the live review page at any time while it finishes.';
+          return `${{this.liveReviewUrlBase}}?${{params.toString()}}`;
         }},
         get currentStatusMessage() {{
           const messages = this.operation?.kind === 'ingest' ? this.ingestStatusMessages : this.councilStatusMessages;
@@ -980,7 +1380,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             }}
             const activeProvider = this.operation?.activeProvider;
             if (activeProvider) {{
-              return `${{activeProvider}}: ${{message}}`;
+              return `${{formatProviderLabel(activeProvider)}}: ${{message}}`;
             }}
           }}
           return message;
@@ -994,11 +1394,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           const memberMap = this.operation?.members || {{}};
           const providers = this.operation?.memberOrder?.length ? this.operation.memberOrder : Object.keys(memberMap);
-          return providers.map((provider) => {{
+          const rows = providers.map((provider) => {{
             const item = memberMap[provider] || {{}};
             const status = item.status || 'pending';
+            const providerLabel = formatProviderLabel(provider);
             return {{
               provider,
+              label: providerLabel,
               statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
               statusClass: status === 'done' ? 'done' : status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'pending',
               detail: status === 'done'
@@ -1008,16 +1410,24 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   : '',
             }};
           }});
-        }},
-        liveReviewUrlFor(operation) {{
-          if (!operation?.statusToken) {{
-            return pageData.liveReviewUrl;
-          }}
-          const params = new URLSearchParams({{
-            status_token: operation.statusToken,
-            task: operation.label || '',
+          const synthesisStatus = this.operation?.synthesis?.status || 'pending';
+          const memberPending = rows.slice(0, providers.length).some((row) => row.statusClass === 'pending' || row.statusClass === 'running');
+          rows.push({{
+            provider: 'analysis',
+            label: 'Analysis',
+            statusLabel: synthesisStatus === 'done' ? 'Done' : synthesisStatus === 'failed' ? 'Failed' : synthesisStatus === 'running' ? 'Running' : 'Queued',
+            statusClass: synthesisStatus === 'done' ? 'done' : synthesisStatus === 'failed' ? 'failed' : synthesisStatus === 'running' ? 'running' : 'pending',
+            detail: synthesisStatus === 'done'
+              ? 'Final comparison complete.'
+              : synthesisStatus === 'failed'
+                ? 'Final comparison failed.'
+                : synthesisStatus === 'running'
+                  ? 'Comparing responses and writing the final recommendation.'
+                  : memberPending
+                    ? 'Waiting for member responses.'
+                    : 'Ready to start final comparison.',
           }});
-          return `${{pageData.liveReviewUrl}}?${{params.toString()}}`;
+          return rows;
         }},
         copyText(value) {{
           if (!value) {{
@@ -1041,6 +1451,15 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           return score.toFixed(1);
         }},
+        thinkingLevel(provider) {{
+          // Surface the variant tag the reference-eval source attaches to a
+          // model name, e.g. "Adaptive Reasoning, Max Effort" or "xhigh" —
+          // the bit in parens after the display name. Empty if no variant.
+          const meta = this.referenceEvalsMeta && this.referenceEvalsMeta.providers;
+          if (!meta || !meta[provider] || !meta[provider].name) return '';
+          const m = String(meta[provider].name).match(/\\(([^)]+)\\)\\s*$/);
+          return m ? m[1] : '';
+        }},
         triggerShortcut(url) {{
           const link = document.createElement('a');
           link.href = url;
@@ -1054,41 +1473,25 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             window.location.reload();
           }}, delay);
         }},
-        triggerSettingsAction(url, beforeTrigger = null) {{
-          if (beforeTrigger) {{
-            beforeTrigger();
-          }}
+        triggerSettingsAction(url) {{
           this.triggerShortcut(url);
           this.settingsOpen = false;
           this.scheduleLaunchpadReload();
         }},
         toggleSharing(event) {{
-          const isNowEnabled = event.target.checked;
+          event.target.checked = this.telemetry.enabled;
+          const isNowEnabled = !this.telemetry.enabled;
           const url = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
-          this.telemetry.enabled = isNowEnabled;
           this.triggerSettingsAction(url);
         }},
-        toggleAutoIngest(event) {{
-          const isNowEnabled = event.target.checked;
-          const url = isNowEnabled ? this.settingsLinks.autoIngestEnable : this.settingsLinks.autoIngestDisable;
-          this.telemetry.autoIngest = isNowEnabled;
-          this.telemetry.daemonRunning = isNowEnabled;
-          this.telemetry.daemonMessage = 'Updating watcher daemon…';
+        toggleAutoChain(event) {{
+          event.target.checked = this.telemetry.autoChainEnabled;
+          const isNowEnabled = !this.telemetry.autoChainEnabled;
+          const url = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
           this.triggerSettingsAction(url);
         }},
         resetAnonymousId() {{
-          this.triggerSettingsAction(
-            this.settingsLinks.reset,
-            () => {{
-              this.telemetry.shareInstallId = 'resetting…';
-            }},
-          );
-        }},
-        openLiveReview() {{
-          if (!this.operation) {{
-            return;
-          }}
-          window.location.href = this.liveReviewUrlFor(this.operation);
+          this.triggerSettingsAction(this.settingsLinks.reset);
         }},
         dismissOperation() {{
           this.launchError = '';
@@ -1122,7 +1525,30 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           this.suggestionsOpen = true;
         }},
         applySuggestion(suggestion) {{
-          this.prompt = suggestion;
+          const text = this.suggestionText(suggestion);
+          const prior = this.suggestionPriorFull(suggestion);
+          // For thread-dependent prompts ("continue.", "Let me restart.")
+          // prepend the prior assistant excerpt so fresh members see the
+          // framing the user was responding to. Mirrors the canonical format
+          // in src/trinity_local/thread_context.py.
+          if (prior && text) {{
+            const BUDGET = 1500;
+            let excerpt = prior.trim();
+            if (excerpt.length > BUDGET) {{
+              const half = Math.floor(BUDGET / 2);
+              excerpt = excerpt.slice(0, half).trimEnd()
+                + '\\n[... excerpt truncated ...]\\n'
+                + excerpt.slice(-half).trimStart();
+            }}
+            this.prompt =
+              'Prior conversation context — the user is continuing a thread.\\n'
+              + 'The previous assistant turn said:\\n'
+              + '---\\n' + excerpt + '\\n---\\n\\n'
+              + 'Current user message:\\n'
+              + text;
+          }} else {{
+            this.prompt = text;
+          }}
           this.suggestionsOpen = false;
         }},
         beginOperation(operation) {{
@@ -1180,6 +1606,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               }}
               if (status.status === 'completed') {{
                 this.clearOperation();
+                if (status.review_path) {{
+                  navigateToReviewPath(status.review_path);
+                  return;
+                }}
                 window.location.reload();
               }}
             }});
@@ -1222,9 +1652,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             memberOrder: [...pageData.defaultMembers],
           }});
           this.triggerShortcut(buildShortcutUrl(payload));
-          window.setTimeout(() => {{
-            window.location.href = this.liveReviewUrlFor(this.operation);
-          }}, 120);
         }},
         ingestOnce() {{
           if (this.busy) {{

@@ -8,13 +8,8 @@ from .dispatch_registry import command_for_dispatch, make_dispatch_action
 from .notifications import notify
 from .state_paths import actions_dir
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-from .utils import now_iso, stable_id
 from .task_schema import TaskRecord
-
-
-# Aliases for backward compatibility within this module
-_now_iso = now_iso
-_stable_id = stable_id
+from .utils import now_iso, stable_id
 
 
 def create_recommendation_action(
@@ -34,13 +29,13 @@ def create_recommendation_action(
         message = f"{provider.capitalize()} might be better. {reason}"
     if mode == "council":
         message = f"{message} Start council to compare answers."
-    action_id = _stable_id(
+    action_id = stable_id(
         "action",
         task.task_id,
         task.status,
         provider or "",
         mode or "",
-        task.updated_at or _now_iso(),
+        task.updated_at or now_iso(),
     )
     dispatch = None
     shortcut = None
@@ -61,8 +56,8 @@ def create_recommendation_action(
         title=title,
         message=message,
         bundle_id=bundle_id,
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
+        created_at=now_iso(),
+        updated_at=now_iso(),
         recommended_provider=provider,
         recommended_mode=mode,
         command_hint=command_hint or (command_for_dispatch(dispatch) if dispatch else None),
@@ -81,7 +76,7 @@ def create_council_start_action(
     cwd: str = ".",
     shortcut_name: str = DEFAULT_SHORTCUT_NAME,
 ) -> PendingAction:
-    action_id = _stable_id(
+    action_id = stable_id(
         "action",
         task.task_id,
         bundle_id,
@@ -110,8 +105,8 @@ def create_council_start_action(
         title="Start Trinity council",
         message=f"Compare {provider_copy} and synthesize with {primary_provider} for: {task.title}",
         bundle_id=bundle_id,
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
+        created_at=now_iso(),
+        updated_at=now_iso(),
         recommended_provider=primary_provider,
         recommended_mode="council",
         command_hint=command_hint,
@@ -127,7 +122,7 @@ def create_review_ready_action(
     command_hint: str | None = None,
     shortcut_name: str = DEFAULT_SHORTCUT_NAME,
 ) -> PendingAction:
-    action_id = _stable_id(
+    action_id = stable_id(
         "action",
         task.task_id,
         task.council_run_id or "",
@@ -151,8 +146,8 @@ def create_review_ready_action(
         status="pending",
         title="Trinity council ready",
         message=f"Council finished for: {task.title}",
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
+        created_at=now_iso(),
+        updated_at=now_iso(),
         review_page_path=task.review_page_path,
         command_hint=command_hint or (command_for_dispatch(dispatch) if dispatch else None),
         shortcut_url=shortcut.url if shortcut else None,
@@ -161,47 +156,8 @@ def create_review_ready_action(
     )
 
 
-def create_workflow_suggestion_action(
-    *,
-    task: TaskRecord,
-    prompt_path: str,
-    workflow_reason: str,
-    target_provider: str = "cowork",
-    shortcut_name: str = DEFAULT_SHORTCUT_NAME,
-) -> PendingAction:
-    action_id = _stable_id(
-        "action",
-        task.task_id,
-        "workflow_suggestion",
-        prompt_path,
-    )
-    dispatch = make_dispatch_action(
-        "workflow_create",
-        args={"task_id": task.task_id, "prompt_path": prompt_path, "target_provider": target_provider},
-        task_id=task.task_id,
-        metadata={"kind": "workflow_suggestion"},
-    )
-    shortcut = make_shortcut_invocation(dispatch=dispatch, shortcut_name=shortcut_name)
-    command_hint = command_for_dispatch(dispatch)
-    return PendingAction(
-        action_id=action_id,
-        task_id=task.task_id,
-        task_cluster_id=task.task_cluster_id,
-        kind="workflow_suggestion",
-        status="pending",
-        title="Trinity workflow suggestion",
-        message=workflow_reason,
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
-        command_hint=command_hint,
-        shortcut_url=shortcut.url,
-        dispatch_action=dispatch.to_dict(),
-        metadata={"prompt_path": prompt_path, "target_provider": target_provider},
-    )
-
-
 def save_action(action: PendingAction) -> Path:
-    action.updated_at = _now_iso()
+    action.updated_at = now_iso()
     path = actions_dir() / f"{action.action_id}.json"
     path.write_text(json.dumps(action.to_dict(), indent=2), encoding="utf-8")
     return path
@@ -234,7 +190,7 @@ def find_action(*, task_id: str, kind: str, status: str | None = "pending") -> P
 
 def mark_action_status(action: PendingAction, status: str) -> PendingAction:
     action.status = status
-    action.updated_at = _now_iso()
+    action.updated_at = now_iso()
     return action
 
 

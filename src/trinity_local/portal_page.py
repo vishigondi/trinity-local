@@ -18,10 +18,8 @@ __all__ = [
 
 def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     live_review_path = write_live_council_page().resolve()
-    launchpad_path = (portal_pages_dir() / "launchpad.html").resolve()
     recent_councils = _load_recent_councils(limit=8)
     page_data = build_page_data(
-        launchpad_path=launchpad_path,
         live_review_path=live_review_path,
         recent_councils=recent_councils,
     )
@@ -29,7 +27,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     return _render_template(page_data=page_data, recent_cards=recent_cards, title=title)
 
 
-def write_portal_html(*, title: str = "Trinity Launchpad", video_url: str | None = None) -> Path:
+def write_portal_html(*, title: str = "Trinity Launchpad") -> Path:
     path = portal_pages_dir() / "launchpad.html"
     path.write_text(render_launchpad_html(title=title), encoding="utf-8")
     return path

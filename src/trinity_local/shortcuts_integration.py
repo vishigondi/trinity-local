@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from .dispatch_registry import DispatchAction
+from typing import Any
+
+from .dispatch_registry import DispatchAction, make_dispatch_action
 
 
 DEFAULT_SHORTCUT_NAME = "Trinity Dispatch"
@@ -47,6 +49,23 @@ def make_shortcut_invocation(
         shortcut_name=shortcut_name,
         input_text=input_text,
         url=build_shortcut_url(shortcut_name, input_text),
+    )
+
+
+def make_shortcut_for(
+    name: str,
+    *,
+    args: dict[str, Any] | None = None,
+    task_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    shortcut_name: str = DEFAULT_SHORTCUT_NAME,
+) -> ShortcutInvocation:
+    """One-call helper: build a DispatchAction and wrap it in a
+    ShortcutInvocation. Replaces the boilerplate of separately calling
+    `make_dispatch_action` and `make_shortcut_invocation`."""
+    return make_shortcut_invocation(
+        dispatch=make_dispatch_action(name, args=args, task_id=task_id, metadata=metadata),
+        shortcut_name=shortcut_name,
     )
 
 

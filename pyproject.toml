@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Local TRINITY-style coordinator for MLX and CLI agents on macOS."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["Pillow>=10"]
+dependencies = [
+    "Pillow>=10",
+    "mcp>=1.0",  # MCP-default install — Trinity is exposed as an MCP server to Claude Code / Codex CLI / Gemini CLI
+]
 
 [project.scripts]
 trinity-local = "trinity_local.main:main"
@@ -21,7 +24,6 @@ where = ["src"]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
-mcp = ["mcp>=1.0"]
 mlx = [
     "sentence-transformers>=2.2",
     "einops",

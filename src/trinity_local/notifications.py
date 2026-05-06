@@ -15,16 +15,43 @@ def _windows_escape(value: str) -> str:
     return value.replace("'", "''")
 
 
+_TRINITY_APP_CANDIDATES = (
+    Path("/Applications/Trinity.app"),
+    Path.home() / "Desktop" / "Trinity.app",
+    Path.home() / "Applications" / "Trinity.app",
+)
+
+
+def _find_trinity_app() -> Path | None:
+    for candidate in _TRINITY_APP_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def notify(title: str, message: str) -> None:
     system = platform.system().lower()
     try:
-        if system == "darwin" and shutil.which("osascript"):
-            script = (
-                f'display notification "{_escape_applescript(message)}" '
-                f'with title "{_escape_applescript(title)}"'
-            )
-            subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
-            return
+        if system == "darwin":
+            trinity_app = _find_trinity_app()
+            if trinity_app and shutil.which("open"):
+                # Route through Trinity.app so the notification inherits the
+                # app's bundle identity (icon + click-target) instead of
+                # appearing as Script Editor.
+                subprocess.run(
+                    ["open", "-a", str(trinity_app), "--args", "notify", title, message],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                return
+            if shutil.which("osascript"):
+                script = (
+                    f'display notification "{_escape_applescript(message)}" '
+                    f'with title "{_escape_applescript(title)}"'
+                )
+                subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+                return
         if system == "linux" and shutil.which("notify-send"):
             subprocess.run(["notify-send", title, message], capture_output=True, text=True, check=False)
             return

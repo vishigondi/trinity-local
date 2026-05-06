@@ -12,7 +12,16 @@ DISPATCH_ACTIONS = {
     "stop_council",
     "open_review",
     "start_council",
-    "workflow_create",
+    # Single canonical iteration action. The legacy aliases
+    # (council_continue / council_refine / council_auto_chain) are kept
+    # below as compatibility shims so saved Shortcuts and old launchpad
+    # URLs keep dispatching, but new emitters should use council_iterate
+    # with args={"rounds": int, "prompt": str|None}.
+    "council_iterate",
+    # Compatibility aliases — accepted on input, mapped to council_iterate.
+    "council_continue",
+    "council_refine",
+    "council_auto_chain",
     "open_path",
     "open_url",
     "run_applescript",
@@ -65,16 +74,19 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         goal = args.get("goal") or "Find the strongest answer."
         cwd = args.get("cwd") or "."
         members = args.get("members") or ["claude", "gemini", "codex"]
-        primary_provider = args.get("primary_provider") or "claude"
+        primary_provider = args.get("primary_provider")
         member_args = " ".join(shlex.quote(str(member)) for member in members)
         parts = [
             "trinity-local council-launch",
             f"--task {shlex.quote(str(task))}",
             f"--goal {shlex.quote(str(goal))}",
             f"--members {member_args}",
-            f"--primary-provider {shlex.quote(str(primary_provider))}",
             f"--cwd {shlex.quote(str(cwd))}",
         ]
+        # Only pass --primary-provider when explicitly set; otherwise the
+        # CLI auto-selects the strongest predicted chairman for the task.
+        if primary_provider:
+            parts.insert(4, f"--primary-provider {shlex.quote(str(primary_provider))}")
         status_token = args.get("status_token")
         if status_token:
             parts.append(f"--status-token {shlex.quote(str(status_token))}")
@@ -82,8 +94,6 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
             parts.append("--notify")
         if args.get("open_browser", True):
             parts.append("--open-browser")
-        if args.get("without_peer_review"):
-            parts.append("--without-peer-review")
         return " ".join(parts)
     if action.name == "rate_council":
         council_id = args.get("council_id")
@@ -127,16 +137,36 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
                 f"--members {member_args} --primary-provider {shlex.quote(str(primary_provider))} --cwd {shlex.quote(str(cwd))}"
             )
         return None
-    if action.name == "workflow_create":
-        task_id = args.get("task_id") or action.task_id
-        prompt_path = args.get("prompt_path")
-        target_provider = args.get("target_provider") or "cowork"
-        if task_id and prompt_path:
-            return (
-                f"trinity-local workflow-create --task {shlex.quote(str(task_id))} "
-                f"--prompt-path {shlex.quote(str(prompt_path))} --target-provider {shlex.quote(str(target_provider))}"
-            )
-        return None
+    # Canonical iteration: one action, parameterized by (rounds, prompt).
+    # Legacy aliases (council_continue / council_refine / council_auto_chain)
+    # are accepted as input and translated to the canonical (rounds, prompt)
+    # tuple so saved Shortcuts and old launchpad URLs keep working.
+    if action.name in ("council_iterate", "council_continue", "council_refine", "council_auto_chain"):
+        council_id = args.get("council_id")
+        if not council_id:
+            return None
+        prompt = args.get("prompt")
+        if action.name == "council_refine" and not prompt:
+            return None
+        # Compute (rounds, prompt) from the canonical args, falling back to
+        # the legacy alias semantic when args don't carry them explicitly.
+        if action.name == "council_iterate":
+            rounds = int(args.get("rounds") or 1)
+        elif action.name == "council_auto_chain":
+            rounds = int(args.get("max_rounds") or 3)
+        else:
+            rounds = 1  # continue / refine are always one round
+        parts = [
+            f"trinity-local council-iterate --council {shlex.quote(str(council_id))}",
+            f"--rounds {rounds}",
+        ]
+        if prompt:
+            parts.append(f"--prompt {shlex.quote(str(prompt))}")
+        status_token = args.get("status_token")
+        if status_token:
+            parts.append(f"--status-token {shlex.quote(str(status_token))}")
+        parts.append("--open-browser")
+        return " ".join(parts)
     if action.name == "open_path":
         path = args.get("path")
         if path:

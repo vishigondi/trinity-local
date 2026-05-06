@@ -16,7 +16,6 @@ def tmp_state_dir(tmp_path: Path) -> Path:
     for sub in [
         "tasks", "actions", "prompt_bundles", "council_outcomes",
         "task_sync", "portal_pages", "review_pages", "watcher",
-        "workflow_prompts", "digest_pages",
     ]:
         (state / sub).mkdir(parents=True)
     return state

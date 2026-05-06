@@ -46,7 +46,8 @@ def register(subparsers):
 
 
 def handle_replay(args):
-    from ..research.replay import replay_all, examples_dir
+    from ..research.replay import replay_all
+    from ..state_paths import replay_examples_dir
 
     sources = args.source or ["claude", "codex", "gemini", "cowork"]
     start = time.monotonic()
@@ -65,7 +66,7 @@ def handle_replay(args):
             for source, stats in results.items()
         }
         payload["_elapsed_seconds"] = round(elapsed, 2)
-        payload["_examples_dir"] = str(examples_dir())
+        payload["_examples_dir"] = str(replay_examples_dir())
         print(json.dumps(payload, indent=2))
         return
 
@@ -80,7 +81,7 @@ def handle_replay(args):
         print(f"    scanned={stats.sessions_scanned}  examples={stats.examples_generated}  "
               f"low_signal={stats.skipped_low_signal}  no_prompt={stats.skipped_no_prompt}  "
               f"errors={stats.errors}")
-    print(f"\n  Examples at: {examples_dir()}")
+    print(f"\n  Examples at: {replay_examples_dir()}")
 
 
 def handle_embed(args):

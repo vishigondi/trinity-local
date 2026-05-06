@@ -34,3 +34,19 @@ class SessionRecord:
     source_format_version: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     messages: list[SessionMessage] = field(default_factory=list)
+
+
+@dataclass
+class PromptTurn:
+    """A single user-facing prompt extracted from a transcript, ready for embedding.
+
+    Sidechain (subagent) turns and API-error responses are excluded by iter_prompt_turns.
+    """
+    transcript_id: str
+    provider: str
+    source_path: str
+    turn_index: int
+    text: str
+    timestamp: str | None = None
+    preceding_assistant_text: str = ""
+    following_assistant_text: str = ""

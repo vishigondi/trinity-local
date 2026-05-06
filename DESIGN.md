@@ -5,10 +5,10 @@
 Trinity is a local intelligence layer, not a SaaS dashboard. The UI should feel calm, trustworthy, and slightly editorial: more like a well-designed field notebook or control desk than an analytics product. Favor legibility, hierarchy, and restraint over visual novelty.
 
 The primary surfaces are static HTML pages opened locally in the browser:
-- Launchpad
-- Council review pages
+- Launchpad (with autofill suggestions, personal routing table card, recent councils)
+- Council review pages (comparative analysis + structured Routing label section + per-provider answers grid)
+- Live council pages (member responses stream as each finishes; chairman synthesis status)
 - Signal / rating pages
-- Weekly digest pages
 - Future social pages:
   - radar chart
   - battle cards

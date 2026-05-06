@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Optional, Tuple
 
 from .config import trinity_home
+from .state_paths import outcomes_log_path
 
 
 @dataclass
@@ -51,7 +52,7 @@ class OutcomeRecord:
 
 
 def _outcomes_path() -> Path:
-    path = trinity_home() / "outcomes.jsonl"
+    path = outcomes_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 

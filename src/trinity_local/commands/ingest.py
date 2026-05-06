@@ -11,7 +11,6 @@ from ..ingest import (
     iter_cowork_sessions,
     iter_gemini_cli_sessions,
 )
-from ..task_linking import build_task_links
 
 
 def _load_sessions(source: str) -> list:
@@ -54,6 +53,5 @@ def handle_features(args):
 def handle_examples(args):
     sessions = _load_sessions(args.source)
     features = [extract_session_features(session) for session in sessions]
-    links = build_task_links(features)
-    examples = [example.to_dict() for example in build_routing_examples(features, links)[: args.limit]]
+    examples = [example.to_dict() for example in build_routing_examples(features, [])[: args.limit]]
     print(json.dumps(examples, indent=2))

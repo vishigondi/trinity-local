@@ -25,6 +25,29 @@ def _render_inline(text: str) -> str:
     return "".join(rendered)
 
 
+_TABLE_SEPARATOR_RE = re.compile(
+    r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$"
+)
+
+
+def _is_table_row(line: str) -> bool:
+    """A line is a markdown table row if it has 2+ unescaped pipes,
+    or starts with `|`. Single-pipe lines (e.g. `apple | banana` in prose)
+    don't qualify — those stay as paragraphs.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return False
+    if stripped.startswith("|"):
+        return True
+    return stripped.count("|") >= 2
+
+
+def _is_table_separator(line: str) -> bool:
+    """Detect the `|---|---|` separator that follows a table header."""
+    return bool(_TABLE_SEPARATOR_RE.match(line))
+
+
 def render_markdown(text: str | None) -> str:
     raw = (text or "").strip()
     if not raw:
@@ -62,7 +85,15 @@ def render_markdown(text: str | None) -> str:
             return
         rows_html = ""
         for idx, row in enumerate(table_rows):
-            cells = [cell.strip() for cell in row if cell.strip()]
+            # Strip leading/trailing empty cells caused by leading/trailing pipes
+            # ("| a | b |".split("|") -> ["", " a ", " b ", ""])
+            cells = [cell.strip() for cell in row]
+            if cells and cells[0] == "":
+                cells = cells[1:]
+            if cells and cells[-1] == "":
+                cells = cells[:-1]
+            if not cells:
+                continue
             if idx == 0:
                 rows_html += "<thead><tr>" + "".join(f"<th>{_render_inline(cell)}</th>" for cell in cells) + "</tr></thead>"
             else:
@@ -119,19 +150,23 @@ def render_markdown(text: str | None) -> str:
             list_items.append(_render_inline(item_text.strip()))
             continue
 
-        # Check for table row (contains pipes)
-        if "|" in marker and not marker.startswith("|"):
-            flush_paragraph()
-            flush_list()
-            cells = marker.split("|")
-            table_rows.append(cells)
-            in_table = True
-            continue
-
-        if in_table and "|" in marker:
-            cells = marker.split("|")
-            table_rows.append(cells)
-            continue
+        # Markdown table row detection. Tables can start with leading-pipe
+        # rows (`| a | b |`) OR no-leading-pipe rows (`a | b | c`). The
+        # separator line (`|---|---|`) marks the header but is not rendered.
+        if _is_table_row(marker):
+            if _is_table_separator(marker):
+                # Separator row — only meaningful inside a table (right after
+                # the header). Skip rendering. If no header preceded, fall
+                # through and treat as paragraph text.
+                if in_table:
+                    continue
+            else:
+                if not in_table:
+                    flush_paragraph()
+                    flush_list()
+                    in_table = True
+                table_rows.append(marker.split("|"))
+                continue
 
         flush_table()
         paragraph.append(marker)

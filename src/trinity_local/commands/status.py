@@ -5,7 +5,6 @@ import json
 
 from ..adapters import check_all_adapters
 from ..action_runtime import list_actions
-from ..cost_tracker import load_cost_log, summarize_costs
 from ..drift import check_drift
 from ..scoreboard import load_scoreboard
 from ..state_paths import state_dir, tasks_dir, analytics_dir
@@ -41,10 +40,6 @@ def handle_status(args):
     pending_actions = list_actions(status="pending")
     completed_actions = list_actions(status="completed")
 
-    # Costs
-    cost_log = load_cost_log()
-    cost_summary = summarize_costs(cost_log) if cost_log else {}
-
     # Drift
     drift_alerts = check_drift()
 
@@ -78,8 +73,6 @@ def handle_status(args):
             },
             "reviews": review_count,
             "councils": council_count,
-            "cost_sessions": len(cost_log),
-            "cost_by_provider": {k: v.total_cost_usd for k, v in cost_summary.items()} if cost_summary else {},
             "drift_alerts": len(drift_alerts),
             "watch_errors": {
                 "count": watch_error_count,
@@ -110,14 +103,6 @@ def handle_status(args):
     print(f"  Councils:  {council_count}")
     print()
 
-    # Costs
-    if cost_summary:
-        print(f"  Cost log:  {len(cost_log)} sessions tracked")
-        for provider, summary in sorted(cost_summary.items()):
-            print(f"    {provider}: ${summary.total_cost_usd:.4f}")
-    else:
-        print("  Cost log:  no sessions tracked yet")
-    print()
 
     # Drift
     if drift_alerts:

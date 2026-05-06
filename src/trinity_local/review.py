@@ -6,6 +6,7 @@ correctness, missed edge cases, and improvement opportunities.
 """
 from __future__ import annotations
 
+import html
 import json
 import time
 from dataclasses import asdict, dataclass, field
@@ -200,7 +201,7 @@ def render_review_html(review: ReviewResult) -> Path:
     issues_html = ""
     if review.issues:
         issues_html = "\n".join(
-            f'<div class="alert-box danger">{issue}</div>'
+            f'<div class="alert-box danger">{html.escape(issue)}</div>'
             for issue in review.issues
         )
     else:
@@ -209,13 +210,13 @@ def render_review_html(review: ReviewResult) -> Path:
     suggestions_html = ""
     if review.suggestions:
         suggestions_html = "\n".join(
-            f'<div class="alert-box success">{suggestion}</div>'
+            f'<div class="alert-box success">{html.escape(suggestion)}</div>'
             for suggestion in review.suggestions
         )
     else:
         suggestions_html = '<p class="text-muted">No suggestions.</p>'
 
-    html = f"""{head}
+    page = f"""{head}
   <style>
     .verdict-box {{
       background: var(--surface);
@@ -236,7 +237,7 @@ def render_review_html(review: ReviewResult) -> Path:
 
     <section class="card">
       <h2>Verdict</h2>
-      <div class="verdict-box">{review.verdict or "No verdict"}</div>
+      <div class="verdict-box">{html.escape(review.verdict) if review.verdict else "No verdict"}</div>
     </section>
 
     <section class="card">
@@ -257,5 +258,5 @@ def render_review_html(review: ReviewResult) -> Path:
 """
 
     out_path = review_pages_dir() / f"{review.review_id}.html"
-    out_path.write_text(html, encoding="utf-8")
+    out_path.write_text(page, encoding="utf-8")
     return out_path

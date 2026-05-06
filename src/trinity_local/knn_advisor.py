@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import trinity_home
+from .state_paths import research_dir
 
 
 @dataclass
@@ -58,11 +59,8 @@ _corpus_cache: list[_CorpusEntry] | None = None
 
 
 def _corpus_dirs() -> list[Path]:
-    research_dir = trinity_home() / "research"
-    return [
-        research_dir / "hard_examples",
-        research_dir / "examples",
-    ]
+    base = research_dir()
+    return [base / "hard_examples", base / "examples"]
 
 
 def _load_corpus(*, force: bool = False) -> list[_CorpusEntry]:

@@ -2,10 +2,20 @@
 from __future__ import annotations
 
 from .base import Ranker
+from .chairman_picker import chairman_pick_reason, predict_strongest_chairman
 from .fallback import FallbackRanker
+from .heuristic import prompt_calls_for_council
 from .types import RoutingContext, RoutingDecision
 
-__all__ = ["Ranker", "RoutingContext", "RoutingDecision", "build_default_ranker"]
+__all__ = [
+    "Ranker",
+    "RoutingContext",
+    "RoutingDecision",
+    "build_default_ranker",
+    "predict_strongest_chairman",
+    "chairman_pick_reason",
+    "prompt_calls_for_council",
+]
 
 
 def build_default_ranker() -> Ranker:

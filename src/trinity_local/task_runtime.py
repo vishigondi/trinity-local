@@ -8,10 +8,6 @@ from .state_paths import state_dir, tasks_dir, task_sync_dir
 from .task_schema import TaskRecord, TaskRecommendation, TaskRunRef, TaskSyncRecord
 from .utils import now_iso, stable_id
 
-# Aliases for backward compatibility within this module
-_now_iso = now_iso
-_stable_id = stable_id
-
 
 def task_index_path() -> Path:
     return state_dir() / "tasks_index.jsonl"
@@ -26,7 +22,7 @@ def create_task_record(
     tags: list[str] | None = None,
     metadata: dict | None = None,
 ) -> TaskRecord:
-    task_id = _stable_id(
+    task_id = stable_id(
         "task",
         bundle.task_cluster_id,
         bundle.origin_provider or "",
@@ -41,8 +37,8 @@ def create_task_record(
         status=status,
         source_provider=bundle.origin_provider,
         source_session_id=bundle.origin_session_id,
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
+        created_at=now_iso(),
+        updated_at=now_iso(),
         task_text=bundle.task_text,
         goal=bundle.goal or None,
         comparison_instructions=bundle.comparison_instructions or None,
@@ -55,7 +51,7 @@ def create_task_record(
 
 
 def save_task_record(task: TaskRecord) -> Path:
-    task.updated_at = _now_iso()
+    task.updated_at = now_iso()
     path = tasks_dir() / f"{task.task_id}.json"
     path.write_text(json.dumps(task.to_dict(), indent=2), encoding="utf-8")
     with task_index_path().open("a", encoding="utf-8") as handle:
@@ -106,7 +102,7 @@ def ensure_task_record(
         if metadata:
             existing.metadata.update(metadata)
         existing.status = status or existing.status
-        existing.updated_at = _now_iso()
+        existing.updated_at = now_iso()
         return existing
     return create_task_record(
         bundle=bundle,
@@ -161,18 +157,16 @@ def task_from_council(
             local_artifact_path=review_page_path,
             metadata={
                 "model": outcome.primary_model,
-                "peer_review_count": len(outcome.peer_reviews),
             },
         )
     )
     task.metadata.update(
         {
             "member_count": len(outcome.member_results),
-            "peer_review_count": len(outcome.peer_reviews),
             "difference_count": len(outcome.differences),
         }
     )
-    task.updated_at = _now_iso()
+    task.updated_at = now_iso()
     return task
 
 
@@ -185,7 +179,7 @@ def make_sync_record(task: TaskRecord) -> TaskSyncRecord:
             launched_at=run.launched_at,
             status=run.status,
             mode=run.mode,
-            metadata={k: v for k, v in run.metadata.items() if k in {"model", "peer_review_count"}},
+            metadata={k: v for k, v in run.metadata.items() if k in {"model"}},
         )
         for run in task.runs
     ]

@@ -13,12 +13,10 @@ cross-referenced across providers using embedding similarity.
 from __future__ import annotations
 
 import json
-from collections import defaultdict
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..config import trinity_home
 from ..feature_extractors import extract_session_features
 from ..state_paths import hard_examples_dir
 from ..training_schema import (
@@ -26,11 +24,10 @@ from ..training_schema import (
     OutcomeSignals,
     RoutingExample,
     SessionFeatures,
-    ToolSummary,
     TranscriptWindow,
 )
 from ..utils import stable_id
-from .replay import _guess_task_kind, _iter_source_sessions, examples_dir
+from .replay import _guess_task_kind, _iter_source_sessions
 
 
 # hard_examples_dir is now imported from state_paths above

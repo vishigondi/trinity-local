@@ -11,12 +11,10 @@ import re
 from .action_runtime import (
     create_council_start_action,
     create_recommendation_action,
-    create_workflow_suggestion_action,
     find_action,
     notify_action,
     save_action,
 )
-from .cost_tracker import append_session_cost, compute_session_cost
 from .council_runtime import create_prompt_bundle, save_prompt_bundle
 from .drift import OutcomeRecord, append_outcome, check_drift
 from .feature_extractors import extract_session_features
@@ -38,7 +36,6 @@ from .task_runtime import (
 )
 from .task_schema import TaskRecommendation
 from .task_kinds import guess_task_kind
-from .workflow_prompts import write_cowork_shortcut_prompt
 
 
 @dataclass
@@ -281,23 +278,6 @@ def _detect_provider_switch(
     return None, None
 
 
-def _workflow_reason(features, prompt: str, task_kind: str, task_id: str | None = None) -> str | None:
-    lowered = prompt.lower()
-    if any(term in lowered for term in ("again", "every time", "repeatedly", "repeat", "shortcut", "automate", "workflow")):
-        return "This task looks repetitive or explicitly automation-oriented. Trinity can prepare a Shortcut brief for Cowork."
-    repeat_count = _similar_recent_task_count(
-        prompt=prompt,
-        provider=features.provider,
-        task_kind=task_kind,
-        exclude_task_id=task_id,
-    )
-    if repeat_count >= 2:
-        return f"Trinity has seen this workflow pattern {repeat_count + 1} times recently. It may be worth turning it into a Shortcut or local automation."
-    if repeat_count >= 1 and features.provider == "cowork" and task_kind in {"research", "cowork_general"} and features.did_use_web:
-        return "This Cowork research pattern has repeated and may benefit from a Shortcut or lightweight automation."
-    return None
-
-
 def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
     # --- Adapter validation at startup ---
     validated_sources: list[str] = []
@@ -335,10 +315,8 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             if not prompt:
                 continue
 
-            # --- Cost and outcome tracking (2.3, 2.5) ---
+            # --- Outcome tracking (2.5) — drift-only since cost tracking was dropped ---
             task_kind_guess = _guess_task_kind(prompt, features.provider)
-            cost = compute_session_cost(features, task_kind=task_kind_guess)
-            append_session_cost(cost)
             outcome_rec = OutcomeRecord(
                 provider=features.provider,
                 model_id=features.model.normalized_model_id,
@@ -441,22 +419,6 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             save_task_record(task)
             save_sync_record(task)
             tasks_written += 1
-            workflow_reason = _workflow_reason(features, prompt, task_kind, task.task_id)
-            if workflow_reason and find_action(task_id=task.task_id, kind="workflow_suggestion") is None:
-                workflow_prompt_path = write_cowork_shortcut_prompt(
-                    task=task,
-                    features=features,
-                    workflow_reason=workflow_reason,
-                )
-                workflow_action = create_workflow_suggestion_action(
-                    task=task,
-                    prompt_path=str(workflow_prompt_path),
-                    workflow_reason=workflow_reason,
-                )
-                save_action(workflow_action)
-                actions_written += 1
-                if notify:
-                    notify_action(workflow_action)
             action = None
             if (force_council or recommendation.recommended_mode == "council") and members:
                 if find_action(task_id=task.task_id, kind="start_council") is None:

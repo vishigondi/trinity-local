@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -17,21 +18,32 @@ from .council_status import (
 )
 from .council_review import write_unified_council_page
 from .council_runtime import (
-    aggregate_peer_rankings,
     append_launch_event,
+    chairman_says_converged,
     create_council_outcome,
     create_launch_event,
-    parse_bullets,
-    parse_peer_review_sections,
+    create_prompt_bundle,
+    load_council_outcome,
+    load_prompt_bundle,
+    parse_routing_label,
     parse_synthesis_sections,
-    parse_ranking_labels,
+    render_chain_step_prompt,
+    render_consensus_round_prompt,
     render_member_prompt,
-    render_peer_review_prompt,
+    render_primary_council_prompt,
     save_council_outcome,
+    save_prompt_bundle,
 )
-from .council_schema import CouncilMemberResult, CouncilOutcome, CouncilPeerReview, LaunchEvent, PromptBundle
+from .council_schema import (
+    CouncilChainStep,
+    CouncilMemberResult,
+    CouncilOutcome,
+    LaunchEvent,
+    PromptBundle,
+)
 from .providers import ProviderError, make_provider
 from .task_runtime import save_sync_record, save_task_record, task_from_council
+from .utils import now_iso
 
 
 @dataclass
@@ -44,8 +56,84 @@ class CouncilRunResult:
     sync_path: Path | None = None
 
 
+def _log_routing_label_event(
+    *,
+    bundle_id: str,
+    primary_provider: str,
+    primary_model: str | None,
+    success: bool,
+    error: str | None,
+    synthesis_error: bool,
+) -> None:
+    """Append a one-line event so we can track Chairman parse-success rate.
+
+    Phase 8.7 success criterion: ≥85%. If this drops, the Chairman prompt
+    needs revision or extraction needs to fall back to a smaller LLM.
+    """
+    try:
+        from .state_paths import analytics_dir
+        from .utils import now_iso
+
+        path = analytics_dir() / "routing_label_events.jsonl"
+        record = {
+            "ts": now_iso(),
+            "bundle_id": bundle_id,
+            "primary_provider": primary_provider,
+            "primary_model": primary_model,
+            "success": bool(success),
+            "synthesis_error": synthesis_error,
+        }
+        if error:
+            record["error"] = error
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, separators=(",", ":")) + "\n")
+    except Exception:
+        # Analytics never crash the council
+        pass
+
+
 def _provider_model(config, override: str | None) -> str | None:
-    return override or config.model
+    if override:
+        return override
+    if config is None:
+        return None
+    return config.model
+
+
+def _resolve_winner(
+    *,
+    routing_label,
+    winner_section: str | None = None,
+    sequence: list[str],
+    label_to_provider: dict[str, str] | None = None,
+) -> str | None:
+    """Resolve the winning provider from the chairman's Routing JSON.
+
+    Trusts `routing_label.winner` only. The prior implementation had two
+    additional fallbacks (first line of the "Winner" prose section, A/B/C
+    label mapping) that existed for chairmen which used to write prose. With
+    parse-success ≥85% on Routing JSON, those fallbacks now silently mask
+    parse failures rather than fix them — better to mark `winner_provider=None`
+    and let the user/rater fix it explicitly.
+
+    `winner_section` and `label_to_provider` are kept as accepted arguments
+    so call sites compile, but they're ignored.
+    """
+    if routing_label is None:
+        return None
+    candidate = (getattr(routing_label, "winner", "") or "").strip().lower()
+    if not candidate:
+        return None
+    sequence_lower = {p.lower(): p for p in sequence}
+    if candidate in sequence_lower:
+        return sequence_lower[candidate]
+    # Substring match for cases where the chairman wrote "claude-opus" instead
+    # of "claude". Tightly scoped — no prose scanning.
+    for lower, name in sequence_lower.items():
+        if lower in candidate or candidate in lower:
+            return name
+    return None
 
 
 @dataclass
@@ -59,6 +147,251 @@ class MemberExecutionResult:
     error_payload: dict[str, object] | None = None
 
 
+def _run_chain(
+    *,
+    config: AppConfig,
+    bundle: PromptBundle,
+    sequence: list[str],
+    primary_provider: str,
+    cwd: Path,
+    primary_model_override: str | None = None,
+    run_state_token: str | None = None,
+) -> CouncilRunResult:
+    """Sequential refinement: each model in `sequence` sees prior outputs and refines.
+
+    The final step's output is treated as the converged answer; the chairman
+    synthesizes a Routing JSON over the full chain.
+    """
+    if not sequence:
+        raise ProviderError("Chain mode requires a non-empty sequence of providers.")
+
+    try:
+        os.setpgrp()
+    except OSError:
+        pass
+
+    council_id = bundle.bundle_id
+    state_token = run_state_token or council_id
+    chairman_config = config.providers.get(primary_provider)
+    chairman_model = _provider_model(chairman_config, primary_model_override) if chairman_config else None
+    if load_council_status(state_token) is None:
+        member_models = {
+            name: _provider_model(config.providers.get(name), None)
+            for name in sequence
+            if config.providers.get(name) is not None
+        }
+        init_council_run_state(
+            state_token,
+            task_text=bundle.task_text,
+            bundle_id=bundle.bundle_id,
+            council_id=council_id,
+            members=list(sequence),
+            runner_pid=os.getpid(),
+            runner_pgid=os.getpgid(0),
+            member_models=member_models,
+            metadata={
+                "kind": "council",
+                "mode": "chain",
+                "sequence": sequence,
+                "chairman_provider": primary_provider,
+                "chairman_model": chairman_model,
+            },
+        )
+
+    chain_steps: list[CouncilChainStep] = []
+    failed_steps: list[dict[str, object]] = []
+    launches: list[LaunchEvent] = []
+
+    import time
+
+    for step_index, provider_name in enumerate(sequence):
+        is_final = step_index == len(sequence) - 1
+        step_prompt = render_chain_step_prompt(
+            bundle,
+            step_index=step_index,
+            prior_steps=chain_steps,
+            is_final=is_final,
+        )
+        provider_config = config.providers.get(provider_name)
+        if provider_config is None or not provider_config.enabled:
+            update_member_failure(state_token, provider_name, "Provider missing or disabled.")
+            failed_steps.append({
+                "step_index": step_index,
+                "provider": provider_name,
+                "stage": "chain_step",
+                "reason": "provider_missing_or_disabled",
+            })
+            break
+
+        provider = make_provider(provider_config)
+        start_member_progress(state_token, provider_name)
+        started_at = now_iso()
+        t0 = time.time()
+        try:
+            result = provider.run(step_prompt, cwd)
+        except Exception as exc:
+            elapsed = time.time() - t0
+            update_member_failure(state_token, provider_name, str(exc))
+            failed_steps.append({
+                "step_index": step_index,
+                "provider": provider_name,
+                "stage": "chain_step",
+                "reason": "exception",
+                "error": str(exc),
+                "latency_seconds": elapsed,
+            })
+            break
+
+        elapsed = time.time() - t0
+        output_text = result.stdout or result.stderr or ""
+        update_member_progress(state_token, provider_name, output_text)
+
+        chain_steps.append(CouncilChainStep(
+            step_index=step_index,
+            model_provider=provider_name,
+            model_name=_provider_model(provider_config, primary_model_override if is_final else None),
+            input_text=step_prompt,
+            output_text=output_text,
+            latency_seconds=elapsed,
+            started_at=started_at,
+            completed_at=now_iso(),
+            metadata={"returncode": result.returncode, "stderr": result.stderr},
+        ))
+        launches.append(create_launch_event(
+            bundle=bundle,
+            mode="council_chain",
+            source_provider=bundle.origin_provider,
+            target_provider=provider_name,
+            target_model=chain_steps[-1].model_name,
+            handoff_reason=f"chain_step_{step_index + 1}_of_{len(sequence)}",
+            metadata={"step_index": step_index, "is_final": is_final},
+        ))
+        append_launch_event(launches[-1])
+
+    if not chain_steps:
+        raise ProviderError(f"All chain steps failed: {failed_steps}")
+
+    # Build a synthetic CouncilMemberResult per chain step so the chairman
+    # synthesis prompt format works unchanged.
+    member_results = [
+        CouncilMemberResult(
+            provider=step.model_provider,
+            model=step.model_name,
+            session_id=None,
+            output_text=step.output_text,
+            metadata={"chain_step_index": step.step_index, "latency_seconds": step.latency_seconds},
+        )
+        for step in chain_steps
+    ]
+
+    primary_config = config.providers.get(primary_provider)
+    if primary_config is None or not primary_config.enabled:
+        raise ProviderError(f"Unknown or disabled primary provider: {primary_provider}")
+    primary_model = _provider_model(primary_config, primary_model_override)
+    synthesis_prompt = render_primary_council_prompt(bundle, member_results)
+
+    update_synthesis_progress(state_token, "running")
+    synthesis_output = ""
+    synthesis_error: str | None = None
+    sections: dict[str, str] = {}
+    primary = make_provider(primary_config)
+    try:
+        primary_result = primary.run(synthesis_prompt, cwd)
+        synthesis_output = primary_result.stdout or primary_result.stderr or ""
+        sections = parse_synthesis_sections(synthesis_output)
+    except Exception as exc:
+        synthesis_error = str(exc)
+    finally:
+        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
+
+    differences = []
+    if "differences" in sections:
+        differences = [
+            line.strip("- ").strip()
+            for line in sections["differences"].splitlines()
+            if line.strip()
+        ]
+    routing_label, routing_label_error = parse_routing_label(synthesis_output)
+    if routing_label is not None:
+        try:
+            update_synthesis_progress(state_token, "done", output_text=synthesis_output, routing_label=routing_label.to_dict())
+        except Exception:
+            pass
+    _log_routing_label_event(
+        bundle_id=bundle.bundle_id,
+        primary_provider=primary_provider,
+        primary_model=primary_model,
+        success=routing_label is not None,
+        error=routing_label_error,
+        synthesis_error=bool(synthesis_error),
+    )
+
+    # Resolve the winner. Trust the structured Routing JSON FIRST — it's the
+    # chairman's explicit verdict. Only fall back to text-scanning the
+    # "Winner" section when the routing label is missing, because the
+    # narrative often mentions losing providers in passing ("claude argued
+    # against codex's pick…") and the first-substring-match heuristic was
+    # picking up those mentions instead of the real winner.
+    winner_provider = _resolve_winner(
+        routing_label=routing_label,
+        winner_section=sections.get("winner"),
+        sequence=[*sequence, primary_provider],
+    )
+
+    final_metadata: dict = {
+        "cwd": str(cwd),
+        "mode": "chain",
+        "sequence": sequence,
+        "failed_steps": failed_steps,
+    }
+    if synthesis_error:
+        final_metadata["synthesis_error"] = synthesis_error
+    if routing_label_error:
+        final_metadata["routing_label_error"] = routing_label_error
+
+    final_outcome = create_council_outcome(
+        bundle=bundle,
+        primary_provider=primary_provider,
+        member_results=member_results,
+        primary_model=primary_model,
+        winner_provider=winner_provider,
+        differences=differences,
+        synthesis_output=synthesis_output,
+        synthesis_prompt=synthesis_prompt,
+        routing_label=routing_label,
+        mode="chain",
+        chain_steps=chain_steps,
+        metadata=final_metadata,
+    )
+    outcome_path = save_council_outcome(final_outcome)
+    review_path = write_unified_council_page(bundle, final_outcome)
+
+    task = task_from_council(
+        bundle=bundle,
+        outcome=final_outcome,
+        review_page_path=str(review_path),
+        launch_ids=[launch.launch_id for launch in launches],
+    )
+    task_path = save_task_record(task)
+    sync_path = save_sync_record(task)
+
+    finalize_council_run_state(
+        state_token,
+        status="completed",
+        council_id=final_outcome.council_run_id,
+        review_path=str(review_path),
+    )
+
+    return CouncilRunResult(
+        outcome=final_outcome,
+        outcome_path=outcome_path,
+        review_path=review_path,
+        launches=launches,
+        task_path=task_path,
+        sync_path=sync_path,
+    )
+
+
 def run_council(
     *,
     config: AppConfig,
@@ -68,18 +401,31 @@ def run_council(
     cwd: Path,
     member_model_overrides: dict[str, str] | None = None,
     primary_model_override: str | None = None,
-    with_peer_review: bool = True,
     run_state_token: str | None = None,
+    mode: str = "parallel",
+    sequence: list[str] | None = None,
 ) -> CouncilRunResult:
+    if mode == "chain":
+        # `sequence is None` → caller didn't specify, default to members.
+        # `sequence == []` → caller passed an empty list explicitly; let
+        #   _run_chain's non-empty validation reject it loudly. Collapsing
+        #   `[]` to members hides the caller's bug.
+        effective_sequence = member_providers if sequence is None else sequence
+        return _run_chain(
+            config=config,
+            bundle=bundle,
+            sequence=effective_sequence,
+            primary_provider=primary_provider,
+            cwd=cwd,
+            primary_model_override=primary_model_override,
+            run_state_token=run_state_token,
+        )
     member_model_overrides = member_model_overrides or {}
     member_results: list[CouncilMemberResult] = []
-    peer_reviews: list[CouncilPeerReview] = []
     launches: list[LaunchEvent] = []
 
     failed_members: list[str] = []
-    failed_reviewers: list[str] = []
     member_failures: list[dict[str, object]] = []
-    reviewer_failures: list[dict[str, object]] = []
 
     try:
         os.setpgrp()
@@ -88,7 +434,16 @@ def run_council(
 
     council_id = bundle.bundle_id
     state_token = run_state_token or council_id
+    # Resolve chairman info up front so the live page can render it before
+    # synthesis even starts.
+    chairman_config = config.providers.get(primary_provider)
+    chairman_model = _provider_model(chairman_config, primary_model_override) if chairman_config else None
     if load_council_status(state_token) is None:
+        member_models = {
+            name: _provider_model(config.providers.get(name), None)
+            for name in member_providers
+            if config.providers.get(name) is not None
+        }
         init_council_run_state(
             state_token,
             task_text=bundle.task_text,
@@ -97,7 +452,12 @@ def run_council(
             members=member_providers,
             runner_pid=os.getpid(),
             runner_pgid=os.getpgid(0),
-            metadata={"kind": "council"},
+            member_models=member_models,
+            metadata={
+                "kind": "council",
+                "chairman_provider": primary_provider,
+                "chairman_model": chairman_model,
+            },
         )
     member_prompt = render_member_prompt(bundle)
 
@@ -212,98 +572,13 @@ def run_council(
         f"Response {chr(ord('A') + index)}": member.provider
         for index, member in enumerate(member_results)
     }
-    if with_peer_review and len(member_results) >= 2:
-        anonymized_members = [
-            (f"Response {chr(ord('A') + index)}", member)
-            for index, member in enumerate(member_results)
-        ]
-        for review_index, member in enumerate(member_results):
-            reviewer_label = f"Reviewer {chr(ord('A') + review_index)}"
-            own_label = anonymized_members[review_index][0]
-            review_prompt = render_peer_review_prompt(
-                bundle,
-                reviewer_label=reviewer_label,
-                own_label=own_label,
-                anonymized_members=anonymized_members,
-            )
-            reviewer_provider_name = member.provider
-            reviewer_config = config.providers.get(reviewer_provider_name)
-            if reviewer_config is None or not reviewer_config.enabled:
-                failed_reviewers.append(reviewer_provider_name)
-                reviewer_failures.append(
-                    {
-                        "provider": reviewer_provider_name,
-                        "stage": "peer_review",
-                        "reason": "provider_missing_or_disabled",
-                    }
-                )
-                continue
-            reviewer = make_provider(reviewer_config)
-            try:
-                review_result = reviewer.run(review_prompt, cwd)
-            except Exception as exc:
-                failed_reviewers.append(reviewer_provider_name)
-                reviewer_failures.append(
-                    {
-                        "provider": reviewer_provider_name,
-                        "stage": "peer_review",
-                        "reason": "exception",
-                        "error": str(exc),
-                    }
-                )
-                continue
-            sections = parse_peer_review_sections(review_result.stdout or review_result.stderr)
-            ranked_labels = parse_ranking_labels(sections.get("ranking", ""))
-            review = CouncilPeerReview(
-                reviewer_provider=reviewer_provider_name,
-                reviewer_model=member.model,
-                reviewer_session_id=member.session_id,
-                review_prompt=review_prompt,
-                review_text=review_result.stdout or review_result.stderr,
-                ranked_labels=ranked_labels,
-                agreement=sections.get("agreement"),
-                strengths=parse_bullets(sections.get("strengths", "")),
-                weaknesses=parse_bullets(sections.get("weaknesses", "")),
-                metadata={
-                    "returncode": review_result.returncode,
-                    "stderr": review_result.stderr,
-                    "stdout": review_result.stdout,
-                    "reviewed_labels": [label for label, _ in anonymized_members],
-                    "own_label": own_label,
-                },
-            )
-            peer_reviews.append(review)
-            event = create_launch_event(
-                bundle=bundle,
-                mode="council",
-                source_provider=reviewer_provider_name,
-                target_provider=reviewer_provider_name,
-                target_model=member.model,
-                handoff_reason="council_peer_review",
-                source_session_id=member.session_id,
-                metadata={"bundle_role": "peer_review", "reviewer_label": reviewer_label},
-            )
-            append_launch_event(event)
-            launches.append(event)
-
-    aggregate_ranking = aggregate_peer_rankings(peer_reviews, label_to_provider)
 
     primary_config = config.providers.get(primary_provider)
     if primary_config is None or not primary_config.enabled:
         raise ProviderError(f"Unknown or disabled primary provider: {primary_provider}")
     primary_model = _provider_model(primary_config, primary_model_override)
-    primary_prompt = render_member_prompt(bundle) if not member_results else None
-    outcome = create_council_outcome(
-        bundle=bundle,
-        primary_provider=primary_provider,
-        member_results=member_results,
-        peer_reviews=peer_reviews,
-        aggregate_ranking=aggregate_ranking,
-        primary_model=primary_model,
-        metadata={"cwd": str(cwd)},
-    )
-    # Reuse the generated synthesis prompt so it is tracked in metadata and on disk.
-    primary_prompt = outcome.synthesis_prompt or primary_prompt or ""
+    synthesis_prompt = render_primary_council_prompt(bundle, member_results)
+    primary_prompt = synthesis_prompt or (render_member_prompt(bundle) if not member_results else "")
 
     # --- Primary synthesis with failure handling ---
     update_synthesis_progress(state_token, "running")
@@ -326,7 +601,7 @@ def run_council(
         }
         synthesis_output = ""
     finally:
-        update_synthesis_progress(state_token, "done")
+        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
 
     differences = []
     if "differences" in sections:
@@ -335,13 +610,6 @@ def run_council(
             for line in sections["differences"].splitlines()
             if line.strip()
         ]
-    winner_provider = None
-    if "winner" in sections:
-        winner_lower = sections["winner"].lower()
-        for provider_name in [*member_providers, primary_provider]:
-            if provider_name.lower() in winner_lower:
-                winner_provider = provider_name
-                break
     needs_followup = None
     if "followup" in sections:
         follow = sections["followup"].lower()
@@ -350,13 +618,35 @@ def run_council(
         elif "no" in follow or "false" in follow:
             needs_followup = False
 
+    routing_label, routing_label_error = parse_routing_label(synthesis_output)
+    if routing_label is not None:
+        try:
+            update_synthesis_progress(state_token, "done", output_text=synthesis_output, routing_label=routing_label.to_dict())
+        except Exception:
+            pass
+    _log_routing_label_event(
+        bundle_id=bundle.bundle_id,
+        primary_provider=primary_provider,
+        primary_model=primary_model,
+        success=routing_label is not None,
+        error=routing_label_error,
+        synthesis_error=bool(synthesis_error),
+    )
+
+    # Trust the structured Routing JSON winner FIRST. Text-scanning the
+    # narrative "Winner" section was matching losing providers mentioned in
+    # passing — see _resolve_winner.
+    winner_provider = _resolve_winner(
+        routing_label=routing_label,
+        winner_section=sections.get("winner"),
+        sequence=[*member_providers, primary_provider],
+        label_to_provider=label_to_provider,
+    )
+
     final_metadata: dict = {
         "cwd": str(cwd),
-        "peer_review_count": len(peer_reviews),
         "failed_members": failed_members,
-        "failed_reviewers": failed_reviewers,
         "member_failures": member_failures,
-        "reviewer_failures": reviewer_failures,
     }
     if synthesis_error:
         final_metadata["synthesis_error"] = synthesis_error
@@ -365,13 +655,13 @@ def run_council(
         final_metadata["primary_returncode"] = primary_result.returncode
         final_metadata["primary_stderr"] = primary_result.stderr
         final_metadata["parsed_sections"] = sections
+    if routing_label_error:
+        final_metadata["routing_label_error"] = routing_label_error
 
     final_outcome = create_council_outcome(
         bundle=bundle,
         primary_provider=primary_provider,
         member_results=member_results,
-        peer_reviews=peer_reviews,
-        aggregate_ranking=aggregate_ranking,
         primary_model=primary_model,
         agreement_score=None,
         winner_provider=winner_provider,
@@ -379,6 +669,8 @@ def run_council(
         needs_followup=needs_followup,
         differences=differences,
         synthesis_output=synthesis_output,
+        synthesis_prompt=synthesis_prompt,
+        routing_label=routing_label,
         metadata=final_metadata,
     )
     outcome_path = save_council_outcome(final_outcome)
@@ -420,3 +712,387 @@ def run_council(
         task_path=task_path,
         sync_path=sync_path,
     )
+
+
+# ---------------------------------------------------------------------------
+# Consensus-iteration chain mode (multi-round council)
+# ---------------------------------------------------------------------------
+# Each round = parallel council where every member sees the OTHER members'
+# prior-round outputs as context and refines its answer. Chairman judges per
+# round. Auto-chain stops when chairman_says_converged() OR max_rounds hit.
+#
+# Each round is its own CouncilOutcome with metadata.parent_council_id +
+# round_number + chain_root_id so the chain is a navigable thread of outcomes.
+
+
+def run_consensus_round(
+    *,
+    config: AppConfig,
+    parent_outcome: CouncilOutcome,
+    user_refinement: str | None = None,
+    cwd: Path | None = None,
+    primary_provider_override: str | None = None,
+    primary_model_override: str | None = None,
+    run_state_token: str | None = None,
+) -> CouncilRunResult:
+    """Run one continuation round on top of an existing council outcome.
+
+    Each member sees the OTHER members' prior-round outputs as context and is
+    asked to refine. Optionally `user_refinement` adds a new user directive
+    that overrides the "refine" instruction.
+
+    The returned CouncilOutcome has:
+      - metadata.parent_council_id = parent_outcome.council_run_id
+      - metadata.round_number = (parent.round_number or 1) + 1
+      - metadata.chain_root_id = parent.chain_root_id or parent.council_run_id
+    """
+    parent_bundle = load_prompt_bundle(parent_outcome.bundle_id)
+    cwd = cwd or Path(".").resolve()
+
+    # The new round is its own bundle so each round is independently navigable.
+    # Inherits task + goal from the parent; context_excerpt is replaced with
+    # the prior round's per-provider outputs.
+    round_number = int(parent_outcome.metadata.get("round_number") or 1) + 1
+    chain_root_id = (
+        parent_outcome.metadata.get("chain_root_id")
+        or parent_outcome.council_run_id
+    )
+
+    new_bundle = create_prompt_bundle(
+        task_cluster_id=parent_bundle.task_cluster_id,
+        task_text=parent_bundle.task_text,
+        context_excerpt=parent_bundle.context_excerpt,
+        goal=parent_bundle.goal,
+        comparison_instructions=parent_bundle.comparison_instructions,
+        origin_provider=parent_bundle.origin_provider,
+        origin_session_id=parent_bundle.origin_session_id,
+        metadata={
+            **(parent_bundle.metadata or {}),
+            "parent_council_id": parent_outcome.council_run_id,
+            "chain_root_id": chain_root_id,
+            "round_number": round_number,
+            "user_refinement": user_refinement,
+        },
+    )
+    save_prompt_bundle(new_bundle)
+
+    member_providers = [m.provider for m in parent_outcome.member_results if m.output_text.strip()]
+    if not member_providers:
+        raise ProviderError("Cannot start consensus round: parent has no successful member outputs.")
+    prior_outputs: dict[str, str] = {
+        m.provider: m.output_text for m in parent_outcome.member_results
+    }
+
+    state_token = run_state_token or new_bundle.bundle_id
+    # For chain continuations, the user's live page is polling on `run_state_token`.
+    # Always re-init so the page sees fresh "pending" member rows and the
+    # chairman info gets refreshed to this round's chairman.
+    chairman_for_round = primary_provider_override or parent_outcome.primary_provider
+    chairman_config_for_round = config.providers.get(chairman_for_round)
+    chairman_model_for_round = (
+        _provider_model(chairman_config_for_round, primary_model_override)
+        if chairman_config_for_round
+        else None
+    )
+    member_models_for_round = {
+        name: _provider_model(config.providers.get(name), None)
+        for name in member_providers
+        if config.providers.get(name) is not None
+    }
+    init_council_run_state(
+        state_token,
+        task_text=new_bundle.task_text,
+        bundle_id=new_bundle.bundle_id,
+        council_id=new_bundle.bundle_id,
+        members=member_providers,
+        runner_pid=os.getpid(),
+        runner_pgid=os.getpgid(0),
+        member_models=member_models_for_round,
+        metadata={
+            "kind": "council",
+            "mode": "consensus_round",
+            "round_number": round_number,
+            "parent_council_id": parent_outcome.council_run_id,
+            "chain_root_id": chain_root_id,
+            "user_refinement": user_refinement,
+            "chairman_provider": chairman_for_round,
+            "chairman_model": chairman_model_for_round,
+        },
+    )
+
+    member_results: list[CouncilMemberResult] = []
+    failed_members: list[str] = []
+    member_failures: list[dict[str, object]] = []
+    launches: list[LaunchEvent] = []
+
+    def _run_member(provider_name: str) -> MemberExecutionResult:
+        provider_config = config.providers.get(provider_name)
+        if provider_config is None or not provider_config.enabled:
+            update_member_failure(state_token, provider_name, "Provider missing or disabled.")
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                error_payload={
+                    "provider": provider_name,
+                    "stage": "consensus_round_member",
+                    "reason": "provider_missing_or_disabled",
+                },
+            )
+
+        own_prior = prior_outputs.get(provider_name, "")
+        other_outputs = [
+            (other, prior_outputs[other])
+            for other in member_providers
+            if other != provider_name
+        ]
+        prompt = render_consensus_round_prompt(
+            new_bundle,
+            round_index=round_number - 1,
+            own_provider=provider_name,
+            own_prior_output=own_prior,
+            other_outputs=other_outputs,
+            user_refinement=user_refinement,
+        )
+
+        provider = make_provider(provider_config)
+        try:
+            start_member_progress(state_token, provider_name)
+            result = provider.run(prompt, cwd)
+        except Exception as exc:
+            error_text = str(exc)
+            update_member_failure(state_token, provider_name, error_text)
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                provider_config=provider_config,
+                error_payload={
+                    "provider": provider_name,
+                    "stage": "consensus_round_member",
+                    "reason": "exception",
+                    "error": error_text,
+                },
+            )
+
+        output_text = result.stdout or result.stderr or ""
+        if result.returncode != 0 and not (result.stdout or "").strip():
+            update_member_failure(state_token, provider_name, result.stderr or f"Exited with code {result.returncode}.")
+            return MemberExecutionResult(
+                provider_name=provider_name,
+                provider_config=provider_config,
+                returncode=result.returncode,
+                stderr=result.stderr,
+                stdout=result.stdout,
+                error_payload={
+                    "provider": provider_name,
+                    "stage": "consensus_round_member",
+                    "reason": "nonzero_returncode_without_stdout",
+                    "returncode": result.returncode,
+                    "stderr": result.stderr,
+                },
+            )
+
+        update_member_progress(state_token, provider_name, output_text)
+        return MemberExecutionResult(
+            provider_name=provider_name,
+            provider_config=provider_config,
+            output_text=output_text,
+            returncode=result.returncode,
+            stderr=result.stderr,
+            stdout=result.stdout,
+        )
+
+    executions: dict[str, MemberExecutionResult] = {}
+    with ThreadPoolExecutor(max_workers=max(1, len(member_providers))) as executor:
+        future_map = {
+            executor.submit(_run_member, provider_name): provider_name
+            for provider_name in member_providers
+        }
+        for future in as_completed(future_map):
+            provider_name = future_map[future]
+            executions[provider_name] = future.result()
+
+    for provider_name in member_providers:
+        execution = executions[provider_name]
+        if execution.error_payload is not None:
+            failed_members.append(provider_name)
+            member_failures.append(execution.error_payload)
+            continue
+        assert execution.provider_config is not None
+        member = CouncilMemberResult(
+            provider=provider_name,
+            model=_provider_model(execution.provider_config, None),
+            session_id=None,
+            output_text=execution.output_text,
+            metadata={
+                "returncode": execution.returncode,
+                "stderr": execution.stderr,
+                "round_number": round_number,
+            },
+        )
+        member_results.append(member)
+        event = create_launch_event(
+            bundle=new_bundle,
+            mode="council_consensus",
+            source_provider=parent_outcome.primary_provider,
+            target_provider=provider_name,
+            target_model=member.model,
+            handoff_reason=f"consensus_round_{round_number}",
+            metadata={"round_number": round_number, "parent_council_id": parent_outcome.council_run_id},
+        )
+        append_launch_event(event)
+        launches.append(event)
+
+    if not member_results:
+        raise ProviderError(
+            f"All consensus-round members failed: {failed_members}. "
+            "Cannot proceed."
+        )
+
+    # Chairman: re-pick or inherit from parent. Default: inherit (consistency).
+    primary_provider = primary_provider_override or parent_outcome.primary_provider
+    primary_config = config.providers.get(primary_provider)
+    if primary_config is None or not primary_config.enabled:
+        # Fall back to first surviving member as chairman
+        primary_provider = member_results[0].provider
+        primary_config = config.providers.get(primary_provider)
+        if primary_config is None or not primary_config.enabled:
+            raise ProviderError(f"No enabled chairman provider available.")
+
+    primary_model = _provider_model(primary_config, primary_model_override)
+    synthesis_prompt = render_primary_council_prompt(new_bundle, member_results)
+
+    update_synthesis_progress(state_token, "running")
+    synthesis_output = ""
+    synthesis_error: str | None = None
+    sections: dict[str, str] = {}
+    primary = make_provider(primary_config)
+    try:
+        primary_result = primary.run(synthesis_prompt, cwd)
+        synthesis_output = primary_result.stdout or primary_result.stderr or ""
+        sections = parse_synthesis_sections(synthesis_output)
+    except Exception as exc:
+        synthesis_error = str(exc)
+    finally:
+        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
+
+    differences = []
+    if "differences" in sections:
+        differences = [
+            line.strip("- ").strip()
+            for line in sections["differences"].splitlines()
+            if line.strip()
+        ]
+
+    routing_label, routing_label_error = parse_routing_label(synthesis_output)
+    if routing_label is not None:
+        try:
+            update_synthesis_progress(state_token, "done", output_text=synthesis_output, routing_label=routing_label.to_dict())
+        except Exception:
+            pass
+    _log_routing_label_event(
+        bundle_id=new_bundle.bundle_id,
+        primary_provider=primary_provider,
+        primary_model=primary_model,
+        success=routing_label is not None,
+        error=routing_label_error,
+        synthesis_error=bool(synthesis_error),
+    )
+
+    # Use the canonical _resolve_winner so consensus rounds match normal +
+    # chain paths. Pre-fix this branch scanned prose first and the routing
+    # label only as a fallback — exactly the inverted-priority bug we
+    # already removed elsewhere.
+    winner_provider = _resolve_winner(
+        routing_label=routing_label,
+        sequence=[*member_providers, primary_provider],
+    )
+
+    final_metadata: dict = {
+        "cwd": str(cwd),
+        "mode": "consensus_round",
+        "round_number": round_number,
+        "parent_council_id": parent_outcome.council_run_id,
+        "chain_root_id": chain_root_id,
+        "user_refinement": user_refinement,
+        "failed_members": failed_members,
+        "member_failures": member_failures,
+    }
+    if synthesis_error:
+        final_metadata["synthesis_error"] = synthesis_error
+    if routing_label_error:
+        final_metadata["routing_label_error"] = routing_label_error
+
+    final_outcome = create_council_outcome(
+        bundle=new_bundle,
+        primary_provider=primary_provider,
+        member_results=member_results,
+        primary_model=primary_model,
+        winner_provider=winner_provider,
+        differences=differences,
+        synthesis_output=synthesis_output,
+        synthesis_prompt=synthesis_prompt,
+        routing_label=routing_label,
+        mode="consensus_round",
+        metadata=final_metadata,
+    )
+    outcome_path = save_council_outcome(final_outcome)
+    review_path = write_unified_council_page(new_bundle, final_outcome)
+
+    task = task_from_council(
+        bundle=new_bundle,
+        outcome=final_outcome,
+        review_page_path=str(review_path),
+        launch_ids=[launch.launch_id for launch in launches],
+    )
+    task_path = save_task_record(task)
+    sync_path = save_sync_record(task)
+
+    finalize_council_run_state(
+        state_token,
+        status="completed",
+        council_id=final_outcome.council_run_id,
+        review_path=str(review_path),
+    )
+
+    return CouncilRunResult(
+        outcome=final_outcome,
+        outcome_path=outcome_path,
+        review_path=review_path,
+        launches=launches,
+        task_path=task_path,
+        sync_path=sync_path,
+    )
+
+
+def auto_chain_council(
+    *,
+    config: AppConfig,
+    initial_outcome: CouncilOutcome,
+    max_rounds: int = 3,
+    cwd: Path | None = None,
+    run_state_token: str | None = None,
+) -> list[CouncilRunResult]:
+    """Repeatedly run consensus rounds until chairman declares convergence
+    OR max_rounds is reached. Returns the list of round outcomes (the parent
+    is NOT included; just the new rounds this call produced).
+
+    Stops early if any round's chairman fails to emit a routing label.
+
+    `run_state_token` is threaded through to each round's `run_consensus_round`
+    so the live launchpad page keeps tracking. Without it, every round wrote
+    to a different status file and the launchpad UI broke between rounds.
+    """
+    if max_rounds < 1:
+        return []
+    outcomes: list[CouncilRunResult] = []
+    current = initial_outcome
+    for _ in range(max_rounds):
+        if chairman_says_converged(current.routing_label):
+            break
+        result = run_consensus_round(
+            config=config,
+            parent_outcome=current,
+            cwd=cwd,
+            run_state_token=run_state_token,
+        )
+        outcomes.append(result)
+        current = result.outcome
+    return outcomes

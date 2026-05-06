@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 
-from ..daemon_manager import daemon_install, daemon_start, daemon_status, daemon_stop
 from ..refresh import refresh_launchpad
 from ..telemetry import (
     build_elo_snapshot,
@@ -37,11 +36,18 @@ def register(subparsers):
     endpoint.add_argument("--clear", action="store_true")
     endpoint.set_defaults(handler=handle_telemetry_endpoint)
 
-    ingest_enable = subparsers.add_parser("auto-ingest-enable", help="Enable automatic transcript ingestion")
-    ingest_enable.set_defaults(handler=handle_auto_ingest_enable)
+    auto_chain_enable = subparsers.add_parser(
+        "auto-chain-enable",
+        help="Auto-continue councils into consensus rounds until convergence (max 3 rounds by default)",
+    )
+    auto_chain_enable.add_argument("--max-rounds", type=int, default=3)
+    auto_chain_enable.set_defaults(handler=handle_auto_chain_enable)
 
-    ingest_disable = subparsers.add_parser("auto-ingest-disable", help="Disable automatic transcript ingestion")
-    ingest_disable.set_defaults(handler=handle_auto_ingest_disable)
+    auto_chain_disable = subparsers.add_parser(
+        "auto-chain-disable",
+        help="Disable auto-continuation; first round only unless user clicks Continue",
+    )
+    auto_chain_disable.set_defaults(handler=handle_auto_chain_disable)
 
 
 def handle_telemetry_show(args):
@@ -87,45 +93,21 @@ def handle_telemetry_endpoint(args):
     print(json.dumps({"settings": settings.to_dict(), "path": str(path), "portal_path": str(portal_path)}, indent=2))
 
 
-def handle_auto_ingest_enable(args):
-    settings = load_telemetry_settings()
-    settings.auto_ingest_transcript = True
-    save_telemetry_settings(settings)
-    install_success, install_message = daemon_install()
-    start_success, start_message = (True, "")
-    if install_success:
-        start_success, start_message = daemon_start()
-    status_success, status_message = daemon_status()
-    portal_path = refresh_launchpad()
-    print(
-        json.dumps(
-            {
-                "settings": settings.to_dict(),
-                "portal_path": str(portal_path),
-                "daemon_install": {"success": install_success, "message": install_message},
-                "daemon_start": {"success": start_success, "message": start_message} if start_message else None,
-                "daemon_status": {"success": status_success, "message": status_message},
-            },
-            indent=2,
-        )
-    )
 
 
-def handle_auto_ingest_disable(args):
+def handle_auto_chain_enable(args):
     settings = load_telemetry_settings()
-    settings.auto_ingest_transcript = False
+    settings.auto_chain_enabled = True
+    if getattr(args, "max_rounds", None):
+        settings.max_chain_rounds = int(args.max_rounds)
     save_telemetry_settings(settings)
-    stop_success, stop_message = daemon_stop()
-    status_success, status_message = daemon_status()
     portal_path = refresh_launchpad()
-    print(
-        json.dumps(
-            {
-                "settings": settings.to_dict(),
-                "portal_path": str(portal_path),
-                "daemon_stop": {"success": stop_success, "message": stop_message},
-                "daemon_status": {"success": status_success, "message": status_message},
-            },
-            indent=2,
-        )
-    )
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_auto_chain_disable(args):
+    settings = load_telemetry_settings()
+    settings.auto_chain_enabled = False
+    save_telemetry_settings(settings)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))

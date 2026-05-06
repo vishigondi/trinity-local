@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from ..config import trinity_home
 from ..feature_extractors import extract_session_features
 from ..ingest import (
     iter_claude_code_sessions,
@@ -22,22 +21,15 @@ from ..ingest import (
     parse_cowork_session,
     parse_gemini_cli_session,
 )
-from ..state_paths import research_dir, replay_examples_dir
+from ..state_paths import replay_examples_dir
 from ..task_kinds import guess_task_kind
 from ..training_schema import (
     ModelDescriptor,
     RoutingExample,
     SessionFeatures,
-    TaskLink,
     TranscriptWindow,
 )
 from ..utils import stable_id
-
-
-def examples_dir() -> Path:
-    """Backward-compat wrapper — delegates to state_paths.replay_examples_dir()."""
-    return replay_examples_dir()
-
 
 @dataclass
 class ReplayStats:
@@ -158,7 +150,7 @@ def replay_source(source: str, *, limit: int | None = None) -> ReplayStats:
     ~/.trinity/research/examples/<example_id>.json
     """
     stats = ReplayStats()
-    out_dir = examples_dir()
+    out_dir = replay_examples_dir()
 
     for _, session in _iter_source_sessions(source):
         if limit and stats.examples_generated >= limit:
@@ -203,7 +195,7 @@ def replay_all(*, sources: list[str] | None = None, limit: int | None = None) ->
 def load_examples() -> list[RoutingExample]:
     """Load all generated examples from disk."""
     examples: list[RoutingExample] = []
-    out_dir = examples_dir()
+    out_dir = replay_examples_dir()
     if not out_dir.exists():
         return examples
     for path in sorted(out_dir.glob("*.json")):

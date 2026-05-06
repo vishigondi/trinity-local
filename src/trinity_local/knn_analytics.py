@@ -13,20 +13,14 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .state_paths import analytics_dir
 
 
-def _analytics_dir() -> Path:
-    """Deprecated — use state_paths.analytics_dir() instead."""
-    return analytics_dir()
-
-
 def _advisory_log_path() -> Path:
-    return _analytics_dir() / "knn_advisory.jsonl"
+    return analytics_dir() / "knn_advisory.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +330,6 @@ def generate_report() -> AdvisoryReport:
 
 def save_report(report: AdvisoryReport) -> Path:
     """Save report to disk."""
-    path = _analytics_dir() / "knn_advisory_report.json"
+    path = analytics_dir() / "knn_advisory_report.json"
     path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
     return path

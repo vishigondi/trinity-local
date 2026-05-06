@@ -7,7 +7,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import ProviderConfig
-from .subprocess_utils import run_with_runtime_env
+from .runtime_env import run_with_runtime_env
+
+
+# Defense-in-depth ceiling for any single provider invocation. The real bug
+# we hit was inherited-stdin causing codex to block forever; that's fixed by
+# `input=""` in `_run_command`. This timeout catches anything else that goes
+# wrong (network, model server hang, etc.) without holding up the council.
+# 8 minutes is comfortable headroom for codex on xhigh on a hard prompt; a
+# single member taking longer is almost certainly stuck.
+DEFAULT_PROVIDER_TIMEOUT_SECONDS = 8 * 60
 
 
 @dataclass
@@ -35,16 +44,30 @@ class BaseProvider:
         if shutil.which(binary) is None:
             raise ProviderError(f"Provider binary not found: {binary}")
 
-    def _run_command(self, command: list[str], cwd: Path, *, timeout: float | None = None) -> ProviderResult:
+    def _run_command(
+        self,
+        command: list[str],
+        cwd: Path,
+        *,
+        timeout: float | None = DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+    ) -> ProviderResult:
         self._ensure_binary()
         t0 = time.monotonic()
         try:
+            # Provider CLIs are one-shot non-interactive invocations. Codex on
+            # `xhigh` reasoning blocks for 30+ minutes reading from inherited
+            # stdin (it treats non-TTY stdin as "additional prompt input").
+            # Pass empty stdin so codex sees stdin closed immediately. Claude
+            # and Gemini are unaffected — both ignore stdin in -p mode — but
+            # closing stdin is correct universally for "run this CLI, capture
+            # output" semantics.
             completed = run_with_runtime_env(
                 command,
                 cwd=str(cwd),
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                input="",
             )
         except subprocess.TimeoutExpired as exc:
             elapsed = time.monotonic() - t0
@@ -65,11 +88,26 @@ class BaseProvider:
         )
 
 
+def _effective_model(config: ProviderConfig) -> str | None:
+    """Return the configured model for this provider. Use CLI aliases
+    like Claude's `'opus'` in config.json to track latest."""
+    return config.model
+
+
 class CLIProvider(BaseProvider):
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
         command = [*self.config.command]
-        if self.config.model and "--model" not in self.config.args:
-            command.extend(["--model", self.config.model])
+        # Inject --model BEFORE the prompt-consuming flag (e.g. -p, --prompt).
+        # If the last token of `command` is a flag, --model goes in front of it
+        # so the prompt sits immediately after -p. Putting --model between -p
+        # and the prompt makes Gemini fail with "Not enough arguments following: p".
+        model = _effective_model(self.config)
+        if model and "--model" not in command and "--model" not in self.config.args:
+            if len(command) > 1 and command[-1].startswith("-"):
+                tail = command.pop()
+                command.extend(["--model", model, tail])
+            else:
+                command.extend(["--model", model])
         command.append(prompt)
         command.extend(self.config.args)
         return self._run_command(command, cwd)
@@ -81,8 +119,9 @@ class CodexProvider(BaseProvider):
         args = list(self.config.args)
         if "--skip-git-repo-check" not in args:
             args.append("--skip-git-repo-check")
-        if self.config.model and "--model" not in args:
-            args.extend(["--model", self.config.model])
+        model = _effective_model(self.config)
+        if model and "--model" not in args:
+            args.extend(["--model", model])
         command.extend(args)
         command.append(prompt)
         return self._run_command(command, cwd)

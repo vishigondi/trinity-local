@@ -4,13 +4,12 @@ import hashlib
 import json
 import os
 import secrets
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
 from .council_feedback import latest_feedback_by_council
-from .council_runtime import council_outcomes_dir
-from .state_paths import state_dir, telemetry_settings_dir, analytics_dir
+from .state_paths import analytics_dir, council_outcomes_dir, telemetry_settings_dir
 from .utils import now_iso
 
 
@@ -29,7 +28,11 @@ class TelemetrySettings:
     last_elo_upload_at: str | None = None
     last_elo_hash: str | None = None
     last_upload_status: str | None = None
-    auto_ingest_transcript: bool = False
+    # Consensus-iteration chain mode (multi-round council).
+    # When True, a freshly-launched council automatically continues into
+    # consensus rounds until chairman declares convergence OR max rounds.
+    auto_chain_enabled: bool = False
+    max_chain_rounds: int = 3
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -54,7 +57,8 @@ def load_telemetry_settings() -> TelemetrySettings:
     if not path.exists():
         return TelemetrySettings(endpoint=_default_endpoint())
     raw = json.loads(path.read_text(encoding="utf-8"))
-    settings = TelemetrySettings(**raw)
+    known_fields = {f.name for f in fields(TelemetrySettings)}
+    settings = TelemetrySettings(**{k: v for k, v in raw.items() if k in known_fields})
     if not settings.endpoint:
         settings.endpoint = _default_endpoint()
     return settings

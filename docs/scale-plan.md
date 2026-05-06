@@ -1,5 +1,13 @@
 # Trinity Local: Scale to Every Claude Code User
 
+> **Status (v1 ship):** Items 1–5 of the v1 plan are landed. Phase 8 mechanics
+> in flight — peer review removed; memory index live; Chairman Routing JSON +
+> verifier-shaped `judge` shipping; chain-mode council shipping; canonical 5
+> MCP tools (`route` / `judge` / `run_council` / `record_outcome` /
+> `search_prompts`); `replay-history` writes the personal routing table.
+> See `~/.claude/plans/whimsical-imagining-firefly.md` for the focused v1
+> execution plan; this file is the long-form Phase 0–9 reference.
+
 ---
 
 # Phase 0: Refactor / Stability
@@ -664,3 +672,550 @@ Phase 5c — Leaderboard              ← needs telemetry critical mass + Worker
 - `trinity-local update` upgrades cleanly without losing state
 - `trinity-local council-card` produces a valid 1200×630 PNG via Pillow
 - `infra/leaderboard-worker/` deployed; nightly Action writes `leaderboard.json`
+
+
+---
+
+# Phase 8 — Trinity as Routing Substrate
+
+> **The product boundary:** Trinity is not a workspace. It is the routing substrate beneath every harness. Claude Code, Codex, Gemini Code, Cowork, Cursor — they own the work surface. Trinity owns the question: **"Which intelligence should be used here, and how confident are we?"** The harness asks. Trinity answers, runs councils when needed, records outcomes, and gets smarter for every harness.
+
+**Strategic frame** (Sakana Trinity-aligned): the coordinator stays small because it does not do the task. It selects models and roles; the larger models do the work. The moat compounds because every harness that calls Trinity contributes to one routing graph that no single model provider can see — Claude Code's outcomes train Codex's recommendations, and vice versa.
+
+**Sharpest positioning:** *Trinity is the exchange layer for model intelligence. Harnesses are brokers. Models are liquidity providers. Trinity routes.*
+
+## 8.-1 The TRM north star (why this phase exists)
+
+Four convergent results give Phase 8 its destination:
+
+| Year | Paper | Claim |
+|------|-------|-------|
+| 2018 | Lottery Ticket Hypothesis | Useful computation lives in a sparse subnetwork inside a dense scaffold. |
+| 2024 | HRM (Sapient Intelligence) | A 27M-param two-timescale recurrent net beats frontier LLMs on ARC-AGI / Sudoku-Extreme via latent reasoning. |
+| 2025 | TRM (Samsung SAIL Montréal) | Strip HRM further: 7M params, single network, recursive self-correction. The hierarchy was decorative; the recursion is the active ingredient. |
+| 2026 | TRINITY (this project) | The tiny thing doesn't even need to do the reasoning — it coordinates models that can. Recursion = multi-turn delegation to LLMs. |
+
+All four answer one question: **where does capability actually live?** Convergent answer: not in parameter count, but in the structure of the controller.
+
+For Trinity Local that means:
+
+- **The router IS the product.** Not the Launchpad, not the council UI, not the harness integration. Those are scaffolding for the controller to live and learn inside.
+- **Phase 8 is dataset-construction, not dashboard polish.** Every artifact in this phase — the hierarchical memory index, the Chairman Routing JSON, the cross-user aggregation — exists to feed a future learned routing head. Phase 9 (below) is where that head gets built.
+- **The reference implementation pattern**: a tiny base model (Qwen3-0.6B-class) + a small learned routing head (~10K params) selecting among frontier models. TRM's recursive self-correction, applied at the orchestration layer instead of the latent-reasoning layer.
+- **Compute will keep getting commoditized.** Durable IP migrates to whatever small, learned thing decides how that compute gets organized. Lottery Ticket implied it. HRM/TRM proved it at the architecture layer. Trinity is the proof at the orchestration layer.
+
+**The bar shifts.** A feature is "done" in Phase 8 only if it increases either the *quality* or the *quantity* of supervision signal available to the Phase 9 controller. Anything that asks the user to "use Trinity as a workspace" dilutes that signal and gets pushed down the queue.
+
+## 8.0 Architectural commitments
+
+1. **Invisible-first.** The harness-facing API is the real product. The Launchpad dashboard is secondary — Datadog for model choice, not another IDE.
+2. **Tool-triggered ingestion.** No daemons. When an MCP tool is called or the Launchpad is opened, run an incremental cursor-based ingest. Bounded freshness without background processes.
+3. **Dual dispatch stays.** MCP server (cross-CLI) and macOS Shortcuts (power users) both route through `dispatch_registry.command_for_dispatch`. One source of truth for actions, two acquisition channels.
+4. **Local + global blend.** Personal Elo from this user's outcomes, layered on top of an anonymous global routing prior. Cold-start works on day 1; personalization compounds.
+
+## 8.1 The six MCP tools (the product)
+
+These are the only public surface. Everything else is plumbing.
+
+| Tool | Purpose | When the harness calls it |
+|---|---|---|
+| `route(prompt, context, available_models, budget, latency)` | Returns `{mode: single\|top_2\|council, primary, challenger, confidence, reason, fallback}` | Before the harness picks a model for a turn |
+| `judge(task, responses[])` | Harness already has multiple candidate outputs; returns winner + tradeoffs + routing lesson | Post-hoc selection without re-running |
+| `run_council(task, models, rubric)` | Multi-provider comparison with chairman synthesis; returns winner + stage_winners + recommendation + learning | Harness uncertain or user explicitly asks |
+| `record_outcome(task_id, model_used, mode, user_selected, accepted, edited, tests_passed, cost_usd, latency_sec)` | The most important call — closes the loop. Without it Trinity is a switchboard. With it, Trinity learns. | After the user acts |
+| `search_prompts(query)` | Returns ranked prior hard prompts (autofill from inside the harness) | User starts typing; harness offers replay candidates |
+| `get_persona()` | Returns `~/.trinity/me.md` (composed from taste-terminal's diarized memories). Lets harnesses load /me once at session start so every response is tailored to the user without an MCP round-trip per call. | Once at session start |
+
+These map onto existing internals:
+
+| MCP tool | Backed by |
+|---|---|
+| `route` | `ranker/` (heuristic + k-NN advisor blend) + global prior layer |
+| `judge` | `council_runtime.create_council_outcome` with pre-supplied responses (no provider calls) |
+| `run_council` | `council_runner.run_council` |
+| `record_outcome` | `council_feedback.record_user_verdict` + new `outcome_recorder` |
+| `search_prompts` | New hierarchical memory index (8.4) |
+| `get_persona` | `me_builder.load_me()` reading `~/.trinity/me.md` (refreshed via `trinity-local me-build`) |
+
+The current MCP server already exposes `route`, `judge`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`. The four legacy tools (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) have been dropped from the public surface — they're dashboard reads, not routing primitives.
+
+## 8.2 Tool-triggered ingestion (replaces daemon)
+
+**Rule:** ingestion runs *because* of tool use, not on a schedule.
+
+| Trigger | What happens |
+|---|---|
+| `route()` / `search_prompts()` MCP call | Cursor-based incremental ingest of new transcript lines since last cursor; embed any new user prompts; update memory index. Bounded by tool-call rate. |
+| `record_outcome()` MCP call | Update `PromptNode` and `CouncilOutcome` records inline. |
+| Launchpad page render | Same incremental ingest; refresh autofill suggestions. |
+| `Stop` hook (Claude Code only) | Optional. Calls `watch_once` after every turn. Off by default; enable explicitly via `trinity-local install-hooks`. |
+
+**Cut entirely:** `daemon_manager.py`, `commands/daemon.py`, the auto-ingest LaunchAgent plist, all `auto-ingest-enable` / `auto-ingest-disable` commands. An MCP install must not write to `~/Library/LaunchAgents/`. That's the wrong primitive.
+
+**Why this works:** the median user calls `route` or types into the Launchpad multiple times per session. Cursor ingest of a single new transcript file is sub-second. Staleness is naturally capped by user activity.
+
+## 8.3 Transcript parsing — fix before indexing
+
+Verified against real `~/.claude/projects/<dir>/<session>.jsonl`. Three real bugs in `ingest.parse_claude_code_session`:
+
+1. **`isSidechain: true` turns are subagent calls**, not user prompts. Currently counted toward user-turn extraction. Skip them when building `PromptNode`s. Keep them in raw session for completeness.
+2. **`type:assistant` with `model:"<synthetic>"` and `isApiErrorMessage:true`** are API errors stuffed back into the transcript. Skip for outcome counting and embedding.
+3. **`message.content` polymorphism.** Sometimes a string, sometimes a list of `{type:"text"|"tool_use"|"tool_result", ...}` blocks. The user-facing prompt is the concatenation of `text` blocks only. Tool calls/results are separate signal (track them as tool features, not prompt text).
+
+Apply the same audit to `parse_codex_session`, `parse_gemini_cli_session`, `parse_cowork_session`. Each needs a "user-facing prompt extraction" function distinct from raw turn enumeration.
+
+**File:** `src/trinity_local/ingest.py` — refactor each parser to expose two outputs: `SessionRecord` (existing) and `PromptTurn[]` (new — clean user-facing turns only, ready for embedding).
+
+## 8.4 Hierarchical memory index
+
+Replace single-prompt k-NN with four object types. **Do not embed full transcripts.**
+
+| Object | Embedding text | Prefix | Purpose |
+|---|---|---|---|
+| `PromptNode` | the user's message text only | `search_document:` | The atomic retrieval unit |
+| `TurnWindow` | prev/curr/next turn, ~800–2,000 tokens | `search_document:` | Local context when a prompt depends on framing |
+| `TranscriptNode` | mean of constituent `PromptNode` embeddings (no LLM call) | — | Routes a query to the right neighborhood, not the answer |
+| `CouncilOutcome` | not embedded | — | The label. Routing learns from this, not from embeddings. |
+
+**Embedding model:** `nomic-embed-text-v1.5` at 768d (native), normalized vectors. Use Nomic task prefixes deliberately: `search_document:` when storing, `search_query:` at retrieval, `clustering:` only for cluster centroids if/when added later. Resolve the `[mlx]` extra naming — rename to `[embeddings]` over a deprecation window.
+
+**Schemas:**
+
+```python
+@dataclass
+class PromptNode:
+    id: str
+    transcript_id: str
+    turn_index: int
+    text: str
+    embedding: list[float]
+    created_at: str
+    preceding_context_ids: list[str]
+    following_context_ids: list[str]
+    cluster_id: str | None = None
+    themes: list[str] = field(default_factory=list)
+    council_runs: list[str] = field(default_factory=list)  # CouncilOutcome ids
+    user_winner: str | None = None
+    chairman_winner: str | None = None
+    uncertainty: float | None = None
+    importance: float | None = None
+    last_replayed_at: str | None = None
+
+@dataclass
+class TurnWindow:
+    id: str
+    transcript_id: str
+    center_prompt_id: str
+    text: str
+    embedding: list[float]
+    turn_start: int
+    turn_end: int
+
+@dataclass
+class TranscriptNode:
+    id: str
+    title: str | None
+    prompt_ids: list[str]
+    centroid_embedding: list[float]
+    themes: list[str] = field(default_factory=list)
+    density: float | None = None
+
+@dataclass
+class CouncilRun:  # mirror of CouncilOutcome, attached to PromptNode
+    id: str
+    prompt_id: str
+    models_run: list[str]
+    chairman_winner: str | None
+    user_winner: str | None
+    accepted: bool | None
+    edited: bool | None
+    provider_scores: dict[str, dict[str, float]]
+    cost_by_provider: dict[str, float]
+    latency_by_provider: dict[str, float]
+    created_at: str
+```
+
+**Files to add:**
+- `src/trinity_local/memory/prompt_node.py`
+- `src/trinity_local/memory/turn_window.py`
+- `src/trinity_local/memory/transcript_node.py`
+- `src/trinity_local/memory/index.py` — unified vector search over the three tiers
+- `src/trinity_local/memory/replay_value.py` — score + MMR diversification
+
+**State paths** (add to `state_paths.py`):
+```
+~/.trinity/memory/prompt_nodes/<transcript_id>.jsonl
+~/.trinity/memory/turn_windows/<transcript_id>.jsonl
+~/.trinity/memory/transcript_nodes.jsonl
+~/.trinity/memory/embeddings.bin     # one mmap-able vector blob
+~/.trinity/memory/cursors.json       # per-source ingest cursors
+```
+
+## 8.5 Replay-value score (search ranking)
+
+Pure cosine similarity is wrong for autofill. Rank by *replay value* — prompts worth re-running:
+
+```python
+def replay_value_score(*,
+    prompt_similarity: float,
+    window_similarity: float,
+    transcript_similarity: float,
+    cluster_density: float,
+    known_theme: float,
+    uncertainty: float,
+    importance: float,
+    staleness: float,
+    recently_run: float,
+) -> float:
+    return (
+        0.30 * prompt_similarity
+      + 0.14 * window_similarity
+      + 0.06 * transcript_similarity
+      + 0.14 * cluster_density
+      + 0.14 * known_theme
+      + 0.16 * uncertainty
+      + 0.10 * importance
+      + 0.06 * staleness
+      - 0.16 * recently_run
+    )
+```
+
+**Hardness inference (no LLM calls):**
+
+```python
+def infer_hardness(p: PromptNode) -> float:
+    score = 0.0
+    if not p.user_winner: score += 0.25
+    if p.chairman_winner and p.user_winner and p.chairman_winner != p.user_winner: score += 0.30
+    if not p.council_runs: score += 0.15
+    if len(p.council_runs) > 1: score += 0.10
+    if p.themes and any(t in HIGH_VALUE_THEMES for t in p.themes): score += 0.20
+    if (p.importance or 0) > 0.7: score += 0.15
+    return min(score, 1.0)
+```
+
+Apply MMR diversification on the final result list so the autofill UI doesn't show ten near-duplicates.
+
+## 8.6 Autofill loop on existing transcripts
+
+The user has months of `~/.claude/`, `~/.gemini/`, `~/.codex/` data. Index it on first run. After cleanup + parsing fix:
+
+```
+existing transcripts
+    → ingest.parse_*_session (now emits PromptTurn[])
+    → embeddings.embed("search_document: <prompt>")
+    → PromptNode written to disk
+    → TurnWindow written for each PromptNode
+    → TranscriptNode = mean(PromptNode.embedding for prompts in transcript)
+```
+
+**Search box behavior:**
+
+- **Empty/focused box** → show watcher recos as defaults: "you ran X yesterday — run a council on it." This is the new home for `_build_recommendation` output. Drops the separate notifications surface.
+- **User typing** → embed query as `search_query:`, retrieve top 50 per tier, merge by `prompt_id`, rank by `replay_value_score`, MMR to top 8, render as cards with reason chips: `Similar · Repeated · Uncertain · High value · User override`.
+
+**Card UI (per result):**
+```
+<center prompt text, ≤120 chars>
+<reason chips>  Winner: <provider> (last time)
+[Run Council]  [Edit]
+```
+
+**Hidden context trick:** when the user clicks a prompt, autofill the original text into the box. But pass the surrounding `TurnWindow` as **hidden context** to the council so it remembers prior framing without cluttering the UI.
+
+## 8.7 Chairman Routing JSON (label producer)
+
+Every council emits, alongside the visible Memo, a fenced `Routing JSON` block. Without this, no aggregation is possible — the moat doesn't compound.
+
+```
+{
+  "winner": "<provider>",
+  "runner_up": "<provider|null>",
+  "confidence": "high|medium|low",
+  "task_type": "<short_snake_case>",
+  "task_domain": "<short_snake_case>",
+  "user_likely_values": ["..."],
+  "provider_scores": {
+    "<provider>": {
+      "overall": 0..10, "planning": 0..10, "execution": 0..10,
+      "evaluation": 0..10, "specificity": 0..10, "user_fit": 0..10,
+      "risk": 0..10, "conciseness": 0..10
+    }
+  },
+  "best_stage_models": {"plan": "...", "execute": "...", "evaluate": "..."},
+  "routing_lesson": "For <task_type>, prefer <provider> because <observed reason>.",
+  "eval_seed": "A future answer should pass: <check>",
+  "should_be_hard_case": true|false,
+  "hard_case_reason": "near_new_prompt|dense_cluster|known_theme|uncertain_outcome|high_value_cluster|none"
+}
+```
+
+**Persistence:** add `routing_label: CouncilRoutingLabel | None` to `CouncilOutcome`. Parse in `council_runtime.parse_synthesis_sections`. On parse failure, store `routing_label_error` in metadata (do not crash). Track parse-success rate; if <85%, route the JSON extraction through a smaller dedicated LLM call.
+
+## 8.8 Local + global routing graph
+
+Keep `global_benchmarks.py` — it's the cold-start prior. Compose two layers:
+
+```
+local_score = local_provider_elo(task_type, user_history)
+global_score = global_provider_score(task_type)  # anonymous aggregate
+blended = alpha * local_score + (1 - alpha) * global_score
+alpha = sigmoid(local_council_count / 10)  # fast ramp toward local once enough data
+```
+
+**Personal vs global UI** (Launchpad section):
+```
+Your local preference:
+GPT wins strategy prompts 68% of the time.
+
+Global prior:
+Claude wins similar writing tasks 61% of the time.
+
+Trinity recommendation:
+Use GPT first, Claude as challenger.
+```
+
+## 8.9 Aggregation endpoint = cold-start prior + calibration audit
+
+> **Reframed May 2026.** Earlier text called this "the training set for Phase 9." That's no longer true: chairman synthesis is now `/me`-conditioned (§8.4 + `me_builder`), so per-user `winner` and `provider_scores` labels are not apples-to-apples across users. Aggregating them produces a noisy mean, not a clean training signal. The endpoint stays load-bearing for two narrower jobs.
+
+**Job 1 — Cold-start prior.** A new user with empty `personal_routing_table.json` and a thin `/me` would otherwise waste their first 10–20 councils rediscovering "codex+gpt-5.5 wins coding." Aggregated `(task_type, task_domain) → default_provider` priors short-circuit that. The chairman + `personal_routing_table` then take over as a user accumulates their own data. (This is what §8.8 Local + global blend serves — fade from priors to personal as council count grows.)
+
+**Job 2 — Calibration audit.** Periodically compare anonymized aggregate winners to what an individual `/me`-conditioned chairman picks for the same `(task_type, task_domain)`. Large deltas mean either: (a) Trinity's chairman picker has rubber-stamped a single provider too aggressively, or (b) a model silently got worse. Both are actionable; the audit catches them.
+
+**What's no longer claimed:**
+
+- ~~"This bucket is the supervision signal Phase 9 trains on."~~ Phase 9's training data shape is now `(task_text, /me_embedding, available_models, …) → routing_decision`. Without `/me` as an input feature, generic labels collapse the user diversity Phase 9 needs to learn from. The training pipeline should pull from per-user `~/.trinity/council_outcomes/*.json` *with `/me` snapshot attached*, not from cross-user aggregate. See §9.
+
+**Payload (unchanged):** Anonymous opt-in upload of the Chairman `routing_label` JSON only — never prompt text, never harness identifiers. Each upload is `(task_type, task_domain, available_models, winner, runner_up, provider_scores, mode)`. No `/me`-derived fields are uploaded.
+
+**Implementation:** One Cloudflare Worker, R2 storage, GitHub Action for nightly aggregation. ~100 lines. Public read endpoint integrated into `trinity-local update` to refresh local priors weekly.
+
+**Ship discipline (unchanged):**
+- Don't open the upload endpoint until Chairman JSON parse-success rate ≥85% (§8.7). Garbage labels poison the prior.
+- Don't ship the public leaderboard view until at least dozens of opt-ins are on board — empty board damages social proof.
+- Read access stays free for everyone; uploading is opt-in only.
+
+## 8.10 Cleanup + cuts (must precede 8.4–8.9)
+
+| Cut / Action | File(s) | Why |
+|---|---|---|
+| Delete | `daemon_manager.py`, `commands/daemon.py`, auto-ingest launchctl plist | Tool-triggered ingestion replaces daemon |
+| Delete | `task_linking.py`, `commands/ingest.py`'s `build_task_links` call | Embedding-based linking via `PromptNode` k-NN subsumes string-similarity linking |
+| Delete | `digest.py`, `commands/digest.py` | Weekly digest is off the routing loop |
+| Delete | `workflow_runtime.py`, `commands/workflow.py`, `workflow_create` dispatch action | Watcher side-quest, not on the routing path |
+| Move | research handlers (`replay`, `embed`, `rank`, `hardeval`, `analytics`) out of `commands/research.py` | Research-only; doesn't belong in the product CLI. Keep `hard` (produces corpus the advisor reads). |
+| Move | `feature_extractors.py`, `example_builder.py`, `training_schema.py` into `research/` | They're not on the live routing path |
+| Merge | `knn_advisor.py` into `ranker/knn_ranker.py` | Two adjacent surfaces; unify under one advisor |
+| Merge | `embeddings/cache.py` (global dict) + `research/embeddings.py` (disk cache) → `embeddings/store.py` | Single thread-safe, disk-backed embedding store |
+| Merge | `review.py` (post-hoc review) → `council_runtime.py` | It's a degenerate council with one member |
+| Split | `portal_template.py` (1,277L) → `portal_layout.py` + `portal_cards.py` + `portal_search.py` | The new autofill UI gets its own module |
+| Split | `council_review.py` (715L) → `council_review_page.py` + `live_review.py` | Separate page rendering from polling |
+| Split | `watch_runtime.py` (595L) → `transcript_indexer.py` + `routing_advisor.py` + `outcome_recorder.py` | Three separable concerns; one feeds the new index |
+| Cut | `council_progress.py` shim | Update imports to `council_status.py` directly |
+| Cut | `cost_tracker.py` standalone JSONL | Cost lives inside `CouncilOutcome.routing_label.cost_by_provider` |
+| Cut | `drift.py` | Wired but no destination for alerts |
+| Keep | `global_benchmarks.py`, `scoreboard.py`, `telemetry.py` | Bootstrap prior + Elo computation; user wants these |
+| Keep | `knn_analytics.py` | It's the advisory→outcome signal log — feeds the routing graph |
+
+**Estimated reduction:** ~2,500 lines, ~10 files removed, no spine functionality lost.
+
+## 8.11 What stays as the spine
+
+```
+ingest (parsers, fixed)
+    ↓
+memory/ (PromptNode, TurnWindow, TranscriptNode, index, replay_value)
+    ↓
+ranker/ (heuristic + k-NN advisor + global prior blend)
+    ↓
+council_runner / council_runtime / council_status (with Routing JSON)
+    ↓
+council_feedback (user verdict capture)
+    ↓
+knn_analytics (advisory→outcome signal log)
+    ↓
+mcp_server (6 tools: route, judge, run_council, record_outcome, search_prompts, get_persona)
+    ↓
+dispatch_registry (one source of truth) → {MCP, Shortcuts}
+    ↓
+portal_data / portal_template (Launchpad, autofill UI, dashboard)
+```
+
+## 8.12 Build sequence
+
+1. **Cleanup pass** (1–2 days, no new features): apply the 8.10 cuts, run tests.
+2. **Parsing fix** (8.3): refactor `ingest.py` parsers; emit `PromptTurn[]`.
+3. **Embedding store** (consolidate `embeddings/cache.py` + `research/embeddings.py`): thread-safe, disk-backed, mmap-friendly.
+4. **PromptNode index** (8.4): write the four schemas + `memory/index.py` + state paths. Backfill from existing transcripts (cursor-based, resumable).
+5. **Chairman Routing JSON** (8.7): every new council emits a parseable label. Add `routing_label` to `CouncilOutcome`.
+6. **Tool-triggered ingest** (8.2): cursor-based incremental ingest fires from MCP tool calls + Launchpad render.
+7. **Five MCP tools** (8.1): rename + add `judge`, `record_outcome`, `search_prompts`.
+8. **Autofill UI** (8.6): launchpad search box wired to memory index. Watcher recos render in empty-state.
+9. **Local + global blend** (8.8): scoreboard view shows personal vs global vs Trinity recommendation.
+10. **Aggregation endpoint** (8.9): Cloudflare Worker + opt-in upload of `routing_label` only. **Ship last** — needs critical mass.
+
+## 8.13 Phase 8 exit criteria
+
+- The six MCP tools (`route`, `judge`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`) respond correctly via stdio
+- No daemon process is created by `install-mcp`
+- `~/Library/LaunchAgents/` is untouched after install
+- `ingest.parse_claude_code_session` correctly excludes sidechain turns and synthetic-error assistant messages
+- `ingest` emits `PromptTurn[]` distinct from raw `SessionRecord`
+- `~/.trinity/memory/prompt_nodes/` is populated from existing transcripts
+- Launchpad search box returns ranked replay candidates with reason chips
+- Empty-state autofill shows watcher recos
+- Every new `CouncilOutcome` has a `routing_label` field populated; parse-success ≥85%
+- `ranker.advise()` returns concrete neighbor-derived reasons, not raw similarity scores
+- Personal vs global vs Trinity-blended view renders on Launchpad
+- `task_linking.py`, `daemon_manager.py`, `digest.py`, `workflow_runtime.py` are deleted
+- `pytest -q` still green (target: ~150 tests after dead-code removal)
+
+## 8.14 Open questions
+
+- **Backfill cost.** Embedding 59k sessions × N user turns through `nomic-embed-text-v1.5` on-device. Time-box to 2 hours on M-series; if longer, sample down to recent 30 days first and stream the rest in background.
+- **Schema drift.** Old `CouncilOutcome` records lack `routing_label`. Deserialize with explicit `None` default; do not migrate.
+- **Chairman compliance.** Models will sometimes emit invalid JSON. If parse-success <85% in real runs, switch to a small dedicated extraction LLM call after synthesis.
+- **Stop-hook safety.** Phase 4's `Stop` hook still uses `2>/dev/null`. Route hook errors to `~/.trinity/analytics/hook_errors.jsonl` so silent failures are recoverable.
+
+## 8.14a Operational notes from running Trinity MCP (May 2026)
+
+These came up while *using* Trinity to review Trinity. Worth preserving so future agents don't re-discover the same friction.
+
+**The meta-loop works (proof point, May 5 2026).** Trinity used itself to decide one of its own design questions: "should /me come BEFORE or AFTER member outputs in the chairman prompt?" Members disagreed, chairman synthesised, verdict was unanimous on BEFORE with the routing lesson: *"Persona should function as the evaluation rubric, not a post-hoc adjustment. AFTER ordering causes the chairman to anchor on a generic 'best answer' first. Once anchored, persona becomes weak post-hoc reweighting rather than a verdict-flipping signal."* Locked in by `tests/test_council_runtime.py::TestChairmanPromptOrdering`. The system was hard enough to argue with itself meaningfully and converge — that's the bar.
+
+
+- **Codex-on-xhigh hang — ROOT CAUSE: inherited stdin (FIXED 2026-05-04).** Codex CLI in non-interactive mode reads any non-TTY stdin and appends it to the prompt before responding. `subprocess.run(...)` defaults to inheriting the parent's stdin, so codex blocked reading from the council launcher's pipe until something killed it (30+ min observed). Symptoms: 0-byte stdout, member status "running" forever, claude+gemini already done. Fix: `providers.py:_run_command` now passes `input=""` so codex sees stdin closed immediately. Empirically: same prompt completes in ~8s with `input=""`, hangs >90s without. Also added `DEFAULT_PROVIDER_TIMEOUT_SECONDS = 480` as defense-in-depth for future hangs.
+- **Stale MCP server.** The `trinity-local --mcp` server caches imports at process boot. After in-session edits to `mcp_server.py` or anything it imports (e.g. `global_benchmarks`), the running server returns 500 errors with stale code. Either auto-restart the server when files under `src/trinity_local/` change, or document that MCP tool failures during dev mean "restart the MCP server."
+- **Codex via CLI is subscription-only.** `codex exec --model gpt-5-5` returns *"not supported when using Codex with a ChatGPT account"* — the CLI requires the `gpt-5.5` slug *with the dot* and reasoning level via `-c model_reasoning_effort="xhigh"`, not the AA-format slug. Slug mapping between AA's data and CLI accepted forms is a per-vendor mess; `tools/sync_reference_evals.py` is the correct place to maintain the translation.
+- **Chain mode is underused.** It exists (`run_council(mode="chain", sequence=[...])`) but I haven't fired one yet in normal use. Either wire `route()` to recommend it for specific task types (long-form writing, multi-step refactors) or consider whether chain mode is over-built relative to demand.
+- **`record_outcome` capture is the missing UX multiplier.** Every council I've run today produced rich Routing JSON and *zero* user verdicts because the launchpad doesn't surface a "✓ this is what I'd pick" button on member cards. Without that one-click, the personal routing table never populates. This is the single highest-leverage Phase 8 UX gap.
+- **`get_persona` deserves promotion in the docs.** The /me + chairman pattern is the strongest piece of new IP today, but the spec mentions `get_persona` only as an MCP tool, not as a *standalone primitive worth pulling at session start by every harness*. Worth a paragraph in §8.0 or a new §8.6a.
+
+## 8.15 The commandment
+
+> **Trinity should only appear when model choice itself is the problem.**
+> Everywhere else, it is a quiet function call.
+
+---
+
+# Phase 9 — Tiny Coordinator (the learned router)
+
+> **Where Phase 8 ends, Phase 9 begins.** Phase 8 builds the dataset and supervision signal. Phase 9 trains the small learned thing that consumes them. This is the destination implied by Lottery Ticket → HRM → TRM → TRINITY: as compute commoditizes, durable IP migrates to whatever small, learned controller decides how that compute gets organized.
+
+**Phase 9 is not on the critical path for v1 ship.** Phase 8's heuristic + k-NN router (`ranker/`) is enough to ship the skill, accumulate councils, and grow the dataset. Phase 9 only becomes possible once you have ~5–10k labeled councils across enough users to train on. The point of writing it now is to make sure every Phase 8 decision is defensible against this destination.
+
+## 9.1 The model shape
+
+A two-piece controller, mirroring TRM's "tiny network + recursive refinement":
+
+| Component | Role | Size | Substrate |
+|---|---|---|---|
+| **Encoder** | Map `(task_text, harness, available_models, budget, latency)` → fixed-dim feature vector | ~600M params (Qwen3-0.6B-class) or smaller, on-device | Local model, frozen after initial fine-tune |
+| **Routing head** | Map encoder output → `(mode, primary, challenger, confidence, expected_provider_scores)` | ~10K params (small MLP or shallow attention block) | Trained on Trinity outcomes |
+
+Inference is one encoder pass + one head pass. The head is the learned thing; the encoder is the embedding substrate. Same intuition as TRM's tiny core, applied at the orchestration layer instead of the latent-reasoning layer.
+
+**"Recursion" in this setting** = multi-turn delegation. The head can choose `mode=council` and re-invoke its own decision over the council's responses (an in-loop `judge`). That's the closest analog to TRM's iterative self-correction, just with model calls as the substrate rather than hidden-state updates.
+
+## 9.2 Training data shape
+
+> **Reframed May 2026.** Chairman synthesis is `/me`-conditioned today, so labels are *per-user-per-/me*, not generic. Training data must include a `user_persona_embedding` as input or the head learns the average user's preferences (i.e. "always pick the AA top model"). Source the rows from per-user `~/.trinity/council_outcomes/*.json` with the user's `/me` snapshot attached at training time — **not** from §8.9's anonymized aggregate.
+
+```python
+@dataclass
+class RouterExample:
+    # Inputs
+    task_text_embedding: list[float]    # 768d Nomic
+    user_persona_embedding: list[float] # 768d Nomic of the user's /me at council time
+    harness: str                         # "claude_code" | "codex" | "gemini" | "cowork"
+    available_models: list[str]
+    budget: str                          # "low" | "normal" | "high"
+    latency: str                         # "fast" | "normal" | "patient"
+    task_type: str
+    task_domain: str
+
+    # Targets (from Chairman Routing JSON + user verdict)
+    actual_mode: str                     # what the user actually used
+    actual_primary: str
+    actual_challenger: str | None
+    user_winner: str                     # what the user ultimately picked (gold target)
+    chairman_winner: str                 # what /me-conditioned chairman picked (proxy target)
+    accepted: bool
+    edited: bool
+
+    # Auxiliary supervision (richer signal)
+    provider_scores: dict[str, dict[str, float]]
+    cost_by_provider: dict[str, float]
+    latency_by_provider: dict[str, float]
+```
+
+The Chairman Routing JSON (§8.7) is the *single most important* artifact in the codebase by this measure: its parse-success rate × council volume = the size of the training set.
+
+## 9.3 Training objective
+
+Three losses, summed with hand-tuned weights:
+
+1. **Mode classification** (cross-entropy): did the controller pick `single` / `top_2` / `council` correctly given what the user ultimately needed?
+2. **Provider ranking** (margin-based): did the predicted ranking of providers match the user's actual selection?
+3. **Confidence calibration** (Brier score): does predicted confidence match observed accuracy?
+
+The encoder stays frozen for early iterations. Only the head trains. This is fine — TRM's whole thesis is that the small recursive piece is doing the work, not the encoder.
+
+**Online learning later.** Once the head is stable, add a slow online update: every N user verdicts, do one gradient step on the head. The router gets smarter for that user without re-deploying. This is the personalization layer.
+
+## 9.4 Eval harness
+
+Borrow from current `hardeval` but reframe targets:
+
+| Metric | Definition | Today's baseline (heuristic + k-NN) | Target after Phase 9 |
+|---|---|---|---|
+| Mode accuracy | % of cases where predicted mode matches retrospective right call | n/a (heuristic always picks `single` unless thresholded) | ≥75% |
+| Top-1 provider accuracy | % of cases where predicted primary == user winner | ~50% (current k-NN) | ≥70% |
+| Top-2 provider accuracy | % where user winner ∈ {primary, challenger} | 99.5% (current k-NN) | maintain |
+| Council triggering | F1 on "should this have been a council?" | 98% precision/recall | maintain |
+| Calibration | Brier score on confidence | n/a | ≤0.15 |
+
+Hold out 10% of councils as eval. Re-run after every controller release.
+
+## 9.5 Deployment
+
+> **Reordered May 2026.** Earlier text shipped the shared head first and per-user adapter second. With chairman now `/me`-conditioned, the shared head trained on cross-user data learns "always pick AA's top model" — useless personalization. Flip the order: ship the per-user head first, fall back to a small shared cold-start prior for users with too few labeled councils.
+
+1. **Per-user head with `/me` conditioning.** Each user keeps a small head on top of a shared frozen encoder. The encoder's input is `concat(task_text_embedding, user_persona_embedding)` so the same architecture personalizes via input features rather than weights. Trained from that user's own verdicts (council outcomes + `record_outcome` calls). ~10KB on disk. v1 of the learned router. Privacy-clean — training data + weights stay local.
+
+2. **Shared cold-start prior, distributed in the package.** A small head trained on §8.9's anonymized aggregate, used only when a user has fewer than ~20 labeled councils. As soon as the per-user head has enough signal to beat it on hold-out, swap. Update via `trinity-local update`. v2 — ships once we have enough per-user councils to validate that the per-user head is actually better than the prior.
+
+A hosted controller is explicitly out of scope. Trinity's whole positioning depends on the routing layer running locally.
+
+## 9.6 Build sequence
+
+1. Phase 8 ships and accumulates councils for ~3 months.
+2. Pull from §8.9 private R2 bucket: aim for ≥5,000 councils with valid Chairman JSON across ≥50 users.
+3. Build encoder + head training pipeline (offline, in `research/controller/`). Frozen encoder, head-only training. ~one weekend of work given the data exists.
+4. Eval against the harness above. If lift over heuristic+k-NN is <10% on top-1, iterate on features (add task fingerprint, harness embedding, available-model encoding) before iterating on architecture.
+5. Ship v1 weights with `trinity-local update`. Wire `ranker/learned_head.py` to load them. Old `ranker/knn_ranker.py` becomes the fallback when the head is absent.
+6. Re-baseline after one month of live deployment. If the metrics didn't move on real traffic, the training set is still too small or too narrow — go back to step 1, accumulate more.
+
+## 9.7 Phase 9 exit criteria
+
+- ≥10K labeled councils in the private R2 bucket
+- Encoder + head training pipeline runs reproducibly from a single command
+- v1 head ships with `trinity-local update`; package size grows by <50MB
+- `ranker/learned_head.py` integrates cleanly with existing `ranker/` ecosystem; falls back to k-NN when weights missing
+- On hold-out eval, top-1 provider accuracy ≥70% (vs ~50% current k-NN)
+- One blog-post-grade write-up of the architecture + ablations exists
+
+## 9.8 What this implies for Phase 8 (decision-making heuristic)
+
+For every choice in Phase 8, ask:
+
+> **Does this increase either the quality or the quantity of the supervision signal that Phase 9 will train on?**
+
+- Chairman Routing JSON parse-success rate? **Quality.** Push hard on it.
+- Filtering agent-injected user prompts from the index? **Quality.** Cut them aggressively.
+- Backfilling old transcripts? **Quantity.** Useful but lower-leverage than fixing parse-success.
+- Polishing the Launchpad UI? **Neither.** Push down the queue.
+- Adding a new dispatch action? **Probably neither.** Skip unless it directly helps users run more councils.
+
+This is the discipline that keeps Phase 8 from drifting into "build a pretty workspace" and instead aimed at "build the dataset that lets us train the small thing."

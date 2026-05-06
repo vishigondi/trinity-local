@@ -50,7 +50,30 @@ def _cleanup_legacy_launchpad_links(destination_dir: Path) -> None:
 
 def _launchpad_applescript(launchpad_path: Path) -> str:
     launchpad = str(launchpad_path.expanduser().resolve())
-    return f'do shell script "open \\"file://{launchpad}\\""\n'
+    # Plain `do shell script` to launch the launchpad. The AppleScriptObjC
+    # bridge (NSWorkspace) was throwing -1700 on Apple Silicon Sequoia; the
+    # shell-script TCC prompt only appears once and is then granted forever.
+    return (
+        'on run argv\n'
+        '  try\n'
+        '    if (count of argv) >= 1 then\n'
+        '      set firstArg to item 1 of argv\n'
+        '      if firstArg is "notify" then\n'
+        '        set notifTitle to ""\n'
+        '        set notifBody to ""\n'
+        '        if (count of argv) >= 2 then set notifTitle to item 2 of argv\n'
+        '        if (count of argv) >= 3 then set notifBody to item 3 of argv\n'
+        '        display notification notifBody with title notifTitle\n'
+        '        return\n'
+        '      end if\n'
+        '    end if\n'
+        '  on error\n'
+        '    -- fall through to launchpad open\n'
+        '  end try\n'
+        f'  do shell script "/usr/bin/open " & quoted form of "file://{launchpad}"\n'
+        '  return\n'
+        'end run\n'
+    )
 
 
 def _compile_launchpad_app(target: Path, script: str) -> None:
@@ -65,6 +88,44 @@ def _compile_launchpad_app(target: Path, script: str) -> None:
             capture_output=True,
             text=True,
         )
+    _normalize_applet_plist(target)
+
+
+def _normalize_applet_plist(app_path: Path) -> None:
+    """osacompile bakes a legacy Info.plist with LSRequiresCarbon=true and a
+    bundle identifier collision with other applets. On Apple Silicon Sequoia,
+    LaunchServices can refuse to launch such bundles and fall back to Script
+    Editor when the user double-clicks. Strip the legacy keys and stamp a
+    stable Trinity-specific bundle identifier."""
+    plist_path = app_path / "Contents" / "Info.plist"
+    if not plist_path.exists():
+        return
+    plutil = shutil.which("plutil")
+    if plutil is None:
+        return
+    subprocess.run(
+        [plutil, "-remove", "LSRequiresCarbon", str(plist_path)],
+        capture_output=True,
+        check=False,
+    )
+    subprocess.run(
+        [plutil, "-remove", "LSMinimumSystemVersionByArchitecture", str(plist_path)],
+        capture_output=True,
+        check=False,
+    )
+    # Insert (or replace) a stable bundle id so notifications/click-targets
+    # are owned by Trinity rather than colliding with the generic AppleScript
+    # applet identifier.
+    subprocess.run(
+        [plutil, "-replace", "CFBundleIdentifier", "-string", "com.trinity-local.launchpad", str(plist_path)],
+        capture_output=True,
+        check=False,
+    )
+    subprocess.run(
+        [plutil, "-replace", "LSMinimumSystemVersion", "-string", "10.15", str(plist_path)],
+        capture_output=True,
+        check=False,
+    )
 
 
 def _find_launchpad_icon_source() -> Path | None:
@@ -154,8 +215,8 @@ def install_launchpad_shortcuts(
     destinations: list[Path] | None = None,
 ) -> list[Path]:
     if launchpad_path is None:
-        from .portal_page import write_portal_html
-        launchpad_path = write_portal_html()
+        from .refresh import refresh_launchpad
+        launchpad_path = refresh_launchpad()
     destinations = destinations or _default_launchpad_link_dirs()
     written: list[Path] = []
     for destination in destinations:

@@ -44,7 +44,10 @@ def get_backend() -> str:
     return _backend_name
 
 
-def embed(text: str, *, dim: int = 512) -> list[float]:
+DEFAULT_DIM = 768
+
+
+def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
     """Embed text into a dense vector.
 
     Uses MLX (nomic-embed-text-v1.5) if available, TF-IDF stub otherwise.
@@ -52,6 +55,10 @@ def embed(text: str, *, dim: int = 512) -> list[float]:
 
     MLX may fail at runtime (network issues, model not cached, permission errors).
     Any failure falls back gracefully to TF-IDF, ensuring offline availability.
+
+    If the caller pre-prepended a Nomic task prefix (search_query:, search_document:,
+    clustering:, classification:), it is preserved. Otherwise the MLX backend
+    auto-prepends search_document: for backwards compatibility.
     """
     cached = get_cached(text, dim=dim)
     if cached is not None:
@@ -74,7 +81,40 @@ def embed(text: str, *, dim: int = 512) -> list[float]:
     return vector
 
 
-def similarity(text_a: str, text_b: str, *, dim: int = 512) -> float:
+def embed_batch(texts: list[str], *, dim: int = DEFAULT_DIM, batch_size: int = 64) -> list[list[float]]:
+    """Batch-embed multiple texts. 10-50× faster than serial embed() on MLX.
+
+    Cache-aware: returns cached vectors for known texts, only sends unknown
+    texts through the model. Falls back to per-text tfidf if MLX unavailable.
+    """
+    if not texts:
+        return []
+
+    # Cache lookup pass
+    cached_results: list[list[float] | None] = [get_cached(t, dim=dim) for t in texts]
+    uncached_indices = [i for i, v in enumerate(cached_results) if v is None]
+    if not uncached_indices:
+        return [v for v in cached_results if v is not None]
+
+    uncached_texts = [texts[i] for i in uncached_indices]
+    new_vectors: list[list[float]] | None = None
+    if _mlx_backend is not None:
+        try:
+            new_vectors = _mlx_backend.embed_batch(uncached_texts, dim=dim, batch_size=batch_size)
+        except Exception:
+            new_vectors = None
+
+    if new_vectors is None:
+        new_vectors = [embed_tfidf(t, dim=dim) for t in uncached_texts]
+
+    # Stitch results back in order + write to cache
+    for idx, vec in zip(uncached_indices, new_vectors):
+        cached_results[idx] = vec
+        put_cached(texts[idx], vec, dim=dim)
+    return [v for v in cached_results if v is not None]
+
+
+def similarity(text_a: str, text_b: str, *, dim: int = DEFAULT_DIM) -> float:
     """Cosine similarity between two texts. Cached per-text."""
     vec_a = embed(text_a, dim=dim)
     vec_b = embed(text_b, dim=dim)

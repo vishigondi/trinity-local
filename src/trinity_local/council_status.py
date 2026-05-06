@@ -1,14 +1,61 @@
 from __future__ import annotations
 
 import json
+import os
 from threading import Lock
 from typing import Any
 
-from .state_paths import council_status_dir, council_status_js_path, council_status_json_path
+from .markdown_utils import render_markdown
+from .state_paths import council_status_js_path, council_status_json_path
 from .utils import now_iso
 
 
 _STATUS_LOCK = Lock()
+
+
+def _runner_is_alive(payload: dict[str, Any]) -> bool:
+    pgid = payload.get("runner_pgid")
+    pid = payload.get("runner_pid")
+    try:
+        if isinstance(pgid, int) and pgid > 0:
+            os.killpg(pgid, 0)
+            return True
+    except OSError:
+        pass
+    try:
+        if isinstance(pid, int) and pid > 0:
+            os.kill(pid, 0)
+            return True
+    except OSError:
+        pass
+    return False
+
+
+def _coerce_stale_running_status(status_token: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("status") != "running":
+        return payload
+    if _runner_is_alive(payload):
+        return payload
+
+    members = dict(payload.get("members") or {})
+    for provider, member_state in list(members.items()):
+        if (member_state or {}).get("status") == "running":
+            members[provider] = {
+                **member_state,
+                "status": "failed",
+                "completed_at": now_iso(),
+                "reasoning_summary": "Council runner exited before completion.",
+            }
+    payload = {
+        **payload,
+        "status": "failed",
+        "members": members,
+        "active_provider": None,
+        "active_providers": [],
+        "error": payload.get("error") or "Council runner exited before completion.",
+        "completed_at": now_iso(),
+    }
+    return _write_status(status_token, payload)
 
 
 def _extract_reasoning_summary(text: str, max_length: int = 120) -> str:
@@ -29,9 +76,10 @@ def load_council_status(status_token: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
+    return _coerce_stale_running_status(status_token, payload)
 
 
 def _write_status(status_token: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -104,14 +152,19 @@ def init_council_run_state(
     council_id: str | None = None,
     runner_pid: int | None = None,
     runner_pgid: int | None = None,
+    member_models: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    member_models = member_models or {}
     payload = {
         "status": "running",
         "task_text": task_text,
         "bundle_id": bundle_id,
         "council_id": council_id or bundle_id,
         "started_at": now_iso(),
-        "members": {provider: {"status": "pending"} for provider in members},
+        "members": {
+            provider: {"status": "pending", "model": member_models.get(provider)}
+            for provider in members
+        },
         "active_provider": None,
         "active_providers": [],
         "synthesis": {"status": "pending"},
@@ -125,7 +178,15 @@ def init_council_run_state(
         return _write_status(status_token, payload)
 
 
-def start_member_progress(status_token: str, provider: str) -> None:
+def _existing_member_model(payload: dict[str, Any], provider: str) -> str | None:
+    members = payload.get("members") or {}
+    existing = members.get(provider) if isinstance(members, dict) else None
+    if isinstance(existing, dict):
+        return existing.get("model")
+    return None
+
+
+def start_member_progress(status_token: str, provider: str, *, model: str | None = None) -> None:
     with _STATUS_LOCK:
         payload = load_council_status(status_token)
         if not payload:
@@ -137,6 +198,7 @@ def start_member_progress(status_token: str, provider: str) -> None:
         members[provider] = {
             "status": "running",
             "started_at": now_iso(),
+            "model": model or _existing_member_model(payload, provider),
         }
         payload["members"] = members
         payload["active_provider"] = provider
@@ -144,7 +206,9 @@ def start_member_progress(status_token: str, provider: str) -> None:
         _write_status(status_token, payload)
 
 
-def update_member_progress(status_token: str, provider: str, response_text: str) -> None:
+def update_member_progress(
+    status_token: str, provider: str, response_text: str, *, model: str | None = None,
+) -> None:
     with _STATUS_LOCK:
         payload = load_council_status(status_token)
         if not payload:
@@ -153,7 +217,10 @@ def update_member_progress(status_token: str, provider: str, response_text: str)
         members[provider] = {
             "status": "done",
             "completed_at": now_iso(),
+            "model": model or _existing_member_model(payload, provider),
             "reasoning_summary": _extract_reasoning_summary(response_text),
+            "response_text": response_text,
+            "response_html": render_markdown(response_text),
         }
         active = [item for item in (payload.get("active_providers") or []) if item != provider]
         payload["members"] = members
@@ -162,7 +229,9 @@ def update_member_progress(status_token: str, provider: str, response_text: str)
         _write_status(status_token, payload)
 
 
-def update_member_failure(status_token: str, provider: str, error_text: str) -> None:
+def update_member_failure(
+    status_token: str, provider: str, error_text: str, *, model: str | None = None,
+) -> None:
     with _STATUS_LOCK:
         payload = load_council_status(status_token)
         if not payload:
@@ -171,6 +240,7 @@ def update_member_failure(status_token: str, provider: str, error_text: str) -> 
         members[provider] = {
             "status": "failed",
             "completed_at": now_iso(),
+            "model": model or _existing_member_model(payload, provider),
             "reasoning_summary": _extract_reasoning_summary(error_text),
         }
         active = [item for item in (payload.get("active_providers") or []) if item != provider]
@@ -180,19 +250,45 @@ def update_member_failure(status_token: str, provider: str, error_text: str) -> 
         _write_status(status_token, payload)
 
 
-def update_synthesis_progress(status_token: str, status: str) -> None:
+def update_synthesis_progress(
+    status_token: str,
+    status: str,
+    *,
+    output_text: str | None = None,
+    routing_label: dict[str, Any] | None = None,
+) -> None:
     with _STATUS_LOCK:
         payload = load_council_status(status_token)
         if not payload:
             return
-        payload["synthesis"] = {
+        synthesis: dict[str, Any] = {
             "status": status,
             "updated_at": now_iso(),
         }
+        if output_text:
+            cleaned = _strip_routing_fence(output_text)
+            synthesis["response_text"] = cleaned
+            synthesis["response_html"] = render_markdown(cleaned)
+        if routing_label is not None:
+            synthesis["routing_label"] = routing_label
+        payload["synthesis"] = synthesis
         if status == "running":
             payload["active_provider"] = None
             payload["active_providers"] = []
         _write_status(status_token, payload)
+
+
+def _strip_routing_fence(text: str) -> str:
+    """Hide the trailing ```routing-json fenced block from the rendered
+    chairman response — it's structured data displayed elsewhere."""
+    import re
+
+    return re.sub(
+        r"```routing-json\s*\n.*?\n```\s*$",
+        "",
+        text,
+        flags=re.DOTALL,
+    ).rstrip()
 
 
 def finalize_council_run_state(
@@ -221,4 +317,3 @@ def finalize_council_run_state(
             existing.update(metadata)
             payload["metadata"] = existing
         return _write_status(status_token, payload)
-

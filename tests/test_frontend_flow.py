@@ -6,13 +6,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from trinity_local.adapters import AdapterStatus
-from trinity_local.commands.council import handle_council_launch
-from trinity_local.commands.telemetry import handle_auto_ingest_disable, handle_auto_ingest_enable
+from trinity_local.commands.council import handle_council_launch, handle_council_start
 from trinity_local.commands.watch import handle_watch_once
 from trinity_local.config import AppConfig, ProviderConfig
 from trinity_local.council_feedback import append_council_feedback
 from trinity_local.council_runner import run_council
 from trinity_local.council_runtime import create_prompt_bundle, save_prompt_bundle
+from trinity_local.council_status import load_council_status, write_council_status
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
 from trinity_local.portal_page import install_launchpad_shortcuts, write_portal_html
 from trinity_local.providers import ProviderError, ProviderResult
@@ -62,7 +62,6 @@ def _write_council_fixture(home: Path) -> tuple[str, str]:
                 "output_text": "Launch copy focused on technical builders.",
             },
         ],
-        "peer_reviews": [],
     }
     path = home / "council_outcomes" / f"{council_id}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -101,12 +100,11 @@ class TestLaunchpadFlow:
         assert "Matching previous council queries" in html
         assert "Open previous council reviews" in html
         assert "telemetry-enable" in html
-        assert "auto-ingest-enable" in html
         assert "Ingest transcripts once now" in html
         assert "Reference evals" in html
         assert "liveReviewUrl" in html
-        assert "View live review" in html
         assert "Stop council" in html
+        assert "Open council page" in html
         assert "Codex CLI" in html
         assert "npm install -g @openai/codex && codex --login" in html
         assert "councilSuggestions" in html
@@ -114,16 +112,26 @@ class TestLaunchpadFlow:
         assert "Quick start examples" not in html
         assert "examplePrompts" not in html
         assert "ACTIVE_OPERATION_KEY" not in html
+        assert "trinity:pending-operation" not in html
+        assert "defaultIngestSources" not in html
+        assert '"recentCouncils"' not in html
+        assert '"launchpadUrl"' not in html
         assert "progressScriptBaseUrl" not in html
         assert "loadProgressScript" not in html
         assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
         assert "{{ operation.label }}" in html
         assert "councilLoadingMessages" in html
+        assert "window.addEventListener('pageshow'" in html
+        assert "back_forward" in html
         assert "Reticulating splines..." in html
+        assert "formatProviderLabel" in html
+        assert "label: 'Analysis'" in html
         assert "Queued" in html
         assert "Running" in html
-        assert "@click=\"showReferenceRatings = false\"" in html
-        assert "@click=\"showReferenceRatings = true\"" in html
+        assert "base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`" in html
+        # Combined ratings card: local Elo + reference evals charts side-by-side.
+        assert "provider-elo-chart" in html
+        assert "reference-evals-chart" in html
         assert "@{ example }" not in html
         assert "signal_page" not in html
         assert "Open review and choose winner" not in html
@@ -163,6 +171,41 @@ class TestLaunchpadFlow:
         assert app_path.is_dir()
         assert desktop_path.exists()
         assert desktop_path.is_dir()
+
+    def test_dead_runner_running_status_is_coerced_to_failed(self, patch_trinity_home: Path, monkeypatch):
+        write_council_status(
+            "launch_stale_123",
+            status="running",
+            task_text="Stale council",
+            bundle_id="bundle_stale",
+            council_id="bundle_stale",
+            members={
+                "claude": {"status": "done", "reasoning_summary": "Done."},
+                "gemini": {"status": "running", "started_at": "2026-04-30T12:00:00+00:00"},
+            },
+            active_provider="gemini",
+            active_providers=["gemini"],
+            metadata={"kind": "council"},
+        )
+
+        status_path = patch_trinity_home / "portal_pages" / "status" / "council_status_launch_stale_123.json"
+        raw = json.loads(status_path.read_text(encoding="utf-8"))
+        raw["runner_pid"] = 424242
+        status_path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+        def fake_kill(pid, sig):
+            raise OSError("No such process")
+
+        monkeypatch.setattr("trinity_local.council_status.os.kill", fake_kill)
+        monkeypatch.setattr("trinity_local.council_status.os.killpg", fake_kill)
+
+        updated = load_council_status("launch_stale_123")
+
+        assert updated is not None
+        assert updated["status"] == "failed"
+        assert updated["error"] == "Council runner exited before completion."
+        assert updated["active_provider"] is None
+        assert updated["members"]["gemini"]["status"] == "failed"
 
 
 class TestTelemetryFlow:
@@ -262,7 +305,6 @@ class TestCouncilLaunchCommand:
             captured["cwd"] = args.cwd
             captured["notify"] = args.notify
             captured["open_browser"] = args.open_browser
-            captured["without_peer_review"] = args.without_peer_review
 
         monkeypatch.setattr("trinity_local.commands.council.handle_council_start", fake_start)
 
@@ -277,7 +319,6 @@ class TestCouncilLaunchCommand:
             cwd=".",
             open_browser=True,
             notify=True,
-            without_peer_review=False,
             config=None,
             status_token="launch_token_123",
         )
@@ -300,6 +341,89 @@ class TestCouncilLaunchCommand:
         assert captured["notify"] is True
         assert captured["open_browser"] is True
         assert (patch_trinity_home / "review_pages" / "live_council.html").exists()
+
+    def test_handle_council_start_initializes_runner_state_and_refreshes_launchpad(
+        self,
+        patch_trinity_home: Path,
+        monkeypatch,
+    ):
+        bundle = create_prompt_bundle(
+            task_cluster_id="cluster_live_status",
+            task_text="Explain the difference between a list and a tuple in Python.",
+            goal="Find the strongest answer.",
+            comparison_instructions="Prefer the clearest answer.",
+        )
+        save_prompt_bundle(bundle)
+
+        refresh_calls: list[str] = []
+        captured_status: dict[str, object] = {}
+
+        monkeypatch.setattr("trinity_local.commands.council.load_config", lambda config: SimpleNamespace())
+        monkeypatch.setattr("trinity_local.commands.council.notify", lambda *args, **kwargs: None)
+        monkeypatch.setattr(
+            "trinity_local.commands.council.ensure_task_record",
+            lambda **kwargs: SimpleNamespace(task_id="task_live", title="Live council", status="running"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.council.save_task_record",
+            lambda task: patch_trinity_home / "tasks" / "task_live.json",
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.council.save_sync_record",
+            lambda task: patch_trinity_home / "sync" / "task_live.json",
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.council.refresh_launchpad",
+            lambda: (refresh_calls.append("refresh") or patch_trinity_home / "portal_pages" / "launchpad.html"),
+        )
+
+        def fake_run_council(**kwargs):
+            status = load_council_status("launch_token_live")
+            captured_status["status"] = status
+            return SimpleNamespace(
+                task_path=patch_trinity_home / "tasks" / "task_live.json",
+                sync_path=patch_trinity_home / "sync" / "task_live.json",
+                review_path=patch_trinity_home / "review_pages" / "council_live.html",
+                launches=[],
+                outcome=SimpleNamespace(council_run_id="council_live"),
+            )
+
+        monkeypatch.setattr("trinity_local.commands.council.run_council", fake_run_council)
+        monkeypatch.setattr(
+            "trinity_local.commands.council.load_task_record",
+            lambda path: SimpleNamespace(task_id="task_live", title="Live council", status="running"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.council.create_review_ready_action",
+            lambda **kwargs: SimpleNamespace(action_id="action_live"),
+        )
+        monkeypatch.setattr(
+            "trinity_local.commands.council.save_action",
+            lambda action: patch_trinity_home / "actions" / "action_live.json",
+        )
+        monkeypatch.setattr("trinity_local.commands.council.open_path", lambda path: False)
+
+        args = SimpleNamespace(
+            config=None,
+            bundle=bundle.bundle_id,
+            members=["claude", "gemini", "codex"],
+            primary_provider="claude",
+            cwd=".",
+            status_token="launch_token_live",
+            open_browser=False,
+            notify=False,
+        )
+
+        handle_council_start(args)
+
+        assert refresh_calls
+        assert len(refresh_calls) >= 2
+        status = captured_status["status"]
+        assert status is not None
+        assert status["status"] == "running"
+        assert status["runner_pid"] is not None
+        assert status["runner_pgid"] is not None
+        assert status["metadata"]["members"] == ["claude", "gemini", "codex"]
 
 
 class TestWatchStatusFlow:
@@ -333,41 +457,6 @@ class TestWatchStatusFlow:
         assert captured[-1]["status"] == "completed"
         assert captured[-1]["review_path"] == "/tmp/launchpad.html"
         assert captured[-1]["metadata"]["actions_written"] == 2
-
-
-class TestAutoIngestSettings:
-    def test_auto_ingest_enable_disable_controls_daemon(self, patch_trinity_home: Path, monkeypatch):
-        calls: list[str] = []
-
-        monkeypatch.setattr(
-            "trinity_local.commands.telemetry.daemon_install",
-            lambda: (calls.append("install") or True, "installed"),
-        )
-        monkeypatch.setattr(
-            "trinity_local.commands.telemetry.daemon_start",
-            lambda: (calls.append("start") or True, "started"),
-        )
-        monkeypatch.setattr(
-            "trinity_local.commands.telemetry.daemon_stop",
-            lambda: (calls.append("stop") or True, "stopped"),
-        )
-        monkeypatch.setattr(
-            "trinity_local.commands.telemetry.daemon_status",
-            lambda: (True, "running"),
-        )
-        monkeypatch.setattr(
-            "trinity_local.commands.telemetry.refresh_launchpad",
-            lambda: Path("/tmp/launchpad.html"),
-        )
-
-        handle_auto_ingest_enable(SimpleNamespace())
-        assert load_telemetry_settings().auto_ingest_transcript is True
-        assert "install" in calls
-        assert "start" in calls
-
-        handle_auto_ingest_disable(SimpleNamespace())
-        assert load_telemetry_settings().auto_ingest_transcript is False
-        assert "stop" in calls
 
 
 class TestDispatchWrapper:
@@ -461,12 +550,10 @@ class TestCouncilFailureMetadata:
             member_providers=["claude", "gemini", "codex"],
             primary_provider="claude",
             cwd=patch_trinity_home,
-            with_peer_review=False,
         )
 
         metadata = result.outcome.metadata
         assert metadata["failed_members"] == ["claude", "codex"]
-        assert metadata["failed_reviewers"] == []
         assert metadata["synthesis_error"] == "Provider binary not found: claude"
         assert metadata["member_failures"] == [
             {
@@ -482,7 +569,6 @@ class TestCouncilFailureMetadata:
                 "error": "Provider binary not found: codex",
             },
         ]
-        assert metadata["reviewer_failures"] == []
         assert metadata["synthesis_failure"] == {
             "provider": "claude",
             "stage": "primary_synthesis",

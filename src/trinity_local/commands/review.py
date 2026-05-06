@@ -2,13 +2,29 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 
 from ..config import load_config
-from ..notifications import notify
+from ..notifications import notify, open_path
 from ..review import render_review_html, run_review, save_review
 from ..task_runtime import load_task_record
+
+
+DEFAULT_REVIEWER_COMMANDS = {
+    "claude": ["claude", "-p"],
+    "gemini": ["gemini"],
+    "codex": ["codex", "--quiet"],
+}
+
+
+def _reviewer_command_for(*, reviewer: str, config_path: str | None) -> list[str]:
+    try:
+        config = load_config(config_path)
+    except FileNotFoundError:
+        return DEFAULT_REVIEWER_COMMANDS.get(reviewer, [reviewer])
+    provider_config = config.providers.get(reviewer)
+    if provider_config:
+        return list(provider_config.command)
+    return DEFAULT_REVIEWER_COMMANDS.get(reviewer, [reviewer])
 
 
 def register(subparsers):
@@ -22,46 +38,18 @@ def register(subparsers):
 
 
 def handle_review(args):
-    # Load the task to get the output
-    from ..task_runtime import tasks_dir
-    task_path = tasks_dir() / f"{args.task}.json"
-    if not task_path.exists():
-        # Try loading directly
-        task = load_task_record(args.task)
-    else:
-        task = load_task_record(str(task_path))
+    task = load_task_record(args.task)
 
     task_text = task.task_text or task.title or ""
-    # Get the final output from metadata or task text
     output_text = task.metadata.get("final_text", "") if task.metadata else ""
     if not output_text:
-        output_text = task_text  # Fallback — review the task description itself
+        output_text = task_text
 
     if not task_text:
         print(json.dumps({"error": "Task has no text to review"}))
-        sys.exit(1)
+        raise SystemExit(1)
 
-    # Load config to get the reviewer command
-    try:
-        config = load_config(args.config if hasattr(args, "config") else None)
-        provider_config = config.providers.get(args.reviewer)
-        if provider_config:
-            reviewer_command = list(provider_config.command)
-        else:
-            # Default CLI commands
-            defaults = {
-                "claude": ["claude", "-p"],
-                "gemini": ["gemini"],
-                "codex": ["codex", "--quiet"],
-            }
-            reviewer_command = defaults.get(args.reviewer, [args.reviewer])
-    except FileNotFoundError:
-        defaults = {
-            "claude": ["claude", "-p"],
-            "gemini": ["gemini"],
-            "codex": ["codex", "--quiet"],
-        }
-        reviewer_command = defaults.get(args.reviewer, [args.reviewer])
+    reviewer_command = _reviewer_command_for(reviewer=args.reviewer, config_path=args.config)
 
     print(f"Running post-hoc review with {args.reviewer}...")
     result = run_review(
@@ -97,4 +85,4 @@ def handle_review(args):
         notify(title="Trinity Post-Hoc Review", message=summary)
 
     if args.open_browser:
-        subprocess.run(["open", str(html_path)], check=False)
+        open_path(html_path)

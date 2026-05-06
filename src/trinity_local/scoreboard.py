@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
-from .config import trinity_home
-from .state_paths import state_dir  # canonical source; re-exported for backward compat
+from .state_paths import state_dir
 
 
 def scoreboard_path() -> Path:

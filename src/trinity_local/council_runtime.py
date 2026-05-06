@@ -5,10 +5,10 @@ from pathlib import Path
 import re
 
 from .council_schema import (
-    CouncilAggregateRanking,
+    CouncilChainStep,
     CouncilMemberResult,
     CouncilOutcome,
-    CouncilPeerReview,
+    CouncilRoutingLabel,
     LaunchEvent,
     PromptBundle,
 )
@@ -19,10 +19,6 @@ from .state_paths import (
     prompt_bundles_dir,
 )
 from .utils import now_iso, stable_id
-
-# Aliases for backward compatibility within this module
-_now_iso = now_iso
-_stable_id = stable_id
 
 
 def create_prompt_bundle(
@@ -36,7 +32,7 @@ def create_prompt_bundle(
     origin_provider: str | None = None,
     metadata: dict | None = None,
 ) -> PromptBundle:
-    bundle_id = _stable_id(
+    bundle_id = stable_id(
         "bundle",
         task_cluster_id,
         task_text[:400],
@@ -52,7 +48,7 @@ def create_prompt_bundle(
         context_excerpt=context_excerpt.strip(),
         goal=goal.strip(),
         comparison_instructions=comparison_instructions.strip(),
-        created_at=_now_iso(),
+        created_at=now_iso(),
         metadata=metadata or {},
     )
 
@@ -83,14 +79,14 @@ def create_launch_event(
     target_session_id: str | None = None,
     metadata: dict | None = None,
 ) -> LaunchEvent:
-    launch_id = _stable_id(
+    launch_id = stable_id(
         "launch",
         bundle.bundle_id,
         mode,
         source_provider or "",
         target_provider or "",
         target_model or "",
-        _now_iso(),
+        now_iso(),
     )
     return LaunchEvent(
         launch_id=launch_id,
@@ -100,7 +96,7 @@ def create_launch_event(
         source_provider=source_provider,
         target_provider=target_provider,
         target_model=target_model,
-        launched_at=_now_iso(),
+        launched_at=now_iso(),
         handoff_reason=handoff_reason,
         source_session_id=source_session_id,
         target_session_id=target_session_id,
@@ -130,10 +126,139 @@ def render_member_prompt(bundle: PromptBundle) -> str:
     return "\n\n".join(sections)
 
 
+def chairman_says_converged(routing_label: CouncilRoutingLabel | None) -> bool:
+    """Convergence rule (consensus-iteration chain mode).
+
+    The chairman has effectively said "the models agree" when:
+      - confidence is "high"  (chairman is sure)
+      - AND there are no disagreed_claims (or only trivial ones)
+      - AND there is at least one agreed_claim (otherwise it's a vacuous agreement)
+
+    This drives auto-chain stop. Tunable; if the loop runs too long in practice,
+    relax to confidence != "low" + disagreed_claims <= 1.
+    """
+    if routing_label is None:
+        return False
+    if (routing_label.confidence or "").lower() != "high":
+        return False
+    if routing_label.disagreed_claims:
+        return False
+    if not routing_label.agreed_claims:
+        return False
+    return True
+
+
+def render_consensus_round_prompt(
+    bundle: PromptBundle,
+    *,
+    round_index: int,
+    own_provider: str,
+    own_prior_output: str,
+    other_outputs: list[tuple[str, str]],  # list[(provider, output)]
+    user_refinement: str | None = None,
+) -> str:
+    """Render the prompt for one member in a consensus-iteration round.
+
+    Round 1 is the normal member prompt. Round 2+ each member sees its OWN
+    prior answer + the OTHER members' prior answers, and is asked to refine.
+    Optionally, the user can inject a `user_refinement` prompt that overrides
+    the "refine" instruction with a new directive.
+    """
+    sections: list[str] = []
+    sections.append(
+        f"You are {own_provider} in a multi-model council, round {round_index + 1}. "
+        "Earlier rounds produced these outputs. Your job: read the other models' "
+        "answers, keep what's right, fix what's wrong, and produce a stronger "
+        "answer than yours from the prior round. Do NOT just summarize what "
+        "others said — commit to a concrete answer."
+    )
+    sections.append(f"Original task:\n{bundle.task_text}")
+    if bundle.goal:
+        sections.append(f"Goal:\n{bundle.goal}")
+    if bundle.context_excerpt:
+        sections.append(f"Context:\n{bundle.context_excerpt}")
+    sections.append(f"Your prior-round answer:\n{own_prior_output.strip() or '(no prior answer)'}")
+    if other_outputs:
+        other_blocks = []
+        for provider, output in other_outputs:
+            body = output.strip() or "(no output)"
+            other_blocks.append(f"[{provider}] said:\n{body}")
+        sections.append("Other models' prior-round answers:\n\n" + "\n\n".join(other_blocks))
+    if user_refinement:
+        sections.append(
+            "ADDITIONAL USER DIRECTIVE for this round (treat as the most important "
+            f"signal — override your prior answer if it conflicts):\n{user_refinement}"
+        )
+    sections.append(
+        "Produce your refined answer below. Be concrete and decisive. "
+        "Do not mention the council. Do not summarize the other models. "
+        "Just give your strongest current answer."
+    )
+    return "\n\n".join(sections)
+
+
+def render_chain_step_prompt(
+    bundle: PromptBundle,
+    *,
+    step_index: int,
+    prior_steps: list,  # list[CouncilChainStep]
+    is_final: bool = False,
+) -> str:
+    """Render the prompt for one step of a chain-mode council.
+
+    The first step sees only the user task. Each subsequent step sees the
+    original task plus all prior steps' outputs, and is asked to refine.
+    """
+    sections: list[str] = []
+    if step_index == 0:
+        sections.append(
+            "You are the first model in a chain of refinement. "
+            "Other models will see your output and improve on it."
+        )
+        sections.append(f"Task:\n{bundle.task_text}")
+        if bundle.goal:
+            sections.append(f"Goal:\n{bundle.goal}")
+        if bundle.context_excerpt:
+            sections.append(f"Context:\n{bundle.context_excerpt}")
+        sections.append(
+            "Give your best concrete answer. Be specific. The next model "
+            "will critique and improve, so don't hedge — commit to an answer."
+        )
+        return "\n\n".join(sections)
+
+    sections.append(
+        f"You are step {step_index + 1} of a chain of refinement. "
+        "Earlier models have answered the same task. Read their outputs, "
+        "keep what's right, fix what's wrong, and produce a stronger answer."
+    )
+    sections.append(f"Original task:\n{bundle.task_text}")
+    if bundle.goal:
+        sections.append(f"Goal:\n{bundle.goal}")
+    if bundle.context_excerpt:
+        sections.append(f"Context:\n{bundle.context_excerpt}")
+    prior_blocks: list[str] = []
+    for step in prior_steps:
+        provider = getattr(step, "model_provider", "unknown")
+        text = getattr(step, "output_text", "").strip() or "(no output)"
+        prior_blocks.append(f"[Step {step.step_index + 1}] from {provider}:\n{text}")
+    sections.append("Prior chain outputs:\n" + "\n\n".join(prior_blocks))
+    if is_final:
+        sections.append(
+            "You are the FINAL step. Produce the converged answer. Do NOT "
+            "summarize or critique the prior steps — produce the cleanest "
+            "best answer that incorporates what they got right."
+        )
+    else:
+        sections.append(
+            "Produce the next refinement. Be concrete and decisive. "
+            "Subsequent models may iterate further."
+        )
+    return "\n\n".join(sections)
+
+
 def render_primary_council_prompt(
     bundle: PromptBundle,
     members: list[CouncilMemberResult],
-    peer_reviews: list[CouncilPeerReview] | None = None,
 ) -> str:
     member_sections = []
     for index, member in enumerate(members, start=1):
@@ -145,20 +270,26 @@ def render_primary_council_prompt(
                 ]
             )
         )
-    review_sections = []
-    for review in peer_reviews or []:
-        review_sections.append(
-            "\n".join(
-                [
-                    f"[Peer Review] reviewer={review.reviewer_provider} model={review.reviewer_model or 'unknown'}",
-                    review.review_text.strip() or "(no review output)",
-                ]
-            )
-        )
     sections = [
-        "You are the primary council synthesizer.",
-        f"Original task:\n{bundle.task_text}",
+        "You are the primary council synthesizer for a SPECIFIC user. Your job",
+        "is to pick the answer that best fits THIS user — not the world. "
+        "Members generate broad; you condense through the user's taste.",
     ]
+    # User profile from /me — chairman becomes a personalised verifier when present.
+    try:
+        from .me_builder import load_me
+
+        me_doc = load_me()
+        if me_doc:
+            sections.append(
+                "User profile (from ~/.trinity/me.md, distilled from prior transcripts).\n"
+                "Use this to score 'which answer fits THIS user'. Do not echo it back; "
+                "use it as latent context.\n\n"
+                f"{me_doc}"
+            )
+    except Exception:
+        pass
+    sections.append(f"Original task:\n{bundle.task_text}")
     if bundle.goal:
         sections.append(f"Goal:\n{bundle.goal}")
     if bundle.context_excerpt:
@@ -166,60 +297,63 @@ def render_primary_council_prompt(
     if bundle.comparison_instructions:
         sections.append(f"Comparison instructions:\n{bundle.comparison_instructions}")
     sections.append("Council member outputs:\n" + "\n\n".join(member_sections))
-    if review_sections:
-        sections.append("Peer reviews:\n" + "\n\n".join(review_sections))
     sections.append(
-        "Your job is NOT to pick a winner. Your job is to help the user decide.\n\n"
-        "Return a decision-focused comparison with these sections:\n\n"
-        "## What Each Response Does Best\n"
-        "For each response, list its core strength with specific evidence.\n\n"
+        "Treat this like a live competition between named models. Use provider names directly, not response letters.\n\n"
+        "Your job is to help the user decide quickly, not to write a long essay.\n\n"
+        "Return TWO parts in this exact order:\n\n"
+        "PART 1 — concise decision memo in markdown. Stay under 120 words total.\n"
+        "Prefer short bullets. Skip weak sections rather than padding.\n\n"
+        "Use these sections:\n\n"
+        "## Winner\n"
+        "- Choose exactly one best response for this task.\n"
+        "- Name the winning provider directly, like: Gemini.\n"
+        "- Add one short reason.\n\n"
+        "## Why They Win\n"
+        "- One short bullet per provider.\n"
+        "- Focus on what that model actually contributes.\n"
+        "- If a response is unusable, say so briefly.\n\n"
         "## Key Tradeoffs\n"
-        "What criteria would make someone choose Response A vs B vs C?\n\n"
-        "## What Reviewers Found\n"
-        "What did peer reviewers agree on? Disagree on? What were the strongest criticisms?\n\n"
-        "## Decision Framework\n"
-        "If you prioritize X → choose this response.\n"
-        "If you prioritize Y → choose this response.\n"
-        "(Be specific about what matters for this particular task.)"
-    )
-    return "\n\n".join(sections)
-
-
-def render_peer_review_prompt(
-    bundle: PromptBundle,
-    *,
-    reviewer_label: str,
-    own_label: str,
-    anonymized_members: list[tuple[str, CouncilMemberResult]],
-) -> str:
-    response_sections = []
-    for label, member in anonymized_members:
-        body = member.output_text.strip() or "(no output)"
-        response_sections.append(f"{label}\n{body}")
-    sections = [
-        "You are reviewing anonymized council responses for the same task.",
-        f"Task:\n{bundle.task_text}",
-    ]
-    if bundle.goal:
-        sections.append(f"Goal:\n{bundle.goal}")
-    if bundle.context_excerpt:
-        sections.append(f"Context:\n{bundle.context_excerpt}")
-    if bundle.comparison_instructions:
-        sections.append(f"Comparison instructions:\n{bundle.comparison_instructions}")
-    sections.append(
-        f"You are {reviewer_label}. Your own answer is {own_label}. Judge the responses fairly and do not reveal provider names."
-    )
-    sections.append("Responses:\n" + "\n\n".join(response_sections))
-    sections.append(
-        "Return exactly these sections:\n"
-        "Agreement\n"
-        "Strengths\n"
-        "Weaknesses\n"
-        "FINAL RANKING\n\n"
-        "In FINAL RANKING, rank only the response labels from best to worst, one per line, like:\n"
-        "1. Response B\n"
-        "2. Response A\n"
-        "3. Response C"
+        "- 2 bullets max.\n"
+        "- Name the real decision criteria for this task.\n\n"
+        "## Recommendation\n"
+        "- 2 bullets max.\n"
+        "- Use the format: If you value X → choose Provider.\n"
+        "- Be specific about what matters here.\n\n"
+        "Do not restate the full task. Do not summarize every paragraph. Be decisive and sharp.\n\n"
+        "PART 2 — a fenced code block containing strict JSON, on its own line, exactly like:\n\n"
+        "```routing-json\n"
+        "{\n"
+        '  "winner": "<provider_name>",\n'
+        '  "runner_up": "<provider_name_or_null>",\n'
+        '  "confidence": "high|medium|low",\n'
+        '  "task_type": "<short_snake_case>",\n'
+        '  "task_domain": "<short_snake_case>",\n'
+        '  "user_likely_values": ["<value_1>", "<value_2>"],\n'
+        '  "provider_scores": {\n'
+        '    "<provider>": {"overall": 0, "planning": 0, "execution": 0, "evaluation": 0, "specificity": 0, "user_fit": 0, "risk": 0, "conciseness": 0}\n'
+        "  },\n"
+        '  "major_failure_mode": "<short sentence or null>",\n'
+        '  "routing_lesson": "For <task_type>, prefer <provider> because <observed reason>.",\n'
+        '  "eval_seed": "A future answer should pass: <one concrete check>",\n'
+        '  "agreed_claims": ["<claim all responses agree on>", "..."],\n'
+        '  "disagreed_claims": [\n'
+        '    {"claim": "<the disputed claim>",\n'
+        '     "providers_for": ["<provider>"],\n'
+        '     "providers_against": ["<provider>"],\n'
+        '     "why_matters": "<one short sentence on why this disagreement matters>"}\n'
+        '  ]\n'
+        "}\n"
+        "```\n\n"
+        "Rules for the JSON:\n"
+        "- ALL provider identifiers in structured fields (winner, runner_up, providers_for, providers_against, provider_scores keys) MUST be lowercase. Use 'codex', not 'Codex'. Use 'claude', not 'Claude'. Capitalised names are ONLY allowed in the human-readable PART 1 markdown.\n"
+        "- Provider scores are integers 0..10. 'overall' is required for every provider you scored.\n"
+        "- task_type and task_domain stay short and lowercase, e.g. 'code_refactor', 'web_research'.\n"
+        "- routing_lesson is one short sentence in the form: For <task_type>, prefer <provider> because <observed reason>.\n"
+        "- eval_seed is one short sentence describing a check a future answer should satisfy.\n"
+        "- agreed_claims: short factual statements ALL responses make. 3-7 items. Empty list if none.\n"
+        "- disagreed_claims: each entry names ONE specific disagreement, with which providers landed on which side, and one sentence on why it matters. 0-5 items.\n"
+        "- Output ONLY this JSON inside the routing-json fence. No commentary inside the fence.\n"
+        "- The JSON block is required. If a field is unknown, use null. Never omit a required field."
     )
     return "\n\n".join(sections)
 
@@ -229,8 +363,6 @@ def create_council_outcome(
     bundle: PromptBundle,
     primary_provider: str,
     member_results: list[CouncilMemberResult],
-    peer_reviews: list[CouncilPeerReview] | None = None,
-    aggregate_ranking: CouncilAggregateRanking | None = None,
     primary_model: str | None = None,
     primary_session_id: str | None = None,
     agreement_score: float | None = None,
@@ -239,15 +371,20 @@ def create_council_outcome(
     needs_followup: bool | None = None,
     differences: list[str] | None = None,
     synthesis_output: str | None = None,
+    synthesis_prompt: str | None = None,
+    routing_label: CouncilRoutingLabel | None = None,
+    mode: str = "parallel",
+    chain_steps: list[CouncilChainStep] | None = None,
     metadata: dict | None = None,
 ) -> CouncilOutcome:
-    synthesis_prompt = render_primary_council_prompt(bundle, member_results, peer_reviews)
-    council_run_id = _stable_id(
+    if synthesis_prompt is None:
+        synthesis_prompt = render_primary_council_prompt(bundle, member_results)
+    council_run_id = stable_id(
         "council",
         bundle.bundle_id,
         primary_provider,
         primary_model or "",
-        _now_iso(),
+        now_iso(),
     )
     return CouncilOutcome(
         council_run_id=council_run_id,
@@ -262,11 +399,12 @@ def create_council_outcome(
         needs_followup=needs_followup,
         differences=differences or [],
         member_results=member_results,
-        peer_reviews=peer_reviews or [],
-        aggregate_ranking=aggregate_ranking,
         synthesis_prompt=synthesis_prompt,
         synthesis_output=synthesis_output,
-        created_at=_now_iso(),
+        routing_label=routing_label,
+        mode=mode,
+        chain_steps=chain_steps or [],
+        created_at=now_iso(),
         metadata=metadata or {},
     )
 
@@ -277,8 +415,36 @@ def append_council_outcome(outcome: CouncilOutcome) -> None:
 
 
 def save_council_outcome(outcome: CouncilOutcome) -> Path:
+    from .markdown_utils import render_markdown
+
+    payload = outcome.to_dict()
     path = council_outcomes_dir() / f"{outcome.council_run_id}.json"
-    path.write_text(json.dumps(outcome.to_dict(), indent=2))
+    path.write_text(json.dumps(payload, indent=2))
+
+    # JSONP wrapper for the unified review page (file:// can't fetch JSON
+    # cross-origin; a script tag works). Pre-render markdown so the page
+    # doesn't ship a JS markdown renderer.
+    jsonp_payload = dict(payload)
+    rendered_members = []
+    for member in payload.get("member_results", []):
+        m = dict(member)
+        text = m.get("output_text") or ""
+        m["output_html"] = render_markdown(text) if text else ""
+        rendered_members.append(m)
+    jsonp_payload["member_results"] = rendered_members
+    synthesis_text = payload.get("synthesis_output") or ""
+    synthesis_clean = re.sub(
+        r"```routing-json\s*\n.*?\n```\s*$", "", synthesis_text, flags=re.DOTALL,
+    ).rstrip()
+    jsonp_payload["synthesis_output_clean"] = synthesis_clean
+    jsonp_payload["synthesis_html"] = render_markdown(synthesis_clean) if synthesis_clean else ""
+
+    jsonp_path = council_outcomes_dir() / f"{outcome.council_run_id}.js"
+    jsonp_path.write_text(
+        "window.__TRINITY_COUNCIL_OUTCOME__ = window.__TRINITY_COUNCIL_OUTCOME__ || {};\n"
+        f"window.__TRINITY_COUNCIL_OUTCOME__[{json.dumps(outcome.council_run_id)}] = "
+        f"{json.dumps(jsonp_payload)};\n"
+    )
     append_council_outcome(outcome)
     return path
 
@@ -290,10 +456,20 @@ def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
     raw = json.loads(path.read_text())
     members = [CouncilMemberResult(**member) for member in raw.get("member_results", [])]
     raw["member_results"] = members
-    raw["peer_reviews"] = [CouncilPeerReview(**review) for review in raw.get("peer_reviews", [])]
-    aggregate = raw.get("aggregate_ranking")
-    if aggregate:
-        raw["aggregate_ranking"] = CouncilAggregateRanking(**aggregate)
+    routing = raw.get("routing_label")
+    if isinstance(routing, dict):
+        raw["routing_label"] = CouncilRoutingLabel.from_dict(routing)
+    elif routing is None:
+        raw.pop("routing_label", None)
+    chain_steps_raw = raw.get("chain_steps")
+    if isinstance(chain_steps_raw, list):
+        raw["chain_steps"] = [
+            CouncilChainStep.from_dict(s) if isinstance(s, dict) else s
+            for s in chain_steps_raw
+        ]
+    # Tolerate forward/backward field drift on load
+    known = {f for f in CouncilOutcome.__dataclass_fields__}
+    raw = {k: v for k, v in raw.items() if k in known}
     return CouncilOutcome(**raw)
 
 
@@ -350,66 +526,125 @@ def parse_synthesis_sections(text: str) -> dict[str, str]:
     )
 
 
-def parse_peer_review_sections(text: str) -> dict[str, str]:
-    return _extract_named_sections(
-        text,
-        [
-            ("agreement", ("agreement", "shared assessment", "where i agree")),
-            ("strengths", ("strengths", "best points", "strong points")),
-            ("weaknesses", ("weaknesses", "concerns", "issues", "criticisms")),
-            ("ranking", ("final ranking", "ranking", "ranked order")),
-        ],
-    )
+_ROUTING_JSON_FENCE_RE = re.compile(
+    r"```\s*routing[-_ ]?json\s*\n(.*?)\n\s*```",
+    re.IGNORECASE | re.DOTALL,
+)
+_BARE_JSON_OBJECT_RE = re.compile(r"\{[\s\S]*?\"winner\"[\s\S]*?\}", re.DOTALL)
 
 
-def parse_ranking_labels(ranking_text: str) -> list[str]:
-    ranked_labels: list[str] = []
-    for line in ranking_text.splitlines():
-        clean = line.strip()
-        if not clean:
+def parse_routing_label(synthesis_text: str | None) -> tuple[CouncilRoutingLabel | None, str | None]:
+    """Extract the Chairman Routing JSON from a synthesis output (§8.7).
+
+    Returns (label, error). On success error is None. On failure label is None
+    and error is a short reason string suitable for storing in metadata.
+    """
+    if not synthesis_text:
+        return None, "no_synthesis"
+
+    candidates: list[str] = []
+    for match in _ROUTING_JSON_FENCE_RE.finditer(synthesis_text):
+        candidates.append(match.group(1))
+
+    if not candidates:
+        # Fallback: try to find a bare JSON object that mentions "winner"
+        match = _BARE_JSON_OBJECT_RE.search(synthesis_text)
+        if match:
+            candidates.append(match.group(0))
+
+    if not candidates:
+        return None, "no_routing_json_block"
+
+    last_error: str = "json_parse_failed"
+    for raw in candidates:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            last_error = f"json_parse_failed:{exc.msg}"
             continue
-        clean = re.sub(r"^\d+\.\s*", "", clean)
-        clean = re.sub(r"^\-\s*", "", clean)
-        if clean.lower().startswith("response "):
-            parts = clean.split(None, 1)
-            if len(parts) == 2:
-                ranked_labels.append(f"Response {parts[1].strip()}")
-    return ranked_labels
-
-
-def parse_bullets(text: str) -> list[str]:
-    items: list[str] = []
-    for line in text.splitlines():
-        clean = line.strip()
-        if not clean:
+        if not isinstance(data, dict):
+            last_error = "json_not_object"
             continue
-        clean = re.sub(r"^\d+\.\s*", "", clean)
-        clean = re.sub(r"^\-\s*", "", clean)
-        if clean:
-            items.append(clean)
-    return items
-
-
-def aggregate_peer_rankings(
-    peer_reviews: list[CouncilPeerReview],
-    label_to_provider: dict[str, str],
-) -> CouncilAggregateRanking | None:
-    if not peer_reviews:
-        return None
-    score_totals: dict[str, float] = {label: 0.0 for label in label_to_provider}
-    for review in peer_reviews:
-        ranking = [label for label in review.ranked_labels if label in score_totals]
-        if not ranking:
+        if not data.get("winner"):
+            last_error = "missing_winner"
             continue
-        max_points = len(ranking)
-        for index, label in enumerate(ranking):
-            score_totals[label] += max_points - index
-    ordered = sorted(
-        score_totals,
-        key=lambda label: (-score_totals[label], label_to_provider.get(label, ""), label),
-    )
-    return CouncilAggregateRanking(
-        ordered_labels=[label for label in ordered if score_totals.get(label, 0.0) > 0],
-        label_scores={label: score for label, score in score_totals.items() if score > 0},
-        label_to_provider=label_to_provider,
-    )
+        try:
+            label = CouncilRoutingLabel.from_dict(_normalize_routing_dict(data))
+        except (TypeError, ValueError) as exc:
+            last_error = f"schema_error:{exc.__class__.__name__}"
+            continue
+        return label, None
+    return None, last_error
+
+
+def _normalize_routing_dict(data: dict) -> dict:
+    """Coerce field types to expected shapes; drop garbage."""
+    out: dict = {}
+    for key in (
+        "winner",
+        "runner_up",
+        "confidence",
+        "task_type",
+        "task_domain",
+        "routing_lesson",
+        "eval_seed",
+        "major_failure_mode",
+    ):
+        value = data.get(key)
+        if isinstance(value, str):
+            out[key] = value.strip()
+        elif value is None:
+            out[key] = None
+    values = data.get("user_likely_values")
+    if isinstance(values, list):
+        out["user_likely_values"] = [str(v) for v in values if v]
+    scores = data.get("provider_scores")
+    if isinstance(scores, dict):
+        clean_scores: dict[str, dict[str, float]] = {}
+        for provider, sub in scores.items():
+            if not isinstance(sub, dict):
+                continue
+            cleaned = {}
+            for metric, raw in sub.items():
+                try:
+                    cleaned[metric] = float(raw)
+                except (TypeError, ValueError):
+                    continue
+            if cleaned:
+                clean_scores[str(provider)] = cleaned
+        if clean_scores:
+            out["provider_scores"] = clean_scores
+    # `best_stage_models`, `should_be_hard_case`, and `hard_case_reason` were
+    # demoted in iter-3 — they had zero downstream consumers. Old outcome
+    # JSONs that still carry them load via CouncilRoutingLabel.from_dict's
+    # __dataclass_fields__ filter; the normalizer just stops emitting them.
+    agreed = data.get("agreed_claims")
+    if isinstance(agreed, list):
+        cleaned = [str(c).strip() for c in agreed if isinstance(c, str) and c.strip()]
+        if cleaned:
+            out["agreed_claims"] = cleaned
+    disagreed = data.get("disagreed_claims")
+    if isinstance(disagreed, list):
+        cleaned_disagreed: list[dict[str, object]] = []
+        for entry in disagreed:
+            if not isinstance(entry, dict):
+                continue
+            claim = entry.get("claim")
+            if not isinstance(claim, str) or not claim.strip():
+                continue
+            sub: dict[str, object] = {"claim": claim.strip()}
+            for key in ("providers_for", "providers_against"):
+                items = entry.get(key)
+                if isinstance(items, list):
+                    sub[key] = [str(p).strip() for p in items if isinstance(p, str) and p.strip()]
+                else:
+                    sub[key] = []
+            why = entry.get("why_matters")
+            if isinstance(why, str) and why.strip():
+                sub["why_matters"] = why.strip()
+            cleaned_disagreed.append(sub)
+        if cleaned_disagreed:
+            out["disagreed_claims"] = cleaned_disagreed
+    return out
+
+

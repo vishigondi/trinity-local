@@ -6,13 +6,13 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .adapters import check_all_adapters
+from .config import load_config
 from .council_runtime import load_prompt_bundle
-from .council_status import council_status_dir
-from .daemon_manager import daemon_status
+from .council_status import load_council_status
 from .dispatch_registry import make_dispatch_action
-from .global_benchmarks import get_global_benchmarks
+from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-from .state_paths import council_outcomes_dir, review_pages_dir
+from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
 
 EXAMPLE_PROMPTS = [
@@ -82,7 +82,12 @@ def _normalize_council_query(text: str) -> str:
     return " ".join(text.split()).strip().lower()
 
 
-def _load_council_query_suggestions(limit: int = 8) -> list[str]:
+def _load_council_query_suggestions_fallback(limit: int = 8) -> list[str]:
+    """Strings-only fallback when memory.search_prompt_nodes returns nothing.
+
+    Pulls from past council outcomes + hard-coded EXAMPLE_PROMPTS. Same shape
+    as before the autofill rewire so empty memory still shows useful suggestions.
+    """
     ranked: dict[str, dict[str, object]] = {}
     for path in council_outcomes_dir().glob("*.json"):
         try:
@@ -131,15 +136,49 @@ def _load_council_query_suggestions(limit: int = 8) -> list[str]:
     return suggestions[:limit]
 
 
-def _daemon_launchpad_state() -> dict[str, object]:
-    success, message = daemon_status()
-    normalized = message.lower()
-    return {
-        "success": success,
-        "message": message,
-        "running": "running" in normalized and "not running" not in normalized,
-        "installed": "not installed" not in normalized,
-    }
+def _load_replay_candidates(limit: int = 200) -> list:
+    """Memory-backed autofill candidates ranked by replay_value_score.
+
+    Returns a list of dicts with shape:
+        {"text": str, "reasons": list[str], "score": float,
+         "council_count": int, "winner": str | None, "prompt_id": str}
+
+    Falls back to the string list from _load_council_query_suggestions_fallback
+    when the memory index is empty (cold start). Template handles either shape.
+    """
+    try:
+        from .memory import search_prompt_nodes
+
+        results = search_prompt_nodes("", top_k=limit)
+    except Exception:
+        results = []
+
+    if not results:
+        return _load_council_query_suggestions_fallback(limit=8)
+
+    candidates: list[dict] = []
+    for hit in results:
+        text = (hit.text or "").strip()
+        if len(text) < 8:
+            continue
+        prior = (hit.preceding_assistant_text or "").strip()
+        # Truncate prior assistant excerpt for the visible preview; the full
+        # text up to the budget is sent through to the council bundle on
+        # apply (see thread_context.build_threaded_prompt).
+        prior_preview = prior[:240] + ("…" if len(prior) > 240 else "")
+        candidates.append({
+            "text": text,
+            "reasons": list(hit.reasons or []),
+            "score": float(hit.score or 0.0),
+            "council_count": int(hit.council_count or 0),
+            "winner": hit.user_winner or hit.chairman_winner or None,
+            "prompt_id": hit.prompt_id or "",
+            "priorAssistantText": prior,
+            "priorAssistantPreview": prior_preview,
+            "transcriptId": hit.transcript_id or "",
+            "turnIndex": int(hit.turn_index or 0),
+        })
+    return candidates
 
 
 def _provider_install_help(provider: str) -> tuple[str, str]:
@@ -160,14 +199,10 @@ def _provider_health_data() -> dict[str, object]:
     providers: list[dict[str, object]] = []
     missing_count = 0
     for status in statuses:
+        if status.installed:
+            continue
         label, install_command = _provider_install_help(status.provider)
         detail_parts: list[str] = []
-        if status.version:
-            detail_parts.append(status.version)
-        if status.transcript_count:
-            detail_parts.append(f"{status.transcript_count} transcripts")
-        elif status.installed:
-            detail_parts.append("No transcripts yet")
         if status.error and not status.installed:
             detail_parts.append(status.error)
         providers.append(
@@ -192,9 +227,9 @@ def _provider_health_data() -> dict[str, object]:
 def _active_launchpad_operation() -> dict[str, object] | None:
     candidates: list[dict[str, object]] = []
     for path in council_status_dir().glob("council_status_*.json"):
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        status_token = path.stem.replace("council_status_", "", 1)
+        raw = load_council_status(status_token)
+        if raw is None:
             continue
         if raw.get("status") != "running":
             continue
@@ -202,7 +237,7 @@ def _active_launchpad_operation() -> dict[str, object] | None:
         kind = metadata.get("kind") or "council"
         candidates.append(
             {
-                "statusToken": raw.get("status_token") or path.stem.replace("council_status_", "", 1),
+                "statusToken": raw.get("status_token") or status_token,
                 "kind": kind,
                 "status": raw.get("status") or "running",
                 "label": raw.get("task_text") or ("Scan recent transcripts once" if kind == "ingest" else "Council"),
@@ -266,19 +301,19 @@ def _settings_links() -> dict[str, str]:
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
-    auto_ingest_enable = make_shortcut_invocation(
+    auto_chain_enable = make_shortcut_invocation(
         dispatch=make_dispatch_action(
             "run_command",
-            args={"command": "trinity-local auto-ingest-enable"},
-            metadata={"kind": "auto_ingest_enable"},
+            args={"command": "trinity-local auto-chain-enable"},
+            metadata={"kind": "auto_chain_enable"},
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
-    auto_ingest_disable = make_shortcut_invocation(
+    auto_chain_disable = make_shortcut_invocation(
         dispatch=make_dispatch_action(
             "run_command",
-            args={"command": "trinity-local auto-ingest-disable"},
-            metadata={"kind": "auto_ingest_disable"},
+            args={"command": "trinity-local auto-chain-disable"},
+            metadata={"kind": "auto_chain_disable"},
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
@@ -286,48 +321,94 @@ def _settings_links() -> dict[str, str]:
         "enable": enable.url,
         "disable": disable.url,
         "reset": reset.url,
-        "autoIngestEnable": auto_ingest_enable.url,
-        "autoIngestDisable": auto_ingest_disable.url,
+        "autoChainEnable": auto_chain_enable.url,
+        "autoChainDisable": auto_chain_disable.url,
     }
+
+
+def _load_personal_routing_table() -> dict | None:
+    """Compute the personal routing table on demand from council_outcomes/.
+
+    Returns None when no councils have been rated yet so the launchpad shows
+    the empty-state CTA. The single source of truth is the council_outcomes
+    directory; aggregation is cached in-process by directory mtime.
+    """
+    from .personal_routing import compute_personal_routing_table
+
+    try:
+        table = compute_personal_routing_table()
+    except Exception:
+        return None
+    if not table.get("by_task_type"):
+        return None
+    return table
 
 
 def build_page_data(
     *,
-    launchpad_path: Path,
     live_review_path: Path,
     recent_councils: list[dict[str, str | None]],
 ) -> dict:
     telemetry = launchpad_telemetry_state()
     elo_snapshot = build_elo_snapshot()
     chart_data = _elo_chart_data(elo_snapshot)
-    council_suggestions = _load_council_query_suggestions(limit=8)
+    council_suggestions = _load_replay_candidates(limit=200)
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
-    daemon_state = _daemon_launchpad_state()
     provider_health = _provider_health_data()
     active_operation = _active_launchpad_operation()
+    personal_routing = _load_personal_routing_table()
     benchmark_providers = list(next(iter(global_benchmarks.values()))["models"].keys()) if global_benchmarks else []
+    # Map provider name -> configured model id, for header annotations on the
+    # ratings/benchmarks card. Reads from config.json so it tracks whatever
+    # the user is actually running.
+    provider_models: dict[str, str] = {}
+    try:
+        cfg = load_config(required=False)
+        for name, provider in cfg.providers.items():
+            if provider.model:
+                provider_models[name] = provider.model
+    except Exception:
+        provider_models = {}
     return {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "councilSuggestions": council_suggestions,
         "defaultGoal": "Find the strongest answer.",
         "defaultMembers": ["claude", "gemini", "codex"],
-        "defaultIngestSources": ["cowork", "claude", "gemini", "codex"],
-        "defaultPrimaryProvider": "claude",
-        "recentCouncils": recent_councils,
+        "defaultPrimaryProvider": None,
         "telemetry": telemetry,
         "settingsLinks": settings_links,
-        "daemon": daemon_state,
         "providerHealth": provider_health,
         "eloChart": chart_data,
         "globalBenchmarks": global_benchmarks,
         "benchmarkProviders": benchmark_providers,
-        "launchpadUrl": f"file://{launchpad_path}",
+        "providerModels": provider_models,
+        "referenceEvalsMeta": get_reference_evals_meta(),
         "liveReviewUrl": f"file://{live_review_path}",
         "activeOperation": active_operation,
         "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
         "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
+        "personalRoutingTable": personal_routing,
+        "tasteLenses": _load_taste_lenses(),
     }
+
+
+def _load_taste_lenses() -> dict | None:
+    """Parse ~/.trinity/me.md into shareable taste lenses for the launchpad.
+
+    Returns the structured dict (rejections / vocabulary / abstract_lenses)
+    or None when /me hasn't been built yet — the launchpad shows an
+    empty-state CTA pointing at `trinity-local me-build`.
+    """
+    from .me_lenses import parse_taste_lenses
+
+    try:
+        lenses = parse_taste_lenses()
+    except Exception:
+        return None
+    if lenses.is_empty:
+        return None
+    return lenses.to_dict()
 
 
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:

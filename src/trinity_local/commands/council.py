@@ -1,28 +1,28 @@
-"""Handlers for council-prompt, council-outcome, council-html, council-run, council-start commands."""
+"""Council command handlers."""
 from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import signal
 from pathlib import Path
+from types import SimpleNamespace
 
 from ..config import load_config
 from ..council_feedback import append_council_feedback
 from ..council_review import write_live_council_page, write_unified_council_page
 from ..council_runner import run_council
 from ..council_runtime import (
-    aggregate_peer_rankings,
     create_prompt_bundle,
     create_council_outcome,
     load_council_outcome,
     load_prompt_bundle,
     render_member_prompt,
-    render_peer_review_prompt,
     render_primary_council_prompt,
     save_prompt_bundle,
     save_council_outcome,
 )
-from ..council_schema import CouncilMemberResult
 from ..council_status import (
     council_status_json_path,
     init_council_run_state,
@@ -34,15 +34,27 @@ from ..notifications import notify, open_path
 from ..refresh import refresh_launchpad
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
 from ..utils import stable_id
-from .helpers import load_member_results, load_peer_reviews, read_text_file
+from .helpers import load_member_results, read_text_file
+
+
+def _status_metadata(*, members: list[str], cwd: Path, pid: int | None = None, process_group_id: int | None = None) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        "kind": "council",
+        "members": members,
+        "cwd": str(cwd),
+    }
+    if pid is not None:
+        metadata["pid"] = pid
+    if process_group_id is not None:
+        metadata["process_group_id"] = process_group_id
+    return metadata
 
 
 def register(subparsers):
     prompt_parser = subparsers.add_parser("council-prompt", help="Render a council member or primary prompt")
     prompt_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    prompt_parser.add_argument("--kind", required=True, choices=["member", "primary", "peer-review"])
+    prompt_parser.add_argument("--kind", required=True, choices=["member", "primary"])
     prompt_parser.add_argument("--members-json", default=None, help="JSON file with member results for primary prompt")
-    prompt_parser.add_argument("--reviewer-provider", default=None, help="Reviewer provider for peer-review prompt rendering")
     prompt_parser.set_defaults(handler=handle_council_prompt)
 
     outcome_parser = subparsers.add_parser("council-outcome", help="Create and save a council outcome")
@@ -57,18 +69,16 @@ def register(subparsers):
     outcome_parser.add_argument("--needs-followup", choices=["true", "false"], default=None)
     outcome_parser.add_argument("--difference", action="append", default=[], help="Repeatable difference bullet")
     outcome_parser.add_argument("--synthesis-output-file", default=None)
-    outcome_parser.add_argument("--peer-reviews-json", default=None, help="JSON file with council peer reviews")
     outcome_parser.set_defaults(handler=handle_council_outcome)
-
-    html_parser = subparsers.add_parser("council-html", help="Generate a local HTML review page")
-    html_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    html_parser.add_argument("--outcome", required=True, help="Council outcome id or path")
-    html_parser.set_defaults(handler=handle_council_html)
 
     council_run_parser = subparsers.add_parser("council-run", help="Launch member providers and synthesize a council result")
     council_run_parser.add_argument("--bundle", required=True, help="Bundle id or path")
     council_run_parser.add_argument("--members", nargs="+", required=True, help="Member providers to query")
-    council_run_parser.add_argument("--primary-provider", required=True, help="Provider that synthesizes the council outcome")
+    council_run_parser.add_argument(
+        "--primary-provider",
+        default=None,
+        help="Chairman/synthesizer provider. If omitted, auto-selected as the strongest predicted model for the task.",
+    )
     council_run_parser.add_argument("--cwd", default=".", help="Working directory for provider runs")
     council_run_parser.add_argument(
         "--member-model-override",
@@ -77,22 +87,20 @@ def register(subparsers):
         help="Repeatable provider=model override for council members",
     )
     council_run_parser.add_argument("--primary-model-override", default=None)
-    council_run_parser.add_argument(
-        "--without-peer-review",
-        action="store_true",
-        help="Skip anonymized stage-2 peer review before synthesis",
-    )
     council_run_parser.set_defaults(handler=handle_council_run)
 
     council_start_parser = subparsers.add_parser("council-start", help="Create/update task, run council, and optionally open the review page")
     council_start_parser.add_argument("--bundle", required=True, help="Bundle id or path")
     council_start_parser.add_argument("--members", nargs="+", required=True, help="Member providers to query")
-    council_start_parser.add_argument("--primary-provider", required=True)
+    council_start_parser.add_argument(
+        "--primary-provider",
+        default=None,
+        help="Chairman/synthesizer provider. If omitted, auto-selected as the strongest predicted model for the task.",
+    )
     council_start_parser.add_argument("--cwd", default=".", help="Working directory for provider runs")
     council_start_parser.add_argument("--status-token", default=None, help="Launchpad status token for same-tab council tracking")
     council_start_parser.add_argument("--open-browser", action="store_true")
     council_start_parser.add_argument("--notify", action="store_true")
-    council_start_parser.add_argument("--without-peer-review", action="store_true")
     council_start_parser.set_defaults(handler=handle_council_start)
 
     council_launch_parser = subparsers.add_parser(
@@ -105,12 +113,15 @@ def register(subparsers):
     council_launch_parser.add_argument("--context-file", default=None)
     council_launch_parser.add_argument("--project-hint", default="")
     council_launch_parser.add_argument("--members", nargs="+", default=["claude", "gemini", "codex"])
-    council_launch_parser.add_argument("--primary-provider", default="claude")
+    council_launch_parser.add_argument(
+        "--primary-provider",
+        default=None,
+        help="Chairman/synthesizer provider. If omitted, auto-selected as the strongest predicted model for the task.",
+    )
     council_launch_parser.add_argument("--cwd", default=".")
     council_launch_parser.add_argument("--status-token", default=None)
     council_launch_parser.add_argument("--open-browser", action="store_true")
     council_launch_parser.add_argument("--notify", action="store_true")
-    council_launch_parser.add_argument("--without-peer-review", action="store_true")
     council_launch_parser.set_defaults(handler=handle_council_launch)
 
     council_rate_parser = subparsers.add_parser(
@@ -129,6 +140,45 @@ def register(subparsers):
     council_stop_parser.add_argument("--status-token", required=True)
     council_stop_parser.set_defaults(handler=handle_council_stop)
 
+    council_share_parser = subparsers.add_parser(
+        "council-share",
+        help="Copy council review HTML to Desktop for sharing",
+    )
+    council_share_parser.add_argument("--council", required=True, help="Council ID")
+    council_share_parser.set_defaults(handler=handle_council_share)
+
+    # Single unified iteration command. Replaces the prior trio of
+    # council-continue / council-refine / council-auto-chain — they all
+    # called the same engine (run_consensus_round / auto_chain_council)
+    # with one flag varied. One command keyed by (rounds, prompt) collapses
+    # the surface without losing any behavior:
+    #   council-iterate --rounds 1               → former "continue"
+    #   council-iterate --rounds 1 --prompt P    → former "refine"
+    #   council-iterate --rounds N               → former "auto-chain"
+    council_iterate_parser = subparsers.add_parser(
+        "council-iterate",
+        help="Iterate an existing council. With --prompt, run one round under that "
+             "directive. Without --prompt, auto-iterate up to --rounds, stopping when "
+             "the chairman declares convergence (agreed_claims rich, disagreed_claims "
+             "empty, confidence high).",
+    )
+    council_iterate_parser.add_argument("--council", required=True, help="Parent council_run_id")
+    council_iterate_parser.add_argument(
+        "--rounds", type=int, default=3,
+        help="Max rounds when auto-iterating; ignored when --prompt is set (always 1 round).",
+    )
+    council_iterate_parser.add_argument(
+        "--prompt", default=None,
+        help="New user directive. If set, runs one round under this directive instead of auto-iterating.",
+    )
+    council_iterate_parser.add_argument("--cwd", default=".")
+    council_iterate_parser.add_argument(
+        "--status-token", default=None,
+        help="Reuse this status token so iteration rounds overwrite the same live page.",
+    )
+    council_iterate_parser.add_argument("--open-browser", action="store_true")
+    council_iterate_parser.set_defaults(handler=handle_council_iterate)
+
 
 def handle_council_prompt(args):
     bundle = load_prompt_bundle(args.bundle)
@@ -136,52 +186,21 @@ def handle_council_prompt(args):
         print(render_member_prompt(bundle))
         return
     members = load_member_results(args.members_json) if args.members_json else []
-    if args.kind == "peer-review":
-        if not members:
-            raise SystemExit("error: --members-json is required for kind=peer-review")
-        anonymized_members = [
-            (f"Response {chr(ord('A') + index)}", member)
-            for index, member in enumerate(members)
-        ]
-        reviewer_provider = args.reviewer_provider or members[0].provider
-        own_label = next(
-            (label for label, member in anonymized_members if member.provider == reviewer_provider),
-            anonymized_members[0][0],
-        )
-        print(
-            render_peer_review_prompt(
-                bundle,
-                reviewer_label=reviewer_provider,
-                own_label=own_label,
-                anonymized_members=anonymized_members,
-            )
-        )
-        return
     print(render_primary_council_prompt(bundle, members))
 
 
 def handle_council_outcome(args):
     bundle = load_prompt_bundle(args.bundle)
     members = load_member_results(args.members_json)
-    peer_reviews = load_peer_reviews(args.peer_reviews_json) if args.peer_reviews_json else []
     needs_followup = None
     if args.needs_followup == "true":
         needs_followup = True
     elif args.needs_followup == "false":
         needs_followup = False
-    aggregate = None
-    if peer_reviews:
-        label_to_provider = {
-            f"Response {chr(ord('A') + index)}": member.provider
-            for index, member in enumerate(members)
-        }
-        aggregate = aggregate_peer_rankings(peer_reviews, label_to_provider)
     outcome = create_council_outcome(
         bundle=bundle,
         primary_provider=args.primary_provider,
         member_results=members,
-        peer_reviews=peer_reviews,
-        aggregate_ranking=aggregate,
         primary_model=args.primary_model,
         primary_session_id=args.primary_session_id,
         agreement_score=args.agreement_score,
@@ -196,13 +215,6 @@ def handle_council_outcome(args):
     print(json.dumps({"outcome": outcome.to_dict(), "path": str(path)}, indent=2))
 
 
-def handle_council_html(args):
-    bundle = load_prompt_bundle(args.bundle)
-    outcome = load_council_outcome(args.outcome)
-    path = write_unified_council_page(bundle, outcome)
-    print(json.dumps({"path": str(path)}, indent=2))
-
-
 def handle_council_run(args):
     config = load_config(args.config)
     bundle = load_prompt_bundle(args.bundle)
@@ -212,15 +224,22 @@ def handle_council_run(args):
             raise SystemExit("error: --member-model-override must look like provider=model")
         provider_name, model_name = item.split("=", 1)
         overrides[provider_name.strip()] = model_name.strip()
+    primary_provider = args.primary_provider
+    if not primary_provider:
+        from ..ranker import predict_strongest_chairman
+
+        primary_provider = predict_strongest_chairman(
+            bundle.task_text,
+            available_providers=list(args.members),
+        )
     result = run_council(
         config=config,
         bundle=bundle,
         member_providers=args.members,
-        primary_provider=args.primary_provider,
+        primary_provider=primary_provider,
         cwd=Path(args.cwd).expanduser().resolve(),
         member_model_overrides=overrides,
         primary_model_override=args.primary_model_override,
-        with_peer_review=not args.without_peer_review,
         run_state_token=bundle.bundle_id,
     )
     print(
@@ -243,8 +262,22 @@ def handle_council_start(args):
     bundle = load_prompt_bundle(args.bundle)
     cwd = Path(args.cwd).expanduser().resolve()
     status_token = getattr(args, "status_token", None)
+    if not args.primary_provider:
+        from ..ranker import predict_strongest_chairman
+
+        args.primary_provider = predict_strongest_chairman(
+            bundle.task_text,
+            available_providers=list(args.members),
+        )
     process_id = os.getpid()
     process_group_id = os.getpgid(0)
+    status_metadata = _status_metadata(
+        members=list(args.members),
+        cwd=cwd,
+        pid=process_id,
+        process_group_id=process_group_id,
+    )
+    completed_metadata = _status_metadata(members=list(args.members), cwd=cwd)
     task = ensure_task_record(
         bundle=bundle,
         status="running",
@@ -268,13 +301,7 @@ def handle_council_start(args):
                 bundle_id=bundle.bundle_id,
                 council_id=bundle.bundle_id,
                 error=message,
-                metadata={
-                    "kind": "council",
-                    "members": list(args.members),
-                    "cwd": str(cwd),
-                    "pid": process_id,
-                    "process_group_id": process_group_id,
-                },
+                metadata=status_metadata,
             )
         refresh_launchpad()
 
@@ -292,14 +319,11 @@ def handle_council_start(args):
             bundle_id=bundle.bundle_id,
             council_id=bundle.bundle_id,
             members=list(args.members),
-            metadata={
-                "kind": "council",
-                "members": list(args.members),
-                "cwd": str(cwd),
-                "pid": process_id,
-                "process_group_id": process_group_id,
-            },
+            metadata=status_metadata,
+            runner_pid=process_id,
+            runner_pgid=process_group_id,
         )
+        refresh_launchpad()
     if args.notify:
         notify("Trinity council running", f"Starting council for: {task.title}")
     try:
@@ -309,8 +333,12 @@ def handle_council_start(args):
             member_providers=args.members,
             primary_provider=args.primary_provider,
             cwd=cwd,
-            with_peer_review=not args.without_peer_review,
             run_state_token=status_token or bundle.bundle_id,
+            # Honor chain mode end-to-end. Without these, the runner ignored
+            # the caller's intent and dispatched parallel — silent drift
+            # between the reported mode and the actual execution.
+            mode=getattr(args, "mode", "parallel") or "parallel",
+            sequence=getattr(args, "sequence", None),
         )
     except Exception as exc:
         if status_token:
@@ -320,13 +348,7 @@ def handle_council_start(args):
                 task_text=bundle.task_text,
                 bundle_id=bundle.bundle_id,
                 error=str(exc),
-                metadata={
-                    "kind": "council",
-                    "members": list(args.members),
-                    "cwd": str(cwd),
-                    "pid": process_id,
-                    "process_group_id": process_group_id,
-                },
+                metadata=status_metadata,
             )
         refresh_launchpad()
         raise
@@ -347,33 +369,73 @@ def handle_council_start(args):
             bundle_id=bundle.bundle_id,
             council_id=result.outcome.council_run_id,
             review_path=str(result.review_path),
-            metadata={
-                "kind": "council",
-                "members": list(args.members),
-                "cwd": str(cwd),
-            },
+            metadata=completed_metadata,
         )
     refresh_launchpad()
     if args.notify:
         notify_action(review_action)
-    opened = open_path(result.review_path) if args.open_browser else False
-    print(
-        json.dumps(
-            {
-                "task_path": str(result.task_path or task_path),
-                "sync_path": str(result.sync_path or sync_path),
-                "review_path": str(result.review_path),
-                "review_action_path": str(review_action_path),
-                "opened": opened,
-            },
-            indent=2,
-        )
-    )
+
+    # Auto-chain: if user opted in, kick off consensus rounds until convergence
+    # OR max_chain_rounds. Chairman chairs the convergence call (chairman_says_converged).
+    auto_chain_summary: list[dict] | None = None
+    final_review_path = result.review_path
+    final_outcome = result.outcome
+    try:
+        from ..telemetry import load_telemetry_settings
+        from ..council_runner import auto_chain_council
+        from ..council_runtime import chairman_says_converged
+
+        settings = load_telemetry_settings()
+        if settings.auto_chain_enabled:
+            chain_results = auto_chain_council(
+                config=config,
+                initial_outcome=result.outcome,
+                max_rounds=int(settings.max_chain_rounds or 3),
+                cwd=cwd,
+                # Reuse the original status token (or bundle id as token) so
+                # auto-chain rounds keep updating the same live launchpad page.
+                run_state_token=status_token or bundle.bundle_id,
+            )
+            auto_chain_summary = []
+            for r in chain_results:
+                lbl = r.outcome.routing_label
+                auto_chain_summary.append({
+                    "round_number": r.outcome.metadata.get("round_number"),
+                    "council_run_id": r.outcome.council_run_id,
+                    "review_path": str(r.review_path),
+                    "winner": lbl.winner if lbl else None,
+                    "converged": chairman_says_converged(lbl),
+                })
+            if chain_results:
+                final_review_path = chain_results[-1].review_path
+                final_outcome = chain_results[-1].outcome
+                refresh_launchpad()
+    except Exception as exc:
+        # Auto-chain failure must not crash the original council run.
+        auto_chain_summary = [{"error": f"{type(exc).__name__}: {exc}"}]
+
+    opened = open_path(final_review_path) if args.open_browser else False
+    payload = {
+        "task_path": str(result.task_path or task_path),
+        "sync_path": str(result.sync_path or sync_path),
+        "review_path": str(final_review_path),
+        "review_action_path": str(review_action_path),
+        "opened": opened,
+        "council_run_id": final_outcome.council_run_id,
+    }
+    if auto_chain_summary is not None:
+        payload["auto_chain"] = auto_chain_summary
+    print(json.dumps(payload, indent=2))
 
 
 def handle_council_launch(args):
     status_token = getattr(args, "status_token", None)
-    metadata = {"launch_source": "launchpad"}
+    metadata = {
+        "launch_source": "launchpad",
+        "members": list(args.members),
+    }
+    if status_token:
+        metadata["status_token"] = status_token
     if args.project_hint:
         metadata["project_hint"] = args.project_hint
     bundle = create_prompt_bundle(
@@ -389,17 +451,21 @@ def handle_council_launch(args):
     save_prompt_bundle(bundle)
     if status_token:
         write_live_council_page()
-    launch_args = type("CouncilLaunchArgs", (), {
-        "config": args.config,
-        "bundle": bundle.bundle_id,
-        "members": args.members,
-        "primary_provider": args.primary_provider,
-        "cwd": args.cwd,
-        "status_token": status_token,
-        "open_browser": args.open_browser,
-        "notify": args.notify,
-        "without_peer_review": args.without_peer_review,
-    })()
+    launch_args = SimpleNamespace(
+        config=args.config,
+        bundle=bundle.bundle_id,
+        members=args.members,
+        primary_provider=args.primary_provider,
+        cwd=args.cwd,
+        status_token=status_token,
+        open_browser=args.open_browser,
+        notify=args.notify,
+        # Thread chain-mode params through to run_council. Before this fix,
+        # handle_council_start dropped them and silently ran parallel even
+        # when the caller (MCP `run_council(mode='chain')`) reported chain.
+        mode=getattr(args, "mode", "parallel"),
+        sequence=getattr(args, "sequence", None),
+    )
     handle_council_start(launch_args)
 
 
@@ -411,9 +477,54 @@ def handle_council_rate(args):
     )
     outcome = load_council_outcome(args.council)
     bundle = load_prompt_bundle(outcome.bundle_id)
+
+    # Propagate the user's verdict to the originating PromptNode so the
+    # personal routing table compounds. The MCP record_outcome tool does this
+    # too — keeping the launchpad's one-click flow in sync makes every
+    # rated council a labeled training row regardless of which surface fired
+    # the rating.
+    propagated_to_prompt_node = False
+    metadata = outcome.metadata or {}
+    prompt_node_id = metadata.get("prompt_node_id")
+    if prompt_node_id:
+        try:
+            from ..memory import record_council_outcome as _record_to_prompt_node
+
+            chairman_winner = None
+            label = outcome.routing_label
+            if label is not None:
+                chairman_winner = getattr(label, "winner", None)
+            propagated_to_prompt_node = _record_to_prompt_node(
+                prompt_node_id=prompt_node_id,
+                council_run_id=outcome.council_run_id,
+                chairman_winner=chairman_winner,
+                user_winner=args.provider,
+            )
+        except Exception:
+            propagated_to_prompt_node = False
+
+    # The personal routing table is computed on demand from rated outcomes;
+    # this rate event will appear there automatically the next time the
+    # launchpad renders or chairman_picker runs. Surface the current count
+    # for the CLI response so the caller can confirm the table is non-empty.
+    try:
+        from ..personal_routing import compute_personal_routing_table, invalidate_cache
+
+        invalidate_cache()
+        councils_aggregated = compute_personal_routing_table().get("councils_aggregated", 0)
+    except Exception:
+        councils_aggregated = None
+
     review_path = write_unified_council_page(bundle, outcome)
     portal_path = refresh_launchpad()
-    print(json.dumps({"feedback": record, "portal_path": str(portal_path), "review_path": str(review_path)}, indent=2))
+    print(json.dumps({
+        "feedback": record,
+        "portal_path": str(portal_path),
+        "review_path": str(review_path),
+        "propagated_to_prompt_node": propagated_to_prompt_node,
+        "prompt_node_id": prompt_node_id,
+        "personal_routing_table_councils": councils_aggregated,
+    }, indent=2))
 
 
 def handle_council_stop(args):
@@ -468,3 +579,118 @@ def handle_council_stop(args):
             indent=2,
         )
     )
+
+
+def handle_council_share(args):
+    outcome = load_council_outcome(args.council)
+    desktop = Path.home() / "Desktop"
+
+    bundle = load_prompt_bundle(outcome.bundle_id)
+    review_path = write_unified_council_page(bundle, outcome)
+    if not review_path.exists():
+        raise SystemExit(f"error: review page not found at {review_path}")
+
+    safe_title = re.sub(r"[^a-zA-Z0-9]", "_", bundle.task_text[:30]).strip("_")
+    share_path = desktop / f"trinity-council-{outcome.council_run_id[:8]}-{safe_title}.html"
+
+    shutil.copy2(review_path, share_path)
+    opened = open_path(share_path)
+
+    print(json.dumps({
+        "shared_path": str(share_path),
+        "opened": opened,
+    }, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Consensus-iteration chain handlers
+# ---------------------------------------------------------------------------
+
+
+def _print_round_summary(result, round_label: str) -> None:
+    outcome = result.outcome
+    label = outcome.routing_label
+    summary = {
+        "round": round_label,
+        "council_run_id": outcome.council_run_id,
+        "review_path": str(result.review_path),
+        "primary_provider": outcome.primary_provider,
+        "winner_provider": outcome.winner_provider,
+        "parent_council_id": outcome.metadata.get("parent_council_id"),
+        "round_number": outcome.metadata.get("round_number"),
+    }
+    if label is not None:
+        summary["winner"] = label.winner
+        summary["confidence"] = label.confidence
+        summary["agreed_claims"] = len(label.agreed_claims)
+        summary["disagreed_claims"] = len(label.disagreed_claims)
+        from ..council_runtime import chairman_says_converged
+        summary["converged"] = chairman_says_converged(label)
+    print(json.dumps(summary, indent=2))
+
+
+def handle_council_iterate(args):
+    """Unified iteration: rounds + optional --prompt directive. Replaces the
+    prior trio of continue/refine/auto-chain handlers; they were all variants
+    of the same `run_consensus_round` / `auto_chain_council` engine."""
+    from ..council_runner import auto_chain_council, run_consensus_round
+
+    config = load_config(args.config)
+    parent = load_council_outcome(args.council)
+    cwd = Path(args.cwd).expanduser().resolve()
+    status_token = getattr(args, "status_token", None)
+
+    # When the user asks for a single round (with or without --prompt), they
+    # want a forced continuation — the launchpad's "continue" button must
+    # work even when the parent already converged. Skip auto_chain_council's
+    # convergence gate; run exactly one round.
+    if args.prompt or args.rounds == 1:
+        result = run_consensus_round(
+            config=config,
+            parent_outcome=parent,
+            user_refinement=args.prompt,
+            cwd=cwd,
+            run_state_token=status_token,
+        )
+        if args.open_browser:
+            open_path(result.review_path)
+        _print_round_summary(result, round_label="refine" if args.prompt else "continue")
+        return
+
+    # rounds > 1, no prompt → auto-iterate, stop on convergence.
+    results = auto_chain_council(
+        config=config,
+        initial_outcome=parent,
+        max_rounds=args.rounds,
+        cwd=cwd,
+        run_state_token=status_token,
+    )
+    if results and args.open_browser:
+        open_path(results[-1].review_path)
+
+    # Per-round summary
+    rounds = []
+    for i, r in enumerate(results):
+        outcome = r.outcome
+        label = outcome.routing_label
+        rounds.append({
+            "round_number": outcome.metadata.get("round_number"),
+            "council_run_id": outcome.council_run_id,
+            "review_path": str(r.review_path),
+            "winner": label.winner if label else None,
+            "confidence": label.confidence if label else None,
+            "agreed_claims": len(label.agreed_claims) if label else 0,
+            "disagreed_claims": len(label.disagreed_claims) if label else 0,
+        })
+
+    from ..council_runtime import chairman_says_converged
+    final = results[-1].outcome if results else parent
+    print(json.dumps({
+        "ok": True,
+        "initial_council_run_id": parent.council_run_id,
+        "rounds_run": len(results),
+        "max_rounds": args.rounds,
+        "converged": chairman_says_converged(final.routing_label),
+        "final_council_run_id": final.council_run_id,
+        "rounds": rounds,
+    }, indent=2))
