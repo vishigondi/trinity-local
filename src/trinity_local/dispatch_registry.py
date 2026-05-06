@@ -165,7 +165,10 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         status_token = args.get("status_token")
         if status_token:
             parts.append(f"--status-token {shlex.quote(str(status_token))}")
-        parts.append("--open-browser")
+        # Don't pass --open-browser. Chain dispatches are fired from the live
+        # council page, which polls the status_token and renders the new
+        # round in-place as a fresh segment. Auto-opening the council's review
+        # URL on completion would spawn a duplicate tab on top of that.
         return " ".join(parts)
     if action.name == "open_path":
         path = args.get("path")

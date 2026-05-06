@@ -304,7 +304,10 @@ class TestDispatchRegistryChainActions:
         assert "council-iterate" in cmd
         assert "--rounds 1" in cmd
         assert "abc123" in cmd
-        assert "--open-browser" in cmd
+        # Chain dispatches no longer pass --open-browser. The live council
+        # page handles completion in-place by polling status_token; auto-opening
+        # the review URL would spawn a duplicate tab on top of it.
+        assert "--open-browser" not in cmd
 
     def test_council_refine_command(self):
         from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
