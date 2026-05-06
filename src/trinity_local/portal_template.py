@@ -930,18 +930,25 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           Refresh by running <code>trinity-local me-build</code>.
         </p>
 
-        <h3 style="margin-top: 24px; font-size: 15px; color: #444;" v-if="tasteLenses.rejections.length">Implicit rejections (the moat)</h3>
+        <div class="lens-section-row" v-if="tasteLenses.rejections.length">
+          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Implicit rejections (the principles you encode)</h3>
+          <button class="copy-btn" @click="copyLens(tasteLenses.rejections_share_text, 'rejections-all')">
+            <span v-if="copiedKey === 'rejections-all'">✓ Copied</span>
+            <span v-else>Copy all</span>
+          </button>
+        </div>
+        <p class="meta" v-if="tasteLenses.rejections.length" style="margin: 0 0 8px; font-size: 13px;">
+          Pair-wise context (model said / you substituted) is private — kept locally for the chairman, not shared.
+        </p>
         <div class="lens-card" v-for="(lens, idx) in tasteLenses.rejections" :key="'lens-' + idx">
           <div class="lens-header">
             <h4>{{{{ lens.title }}}}</h4>
-            <button class="copy-btn" @click="copyLens(lens.share_text, 'lens-' + idx)" :title="copiedKey === 'lens-' + idx ? 'Copied' : 'Copy to clipboard'">
+            <button class="copy-btn" @click="copyLens(lens.share_text, 'lens-' + idx)" :title="copiedKey === 'lens-' + idx ? 'Copied' : 'Copy this principle'">
               <span v-if="copiedKey === 'lens-' + idx">✓ Copied</span>
               <span v-else>Copy</span>
             </button>
           </div>
-          <p class="lens-row"><span class="lens-label model-label">Model said:</span> <span class="lens-quote">{{{{ lens.model_frame }}}}</span></p>
-          <p class="lens-row"><span class="lens-label user-label">You substituted:</span> <span class="lens-quote">{{{{ lens.user_substituted }}}}</span></p>
-          <p class="lens-row"><span class="lens-label why-label">Why this matters:</span> <span class="lens-why">{{{{ lens.why_matters }}}}</span></p>
+          <p class="lens-row"><span class="lens-why">{{{{ lens.why_matters }}}}</span></p>
         </div>
 
         <div class="lens-section-row" v-if="tasteLenses.vocabulary.length">

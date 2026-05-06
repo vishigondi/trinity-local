@@ -29,15 +29,15 @@ class ImplicitRejection:
     why_matters: str
 
     def to_share_text(self) -> str:
-        """Tweet-thread-shaped quotable card. Pastes cleanly into socials."""
-        return (
-            f'"{self.title}"\n\n'
-            f'Model said:\n> {self.model_frame}\n\n'
-            f'What I substituted:\n> {self.user_substituted}\n\n'
-            f'Why this matters: {self.why_matters}'
-        )
+        """Principle-only share text. NO verbatim model/user quotes — those
+        are private prompt history. Just the rule the user is encoding and
+        why it matters. Pastes cleanly into socials."""
+        return f"{self.title}\n→ {self.why_matters}"
 
     def to_dict(self) -> dict[str, str]:
+        # `model_frame` and `user_substituted` are kept in the dict for the
+        # chairman's context (it reads /me.md verbatim). The launchpad does
+        # NOT render them — they're private prompt content.
         return {
             "title": self.title,
             "model_frame": self.model_frame,
@@ -80,9 +80,29 @@ class TasteLenses:
             "rejections": [r.to_dict() for r in self.rejections],
             "vocabulary": [v.to_dict() for v in self.vocabulary],
             "abstract_lenses": [l.to_dict() for l in self.abstract_lenses],
+            "rejections_share_text": self._rejections_share_text(),
             "vocabulary_share_text": self._vocabulary_share_text(),
             "abstract_lenses_share_text": self._abstract_lenses_share_text(),
         }
+
+    def _rejections_share_text(self) -> str:
+        """All rejections in one bundle — title + why-it-matters per item.
+        Excludes verbatim model/user quotes (those are private prompt history).
+        """
+        if not self.rejections:
+            return ""
+        lines: list[str] = [
+            "The principles I encode by what I redirect away from:",
+            "",
+        ]
+        for r in self.rejections:
+            lines.append(f"→ {r.title}")
+            lines.append(f"  {r.why_matters}")
+            lines.append("")
+        # Trim trailing blank
+        while lines and not lines[-1]:
+            lines.pop()
+        return "\n".join(lines)
 
     def _vocabulary_share_text(self) -> str:
         if not self.vocabulary:

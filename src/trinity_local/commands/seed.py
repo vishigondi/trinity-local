@@ -152,7 +152,7 @@ def _flush_chunk(staged: list[dict], existing_ids: set[str], dim: int, batch_siz
     """Phase 2 + 3: embed all texts in the chunk in ONE batched call,
     then write all PromptNodes / TurnWindows.
 
-    Returns (prompts, windows, transcripts) written. The TranscriptNode tier
+    Returns (prompts, windows, _) written. The TranscriptNode tier
     was retired; the third element is always 0 for backwards-compat with the
     progress reporter.
     """

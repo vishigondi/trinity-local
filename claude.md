@@ -47,7 +47,7 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (15 modules):
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (17 modules):
 
 | Module | Key commands |
 |--------|-------------|
@@ -232,7 +232,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 - Live council page streams full member responses while chairman is synthesizing.
 - Chairman prompt emits valid Routing JSON with `agreed_claims` / `disagreed_claims`.
 - Chairman auto-selection: personal routing table → global benchmarks → default order.
-- HTML well-formed (no orphan refs to peer_review / aggregate_ranking / daemon / workflow_create / digest_pages / task_linking).
+- HTML well-formed (no orphan refs to peer_review / aggregate_ranking / daemon / workflow_create / task_linking).
 
 ## Development notes
 

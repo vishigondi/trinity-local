@@ -61,16 +61,38 @@ class TestParseTasteLenses:
         assert any("Source over synthesis" in s for s in statements)
         assert any("Second-level impacts" in s for s in statements)
 
-    def test_share_text_is_paste_ready(self):
+    def test_share_text_is_principles_only_no_prompts(self):
+        """The share text MUST NOT contain verbatim model/user prompts —
+        those are private. Only the principle (title + why-it-matters)."""
         lenses = parse_taste_lenses(SAMPLE_ME)
         share = lenses.rejections[0].to_share_text()
-        # All four labeled rows present.
+        # The principle parts:
         assert "Skip the curated list" in share
-        assert "Model said:" in share
-        assert "What I substituted:" in share
-        assert "Why this matters:" in share
-        # Verbatim quotes preserved (without the wrapping double-quotes).
-        assert "GPQA Diamond" in share
+        assert "trust the locked corpus" in share
+        # Privacy contract — verbatim prompt content MUST NOT leak:
+        assert "GPQA Diamond" not in share, "model_frame leaked into share text"
+        assert "Measuring the performance" not in share, "user_substituted leaked into share text"
+        # Old format markers are gone:
+        assert "Model said:" not in share
+        assert "What I substituted:" not in share
+
+    def test_rejections_share_text_bundles_all_principles_no_prompts(self):
+        """The 'Copy all' bundle must contain every rejection's title +
+        why-it-matters, but never the verbatim model/user quotes."""
+        lenses = parse_taste_lenses(SAMPLE_ME)
+        bundle = lenses.to_dict()["rejections_share_text"]
+        # Both rejection titles present:
+        assert "Skip the curated list, point at the source" in bundle
+        assert "Don't lecture math, audit it" in bundle
+        # Both why-it-matters lines present:
+        assert "trust the locked corpus" in bundle
+        assert "surface-level pass-rate is not consistency" in bundle
+        # Privacy contract:
+        assert "GPQA Diamond" not in bundle
+        assert "Measuring the performance" not in bundle
+        assert "Section 3.7" not in bundle
+        # Header signals what this is:
+        assert "principles" in bundle.lower()
 
     def test_empty_me_returns_empty_lenses(self):
         lenses = parse_taste_lenses("")
