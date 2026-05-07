@@ -35,6 +35,14 @@ from .pair_mining import (
     save_lenses,
     split_by_verdict,
 )
+from .turn_pairs import (
+    RejectionSignal,
+    iter_turn_pairs,
+    parse_rejections,
+    render_extraction_prompt as render_turn_pair_prompt,
+    save_rejections,
+    validate_signals,
+)
 
 
 @dataclass
@@ -53,6 +61,49 @@ def stage1_basins(*, k: int = 20, seed: int = 42) -> list[Basin]:
     basins = compute_basins(k=k, seed=seed)
     save_basins(basins)
     return basins
+
+
+def stage0_turn_pair_prompt(
+    pairs: list[dict[str, Any]],
+    basins: list[Basin],
+) -> str:
+    """Render the Option A single-batch chairman prompt for turn-pair gaps."""
+    return render_turn_pair_prompt(pairs, basins)
+
+
+def stage0_parse_and_validate(
+    raw_output: str,
+    basins: list[Basin],
+    pair_index: dict[str, dict[str, Any]],
+) -> tuple[list[RejectionSignal], list[dict]]:
+    """Parse chairman output, then run deterministic validators.
+
+    Returns (kept_signals, rejected_records). The `rejected` list carries
+    `reason` fields so chairman drift is auditable across rebuilds.
+    """
+    raw_signals = parse_rejections(raw_output, basins)
+    kept, rejected = validate_signals(raw_signals, pair_index)
+    save_rejections(kept)
+    return kept, rejected
+
+
+def collect_turn_pairs(limit: int = 200) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Build turn pairs for the Stage 0 batch and an index keyed by prompt_id
+    so the post-validators can look up assistant/user/next_user text."""
+    pairs: list[dict[str, Any]] = []
+    index: dict[str, dict[str, Any]] = {}
+    for assistant, user, prompt_id, next_user in iter_turn_pairs(limit=limit):
+        pairs.append({
+            "prompt_id": prompt_id,
+            "assistant_text": assistant,
+            "user_text": user,
+        })
+        index[prompt_id] = {
+            "assistant_text": assistant,
+            "user_text": user,
+            "next_user_text": next_user,
+        }
+    return pairs, index
 
 
 def stage2_extraction_prompt(samples: list[dict[str, Any]], basins: list[Basin]) -> str:

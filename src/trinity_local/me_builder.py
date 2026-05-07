@@ -426,7 +426,10 @@ def build_me_via_lens_pipeline(
     """
     from .config import load_config
     from .me.pipeline import (
+        collect_turn_pairs,
         render_me_markdown,
+        stage0_parse_and_validate,
+        stage0_turn_pair_prompt,
         stage1_basins,
         stage2_extraction_prompt,
         stage2_parse,
@@ -487,8 +490,35 @@ def build_me_via_lens_pipeline(
         raise RuntimeError("me-build requires at least one enabled provider")
     primary = make_provider(chairman_config)
 
-    # Stage 2: decision extraction (one chairman call)
-    stage2_prompt = stage2_extraction_prompt(sample_dicts, basins)
+    # Stage 0: turn-pair gap extraction (the highest-signal source per
+    # taste-terminal spec). One batch chairman call classifies turn pairs
+    # into REFRAME/COMPRESSION/REDIRECT/SHARPENING; deterministic
+    # post-validators drop chairman-skim labels.
+    turn_pairs, pair_index = collect_turn_pairs(limit=max(200, sample_size * 2))
+    rejections: list = []
+    rejected_records: list = []
+    if turn_pairs:
+        stage0_prompt = stage0_turn_pair_prompt(turn_pairs, basins)
+        stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
+        rejections, rejected_records = stage0_parse_and_validate(
+            stage0_result.stdout or "", basins, pair_index,
+        )
+
+    # Stage 2: decision extraction (one chairman call). Rejections
+    # produced by Stage 0 are mixed into the sampled corpus as
+    # additional high-signal source — turn-pair gaps are usually
+    # higher-yield than user-prompt-only sampling.
+    augmented_samples = list(sample_dicts)
+    for sig in rejections:
+        if sig.prompt_id and sig.user_substitute:
+            # The user_substitute is verbatim from the user turn; tag it
+            # so Stage 2 sees it as decision-shaped material.
+            augmented_samples.append({
+                "prompt_id": sig.prompt_id,
+                "text": f"[{sig.type}] model said \"{sig.model_quote}\"; I went with: {sig.user_substitute}. {sig.why_signal}",
+            })
+
+    stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
     stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
     decisions = stage2_parse(stage2_result.stdout or "", basins)
 
@@ -496,6 +526,7 @@ def build_me_via_lens_pipeline(
         return me_path(), {
             "skipped": True, "reason": "no_decisions_extracted",
             "samples": len(samples), "basins": len(basins),
+            "rejections": len(rejections),
             "stage2_stderr": (stage2_result.stderr or "")[:500],
         }
 
@@ -516,6 +547,9 @@ def build_me_via_lens_pipeline(
     return path, {
         "samples": len(samples),
         "basins": len(basins),
+        "turn_pairs": len(turn_pairs),
+        "rejections_kept": len(rejections),
+        "rejections_dropped": len(rejected_records),
         "decisions": len(decisions),
         "candidates": len(pairs),
         "accepted": len(accepted),
