@@ -96,6 +96,33 @@ A LENS is a tension between two value poles (A, B) where:
 If only ONE direction has evidence, it's a virtue or an ordering, not a lens.
 If failure-modes are unnameable on either pole, it's a virtue, not a lens.
 
+CRITICAL: ABSTRACT THE POLES. Each pole must be a STRUCTURAL pattern that
+recurs across multiple domains, not a literal phrase from one decision.
+
+BAD pole names (too literal, single domain — REJECT these):
+  ❌ "speed/momentum to close"           → too specific to a real-estate deal
+  ❌ "lower buyer-agent fee"             → one transaction
+  ❌ "frigate setup over usb mount"      → one home automation task
+  ❌ "settle the prior determination"    → too narrow
+
+GOOD pole names (structural, span 3+ domains):
+  ✓ "infrastructure over interface"          (architecture, software, smart-home)
+  ✓ "locked corpus over forward theory"      (genetics, geopolitics, tax, SEO)
+  ✓ "temporal trajectory over present snapshot"  (materials, real-estate, tax)
+  ✓ "full-stack control over component excellence" (manufacturing, kit business, travel)
+  ✓ "generative grammar over selected instance"    (floor-plans, genetics, philosophy)
+  ✓ "codified rule over aesthetic judgment"        (genetics, design, manifestos)
+
+THE TEST: would two strangers reading this lens converge on the same answer
+in a domain you've never discussed? If a pole only fits one topical area, it's
+a preference, not a lens. Name the structural move that ties decisions across
+DIFFERENT basins together.
+
+Cross-basin requirement: your tension_decisions for any "accepted" pair must
+draw from AT LEAST 2 distinct basin ids (b00..bNN in the decisions below).
+Pairs whose evidence sits in one basin are topic preferences — emit them as
+"preserve_as_ordering" instead of "accepted".
+
 Propose 6–12 candidate pairs from the decisions below. For each pair, return
 a verdict object — JSON array, one element per pair, schema below:
 
@@ -189,9 +216,8 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
     decision_basin = {d.id: d.basin for d in decisions}
     filtered: list[LensPair] = []
     for pair in pairs:
-        if pair.verdict != "accepted":
-            filtered.append(pair)
-            continue
+        # Always compute basin coverage so orderings show which topical
+        # area they live in (informational), not just accepted pairs.
         basins = {
             decision_basin.get(d_id)
             for d_id in pair.tension_decisions
@@ -199,6 +225,9 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
         }
         basins.discard(None)
         pair.basins_spanned = sorted(b for b in basins if b)
+        if pair.verdict != "accepted":
+            filtered.append(pair)
+            continue
         if len(pair.basins_spanned) >= 2:
             filtered.append(pair)
         elif len(pair.basins_spanned) == 1:

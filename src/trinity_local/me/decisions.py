@@ -89,6 +89,25 @@ A "decision" is any moment where the user CHOSE, DECLINED, REGRETTED,
 RATIONALIZED, or COURSE-CORRECTED. Walk the chunks below and surface every
 decision you find. Skip neutral or purely informational prompts.
 
+CRITICAL: When labelling `privileged` and `sacrificed`, abstract one level
+ABOVE the literal phrases in the verbatim. The downstream pair-miner needs
+poles that recur across domains, not labels tied to one decision.
+
+  Verbatim: "let's just pay 2% to the buyer agent and close fast"
+  ❌ literal: privileged="lower buyer-agent fee", sacrificed="agent goodwill"
+  ✓ abstract: privileged="momentum to close", sacrificed="relational reciprocity"
+
+  Verbatim: "intelligence is infrastructure, not interface"
+  ❌ literal: privileged="infrastructure", sacrificed="interface"
+  ✓ abstract: privileged="capability hidden in structure", sacrificed="capability surfaced as features"
+
+  Verbatim: "use the punnett square always, not the ratio"
+  ❌ literal: privileged="punnett square", sacrificed="ratio"
+  ✓ abstract: privileged="generative mechanism shown", sacrificed="derived shortcut"
+
+If you can't abstract a decision (it's too domain-specific to generalize),
+skip it rather than emit a literal label.
+
 For each decision, emit ONE JSON line in this exact schema:
 
 {{"id": "d_001", "privileged": "<what was optimized for>", "sacrificed": "<what was traded away>", "valence": "satisfaction|regret|unresolved|correction|cost", "basin": "<basin id from list below>", "verbatim": "<≤25 word excerpt from the chunk>", "prompt_id": "<the [id] from the chunk header>"}}
