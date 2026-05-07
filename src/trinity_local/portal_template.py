@@ -188,6 +188,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       font-size: 14px;
       color: #444;
     }}
+    .taste-failure-modes {{
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 4px;
+    }}
+    .taste-failure-line {{
+      font-size: 13px;
+      color: #444;
+    }}
     .taste-list-quotes li {{
       font-size: 15px;
       color: #1a1a1a;
@@ -935,16 +945,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <h2>The patterns in how you think</h2>
         <p class="meta">
           Trinity surfaced the tensions your decisions encode (lenses) and
-          the principles you redirect away from. Refresh with <code>trinity-local me-build</code>.
+          the principles you redirect away from. Refreshes when /me-build runs.
         </p>
 
         <div class="taste-block" v-if="tasteLenses.paired_lenses && tasteLenses.paired_lenses.length">
-          <div class="taste-block-label">Paired lenses (the tensions you live in)</div>
+          <div class="taste-block-label">{{{{ tasteLenses.paired_lenses.length === 1 ? 'Paired lens (the tension you live in)' : 'Paired lenses (the tensions you live in)' }}}}</div>
           <ol class="taste-list">
             <li v-for="(p, idx) in tasteLenses.paired_lenses" :key="'pair-' + idx">
               <span class="taste-list-title">{{{{ p.pole_a }}}} ↔ {{{{ p.pole_b }}}}</span>
-              <span class="taste-list-why" v-if="p.failure_a || p.failure_b">
-                pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b>; pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b>
+              <span class="taste-list-why taste-failure-modes" v-if="p.failure_a || p.failure_b">
+                <span class="taste-failure-line">pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b></span>
+                <span class="taste-failure-line">pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b></span>
               </span>
             </li>
           </ol>

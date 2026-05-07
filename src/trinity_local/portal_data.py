@@ -43,9 +43,17 @@ def _esc(value: str | None) -> str:
 
 
 def _truncate(text: str, length: int = 88) -> str:
+    """Truncate at the nearest word boundary so titles don't end mid-word
+    like "or p…" or "the output a…". Falls back to hard cut only if the
+    text contains no spaces in the budget window (rare, single long token).
+    """
     if len(text) <= length:
         return text
-    return text[:length].rstrip() + "…"
+    cut = text[:length]
+    last_space = cut.rfind(" ")
+    if last_space >= length // 2:
+        cut = cut[:last_space]
+    return cut.rstrip(" ,.;:!?-—") + "…"
 
 
 def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
