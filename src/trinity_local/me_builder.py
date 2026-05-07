@@ -406,6 +406,125 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
     }
 
 
+def build_me_via_lens_pipeline(
+    *,
+    sample_size: int = ME_SAMPLE_SIZE,
+    k_basins: int = 20,
+    seed: int = 42,
+    dry_run: bool = False,
+) -> tuple[Path, dict]:
+    """Run the 3-stage lens-discovery pipeline (Option C).
+
+    Stage 1: numpy k-means basins (no LLM)
+    Stage 2: chairman extracts decisions.jsonl
+    Stage 3: 3-member council mines candidate pairs; chairman applies
+             three tests + verifier contract
+    Stage 4: deterministic basin post-filter — drops single-basin pairs
+
+    `dry_run=True` runs Stage 1 + sampling only (no LLM calls), useful
+    to inspect the corpus topology before committing to a full rebuild.
+    """
+    from .config import load_config
+    from .me.pipeline import (
+        render_me_markdown,
+        stage1_basins,
+        stage2_extraction_prompt,
+        stage2_parse,
+        stage3_pair_mining_prompt,
+        stage3_parse,
+        stage4_post_filter,
+    )
+    from .memory import search_prompt_nodes
+    from .providers import make_provider
+    from .ranker import predict_strongest_chairman
+
+    samples = _sample_diverse_with_embeddings(
+        top_k=sample_size,
+        candidate_pool=max(1000, sample_size * 12),
+    ) or search_prompt_nodes("", top_k=sample_size)
+    if not samples:
+        path = me_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "# /me\n\n_No prompt history indexed yet. Run "
+            "`trinity-local seed-from-taste-terminal --path <exports>` first._\n",
+            encoding="utf-8",
+        )
+        return path, {"skipped": True, "reason": "no_prompts"}
+
+    basins = stage1_basins(k=k_basins, seed=seed)
+    sample_dicts = [
+        {"prompt_id": getattr(s, "prompt_id", None) or getattr(s, "id", None), "text": getattr(s, "text", "")}
+        for s in samples
+    ]
+
+    if dry_run:
+        return me_path(), {
+            "skipped": True,
+            "dry_run": True,
+            "samples": len(samples),
+            "basins": len(basins),
+            "basin_summary": [
+                {"id": b.id, "size": b.size, "top_terms": b.top_terms}
+                for b in basins[:10]
+            ],
+        }
+
+    config = load_config()
+    available = [
+        name for name, p in (config.providers if config else {}).items()
+        if p.enabled and p.type in ("cli", "codex")
+    ]
+    chairman = predict_strongest_chairman(
+        "Build a /me persona document from sampled prompt history.",
+        available_providers=available or ["claude"],
+    )
+    chairman_config = (config.providers.get(chairman) if config else None)
+    if chairman_config is None or not chairman_config.enabled:
+        chairman = available[0] if available else ""
+        chairman_config = config.providers.get(chairman) if (config and chairman) else None
+    if chairman_config is None:
+        raise RuntimeError("me-build requires at least one enabled provider")
+    primary = make_provider(chairman_config)
+
+    # Stage 2: decision extraction (one chairman call)
+    stage2_prompt = stage2_extraction_prompt(sample_dicts, basins)
+    stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
+    decisions = stage2_parse(stage2_result.stdout or "", basins)
+
+    if not decisions:
+        return me_path(), {
+            "skipped": True, "reason": "no_decisions_extracted",
+            "samples": len(samples), "basins": len(basins),
+            "stage2_stderr": (stage2_result.stderr or "")[:500],
+        }
+
+    # Stage 3: pair mining (one chairman call wraps the 3-member council
+    # via the standard mcp run_council path; for the first cut we run a
+    # single pass through chairman over decisions.jsonl).
+    stage3_prompt = stage3_pair_mining_prompt(decisions)
+    stage3_result = primary.run(stage3_prompt, cwd=Path.cwd())
+    pairs = stage3_parse(stage3_result.stdout or "")
+
+    # Stage 4: deterministic basin post-filter
+    accepted, orderings = stage4_post_filter(pairs, decisions)
+
+    me_doc = render_me_markdown(accepted, orderings)
+    path = me_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(me_doc, encoding="utf-8")
+    return path, {
+        "samples": len(samples),
+        "basins": len(basins),
+        "decisions": len(decisions),
+        "candidates": len(pairs),
+        "accepted": len(accepted),
+        "orderings": len(orderings),
+        "chairman": chairman,
+        "size_chars": len(me_doc),
+    }
+
+
 def write_me() -> Path:
     """Compose /me and write it to ~/.trinity/me.md. Returns the path.
 
