@@ -125,19 +125,21 @@ class TestThreadManifest:
     def _outcome(self, council_id: str, *, root: str | None = None, parent: str | None = None, round_number: int = 1, started_at: str = ""):
         from trinity_local.council_schema import CouncilOutcome
 
+        # Mirror real Trinity convention: bundle_id is the canonical chain
+        # root identifier. For root councils, chain_root_id falls back to
+        # bundle_id. For chain rounds, chain_root_id is the root's bundle_id.
+        bundle_id = f"bundle_{council_id}"
         metadata = {"round_number": round_number}
         if root:
-            metadata["chain_root_id"] = root
+            # Translate the test's logical "root council_id" into its bundle_id
+            metadata["chain_root_id"] = f"bundle_{root}"
         if parent:
             metadata["parent_council_id"] = parent
         if started_at:
             metadata["started_at"] = started_at
         return CouncilOutcome(
             council_run_id=council_id,
-            # Real outcomes get unique bundle_ids from stable_id; mirror that
-            # so the manifest dedup (bundle_id-keyed) treats each round as a
-            # distinct segment instead of collapsing them onto one bundle.
-            bundle_id=f"bundle_{council_id}",
+            bundle_id=bundle_id,
             task_cluster_id="c",
             primary_provider="claude",
             created_at=started_at or "2026-05-06T00:00:00",
@@ -154,10 +156,11 @@ class TestThreadManifest:
 
         from trinity_local.council_runtime import _read_thread_manifest
         text = path.read_text()
-        assert "_thread_root1.js" in str(path)
-        assert "root1" in text
+        # Manifest is keyed off bundle_id (canonical chain root)
+        assert "_thread_bundle_root1.js" in str(path)
+        assert "bundle_root1" in text
         body = _read_thread_manifest(path)
-        assert body["chain_root_id"] == "root1"
+        assert body["chain_root_id"] == "bundle_root1"
         assert len(body["segments"]) == 1
         assert body["segments"][0]["council_id"] == "root1"
         assert body["segments"][0]["round_number"] == 1
@@ -200,6 +203,7 @@ class TestThreadManifest:
         # view picks it up mid-flight. When the round saves, the matching
         # pending entry must be replaced by the completed one — keyed off
         # bundle_id, since council_run_id is allocated only at finalize time.
+        # All threads use bundle_id as the chain root identifier.
         from trinity_local.council_runtime import (
             register_pending_round,
             update_thread_manifest,
@@ -210,11 +214,12 @@ class TestThreadManifest:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
 
+        # Root council: chain_root_id == bundle_id == "bundle_root1"
         update_thread_manifest(self._outcome("root1", started_at="2026-05-06T00:00:00"))
 
-        # Round 2 starts: pending entry written before any council_run_id exists
+        # Round 2 starts: pending entry under chain_root_id = root's bundle_id
         path = register_pending_round(
-            chain_root_id="root1",
+            chain_root_id="bundle_root1",
             bundle_id="bundle_round2",
             status_token="status_xyz",
             round_number=2,
@@ -236,7 +241,7 @@ class TestThreadManifest:
             primary_provider="claude",
             created_at="2026-05-06T00:02:00",
             metadata={
-                "chain_root_id": "root1",
+                "chain_root_id": "bundle_root1",
                 "parent_council_id": "root1",
                 "round_number": 2,
                 "started_at": "2026-05-06T00:01:00",

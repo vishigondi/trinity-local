@@ -65,7 +65,13 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
             continue
         council_id = raw.get("council_run_id") or path.stem
         metadata = raw.get("metadata") or {}
-        chain_root_id = metadata.get("chain_root_id") or council_id
+        bundle_id = raw.get("bundle_id")
+        # bundle_id is the canonical chain root identifier — it's allocated
+        # at launch time and stays stable across all rounds in a chain. The
+        # thread manifest, pending registration, and ?thread_id= URLs all
+        # key off it. Falling back to council_id only matters for very old
+        # outcomes that predate the manifest writer.
+        chain_root_id = metadata.get("chain_root_id") or bundle_id or council_id
         round_number = int(metadata.get("round_number") or 1)
         created_at = str(raw.get("created_at") or "")
         bundle_id = raw.get("bundle_id")

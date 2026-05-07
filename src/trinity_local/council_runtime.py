@@ -507,8 +507,13 @@ def update_thread_manifest(outcome: CouncilOutcome) -> Path:
     allocated at finalize time). Lets a pending entry get replaced by the
     final completed entry when the round saves.
     """
+    # bundle_id is the canonical chain root: stable from launch time,
+    # whereas council_run_id is only allocated when create_council_outcome
+    # runs. Using bundle_id lets us register a pending manifest entry at
+    # init time (before the outcome exists) and have save_council_outcome
+    # update the same file when the round finishes.
     metadata = outcome.metadata or {}
-    chain_root_id = metadata.get("chain_root_id") or outcome.council_run_id
+    chain_root_id = metadata.get("chain_root_id") or outcome.bundle_id
     segments = _read_thread_segments(chain_root_id)
 
     entry = {

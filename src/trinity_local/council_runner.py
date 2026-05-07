@@ -197,6 +197,16 @@ def _run_chain(
                 "chairman_model": chairman_model,
             },
         )
+        try:
+            from .council_runtime import register_pending_round
+            register_pending_round(
+                chain_root_id=bundle.bundle_id,
+                bundle_id=bundle.bundle_id,
+                status_token=state_token,
+                round_number=1,
+            )
+        except Exception:
+            pass
 
     chain_steps: list[CouncilChainStep] = []
     failed_steps: list[dict[str, object]] = []
@@ -459,6 +469,20 @@ def run_council(
                 "chairman_model": chairman_model,
             },
         )
+        # Register a pending segment so anyone who opens ?thread_id= for this
+        # council mid-run (via launchpad tile or MCP-returned link) sees it
+        # streaming live instead of an empty placeholder. Replaced by the
+        # completed entry on save_council_outcome.
+        try:
+            from .council_runtime import register_pending_round
+            register_pending_round(
+                chain_root_id=bundle.bundle_id,
+                bundle_id=bundle.bundle_id,
+                status_token=state_token,
+                round_number=1,
+            )
+        except Exception:
+            pass  # observability; never block the run
     member_prompt = render_member_prompt(bundle)
 
     def _run_member(provider_name: str) -> MemberExecutionResult:
