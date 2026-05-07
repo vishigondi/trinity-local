@@ -864,7 +864,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Ratings</div>
         <h2>Your providers across capability categories</h2>
         <p class="meta" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
-          Aggregated from {{{{ personalRoutingTable.councils_aggregated }}}} replay councils · /100. Categories aligned with the LMArena leaderboard so they can be compared against external evals later.
+          Scored 0–100 from {{{{ personalRoutingTable.councils_aggregated }}}} replay councils. Categories aligned with the LMArena leaderboard so they can be compared against external evals later.
         </p>
         <p class="meta" v-else>
           Once you run <code>trinity-local replay-history --limit 20</code>, this chart fills in with per-category strength for each provider, computed from your own council preferences.

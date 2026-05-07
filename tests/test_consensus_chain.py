@@ -382,7 +382,7 @@ class TestCouncilReviewChainCard:
         # The per-outcome file is now a redirect; the chain UI lives on the
         # shared unified page that the redirect points at.
         html = (review_pages_dir() / "live_council.html").read_text(encoding="utf-8")
-        assert "Continue the conversation" in html
+        assert "Continue the thread" in html
         assert "Continue (one round)" in html
         assert "Auto-chain" in html
         assert "Refine" in html

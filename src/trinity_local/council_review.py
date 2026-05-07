@@ -420,12 +420,10 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
 
       <section class="card chain-actions">
         <div class="eyebrow">Round {{{{ chain.roundNumber }}}}{{{{ chain.converged ? ' · models converged' : '' }}}}</div>
-        <h2 v-if="!chainBusy">Continue the conversation</h2>
-        <h2 v-if="chainBusy">{{{{ chainStatusHeading }}}}</h2>
-        <p class="meta" v-if="!chainBusy">
-          Run another round where each model sees the others' answers and refines.
-          Or add a new directive to push the conversation in a new direction.
-          Click <strong>Pick winner</strong> on a card above to stop here.
+        <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
+        <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
+        <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
+          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction. Click <strong>Pick winner</strong> on a card above to stop here.
         </p>
         <div class="chain-loading" v-if="chainBusy">
           <span class="spinner" aria-hidden="true"></span>
@@ -433,7 +431,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         </div>
         <div class="chain-button-row" v-if="!chainBusy">
           <button type="button" class="button primary" @click="startContinue">Continue (one round)</button>
-          <button type="button" class="button ghost" @click="startAutoChain">Auto-chain (up to 3 rounds, stop when converged)</button>
+          <button type="button" class="button ghost" @click="startAutoChain">Auto-chain (up to 3 rounds)</button>
         </div>
         <div class="chain-refine-row" v-if="!chainBusy">
           <input
@@ -1099,12 +1097,10 @@ def render_live_council_page() -> str:
       </div>
 
       <section class="card chain-actions" v-if="canChainNext">
-        <div class="eyebrow">Continue this thread</div>
-        <h2 v-if="!chainBusy">Continue the conversation</h2>
-        <h2 v-if="chainBusy">{{{{ chainStatusHeading }}}}</h2>
-        <p class="meta" v-if="!chainBusy">
-          Run another round where each model sees the others' answers and refines.
-          Or add a new directive to push the conversation in a new direction.
+        <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
+        <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
+        <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
+          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction.
         </p>
         <div class="chain-loading" v-if="chainBusy">
           <span class="spinner" aria-hidden="true"></span>
@@ -1112,7 +1108,7 @@ def render_live_council_page() -> str:
         </div>
         <div class="chain-button-row" v-if="!chainBusy">
           <button type="button" class="button primary" @click="startContinue">Continue (one round)</button>
-          <button type="button" class="button ghost" @click="startAutoChain">Auto-chain (up to 3 rounds, stop when converged)</button>
+          <button type="button" class="button ghost" @click="startAutoChain">Auto-chain (up to 3 rounds)</button>
         </div>
         <div class="chain-refine-row" v-if="!chainBusy">
           <input
