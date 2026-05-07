@@ -441,21 +441,56 @@ def build_page_data(
 
 
 def _load_taste_lenses() -> dict | None:
-    """Parse ~/.trinity/me.md into shareable taste lenses for the launchpad.
+    """Surface taste lenses for the launchpad.
 
-    Returns the structured dict (rejections / vocabulary / abstract_lenses)
-    or None when /me hasn't been built yet — the launchpad shows an
-    empty-state CTA pointing at `trinity-local me-build`.
+    Prefers the new 3-stage pipeline output (`me/lenses.json`,
+    `me/orderings.json`) which carries pole_a / pole_b / failure
+    modes / spanned basins. Falls back to the legacy single-virtue
+    parse when the pipeline hasn't run yet.
+
+    Returns None when neither source has data — the launchpad shows
+    an empty-state CTA pointing at `trinity-local me-build`.
     """
+    from .me.pair_mining import load_lenses, load_orderings
     from .me_lenses import parse_taste_lenses
 
+    paired = [p.to_dict() for p in load_lenses()]
+    orderings = [p.to_dict() for p in load_orderings()]
+
+    legacy = None
     try:
         lenses = parse_taste_lenses()
+        if not lenses.is_empty:
+            legacy = lenses.to_dict()
     except Exception:
+        legacy = None
+
+    if not paired and not legacy:
         return None
-    if lenses.is_empty:
-        return None
-    return lenses.to_dict()
+
+    out: dict = legacy.copy() if legacy else {
+        "rejections": [],
+        "vocabulary": [],
+        "abstract_lenses": [],
+        "rejections_share_text": "",
+        "vocabulary_share_text": "",
+        "abstract_lenses_share_text": "",
+        "combined_share_text": "",
+    }
+    out["paired_lenses"] = paired
+    out["orderings"] = orderings
+    if paired:
+        # Build a combined share text from the paired form — preferred
+        # over the single-virtue legacy text once the pipeline ships.
+        lines = ["My lenses (paired tensions Trinity surfaced):", ""]
+        for p in paired:
+            lines.append(f"→ {p['pole_a']} ↔ {p['pole_b']}")
+            if p.get("failure_a") and p.get("failure_b"):
+                lines.append(f"   pure-{p['pole_a']} fails as {p['failure_a']}; pure-{p['pole_b']} fails as {p['failure_b']}")
+        lines.append("")
+        lines.append("(via trinity-local)")
+        out["combined_share_text"] = "\n".join(lines)
+    return out
 
 
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:

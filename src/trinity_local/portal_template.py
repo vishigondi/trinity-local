@@ -934,11 +934,32 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Your taste, distilled</div>
         <h2>The patterns in how you think</h2>
         <p class="meta">
-          Trinity read your prompt history and surfaced what you redirect away from
-          and the lenses you think through. Refresh with <code>trinity-local me-build</code>.
+          Trinity surfaced the tensions your decisions encode (lenses) and
+          the principles you redirect away from. Refresh with <code>trinity-local me-build</code>.
         </p>
 
-        <div class="taste-block" v-if="tasteLenses.rejections.length">
+        <div class="taste-block" v-if="tasteLenses.paired_lenses && tasteLenses.paired_lenses.length">
+          <div class="taste-block-label">Paired lenses (the tensions you live in)</div>
+          <ol class="taste-list">
+            <li v-for="(p, idx) in tasteLenses.paired_lenses" :key="'pair-' + idx">
+              <span class="taste-list-title">{{{{ p.pole_a }}}} ↔ {{{{ p.pole_b }}}}</span>
+              <span class="taste-list-why" v-if="p.failure_a || p.failure_b">
+                pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b>; pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b>
+              </span>
+            </li>
+          </ol>
+        </div>
+
+        <div class="taste-block" v-if="tasteLenses.orderings && tasteLenses.orderings.length">
+          <div class="taste-block-label">Orderings (preferences without dual evidence)</div>
+          <ul class="taste-list">
+            <li v-for="(o, idx) in tasteLenses.orderings" :key="'ord-' + idx">
+              <span class="taste-list-title">{{{{ o.pole_a }}}} &gt; {{{{ o.pole_b }}}}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="taste-block" v-if="tasteLenses.rejections && tasteLenses.rejections.length">
           <div class="taste-block-label">What you redirect away from</div>
           <ol class="taste-list">
             <li v-for="(lens, idx) in tasteLenses.rejections" :key="'rej-' + idx">
