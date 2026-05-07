@@ -949,6 +949,27 @@ def render_live_council_page() -> str:
       border-radius: 0 8px 8px 0;
     }}
 
+    .chain-segment-divider.clickable {{
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease;
+    }}
+
+    .chain-segment-divider.clickable:hover {{
+      background: rgba(37, 88, 71, 0.09);
+    }}
+
+    .chain-segment-divider.clickable:focus-visible {{
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.2);
+    }}
+
+    .segment-toggle-chevron {{
+      display: inline-block;
+      width: 14px;
+      color: rgba(37, 88, 71, 0.6);
+    }}
+
     .refinement-prompt {{
       font-style: italic;
       color: var(--text-primary);
@@ -970,12 +991,23 @@ def render_live_council_page() -> str:
       </section>
 
       <div class="chain-segment" v-for="(seg, segIndex) in segments" :key="seg.key" :data-seg-key="seg.key">
-        <section class="card chain-segment-divider" v-if="segments.length > 1 || seg.refinementText">
-          <div class="eyebrow">Round {{{{ seg.roundNumber || (segIndex + 1) }}}}{{{{ seg.converged ? ' · models converged' : '' }}}}</div>
+        <section
+          class="card chain-segment-divider clickable"
+          v-if="segments.length > 1 || seg.refinementText"
+          @click="toggleSegment(seg.key)"
+          role="button"
+          :tabindex="0"
+          @keydown.enter.prevent="toggleSegment(seg.key)"
+          @keydown.space.prevent="toggleSegment(seg.key)"
+        >
+          <div class="eyebrow">
+            <span class="segment-toggle-chevron">{{{{ seg.expanded ? '▾' : '▸' }}}}</span>
+            Round {{{{ seg.roundNumber || (segIndex + 1) }}}}{{{{ seg.converged ? ' · models converged' : '' }}}}{{{{ !seg.expanded ? ' · collapsed' : '' }}}}
+          </div>
           <p v-if="seg.refinementText" class="meta refinement-prompt" style="margin: 6px 0 0;">↳ {{{{ seg.refinementText }}}}</p>
         </section>
 
-        <section class="card launch-status mb-lg" v-if="seg.busy || seg.failed || seg.canceled">
+        <section class="card launch-status mb-lg" v-if="seg.expanded && (seg.busy || seg.failed || seg.canceled)">
           <div class="spinner-row" v-if="seg.busy">
             <span class="spinner" aria-hidden="true"></span>
             <strong>Council running</strong>
@@ -989,7 +1021,7 @@ def render_live_council_page() -> str:
           </div>
         </section>
 
-        <section class="card synthesis-section mb-lg" v-if="analysisRowFor(seg)">
+        <section class="card synthesis-section mb-lg" v-if="seg.expanded && analysisRowFor(seg)">
           <div class="provider-status-header">
             <h2 style="margin: 0;">{{{{ analysisRowFor(seg).label }}}}</h2>
             <div class="provider-status-badge" :class="analysisRowFor(seg).statusClass" v-if="analysisRowFor(seg).statusClass !== 'done'">{{{{ analysisRowFor(seg).statusLabel }}}}</div>
@@ -998,7 +1030,7 @@ def render_live_council_page() -> str:
           <p class="meta" v-else style="margin-top: 8px;">{{{{ analysisRowFor(seg).detail }}}}</p>
         </section>
 
-        <section class="card mb-lg" v-if="routingLabelFor(seg)">
+        <section class="card mb-lg" v-if="seg.expanded && routingLabelFor(seg)">
           <div class="eyebrow">Routing label</div>
           <div class="routing-label-grid">
             <div v-if="routingLabelFor(seg).winner">
@@ -1032,7 +1064,7 @@ def render_live_council_page() -> str:
           </div>
         </section>
 
-        <section class="mb-lg" v-if="memberRowsFor(seg).length">
+        <section class="mb-lg" v-if="seg.expanded && memberRowsFor(seg).length">
           <h2>Full Responses</h2>
           <p class="meta" v-if="seg.completed">Click the answer you prefer. Trinity saves that choice for local ratings and future routing.</p>
           <div :class="memberRowsFor(seg).length === 3 ? 'answers-grid answers-grid-three' : 'answers-grid'">
@@ -1059,7 +1091,7 @@ def render_live_council_page() -> str:
           </div>
         </section>
 
-        <section class="card confirmation-box" v-if="seg.selectedProvider">
+        <section class="card confirmation-box" v-if="seg.expanded && seg.selectedProvider">
           <div class="eyebrow">Preference saved</div>
           <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} is your preferred answer</h2>
           <p class="meta">Trinity uses this for local ratings and future routing.</p>
@@ -1244,6 +1276,7 @@ def render_live_council_page() -> str:
         converged: false,
         selectedProvider: '',
         currentStatusIndex: 0,
+        expanded: true,
       }};
     }}
 
@@ -1339,6 +1372,11 @@ def render_live_council_page() -> str:
                     ? 'Waiting for member responses.'
                     : 'Ready to start final comparison.',
           }};
+        }},
+        toggleSegment(key) {{
+          const idx = this.segments.findIndex((s) => s.key === key);
+          if (idx === -1) return;
+          this._patchSegment(key, {{ expanded: !this.segments[idx].expanded }});
         }},
         chooseMember(seg, provider, answerLabel) {{
           if (!seg.councilId) return;
