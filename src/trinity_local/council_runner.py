@@ -820,6 +820,22 @@ def run_consensus_round(
         },
     )
 
+    # Register a pending segment in the thread manifest so anyone who opens
+    # the launchpad → thread tile mid-round sees this round as a live
+    # streaming segment (polling state_token), not just the prior rounds.
+    # Replaced by the completed entry when save_council_outcome runs.
+    try:
+        from .council_runtime import register_pending_round
+        register_pending_round(
+            chain_root_id=chain_root_id,
+            bundle_id=new_bundle.bundle_id,
+            status_token=state_token,
+            round_number=round_number,
+            parent_council_id=parent_outcome.council_run_id,
+        )
+    except Exception:
+        pass  # manifest write is observability; never block the round
+
     member_results: list[CouncilMemberResult] = []
     failed_members: list[str] = []
     member_failures: list[dict[str, object]] = []

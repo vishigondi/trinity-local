@@ -472,36 +472,9 @@ def _read_thread_manifest(path: Path) -> dict:
     return json.loads(match.group(1))
 
 
-def update_thread_manifest(outcome: CouncilOutcome) -> Path:
-    """Write/update the JSONP thread manifest for this outcome's chain.
-
-    Each chain (rooted at chain_root_id) gets one
-    `_thread_<chain_root_id>.js` file listing its segments in order. The
-    live council page reads this when a `?thread_id=` URL is opened so it
-    can stack every round of the same conversation on one scrollable page.
-    """
-    metadata = outcome.metadata or {}
-    chain_root_id = metadata.get("chain_root_id") or outcome.council_run_id
+def _write_thread_manifest(chain_root_id: str, segments: list[dict]) -> Path:
     manifest_path = council_outcomes_dir() / f"_thread_{chain_root_id}.js"
-
-    segments: list[dict] = []
-    if manifest_path.exists():
-        try:
-            payload = _read_thread_manifest(manifest_path)
-            segments = list(payload.get("segments") or [])
-        except Exception:
-            segments = []
-
-    entry = {
-        "council_id": outcome.council_run_id,
-        "round_number": int(metadata.get("round_number") or 1),
-        "started_at": metadata.get("started_at") or outcome.created_at,
-        "parent_council_id": metadata.get("parent_council_id"),
-    }
-    segments = [s for s in segments if s.get("council_id") != outcome.council_run_id]
-    segments.append(entry)
     segments.sort(key=lambda s: (s.get("round_number") or 1, s.get("started_at") or ""))
-
     manifest = {"chain_root_id": chain_root_id, "segments": segments}
     manifest_path.write_text(
         "window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {};\n"
@@ -509,6 +482,84 @@ def update_thread_manifest(outcome: CouncilOutcome) -> Path:
         f"{json.dumps(manifest)};\n"
     )
     return manifest_path
+
+
+def _read_thread_segments(chain_root_id: str) -> list[dict]:
+    manifest_path = council_outcomes_dir() / f"_thread_{chain_root_id}.js"
+    if not manifest_path.exists():
+        return []
+    try:
+        payload = _read_thread_manifest(manifest_path)
+        return list(payload.get("segments") or [])
+    except Exception:
+        return []
+
+
+def update_thread_manifest(outcome: CouncilOutcome) -> Path:
+    """Write/update the JSONP thread manifest for this outcome's chain.
+
+    Each chain (rooted at chain_root_id) gets one
+    `_thread_<chain_root_id>.js` file listing its segments in order. The
+    live council page reads this when a `?thread_id=` URL is opened so it
+    can stack every round of the same conversation on one scrollable page.
+
+    Dedup priority: bundle_id (stable from round-start) > council_id (only
+    allocated at finalize time). Lets a pending entry get replaced by the
+    final completed entry when the round saves.
+    """
+    metadata = outcome.metadata or {}
+    chain_root_id = metadata.get("chain_root_id") or outcome.council_run_id
+    segments = _read_thread_segments(chain_root_id)
+
+    entry = {
+        "council_id": outcome.council_run_id,
+        "bundle_id": outcome.bundle_id,
+        "round_number": int(metadata.get("round_number") or 1),
+        "started_at": metadata.get("started_at") or outcome.created_at,
+        "parent_council_id": metadata.get("parent_council_id"),
+    }
+    segments = [
+        s for s in segments
+        if s.get("bundle_id") != outcome.bundle_id
+        and s.get("council_id") != outcome.council_run_id
+    ]
+    segments.append(entry)
+    return _write_thread_manifest(chain_root_id, segments)
+
+
+def register_pending_round(
+    *,
+    chain_root_id: str,
+    bundle_id: str,
+    status_token: str,
+    round_number: int,
+    parent_council_id: str | None = None,
+    started_at: str | None = None,
+) -> Path:
+    """Add a pending segment to the thread manifest before the round finishes.
+
+    Called when a chain round starts so the thread view (which loads the
+    manifest) can pick up an in-flight round even when the user navigates
+    to the launchpad and clicks the thread tile mid-round.
+
+    The segment is keyed by `bundle_id` (stable from round-start). When
+    the round eventually saves via `save_council_outcome`, the matching
+    pending entry is replaced with the completed entry that carries the
+    real `council_run_id`.
+    """
+    segments = _read_thread_segments(chain_root_id)
+    entry = {
+        "council_id": None,
+        "bundle_id": bundle_id,
+        "status_token": status_token,
+        "round_number": int(round_number),
+        "started_at": started_at or now_iso(),
+        "parent_council_id": parent_council_id,
+        "running": True,
+    }
+    segments = [s for s in segments if s.get("bundle_id") != bundle_id]
+    segments.append(entry)
+    return _write_thread_manifest(chain_root_id, segments)
 
 
 def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:

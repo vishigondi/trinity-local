@@ -1411,18 +1411,40 @@ def render_live_council_page() -> str:
         }},
         loadThread(threadId) {{
           loadThreadScript(threadId, (manifest) => {{
-            const ids = (manifest?.segments || []).map((s) => s.council_id);
-            if (!ids.length) {{
+            const manifestSegments = manifest?.segments || [];
+            if (!manifestSegments.length) {{
               // Fallback: treat threadId as a council_id
               const seg = makeSegment({{ councilId: threadId }});
               this.segments.push(seg);
               this._loadOutcomeIntoSegment(seg, threadId);
               return;
             }}
-            // Load all in parallel; render order matches manifest order.
-            const segs = ids.map((cid) => makeSegment({{ councilId: cid }}));
-            segs.forEach((s) => this.segments.push(s));
-            segs.forEach((s, idx) => this._loadOutcomeIntoSegment(s, ids[idx]));
+            // Build segments in manifest order. Pending entries (running, no
+            // council_id yet) become live-polling segments. Completed entries
+            // load outcome JSONP. Mixed manifests get both — so opening the
+            // thread tile mid-round shows prior completed rounds AND the
+            // currently-streaming round in the right slot.
+            let pendingPolledForKey = null;
+            manifestSegments.forEach((entry) => {{
+              if (entry.running && entry.status_token) {{
+                const seg = makeSegment({{
+                  statusToken: entry.status_token,
+                  taskText: this.threadTaskText,
+                  members: [],
+                }});
+                seg.roundNumber = entry.round_number || seg.roundNumber;
+                this.segments.push(seg);
+                pendingPolledForKey = seg.key;
+              }} else if (entry.council_id) {{
+                const seg = makeSegment({{ councilId: entry.council_id }});
+                this.segments.push(seg);
+                this._loadOutcomeIntoSegment(seg, entry.council_id);
+              }}
+            }});
+            // Start polling the latest pending segment so it streams live.
+            if (pendingPolledForKey) {{
+              this.startPolling();
+            }}
           }});
         }},
         _loadOutcomeIntoSegment(seg, councilId) {{

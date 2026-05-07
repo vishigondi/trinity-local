@@ -134,7 +134,10 @@ class TestThreadManifest:
             metadata["started_at"] = started_at
         return CouncilOutcome(
             council_run_id=council_id,
-            bundle_id="b",
+            # Real outcomes get unique bundle_ids from stable_id; mirror that
+            # so the manifest dedup (bundle_id-keyed) treats each round as a
+            # distinct segment instead of collapsing them onto one bundle.
+            bundle_id=f"bundle_{council_id}",
             task_cluster_id="c",
             primary_provider="claude",
             created_at=started_at or "2026-05-06T00:00:00",
@@ -190,3 +193,58 @@ class TestThreadManifest:
         ids = [s["council_id"] for s in body["segments"]]
         assert ids.count("c2") == 1
         assert ids == ["root1", "c2"]
+
+    def test_pending_round_is_replaced_by_completed_outcome(self, tmp_path, monkeypatch):
+        # When a chain round starts we register a pending segment (no
+        # council_id yet, status_token set, running=true) so the thread
+        # view picks it up mid-flight. When the round saves, the matching
+        # pending entry must be replaced by the completed one — keyed off
+        # bundle_id, since council_run_id is allocated only at finalize time.
+        from trinity_local.council_runtime import (
+            register_pending_round,
+            update_thread_manifest,
+            _read_thread_manifest,
+        )
+        from trinity_local.council_schema import CouncilOutcome
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        update_thread_manifest(self._outcome("root1", started_at="2026-05-06T00:00:00"))
+
+        # Round 2 starts: pending entry written before any council_run_id exists
+        path = register_pending_round(
+            chain_root_id="root1",
+            bundle_id="bundle_round2",
+            status_token="status_xyz",
+            round_number=2,
+            parent_council_id="root1",
+            started_at="2026-05-06T00:01:00",
+        )
+        body = _read_thread_manifest(path)
+        running = [s for s in body["segments"] if s.get("running")]
+        assert len(running) == 1
+        assert running[0]["status_token"] == "status_xyz"
+        assert running[0]["bundle_id"] == "bundle_round2"
+        assert running[0]["council_id"] is None
+
+        # Round 2 completes: outcome saved, pending entry replaced
+        completed = CouncilOutcome(
+            council_run_id="real_round2_id",
+            bundle_id="bundle_round2",
+            task_cluster_id="c",
+            primary_provider="claude",
+            created_at="2026-05-06T00:02:00",
+            metadata={
+                "chain_root_id": "root1",
+                "parent_council_id": "root1",
+                "round_number": 2,
+                "started_at": "2026-05-06T00:01:00",
+            },
+        )
+        path = update_thread_manifest(completed)
+        body = _read_thread_manifest(path)
+        # No more pending — replaced by the completed entry
+        assert all(not s.get("running") for s in body["segments"])
+        ids = [s["council_id"] for s in body["segments"]]
+        assert ids == ["root1", "real_round2_id"]
