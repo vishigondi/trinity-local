@@ -1,5 +1,13 @@
 # Trinity Local: Scale to Every Claude Code User
 
+> **Status (2026-05-07):** v1 closed — see [`../CHANGELOG.md`](../CHANGELOG.md).
+> Phases 0–8 (substrate + lens-discovery pipeline) ship across v1.0 / v1.1 / v1
+> capstone. **v2 = Loop Constitution double-loop** (HRM-pattern: small operator +
+> many applications + state coupling) for skill graduation. v2 plan lives in
+> `~/.claude/plans/whimsical-imagining-firefly.md`; substrate ratified by council
+> `council_5fbf909119830643`. Phase descriptions below remain accurate as v1
+> reference; v2 work is scoped separately.
+>
 > **Status (v1.1 shipped):** Canonical **6 MCP tools** — `route` /
 > `run_council` (subsumes `judge` via `responses=[...]`) / `record_outcome` /
 > `search_prompts` / `get_persona` / `get_council_status`. Hot-path
