@@ -110,6 +110,20 @@ class TestParseTasteLenses:
         assert "Vocabulary I keep using" in out["vocabulary_share_text"]
         assert "abstract lenses" in out["abstract_lenses_share_text"].lower()
 
+    def test_combined_share_text_is_one_social_block(self):
+        # The launchpad's single "Copy for sharing" button binds to this:
+        # one clean text block joining rejections + abstract lenses,
+        # excluding pair-wise quotes (which are private prompt history).
+        lenses = parse_taste_lenses(SAMPLE_ME)
+        text = lenses.to_dict()["combined_share_text"]
+        assert "What I redirect away from" in text
+        assert "The lenses I think through" in text
+        # Verbatim model/user quotes never leak into the share block.
+        for r in lenses.rejections:
+            assert r.model_frame not in text
+            assert r.user_substituted not in text
+        assert text.endswith("(via trinity-local)")
+
     def test_malformed_rejection_card_skipped_not_crashed(self):
         # Card missing one of the three labeled rows should be skipped, not poison.
         broken = SAMPLE_ME.replace("Why this matters: trust the locked corpus, not the assistant's tabulation.\n", "")

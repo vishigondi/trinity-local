@@ -83,7 +83,32 @@ class TasteLenses:
             "rejections_share_text": self._rejections_share_text(),
             "vocabulary_share_text": self._vocabulary_share_text(),
             "abstract_lenses_share_text": self._abstract_lenses_share_text(),
+            "combined_share_text": self._combined_share_text(),
         }
+
+    def _combined_share_text(self) -> str:
+        """One social-ready block — rejections + lenses, no inline quotes.
+
+        Vocabulary is intentionally left out: phrases without their why
+        read as inside-baseball on socials. Anyone curious enough to ask
+        about the vocabulary can run /me-build themselves.
+        """
+        parts: list[str] = ["The patterns Trinity found in how I think:"]
+        if self.rejections:
+            parts.append("")
+            parts.append("What I redirect away from:")
+            for r in self.rejections:
+                parts.append(f"→ {r.title} — {r.why_matters}")
+        if self.abstract_lenses:
+            parts.append("")
+            parts.append("The lenses I think through:")
+            for l in self.abstract_lenses:
+                parts.append(f"→ {l.statement}")
+        if not (self.rejections or self.abstract_lenses):
+            return ""
+        parts.append("")
+        parts.append("(via trinity-local)")
+        return "\n".join(parts)
 
     def _rejections_share_text(self) -> str:
         """All rejections in one bundle — title + why-it-matters per item.

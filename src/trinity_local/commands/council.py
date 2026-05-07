@@ -324,8 +324,13 @@ def handle_council_start(args):
             runner_pgid=process_group_id,
         )
         refresh_launchpad()
-    if args.notify:
-        notify("Trinity council running", f"Starting council for: {task.title}")
+    # Skip the "Council running" start notification by default. The live
+    # council page already opens to a "Council running" status view with
+    # streaming member responses — a system notification on top of that
+    # is redundant and uses Script Editor's generic icon (no Trinity
+    # branding) plus a "Show" button that opens an unhelpful preview pane.
+    # Completion notifications still fire because they tell you something
+    # the page can't (the run finished while you weren't looking).
     try:
         result = run_council(
             config=config,

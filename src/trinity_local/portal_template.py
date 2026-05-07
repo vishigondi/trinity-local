@@ -150,89 +150,94 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       margin-left: auto;
     }}
 
-    /* Pair-wise /me lens cards */
-    .lens-card {{
-      border-left: 3px solid #cf222e;
-      background: rgba(207, 34, 46, 0.04);
-      padding: 14px 16px 12px 18px;
-      margin: 12px 0;
-      border-radius: 0 6px 6px 0;
-      position: relative;
+    /* "Your taste, distilled" — magazine-style profile card with one share. */
+    .taste-card .taste-block {{
+      margin-top: 22px;
     }}
-    .lens-header {{
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
+    .taste-block-label {{
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(37, 88, 71, 0.7);
+      font-weight: 600;
+      margin-bottom: 10px;
     }}
-    .lens-header h4 {{
+    .taste-list {{
+      list-style: none;
+      padding: 0;
       margin: 0;
-      font-size: 15px;
-      color: #1a1a1a;
-      flex: 1;
+      display: grid;
+      gap: 10px;
     }}
-    .lens-row {{
-      margin: 4px 0;
-      font-size: 14px;
+    .taste-list li {{
+      padding: 12px 14px;
+      background: rgba(37, 88, 71, 0.04);
+      border-left: 3px solid rgba(37, 88, 71, 0.35);
+      border-radius: 0 8px 8px 0;
       line-height: 1.5;
     }}
-    .lens-label {{
-      display: inline-block;
-      min-width: 8em;
+    .taste-list-title {{
+      display: block;
       font-weight: 600;
+      color: #1a1a1a;
+      font-size: 15px;
+      margin-bottom: 2px;
+    }}
+    .taste-list-why {{
+      display: block;
+      font-size: 14px;
+      color: #444;
+    }}
+    .taste-list-quotes li {{
+      font-size: 15px;
+      color: #1a1a1a;
+      font-style: italic;
+      border-left-color: rgba(107, 63, 160, 0.4);
+      background: rgba(107, 63, 160, 0.04);
+    }}
+    .taste-vocab {{
+      margin-top: 22px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
       color: #555;
     }}
-    .model-label {{ color: #1a73e8; }}
-    .user-label {{ color: #1a7f37; }}
-    .why-label {{ color: #6b3fa0; }}
-    .lens-quote {{
-      color: #333;
+    .taste-vocab-label {{
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(37, 88, 71, 0.7);
+      font-weight: 600;
+      margin-right: 4px;
+    }}
+    .taste-vocab-chip {{
+      padding: 3px 10px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
       font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 13px;
+      font-size: 12px;
+      color: #333;
     }}
-    .lens-why {{
-      color: #444;
-      font-style: italic;
-    }}
-    .lens-section-row {{
+    .taste-share-row {{
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
     }}
-    .lens-section-row h3 {{
-      margin: 24px 0 8px;
-    }}
-    .lens-vocab,
-    .lens-abstract {{
-      padding-left: 20px;
-      color: #444;
-      font-size: 14px;
-    }}
-    .lens-vocab li,
-    .lens-abstract li {{
-      margin: 6px 0;
-    }}
-    .copy-btn {{
+    .taste-share-btn {{
       flex-shrink: 0;
-      background: #f6f8fa;
-      border: 1px solid #d0d7de;
-      border-radius: 6px;
-      padding: 4px 12px;
+    }}
+    .taste-share-meta {{
+      flex: 1;
+      min-width: 240px;
       font-size: 12px;
-      font-weight: 500;
-      color: #1a1a1a;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s, border-color 0.15s;
-    }}
-    .copy-btn:hover {{
-      background: #eaeef2;
-      border-color: #afb8c1;
-    }}
-    .copy-btn:active {{
-      background: #d0d7de;
+      line-height: 1.45;
     }}
 
     .settings-list {{
@@ -925,59 +930,45 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <pre class="md-code-block"><code>trinity-local replay-history --limit 20</code></pre>
       </section>
 
-      <section class="card" v-if="tasteLenses">
+      <section class="card taste-card" v-if="tasteLenses">
         <div class="eyebrow">Your taste, distilled</div>
-        <h2>Pair-wise lenses from your /me</h2>
+        <h2>The patterns in how you think</h2>
         <p class="meta">
-          The chairman read your prompt history and surfaced what you redirect AWAY from.
-          Each card below is yours to share — copy any one to put it on socials.
-          Refresh by running <code>trinity-local me-build</code>.
+          Trinity read your prompt history and surfaced what you redirect away from
+          and the lenses you think through. Refresh with <code>trinity-local me-build</code>.
         </p>
 
-        <div class="lens-section-row" v-if="tasteLenses.rejections.length">
-          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Implicit rejections (the principles you encode)</h3>
-          <button class="copy-btn" @click="copyLens(tasteLenses.rejections_share_text, 'rejections-all')">
-            <span v-if="copiedKey === 'rejections-all'">✓ Copied</span>
-            <span v-else>Copy all</span>
-          </button>
-        </div>
-        <p class="meta" v-if="tasteLenses.rejections.length" style="margin: 0 0 8px; font-size: 13px;">
-          Pair-wise context (model said / you substituted) is private — kept locally for the chairman, not shared.
-        </p>
-        <div class="lens-card" v-for="(lens, idx) in tasteLenses.rejections" :key="'lens-' + idx">
-          <div class="lens-header">
-            <h4>{{{{ lens.title }}}}</h4>
-            <button class="copy-btn" @click="copyLens(lens.share_text, 'lens-' + idx)" :title="copiedKey === 'lens-' + idx ? 'Copied' : 'Copy this principle'">
-              <span v-if="copiedKey === 'lens-' + idx">✓ Copied</span>
-              <span v-else>Copy</span>
-            </button>
-          </div>
-          <p class="lens-row"><span class="lens-why">{{{{ lens.why_matters }}}}</span></p>
+        <div class="taste-block" v-if="tasteLenses.rejections.length">
+          <div class="taste-block-label">What you redirect away from</div>
+          <ol class="taste-list">
+            <li v-for="(lens, idx) in tasteLenses.rejections" :key="'rej-' + idx">
+              <span class="taste-list-title">{{{{ lens.title }}}}</span>
+              <span class="taste-list-why">{{{{ lens.why_matters }}}}</span>
+            </li>
+          </ol>
         </div>
 
-        <div class="lens-section-row" v-if="tasteLenses.vocabulary.length">
-          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Vocabulary</h3>
-          <button class="copy-btn" @click="copyLens(tasteLenses.vocabulary_share_text, 'vocab')">
-            <span v-if="copiedKey === 'vocab'">✓ Copied</span>
-            <span v-else>Copy all</span>
-          </button>
+        <div class="taste-block" v-if="tasteLenses.abstract_lenses.length">
+          <div class="taste-block-label">The lenses you think through</div>
+          <ul class="taste-list taste-list-quotes">
+            <li v-for="(l, idx) in tasteLenses.abstract_lenses" :key="'lens-' + idx">{{{{ l.statement }}}}</li>
+          </ul>
         </div>
-        <ul class="lens-vocab" v-if="tasteLenses.vocabulary.length">
-          <li v-for="v in tasteLenses.vocabulary" :key="v.phrase">
-            <b>"{{{{ v.phrase }}}}"</b> — {{{{ v.meaning }}}}
-          </li>
-        </ul>
 
-        <div class="lens-section-row" v-if="tasteLenses.abstract_lenses.length">
-          <h3 style="font-size: 15px; color: #444; margin: 24px 0 8px;">Abstract lenses</h3>
-          <button class="copy-btn" @click="copyLens(tasteLenses.abstract_lenses_share_text, 'lenses')">
-            <span v-if="copiedKey === 'lenses'">✓ Copied</span>
-            <span v-else>Copy all</span>
-          </button>
+        <div class="taste-vocab" v-if="tasteLenses.vocabulary.length">
+          <span class="taste-vocab-label">Phrases you keep using:</span>
+          <span v-for="(v, idx) in tasteLenses.vocabulary" :key="'voc-' + idx" class="taste-vocab-chip">"{{{{ v.phrase }}}}"</span>
         </div>
-        <ul class="lens-abstract" v-if="tasteLenses.abstract_lenses.length">
-          <li v-for="l in tasteLenses.abstract_lenses" :key="l.statement">→ {{{{ l.statement }}}}</li>
-        </ul>
+
+        <div class="taste-share-row">
+          <button class="button primary taste-share-btn" @click="copyLens(tasteLenses.combined_share_text, 'taste-share')">
+            <span v-if="copiedKey === 'taste-share'">✓ Copied — paste anywhere</span>
+            <span v-else>Copy for sharing</span>
+          </button>
+          <span class="meta taste-share-meta">
+            One clean text block, ready for socials. Pair-wise context (what the model said / what you said back) stays private.
+          </span>
+        </div>
       </section>
 
       <section class="card" v-if="!tasteLenses">
