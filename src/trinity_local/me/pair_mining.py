@@ -203,21 +203,29 @@ def parse_pair_mining_output(raw: str) -> list[LensPair]:
     return pairs
 
 
+_MIN_BASINS_FOR_LENS = 3
+"""Spec threshold: TASTE_WIKI_SCHEMA.md mandates ≥3 domains supporting
+each lens. Trinity's basins are functionally equivalent to taste-terminal's
+domains (k-means topological clusters over PromptNode embeddings). Anything
+under 3 basins is a topic-bound preference — keep as ordering, not lens."""
+
+
 def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[LensPair]:
-    """Stage 4: drop tension evidence that sits in a single basin.
+    """Stage 4: drop tension evidence that doesn't span enough basins.
 
-    For each accepted pair, look up the basin of every decision in
-    `tension_decisions`. If all evidence sits in ONE basin, the pair is
-    a topic-local virtue dressed as a lens — demote to ordering.
+    Per spec (TASTE_WIKI_SCHEMA.md): "Minimum 3 domains supporting an
+    entry." Tension that sits in <3 basins is a domain-local virtue or
+    a stable preference, not a lens that two strangers would converge
+    on across unrelated topics.
 
-    A pair with zero or one valid tension_decisions can't pass tension
-    anyway; drop those.
+    Verdicts:
+    - accepted: ≥3 basins
+    - preserve_as_ordering: 1–2 basins (topic-local)
+    - dropped: 0 basins (chairman emitted IDs that don't anchor)
     """
     decision_basin = {d.id: d.basin for d in decisions}
     filtered: list[LensPair] = []
     for pair in pairs:
-        # Always compute basin coverage so orderings show which topical
-        # area they live in (informational), not just accepted pairs.
         basins = {
             decision_basin.get(d_id)
             for d_id in pair.tension_decisions
@@ -228,14 +236,12 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
         if pair.verdict != "accepted":
             filtered.append(pair)
             continue
-        if len(pair.basins_spanned) >= 2:
+        if len(pair.basins_spanned) >= _MIN_BASINS_FOR_LENS:
             filtered.append(pair)
-        elif len(pair.basins_spanned) == 1:
-            # Topic-local: keep as ordering with a note
+        elif len(pair.basins_spanned) >= 1:
             pair.verdict = "preserve_as_ordering"
             filtered.append(pair)
         else:
-            # No basin coverage → tension evidence didn't anchor anywhere
             pair.verdict = "dropped"
             filtered.append(pair)
     return filtered

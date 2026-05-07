@@ -130,13 +130,18 @@ class TestDecisionParser:
 
 class TestPairMiningPostFilter:
     def _make_decisions(self):
+        # Per spec ≥3 basins required for accepted lens. Build a corpus
+        # where the topic-local pair sits in one basin and the structural
+        # pair spans 3 distinct basins.
         from trinity_local.me.decisions import Decision
-        # 4 decisions: 2 in basin b00 (for tension on pair_a), 2 split b00/b01 (for cross-basin pair)
         return [
+            # Topic-local tension: both directions in basin b00
             Decision(id="d1", privileged="speed", sacrificed="quality", valence="regret", basin="b00", verbatim="x"),
             Decision(id="d2", privileged="quality", sacrificed="speed", valence="regret", basin="b00", verbatim="y"),
+            # Cross-basin tension: 3 distinct basins
             Decision(id="d3", privileged="long_view", sacrificed="last_day", valence="regret", basin="b00", verbatim="z"),
             Decision(id="d4", privileged="last_day", sacrificed="long_view", valence="regret", basin="b01", verbatim="w"),
+            Decision(id="d5", privileged="long_view", sacrificed="last_day", valence="correction", basin="b02", verbatim="v"),
         ]
 
     def test_single_basin_pair_demoted_to_ordering(self):
@@ -153,8 +158,22 @@ class TestPairMiningPostFilter:
         assert filtered[0].verdict == "preserve_as_ordering"
         assert filtered[0].basins_spanned == ["b00"]
 
-    def test_cross_basin_pair_stays_accepted(self):
-        # Tension spans b00 and b01 → real lens
+    def test_three_basin_pair_stays_accepted(self):
+        # Per spec ≥3 basins required. Tension spans b00, b01, b02 → real lens.
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        decisions = self._make_decisions()
+        pair = LensPair(
+            pole_a="long_view", pole_b="last_day",
+            failure_a="paralysis", failure_b="hedonism",
+            tension_decisions=["d3", "d4", "d5"],
+            verdict="accepted",
+        )
+        filtered = basin_post_filter([pair], decisions)
+        assert filtered[0].verdict == "accepted"
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+
+    def test_two_basin_pair_demoted_to_ordering(self):
+        # Two basins isn't enough — spec requires ≥3 domains. Demote.
         from trinity_local.me.pair_mining import LensPair, basin_post_filter
         decisions = self._make_decisions()
         pair = LensPair(
@@ -164,7 +183,7 @@ class TestPairMiningPostFilter:
             verdict="accepted",
         )
         filtered = basin_post_filter([pair], decisions)
-        assert filtered[0].verdict == "accepted"
+        assert filtered[0].verdict == "preserve_as_ordering"
         assert set(filtered[0].basins_spanned) == {"b00", "b01"}
 
     def test_pair_with_no_basin_evidence_dropped(self):
