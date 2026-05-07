@@ -176,7 +176,13 @@ def parse_decisions(raw: str, basins: list[Basin]) -> list[Decision]:
         # tags load-bearing despite chairman drift.
         basin_id = basin_for_prompt(basins, prompt_id) if prompt_id else None
         if basin_id is None:
-            basin_id = (obj.get("basin") or "").strip() or None
+            raw_basin = (obj.get("basin") or "").strip()
+            # Sentinel values ("?", "unknown") get nulled so the post-filter
+            # treats them correctly as missing topology, not as a basin id.
+            if raw_basin and raw_basin.lower() not in {"?", "unknown", "none", "n/a"}:
+                basin_id = raw_basin
+            else:
+                basin_id = None
 
         d_id = (obj.get("id") or "").strip()
         if not d_id or d_id in seen_ids:

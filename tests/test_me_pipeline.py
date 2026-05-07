@@ -186,6 +186,27 @@ class TestPairMiningPostFilter:
         assert filtered[0].verdict == "preserve_as_ordering"
         assert set(filtered[0].basins_spanned) == {"b00", "b01"}
 
+    def test_sentinel_basin_ids_treated_as_missing(self):
+        # Chairman sometimes emits "?" or "unknown" when uncertain. These
+        # mustn't inflate basins_spanned past the spec threshold or every
+        # ambiguous pair would falsely qualify as a real lens.
+        from trinity_local.me.decisions import Decision
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="?", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="unknown", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="z"),
+        ]
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        filtered = basin_post_filter([pair], decisions)
+        # Only b00 counts; sentinels stripped → 1 basin → demoted.
+        assert filtered[0].basins_spanned == ["b00"]
+        assert filtered[0].verdict == "preserve_as_ordering"
+
     def test_pair_with_no_basin_evidence_dropped(self):
         # Decisions referenced don't exist → no basin coverage
         from trinity_local.me.pair_mining import LensPair, basin_post_filter

@@ -224,15 +224,17 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
     - dropped: 0 basins (chairman emitted IDs that don't anchor)
     """
     decision_basin = {d.id: d.basin for d in decisions}
+    # Sentinel values chairmen emit when uncertain. Treat them as None
+    # so they don't inflate basins_spanned past the spec threshold.
+    _sentinels = {"?", "unknown", "none", "n/a"}
     filtered: list[LensPair] = []
     for pair in pairs:
-        basins = {
-            decision_basin.get(d_id)
-            for d_id in pair.tension_decisions
-            if decision_basin.get(d_id)
-        }
-        basins.discard(None)
-        pair.basins_spanned = sorted(b for b in basins if b)
+        basins: set[str | None] = set()
+        for d_id in pair.tension_decisions:
+            b = decision_basin.get(d_id)
+            if b and b.strip().lower() not in _sentinels:
+                basins.add(b)
+        pair.basins_spanned = sorted(basins)
         if pair.verdict != "accepted":
             filtered.append(pair)
             continue
