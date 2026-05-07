@@ -1158,7 +1158,9 @@ def render_live_council_page() -> str:
       if (!base || !threadId) {{ onComplete(null); return; }}
       delete window.__TRINITY_COUNCIL_THREAD__[threadId];
       const script = document.createElement('script');
-      const cacheBuster = '?t=' + Date.now();
+      // file:// URLs can't carry query strings — see portal_runtime.js comment.
+      const isFile = base.startsWith('file://');
+      const cacheBuster = isFile ? '' : '?t=' + Date.now();
       script.src = base + '/_thread_' + encodeURIComponent(threadId) + '.js' + cacheBuster;
       script.async = true;
       script.onload = () => {{

@@ -51,7 +51,11 @@ function loadStatusScript(token, onComplete) {
   }
   delete window.__TRINITY_COUNCIL_STATUS__[token];
   const script = document.createElement('script');
-  const cacheBuster = base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
+  // file:// URLs don't honor query-string cache busters — browsers look for
+  // a literal file named `foo.js?t=…` and 404. Only append the buster on
+  // http(s):// so the local server can refresh between polls.
+  const isFile = base.startsWith('file://');
+  const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
   script.src = `${base}/council_status_${encodeURIComponent(token)}.js${cacheBuster}`;
   script.async = true;
   script.onload = () => {
@@ -76,7 +80,10 @@ function loadOutcomeScript(councilId, onComplete) {
   }
   delete window.__TRINITY_COUNCIL_OUTCOME__[councilId];
   const script = document.createElement('script');
-  const cacheBuster = base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
+  // file:// URLs treat `?t=…` as part of the literal filename, so the
+  // browser 404s `foo.js?t=174…`. Skip cache-busting on file://.
+  const isFile = base.startsWith('file://');
+  const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
   script.src = `${base}/${encodeURIComponent(councilId)}.js${cacheBuster}`;
   script.async = true;
   script.onload = () => {
