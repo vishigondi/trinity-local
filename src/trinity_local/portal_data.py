@@ -465,7 +465,7 @@ def _load_taste_lenses() -> dict | None:
     except Exception:
         legacy = None
 
-    if not paired and not legacy:
+    if not paired and not orderings and not legacy:
         return None
 
     out: dict = legacy.copy() if legacy else {
