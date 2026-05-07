@@ -6,6 +6,8 @@
 
 **Trinity Local is a local evidence ledger for model choice.** It compares providers when model choice is uncertain, persists the chairman's Routing JSON plus the user's verdict / rejection signal as one labeled outcome, and recomputes the user's personal routing table and `/me` taste lenses from that ledger on demand. This repo ships a **synthesizer over provider outputs + a local evidence ledger** — not the HRM/TRM/Qwen-conductor learned-coordinator architecture, which lives in future / sibling work.
 
+**Status (2026-05-07):** v1 shipped — see [`CHANGELOG.md`](CHANGELOG.md). The lens-discovery pipeline (4 stages + Stage 0 turn-pair gaps with deterministic validators) is the v1 capstone; produces taste-terminal-quality output with 342 tests passing. **v2 = Loop Constitution double-loop** for skill graduation, scoped in `~/.claude/plans/whimsical-imagining-firefly.md`. See "Loop Constitution (v2)" section below.
+
 **The wedge is trust calibration, not cost optimization.** The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."* The shareable artifact is the user's `/me` lenses (pair-wise model-said / user-substituted / why-it-matters cards), not council verdicts.
 
 **The moat is the ledger.** Every run, replay, rating, and rejection becomes a row that improves routing judgment without adding new control paths. Frontier providers can't replicate this — they don't see the cross-model preference signal, and Trinity's `/me` content stays local. Trinity rides on subsidized consumer subscriptions ($20–$200/mo Claude / ChatGPT / Gemini Plus tiers) and never pays per call.
@@ -209,7 +211,19 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.
-10. **`/me-build` IS a council.** `me_builder.build_me_via_council()` samples top-N representatives via embedding-MMR (quality-weighted, diverse picks across the corpus — runs on cron, so the ~22s nomic load amortizes) and runs ONE chairman call to produce `~/.trinity/me.md`. Sections: recurring topics, vocabulary, implicit rejections (the moat), cross-domain analogies, abstract lenses. No `~/.taste/` dependency.
+10. **`/me-build` is a 4-stage lens-discovery pipeline aligned with the taste-terminal spec (TASTE_WIKI_SCHEMA.md).** Lenses live at tension boundaries between value poles, not at cluster centers. Pipeline shape ratified by three councils: `council_70eaf228d7753074` (Option C — basins as verifier, not chairman input), `council_6892781d06ac3fa8` (Stage 0 turn-pair gaps as highest-leverage import from taste-terminal), `council_e7560934cb1f1d72` (Stage 0 = ONE batch chairman call gated by deterministic post-validators).
+    - **Stage 1 — Topology (no LLM, ~5s)**: numpy k-means on PromptNode embeddings → ~20 named basins (id, size, top-3 TF-IDF terms, centroid). Used to *tag decisions* and to *post-filter pairs* — NOT as a chairman prompt input.
+    - **Stage 0 — Turn-pair gap extraction (1 chairman call + deterministic validators)**: walks (assistant_text, user_next_turn) pairs, classifies each into one of the four taste-terminal implicit rejection signal types — REFRAME / COMPRESSION / REDIRECT / SHARPENING. Output: `~/.trinity/me/rejections.jsonl`. Validators (in `me/turn_pairs.py`) drop chairman-skim labels:
+       - **COMPRESSION**: user_text word count must be ≤ model_text/10
+       - **REDIRECT**: model_text must be structurally multi-part (numbered/bulleted/multi-sentence ≥3)
+       - **SHARPENING**: user_text must share ≥2 keywords with model_text
+       - **REFRAME**: substituted frame must persist into next user turn (else dropped). Lenient when no next-turn data.
+    - **Stage 2 — Decision extraction (1 chairman call)**: emits `decisions.jsonl` with `{privileged, sacrificed, valence, basin, verbatim}` per decision-shaped utterance. Valence enum: `satisfaction | regret | unresolved | correction | cost` (per `council_c63fa273bdc2ed21`). Stage 0 rejections are mixed into the sampled corpus as additional high-signal source material.
+    - **Stage 3 — Pair mining (1 chairman call)**: chairman proposes 6–12 pair candidates and applies the three tests as a JSON verifier — **tension** (decisions in both directions), **dual evidence** (regret/correction/cost on both poles), **failure-mode legibility** (named failure mode on each pole). Verdict per pair: `accepted | preserve_as_ordering | dropped`.
+    - **Stage 4 — Basin post-filter (deterministic, no LLM)**: drops accepted pairs whose tension evidence sits in a single basin. This is what makes basin tags load-bearing — without the post-filter, the LLM can ignore them and the topology evidence is dead code.
+    - Drift instrument (rolling cosine between `embed(me.md)` and weekly turns) was **rejected** as topic-shift-not-value-shift metaphor.
+    - Output: pairs → `~/.trinity/me/lenses.json` (4–8 expected, ≤7 per spec), preserved-as-orderings → `me/orderings.json`, rejections → `me/rejections.jsonl`, basins → `me/basins.json`. Rendered to `~/.trinity/me.md` for chairman context loading.
+    - 3 model calls per rebuild (Stage 0 + Stage 2 + Stage 3), all on user subscriptions.
 11. **Embedding-free product surface.** Launchpad autofill, MCP `search_prompts`, and `replay-history` candidate selection use pure heuristics (substring + recency + replay-value). No nomic model load on the hot path. `iter_prompt_nodes()` caps at the 5000 most-recent prompts (env var `TRINITY_PROMPT_NODE_LIMIT`) and is cached in-process by file mtime. Embeddings are written during seed and consumed only by `me-build`.
 12. **Test suite: 289 passing.**
 
@@ -221,6 +235,30 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 - **Local + global Elo blend** with sigmoid alpha over local council count (the `personal_routing_table` already replaces global as data accumulates; the explicit blend math is cosmetic for v1).
 - **Live server-side autofill on keystroke** — needs a local HTTP endpoint.
 - **Phase 9 learned tiny coordinator** — explicitly later. v1 collects the personal data; Phase 9 trains a per-user adapter against it.
+
+## Loop Constitution (v2, in development)
+
+v2 shifts Trinity from *evidence ledger* to *skill factory*. The mechanic is a **double-loop** in the HRM lineage: small operator + many applications + state coupling.
+
+```
+OUTER LOOP (slow, structural — the frame, taste sets it)
+    invert + plan = "what's worth building, what would fail"
+    │
+    ▼  (frame becomes inner-loop rubric)
+INNER LOOP (fast, recurring — small operator, many applications)
+    execute → verify → cull → re-verify → commit
+    │
+    ▼  (drift telemetry feeds back)
+OUTER LOOP audit
+    eviction = re-run outer when model lands or telemetry widens
+```
+
+- **Outer loop** (`trinity-loop frame`): one chairman call emits `inversions` + `eval_seed` for a skill intent. Sets the rails.
+- **Inner loop** (`trinity-loop run`): execute → verify → cull → re-verify → commit, iterated until verify passes or budget exhausts. Per iteration: 1 chairman call (execute) + 1 verify (Autobrowse for web tasks, chairman-rubric otherwise) + 1 chairman call (cull). Re-verify only fires when cull modified the artifact.
+- **State coupling**: `state.history` carries verify failures into next iteration's execute prompt. `cycles_to_converge` past threshold triggers outer-loop reframe.
+- **Eviction = outer rerun**: when a model lands, `trinity-loop reframe --on-model-release` re-runs `frame` against stale skills; failures get evicted.
+
+Council `council_5fbf909119830643` (Codex won, high) ratified the substrate: model called per-stage (not running the loop), supervisor owns continuity (state.json, no daemon), Autobrowse is the verifier, **cull → re-verify → commit is non-negotiable**. Plan in `~/.claude/plans/whimsical-imagining-firefly.md`.
 
 ## Verified status
 
