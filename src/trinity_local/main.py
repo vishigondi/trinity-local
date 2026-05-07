@@ -51,6 +51,12 @@ def _iter_command_modules() -> Iterable[ModuleType]:
         module = _import_optional(_module_path(f"commands.{name}"))
         if module is not None:
             yield module
+    # Loop Constitution v2 — `trinity-local loop frame|run|reframe`. Lives
+    # outside `commands/` because it owns its own state machine + multiple
+    # subcommands; the loop package is meant to grow as v2 expands.
+    loop_module = _import_optional(_module_path("loop.cli"))
+    if loop_module is not None:
+        yield loop_module
 
 
 def _load_mcp_runner():
