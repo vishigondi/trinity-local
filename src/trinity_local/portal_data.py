@@ -437,6 +437,10 @@ def build_page_data(
         "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
         "personalRoutingTable": personal_routing,
         "tasteLenses": _load_taste_lenses(),
+        # Just the count — actual cards are server-rendered into the body
+        # via build_recent_cards_html. The hero h1 reads this to decide
+        # between "Run Your First Council" (new user) and "Run a Council".
+        "recentCouncilsCount": len(recent_councils),
     }
 
 

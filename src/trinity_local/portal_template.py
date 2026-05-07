@@ -1358,7 +1358,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Ingest in Progress';
           }}
-          return 'Run Your First Council';
+          // First-time vs returning user — count thread cards already
+          // rendered. Avoids "Run Your First Council" greeting once the
+          // user has any history at all.
+          const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
+          return hasHistory ? 'Run a Council' : 'Run Your First Council';
         }},
         get heroLede() {{
           if (this.operation?.kind === 'council' && this.busy) {{
@@ -1367,7 +1371,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
           }}
-          return 'Ask the same question. See all the answers. Let Trinity compare real models on your real work.';
+          const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
+          return hasHistory
+            ? 'Ask any question. See all three model answers side by side.'
+            : 'Ask the same question. See all the answers. Let Trinity compare real models on your real work.';
         }},
         get operationHeading() {{
           if (!this.operation) {{
