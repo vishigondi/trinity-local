@@ -540,7 +540,18 @@ def build_me_via_lens_pipeline(
     # Stage 4: deterministic basin post-filter
     accepted, orderings = stage4_post_filter(pairs, decisions)
 
-    me_doc = render_me_markdown(accepted, orderings)
+    # Persist Stage 0 drop log so chairman drift can be audited across
+    # rebuilds. If validators start rejecting >50% it means the chairman
+    # is skim-classifying — signal to revisit the prompt.
+    if rejected_records:
+        from .me.basins import me_dir as _me_dir
+        drop_log_path = _me_dir() / "rejections_dropped.jsonl"
+        with drop_log_path.open("w") as f:
+            import json as _json
+            for r in rejected_records:
+                f.write(_json.dumps(r) + "\n")
+
+    me_doc = render_me_markdown(accepted, orderings, rejections)
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")

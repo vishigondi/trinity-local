@@ -145,10 +145,19 @@ def stage4_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> tupl
     return accepted, orderings
 
 
-def render_me_markdown(accepted: list[LensPair], orderings: list[LensPair]) -> str:
+def render_me_markdown(
+    accepted: list[LensPair],
+    orderings: list[LensPair],
+    rejections: list[RejectionSignal] | None = None,
+) -> str:
     """Render lens artifacts as me.md so the chairman context loader
     picks them up. This replaces the old single-virtue-list shape with
-    paired tensions."""
+    paired tensions.
+
+    Rejections (Stage 0 turn-pair gaps) get a section too — they're
+    behavioral evidence the chairman should see when scoring future
+    council members against the user's actual choices.
+    """
     lines: list[str] = ["# /me", "", "## Lenses (paired tensions)", ""]
     if not accepted:
         lines.append("(No paired tensions found yet — run me-build with more decisions.)")
@@ -164,4 +173,31 @@ def render_me_markdown(accepted: list[LensPair], orderings: list[LensPair]) -> s
         for p in orderings:
             lines.append(f"- {p.pole_a} > {p.pole_b}")
         lines.append("")
+    if rejections:
+        # Group by type so the chairman sees the signal-type distribution.
+        from collections import defaultdict
+        groups: dict[str, list] = defaultdict(list)
+        for sig in rejections:
+            groups[sig.type].append(sig)
+        lines.append("## Implicit rejections (turn-pair gaps)")
+        lines.append("")
+        lines.append(
+            "Mined from (model_response, user_next_turn) pairs. The user is the "
+            "final authority — chairman should weight what the user actually did "
+            "next over what the model proposed."
+        )
+        lines.append("")
+        for sig_type in ("REFRAME", "COMPRESSION", "REDIRECT", "SHARPENING"):
+            items = groups.get(sig_type, [])
+            if not items:
+                continue
+            lines.append(f"### {sig_type} ({len(items)})")
+            for sig in items[:5]:  # cap per type so me.md stays readable
+                lines.append(f"- model: \"{sig.model_quote[:100]}\"")
+                lines.append(f"  user: \"{sig.user_substitute[:100]}\"")
+                if sig.why_signal:
+                    lines.append(f"  why: {sig.why_signal[:140]}")
+            if len(items) > 5:
+                lines.append(f"  _({len(items) - 5} more)_")
+            lines.append("")
     return "\n".join(lines)
