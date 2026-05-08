@@ -14,6 +14,7 @@ CORE_COMMAND_MODULES = (
     "doctor",
     "ingest",
     "me",
+    "me_card",
     "portal",
     "replay",
     "research",
