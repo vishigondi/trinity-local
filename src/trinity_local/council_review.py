@@ -1471,6 +1471,18 @@ def render_live_council_page() -> str:
             }}
             const rs = outcomeToRunState(outcome);
             if (!rs) return;
+            // Hydrate the user's persisted verdict (if any) so the
+            // "Preferred" badge survives reload. Source of truth is
+            // outcome.metadata.user_verdict.user_winner — written by both
+            // MCP record_outcome and CLI council-rate. The frontend has to
+            // look here because the launchpad's chooseMember() fires-and-
+            // forgets via shortcut URL; the only way to know the user
+            // already rated is to look at the outcome JSONP on next load.
+            const persistedWinner = (
+              outcome?.metadata?.user_verdict?.user_winner ||
+              outcome?.selected_provider ||
+              null
+            );
             const next = Object.assign({{}}, current, {{
               runState: rs,
               taskText: rs.taskText || current.taskText,
@@ -1481,6 +1493,7 @@ def render_live_council_page() -> str:
               completed: true,
               roundNumber: rs.metadata?.round_number || 1,
               converged: !!rs.metadata?.converged,
+              selectedProvider: persistedWinner || current.selectedProvider || '',
             }});
             this.segments.splice(idx, 1, next);
             if (!this.threadTaskText) {{

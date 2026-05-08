@@ -483,6 +483,24 @@ def handle_council_rate(args):
     outcome = load_council_outcome(args.council)
     bundle = load_prompt_bundle(outcome.bundle_id)
 
+    # Persist the user's verdict to the outcome JSON so the live council page
+    # rehydrates the "Preferred" badge on reload. The MCP record_outcome tool
+    # writes the same shape; without this the launchpad's one-click rating
+    # was a feedback-log-only no-op as far as the UI was concerned (clicking
+    # a winner showed a green pill, reloading lost it). Discovered during
+    # the Surface 6 click-test: outcome.selected_provider stayed None across
+    # 21 council_feedback entries.
+    outcome.metadata.setdefault("user_verdict", {})
+    outcome.metadata["user_verdict"].update({
+        "user_winner": args.provider,
+        "accepted": True,
+        "abandoned": False,
+    })
+    if args.answer_label:
+        outcome.metadata["user_verdict"]["answer_label"] = args.answer_label
+    from ..council_runtime import save_council_outcome  # local import; keeps top of file unchanged
+    save_council_outcome(outcome)
+
     # Propagate the user's verdict to the originating PromptNode so the
     # personal routing table compounds. The MCP record_outcome tool does this
     # too — keeping the launchpad's one-click flow in sync makes every
