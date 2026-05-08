@@ -11,6 +11,7 @@ CORE_COMMAND_MODULES = (
     "adapters",
     "cache",
     "council",
+    "council_last",
     "doctor",
     "ingest",
     "me",
