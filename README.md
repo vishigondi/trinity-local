@@ -81,7 +81,40 @@ After enough councils:
 
 ## Demo
 
-[60-second screen recording — coming on launch day]
+The launchpad lives at `~/.trinity/portal_pages/launchpad.html` — open it from `trinity-local
+portal-html --open` once you've installed:
+
+![the launchpad](docs/launchpad_example.png)
+
+A real council outcome — verbatim from `~/.trinity/council_outcomes/<id>.json` after the
+council ran *"name the single biggest remaining launch risk"* against itself:
+
+```json
+{
+  "winner": "claude",
+  "runner_up": "codex",
+  "confidence": "high",
+  "agreed_claims": [
+    "The #1 risk is the /trinity skill not being installed by the pip path.",
+    "install-mcp must drop SKILL.md into ~/.claude/skills/trinity/ via package-data before ship.",
+    "The deterministic test must build a wheel, install in a fresh venv with isolated HOME, run install-mcp, and assert SKILL.md exists at the target path."
+  ],
+  "disagreed_claims": [
+    {
+      "claim": "The post-validator must check for skill cache-staleness via a doctor --json skill_installed field.",
+      "providers_for": ["claude"],
+      "providers_against": ["gemini", "codex"],
+      "why_matters": "Without this check, install-mcp can succeed on disk but /trinity stays invisible in the user's open Claude Code session — exactly the silent-failure shape the fix was meant to eliminate."
+    }
+  ],
+  "routing_lesson": "For launch_readiness_decision, prefer claude — it consistently surfaces second-order failure modes (cache staleness, link rot) and writes layered post-validators."
+}
+```
+
+That's the moat: agreed claims you can lean on, disagreed claims with the *why*, and a
+routing lesson that makes the next council pick the right chairman automatically. Trinity
+ran this council against itself to ratify what would ship — the verdict drove the actual
+commit you see here.
 
 ## How to use it inside Claude Code
 
