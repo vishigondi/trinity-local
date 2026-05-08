@@ -20,6 +20,7 @@ from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
+from .utils import now_iso
 
 EXAMPLE_PROMPTS = [
     "Write a launch announcement for Trinity Local",
@@ -470,6 +471,10 @@ def build_page_data(
         # via build_recent_cards_html. The hero h1 reads this to decide
         # between "Run Your First Council" (new user) and "Run a Council".
         "recentCouncilsCount": len(recent_councils),
+        # Timestamp baked at render time — shown in the footer so cache
+        # staleness is diagnosable at a glance. If the user sees an old
+        # stamp after pip upgrade or fix-deploy, they need to hard-reload.
+        "regeneratedAt": now_iso(),
     }
 
 

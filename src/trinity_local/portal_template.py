@@ -1023,6 +1023,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           {recent_cards}
         </div>
       </section>
+
+      <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;">
+        Page generated {{{{ pageData.regeneratedAt }}}} · stale? run <code>trinity-local portal-html</code> + Cmd+Shift+R
+      </p>
     </div>
   </main>
 
