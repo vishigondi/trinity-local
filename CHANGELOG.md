@@ -5,6 +5,20 @@ versioning matches the project's phase + capstone cadence rather than strict sem
 
 ## [v2-alpha] — UNRELEASED
 
+### Launch readiness (council_35b2ae198a65b349 verdict)
+- **`trinity-local doctor`** — pre-flight cold-install checks. Each ✗ surfaces a one-line fix
+  command. Detects: provider CLIs installed + authenticated, MCP dep present, Trinity dir
+  writable, config valid. Council eval seed: *name a specific cold-install failure mode
+  AND the exact CLI command that detects it before the user hits a live council.*
+- **`trinity-local me-card`** — render the strongest `/me` lens as a 1200×630 PNG (OG-spec).
+  F3 (zero user screenshots in 14 days) mitigation per launch council. Empty-state fallback
+  when no lenses built yet.
+- **`trinity-local council-last`** — instant council on the last Claude Code prompt (or
+  explicit `--task`). Onboarding (c) per council; explicitly NOT a clipboard reader (privacy
+  positioning self-own per claude+codex agreed claim).
+- **README rewrite** — privacy section above the fold (G3), `vs LMArena/promptfoo/OpenRouter/
+  Karpathy LLM Council` comparison table (G5), me-card hero image, doctor in quickstart.
+
 ### Adding (Loop Constitution double-loop, HRM lineage)
 - `src/trinity_local/loop/` package: outer loop (`frame.py`) emits inversions + eval_seed for a
   skill intent; inner loop (`run.py`) runs `execute → verify → cull → re-verify → commit` until
@@ -16,7 +30,9 @@ versioning matches the project's phase + capstone cadence rather than strict sem
 - New MCP tool: `loop_run(intent)`.
 
 Council provenance: `council_5fbf909119830643` (Codex won, high) ratified the substrate;
-`council_7a770b8b78b6bd4e` ratified the double-loop compression.
+`council_7a770b8b78b6bd4e` ratified the double-loop compression;
+`council_f8174af1be1f646d` ratified launch order (v1 first, May 13–15 ship target);
+`council_35b2ae198a65b349` ratified launch-readiness gates + onboarding shape.
 
 ---
 
