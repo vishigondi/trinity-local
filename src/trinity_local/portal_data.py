@@ -6,6 +6,12 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .adapters import check_all_adapters
+from .categories import (
+    DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND,
+    category_keys as _category_keys,
+    category_labels as _category_labels,
+    task_kind_to_category as _task_kind_to_category,
+)
 from .config import load_config
 from .council_runtime import load_prompt_bundle
 from .council_status import load_council_status
@@ -437,6 +443,17 @@ def build_page_data(
         "eloChart": chart_data,
         "globalBenchmarks": global_benchmarks,
         "benchmarkProviders": benchmark_providers,
+        # Server-injected canonical map so the launchpad's per-category bar
+        # chart aggregates ALL personal routing entries (not just the six
+        # task_kinds an out-of-sync hardcoded JS map happened to know about).
+        "taskKindToCategory": _task_kind_to_category(),
+        "defaultCategoryForUnknownTaskKind": DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND,
+        # The personal chart's X-axis uses the LMArena-aligned CATEGORY_REGISTRY
+        # keys (overall / coding / hard_prompts / ...). Reference evals use a
+        # different category scheme (intelligence/coding/agentic from
+        # ArtificialAnalysis); aligning the two sides one day is v1.1+ work.
+        "personalChartCategoryKeys": _category_keys(),
+        "personalChartCategoryLabels": _category_labels(),
         "providerModels": provider_models,
         "referenceEvalsMeta": get_reference_evals_meta(),
         # Relative URLs so the launchpad works under both file:// (double-click

@@ -13,12 +13,34 @@ from __future__ import annotations
 CATEGORY_REGISTRY: list[tuple[str, str, tuple[str, ...]]] = [
     ("overall",               "Overall",                ("general", "cowork_general")),
     ("coding",                "Coding",                 ("coding", "debugging")),
-    ("hard_prompts",          "Hard Prompts",           ("research",)),
+    # "Hard prompts" is the umbrella for multi-step reasoning tasks Trinity
+    # councils chew on most often — architecture, planning, audits. The
+    # hardcoded JS map on the launchpad used to miss these and the
+    # capabilities chart rendered empty. Sourcing the map from this list
+    # via task_kind_to_category() keeps server + UI in sync.
+    ("hard_prompts",          "Hard Prompts",           (
+        "research",
+        "council_synthesis",
+        "system_design",
+        "architecture_decision",
+        "architecture_ratification",
+        "launch_readiness_audit",
+        "launch_readiness_decision",
+        "launch_risk_triage",
+        "launch_copy_review",
+        "launch_strategy_decision",
+    )),
     ("creative_writing",      "Creative Writing",       ("writing",)),
     ("instruction_following", "Instruction Following",  ()),
     ("multiturn",             "Multi-Turn",             ()),
     ("math",                  "Math",                   ()),
 ]
+
+
+# Default category for any task_kind not explicitly registered above.
+# Anything that smells like reasoning lands here instead of disappearing
+# from the capabilities chart entirely.
+DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND = "hard_prompts"
 
 
 def category_keys() -> list[str]:

@@ -1115,16 +1115,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         mlx: 'rgba(124, 96, 130, 0.85)',
       }};
 
-      // Trinity task_kind → reference-eval category. Mirrors the server-side
-      // mapping in ranker/chairman_picker.py so the two charts share an X-axis.
-      const TASK_KIND_TO_CATEGORY = {{
-        coding: 'coding',
-        debugging: 'coding',
-        research: 'intelligence',
-        writing: 'intelligence',
-        general: 'intelligence',
-        cowork_general: 'intelligence',
-      }};
+      // Trinity task_kind → category map, injected from the server's
+      // canonical CATEGORY_REGISTRY so the launchpad chart never drifts
+      // out-of-sync with new task_kinds. Unknown kinds bucket into
+      // `defaultCategoryForUnknownTaskKind` (default: hard_prompts) instead
+      // of disappearing from the chart.
+      const TASK_KIND_TO_CATEGORY = pageData.taskKindToCategory || {{}};
+      const DEFAULT_CATEGORY = pageData.defaultCategoryForUnknownTaskKind || 'overall';
 
       const benchmarks = pageData.globalBenchmarks || {{}};
       const providers = pageData.benchmarkProviders || [];
@@ -1163,20 +1160,25 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         buildGroupedBar('reference-evals-chart', datasets);
       }}
 
-      // Personal preference chart — same X-axis, data from
-      // personal_routing_table, aggregated by category mapping. Personal
-      // scores are 0-10; scale to /100 to share the y-axis.
+      // Personal preference chart — uses the LMArena-aligned CATEGORY_REGISTRY
+      // for its X-axis (NOT the globalBenchmarks keys, which are a different
+      // scheme: ArtificialAnalysis intelligence/coding/agentic). Reusing the
+      // benchmarks X-axis was the original bug — task_kinds bucketed into
+      // hard_prompts / overall / etc never matched intelligence / agentic.
       const personal = pageData.personalRoutingTable;
       const personalCtx = document.getElementById('personal-preference-chart');
-      if (personalCtx && personal && providers.length && categories.length) {{
+      const personalCategoryKeys = pageData.personalChartCategoryKeys || [];
+      const personalCategoryLabels = pageData.personalChartCategoryLabels || {{}};
+      if (personalCtx && personal && providers.length && personalCategoryKeys.length) {{
         const byTaskType = personal.by_task_type || {{}};
         const personalDatasets = providers.map((provider) => ({{
           label: provider.charAt(0).toUpperCase() + provider.slice(1),
-          data: categories.map((cat) => {{
+          data: personalCategoryKeys.map((cat) => {{
             // Average overall scores for any task_kind that maps to this category.
             const scores = [];
             for (const [taskKind, providerScores] of Object.entries(byTaskType)) {{
-              if (TASK_KIND_TO_CATEGORY[taskKind] !== cat) continue;
+              const mappedCat = TASK_KIND_TO_CATEGORY[taskKind] || DEFAULT_CATEGORY;
+              if (mappedCat !== cat) continue;
               const entry = providerScores?.[provider];
               if (entry && typeof entry.overall === 'number') {{
                 scores.push(entry.overall);
@@ -1191,7 +1193,26 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         }}));
         // Only render if at least one bar has data.
         const hasAny = personalDatasets.some((d) => d.data.some((v) => v !== null));
-        if (hasAny) buildGroupedBar('personal-preference-chart', personalDatasets);
+        if (hasAny) {{
+          // Build chart inline — it uses a DIFFERENT X-axis from buildGroupedBar
+          // (which is closed over the global `labels` from globalBenchmarks).
+          new Chart(personalCtx, {{
+            type: 'bar',
+            data: {{
+              labels: personalCategoryKeys.map((k) => personalCategoryLabels[k] || k),
+              datasets: personalDatasets,
+            }},
+            options: {{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#5f554d' }} }} }},
+              scales: {{
+                y: {{ ...baseScales.y, min: 0, max: 100 }},
+                x: baseScales.x,
+              }},
+            }},
+          }});
+        }}
       }}
     }}
 
