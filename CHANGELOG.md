@@ -19,6 +19,34 @@ versioning matches the project's phase + capstone cadence rather than strict sem
 - **README rewrite** — privacy section above the fold (G3), `vs LMArena/promptfoo/OpenRouter/
   Karpathy LLM Council` comparison table (G5), me-card hero image, doctor in quickstart.
 
+### Launch readiness, follow-up gates (council_5699d0e62cf965d0 + council_d55953003bb29f9d)
+- **`LICENSE`** (MIT) + `pyproject.toml` PEP 639 license expression (`license = "MIT"`,
+  `license-files = ["LICENSE"]`). Setuptools≥77 rejected the deprecated classifier; the
+  expression is the modern path.
+- **`scripts/smoke_install.sh`** — three-mode (local / docker / both) deterministic gate
+  matching council_5699d0e62cf965d0's eval seed verbatim: build wheel, install in fresh
+  venv, run `trinity-local doctor --json`, assert Trinity-internal checks pass and
+  `LICENSE` exists. Provider CLIs are expected absent in the smoke env and don't fail the
+  gate. Local mode green; docker mode pending Docker Desktop.
+- **`/trinity` Claude Code skill** — `.claude/skills/trinity/SKILL.md` does pip install +
+  `install-mcp` + `doctor` + optional first-council in one invocation. Discoverable when
+  the repo is cloned; bundled in the wheel for users who pip install only.
+- **`install-mcp` drops the skill globally** — `src/trinity_local/data/skills/trinity/SKILL.md`
+  ships in the wheel as package-data; `_install_trinity_skill()` writes to
+  `~/.claude/skills/trinity/SKILL.md` via `importlib.resources`. Idempotent: no-op when
+  content matches; refuses to clobber user-modified copies (protects customizations across
+  pip upgrades). The deterministic post-validator extends `smoke_install.sh` to assert the
+  file lands at the target path.
+- Council `council_d55953003bb29f9d` (Claude won, high) named *"skill not installed by pip
+  path"* as the #1 launch risk and ratified package-data integration as the only acceptable
+  fix — curl-only install was rejected as launch-day friction. Verdict: **conditional ship
+  for May 13–15** with docker smoke as the remaining gate.
+- README "Demo" section — launchpad screenshot (`docs/launchpad_example.png`, captured via
+  Playwright on the actual rendered page) + verbatim chairman outcome JSON sourced from
+  the launch-readiness council's own verdict (the recursive ratification example). The
+  council ratified a static README sequence as an acceptable substitute for a 60s OBS
+  demo video.
+
 ### Adding (Loop Constitution double-loop, HRM lineage)
 - `src/trinity_local/loop/` package: outer loop (`frame.py`) emits inversions + eval_seed for a
   skill intent; inner loop (`run.py`) runs `execute → verify → cull → re-verify → commit` until
