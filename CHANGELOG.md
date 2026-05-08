@@ -5,21 +5,61 @@ versioning matches the project's phase + capstone cadence rather than strict sem
 
 ## [v2-alpha] — UNRELEASED
 
-### Launch readiness (council_35b2ae198a65b349 verdict)
+Loop Constitution double-loop for skill graduation. Substrate only — not on the v1 ship path.
+
+### Added
+- **`src/trinity_local/loop/` package** — three modules, ~400 LOC:
+  - `frame.py` — outer loop. One chairman call emits `inversions` + `eval_seed` for a skill
+    intent. Sets the rails the inner loop verifies against.
+  - `run.py` — inner-loop state machine. `execute → verify → cull → re-verify → commit`,
+    iterated until verify passes or budget exhausts. Per iteration: 1 chairman (execute)
+    + 1 verify + 1 chairman (cull). Re-verify only fires when cull modifies the artifact
+    (`sha256(pre_cull) != sha256(post_cull)` gate). Structured `state.history` records carry
+    verify failures into the next iteration's execute prompt.
+  - `verify_web.py` — Browserbase Autobrowse `--env local` subprocess wrapper. Chairman-rubric
+    fallback for non-web skills. Three regimes handled: installed+graduating,
+    installed+failing, missing entirely.
+- **`trinity-loop` CLI** — `frame | run | reframe` subcommands.
+- **`docs/v2-loop-constitution.md`** — full spec for the held-back v2 work, with all
+  ratifying councils captured inline.
+
+### Council provenance
+- `council_5fbf909119830643` (Codex won, high) — ratified the substrate: model called
+  per-stage not running the loop, supervisor owns continuity, Autobrowse is the verifier,
+  cull→re-verify→commit non-negotiable.
+- `council_7a770b8b78b6bd4e` (Codex won, high) — ratified the double-loop compression
+  from 8 modules (~1200 LOC) to 3 (~400 LOC); structured `state.history` records;
+  hash-based re-verify gate.
+- `council_f8174af1be1f646d` — ratified launch order (v1 first, v2 substrate held back
+  for the May 13–15 ship window).
+
+---
+
+## [v1] — 2026-05-07 to 2026-05-08
+
+The lens-discovery pipeline + the launch-readiness gates that took it from "shipped" to
+"shippable." Trinity now produces taste-terminal-quality output:
+**1 cross-basin lens + 6 orderings + 52 validated rejection signals** from a real-corpus run.
+**400 tests passing** (was 314 entering this milestone). Three independent councils ratified
+**conditional ship for May 13–15** with docker smoke as the only remaining technical gate.
+
+### Launch readiness — pre-flight gates (council_35b2ae198a65b349)
 - **`trinity-local doctor`** — pre-flight cold-install checks. Each ✗ surfaces a one-line fix
   command. Detects: provider CLIs installed + authenticated, MCP dep present, Trinity dir
-  writable, config valid. Council eval seed: *name a specific cold-install failure mode
-  AND the exact CLI command that detects it before the user hits a live council.*
+  writable, config valid, memory seeded, `me.md` built. Council eval seed: *name a specific
+  cold-install failure mode AND the exact CLI command that detects it before the user hits
+  a live council.*
 - **`trinity-local me-card`** — render the strongest `/me` lens as a 1200×630 PNG (OG-spec).
-  F3 (zero user screenshots in 14 days) mitigation per launch council. Empty-state fallback
-  when no lenses built yet.
+  F3 (zero user screenshots in 14 days) mitigation per launch council. Stacked-poles layout
+  with horizontal divider + "vs." centered (font-independent — avoids `↔` tofu issue).
+  Empty-state fallback when no lenses built yet.
 - **`trinity-local council-last`** — instant council on the last Claude Code prompt (or
   explicit `--task`). Onboarding (c) per council; explicitly NOT a clipboard reader (privacy
   positioning self-own per claude+codex agreed claim).
 - **README rewrite** — privacy section above the fold (G3), `vs LMArena/promptfoo/OpenRouter/
   Karpathy LLM Council` comparison table (G5), me-card hero image, doctor in quickstart.
 
-### Launch readiness, follow-up gates (council_5699d0e62cf965d0 + council_d55953003bb29f9d)
+### Launch readiness — cold-install gate (council_5699d0e62cf965d0 + council_d55953003bb29f9d)
 - **`LICENSE`** (MIT) + `pyproject.toml` PEP 639 license expression (`license = "MIT"`,
   `license-files = ["LICENSE"]`). Setuptools≥77 rejected the deprecated classifier; the
   expression is the modern path.
@@ -28,49 +68,47 @@ versioning matches the project's phase + capstone cadence rather than strict sem
   venv, run `trinity-local doctor --json`, assert Trinity-internal checks pass and
   `LICENSE` exists. Provider CLIs are expected absent in the smoke env and don't fail the
   gate. Local mode green; docker mode pending Docker Desktop.
-- **`/trinity` Claude Code skill** — `.claude/skills/trinity/SKILL.md` does pip install +
-  `install-mcp` + `doctor` + optional first-council in one invocation. Discoverable when
-  the repo is cloned; bundled in the wheel for users who pip install only.
-- **`install-mcp` drops the skill globally** — `src/trinity_local/data/skills/trinity/SKILL.md`
-  ships in the wheel as package-data; `_install_trinity_skill()` writes to
-  `~/.claude/skills/trinity/SKILL.md` via `importlib.resources`. Idempotent: no-op when
-  content matches; refuses to clobber user-modified copies (protects customizations across
-  pip upgrades). The deterministic post-validator extends `smoke_install.sh` to assert the
+- **`/trinity` Claude Code skill** — `.claude/skills/trinity/SKILL.md` + bundled copy at
+  `src/trinity_local/data/skills/trinity/SKILL.md`. Does pip install + `install-mcp` +
+  `doctor` + optional first-council in one invocation.
+- **`install-mcp` drops the skill globally** — package-data ships SKILL.md in the wheel;
+  `_install_trinity_skill()` writes to `~/.claude/skills/trinity/SKILL.md` via
+  `importlib.resources`. Idempotent: no-op when content matches; refuses to clobber
+  user-modified copies (Codex's dissent point — protects customizations across pip
+  upgrades). The deterministic post-validator extends `smoke_install.sh` to assert the
   file lands at the target path.
 - Council `council_d55953003bb29f9d` (Claude won, high) named *"skill not installed by pip
   path"* as the #1 launch risk and ratified package-data integration as the only acceptable
   fix — curl-only install was rejected as launch-day friction. Verdict: **conditional ship
   for May 13–15** with docker smoke as the remaining gate.
 - README "Demo" section — launchpad screenshot (`docs/launchpad_example.png`, captured via
-  Playwright on the actual rendered page) + verbatim chairman outcome JSON sourced from
-  the launch-readiness council's own verdict (the recursive ratification example). The
-  council ratified a static README sequence as an acceptable substitute for a 60s OBS
-  demo video.
+  Playwright on the actual rendered page, fullPage 1280×3329 showing the populated personal
+  routing table) + verbatim chairman outcome JSON sourced from the launch-readiness council's
+  own verdict (the recursive ratification example). Council ratified a static README
+  sequence as an acceptable substitute for a 60s OBS demo video.
 
-### Adding (Loop Constitution double-loop, HRM lineage)
-- `src/trinity_local/loop/` package: outer loop (`frame.py`) emits inversions + eval_seed for a
-  skill intent; inner loop (`run.py`) runs `execute → verify → cull → re-verify → commit` until
-  verify passes or budget exhausts.
-- Browserbase Autobrowse `--env local` as the verification adapter for web-task skills
-  (`loop/verify_web.py`); chairman-rubric fallback for non-web skills.
-- Eviction by outer-loop rerun on model-release events.
-- New CLI: `trinity-loop frame|run|reframe`.
-- New MCP tool: `loop_run(intent)`.
+### Launch copy (council_4f34cd1181d5bd08)
+- **`docs/launch.md`** — Twitter/X thread (10 tweets), README hero rewrite candidate,
+  HN title + first-comment opener, 60s demo script, failure-modes-to-guard-against list,
+  pre-send checklist. Council (Codex won, high) ratified conditional greenlight with five
+  edits applied:
+  1. Ledger moved to tweets 1–2 (was buried at tweet 6 — F1 wrapper-framing risk).
+     Opening verb changed: *"asks all three"* → *"records disagreement as routing
+     evidence"* + the behavior-change line *"the click you make today changes which model
+     gets trusted tomorrow."*
+  2. HN title de-jargoned: dropped "verifier-shaped" — *"Show HN: Trinity Local — a local
+     routing ledger for Claude, Gemini, and Codex."*
+  3. Tweet 5 `/me` lens uses verbatim accepted lens from `~/.trinity/me/lenses.json`
+     (*"leading proxy signal as forecast"* vs *"official lagging metric as truth,"* with
+     both failure modes named). Empty `me.md` would be a launch blocker; we have one.
+  4. Tweet 8 install copy adds the CLI-auth setup caveat (the 3-CLI auth cliff would
+     otherwise break "rides on subscriptions you have").
+  5. Recursive demo (tweet 7) reframed: *"exposed the failure mode, named the test, drove
+     the commit."*
+- Eval seed pinned at top of file: *tweet 1 or 2 must name the local Routing JSON ledger
+  as the primary product behavior, not multi-model comparison.*
 
-Council provenance: `council_5fbf909119830643` (Codex won, high) ratified the substrate;
-`council_7a770b8b78b6bd4e` ratified the double-loop compression;
-`council_f8174af1be1f646d` ratified launch order (v1 first, May 13–15 ship target);
-`council_35b2ae198a65b349` ratified launch-readiness gates + onboarding shape.
-
----
-
-## [v1] — 2026-05-07
-
-The lens-discovery pipeline. Trinity now produces taste-terminal-quality output:
-**1 cross-basin lens + 6 orderings + 52 validated rejection signals** from a real-corpus run.
-**342 tests passing** (was 314 entering this milestone).
-
-### Added
+### Added (lens-discovery capstone)
 - **Lens-discovery pipeline** (`src/trinity_local/me/`):
   - Stage 1 — k-means basins on PromptNode embeddings (`me/basins.py`). Sentinel-aware
     clustering; NaN-row defense.
@@ -154,10 +192,24 @@ The lens-discovery pipeline. Trinity now produces taste-terminal-quality output:
   Stripped at parse and re-stripped defensively in the filter.
 
 ### Council provenance for v1 architecture decisions
+Lens-discovery pipeline:
 - `council_70eaf228d7753074` — Option C ratification (basins as verifier, drop drift instrument)
 - `council_c63fa273bdc2ed21` — valence enum expanded to include `correction` and `cost`
 - `council_6892781d06ac3fa8` — Stage 0 turn-pair gaps as highest-leverage import from taste-terminal
 - `council_e7560934cb1f1d72` — Stage 0 = batch chairman call gated by deterministic validators
+
+Launch readiness:
+- `council_35b2ae198a65b349` — pre-flight gates (doctor / me-card / council-last) + onboarding shape
+- `council_5699d0e62cf965d0` — cold-install gate (LICENSE + smoke_install.sh + PEP 639)
+- `council_d55953003bb29f9d` — #1 risk = skill not in pip path; ratified package-data integration; **conditional ship verdict for May 13–15**
+- `council_4f34cd1181d5bd08` — launch copy review (Twitter/HN/demo); five edits ratified
+
+### Remaining ship gates (human-blocked)
+- **Docker smoke** — `bash scripts/smoke_install.sh docker` (pending Docker Desktop daemon).
+  The only remaining technical gate per `council_d55953003bb29f9d`.
+- **Public push** — repo not yet pushed to the GitHub URL referenced in launch copy.
+- **5 fresh-install testers** — DM ask, can't automate.
+- **OBS demo recording** — optional; council ratified static README sequence as substitute.
 
 ---
 
