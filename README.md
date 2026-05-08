@@ -38,6 +38,19 @@ trinity-local me-card                # render your /me lens as a 1200×630 PNG t
 dependency is present, and your Trinity directory is writable — surfaces a one-line fix for
 each ✗ before you hit a live council.
 
+### One-shot skill install (Claude Code)
+
+If you'd rather drive the whole thing from inside Claude Code, drop the `trinity` skill into
+your global skills directory and type `/trinity` at the prompt — it does the `pip install`,
+the `install-mcp`, and `doctor` in sequence:
+
+```bash
+mkdir -p ~/.claude/skills/trinity
+curl -fsSL https://raw.githubusercontent.com/openclaw/trinity-local/main/.claude/skills/trinity/SKILL.md \
+  -o ~/.claude/skills/trinity/SKILL.md
+# Then in Claude Code: /trinity
+```
+
 ## How is this different from \[X\]
 
 | | Trinity Local | LMArena | promptfoo / Claude evals | OpenRouter | Karpathy LLM Council |
