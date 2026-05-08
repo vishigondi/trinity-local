@@ -132,7 +132,7 @@ their own passing test, evicts them when a new model lands. CLI today:
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE) when added (pre-launch).
+MIT — see [`LICENSE`](LICENSE).
 
 ## Building Trinity
 
