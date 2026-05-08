@@ -29,9 +29,13 @@ trinity-local = "trinity_local.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+trinity_local = ["data/skills/**/*.md"]
 
 [project.optional-dependencies]
 test = ["pytest>=7"]

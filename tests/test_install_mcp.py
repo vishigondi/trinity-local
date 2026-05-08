@@ -110,3 +110,58 @@ class TestInstallMcp:
         assert ".claude.json" in out
         assert ".gemini.json" in out
         assert "config.toml" in out
+
+
+class TestInstallTrinitySkill:
+    """install-mcp must drop ~/.claude/skills/trinity/SKILL.md so /trinity works
+    without curl. Council council_d55953003bb29f9d (Claude won, high) named
+    skill-not-installed-by-pip as the #1 launch risk and ratified this gate."""
+
+    def test_drops_skill_into_user_skills_dir(self, home: Path, monkeypatch, capsys):
+        skill_path = home / ".claude" / "skills" / "trinity" / "SKILL.md"
+        assert not skill_path.exists()
+
+        _run_install(monkeypatch, home)
+
+        assert skill_path.exists(), "install-mcp must drop SKILL.md into ~/.claude/skills/trinity/"
+        content = skill_path.read_text()
+        assert "name: trinity" in content
+        assert "trinity-local install-mcp" in content
+
+    def test_skill_install_idempotent_when_unmodified(self, home: Path, monkeypatch, capsys):
+        # First install drops the file; second install is a no-op.
+        _run_install(monkeypatch, home)
+        skill_path = home / ".claude" / "skills" / "trinity" / "SKILL.md"
+        first = skill_path.read_text()
+        first_mtime = skill_path.stat().st_mtime_ns
+
+        _run_install(monkeypatch, home)
+        assert skill_path.read_text() == first
+        # No-op: install is announced but file isn't rewritten when content matches.
+        # (We don't assert mtime equality — file may not be touched at all, OS-dependent.)
+
+    def test_skill_install_does_not_clobber_user_edits(self, home: Path, monkeypatch, capsys):
+        # User has customized the skill — install-mcp must not silently overwrite.
+        skill_path = home / ".claude" / "skills" / "trinity" / "SKILL.md"
+        skill_path.parent.mkdir(parents=True, exist_ok=True)
+        custom = "---\nname: trinity\n---\n# my custom version\n"
+        skill_path.write_text(custom)
+
+        _run_install(monkeypatch, home)
+
+        assert skill_path.read_text() == custom, "user-edited SKILL.md must not be overwritten"
+        out = capsys.readouterr().out
+        assert "skipping" in out.lower() or "local edits" in out.lower()
+
+
+def test_local_repo_skill_matches_packaged_skill():
+    """Repo .claude/skills/trinity/SKILL.md and src/trinity_local/data/skills/trinity/SKILL.md
+    must stay in sync — both copies serve the same skill, drift is silent failure."""
+    repo_root = Path(__file__).resolve().parent.parent
+    repo_copy = repo_root / ".claude" / "skills" / "trinity" / "SKILL.md"
+    pkg_copy = repo_root / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md"
+    assert repo_copy.exists() and pkg_copy.exists()
+    assert repo_copy.read_text() == pkg_copy.read_text(), (
+        "skill drift: .claude/skills/trinity/SKILL.md and src/trinity_local/data/skills/trinity/SKILL.md "
+        "must be byte-identical (sync the .claude/ copy from the package data after edits)"
+    )

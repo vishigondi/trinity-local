@@ -5,6 +5,11 @@
 # image, `pip install trinity-local && trinity-local doctor --json` exits 0
 # with no failed checks, and `test -f LICENSE` passes."
 #
+# Extended by council_d55953003bb29f9d (Claude won, high): the deterministic
+# test that closes the #1 launch risk (skill-not-installed-by-pip) is:
+# "build a wheel, install in a fresh venv with isolated HOME, run install-mcp,
+#  and assert ~/.claude/skills/trinity/SKILL.md exists at the target path."
+#
 # Two modes:
 #   ./scripts/smoke_install.sh local   — build wheel, install in fresh venv, run doctor
 #   ./scripts/smoke_install.sh docker  — same in python:3.11-slim container
@@ -92,6 +97,22 @@ print('✓ Trinity-internal checks pass (provider CLIs absent in smoke env, expe
         echo "$report" >&2
         exit 1
     fi
+
+    # council_d55953003bb29f9d gate: install-mcp into an isolated HOME must
+    # drop the /trinity skill at ~/.claude/skills/trinity/SKILL.md.
+    local fake_home="$SMOKE_DIR/fakehome"
+    mkdir -p "$fake_home"
+    HOME="$fake_home" "$SMOKE_DIR/venv/bin/trinity-local" install-mcp >/dev/null
+    local skill_path="$fake_home/.claude/skills/trinity/SKILL.md"
+    if [ ! -f "$skill_path" ]; then
+        echo "FAIL: install-mcp did not drop $skill_path" >&2
+        exit 1
+    fi
+    if ! grep -q "^name: trinity" "$skill_path"; then
+        echo "FAIL: SKILL.md missing 'name: trinity' frontmatter at $skill_path" >&2
+        exit 1
+    fi
+    echo "✓ /trinity skill installed at \$HOME/.claude/skills/trinity/SKILL.md"
 
     echo
     echo "=== local smoke PASSED ==="

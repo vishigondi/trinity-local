@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+from importlib import resources
 from pathlib import Path
 
 from ..runtime_env import project_venv_root
@@ -54,10 +55,49 @@ def handle_install_mcp(args):
         if _write_json_mcp_config(target, mcp_config["mcpServers"]["trinity-local"]):
             written.append(str(target))
 
+    skill_status = _install_trinity_skill()
+    if skill_status:
+        written.append(skill_status)
+
     if written:
         print(f"✓ Installed Trinity MCP server to: {', '.join(written)}")
     else:
         print("No MCP configuration files were updated.")
+
+
+def _install_trinity_skill() -> str | None:
+    """Drop the bundled /trinity skill into ~/.claude/skills/trinity/SKILL.md.
+
+    Idempotent: writes when the target is missing OR matches the bundled
+    content exactly (so re-runs are no-ops). If a user has edited the file,
+    leaves it alone and reports the skip — protects user customizations
+    across pip upgrades (council_d55953003bb29f9d Codex dissent).
+    """
+    target = Path.home() / ".claude" / "skills" / "trinity" / "SKILL.md"
+    try:
+        bundled = resources.files("trinity_local").joinpath("data/skills/trinity/SKILL.md").read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, AttributeError):
+        # Source layout without package-data wired (editable install pre-pyproject change). Skip silently.
+        return None
+
+    if target.exists():
+        try:
+            current = target.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        if current == bundled:
+            return None  # already up-to-date, no-op
+        # User-modified — don't clobber.
+        print(f"  skill: {target} has local edits, skipping (delete the file to refresh)")
+        return None
+
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(bundled, encoding="utf-8")
+    except OSError as exc:
+        print(f"  skill install warning: {exc}")
+        return None
+    return f"{target} (skill)"
 
 
 def _write_json_mcp_config(target: Path, server_config: dict) -> bool:
