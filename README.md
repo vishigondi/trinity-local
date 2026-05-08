@@ -1,95 +1,145 @@
-# trinity-local
+# Trinity Local
 
 > **Trinity asks all your AIs at once, tells you when they agree, and remembers which one you actually trusted.**
 
-Trinity sits underneath Claude Code, Codex, Gemini CLI, ChatGPT, and Claude.ai. When the answer is obvious, it stays out of your way. When models disagree — when *which model to trust* is itself the problem — it runs them all, shows you what they agreed on, what they disagreed on, and why the disagreement matters. Then it learns from your pick.
+Three frontier models answer your prompt in parallel. A chairman synthesizes them into one
+verifier-shaped verdict — *agreed claims, disagreed claims, and why the disagreement matters*.
+Trinity remembers which model you preferred. Over time it learns your taste and surfaces a
+personal `/me` lens you can share — paired tensions like *"leading proxy signal as forecast vs.
+official lagging metric as truth"* with named failure modes on each pole.
 
-**The product question:** *"Which model is best at this current time, for my interests?"*
-**The answer:** Trinity re-runs your own past prompts against the current model lineup and builds a personal routing table from your outcomes. No benchmarks, no leaderboards — your taste, scored against today's models.
+Local-first. Rides your existing Claude / Gemini / Codex subscriptions. Never sees your
+prompts on a server.
 
-## What Trinity is
+![your taste, distilled](docs/me_card_example.png)
 
-A **routing substrate**, not a workspace. The harness (Claude Code / Codex / Gemini / Cowork) owns the work surface. Trinity owns the question of which model to use, and the verifier that tells you why.
+## Privacy is the wedge
 
-Two surfaces:
+- **Your prompts and the models' answers never leave your machine.** No exceptions, no opt-in
+  tier that changes this.
+- **What CAN be opted in (default off):** anonymous categorical routing labels —
+  `task_type`, `winner`, `confidence`. No content, ever. Powers a future leaderboard for
+  the curious; lives perfectly fine without it.
+- **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
+  use. The provider eats the inference cost; you keep the preference signal.
 
-1. **MCP server (opt-in)** — six tools available to any MCP-compatible harness once you run `trinity-local install-mcp`:
-   - `route(task, ...)` — which model should I use? *(no model calls; cheap; honors `latency`/`budget`)*
-   - `run_council(task, members, mode, responses=[...])` — run the task across multiple models. Parallel by default; `mode="chain"` runs sequential refinement. **Pass `responses=[...]`** with pre-supplied member outputs to skip dispatch and get only the chairman's verifier-shaped verdict (agreed claims, disagreed claims with why-it-matters, winner, routing lesson, eval seed). This subsumes the former `judge` tool.
-   - `record_outcome(council_run_id, user_winner, ...)` — close the supervision loop. Without this Trinity is just a switchboard; with it, Trinity learns.
-   - `search_prompts(query)` — find past prompts worth replaying. Ranks by substring + recency + replay-value heuristics across your full AI history (no embedding model on the read path).
-   - `get_persona()` — return `~/.trinity/me.md` (the user's `/me` document; pair-wise rejection lenses + vocabulary + abstract lenses).
-   - `get_council_status(council_run_id)` — poll an in-flight or completed council; for harnesses without filesystem access.
-
-2. **Launchpad** — `~/.trinity/portal_pages/launchpad.html`. Type a prompt; autofill suggests replay candidates from your taste history with reason chips. Click → council. See the live response stream, the structured Routing JSON verdict, the personal routing table that emerges as you accumulate councils, and **your `/me` taste lenses** (pair-wise rejection cards distilled from your prompt history; copyable to socials with one click).
-
-## What Trinity is *not*
-
-- Another chat UI.
-- A hosted service.
-- A model. Trinity dispatches to your existing subscriptions; it never bills per call.
-
-## Privacy and cost basis
-
-- **Prompt content and assistant outputs never leave your machine.** Ever.
-- Anonymous categorical routing labels (`task_type`, `provider_scores`, `winner`) can be opted in to power live priors and a public leaderboard (v1.1, opt-in only).
-- Trinity rides your $20–$200/mo Claude/ChatGPT/Gemini subscriptions. Never paid per call. The model providers eat the inference cost; Trinity captures the preference signal at zero infrastructure cost.
-
-## Setup (one line)
+## Quickstart (5 commands)
 
 ```bash
-./setup.sh
+pip install trinity-local
+trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
+trinity-local doctor                # verify providers + auth before your first council
+trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
+trinity-local me-build              # surface your taste lenses (after a few councils)
+trinity-local me-card                # render your /me lens as a 1200×630 PNG to share
 ```
 
-Creates a virtual environment, installs Trinity, copies the default config, writes the local dispatch wrapper, imports the macOS Shortcut bridge, adds Trinity to your shell `PATH`, and registers the MCP server with Claude Code / Gemini CLI / Codex.
+`trinity-local doctor` checks each provider CLI is installed + authenticated, the MCP server
+dependency is present, and your Trinity directory is writable — surfaces a one-line fix for
+each ✗ before you hit a live council.
 
-After setup, open a new terminal. `trinity-local ...` runs without manually activating `.venv`.
+## How is this different from \[X\]
 
-## Five-minute first run
+| | Trinity Local | LMArena | promptfoo / Claude evals | OpenRouter | Karpathy LLM Council |
+|---|---|---|---|---|---|
+| Data source | **Your own prompts** | Crowd votes | Test fixtures | n/a (router) | Yours, but no persistence |
+| Cost basis | Your own subscriptions | Hosted | Per-call API | Per-call API | Per-call API |
+| Output | **Verifier-shaped Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
+| Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
+| Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
+| Shareable artifact | **`/me` lens PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |
 
-```bash
-# 1. Index your AI taste history (covers Claude.ai, ChatGPT, Gemini Takeout, Claude Code, Codex, Cowork)
-trinity-local seed-from-taste-terminal --path ~/projects/taste-terminal/data/exports
+If you want "which model is best in general," LMArena. If you want "which model handles **this
+codebase / this voice / this trade-off you keep making**," Trinity.
 
-# 2. Re-evaluate your top prompts against the current model lineup
-trinity-local replay-history --limit 20
-
-# 3. See your personal routing table
-trinity-local portal-html --open
-```
-
-Inside Claude Code (or any MCP harness), Trinity is now a five-tool MCP server. Ask:
-
-> "Use Trinity to council this: write a launch announcement for Trinity Local."
-
-Or, ad-hoc from the CLI:
-
-```bash
-trinity-local council-launch --task "Write a launch announcement for Trinity Local" --members claude gemini codex
-```
-
-Trinity auto-picks the chairman per task — the strongest predicted model for the task type — using your personal routing table when populated, then global priors as a baseline.
-
-## What you get back
+## What a council produces
 
 Every council writes:
 
-- A **comparative analysis** memo (what each model contributes, key tradeoffs, recommendation).
-- A **Routing JSON** label — winner, runner_up, confidence, per-provider scores, routing_lesson, eval_seed, agreed_claims, disagreed_claims with why-it-matters. This is the supervision signal for the future learned router.
-- A live HTML review page with full responses streaming as each model finishes — no waiting for the chairman to start before you can read the answers.
+1. **Per-model answers** — Claude / Gemini / Codex each respond. Streamed as they finish; no
+   waiting on the slowest member to read the fastest.
+2. **Chairman synthesis** — *winner / runner-up / confidence / per-provider scores*, plus
+   structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `routing_lesson`, and
+   `eval_seed` (the deterministic test a future answer should pass).
+3. **A Routing JSON outcome** persisted to `~/.trinity/council_outcomes/<id>.json`. This is
+   the moat — cross-model preference data frontier providers can't see.
 
-After enough councils accumulate, Trinity learns: *"For code_refactor prompts, claude wins 7.8/10. For research_synthesis, gemini wins 8.1/10."* That's your personal routing plan, computed from your own taste — not a generic benchmark.
+After enough councils:
+
+- A **personal routing table** emerges: *"For code_refactor prompts, Claude wins 7.8 / 10."*
+- A **`/me` lens** distills your taste into paired tensions across domains, with the
+  failure mode of pure-A and pure-B explicit. Run `trinity-local me-card` to render it as a
+  shareable PNG.
+
+## Demo
+
+[60-second screen recording — coming on launch day]
+
+## How to use it inside Claude Code
+
+```
+mcp__trinity-local__run_council(
+  task="Compare three database options for a 50M-row analytics workload: Postgres, SQLite, DuckDB",
+  members=["claude", "gemini", "codex"]
+)
+```
+
+Or via the CLI:
+
+```bash
+trinity-local council-launch --task "..." --members claude gemini codex
+```
+
+After the council finishes, the user clicks the answer they preferred. That click feeds
+`record_outcome` and Trinity's chairman gets smarter at picking *the right model for this
+flavor of question* next time.
 
 ## Architecture (one paragraph)
 
-The chairman is the verifier — the strongest predicted model for the task — emitting a structured Routing JSON over each council. Member models run in parallel (or chain mode for sequential refinement). The personal routing table is the moat: cross-model preference data that frontier providers can't replicate without breaking enterprise privacy. Per-user, local, learned over time.
+The chairman model is the verifier, emitting structured Routing JSON over every council.
+Members run in parallel (or in `chain` mode for sequential refinement). The personal routing
+table is computed on demand from `~/.trinity/council_outcomes/*.json` — no separate state
+file. The `/me` lens-discovery pipeline (4 stages: basins → decisions → pair-mining →
+basin post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair gap
+extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal behavioral
+evidence into decision extraction.
 
-For details see [`claude.md`](./claude.md). The long-form Phase 0–9 roadmap lives in [`docs/scale-plan.md`](./docs/scale-plan.md). Phase 8 is the routing-substrate work landing now; Phase 9 is the per-user learned router we'll train once enough councils accumulate.
+For full architecture: [`claude.md`](claude.md) (agent context) and
+[`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
+For the v2 next-layer (skill graduation via the Loop Constitution double-loop):
+[`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
+
+## What's next (v2-alpha)
+
+> *Inversion, cull, and eviction are the wind.*
+
+v2 turns Trinity from evidence ledger into skill factory. A double-loop graduates skills with
+their own passing test, evicts them when a new model lands. CLI today:
+`trinity-local loop frame --intent "<what skill to build>"`. Skills land at
+`~/.trinity/skills/<id>/`. Spec: [`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
 
 ## Help
 
-- `trinity-local --help` — list all commands
-- `trinity-local status` — health check
-- `trinity-local replay-history --dry-run` — preview which prompts will be re-evaluated
-- `trinity-local seed-from-taste-terminal --help` — seed flags
-- `trinity-local install-mcp` — register the MCP server in Claude Code / Gemini CLI / Codex
+| Command | What it does |
+|---|---|
+| `trinity-local doctor` | Pre-flight checks; surfaces a fix line per ✗ |
+| `trinity-local council-launch --task "..."` | Run a council from the terminal |
+| `trinity-local me-build` | Build your `/me` lens from prompt history |
+| `trinity-local me-card` | Render your strongest lens as a PNG |
+| `trinity-local portal-html --open` | Open the launchpad |
+| `trinity-local status` | Aggregate scoreboard, recent councils |
+| `trinity-local --help` | Full command list |
+
+## License
+
+MIT. See [`LICENSE`](LICENSE) when added (pre-launch).
+
+## Building Trinity
+
+Issues, traces, weird outputs, lens shares — all welcome at the GitHub repo. The product
+gets better as more people run councils against their own taste; cross-pollinating outputs
+on socials is how the network effect compounds.
+
+If you want to read what Trinity thinks of itself, every architecture decision in this
+repo cites a council outcome ID. Examples in `claude.md`. Yes, it's councils all the way
+down.
