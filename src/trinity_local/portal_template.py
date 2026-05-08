@@ -1040,6 +1040,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       if (!settings.sharing_enabled || !settings.endpoint) {{
         return;
       }}
+      // Skip obvious test/placeholder endpoints — sending to them produces
+      // ERR_NAME_NOT_RESOLVED noise in the console with no upside.
+      // example.invalid is the RFC 6761 reserved stub used during dev.
+      if (/example\\.invalid|localhost(?:[:/]|$)|127\\.0\\.0\\.1/.test(settings.endpoint)) {{
+        return;
+      }}
 
       const endpoint = settings.endpoint;
       const send = (payload) => {{

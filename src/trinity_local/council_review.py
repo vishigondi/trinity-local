@@ -203,11 +203,15 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     except Exception:
         converged = False
 
+    # Page-data URLs are RELATIVE so the same HTML works under both
+    # file:///Users/.../trinity/... and http://localhost:PORT/... (when serving
+    # ~/.trinity via `python -m http.server`). Absolute file:// hardcodes broke
+    # the localhost dev path; relative paths resolve correctly in both contexts.
     page_data = {
         "councilId": council_id,
         "answers": answers_payload,
-        "launchpadUrl": f"file://{(portal_pages_dir() / 'launchpad.html').resolve()}",
-        "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
+        "launchpadUrl": "../portal_pages/launchpad.html",
+        "statusScriptBaseUrl": "../portal_pages/status",
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "initialSelection": {
             "provider": selected_provider or "",
@@ -625,12 +629,14 @@ def render_live_council_page() -> str:
     head = render_html_head("Trinity — Council")
     footer = render_html_footer()
     page_data = {
-        "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
-        "outcomeScriptBaseUrl": "file://" + quote(str(council_outcomes_dir().resolve())),
+        # Relative paths so the same HTML works under both file:// and http://
+        # localhost (see render_html_head note above for rationale).
+        "statusScriptBaseUrl": "../portal_pages/status",
+        "outcomeScriptBaseUrl": "../council_outcomes",
         "loadingMessages": LIVE_COUNCIL_LOADING_MESSAGES,
         "shortcutName": DEFAULT_SHORTCUT_NAME,
-        "launchpadUrl": f"file://{(portal_pages_dir() / 'launchpad.html').resolve()}",
-        "reviewPagesBaseUrl": "file://" + quote(str(review_pages_dir().resolve())),
+        "launchpadUrl": "../portal_pages/launchpad.html",
+        "reviewPagesBaseUrl": ".",
     }
     return f"""{head}
   <style>
@@ -1155,7 +1161,8 @@ def render_live_council_page() -> str:
       delete window.__TRINITY_COUNCIL_THREAD__[threadId];
       const script = document.createElement('script');
       // file:// URLs can't carry query strings — see portal_runtime.js comment.
-      const isFile = base.startsWith('file://');
+      // Use the document's protocol instead of sniffing the (now-relative) base.
+      const isFile = window.location.protocol === 'file:';
       const cacheBuster = isFile ? '' : '?t=' + Date.now();
       script.src = base + '/_thread_' + encodeURIComponent(threadId) + '.js' + cacheBuster;
       script.async = true;

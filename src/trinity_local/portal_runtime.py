@@ -54,7 +54,10 @@ function loadStatusScript(token, onComplete) {
   // file:// URLs don't honor query-string cache busters — browsers look for
   // a literal file named `foo.js?t=…` and 404. Only append the buster on
   // http(s):// so the local server can refresh between polls.
-  const isFile = base.startsWith('file://');
+  // Page-data URLs are now relative (work under both file:// and localhost),
+  // so we can't sniff the protocol from `base`. Use the document's protocol
+  // instead — file:// is the trigger, regardless of how `base` is shaped.
+  const isFile = window.location.protocol === 'file:';
   const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
   script.src = `${base}/council_status_${encodeURIComponent(token)}.js${cacheBuster}`;
   script.async = true;
@@ -82,7 +85,10 @@ function loadOutcomeScript(councilId, onComplete) {
   const script = document.createElement('script');
   // file:// URLs treat `?t=…` as part of the literal filename, so the
   // browser 404s `foo.js?t=174…`. Skip cache-busting on file://.
-  const isFile = base.startsWith('file://');
+  // Page-data URLs are now relative (work under both file:// and localhost),
+  // so we can't sniff the protocol from `base`. Use the document's protocol
+  // instead — file:// is the trigger, regardless of how `base` is shaped.
+  const isFile = window.location.protocol === 'file:';
   const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
   script.src = `${base}/${encodeURIComponent(councilId)}.js${cacheBuster}`;
   script.async = true;

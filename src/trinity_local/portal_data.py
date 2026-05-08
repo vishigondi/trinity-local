@@ -439,9 +439,13 @@ def build_page_data(
         "benchmarkProviders": benchmark_providers,
         "providerModels": provider_models,
         "referenceEvalsMeta": get_reference_evals_meta(),
-        "liveReviewUrl": f"file://{live_review_path}",
+        # Relative URLs so the launchpad works under both file:// (double-click
+        # the HTML) and http://localhost:PORT (when serving ~/.trinity via
+        # `python -m http.server`). The launchpad lives at
+        # /portal_pages/launchpad.html; live_council is at /review_pages/...
+        "liveReviewUrl": "../review_pages/live_council.html",
         "activeOperation": active_operation,
-        "statusScriptBaseUrl": "file://" + quote(str(council_status_dir().resolve())),
+        "statusScriptBaseUrl": "./status",
         "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
         "personalRoutingTable": personal_routing,
         "tasteLenses": _load_taste_lenses(),
@@ -511,7 +515,11 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
         review_path = item.get("review_page_path")
         if not review_path or not thread_id:
             return ""
-        href = f"file://{_esc(str(review_path))}?thread_id={_esc(str(thread_id))}"
+        # Relative URL so the recent-council card works under both file:// and
+        # http://localhost (the launchpad sits at /portal_pages/launchpad.html;
+        # the review page is /review_pages/<id>.html — the redirect stub —
+        # which forwards to live_council.html with the same query string).
+        href = f"../review_pages/{_esc(Path(str(review_path)).name)}?thread_id={_esc(str(thread_id))}"
         winner = (item.get("winner_provider") or "No winner yet").replace("_", " ").title()
         created_at = item.get("created_at") or "unknown"
         seg_count = int(item.get("segment_count") or 1)
