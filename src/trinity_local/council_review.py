@@ -1686,7 +1686,22 @@ def render_live_council_page() -> str:
 {footer}"""
 
 
-def write_live_council_page() -> Path:
+def write_live_council_page(*, force: bool = False) -> Path:
+    """Write `~/.trinity/review_pages/live_council.html`.
+
+    The unified live-council HTML is essentially a static asset — it doesn't
+    depend on per-call data, just on the package's render code. If the file
+    already exists, `force=False` (default) skips the write so a long-lived
+    MCP server running stale in-memory code can't overwrite it with old
+    template HTML.
+
+    The CLI's `portal-html` (refresh_launchpad) passes `force=True` to refresh
+    on demand. That's the only path that should ever rewrite this file once
+    it exists. See: every "blank council page" / "QUEUED stuck" report has
+    been this overwrite class.
+    """
     path = review_pages_dir() / "live_council.html"
+    if path.exists() and not force:
+        return path
     path.write_text(render_live_council_page(), encoding="utf-8")
     return path
