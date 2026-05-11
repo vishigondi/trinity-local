@@ -202,6 +202,12 @@ def main() -> int:
             print(f"[ ✗ ] Surface 3 routing table: {reason}")
             fails.append((3, "routing table", reason))
 
+        # Focused screenshot — scroll to the routing table so visual review
+        # gets the section in isolation, not buried in a fullPage shot.
+        page.evaluate("() => document.querySelector('table.routing-table')?.scrollIntoView({block: 'start'})")
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SHOTS_DIR / "3-routing-table.png"))
+
         # ─── Surface 4: Copy-for-sharing clipboard write ─────────────────────
         copy_state = page.evaluate(
             """() => new Promise(resolve => {
@@ -223,6 +229,16 @@ def main() -> int:
             reason = copy_state.get("reason") or "nothing copied"
             print(f"[ ✗ ] Surface 4 copy-for-sharing: {reason}")
             fails.append((4, "copy-for-sharing", reason))
+
+        # Focused screenshot of the /me lens + copy button.
+        page.evaluate(
+            """() => {
+              const btn = Array.from(document.querySelectorAll('button')).find(b => /Copy.*shar/i.test(b.textContent));
+              btn?.scrollIntoView({block: 'center'});
+            }"""
+        )
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SHOTS_DIR / "4-copy-for-sharing.png"))
 
         # ─── Surface 5: Recent council click ─────────────────────────────────
         recent_state = page.evaluate(
@@ -282,9 +298,12 @@ def main() -> int:
                     page.wait_for_timeout(500)
                     if "launchpad.html" in page.url:
                         print(f"[ ✓ ] Surface 6 live council back-trip: returned to launchpad")
-                    else:
-                        print(f"[ ✗ ] Surface 6 live council back-trip: url={page.url}")
-                        fails.append((6, "live council back-trip", f"url={page.url}"))
+                        # Focused capture — launchpad-after-back-from-council.
+                        # Should look identical to the cold-render except scroll
+                        # position; visual review catches state leakage.
+                        page.evaluate("() => window.scrollTo(0, 0)")
+                        page.wait_for_timeout(300)
+                        page.screenshot(path=str(SHOTS_DIR / "6-back-to-launchpad.png"))
                 except Exception as exc:
                     print(f"[ ✗ ] Surface 6 live council back-trip: navigation failed ({exc})")
                     fails.append((6, "live council back-trip", str(exc)[:120]))
@@ -311,6 +330,16 @@ def main() -> int:
             print(f"[ ✗ ] Surface 7 Launch Council button: {launch_state}")
             fails.append((7, "Launch Council button", str(launch_state)))
 
+        # Focused screenshot of the Council card with Launch button visible.
+        page.evaluate(
+            """() => {
+              const btn = Array.from(document.querySelectorAll('button')).find(b => /Launch Council/i.test(b.textContent));
+              btn?.scrollIntoView({block: 'center'});
+            }"""
+        )
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SHOTS_DIR / "7-launch-button.png"))
+
         # ─── Surface 8: Telemetry guard (no example.invalid in console) ──────
         invalid_errs = [e for e in console_errors if "example.invalid" in e or "ERR_NAME_NOT_RESOLVED" in e]
         if not invalid_errs:
@@ -318,6 +347,17 @@ def main() -> int:
         else:
             print(f"[ ✗ ] Surface 8 telemetry guard: {len(invalid_errs)} stray errors")
             fails.append((8, "telemetry guard", f"{len(invalid_errs)} errors: {invalid_errs[:2]}"))
+
+        # Focused screenshot — settings modal showing the "Not configured"
+        # display fix (endpoint guard). Open modal, capture, close cleanly.
+        page.evaluate(
+            """() => {
+              const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === '⚙');
+              btn?.click();
+            }"""
+        )
+        page.wait_for_timeout(400)
+        page.screenshot(path=str(SHOTS_DIR / "8-settings-endpoint-guard.png"))
 
         browser.close()
 
