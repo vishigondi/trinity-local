@@ -24,6 +24,7 @@ def _hit(
     prompt_id: str,
     chairman_winner: str | None = None,
     user_winner: str | None = None,
+    provider: str = "",
     score: float = 0.8,
 ) -> SearchResult:
     return SearchResult(
@@ -38,6 +39,7 @@ def _hit(
         chairman_winner=chairman_winner,
         user_winner=user_winner,
         council_count=1 if (chairman_winner or user_winner) else 0,
+        provider=provider,
     )
 
 
@@ -101,6 +103,31 @@ class TestDecideFromHits:
         assert decision.reason == "hits_found_but_no_winner_signal"
         assert decision.trust_score == 0.0
 
+    def test_cold_start_falls_back_to_transcript_provider(self):
+        # No councils have run yet, but the user has asked 5 similar prompts
+        # to Codex in their transcripts. We should still route to Codex with
+        # capped trust + escalate hint.
+        hits = [_hit(prompt_id=f"p{i}", provider="codex") for i in range(5)]
+        decision = _decide_from_hits(hits, available_providers=None)
+        assert decision.routed_to == "codex"
+        # Cold-start cap means trust stays below escalate threshold.
+        assert decision.trust_score <= 0.55
+        assert "transcript origin only" in decision.reason
+
+    def test_council_signal_dominates_transcript_origin(self):
+        # User reached for Codex 4 times historically but the one council
+        # they ran ratified Claude. Council wins.
+        hits = [
+            _hit(prompt_id="p1", user_winner="claude", provider="codex"),
+            _hit(prompt_id="p2", provider="codex"),
+            _hit(prompt_id="p3", provider="codex"),
+            _hit(prompt_id="p4", provider="codex"),
+        ]
+        decision = _decide_from_hits(hits, available_providers=None)
+        assert decision.routed_to == "claude"
+        # Reason should reflect council-signal path, not the cold-start one.
+        assert "council signals" in decision.reason
+
 
 class TestDecideRoute:
     def test_patches_memory_search(self, monkeypatch):
@@ -136,6 +163,24 @@ class TestRunAsk:
         result = run_ask("complex question", dispatch_fn=lambda p, q: "answer")
         assert result.escalate_hint == "compare"
         assert result.trust_score < ESCALATE_HINT_THRESHOLD
+
+    def test_long_answer_is_truncated_with_marker(self, monkeypatch):
+        from trinity_local.ask import ASK_ANSWER_CHAR_BUDGET
+
+        fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+        long_answer = "x" * 10000
+        result = run_ask("q", dispatch_fn=lambda p, q: long_answer)
+        payload = result.to_dict()
+        assert len(payload["answer"]) <= ASK_ANSWER_CHAR_BUDGET
+        assert "truncated by Trinity" in payload["answer"]
+
+    def test_short_answer_passes_through_unchanged(self, monkeypatch):
+        fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+        result = run_ask("q", dispatch_fn=lambda p, q: "short and clear")
+        payload = result.to_dict()
+        assert payload["answer"] == "short and clear"
 
     def test_to_dict_is_compact(self, monkeypatch):
         fake_hits = [_hit(prompt_id="p1", user_winner="codex") for _ in range(5)]

@@ -36,6 +36,14 @@ _W_RECENCY = 0.15
 # Claude in the harness can choose to call `compare` instead of trusting the ask.
 ESCALATE_HINT_THRESHOLD = 0.55
 
+# Token-economy budget for `ask` returns. The answer goes straight into the
+# calling agent's context window — long returns are expensive in tokens AND in
+# attention. Roughly 4 chars per token, so 2000 chars ≈ 500 tokens. Truncated
+# with a one-line marker so the agent knows the output was capped (and can
+# call `compare` or fetch the full council if it needs more).
+ASK_ANSWER_CHAR_BUDGET = 2000
+_TRUNCATION_MARKER = "\n\n[…truncated by Trinity for context economy — call `run_council` or read the council outcome for full output]"
+
 
 @dataclass
 class AskDecision:
@@ -75,9 +83,15 @@ class AskResult:
     decision: AskDecision
 
     def to_dict(self) -> dict:
-        # Token-economy: keep this compact. Claude's context window is the cost.
+        # Token-economy: keep this compact. The agent's context window is the
+        # cost; verbose returns burn tokens AND attention. Truncate long
+        # answers with a marker so the agent knows what was cut and can fetch
+        # full output via `run_council` if needed.
+        answer = self.answer
+        if len(answer) > ASK_ANSWER_CHAR_BUDGET:
+            answer = answer[: ASK_ANSWER_CHAR_BUDGET - len(_TRUNCATION_MARKER)] + _TRUNCATION_MARKER
         out = {
-            "answer": self.answer,
+            "answer": answer,
             "routed_to": self.routed_to,
             "trust_score": round(self.trust_score, 3),
             "latency_ms": self.latency_ms,
@@ -115,13 +129,15 @@ def _decide_from_hits(
             reason="no_history",
         )
 
+    # Pass 1: council-derived signals (user verdict + chairman pick).
+    # These are highest-signal because they came out of explicit evaluation.
     votes: dict[str, float] = {}
     evidence: list[str] = []
     for hit in hits:
-        # Each signal carries 1.0 if present. The same hit can vote multiple
-        # times via different signals (chairman + user verdict + origin).
+        # Each signal carries 1.0/1.5 if present. Same hit can vote multiple
+        # times via different signals (chairman + user verdict).
         winner_signals = [
-            (hit.user_winner, 1.5),     # strongest signal — user actively picked
+            (hit.user_winner, 1.5),     # strongest — user actively picked
             (hit.chairman_winner, 1.0),
         ]
         for provider, weight in winner_signals:
@@ -129,10 +145,24 @@ def _decide_from_hits(
                 votes[provider] = votes.get(provider, 0.0) + weight
                 if hit.prompt_id not in evidence:
                     evidence.append(hit.prompt_id)
-        # Fallback: prompt-origin provider (where the user actually sent the
-        # prompt in the past). Weak signal — they may have just defaulted to
-        # whatever was open — but better than nothing.
-        # PromptNode field not exposed on SearchResult directly; skip in v1.
+
+    # Pass 2 (cold-start fallback): if no council signal exists, fall back to
+    # the prompt's origin provider — which CLI the user actually reached for.
+    # Weak signal (0.5 weight) because "what they reached for" ≠ "what was
+    # best", but better than no signal. This is what makes ask useful from
+    # day-1 of install, before any councils have run. Skipped entirely when
+    # any council signal is present — explicit evaluation dominates revealed
+    # preference.
+    reason: str
+    if votes:
+        reason = f"voted from {len(hits)} similar past prompts (council signals)"
+    else:
+        for hit in hits:
+            if getattr(hit, "provider", ""):
+                votes[hit.provider] = votes.get(hit.provider, 0.0) + 0.5
+                if hit.prompt_id not in evidence:
+                    evidence.append(hit.prompt_id)
+        reason = f"voted from {len(hits)} similar past prompts (transcript origin only — no councils yet)"
 
     if available_providers:
         votes = {p: v for p, v in votes.items() if p in available_providers}
@@ -150,7 +180,13 @@ def _decide_from_hits(
     ranked = sorted(votes.items(), key=lambda kv: kv[1], reverse=True)
     primary = ranked[0][0]
     runner_up = ranked[1][0] if len(ranked) > 1 else None
-    trust = _compute_trust(votes, n_hits=len(hits))
+    # Cold-start (transcript-origin only) signals are weaker — cap trust
+    # accordingly so the escalate_hint fires more eagerly for the agent.
+    trust = _compute_trust(
+        votes,
+        n_hits=len(hits),
+        cold_start=("transcript origin only" in reason),
+    )
 
     return AskDecision(
         routed_to=primary,
@@ -158,17 +194,29 @@ def _decide_from_hits(
         runner_up=runner_up,
         vote_counts={p: int(v) for p, v in votes.items()},
         evidence_prompt_ids=evidence,
-        reason=f"voted from {len(hits)} similar past prompts",
+        reason=reason,
     )
 
 
-def _compute_trust(votes: dict[str, float], n_hits: int) -> float:
+def _compute_trust(votes: dict[str, float], n_hits: int, *, cold_start: bool = False) -> float:
     """4-component trust score will land in Week 2 alongside cortex rules.
     Week-1 stub uses 3 components (agreement, sample, recency-proxy=1.0) plus
-    a hard floor: with fewer than 2 hits, trust caps at 0.5 regardless of
-    agreement. One data point isn't enough signal to recommend without
-    escalation. This makes the single-hit case explicitly low-trust so the
-    `escalate_hint=compare` fires correctly.
+    two hard floors:
+
+    - **min-hits floor:** with fewer than 2 hits, trust caps at 0.5 regardless
+      of agreement. One data point isn't enough signal to recommend without
+      escalation.
+    - **cold-start cap:** when the only signal is transcript-origin (the user
+      reached for this provider before, but never explicitly evaluated it as
+      best), cap trust at 0.55 — just below the escalate threshold — so the
+      agent gets `escalate_hint=compare` and can choose to fan out for an
+      explicit comparison. Routes-to-something-reasonable + suggests-compare
+      is the right cold-start behavior.
+
+    Both floors are explicit so the trust score stays interpretable: high
+    trust requires either many similar past councils OR many similar past
+    prompts with explicit user evaluation. Neither is true on day-1 of an
+    install, so day-1 always escalates.
     """
     total = sum(votes.values()) or 1.0
     top = max(votes.values())
@@ -184,10 +232,10 @@ def _compute_trust(votes: dict[str, float], n_hits: int) -> float:
 
     raw = _W_AGREEMENT * agreement + _W_SAMPLE * sample_size + _W_RECENCY * recency
 
-    # Hard floor: single-hit evidence caps at 0.5. Two hits in agreement is
-    # the minimum bar for "confident enough to ship without escalation."
     if n_hits < 2:
         return min(raw, 0.5)
+    if cold_start:
+        return min(raw, 0.55)
     return raw
 
 
