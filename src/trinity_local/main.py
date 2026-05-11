@@ -10,6 +10,7 @@ CORE_COMMAND_MODULES = (
     "actions",
     "adapters",
     "cache",
+    "cortex",
     "council",
     "council_last",
     "doctor",

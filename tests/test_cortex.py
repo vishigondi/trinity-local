@@ -247,3 +247,177 @@ class TestLoadSaveRoundtrip:
         # bad entry skipped, good entry kept.
         assert "good" in loaded
         assert "bad" not in loaded
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Group outcomes by basin (Week 2: by task_type)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestGroupOutcomesByBasin:
+    def test_groups_by_routing_label_task_type(self):
+        from trinity_local.cortex import group_outcomes_by_basin
+
+        outcomes = [
+            {"routing_label": {"task_type": "system_design"}, "winner_provider": "claude"},
+            {"routing_label": {"task_type": "system_design"}, "winner_provider": "codex"},
+            {"routing_label": {"task_type": "code_refactor"}, "winner_provider": "claude"},
+        ]
+        grouped = group_outcomes_by_basin(outcomes)
+        assert set(grouped.keys()) == {"system_design", "code_refactor"}
+        assert len(grouped["system_design"]) == 2
+
+    def test_skips_outcomes_without_task_type(self):
+        from trinity_local.cortex import group_outcomes_by_basin
+
+        outcomes = [
+            {"routing_label": {"task_type": ""}},
+            {"routing_label": {}},
+            {"routing_label": None},
+            {"routing_label": {"task_type": "real"}, "winner_provider": "claude"},
+        ]
+        grouped = group_outcomes_by_basin(outcomes)
+        assert grouped == {"real": [outcomes[3]]}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Flagship extractor — prompt building + response parsing.
+# Pure functions; no LLM access needed.
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestBuildExtractionPrompt:
+    def test_includes_basin_id_and_outcome_count(self):
+        from trinity_local.cortex import build_extraction_prompt
+
+        outcomes = [{"council_run_id": "c1", "routing_label": {"winner": "claude"}}]
+        prompt = build_extraction_prompt("system_design", outcomes)
+        assert "system_design" in prompt
+        assert "1 council outcomes" in prompt
+
+    def test_compresses_outcomes_to_load_bearing_fields_only(self):
+        """The prompt should NOT include the full synthesis_output blob — token
+        budget matters even for offline consolidation."""
+        from trinity_local.cortex import build_extraction_prompt
+
+        outcomes = [{
+            "council_run_id": "c1",
+            "routing_label": {"winner": "claude", "routing_lesson": "lesson"},
+            "synthesis_output": "X" * 100000,  # huge blob
+            "member_results": [{"output": "Y" * 50000}],
+        }]
+        prompt = build_extraction_prompt("b", outcomes)
+        # Should not include the giant blobs.
+        assert "X" * 100 not in prompt
+        # Should include the routing_lesson.
+        assert "lesson" in prompt
+
+    def test_caps_outcomes_at_40_per_basin(self):
+        from trinity_local.cortex import build_extraction_prompt
+
+        outcomes = [
+            {"council_run_id": f"c{i}", "routing_label": {"winner": "claude"}}
+            for i in range(100)
+        ]
+        prompt = build_extraction_prompt("b", outcomes)
+        # Outcomes 0..39 should be in the prompt, outcomes 40..99 shouldn't.
+        assert '"council_id": "c0"' in prompt
+        assert '"council_id": "c39"' in prompt
+        assert '"council_id": "c40"' not in prompt
+
+
+class TestParseExtractionResponse:
+    def test_parses_bare_json(self):
+        from trinity_local.cortex import parse_extraction_response
+
+        text = '{"primary": "claude", "reason": "x"}'
+        out = parse_extraction_response(text)
+        assert out["primary"] == "claude"
+
+    def test_strips_markdown_fence(self):
+        from trinity_local.cortex import parse_extraction_response
+
+        text = '```json\n{"primary": "codex"}\n```'
+        out = parse_extraction_response(text)
+        assert out["primary"] == "codex"
+
+    def test_parses_json_with_surrounding_prose(self):
+        from trinity_local.cortex import parse_extraction_response
+
+        text = 'Sure! Here is the rule:\n{"primary": "gemini", "reason": "y"}\nLet me know if you need more.'
+        out = parse_extraction_response(text)
+        assert out["primary"] == "gemini"
+
+    def test_raises_on_no_json(self):
+        from trinity_local.cortex import parse_extraction_response
+
+        with pytest.raises(ValueError):
+            parse_extraction_response("just some prose, no braces here")
+
+
+class TestConsolidateAll:
+    """End-to-end consolidate_all with a stub dispatch_fn."""
+
+    def test_end_to_end_with_stub_dispatch(self, tmp_path, monkeypatch):
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        # Plant two basins worth of outcomes.
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir(parents=True)
+        for i in range(4):
+            (outcomes_dir / f"council_{i:04d}.json").write_text(
+                json.dumps({
+                    "council_run_id": f"c{i}",
+                    "bundle_id": f"b{i}",
+                    "winner_provider": "claude",
+                    "routing_label": {
+                        "task_type": "system_design",
+                        "winner": "claude",
+                        "routing_lesson": "claude wins for architecture",
+                        "agreed_claims": ["x"],
+                        "disagreed_claims": [],
+                    },
+                }),
+                encoding="utf-8",
+            )
+
+        # Stub dispatch_fn returns a valid extraction JSON for any prompt.
+        def stub_dispatch(provider, prompt):
+            return json.dumps({
+                "primary": "claude",
+                "challenger": "codex",
+                "reason": "claude surfaces structural failure modes",
+                "subroutes": [],
+                "failure_modes": {"claude": "over-engineers"},
+                "successful_prompts": {"claude": ["What's the SINGLE..."]},
+            })
+
+        patterns = cortex.consolidate_all(dispatch_fn=stub_dispatch, min_basin_size=3)
+        assert "system_design" in patterns
+        assert patterns["system_design"].routing_rule.primary == "claude"
+        assert patterns["system_design"].n_episodes == 4
+        assert patterns["system_design"].trust_score.value > 0
+
+    def test_skips_basins_below_min_size(self, tmp_path, monkeypatch):
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir(parents=True)
+        # Only 2 outcomes in this basin.
+        for i in range(2):
+            (outcomes_dir / f"council_{i:04d}.json").write_text(
+                json.dumps({
+                    "council_run_id": f"c{i}",
+                    "winner_provider": "claude",
+                    "routing_label": {"task_type": "tiny_basin", "winner": "claude"},
+                }),
+                encoding="utf-8",
+            )
+
+        def stub_dispatch(provider, prompt):
+            return '{"primary": "claude"}'
+
+        patterns = cortex.consolidate_all(dispatch_fn=stub_dispatch, min_basin_size=3)
+        # Should NOT consolidate a basin with only 2 outcomes.
+        assert patterns == {}

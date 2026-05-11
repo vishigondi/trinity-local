@@ -357,3 +357,204 @@ def iter_outcomes() -> list[dict]:
         except (OSError, json.JSONDecodeError):
             continue
     return items
+
+
+def group_outcomes_by_basin(outcomes: list[dict]) -> dict[str, list[dict]]:
+    """Group council outcomes by basin. For v1.5 Week 2 we use the chairman-
+    classified `task_type` as the basin key — it's already in every outcome's
+    routing_label and gives us a coherent cluster of similar questions. A
+    proper centroid-based basin classifier (matching the lens pipeline's
+    me/basins.json) lands in Week 3.
+
+    Skips outcomes with no task_type. Returns {basin_id: [outcomes...]}.
+    """
+    grouped: dict[str, list[dict]] = {}
+    for o in outcomes:
+        label = o.get("routing_label") or {}
+        task_type = (label.get("task_type") or "").strip()
+        if not task_type:
+            continue
+        grouped.setdefault(task_type, []).append(o)
+    return grouped
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Flagship extractor — the actual LLM-driven step.
+#
+# The flagship reads N outcomes from one basin and emits a structured
+# extraction: rule + failure modes + successful prompt templates. The prompt
+# template lives in build_extraction_prompt; the JSON response gets parsed by
+# parse_extraction_response. Both are pure functions — testable without LLM
+# access. The runner that ties them together (build → dispatch → parse) lives
+# in `make_flagship_extractor` and takes a dispatch_fn that production wires
+# through `providers.make_provider(claude_opus_config).run(prompt, cwd).stdout`.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def build_extraction_prompt(basin_id: str, outcomes: list[dict]) -> str:
+    """Build the prompt that asks a flagship model to extract a routing rule
+    from N council outcomes in one basin. The schema of the expected response
+    matches RoutingRule + FailureModes + successful_prompts.
+    """
+    # Compress each outcome to its load-bearing fields. The full council
+    # outcome JSON has synthesis_prompt + synthesis_output blobs that aren't
+    # needed for extraction. We send just routing_label.
+    compressed: list[dict] = []
+    for o in outcomes[:40]:  # cap to 40 outcomes per basin — keeps token budget reasonable
+        label = o.get("routing_label") or {}
+        entry = {
+            "council_id": o.get("council_run_id") or o.get("council_id"),
+            "winner": label.get("winner") or o.get("winner_provider"),
+            "runner_up": label.get("runner_up"),
+            "routing_lesson": label.get("routing_lesson", ""),
+            "agreed_claims": label.get("agreed_claims", []),
+            "disagreed_claims": label.get("disagreed_claims", []),
+            "user_verdict": (o.get("metadata") or {}).get("user_verdict", {}).get("user_winner"),
+        }
+        compressed.append(entry)
+
+    return f"""You are extracting a ROUTING RULE for a personal AI router. You have {len(outcomes)} council outcomes from one user, all in basin "{basin_id}". For each outcome: which model won, the chairman's routing lesson, what models agreed/disagreed on, the user's verdict if they overrode.
+
+Your job: read these outcomes and extract a structured routing rule the system will use to route NEW questions in this basin. Be specific. Cite outcome IDs when relevant.
+
+Return a single JSON object (no prose around it) matching this exact shape:
+
+{{
+  "primary": "<provider name>",
+  "challenger": "<provider name or null>",
+  "reason": "<one-sentence why the primary wins, with the actual structural difference between providers>",
+  "subroutes": [
+    {{"if_keywords": ["..."], "prefer": "<provider>", "why": "<one sentence>"}}
+  ],
+  "failure_modes": {{
+    "claude": "<one-phrase failure mode when claude loses in this basin, or null>",
+    "codex": "<...>",
+    "gemini": "<...>"
+  }},
+  "successful_prompts": {{
+    "claude": ["<first-words pattern of a prompt that worked>", "<another>"],
+    "codex": ["..."]
+  }}
+}}
+
+Rules:
+- Use ONLY evidence from the outcomes below. Don't invent.
+- If user verdicts contradict the chairman winner, weight USER VERDICTS more heavily — they are the ground truth of taste.
+- If a provider never appears in the outcomes, omit it from failure_modes/successful_prompts.
+- "reason" must name the actual structural difference (not "claude is smarter"; instead "claude consistently surfaces second-order failure modes that codex glosses over").
+- subroutes only when keywords clearly flip the winner.
+- DO NOT include a trust_score field. The system computes that.
+
+OUTCOMES:
+{json.dumps(compressed, indent=2)}"""
+
+
+def parse_extraction_response(text: str) -> dict[str, Any]:
+    """Parse the flagship's JSON response into the dict consolidate_basin
+    expects. Tolerates surrounding markdown fences and prose. Raises if no
+    JSON object can be extracted at all.
+    """
+    text = text.strip()
+    # Strip markdown fences.
+    if text.startswith("```"):
+        # Remove opening fence (with optional `json` tag).
+        lines = text.split("\n")
+        if len(lines) >= 2:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines)
+    # Find the first { ... balanced } and parse it.
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("no JSON object in extractor response")
+    depth = 0
+    end = -1
+    for i, ch in enumerate(text[start:], start=start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end < 0:
+        raise ValueError("unbalanced JSON in extractor response")
+    return json.loads(text[start:end])
+
+
+def make_flagship_extractor(dispatch_fn: Callable[[str, str], str], basin_id: str) -> FlagshipExtractor:
+    """Build the FlagshipExtractor production runs. dispatch_fn is injected so
+    tests can mock it. Production wires through `providers.make_provider(...)`.
+
+    `dispatch_fn(provider_name, prompt) -> response_text` is the same signature
+    as the ask-dispatch shim. Default provider for cortex consolidation is
+    claude (most reliable structured JSON output per spec-v1.5.md), but
+    callers can vary it per basin to amortize cost across subs.
+    """
+    def _extract(outcomes: list[dict]) -> dict[str, Any]:
+        prompt = build_extraction_prompt(basin_id, outcomes)
+        response = dispatch_fn("claude", prompt)
+        return parse_extraction_response(response)
+
+    return _extract
+
+
+def consolidate_all(
+    *,
+    dispatch_fn: Callable[[str, str], str],
+    min_basin_size: int = 3,
+) -> dict[str, RoutingPattern]:
+    """Run the full consolidation pass: walk outcomes, group by basin, call
+    the flagship extractor per basin, compute trust scores, return the
+    patterns dict. Caller writes via save_routing_patterns.
+
+    `min_basin_size` skips basins with too few outcomes — extraction quality
+    is noise for n<3. Tuned in Week 2 calibration.
+    """
+    outcomes = iter_outcomes()
+    grouped = group_outcomes_by_basin(outcomes)
+
+    patterns: dict[str, RoutingPattern] = {}
+    for basin_id, basin_outcomes in grouped.items():
+        if len(basin_outcomes) < min_basin_size:
+            continue
+        extractor = make_flagship_extractor(dispatch_fn, basin_id)
+        # task_kinds is just [basin_id] for v1.5 Week 2 since we use task_type
+        # AS the basin. Week 3 the basin classifier maps multiple task_types
+        # into one true basin and this list expands accordingly.
+        # Diversity metric stub: use winner-distribution Shannon entropy as a
+        # proxy until the basin classifier ships in Week 3.
+        diversity = _entropy_diversity(basin_outcomes)
+        patterns[basin_id] = consolidate_basin(
+            basin_id=basin_id,
+            outcomes=basin_outcomes,
+            task_kinds=[basin_id],
+            diversity_metric=diversity,
+            extractor=extractor,
+        )
+    return patterns
+
+
+def _entropy_diversity(outcomes: list[dict]) -> float:
+    """Cheap diversity proxy: normalized Shannon entropy of the winner
+    distribution. Real centroid-spread metric lands in Week 3 with the basin
+    classifier. A basin where every outcome picked the same winner has
+    entropy=0 → diversity=0 (the "basin" is a niche-artifact echo chamber).
+    A basin where wins spread across 3 providers evenly has entropy≈1.
+    """
+    winners = [
+        (o.get("routing_label") or {}).get("winner") or o.get("winner_provider")
+        for o in outcomes
+    ]
+    winners = [w for w in winners if w]
+    if not winners:
+        return 0.5  # neutral when no data
+    counts: dict[str, int] = {}
+    for w in winners:
+        counts[w] = counts.get(w, 0) + 1
+    n = len(winners)
+    entropy = -sum((c / n) * math.log(c / n) for c in counts.values())
+    # Normalize against max entropy for 3 providers (log 3).
+    max_entropy = math.log(3) if len(counts) >= 3 else math.log(max(2, len(counts)))
+    return min(1.0, entropy / max_entropy) if max_entropy > 0 else 0.0
