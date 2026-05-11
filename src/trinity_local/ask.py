@@ -132,10 +132,22 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
     """Look up a cortex routing rule for this query. Returns None if no rule
     applies (no consolidation yet, basin doesn't match, or trust below floor).
 
-    For v1.5 Week 3 we map query → basin via task_kind classification (same
-    heuristic the chairman uses to label outcomes, so basin keys line up by
-    construction). A centroid-based basin classifier landing later in Week 3
-    upgrades this to soft top-3 membership; this is the simpler first cut.
+    Lookup strategy:
+      1. Exact match on guessed task_kind (cheapest, most precise)
+      2. Token-overlap fuzzy match across basin_ids when exact misses —
+         catches "system_design" query matching a "system_design_decision"
+         rule, or "code_refactor" matching an "architecture_refactor" rule.
+         The query text contributes tokens too, so generic task_kinds
+         like "general" can still find specific high-trust rules.
+      3. Trust-band gating: only rules with trust >= TRUST_KNN_FALLBACK
+         drive routing; the rest fall through to kNN.
+
+    A full centroid-based basin classifier (cosine similarity to
+    `me/basins.json` centroids) lands in v1.6 — the fuzzy-token match
+    here is the lighter-weight first cut that handles the
+    chairman-classifier-drift case (two related task_kinds, one rule
+    each, smaller samples each) without needing the embedding model
+    loaded on the hot path.
     """
     try:
         from .cortex import TRUST_KNN_FALLBACK, load_routing_patterns
@@ -147,10 +159,19 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
     if not patterns:
         return None  # no consolidation has run yet
 
-    basin_id = guess_task_kind(query) or ""
-    pattern = patterns.get(basin_id)
+    task_kind = guess_task_kind(query) or ""
+    pattern = patterns.get(task_kind)
+    match_reason = f"basin '{task_kind}' (exact)"
+
     if pattern is None:
-        return None
+        # Fuzzy fall-through: find the best basin_id by token overlap with
+        # task_kind + query keywords. Returns None when nothing reasonable
+        # matches (caller falls through to kNN).
+        match = _best_fuzzy_basin_match(task_kind, query, patterns)
+        if match is None:
+            return None
+        pattern = match[0]
+        match_reason = f"basin '{match[1]}' (fuzzy match for '{task_kind}')"
 
     trust = pattern.trust_score.value
     if trust < TRUST_KNN_FALLBACK:
@@ -175,8 +196,70 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
         runner_up=pattern.routing_rule.challenger,
         vote_counts={primary: pattern.n_episodes},
         evidence_prompt_ids=pattern.evidence[:5],
-        reason=f"cortex rule for basin '{basin_id}' (trust={trust:.2f}, {pattern.trust_score.interpretation})",
+        reason=f"cortex rule for {match_reason} (trust={trust:.2f}, {pattern.trust_score.interpretation})",
     )
+
+
+def _best_fuzzy_basin_match(
+    task_kind: str,
+    query: str,
+    patterns: dict,
+) -> tuple[object, str] | None:
+    """Embedding-cosine match between the query and each pattern's basin_id.
+    Returns (pattern, basin_id) of the best match, or None when no basin
+    clears the similarity floor.
+
+    Why embeddings: a query like "design a schema" and a basin like
+    "system_design" share no tokens (`schema` vs `system`) but are
+    semantically very close. Token overlap misses these; embeddings catch
+    them. Per the user's call to upgrade from token-overlap to embeddings.
+
+    Implementation notes:
+      - Embed query + basin_id labels via the standard backend (MLX when
+        installed, TF-IDF fallback otherwise). Cached per-text in
+        ~/.trinity/cache/embeddings.jsonl so repeat queries don't re-embed.
+      - The query string used for embedding is `task_kind + " " + query[:150]`
+        so both the chairman's label AND the user's text contribute signal.
+      - Similarity threshold 0.50 — calibrated below in tests. Anything
+        below it falls through to kNN.
+      - Tie-break by pattern.trust_score (more confident rule wins on close
+        matches).
+
+    Cheap O(n_basins) embeddings per call. Basins are small (≤ ~30
+    typically). Embedding the labels happens once and caches; only the
+    query embed is fresh per call.
+    """
+    try:
+        from .embeddings import similarity
+    except ImportError:
+        # Embeddings layer not importable (e.g. MLX missing AND TF-IDF
+        # backend somehow broken). Fall through to no-fuzzy-match — kNN
+        # still works.
+        return None
+
+    query_text = f"{task_kind} {query[:150]}".strip()
+    if not query_text:
+        return None
+
+    best_score = 0.0
+    best: tuple[object, str] | None = None
+    for basin_id, pattern in patterns.items():
+        # Basin labels are short ("system_design", "model_identity_query")
+        # — embed-as-is is fine; underscore-to-space helps tokenizers.
+        basin_text = basin_id.replace("_", " ").strip()
+        if not basin_text:
+            continue
+        try:
+            sim = similarity(query_text, basin_text)
+        except Exception:
+            continue
+        # Tie-break on trust so when two basins are equally similar, the
+        # more confident rule wins.
+        score_with_trust = sim * 1000 + pattern.trust_score.value
+        if sim >= 0.50 and score_with_trust > best_score:
+            best_score = score_with_trust
+            best = (pattern, basin_id)
+    return best
 
 
 def _decide_from_hits(

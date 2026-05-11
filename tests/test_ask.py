@@ -196,6 +196,172 @@ class TestRunAsk:
         assert "evidence_prompt_ids" not in payload
 
 
+class TestFuzzyBasinMatch:
+    """The cortex query-time classifier upgrades from exact-task_kind-match
+    to embedding-cosine match across basin labels. Catches the common case
+    where the chairman's task_kind label and the cortex rule's basin_id
+    don't string-match exactly but mean the same thing.
+    """
+
+    def test_exact_match_wins_when_present(self, monkeypatch, tmp_path):
+        """Exact basin_id match short-circuits the fuzzy path entirely."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.9, "claude": 0.1},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+
+        # Sentinel: if the fuzzy path runs, it'd call similarity(). Patching
+        # similarity to throw lets us assert the exact path bypassed it.
+        from trinity_local import embeddings
+        def boom(*args, **kwargs):
+            raise RuntimeError("fuzzy path should not have been entered")
+        monkeypatch.setattr(embeddings, "similarity", boom)
+
+        decision = ask_module.decide_route("design a schema for X", available_providers=["codex", "claude"])
+        assert decision.routed_to == "codex"
+        assert "exact" in decision.reason
+
+    def test_fuzzy_match_picks_semantic_neighbor(self, monkeypatch, tmp_path):
+        """Query maps to task_kind 'general' but a cortex rule exists for
+        'system_design' — embedding similarity finds it."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.9},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "general")
+
+        # Patch similarity so the fuzzy path returns a high score for our basin.
+        from trinity_local import embeddings
+        monkeypatch.setattr(embeddings, "similarity", lambda a, b, **kw: 0.75)
+
+        decision = ask_module.decide_route("design a schema for X", available_providers=["codex"])
+        assert decision.routed_to == "codex"
+        # Reason should reflect the fuzzy path.
+        assert "fuzzy" in decision.reason
+        assert "system_design" in decision.reason
+        assert "general" in decision.reason
+
+    def test_fuzzy_below_threshold_falls_through_to_knn(self, monkeypatch, tmp_path):
+        """When no basin clears the 0.50 similarity floor, cortex returns
+        None and ask falls back to kNN (unchanged from before)."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="completely_unrelated",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["x"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.5}),
+        )
+        cortex.save_routing_patterns({"completely_unrelated": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match_here")
+
+        # Patch similarity to always return below threshold.
+        from trinity_local import embeddings
+        monkeypatch.setattr(embeddings, "similarity", lambda a, b, **kw: 0.20)
+
+        # kNN hits route to claude — should win because cortex bailed.
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("q", available_providers=["claude", "codex"])
+        assert decision.routed_to == "claude"
+        assert "cortex" not in decision.reason
+
+    def test_fuzzy_tie_break_uses_higher_trust(self, monkeypatch, tmp_path):
+        """When two basins score equally on similarity, the higher-trust
+        rule wins. Critical for predictability."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        weak = cortex.RoutingPattern(
+            basin_id="weak_basin",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=10,
+            task_kinds=["x"],
+            winner_distribution={"gemini": 1.0},
+            routing_rule=cortex.RoutingRule(primary="gemini", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.55, components={"n_episodes_norm": 0.4, "consistency_score": 1.0, "recency_agreement": 0.5, "diversity": 0.5}),
+        )
+        strong = cortex.RoutingPattern(
+            basin_id="strong_basin",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=40,
+            task_kinds=["x"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.85, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 0.9, "diversity": 0.7}),
+        )
+        cortex.save_routing_patterns({"weak_basin": weak, "strong_basin": strong})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match")
+
+        # Both basins score exactly 0.70 on cosine — strong should win.
+        from trinity_local import embeddings
+        monkeypatch.setattr(embeddings, "similarity", lambda a, b, **kw: 0.70)
+
+        decision = ask_module.decide_route("q", available_providers=["codex", "gemini"])
+        assert decision.routed_to == "codex"  # strong_basin wins the tie
+
+    def test_embedding_failure_falls_through_safely(self, monkeypatch, tmp_path):
+        """If the embedding backend throws (e.g. broken model file), fuzzy
+        match returns None and ask falls back to kNN. No crash."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="b",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30, task_kinds=["x"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 0.8, "diversity": 0.6}),
+        )
+        cortex.save_routing_patterns({"b": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match")
+
+        from trinity_local import embeddings
+        monkeypatch.setattr(embeddings, "similarity", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("embed model broken")))
+
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        # Should not raise. Should fall through to kNN.
+        decision = ask_module.decide_route("q", available_providers=["claude", "codex"])
+        assert decision.routed_to == "claude"
+
+
 class TestCortexInAskHotPath:
     """Wire cortex routing rules into ask. Cortex is consulted FIRST; if a
     rule exists with trust >= floor, it routes. Otherwise fall back to kNN.
