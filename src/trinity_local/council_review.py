@@ -59,12 +59,16 @@ def _render_routing_label_section(outcome: CouncilOutcome) -> str:
             f'task_domain: {_esc(label.task_domain or "—")}</p>'
         )
     if label.routing_lesson:
+        # Humanize task_kind enums in the lesson (model_identity_query →
+        # "model identity question"). The chairman cites them verbatim; users
+        # read them.
+        lesson = label.routing_lesson.replace("_", " ")
         parts.append(
-            f'  <p class="routing-lesson"><span class="meta">Routing lesson:</span> {_esc(label.routing_lesson)}</p>'
+            f'  <p class="routing-lesson"><span class="meta">Routing lesson:</span> {_esc(lesson)}</p>'
         )
     if label.eval_seed:
         parts.append(
-            f'  <p class="routing-eval-seed"><span class="meta">Eval seed:</span> {_esc(label.eval_seed)}</p>'
+            f'  <p class="routing-eval-seed"><span class="meta">How to verify next time:</span> {_esc(label.eval_seed)}</p>'
         )
     if label.major_failure_mode:
         parts.append(
@@ -1060,10 +1064,10 @@ def render_live_council_page() -> str:
               <strong>User-fit signals (from /me):</strong> <span class="meta">{{{{ routingLabelFor(seg).user_likely_values.join(', ') }}}}</span>
             </div>
             <div v-if="routingLabelFor(seg).routing_lesson">
-              <strong>Routing lesson:</strong> <span class="meta">{{{{ routingLabelFor(seg).routing_lesson }}}}</span>
+              <strong>Routing lesson:</strong> <span class="meta">{{{{ (routingLabelFor(seg).routing_lesson || '').replace(/_/g, ' ') }}}}</span>
             </div>
             <div v-if="routingLabelFor(seg).eval_seed">
-              <strong>Eval seed:</strong> <span class="meta">{{{{ routingLabelFor(seg).eval_seed }}}}</span>
+              <strong>How to verify next time:</strong> <span class="meta">{{{{ routingLabelFor(seg).eval_seed }}}}</span>
             </div>
           </div>
         </section>

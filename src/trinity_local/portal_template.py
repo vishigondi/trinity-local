@@ -806,8 +806,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="launch-grid">
         <article class="card">
           <div class="eyebrow">Council</div>
-          <h2>Compare a task across models</h2>
-          <p class="meta">This is the fastest first win. Trinity packages the task, runs the council, and opens the review page when it finishes.</p>
+          <h2>Ask all three labs at once</h2>
+          <p class="meta">Three frontier models answer in parallel. A local chairman synthesizes — agreed claims, disagreed claims with <em>why_matters</em>, picked winner. You override; that click trains the local router.</p>
           <label class="label mb-sm" for="council-prompt">Task</label>
           <textarea
             id="council-prompt"
@@ -868,9 +868,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card">
         <div class="eyebrow">Ratings</div>
-        <h2>Your providers across capability categories</h2>
+        <h2>Which model wins for which kind of question</h2>
         <p class="meta" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
-          Scored 0–100 from {{{{ personalRoutingTable.councils_aggregated }}}} replay councils. Categories aligned with the LMArena leaderboard so they can be compared against external evals later.
+          From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every rating. Categories match LMArena so you can compare against public evals later.
         </p>
         <p class="meta" v-else>
           Once you run <code>trinity-local replay-history --limit 20</code>, this chart fills in with per-category strength for each provider, computed from your own council preferences.
@@ -899,8 +899,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Personal routing table</div>
         <h2>Best model per task type, from your own councils</h2>
         <p class="meta">
-          Computed from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} replay councils over your taste history.
-          Run more: <code>trinity-local replay-history --limit 20</code>
+          Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils — the chairman uses this to pick the right model for your next question. More councils = sharper routing.
         </p>
         <table class="routing-table">
           <thead>
@@ -1012,9 +1011,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card">
-        <div class="eyebrow">Recent councils</div>
-        <h2>Open previous council reviews</h2>
-        <p class="meta">Reopen any review page and save your preferred model directly there.</p>
+        <div class="eyebrow">Your training history</div>
+        <h2>Every council you've taught the router</h2>
+        <p class="meta">Reopen any thread to change your verdict. Every rating feeds the personal routing table above — the moat is this ledger, not any one answer.</p>
         <div class="grid grid-2" style="margin-top: 20px;">
           {recent_cards}
         </div>
@@ -1424,7 +1423,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory
-            ? 'Ask once. See three answers. Trinity remembers which one you trusted.'
+            ? 'Three labs answer. You pick the strongest. Trinity remembers — across every provider, on your machine.'
             : 'The AI you trained should outlive the provider. Ask one question — Trinity asks Claude, Gemini, and Codex, tells you which agrees and why the disagreement matters.';
         }},
         get operationHeading() {{

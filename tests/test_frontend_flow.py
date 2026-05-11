@@ -98,7 +98,7 @@ class TestLaunchpadFlow:
         assert "Write a launch announcement for Trinity Local" in html
         assert "Top used council queries" in html
         assert "Matching previous council queries" in html
-        assert "Open previous council reviews" in html
+        assert "Every council you've taught the router" in html
         assert "telemetry-enable" in html
         assert "Ingest transcripts once now" in html
         assert "Reference evals" in html
