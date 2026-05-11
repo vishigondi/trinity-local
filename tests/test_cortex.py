@@ -227,6 +227,49 @@ class TestLoadSaveRoundtrip:
         result = load_routing_patterns()
         assert result == {}
 
+    def test_round_trip_preserves_basin_centroid(self, tmp_path, monkeypatch):
+        """The v1.5 basin_centroid (mean embedding of evidence prompts)
+        must survive save → load — it's what the ask centroid-match
+        path reads at query time."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = RoutingPattern(
+            basin_id="b_with_centroid",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=20,
+            task_kinds=["x"],
+            winner_distribution={"claude": 1.0},
+            routing_rule=RoutingRule(primary="claude", challenger=None, reason="r", subroutes=[]),
+            trust_score=TrustScore(value=0.6, components={}),
+            basin_centroid=[0.1, 0.2, 0.3, 0.4, 0.5],
+        )
+        save_routing_patterns({"b_with_centroid": pattern})
+        loaded = load_routing_patterns()
+        assert loaded["b_with_centroid"].basin_centroid == [0.1, 0.2, 0.3, 0.4, 0.5]
+
+    def test_legacy_pattern_without_centroid_loads_with_empty(self, tmp_path, monkeypatch):
+        """Patterns saved before centroid storage shipped (basin_centroid
+        missing from JSON) should load with basin_centroid=[]. Critical
+        for the upgrade path — existing user data must keep working."""
+        import json
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.state_paths import cortex_routing_patterns_path
+
+        # Legacy schema: no basin_centroid field.
+        cortex_routing_patterns_path().write_text(
+            json.dumps({"legacy": {
+                "basin_id": "legacy",
+                "consolidated_at": "2026-01-01T00:00:00Z",
+                "n_episodes": 5,
+                "task_kinds": [],
+                "winner_distribution": {"claude": 1.0},
+                "routing_rule": {"primary": "claude", "challenger": None, "reason": "", "subroutes": []},
+                "trust_score": {"value": 0.5, "components": {}, "computed_by": "system"},
+            }}),
+            encoding="utf-8",
+        )
+        loaded = load_routing_patterns()
+        assert loaded["legacy"].basin_centroid == []
+
     def test_load_malformed_entries_skipped(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         from trinity_local.state_paths import cortex_routing_patterns_path

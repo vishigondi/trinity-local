@@ -123,6 +123,11 @@ class RoutingPattern:
     successful_prompts: dict[str, list[str]] = field(default_factory=dict)
     decay: dict = field(default_factory=dict)
     evidence: list[str] = field(default_factory=list)
+    # Mean embedding of this basin's evidence prompts. Computed at
+    # consolidation time. Used at query time by ask._best_centroid_match to
+    # find the cortex rule whose basin centroid is closest to the query
+    # embedding — real semantic matching, not label matching.
+    basin_centroid: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -137,6 +142,7 @@ class RoutingPattern:
             "successful_prompts": self.successful_prompts,
             "decay": self.decay,
             "evidence": self.evidence,
+            "basin_centroid": self.basin_centroid,
         }
 
 
@@ -253,6 +259,7 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         successful_prompts=raw.get("successful_prompts", {}),
         decay=raw.get("decay", {}),
         evidence=raw.get("evidence", []),
+        basin_centroid=raw.get("basin_centroid", []),
     )
 
 
@@ -331,6 +338,13 @@ def consolidate_basin(
         if (o.get("council_id") or o.get("bundle_id"))
     ][:20]
 
+    # Compute basin centroid from evidence prompts. This is what makes the
+    # cortex layer's query-time matching real semantic clustering (not label
+    # matching). Best-effort: if embedding fails or no prompts available,
+    # store empty list — the ask layer will skip centroid match and fall
+    # through to exact + kNN.
+    centroid = _compute_basin_centroid(outcomes)
+
     return RoutingPattern(
         basin_id=basin_id,
         consolidated_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -342,7 +356,65 @@ def consolidate_basin(
         failure_modes=fm,
         successful_prompts=successful_prompts,
         evidence=evidence,
+        basin_centroid=centroid,
     )
+
+
+def _compute_basin_centroid(outcomes: list[dict]) -> list[float]:
+    """Embed each evidence outcome's prompt text and return the mean vector.
+    Returns [] when embeddings unavailable / no prompt text — caller handles.
+
+    Mean-embedding is the simplest correct definition of a cluster centroid
+    given a set of evidence points. The cortex query-time matcher uses
+    cosine sim against this centroid to find the basin most semantically
+    similar to a new query.
+    """
+    try:
+        from .embeddings import embed
+    except ImportError:
+        return []
+
+    # Extract the prompt text from each outcome (the synthesis_prompt or
+    # bundle task_text). Bundle prompts are more uniform than raw user
+    # turns so they give a tighter centroid.
+    prompts: list[str] = []
+    for o in outcomes[:40]:  # cap for cost — mirrors build_extraction_prompt cap
+        # Try the bundle task_text first (cleanest).
+        text = ""
+        synth = o.get("synthesis_prompt") or ""
+        if synth:
+            # Strip the chairman scaffolding from the synthesis prompt to
+            # isolate the user's actual question.
+            text = synth.split("\n\n")[0][:500] if "\n\n" in synth else synth[:500]
+        if not text:
+            # Fall back to the routing_label's task_type as a one-word proxy.
+            label = o.get("routing_label") or {}
+            text = label.get("task_type", "") or ""
+        if text.strip():
+            prompts.append(text.strip())
+
+    if not prompts:
+        return []
+
+    # Embed all prompts; mean them. Failures are silent — return empty
+    # centroid and let the caller fall through to exact+kNN paths.
+    try:
+        vectors = [embed(p) for p in prompts]
+    except Exception:
+        return []
+    vectors = [v for v in vectors if v]  # drop any empty embeddings
+    if not vectors:
+        return []
+
+    dim = len(vectors[0])
+    centroid = [0.0] * dim
+    for v in vectors:
+        if len(v) != dim:
+            continue  # tolerate dim mismatch (e.g. backend swap mid-consolidation)
+        for i, x in enumerate(v):
+            centroid[i] += x
+    n = len(vectors)
+    return [x / n for x in centroid]
 
 
 def iter_outcomes() -> list[dict]:
