@@ -544,6 +544,70 @@ class TestRateLimitSavesMetric:
         assert result.answer == "ok"
 
 
+class TestMcpProviderPool:
+    """The MCP layer composes the available-provider pool from config +
+    detected local Ollama models. This is what makes ask aware of local
+    models without callers having to declare them explicitly.
+    """
+
+    def test_full_pool_includes_config_and_local(self, monkeypatch):
+        from trinity_local import mcp_server, local_models
+
+        # config.providers is a dict keyed by name in production. Build a stub
+        # that matches that shape so .values() yields ProviderConfig-ish objects.
+        fake_cfg = type("C", (), {})()
+        fake_cfg.providers = {
+            "claude": type("P", (), {"name": "claude", "enabled": True})(),
+        }
+        import trinity_local.config as cfg_mod
+        monkeypatch.setattr(cfg_mod, "load_config", lambda: fake_cfg)
+
+        # Stub local-model detection.
+        fake_local = [
+            local_models.LocalModel(runtime="ollama", name="qwen3:32b", size_bytes=20*1024**3),
+            local_models.LocalModel(runtime="ollama", name="deepseek-r1", size_bytes=4*1024**3),
+        ]
+        monkeypatch.setattr(local_models, "detect_local_models", lambda: fake_local)
+
+        pool = mcp_server._full_provider_pool()
+        assert "claude" in pool
+        assert "ollama:qwen3:32b" in pool
+        assert "ollama:deepseek-r1" in pool
+
+    def test_full_pool_handles_config_error_gracefully(self, monkeypatch):
+        """Broken config shouldn't crash the pool — fall through to local
+        models only."""
+        from trinity_local import mcp_server, local_models
+
+        import trinity_local.config as cfg_mod
+        def broken_load():
+            raise RuntimeError("config file missing")
+        monkeypatch.setattr(cfg_mod, "load_config", broken_load)
+        monkeypatch.setattr(local_models, "detect_local_models",
+                          lambda: [local_models.LocalModel(runtime="ollama", name="qwen3:32b")])
+
+        pool = mcp_server._full_provider_pool()
+        # Should still return the local-model list even though config failed.
+        assert pool == ["ollama:qwen3:32b"]
+
+    def test_full_pool_handles_detection_error_gracefully(self, monkeypatch):
+        """Broken Ollama daemon shouldn't crash the pool either."""
+        from trinity_local import mcp_server, local_models
+
+        fake_cfg = type("C", (), {})()
+        fake_cfg.providers = {
+            "claude": type("P", (), {"name": "claude", "enabled": True})(),
+        }
+        import trinity_local.config as cfg_mod
+        monkeypatch.setattr(cfg_mod, "load_config", lambda: fake_cfg)
+        def broken_detect():
+            raise RuntimeError("ollama daemon down")
+        monkeypatch.setattr(local_models, "detect_local_models", broken_detect)
+
+        pool = mcp_server._full_provider_pool()
+        assert pool == ["claude"]
+
+
 class TestMcpAskHandler:
     """The MCP `_ask` handler wraps run_ask and serializes for the agent.
     Uses asyncio.run() to match the existing test pattern in test_mcp_tools.py.

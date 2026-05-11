@@ -269,9 +269,10 @@ def _text(payload: dict | str) -> dict:
 
 def _dispatch_via_config(provider_name: str, prompt: str) -> str:
     """Production dispatch shim used by `ask`. Looks up the named provider in
-    config, runs the CLI once, returns stdout. Errors raise; the MCP handler
-    catches them and returns an error response so Claude in the harness knows
-    the route failed and can retry / replan.
+    config first; if not found, falls through to detected Ollama models
+    (provider_name="ollama:<model>"). Errors raise; the MCP handler catches
+    them and returns an error response so Claude in the harness knows the
+    route failed and can retry / replan.
     """
     from pathlib import Path
 
@@ -279,18 +280,74 @@ def _dispatch_via_config(provider_name: str, prompt: str) -> str:
     from .providers import make_provider, ProviderError
 
     config = load_config()
-    provider_config = None
-    for p in config.providers:
+    # config.providers is a dict keyed by name; iterate values for ProviderConfig
+    # objects with .enabled and .name attributes.
+    for p in config.providers.values():
         if p.name == provider_name and p.enabled:
-            provider_config = p
-            break
-    if provider_config is None:
-        raise ProviderError(f"Provider not configured or not enabled: {provider_name}")
-    provider = make_provider(provider_config)
+            provider = make_provider(p)
+            result = provider.run(prompt, Path.cwd())
+            if result.returncode != 0:
+                raise ProviderError(f"{provider_name} exit {result.returncode}: {result.stderr[:200]}")
+            return result.stdout
+
+    # Fall through: maybe this is a detected local model, e.g. "ollama:qwen3:32b".
+    if provider_name.startswith("ollama:"):
+        return _dispatch_to_ollama_model(provider_name, prompt)
+
+    raise ProviderError(f"Provider not configured or not enabled: {provider_name}")
+
+
+def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
+    """Build an ephemeral ProviderConfig for a detected Ollama model and run.
+    `provider_name` shape is `ollama:<model_name>` (the LocalModel.provider_name
+    stable identifier from local_models.py)."""
+    from pathlib import Path
+    from .config import ProviderConfig
+    from .providers import OllamaProvider, ProviderError
+
+    model = provider_name[len("ollama:"):]
+    cfg = ProviderConfig(
+        name=provider_name,
+        type="ollama",
+        enabled=True,
+        label=f"Ollama {model}",
+        command=["ollama"],
+        args=[],
+        roles=set(),
+        task_kinds=set(),
+        model=model,
+    )
+    provider = OllamaProvider(cfg)
     result = provider.run(prompt, Path.cwd())
     if result.returncode != 0:
         raise ProviderError(f"{provider_name} exit {result.returncode}: {result.stderr[:200]}")
     return result.stdout
+
+
+def _full_provider_pool() -> list[str]:
+    """Build the available-provider pool: enabled config providers + detected
+    local Ollama models. The Conductor / ask uses this when the caller doesn't
+    pass an explicit `available_providers` list.
+    """
+    from .config import load_config
+    from .local_models import detect_local_models
+
+    pool: list[str] = []
+    try:
+        config = load_config()
+        # config.providers is a dict keyed by name; iterate .values() for the
+        # ProviderConfig objects. (Iterating the dict yields keys.)
+        for p in config.providers.values():
+            if p.enabled:
+                pool.append(p.name)
+    except Exception:
+        pass
+    try:
+        for m in detect_local_models():
+            pool.append(m.provider_name)
+    except Exception:
+        pass
+    return pool
 
 
 async def _ask(args: dict) -> list[Any]:
@@ -306,6 +363,11 @@ async def _ask(args: dict) -> list[Any]:
     available = args.get("available_providers")
     if available is not None and not isinstance(available, list):
         return [ErrorData(code=400, message="`available_providers` must be a list of provider names")]
+    # When caller doesn't specify available_providers, default to the full
+    # pool (config providers + detected local models). This is what makes
+    # ask aware of Ollama / MLX without each call having to declare them.
+    if available is None:
+        available = _full_provider_pool()
 
     top_k = int(args.get("top_k", 5))
     # thread_id is accepted but not yet used in week-1 — wired in week-2.
