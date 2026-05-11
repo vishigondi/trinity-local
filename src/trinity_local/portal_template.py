@@ -869,6 +869,48 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </article>
       </section>
 
+      <section class="card" v-if="cortexRules && cortexRules.rules.length">
+        <div class="eyebrow">What Trinity has learned about you</div>
+        <h2>Routing patterns extracted from your councils</h2>
+        <p class="meta">
+          The cortex layer reads {{{{ cortexRules.total_basins }}}} basin{{{{ cortexRules.total_basins === 1 ? '' : 's' }}}} of council outcomes and extracts one routing rule per kind of question. Trust score is computed from sample size, agreement consistency, recency, and basin diversity — it gates when the rule drives `ask` instead of the kNN fallback.
+        </p>
+        <table class="routing-table" style="margin-top: 16px;">
+          <thead>
+            <tr>
+              <th style="text-align: left;">Kind of question</th>
+              <th>Primary</th>
+              <th>Challenger</th>
+              <th>Trust</th>
+              <th style="text-align: left;">Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in cortexRules.rules">
+              <td style="font-weight: 500;">{{{{ r.basin_id.replace(/_/g, ' ') }}}}</td>
+              <td><span class="suggestion-chip">{{{{ formatProviderLabel(r.primary) }}}}</span></td>
+              <td><span class="meta">{{{{ r.challenger ? formatProviderLabel(r.challenger) : '—' }}}}</span></td>
+              <td>
+                <strong>{{{{ r.trust_score.toFixed(2) }}}}</strong>
+                <span class="meta" style="display: block; font-size: 11px;">{{{{ r.trust_band }}}}</span>
+              </td>
+              <td class="meta" style="font-size: 13px;">{{{{ r.reason || '—' }}}}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="meta" style="margin-top: 12px; font-size: 13px; opacity: 0.7;">
+          High trust ({{{{ cortexRules.trust_use_rule }}}}+) → the rule drives routing. Medium ({{{{ cortexRules.trust_knn_fallback }}}}–{{{{ cortexRules.trust_use_rule }}}}) → rule + kNN fallback. Below {{{{ cortexRules.trust_knn_fallback }}}} → kNN only. Rebuild with <code>trinity-local consolidate</code>.
+        </p>
+      </section>
+
+      <section class="card" v-if="!cortexRules">
+        <div class="eyebrow">What Trinity will learn about you</div>
+        <h2>Run <code>trinity-local consolidate</code> after a few councils</h2>
+        <p class="meta">
+          Once you've rated a handful of councils, the cortex layer extracts routing patterns from them: which provider wins for which kind of question, why, and the failure modes of the losers. Those rules then drive the next ask call — Trinity learns at two levels (hippocampus for episodes, cortex for patterns).
+        </p>
+      </section>
+
       <section class="card">
         <div class="eyebrow">Ratings</div>
         <h2>Which model wins for which kind of question</h2>
@@ -1294,6 +1336,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         benchmarkProviders: pageData.benchmarkProviders || [],
         providerModels: pageData.providerModels || {{}},
         personalRoutingTable: pageData.personalRoutingTable || null,
+        cortexRules: pageData.cortexRules || null,
         tasteLenses: pageData.tasteLenses || null,
         formatProviderLabel,
         copiedKey: '',

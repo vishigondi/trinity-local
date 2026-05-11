@@ -480,6 +480,7 @@ def build_page_data(
         "statusScriptBaseUrl": "./status",
         "councilLoadingMessages": COUNCIL_LOADING_MESSAGES,
         "personalRoutingTable": personal_routing,
+        "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
         # Just the count — actual cards are server-rendered into the body
         # via build_recent_cards_html. The hero h1 reads this to decide
@@ -489,6 +490,47 @@ def build_page_data(
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
+    }
+
+
+def _load_cortex_rules() -> dict | None:
+    """Surface the v1.5 cortex routing patterns for the launchpad.
+
+    Returns a compact dict the template can render as the "what Trinity
+    has learned about you" headline card — the visible artifact of the
+    consolidation pass (`trinity-local consolidate`). Sorted by trust
+    score desc so the highest-confidence rules render first.
+
+    Returns None when no consolidation has run yet — the launchpad shows
+    an empty-state CTA pointing at `trinity-local consolidate`.
+    """
+    try:
+        from .cortex import load_routing_patterns, TRUST_KNN_FALLBACK, TRUST_USE_RULE
+    except Exception:
+        return None
+    patterns = load_routing_patterns()
+    if not patterns:
+        return None
+    # Compact view for the template — only the fields the launchpad card needs.
+    rules = []
+    for basin_id, p in patterns.items():
+        rules.append({
+            "basin_id": basin_id,
+            "primary": p.routing_rule.primary,
+            "challenger": p.routing_rule.challenger,
+            "reason": p.routing_rule.reason,
+            "trust_score": round(p.trust_score.value, 3),
+            "trust_band": p.trust_score.interpretation,
+            "n_episodes": p.n_episodes,
+            "winner_share": round(p.winner_distribution.get(p.routing_rule.primary, 0.0), 3),
+        })
+    # Highest trust first — that's what the user wants to see at the top.
+    rules.sort(key=lambda r: r["trust_score"], reverse=True)
+    return {
+        "rules": rules,
+        "total_basins": len(rules),
+        "trust_use_rule": TRUST_USE_RULE,
+        "trust_knn_fallback": TRUST_KNN_FALLBACK,
     }
 
 
