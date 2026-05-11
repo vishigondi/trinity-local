@@ -77,6 +77,34 @@ build with two or more model providers, run one council. Tell me what you learne
 
 ---
 
+## FAQ pre-empt: Sakana TRINITY (ICLR 2026)
+
+Sakana AI published *"TRINITY: An Evolved LLM Coordinator"* (arXiv:2512.04695, ICLR
+2026) the same week Trinity Local ships. Two different things; the names collide. The
+question will get asked in HN comments + on X. Pre-empted answer:
+
+> Sakana's TRINITY is a research coordinator that trains a 0.6B SLM + 10K-param head via
+> sep-CMA-ES to hit 86.2% pass@1 on LiveCodeBench — beats GPT-5 and Gemini 2.5-Pro on
+> coding benchmarks. It's a learned coordinator over multiple LLMs.
+>
+> Trinity Local is a local-first consumer tool for polyharness users — people running
+> Claude + ChatGPT + Gemini subscriptions in parallel. It watches the transcripts on
+> your machine, learns your taste, picks the right model for your kind of question, and
+> when in doubt convenes them as a council. Free. Open-source. macOS-only at launch.
+>
+> Same wedge ("coordination beats monolithic scaling"), different audience (researchers
+> vs. polyharness power users), different mechanism (their trained cortex vs. our
+> verifier-shaped ledger). The two coexist — the Sakana paper independently validates
+> the architectural thesis we're shipping. Their `Thinker / Worker / Verifier` role
+> decomposition is in `docs/spec-v2.md` as planned absorption when our v2 learned-cortex
+> work lands.
+
+If asked in HN comments specifically: lead with the audience differentiation, link the
+arXiv paper, point at `docs/spec-v2.md` for our v2 plan that explicitly references
+their findings. Don't pretend the collision isn't there.
+
+---
+
 ## Founder narrative angle (use in HN comments + bio)
 
 > I'm a polyharness power user. Architecture background — IIT Kharagpur + Harvard GSD. I

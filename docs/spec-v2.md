@@ -220,6 +220,90 @@ These need decisions before v2 build starts. None block v1.
 3. **Per-member prompt-formulation training:** same DPO loop or separate RLAIF? RLAIF is simpler (no pairs needed; uses the response quality directly) but unstable. DPO needs ablation runs to source pairs. Start with DPO + manually-curated ablation set.
 4. **When does Pro tier hosted chairman kick in?** Before or after local cortex graduates? Decision lean: Pro tier launches v1.2 (week 12) BEFORE cortex (month 4) — pricing model needs to exist first.
 
+## Related work / concurrent ratification: Sakana TRINITY (ICLR 2026)
+
+Sakana AI published *"TRINITY: An Evolved LLM Coordinator"* (arXiv:2512.04695, ICLR 2026) the
+same week we're shipping. Independent validation of the core thesis — *a lightweight
+coordinator over diverse LLMs beats monolithic scaling.* Their numbers:
+
+| | Score |
+|---|---|
+| Sakana TRINITY (0.6B SLM + 10K head, sep-CMA-ES trained) | **86.2% pass@1 LiveCodeBench** |
+| GPT-5 | 83.8% |
+| Gemini 2.5-Pro | 67.2% |
+| Claude-4-Sonnet | 67.0% |
+
+Three concrete ideas worth absorbing into v2.
+
+### A. Three-role action space (Thinker / Worker / Verifier)
+
+Their paper's mechanism: at each turn, a compact SLM reads the full transcript and a
+lightweight head selects an LLM + assigns it one of three roles:
+
+- **Thinker** (strategize — re-frame the problem, propose plans)
+- **Worker** (execute — implement the current plan)
+- **Verifier** (evaluate — accept or reject the artifact)
+
+The loop halts when Verifier accepts. The sequence isn't fixed —
+`Thinker → Thinker → Worker → Verifier → Worker → Verifier` is normal if the trajectory
+needs replanning.
+
+**For our v2 inner loop**: replace the fixed `execute → verify → cull → re-verify → commit`
+sequence with role-selection per iteration. Each iteration the local cortex picks a role
+based on `state.history`; the action space matches the Sakana paper. Outer loop (frame)
+stays separate because its timescale is different — outer reframes on model release or
+drift, not per-iteration.
+
+### B. sep-CMA-ES vs DPO for training the local chairman
+
+Our v2 spec defaults to DPO (Direct Preference Optimization). The Sakana paper argues
+gradient methods fail in our setting:
+
+| Method | LCB | Why |
+|---|---|---|
+| REINFORCE (RL) | 0.253 | Low SNR under binary rewards; weak parameter coupling |
+| SFT | 0.592 | Multi-turn label generation intractable: O(7⁴·3⁵) per question |
+| Random Search | 0.374 | Logarithmic improvement, not linear |
+| **sep-CMA-ES** | **0.615** | Derivative-free, diagonal covariance matches block-separable structure, linear improvement, only 1.5K–40K evaluations for ~10K parameters |
+
+They don't compare DPO directly, but DPO is gradient-based on pairwise preferences — same
+low-SNR + weak-coupling regime as REINFORCE. Worth evaluating sep-CMA-ES as our v2 cortex
+training method, not just DPO. **Open question #1 in v2 (cortex training) gets sep-CMA-ES
+added as the third option alongside DPO and SFT.**
+
+### C. Per-member prompt formulation as a structural primitive
+
+The Sakana paper's lightweight head selects *which* LLM AND *which* role. The role
+selection acts as a learned prompt-formulation: a Thinker-flagged prompt to Claude gets
+different scaffolding than a Worker-flagged prompt to Codex.
+
+This is the *per-member prompt formulation* the user named in the prior session:
+*"figure out which prompt to send to each model."* The mechanism is now concrete — train
+the cortex to emit `(model_id, role, prompt_template)` per turn, where role selection
+implicitly chooses the prompt shape.
+
+**v2 work item**: the inner loop's per-iteration call should be
+`(cortex_pick) → (model_id, role, scaffolded_prompt) → frontier_member_call`, not the
+current `chairman_call(canned_prompt)`.
+
+### What stays the same
+
+- Outer/inner timescale separation (we ratified this with `council_5fbf909119830643`)
+- `cull → re_verify → commit` non-negotiable from `council_7a770b8b78b6bd4e`
+- Local-first, prompts never upload, free-forever — those are v1 commitments that v2
+  inherits unchanged
+
+### Name collision note
+
+Sakana's "TRINITY" + our "Trinity Local" + same-week publication = inevitable conflation
+on AI Twitter. Mitigated by audience differentiation:
+
+- **Sakana TRINITY**: research coordinator hitting LiveCodeBench SOTA via sep-CMA-ES
+- **Trinity Local**: consumer memory layer for polyharness users; local-first; free
+
+The two names can coexist if our launch copy makes the audience boundary clear in the
+hero. Captured in launch.md as a pre-empted FAQ.
+
 ## The user's mental model the v2 spec mirrors (verbatim)
 
 > BrainML primitive → Your stack
