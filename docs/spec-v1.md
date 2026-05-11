@@ -2,10 +2,23 @@
 
 > Status: **locked for May 13–15 ship.** Schema, tagline, MCP surface, and folder layout all
 > frozen at v1. Changes to anything in this file are breaking-API changes and need to wait
-> for v1.1 or land in `docs/spec-v2.md`.
+> for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
-> Source: user's three-spec drop, modified where my gut disagreed. See "Disagreements
-> applied" at the bottom for the deltas vs the original.
+> **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
+> /me lens, and the personal routing table. The pitch users land on is "Own your memories"
+> — the cross-provider memory layer the labs can't build.
+>
+> **v1.5 is the routing product** that makes the full "SOTA + your taste + your subs +
+> saves cost" pitch literally true. It's MCP-primary, adds the cortex consolidation layer,
+> ships local model dispatch, and inverts the surface from launchpad to harness-call. See
+> `docs/spec-v1.5.md`. Target: June 3, 2026.
+>
+> **v2.0 (trained-coordinator) is sunset.** Sakana's own paper shows the value of a
+> Conductor is in prompt-engineering quality, not routing decision — and a flagship model
+> with cortex context produces better prompts than a hypothetical local 7B. v1.5 absorbs
+> the architectural ideas (three-role action space, per-member prompt formulation,
+> recursive verification) without paying the training-infrastructure cost. See the sunset
+> header in `docs/spec-v2.md` for the full reasoning.
 
 ## The wedge
 
@@ -191,19 +204,27 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 10. **Pairs as derived export, not source of truth.** SoT stays `council_outcomes/{id}.json` + `council_feedback.jsonl` (preserves chairman synthesis, member latencies, basin tags). `trinity-local pairs-export` (v1.1) regenerates the spec's `pairs/{nnnn}.md` view on demand.
 
-## What's intentionally NOT in v1
+## What's intentionally NOT in v1.0 (lands in v1.5)
 
-Deferred to `docs/spec-v2.md` (see that file for the held vision):
+See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 
-- Weekly digest (the original spec listed this in v1.0; `digest.py` was removed during the v1.1 audit and not re-added. `me-card` PNG is the v1 weekly-ish artifact users actually share. Real digest rendering returns in v1.1 alongside the narrative video pipeline.)
-- Narrative video pipeline (v1.1, week 8)
-- Coach Lens / `trinity evolve` aspirational anchor (v1.2, week 12)
-- Hosted council orchestration / cross-machine sync (held in spec-v2.md, no pricing decided)
-- Federated / shared anything (v2, month 6)
-- Windows / Linux (v2+ — macOS-only is a feature, not a bug)
-- Loop Constitution double-loop full skill-graduation flow (substrate shipped; productized usage held)
-- Learned coordinator (DPO-trained local chairman + per-member prompt formulation) — the Phase 9 Cortex
+**Lands in v1.5:**
+- **MCP-primary surface** — three-tier tools (`ask` cheap / `compare` medium / `plan_and_execute` expensive). Claude Code calls Trinity as a specialist consult.
+- **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/cortex/routing_patterns.json`. The cognitive consolidation step the brain does during sleep. Hippocampus (kNN) + Cortex (rules) two-tier memory.
+- **Local model dispatch** — Ollama + MLX added to the dispatch layer. Local routes for easy subtasks = zero subscription cost.
+- **Rate-limit handling + Conductor replan** — when Claude's own sub hits its limit, Trinity continues your work via Codex/Gemini/local. The cross-provider rate-limit-dodge is the killer flow.
+- **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) does Sakana's three-role planning with cortex context. No training required.
+- **Launchpad reframe** — becomes "What Trinity has learned about you" dashboard, not the destination.
+
+**Deferred indefinitely (the labs may build these first; not our wedge):**
+- Narrative video pipeline — the me-card PNG is the v1 social object; richer video animation is a future explore-not-commit
+- Hosted council orchestration / cross-machine sync — the local-first promise is the brand; revisit only if a real paid tier ever exists
+- Federated / shared / team anything — single-user has to be overwhelmingly great first
+- Windows / Linux — macOS-only is a feature, not a bug
 - Hosted leaderboard from opt-in routing labels
+
+**Sunset (v2.0 trained-coordinator path):**
+- Training a local Qwen / 7B Conductor via DPO or sep-CMA-ES. v1.5's flagship-as-Conductor + cortex-via-flagship-extraction achieves the same architecture via context engineering, without 4-8 weeks of training infrastructure. Sakana's own ablation shows the value is in prompt-engineering quality (3B = 7B routing; 7B wins on prompt quality) — and flagships write better prompts than any 7B. If v1.5 hits a quality ceiling, this path re-opens as a future v2, trained on the data v1.0+v1.5 generated. See `docs/spec-v2.md` sunset header.
 
 ## The 8-minute bar (the only test that matters)
 

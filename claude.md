@@ -1,12 +1,16 @@
 # claude.md — Trinity Local
 
-> Agent-facing project context. Companion to [`docs/spec-v1.md`](docs/spec-v1.md) (locked v1 launch spec — ships May 13–15), [`docs/spec-v2.md`](docs/spec-v2.md) (held v2 vision), and [`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
+> Agent-facing project context. Companions:
+> - [`docs/spec-v1.md`](docs/spec-v1.md) — locked v1.0 launch spec (ships May 13–15)
+> - [`docs/spec-v1.5.md`](docs/spec-v1.5.md) — **active next-trajectory spec** (target June 3, 2026): MCP-primary, hippocampus+cortex memory, local model dispatch, rate-limit dodge, flagship-as-Conductor (no training)
+> - [`docs/spec-v2.md`](docs/spec-v2.md) — sunset (trained-coordinator path). Preserved as architectural-decision history; reopens only if v1.5 hits a quality ceiling.
+> - [`docs/scale-plan.md`](docs/scale-plan.md) — long-form roadmap.
 
 ## Project Identity
 
 **Trinity Local is the cross-provider memory layer the labs are commercially prevented from building.** Tagline: *Own your memories. The AI you trained should outlive the provider.* It watches Claude / ChatGPT / Gemini transcripts that already live on the user's machine, learns which model wins for which kind of question, and — when the user doesn't know which to ask — convenes them as a council and synthesizes one verifier-shaped verdict. The shareable artifact is the user's `/me` lens (paired tensions extracted from where they pushed back on a model), not council verdicts themselves.
 
-**Status (2026-05-09):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 400 tests passing. **v2 = held vision** — Loop Constitution double-loop (substrate already shipped in `src/trinity_local/loop/`) + learned local chairman via DPO + per-member prompt formulation. Scoped in [`docs/spec-v2.md`](docs/spec-v2.md). Foundation laid in v1; no v2 features productized until post-launch.
+**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 400 tests passing. **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
 
 **The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 

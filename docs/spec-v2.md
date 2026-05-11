@@ -1,12 +1,89 @@
-# Trinity v2 — held spec (foundation in v1, productization later)
+# Trinity v2 — SUNSET (superseded by v1.5)
 
-> Status: **spec only**, not shipping in v1. The v1 foundation (folder schema lock,
-> stable MCP contract, Routing JSON canonical format, embeddings layer, lens-discovery
-> pipeline) is laid so v2 can land without breaking v1 users.
+> ## ⚠️ Status: superseded by `docs/spec-v1.5.md` as of 2026-05-11.
 >
-> The thesis: v1 ships a *local evidence ledger*. v2 turns it into a *learned coordinator*
-> — Trinity gets smarter at routing AND synthesis the more you use it, with the slow
-> updates running on your hardware on your schedule.
+> **The trained-coordinator architecture in this document is no longer the planned
+> next-trajectory.** v1.5 achieves the same goals via context engineering — no
+> training infrastructure, no 4–8 weeks of GPU time, no MLX fine-tune loop. This
+> document is preserved as architectural-decision history, not as the active spec.
+>
+> ### Why we pivoted
+>
+> Re-reading Sakana's TRINITY paper (arXiv:2512.04388, ICLR 2026) end-to-end, the
+> 3B vs 7B Conductor ablation (Figure 7) shows both sizes find the **same optimal
+> routing decision**. The 7B wins on **prompt-engineering quality**, not on routing.
+> Their own conclusion: *"the increased natural-language capabilities of larger and
+> newer base models directly translate into more intelligent prompt engineering."*
+>
+> A flagship model (Claude Opus, GPT-5, Gemini 2.5 Pro) writes far better natural-
+> language subtasks than any 7B trained from scratch. Combined with cortex-extracted
+> routing rules (consolidated offline by a flagship pass over the user's council
+> outcomes), the Conductor doesn't need to learn routing — the cortex rules already
+> encode it. So a flagship-as-Conductor with cortex context outperforms a hypothetical
+> local 7B Conductor on the user's specific task distribution.
+>
+> The world is also changing weekly. Trained Conductors decay when models update
+> (Claude 4.8 ships and the trained routing decisions for Claude 4.7 are stale).
+> Cortex extraction via flagship re-consolidates on demand. No retraining cost.
+> Adaptation cost = one flagship pass over the last N outcomes.
+>
+> The shortest path to *"SOTA for you + your taste + your existing subs + saves
+> cost"* is therefore **retrieval + cortex extraction + flagship-as-Conductor**, not
+> a trained 7B. v1.5 ships that path. See `docs/spec-v1.5.md`.
+>
+> ### What's absorbed into v1.5
+>
+> The architectural ideas in this document carry over — just implemented via context
+> engineering instead of weights:
+>
+> | v2 idea | How v1.5 implements it |
+> |---|---|
+> | Three-role action space (Thinker/Worker/Verifier) | The `plan_and_execute` Conductor's three-list output `(model_id, subtasks, access_list)` IS this — role is encoded in the subtask prompt |
+> | Per-member prompt formulation | Flagship Conductor writes per-member subtask prompts using cortex-extracted "successful prompt templates" per provider per basin |
+> | Recursive verification | `plan_and_execute` verification step — Conductor reviews output, replans if needed |
+> | Hippocampus + cortex collaboration | Cortex rules + hippocampus kNN both fire at query time; rule is the primary signal, episodes are calibration |
+> | Active learning via surprise score | Cortex consolidation flags basins where lens contradicts the extracted rule for re-review |
+> | Adversarial held-out eval | Lens basins serve this role — if cortex rule contradicts user's known lens, flag |
+>
+> ### What's deferred (the trained-coordinator path stays open if needed)
+>
+> If `ask` + `compare` + `plan_and_execute` + cortex consolidation hit a quality
+> ceiling on real user data in v1.5, the trained-coordinator trajectory below reopens.
+> At that point v1.0+v1.5 will have generated the labeled training data, and the
+> infrastructure can be built on real signal rather than speculation. The whole
+> document below stays here for that contingency.
+>
+> ### What's deprecated permanently
+>
+> - **Narrative video pipeline (former v1.1)** — me-card PNG is the v1.0 social object; richer
+>   video animation is an explore-not-commit. Removed from the trajectory.
+> - **Coach Lens / `trinity evolve` (former v1.2)** — folded into v1.5's cortex layer. The
+>   extracted routing patterns ARE the coaching ("for this kind of question you prefer
+>   Provider X because Y; runners-up have these failure modes").
+> - **Hosted Pro tier, federated taste, team plans** — out of v1.5 scope. The local-first,
+>   single-user, free-forever experience has to be overwhelmingly great first. Revisit
+>   only after v1.5 has real usage data.
+>
+> ---
+>
+> ## Historical content preserved below (the trained-coordinator architecture)
+>
+> Everything that follows describes the trained-coordinator path. It is **not** the
+> shipping plan. Read for context on why v1.5 chose flagship-as-Conductor instead.
+
+## The narrative arc (historical — superseded by spec-v1.5)
+
+| Version | Pitch in one line | Status |
+|---|---|---|
+| v1.0 | *Own your memories — three labs, one ledger, your taste* | Ships May 13–15 |
+| v1.5 | *Trinity is what Claude Code reaches for* | **Ships June 3, 2026 (active spec)** |
+| v1.1 (narrative video) | n/a | **deprecated** (me-card PNG is the v1 social object) |
+| v1.2 (Coach Lens) | n/a | **absorbed into v1.5 cortex layer** |
+| v2.0 (trained coordinator) | *Your local chairman replaces the frontier one* | **sunset — contingency path only** |
+| v2.1+ (federated taste) | *Teams share what they trust* | **deprecated** |
+
+**Original v2 thesis (no longer the plan):** v1 ships a *local evidence ledger*; v2 turns
+it into a *learned coordinator* via local DPO fine-tune.
 
 ## The narrative arc
 
