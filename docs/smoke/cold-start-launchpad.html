@@ -1,42 +1,474 @@
-from __future__ import annotations
-
-import json
-
-from .design_system import render_html_footer, render_html_head
-from .portal_runtime import portal_runtime_js
-
-PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
-CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
-
-
-def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Own your memories") -> str:
-    extra_head = f"""
-  <script src="{CHART_JS_SRC}"></script>
-"""
-    head = render_html_head(title, extra_head=extra_head)
-    footer = render_html_footer()
-
-    return f"""{head}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trinity · Own your memories</title>
   <style>
-    .launchpad-shell {{
+
+:root {
+  --bg-base: #f5efe3;
+  --bg-wash: #ece4d6;
+  --surface: #fbf8f2;
+  --surface-muted: #f1eadf;
+  --border: #d7ccb9;
+  --text-primary: #1f1a17;
+  --text-secondary: #5f554d;
+  --text-muted: #86796d;
+  --action: #255847;
+  --action-hover: #1d4638;
+  --action-text: #f7f3ea;
+  --success: #2d6a4f;
+  --warning: #b26a1f;
+  --danger: #a33c2f;
+  --info: #315c85;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.55;
+  font-size: 16px;
+}
+
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+@media (max-width: 768px) {
+  main {
+    padding: 18px;
+  }
+}
+
+/* Typography */
+h1 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  font-size: clamp(38px, 8vw, 56px);
+  font-weight: 700;
+  line-height: 0.95;
+  margin: 0 0 24px 0;
+  color: var(--text-primary);
+}
+
+h2 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  h2 {
+    font-size: 20px;
+  }
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+p {
+  margin: 0 0 12px 0;
+  color: var(--text-secondary);
+}
+
+.lede {
+  font-size: 18px;
+}
+
+.eyebrow {
+  font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--action);
+  margin: 0 0 8px 0;
+}
+
+code, pre {
+  font-family: "SF Mono", "JetBrains Mono", "Cascadia Code", monospace;
+  font-size: 14px;
+  background: var(--surface-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+pre {
+  padding: 12px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+/* Layout */
+.grid {
+  display: grid;
+  gap: 24px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.grid-cards {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.grid-members {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cards and surfaces */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(57, 44, 26, 0.08);
+}
+
+.card-muted {
+  background: var(--surface-muted);
+}
+
+.member pre {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.button:hover {
+  border-color: var(--text-secondary);
+}
+
+.button.primary {
+  background: var(--action);
+  color: var(--action-text);
+  border-color: var(--action);
+}
+
+.button.primary:hover {
+  background: var(--action-hover);
+  border-color: var(--action-hover);
+}
+
+.button.secondary {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.button.secondary:hover {
+  background: var(--surface-muted);
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--action);
+}
+
+.button.ghost:hover {
+  background: var(--bg-wash);
+}
+
+.button.danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+/* Metadata and secondary info */
+.meta {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+
+.label {
+  font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-wash);
+  color: var(--text-secondary);
+}
+
+.badge.success {
+  background: rgba(45, 106, 79, 0.12);
+  color: var(--success);
+}
+
+.badge.warning {
+  background: rgba(178, 106, 31, 0.12);
+  color: var(--warning);
+}
+
+.badge.danger {
+  background: rgba(163, 60, 47, 0.12);
+  color: var(--danger);
+}
+
+.badge.info {
+  background: rgba(49, 92, 133, 0.12);
+  color: var(--info);
+}
+
+/* Action groups */
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.pillbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+}
+
+.pill {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Spacing utilities */
+.gap-xs { gap: 4px; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 12px; }
+.gap-lg { gap: 24px; }
+.gap-xl { gap: 32px; }
+
+.mb-xs { margin-bottom: 4px; }
+.mb-sm { margin-bottom: 8px; }
+.mb-md { margin-bottom: 12px; }
+.mb-lg { margin-bottom: 24px; }
+.mb-xl { margin-bottom: 32px; }
+
+/* Responsive video/iframe */
+.video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  margin: 24px 0;
+}
+
+.video-container iframe,
+.video-container video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.video-shell {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+}
+
+.video-shell video,
+.video-shell iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+/* Details/summary */
+details {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--action);
+  user-select: none;
+}
+
+details[open] {
+  background: var(--surface);
+}
+
+/* Utilities */
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.align-center {
+  text-align: center;
+}
+
+.align-right {
+  text-align: right;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.summary-stat {
+  text-align: center;
+  padding: 16px;
+}
+
+.summary-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--action);
+}
+
+.summary-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+.alert-box {
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 0 4px 4px 0;
+  color: var(--text-primary);
+}
+
+.alert-box.danger {
+  background: rgba(163,60,47,0.12);
+  border-left: 3px solid var(--danger);
+}
+
+.alert-box.success {
+  background: rgba(45,106,79,0.12);
+  border-left: 3px solid var(--success);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+th, td {
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  font-size: 14px;
+}
+
+th {
+  background: var(--surface-muted);
+  font-weight: 600;
+}
+
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+</head>
+<body>
+
+  <style>
+    .launchpad-shell {
       display: grid;
       gap: 32px;
-    }}
+    }
 
-    .hero-shell {{
+    .hero-shell {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 24px;
-    }}
+    }
 
-    .launch-grid {{
+    .launch-grid {
       display: grid;
       gap: 24px;
       grid-template-columns: 1fr;
-    }}
+    }
 
-    textarea {{
+    textarea {
       width: 100%;
       min-height: 84px;
       padding: 16px;
@@ -47,24 +479,24 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       resize: vertical;
       background: var(--surface);
       color: var(--text-primary);
-    }}
+    }
 
-    textarea:focus {{
+    textarea:focus {
       outline: none;
       border-color: var(--action);
       box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.1);
-    }}
+    }
 
-    .suggestions-panel {{
+    .suggestions-panel {
       margin-top: 14px;
       border: 1px solid var(--border);
       border-radius: 16px;
       background: var(--surface);
       box-shadow: 0 16px 36px rgba(57, 44, 26, 0.12);
       overflow: hidden;
-    }}
+    }
 
-    .suggestions-header {{
+    .suggestions-header {
       padding: 12px 16px 10px;
       border-bottom: 1px solid var(--border);
       background: var(--surface-muted);
@@ -73,9 +505,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-muted);
-    }}
+    }
 
-    .suggestion-item {{
+    .suggestion-item {
       width: 100%;
       padding: 14px 16px;
       background: transparent;
@@ -87,27 +519,27 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       font-size: 15px;
       line-height: 1.4;
       transition: background 0.18s ease, color 0.18s ease;
-    }}
+    }
 
-    .suggestion-item:first-of-type {{
+    .suggestion-item:first-of-type {
       border-top: none;
-    }}
+    }
 
     .suggestion-item:hover,
-    .suggestion-item:focus-visible {{
+    .suggestion-item:focus-visible {
       background: rgba(37, 88, 71, 0.06);
       color: var(--action);
       outline: none;
-    }}
+    }
 
-    .suggestion-text {{
+    .suggestion-text {
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-    }}
+    }
 
-    .suggestion-thread {{
+    .suggestion-thread {
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
@@ -115,22 +547,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       margin-top: 4px;
       font-size: 12px;
       color: var(--text-secondary);
-    }}
+    }
 
-    .suggestion-thread-label {{
+    .suggestion-thread-label {
       font-weight: 600;
       margin-right: 6px;
-    }}
+    }
 
-    .suggestion-meta {{
+    .suggestion-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 6px;
       align-items: center;
-    }}
+    }
 
-    .suggestion-chip {{
+    .suggestion-chip {
       display: inline-flex;
       align-items: center;
       padding: 2px 8px;
@@ -142,70 +574,70 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       background: rgba(37, 88, 71, 0.08);
       color: var(--action);
       border: 1px solid rgba(37, 88, 71, 0.18);
-    }}
+    }
 
-    .suggestion-winner {{
+    .suggestion-winner {
       font-size: 12px;
       color: var(--text-muted);
       margin-left: auto;
-    }}
+    }
 
     /* "Your taste, distilled" — magazine-style profile card with one share. */
-    .taste-card .taste-block {{
+    .taste-card .taste-block {
       margin-top: 22px;
-    }}
-    .taste-block-label {{
+    }
+    .taste-block-label {
       font-size: 12px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(37, 88, 71, 0.7);
       font-weight: 600;
       margin-bottom: 10px;
-    }}
-    .taste-list {{
+    }
+    .taste-list {
       list-style: none;
       padding: 0;
       margin: 0;
       display: grid;
       gap: 10px;
-    }}
-    .taste-list li {{
+    }
+    .taste-list li {
       padding: 12px 14px;
       background: rgba(37, 88, 71, 0.04);
       border-left: 3px solid rgba(37, 88, 71, 0.35);
       border-radius: 0 8px 8px 0;
       line-height: 1.5;
-    }}
-    .taste-list-title {{
+    }
+    .taste-list-title {
       display: block;
       font-weight: 600;
       color: #1a1a1a;
       font-size: 15px;
       margin-bottom: 2px;
-    }}
-    .taste-list-why {{
+    }
+    .taste-list-why {
       display: block;
       font-size: 14px;
       color: #444;
-    }}
-    .taste-failure-modes {{
+    }
+    .taste-failure-modes {
       display: flex;
       flex-direction: column;
       gap: 2px;
       margin-top: 4px;
-    }}
-    .taste-failure-line {{
+    }
+    .taste-failure-line {
       font-size: 13px;
       color: #444;
-    }}
-    .taste-list-quotes li {{
+    }
+    .taste-list-quotes li {
       font-size: 15px;
       color: #1a1a1a;
       font-style: italic;
       border-left-color: rgba(107, 63, 160, 0.4);
       background: rgba(107, 63, 160, 0.04);
-    }}
-    .taste-vocab {{
+    }
+    .taste-vocab {
       margin-top: 22px;
       display: flex;
       flex-wrap: wrap;
@@ -213,16 +645,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       gap: 8px;
       font-size: 13px;
       color: #555;
-    }}
-    .taste-vocab-label {{
+    }
+    .taste-vocab-label {
       font-size: 12px;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: rgba(37, 88, 71, 0.7);
       font-weight: 600;
       margin-right: 4px;
-    }}
-    .taste-vocab-chip {{
+    }
+    .taste-vocab-chip {
       padding: 3px 10px;
       background: var(--surface-muted);
       border: 1px solid var(--border);
@@ -230,8 +662,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       font-family: ui-monospace, SFMono-Regular, monospace;
       font-size: 12px;
       color: #333;
-    }}
-    .taste-share-row {{
+    }
+    .taste-share-row {
       display: flex;
       align-items: center;
       gap: 14px;
@@ -239,80 +671,80 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       margin-top: 26px;
       padding-top: 18px;
       border-top: 1px solid var(--border);
-    }}
-    .taste-share-btn {{
+    }
+    .taste-share-btn {
       flex-shrink: 0;
-    }}
-    .taste-share-meta {{
+    }
+    .taste-share-meta {
       flex: 1;
       min-width: 240px;
       font-size: 12px;
       line-height: 1.45;
-    }}
+    }
 
-    .settings-list {{
+    .settings-list {
       display: grid;
       gap: 8px;
       margin-top: 12px;
-    }}
+    }
 
-    .provider-health-list {{
+    .provider-health-list {
       display: grid;
       gap: 12px;
       margin-top: 16px;
-    }}
+    }
 
-    .provider-health-item {{
+    .provider-health-item {
       padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: 14px;
       background: var(--surface-muted);
       display: grid;
       gap: 10px;
-    }}
+    }
 
-    .provider-health-head {{
+    .provider-health-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
-    }}
+    }
 
-    .provider-command {{
+    .provider-command {
       display: flex;
       gap: 10px;
       align-items: flex-start;
       flex-wrap: wrap;
-    }}
+    }
 
-    .provider-command code {{
+    .provider-command code {
       flex: 1 1 240px;
       word-break: break-word;
-    }}
+    }
 
-    .setting-row {{
+    .setting-row {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       align-items: center;
       padding: 10px 0;
       border-top: 1px solid var(--border);
-    }}
+    }
 
-    .setting-row:first-child {{
+    .setting-row:first-child {
       border-top: none;
-    }}
+    }
 
-    .setting-value {{
+    .setting-value {
       display: inline-flex;
       align-items: center;
       gap: 10px;
       justify-content: flex-end;
       flex-wrap: wrap;
-    }}
+    }
 
-    .icon-action {{
+    .icon-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -325,53 +757,53 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       cursor: pointer;
       transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
       padding: 0;
-    }}
+    }
 
-    .icon-action:hover {{
+    .icon-action:hover {
       border-color: var(--action);
       transform: translateY(-1px);
       box-shadow: 0 6px 18px rgba(37, 88, 71, 0.12);
-    }}
+    }
 
-    .icon-action:focus-visible {{
+    .icon-action:focus-visible {
       outline: 2px solid rgba(37, 88, 71, 0.28);
       outline-offset: 2px;
-    }}
+    }
 
-    .icon-action:disabled {{
+    .icon-action:disabled {
       opacity: 0.55;
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
-    }}
+    }
 
-    .chart-shell {{
+    .chart-shell {
       position: relative;
       height: 280px;
       margin-top: 16px;
-    }}
+    }
 
-    .council-card-link {{
+    .council-card-link {
       display: block;
       color: inherit;
-    }}
+    }
 
-    .council-card {{
+    .council-card {
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
       cursor: pointer;
-    }}
+    }
 
-    .council-card-link:hover .council-card {{
+    .council-card-link:hover .council-card {
       transform: translateY(-3px);
       border-color: var(--action);
       box-shadow: 0 12px 30px rgba(37, 88, 71, 0.14);
-    }}
+    }
 
-    .council-title {{
+    .council-title {
       margin-bottom: 8px;
-    }}
+    }
 
-    .launch-status {{
+    .launch-status {
       display: grid;
       gap: 12px;
       margin-top: 18px;
@@ -379,54 +811,54 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       border: 1px solid rgba(37, 88, 71, 0.18);
       border-radius: 16px;
       background: rgba(37, 88, 71, 0.05);
-    }}
+    }
 
-    .spinner-row {{
+    .spinner-row {
       display: inline-flex;
       align-items: center;
       gap: 12px;
-    }}
+    }
 
-    .spinner {{
+    .spinner {
       width: 18px;
       height: 18px;
       border-radius: 999px;
       border: 2px solid rgba(37, 88, 71, 0.18);
       border-top-color: var(--action);
       animation: trinity-spin 0.8s linear infinite;
-    }}
+    }
 
-    .status-error {{
+    .status-error {
       color: #8b1e1e;
-    }}
+    }
 
-    .status-message {{
+    .status-message {
       font-weight: 500;
       min-height: 24px;
       transition: opacity 0.3s ease;
       color: var(--action);
-    }}
+    }
 
-    .provider-status-list {{
+    .provider-status-list {
       display: grid;
       gap: 10px;
       margin: 4px 0 0;
-    }}
+    }
 
-    .provider-status-row {{
+    .provider-status-row {
       display: grid;
       grid-template-columns: 88px 84px 1fr;
       gap: 12px;
       align-items: start;
       font-size: 15px;
       color: var(--text-primary);
-    }}
+    }
 
-    .provider-status-name {{
+    .provider-status-name {
       font-weight: 600;
-    }}
+    }
 
-    .provider-status-badge {{
+    .provider-status-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -440,64 +872,64 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       background: var(--surface-muted);
       color: var(--text-secondary);
       border: 1px solid var(--border);
-    }}
+    }
 
-    .provider-status-badge.done {{
+    .provider-status-badge.done {
       background: rgba(45, 106, 79, 0.1);
       color: var(--success);
       border-color: rgba(45, 106, 79, 0.28);
-    }}
+    }
 
-    .provider-status-badge.running {{
+    .provider-status-badge.running {
       background: rgba(37, 88, 71, 0.08);
       color: var(--action);
       border-color: rgba(37, 88, 71, 0.22);
-    }}
+    }
 
-    .provider-status-badge.pending {{
+    .provider-status-badge.pending {
       background: var(--surface-muted);
       color: var(--text-muted);
       border-color: var(--border);
-    }}
+    }
 
-    .provider-status-badge.failed {{
+    .provider-status-badge.failed {
       background: rgba(139, 30, 30, 0.08);
       color: #8b1e1e;
       border-color: rgba(139, 30, 30, 0.2);
-    }}
+    }
 
-    .provider-status-detail {{
+    .provider-status-detail {
       color: var(--text-secondary);
       line-height: 1.4;
-    }}
+    }
 
-    .provider-status-detail.empty {{
+    .provider-status-detail.empty {
       color: var(--text-muted);
-    }}
+    }
 
-    .launch-status-actions {{
+    .launch-status-actions {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
-    }}
+    }
 
-    @keyframes trinity-spin {{
-      to {{
+    @keyframes trinity-spin {
+      to {
         transform: rotate(360deg);
-      }}
-    }}
+      }
+    }
 
-    @keyframes fade-in {{
-      from {{
+    @keyframes fade-in {
+      from {
         opacity: 0;
-      }}
-      to {{
+      }
+      to {
         opacity: 1;
-      }}
-    }}
+      }
+    }
 
-    .rating-toggle {{
+    .rating-toggle {
       display: flex;
       gap: 12px;
       font-size: 14px;
@@ -505,9 +937,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       border-radius: 8px;
       padding: 4px;
       background: var(--surface-muted);
-    }}
+    }
 
-    .toggle-btn {{
+    .toggle-btn {
       padding: 6px 12px;
       background: none;
       border: none;
@@ -515,28 +947,28 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       color: var(--text-secondary);
       font-weight: 400;
       transition: color 0.2s ease;
-    }}
+    }
 
-    .toggle-btn:disabled {{
+    .toggle-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-    }}
+    }
 
-    .toggle-btn.active {{
+    .toggle-btn.active {
       color: var(--action);
       font-weight: 600;
       background: var(--surface);
       border-radius: 6px;
       box-shadow: inset 0 0 0 1px rgba(37, 88, 71, 0.18);
-    }}
+    }
 
-    .toggle-btn:focus-visible {{
+    .toggle-btn:focus-visible {
       outline: 2px solid rgba(37, 88, 71, 0.28);
       outline-offset: 2px;
       border-radius: 6px;
-    }}
+    }
 
-    .sharing-toggle {{
+    .sharing-toggle {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -545,23 +977,23 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       border: 1px solid var(--border);
       border-radius: 12px;
       margin: 16px 0;
-    }}
+    }
 
-    .toggle-switch {{
+    .toggle-switch {
       position: relative;
       display: inline-block;
       width: 44px;
       height: 24px;
       cursor: pointer;
-    }}
+    }
 
-    .toggle-switch input {{
+    .toggle-switch input {
       opacity: 0;
       width: 0;
       height: 0;
-    }}
+    }
 
-    .toggle-slider {{
+    .toggle-slider {
       position: absolute;
       cursor: pointer;
       top: 0;
@@ -571,9 +1003,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       background: #ccc;
       transition: 0.3s;
       border-radius: 24px;
-    }}
+    }
 
-    .toggle-slider:before {{
+    .toggle-slider:before {
       position: absolute;
       content: '';
       height: 20px;
@@ -583,112 +1015,112 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       background-color: white;
       transition: 0.3s;
       border-radius: 50%;
-    }}
+    }
 
-    input:checked + .toggle-slider {{
+    input:checked + .toggle-slider {
       background: var(--action);
-    }}
+    }
 
-    input:checked + .toggle-slider:before {{
+    input:checked + .toggle-slider:before {
       transform: translateX(20px);
-    }}
+    }
 
-    .benchmark-table {{
+    .benchmark-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
-    }}
+    }
 
-    .benchmark-table thead {{
+    .benchmark-table thead {
       background: var(--surface-muted);
       border-bottom: 1px solid var(--border);
-    }}
+    }
 
-    .benchmark-table th {{
+    .benchmark-table th {
       padding: 12px;
       text-align: left;
       font-weight: 600;
       color: var(--text-primary);
-    }}
+    }
 
-    .benchmark-table td {{
+    .benchmark-table td {
       padding: 12px;
       border-bottom: 1px solid var(--border);
       color: var(--text-secondary);
-    }}
+    }
 
-    .benchmark-table tbody tr:hover {{
+    .benchmark-table tbody tr:hover {
       background: var(--surface-muted);
-    }}
+    }
 
-    .benchmark-category {{
+    .benchmark-category {
       font-weight: 500;
       color: var(--text-primary);
-    }}
+    }
 
-    .benchmark-score {{
+    .benchmark-score {
       text-align: right;
       color: var(--action);
       font-weight: 500;
-    }}
+    }
 
-    .routing-table {{
+    .routing-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
       margin-top: 12px;
-    }}
+    }
 
-    .routing-table thead {{
+    .routing-table thead {
       background: var(--surface-muted);
       border-bottom: 1px solid var(--border);
-    }}
+    }
 
-    .routing-table th {{
+    .routing-table th {
       padding: 12px;
       text-align: left;
       font-weight: 600;
       color: var(--text-primary);
-    }}
+    }
 
-    .routing-table td {{
+    .routing-table td {
       padding: 12px;
       border-bottom: 1px solid var(--border);
       color: var(--text-secondary);
-    }}
+    }
 
-    .routing-table tbody tr:hover {{
+    .routing-table tbody tr:hover {
       background: var(--surface-muted);
-    }}
+    }
 
-    .benchmark-unit {{
+    .benchmark-unit {
       font-size: 12px;
       color: var(--text-muted);
       display: block;
       font-weight: 400;
-    }}
+    }
 
-    .ratings-grid {{
+    .ratings-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 20px;
       margin-top: 18px;
-    }}
+    }
 
-    .chart-panel {{
+    .chart-panel {
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 16px;
       background: var(--surface);
-    }}
+    }
 
-    .chart-panel h3 {{
+    .chart-panel h3 {
       margin-bottom: 8px;
-    }}
+    }
 
-    .chart-panel .meta {{
+    .chart-panel .meta {
       margin-bottom: 12px;
-    }}
+    }
   </style>
 
   <main>
@@ -696,8 +1128,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="card hero-shell">
         <div>
           <div class="eyebrow">Trinity · Own your memories</div>
-          <h1>{{{{ heroTitle }}}}</h1>
-          <p class="lede">{{{{ heroLede }}}}</p>
+          <h1>{{ heroTitle }}</h1>
+          <p class="lede">{{ heroLede }}</p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>
@@ -718,12 +1150,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <div class="settings-list">
             <div class="setting-row">
               <span class="meta">Endpoint</span>
-              <span class="meta">{{{{ displayedEndpoint }}}}</span>
+              <span class="meta">{{ displayedEndpoint }}</span>
             </div>
             <div class="setting-row">
               <span class="meta">Anonymous ID</span>
               <div class="setting-value">
-                <code style="word-break: break-all;">{{{{ telemetry.shareInstallId || 'unassigned' }}}}</code>
+                <code style="word-break: break-all;">{{ telemetry.shareInstallId || 'unassigned' }}</code>
                 <button
                   type="button"
                   class="icon-action"
@@ -781,12 +1213,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <div class="eyebrow">Providers</div>
             <div class="provider-health-item" v-for="provider in providerHealth.providers">
               <div class="provider-health-head">
-                <strong>{{{{ provider.label }}}}</strong>
-                <span :class="provider.installed ? 'badge success' : 'badge'">{{{{ provider.installed ? 'Installed' : 'Missing' }}}}</span>
+                <strong>{{ provider.label }}</strong>
+                <span :class="provider.installed ? 'badge success' : 'badge'">{{ provider.installed ? 'Installed' : 'Missing' }}</span>
               </div>
-              <p class="meta" v-if="provider.detail">{{{{ provider.detail }}}}</p>
+              <p class="meta" v-if="provider.detail">{{ provider.detail }}</p>
               <div class="provider-command" v-if="!provider.installed">
-                <code>{{{{ provider.installCommand }}}}</code>
+                <code>{{ provider.installCommand }}</code>
                 <button
                   type="button"
                   class="icon-action"
@@ -798,7 +1230,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 </button>
               </div>
             </div>
-            <p class="meta" v-if="providerHealth.hasMissing">{{{{ providerHealth.footerNote }}}}</p>
+            <p class="meta" v-if="providerHealth.hasMissing">{{ providerHealth.footerNote }}</p>
           </section>
         </div>
       </section>
@@ -819,20 +1251,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           ></textarea>
 
           <div class="suggestions-panel" v-if="showSuggestions">
-            <div class="suggestions-header">{{{{ suggestionsHeader }}}}</div>
+            <div class="suggestions-header">{{ suggestionsHeader }}</div>
             <button
               type="button"
               class="suggestion-item"
               v-for="suggestion in filteredCouncilSuggestions"
               @mousedown.prevent="applySuggestion(suggestion)"
             >
-              <div class="suggestion-text">{{{{ suggestionText(suggestion) }}}}</div>
+              <div class="suggestion-text">{{ suggestionText(suggestion) }}</div>
               <div class="suggestion-thread" v-if="suggestionPriorPreview(suggestion)">
                 <span class="suggestion-thread-label">Prior thread:</span>
-                <span class="suggestion-thread-text">{{{{ suggestionPriorPreview(suggestion) }}}}</span>
+                <span class="suggestion-thread-text">{{ suggestionPriorPreview(suggestion) }}</span>
               </div>
               <div class="suggestion-meta" v-if="suggestionWinner(suggestion)">
-                <span class="suggestion-winner">Winner: {{{{ suggestionWinner(suggestion) }}}}</span>
+                <span class="suggestion-winner">Winner: {{ suggestionWinner(suggestion) }}</span>
               </div>
             </button>
           </div>
@@ -847,19 +1279,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               <section class="launch-status" v-if="operation || launchError">
                 <div class="spinner-row" v-if="busy">
                   <span class="spinner" aria-hidden="true"></span>
-                  <strong class="status-message">{{{{ operationHeading }}}}</strong>
+                  <strong class="status-message">{{ operationHeading }}</strong>
                 </div>
-                <strong v-if="operation && !busy">{{{{ operationHeading }}}}</strong>
-                <p class="meta" v-if="operation && operation.label">{{{{ operation.label }}}}</p>
-                <p class="status-message" v-if="busy">{{{{ currentStatusMessage }}}}</p>
+                <strong v-if="operation && !busy">{{ operationHeading }}</strong>
+                <p class="meta" v-if="operation && operation.label">{{ operation.label }}</p>
+                <p class="status-message" v-if="busy">{{ currentStatusMessage }}</p>
                 <div class="provider-status-list" v-if="showProviderRows">
                   <div class="provider-status-row" v-for="row in providerStatusRows">
-                    <div class="provider-status-name">{{{{ row.label }}}}</div>
-                    <div class="provider-status-badge" :class="row.statusClass">{{{{ row.statusLabel }}}}</div>
-                    <div class="provider-status-detail" :class="{{ empty: !row.detail }}">{{{{ row.detail || '' }}}}</div>
+                    <div class="provider-status-name">{{ row.label }}</div>
+                    <div class="provider-status-badge" :class="row.statusClass">{{ row.statusLabel }}</div>
+                    <div class="provider-status-detail" :class="{ empty: !row.detail }">{{ row.detail || '' }}</div>
                   </div>
                 </div>
-                <p class="status-error" v-if="launchError || operation?.error">{{{{ launchError || operation?.error }}}}</p>
+                <p class="status-error" v-if="launchError || operation?.error">{{ launchError || operation?.error }}</p>
                 <div class="launch-status-actions" v-if="operation">
                   <a class="button ghost" v-if="operation.kind === 'council' && busy" :href="liveCouncilUrl">Open council page</a>
                   <button type="button" class="button ghost" v-if="operation.kind === 'council' && busy" @click="stopCurrentCouncil">Stop council</button>
@@ -873,7 +1305,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Ratings</div>
         <h2>Which model wins for which kind of question</h2>
         <p class="meta" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
-          From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every rating. Categories match LMArena so you can compare against public evals later.
+          From your own {{ personalRoutingTable.councils_aggregated }} councils — the bars sharpen with every rating. Categories match LMArena so you can compare against public evals later.
         </p>
         <p class="meta" v-else>
           Once you run <code>trinity-local replay-history --limit 20</code>, this chart fills in with per-category strength for each provider, computed from your own council preferences.
@@ -885,8 +1317,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
         <p class="meta" style="margin-top: 12px;" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
           <span v-for="provider in benchmarkProviders" style="margin-right: 14px;">
-            <strong>{{{{ provider.toUpperCase() }}}}</strong>
-            <span v-if="providerModels && providerModels[provider]"> · {{{{ providerModels[provider] }}}}</span>
+            <strong>{{ provider.toUpperCase() }}</strong>
+            <span v-if="providerModels && providerModels[provider]"> · {{ providerModels[provider] }}</span>
           </span>
         </p>
 
@@ -902,26 +1334,26 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Personal routing table</div>
         <h2>Best model per task type, from your own councils</h2>
         <p class="meta">
-          Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils — the chairman uses this to pick the right model for your next question. More councils = sharper routing.
+          Built from {{ personalRoutingTable.councils_aggregated || 0 }} councils — the chairman uses this to pick the right model for your next question. More councils = sharper routing.
         </p>
         <table class="routing-table">
           <thead>
             <tr>
               <th>Task type</th>
               <th>Best</th>
-              <th v-for="provider in routingTableProviders" style="text-align: right;">{{{{ provider.toUpperCase() }}}}</th>
+              <th v-for="provider in routingTableProviders" style="text-align: right;">{{ provider.toUpperCase() }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(scores, taskType) in personalRoutingTable.by_task_type">
               <td>
-                <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
+                <div class="benchmark-category">{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}</div>
               </td>
-              <td><span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span></td>
+              <td><span class="suggestion-chip">{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}</span></td>
               <td v-for="provider in routingTableProviders" style="text-align: right;">
-                <span class="benchmark-score" v-if="scores[provider]">{{{{ scores[provider].overall.toFixed(1) }}}}</span>
+                <span class="benchmark-score" v-if="scores[provider]">{{ scores[provider].overall.toFixed(1) }}</span>
                 <span class="benchmark-unit" v-if="!scores[provider]">—</span>
-                <span class="benchmark-unit" v-if="scores[provider]">n={{{{ scores[provider].n }}}}</span>
+                <span class="benchmark-unit" v-if="scores[provider]">n={{ scores[provider].n }}</span>
               </td>
             </tr>
           </tbody>
@@ -947,13 +1379,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
 
         <div class="taste-block" v-if="tasteLenses.paired_lenses && tasteLenses.paired_lenses.length">
-          <div class="taste-block-label">{{{{ tasteLenses.paired_lenses.length === 1 ? 'Paired lens (the tension you live in)' : 'Paired lenses (the tensions you live in)' }}}}</div>
+          <div class="taste-block-label">{{ tasteLenses.paired_lenses.length === 1 ? 'Paired lens (the tension you live in)' : 'Paired lenses (the tensions you live in)' }}</div>
           <ol class="taste-list">
             <li v-for="(p, idx) in tasteLenses.paired_lenses" :key="'pair-' + idx">
-              <span class="taste-list-title">{{{{ p.pole_a }}}} ↔ {{{{ p.pole_b }}}}</span>
+              <span class="taste-list-title">{{ p.pole_a }} ↔ {{ p.pole_b }}</span>
               <span class="taste-list-why taste-failure-modes" v-if="p.failure_a || p.failure_b">
-                <span class="taste-failure-line">pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b></span>
-                <span class="taste-failure-line">pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b></span>
+                <span class="taste-failure-line">pure-{{ p.pole_a }} fails as <b>{{ p.failure_a || '?' }}</b></span>
+                <span class="taste-failure-line">pure-{{ p.pole_b }} fails as <b>{{ p.failure_b || '?' }}</b></span>
               </span>
             </li>
           </ol>
@@ -963,7 +1395,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <div class="taste-block-label">Orderings (preferences without dual evidence)</div>
           <ul class="taste-list">
             <li v-for="(o, idx) in tasteLenses.orderings" :key="'ord-' + idx">
-              <span class="taste-list-title">{{{{ o.pole_a }}}} &gt; {{{{ o.pole_b }}}}</span>
+              <span class="taste-list-title">{{ o.pole_a }} &gt; {{ o.pole_b }}</span>
             </li>
           </ul>
         </div>
@@ -972,8 +1404,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <div class="taste-block-label">What you redirect away from</div>
           <ol class="taste-list">
             <li v-for="(lens, idx) in tasteLenses.rejections" :key="'rej-' + idx">
-              <span class="taste-list-title">{{{{ lens.title }}}}</span>
-              <span class="taste-list-why">{{{{ lens.why_matters }}}}</span>
+              <span class="taste-list-title">{{ lens.title }}</span>
+              <span class="taste-list-why">{{ lens.why_matters }}</span>
             </li>
           </ol>
         </div>
@@ -981,13 +1413,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="taste-block" v-if="tasteLenses.abstract_lenses.length">
           <div class="taste-block-label">The lenses you think through</div>
           <ul class="taste-list taste-list-quotes">
-            <li v-for="(l, idx) in tasteLenses.abstract_lenses" :key="'lens-' + idx">{{{{ l.statement }}}}</li>
+            <li v-for="(l, idx) in tasteLenses.abstract_lenses" :key="'lens-' + idx">{{ l.statement }}</li>
           </ul>
         </div>
 
         <div class="taste-vocab" v-if="tasteLenses.vocabulary.length">
           <span class="taste-vocab-label">Phrases you keep using:</span>
-          <span v-for="(v, idx) in tasteLenses.vocabulary" :key="'voc-' + idx" class="taste-vocab-chip">"{{{{ v.phrase }}}}"</span>
+          <span v-for="(v, idx) in tasteLenses.vocabulary" :key="'voc-' + idx" class="taste-vocab-chip">"{{ v.phrase }}"</span>
         </div>
 
         <div class="taste-share-row">
@@ -1022,149 +1454,249 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <h2>Every council you've taught the router</h2>
         <p class="meta">Reopen any thread to change your verdict. Every rating feeds the personal routing table above — the moat is this ledger, not any one answer.</p>
         <div class="grid grid-2" style="margin-top: 20px;">
-          {recent_cards}
+          <p class="meta">No councils yet. Launch one above to get started.</p>
         </div>
       </section>
 
       <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;" v-if="debugMode">
-        Page generated {{{{ pageData.regeneratedAt }}}} · stale? run <code>trinity-local portal-html</code> + Cmd+Shift+R
+        Page generated {{ pageData.regeneratedAt }} · stale? run <code>trinity-local portal-html</code> + Cmd+Shift+R
       </p>
     </div>
   </main>
 
-  <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
+  <script type="application/json" id="page-data">{"shortcutName":"Trinity Dispatch","councilSuggestions":["Write a launch announcement for Trinity Local","Research this company: [company name]","Draft a product specification","Plan an onboarding email sequence","Debug this error: [error message]","Explain this concept","Write a technical blog post outline","Create a project proposal"],"defaultGoal":"Find the strongest answer.","defaultMembers":["claude","gemini","codex"],"defaultPrimaryProvider":null,"telemetry":{"settings":{"sharing_enabled":false,"share_usage_events":false,"share_elo_summaries":false,"auto_chain_enabled":false,"max_chain_rounds":3},"snapshot":{"version":1,"window":"all_time","council_count":0,"providers":{},"matchups":{}},"snapshot_hash":"sha1:1fb64e19ce5973b1a7e637f201aa93cbf0ed25a7","view_event":{"event":"launchpad_view","version":1,"share_install_id":"","app_version":"0.1.0","timestamp":"2026-05-11T16:21:29+00:00","surface":"launchpad","council_count_bucket":"0","provider_count":0},"elo_event":{"event":"elo_snapshot","version":1,"share_install_id":"","app_version":"0.1.0","timestamp":"2026-05-11T16:21:29+00:00","window":"all_time","council_count":0,"providers":{},"matchups":{}}},"settingsLinks":{"enable":"shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-enable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_enable%22%7D%7D","disable":"shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-disable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_disable%22%7D%7D","reset":"shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20telemetry-reset-id%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22telemetry_reset%22%7D%7D","autoChainEnable":"shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20auto-chain-enable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22auto_chain_enable%22%7D%7D","autoChainDisable":"shortcuts://run-shortcut?name=Trinity%20Dispatch&input=text&text=%7B%22name%22%3A%22run_command%22%2C%22args%22%3A%7B%22command%22%3A%22trinity-local%20auto-chain-disable%22%7D%2C%22metadata%22%3A%7B%22kind%22%3A%22auto_chain_disable%22%7D%7D"},"providerHealth":{"providers":[{"provider":"claude","label":"Claude Code","installed":false,"detail":"claude not found in PATH","installCommand":"npm install -g @anthropic-ai/claude-code"},{"provider":"codex","label":"Codex CLI","installed":false,"detail":"codex not found in PATH","installCommand":"npm install -g @openai/codex && codex --login"},{"provider":"gemini","label":"Gemini CLI","installed":false,"detail":"gemini not found in PATH","installCommand":"npm install -g @google/gemini-cli && gemini"},{"provider":"cowork","label":"Cowork / Claude Desktop","installed":false,"detail":"Transcript directory not found: /Users/admin/Library/Application Support/Claude/local-agent-mode-sessions","installCommand":"Install Claude Desktop, then open Local Agent Mode once."}],"missingCount":4,"hasMissing":true,"footerNote":"After installing, open a new terminal and run `trinity-local status`. Trinity will pick up newly installed providers automatically."},"eloChart":{"labels":[],"datasets":[{"label":"Your Trinity rating","data":[],"backgroundColor":"rgba(37, 88, 71, 0.18)","borderColor":"#255847","borderWidth":2,"borderRadius":10}]},"globalBenchmarks":{"coding":{"benchmark":"HumanEval","unit":"pass@1 (%)","models":{"claude":91.3,"codex":81.0,"gemini":94.3}},"reasoning":{"benchmark":"GPQA Diamond","unit":"accuracy (%)","models":{"claude":68.5,"codex":71.2,"gemini":72.8}}},"benchmarkProviders":["claude","codex","gemini"],"taskKindToCategory":{"general":"overall","cowork_general":"overall","coding":"coding","debugging":"coding","research":"hard_prompts","council_synthesis":"hard_prompts","system_design":"hard_prompts","architecture_decision":"hard_prompts","architecture_ratification":"hard_prompts","launch_readiness_audit":"hard_prompts","launch_readiness_decision":"hard_prompts","launch_risk_triage":"hard_prompts","launch_copy_review":"hard_prompts","launch_strategy_decision":"hard_prompts","writing":"creative_writing"},"defaultCategoryForUnknownTaskKind":"hard_prompts","personalChartCategoryKeys":["overall","coding","hard_prompts","creative_writing","instruction_following","multiturn","math"],"personalChartCategoryLabels":{"overall":"Overall","coding":"Coding","hard_prompts":"Hard Prompts","creative_writing":"Creative Writing","instruction_following":"Instruction Following","multiturn":"Multi-Turn","math":"Math"},"providerModels":{},"referenceEvalsMeta":{},"liveReviewUrl":"../review_pages/live_council.html","activeOperation":null,"statusScriptBaseUrl":"./status","councilLoadingMessages":["Reticulating splines...","Generating witty dialog...","Tokenizing real life...","Convincing AI not to turn evil...","Computing chance of success...","Optimizing the optimizer...","Keeping all the 1's and removing all the 0's...","Pushing pixels..."],"personalRoutingTable":null,"tasteLenses":null,"recentCouncilsCount":0,"regeneratedAt":"2026-05-11T16:21:29+00:00"}</script>
   <script type="module">
-    import {{ createApp }} from '{PETITE_VUE_MODULE}';
+    import { createApp } from 'https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js';
 
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
-    {portal_runtime_js()}
+    
+window.__TRINITY_COUNCIL_STATUS__ = window.__TRINITY_COUNCIL_STATUS__ || {};
 
-    function maybeSendTelemetry() {{
-      const telemetry = pageData.telemetry || {{}};
-      const settings = telemetry.settings || {{}};
-      if (!settings.sharing_enabled || !settings.endpoint) {{
+window.addEventListener('pageshow', (event) => {
+  const navEntry = typeof performance.getEntriesByType === 'function'
+    ? performance.getEntriesByType('navigation')[0]
+    : null;
+  if (event.persisted || navEntry?.type === 'back_forward') {
+    window.location.reload();
+  }
+});
+
+function buildShortcutUrl(payload) {
+  const name = encodeURIComponent(
+    (typeof pageData !== 'undefined' && pageData.shortcutName) || 'Trinity Dispatch'
+  );
+  const text = encodeURIComponent(JSON.stringify(payload));
+  return `shortcuts://run-shortcut?name=${name}&input=text&text=${text}`;
+}
+
+function navigateToReviewPath(path) {
+  if (!path) {
+    return;
+  }
+  if (/^(file|https?):\/\//.test(path)) {
+    window.location.replace(path);
+    return;
+  }
+  if (window.location.protocol === 'file:') {
+    window.location.replace(`file://${path}`);
+    return;
+  }
+  if (path.includes('/review_pages/')) {
+    const parts = path.split('/review_pages/');
+    window.location.replace(`../review_pages/${parts[parts.length - 1]}`);
+    return;
+  }
+  window.location.replace(path);
+}
+
+function loadStatusScript(token, onComplete) {
+  const base = (typeof pageData !== 'undefined' && pageData.statusScriptBaseUrl) || '';
+  if (!base || !token) {
+    onComplete(null);
+    return;
+  }
+  delete window.__TRINITY_COUNCIL_STATUS__[token];
+  const script = document.createElement('script');
+  // file:// URLs don't honor query-string cache busters — browsers look for
+  // a literal file named `foo.js?t=…` and 404. Only append the buster on
+  // http(s):// so the local server can refresh between polls.
+  // Page-data URLs are now relative (work under both file:// and localhost),
+  // so we can't sniff the protocol from `base`. Use the document's protocol
+  // instead — file:// is the trigger, regardless of how `base` is shaped.
+  const isFile = window.location.protocol === 'file:';
+  const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
+  script.src = `${base}/council_status_${encodeURIComponent(token)}.js${cacheBuster}`;
+  script.async = true;
+  script.onload = () => {
+    const status = window.__TRINITY_COUNCIL_STATUS__?.[token];
+    onComplete(status || null);
+    script.remove();
+  };
+  script.onerror = () => {
+    onComplete(null);
+    script.remove();
+  };
+  document.body.appendChild(script);
+}
+
+window.__TRINITY_COUNCIL_OUTCOME__ = window.__TRINITY_COUNCIL_OUTCOME__ || {};
+
+function loadOutcomeScript(councilId, onComplete) {
+  const base = (typeof pageData !== 'undefined' && pageData.outcomeScriptBaseUrl) || '';
+  if (!base || !councilId) {
+    onComplete(null);
+    return;
+  }
+  delete window.__TRINITY_COUNCIL_OUTCOME__[councilId];
+  const script = document.createElement('script');
+  // file:// URLs treat `?t=…` as part of the literal filename, so the
+  // browser 404s `foo.js?t=174…`. Skip cache-busting on file://.
+  // Page-data URLs are now relative (work under both file:// and localhost),
+  // so we can't sniff the protocol from `base`. Use the document's protocol
+  // instead — file:// is the trigger, regardless of how `base` is shaped.
+  const isFile = window.location.protocol === 'file:';
+  const cacheBuster = isFile ? '' : (base.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`);
+  script.src = `${base}/${encodeURIComponent(councilId)}.js${cacheBuster}`;
+  script.async = true;
+  script.onload = () => {
+    const outcome = window.__TRINITY_COUNCIL_OUTCOME__?.[councilId];
+    onComplete(outcome || null);
+    script.remove();
+  };
+  script.onerror = () => {
+    onComplete(null);
+    script.remove();
+  };
+  document.body.appendChild(script);
+}
+
+
+    function maybeSendTelemetry() {
+      const telemetry = pageData.telemetry || {};
+      const settings = telemetry.settings || {};
+      if (!settings.sharing_enabled || !settings.endpoint) {
         return;
-      }}
+      }
       // Skip obvious test/placeholder endpoints — sending to them produces
       // ERR_NAME_NOT_RESOLVED noise in the console with no upside.
       // example.invalid is the RFC 6761 reserved stub used during dev.
-      if (/example\\.invalid|localhost(?:[:/]|$)|127\\.0\\.0\\.1/.test(settings.endpoint)) {{
+      if (/example\.invalid|localhost(?:[:/]|$)|127\.0\.0\.1/.test(settings.endpoint)) {
         return;
-      }}
+      }
 
       const endpoint = settings.endpoint;
-      const send = (payload) => {{
+      const send = (payload) => {
         const body = JSON.stringify(payload);
-        if (navigator.sendBeacon) {{
-          const blob = new Blob([body], {{ type: 'application/json' }});
+        if (navigator.sendBeacon) {
+          const blob = new Blob([body], { type: 'application/json' });
           navigator.sendBeacon(endpoint, blob);
           return;
-        }}
-        fetch(endpoint, {{
+        }
+        fetch(endpoint, {
           method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
+          headers: { 'Content-Type': 'application/json' },
           body,
           keepalive: true,
           mode: 'cors',
-        }}).catch(() => null);
-      }};
+        }).catch(() => null);
+      };
 
-      if (settings.share_usage_events !== false && telemetry.view_event) {{
+      if (settings.share_usage_events !== false && telemetry.view_event) {
         send(telemetry.view_event);
-      }}
+      }
 
-      if (settings.share_elo_summaries !== false && telemetry.elo_event && telemetry.snapshot_hash) {{
-        const hashKey = `trinity:last-elo-hash:${{settings.share_install_id || 'default'}}`;
-        const tsKey = `trinity:last-elo-ts:${{settings.share_install_id || 'default'}}`;
+      if (settings.share_elo_summaries !== false && telemetry.elo_event && telemetry.snapshot_hash) {
+        const hashKey = `trinity:last-elo-hash:${settings.share_install_id || 'default'}`;
+        const tsKey = `trinity:last-elo-ts:${settings.share_install_id || 'default'}`;
         const lastHash = localStorage.getItem(hashKey);
         const lastTs = Number(localStorage.getItem(tsKey) || '0');
         const dayMs = 24 * 60 * 60 * 1000;
-        if (lastHash !== telemetry.snapshot_hash || (Date.now() - lastTs) > dayMs) {{
+        if (lastHash !== telemetry.snapshot_hash || (Date.now() - lastTs) > dayMs) {
           send(telemetry.elo_event);
           localStorage.setItem(hashKey, telemetry.snapshot_hash);
           localStorage.setItem(tsKey, String(Date.now()));
-        }}
-      }}
-    }}
+        }
+      }
+    }
 
-    function renderChart() {{
+    function renderChart() {
       if (!window.Chart) return;
-      const baseScales = {{
-        y: {{ ticks: {{ color: '#5f554d' }}, grid: {{ color: 'rgba(215, 204, 185, 0.45)' }} }},
-        x: {{ ticks: {{ color: '#5f554d' }}, grid: {{ display: false }} }},
-      }};
+      const baseScales = {
+        y: { ticks: { color: '#5f554d' }, grid: { color: 'rgba(215, 204, 185, 0.45)' } },
+        x: { ticks: { color: '#5f554d' }, grid: { display: false } },
+      };
 
       const eloData = pageData.eloChart;
       const eloCtx = document.getElementById('provider-elo-chart');
-      if (eloCtx && eloData && eloData.labels && eloData.labels.length) {{
-        new Chart(eloCtx, {{
+      if (eloCtx && eloData && eloData.labels && eloData.labels.length) {
+        new Chart(eloCtx, {
           type: 'bar',
           data: eloData,
-          options: {{
+          options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {{ legend: {{ display: false }} }},
-            scales: {{
-              y: {{ ...baseScales.y, min: 1400 }},
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ...baseScales.y, min: 1400 },
               x: baseScales.x,
-            }},
-          }},
-        }});
-      }}
+            },
+          },
+        });
+      }
 
       // Provider color palette shared across both /100 charts.
-      const palette = {{
+      const palette = {
         claude: 'rgba(213, 130, 79, 0.85)',
         gemini: 'rgba(86, 120, 156, 0.85)',
         codex: 'rgba(78, 138, 109, 0.85)',
         mlx: 'rgba(124, 96, 130, 0.85)',
-      }};
+      };
 
       // Trinity task_kind → category map, injected from the server's
       // canonical CATEGORY_REGISTRY so the launchpad chart never drifts
       // out-of-sync with new task_kinds. Unknown kinds bucket into
       // `defaultCategoryForUnknownTaskKind` (default: hard_prompts) instead
       // of disappearing from the chart.
-      const TASK_KIND_TO_CATEGORY = pageData.taskKindToCategory || {{}};
+      const TASK_KIND_TO_CATEGORY = pageData.taskKindToCategory || {};
       const DEFAULT_CATEGORY = pageData.defaultCategoryForUnknownTaskKind || 'overall';
 
-      const benchmarks = pageData.globalBenchmarks || {{}};
+      const benchmarks = pageData.globalBenchmarks || {};
       const providers = pageData.benchmarkProviders || [];
       const categories = Object.keys(benchmarks);
       const labels = categories.map((c) => c.charAt(0).toUpperCase() + c.slice(1));
 
-      function buildGroupedBar(ctxId, datasets) {{
+      function buildGroupedBar(ctxId, datasets) {
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
-        new Chart(ctx, {{
+        new Chart(ctx, {
           type: 'bar',
-          data: {{ labels, datasets }},
-          options: {{
+          data: { labels, datasets },
+          options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#5f554d' }} }} }},
-            scales: {{
-              y: {{ ...baseScales.y, min: 0, max: 100 }},
+            plugins: { legend: { position: 'bottom', labels: { color: '#5f554d' } } },
+            scales: {
+              y: { ...baseScales.y, min: 0, max: 100 },
               x: baseScales.x,
-            }},
-          }},
-        }});
-      }}
+            },
+          },
+        });
+      }
 
       // Reference evals chart.
-      if (providers.length && categories.length) {{
-        const datasets = providers.map((provider) => ({{
+      if (providers.length && categories.length) {
+        const datasets = providers.map((provider) => ({
           label: provider.charAt(0).toUpperCase() + provider.slice(1),
-          data: categories.map((cat) => {{
+          data: categories.map((cat) => {
             const v = benchmarks[cat]?.models?.[provider];
             return (v === null || v === undefined) ? null : v;
-          }}),
+          }),
           backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
           borderRadius: 4,
-        }}));
+        }));
         buildGroupedBar('reference-evals-chart', datasets);
-      }}
+      }
 
       // Personal preference chart — uses the LMArena-aligned CATEGORY_REGISTRY
       // for its X-axis (NOT the globalBenchmarks keys, which are a different
@@ -1174,63 +1706,63 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       const personal = pageData.personalRoutingTable;
       const personalCtx = document.getElementById('personal-preference-chart');
       const personalCategoryKeys = pageData.personalChartCategoryKeys || [];
-      const personalCategoryLabels = pageData.personalChartCategoryLabels || {{}};
-      if (personalCtx && personal && providers.length && personalCategoryKeys.length) {{
-        const byTaskType = personal.by_task_type || {{}};
-        const personalDatasets = providers.map((provider) => ({{
+      const personalCategoryLabels = pageData.personalChartCategoryLabels || {};
+      if (personalCtx && personal && providers.length && personalCategoryKeys.length) {
+        const byTaskType = personal.by_task_type || {};
+        const personalDatasets = providers.map((provider) => ({
           label: provider.charAt(0).toUpperCase() + provider.slice(1),
-          data: personalCategoryKeys.map((cat) => {{
+          data: personalCategoryKeys.map((cat) => {
             // Average overall scores for any task_kind that maps to this category.
             const scores = [];
-            for (const [taskKind, providerScores] of Object.entries(byTaskType)) {{
+            for (const [taskKind, providerScores] of Object.entries(byTaskType)) {
               const mappedCat = TASK_KIND_TO_CATEGORY[taskKind] || DEFAULT_CATEGORY;
               if (mappedCat !== cat) continue;
               const entry = providerScores?.[provider];
-              if (entry && typeof entry.overall === 'number') {{
+              if (entry && typeof entry.overall === 'number') {
                 scores.push(entry.overall);
-              }}
-            }}
+              }
+            }
             if (!scores.length) return null;
             const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
             return Math.round(mean * 10 * 10) / 10;  // 0-10 → 0-100, 1 decimal
-          }}),
+          }),
           backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
           borderRadius: 4,
-        }}));
+        }));
         // Only render if at least one bar has data.
         const hasAny = personalDatasets.some((d) => d.data.some((v) => v !== null));
-        if (hasAny) {{
+        if (hasAny) {
           // Build chart inline — it uses a DIFFERENT X-axis from buildGroupedBar
           // (which is closed over the global `labels` from globalBenchmarks).
-          new Chart(personalCtx, {{
+          new Chart(personalCtx, {
             type: 'bar',
-            data: {{
+            data: {
               labels: personalCategoryKeys.map((k) => personalCategoryLabels[k] || k),
               datasets: personalDatasets,
-            }},
-            options: {{
+            },
+            options: {
               responsive: true,
               maintainAspectRatio: false,
-              plugins: {{ legend: {{ position: 'bottom', labels: {{ color: '#5f554d' }} }} }},
-              scales: {{
-                y: {{ ...baseScales.y, min: 0, max: 100 }},
+              plugins: { legend: { position: 'bottom', labels: { color: '#5f554d' } } },
+              scales: {
+                y: { ...baseScales.y, min: 0, max: 100 },
                 x: baseScales.x,
-              }},
-            }},
-          }});
-        }}
-      }}
-    }}
+              },
+            },
+          });
+        }
+      }
+    }
 
-    function normalizeOperation(raw, fallback = null) {{
-      if (!raw) {{
+    function normalizeOperation(raw, fallback = null) {
+      if (!raw) {
         return fallback;
-      }}
+      }
       const kind = raw.kind || raw.metadata?.kind || fallback?.kind || 'council';
-      const memberMap = raw.members || fallback?.members || {{}};
+      const memberMap = raw.members || fallback?.members || {};
       const fallbackOrder = fallback?.memberOrder || [];
       const rawOrder = raw.memberOrder || raw.metadata?.members || Object.keys(memberMap);
-      return {{
+      return {
         ...fallback,
         ...raw,
         kind,
@@ -1240,37 +1772,37 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         members: memberMap,
         activeProvider: raw.activeProvider || raw.active_provider || fallback?.activeProvider || null,
         activeProviders: raw.activeProviders || raw.active_providers || fallback?.activeProviders || [],
-        synthesis: raw.synthesis || fallback?.synthesis || {{}},
+        synthesis: raw.synthesis || fallback?.synthesis || {},
         reviewPath: raw.reviewPath || raw.review_path || fallback?.reviewPath || '',
         error: raw.error || fallback?.error || '',
-      }};
-    }}
+      };
+    }
 
-    function formatProviderLabel(provider) {{
-      if (!provider) {{
+    function formatProviderLabel(provider) {
+      if (!provider) {
         return '';
-      }}
+      }
       const normalized = String(provider).trim().toLowerCase();
-      const labels = {{
+      const labels = {
         claude: 'Claude',
         gemini: 'Gemini',
         codex: 'Codex',
         mlx: 'MLX',
         openai: 'OpenAI',
-      }};
-      if (labels[normalized]) {{
+      };
+      if (labels[normalized]) {
         return labels[normalized];
-      }}
+      }
       return normalized
-        .split(/[_\\s-]+/)
+        .split(/[_\s-]+/)
         .filter(Boolean)
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
-    }}
+    }
 
-    function LaunchpadApp(pageData) {{
+    function LaunchpadApp(pageData) {
       const initialOperation = normalizeOperation(pageData.activeOperation || null);
-      return {{
+      return {
         prompt: '',
         suggestionsOpen: false,
         launchError: '',
@@ -1281,41 +1813,41 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         settingsOpen: false,
         showReferenceRatings: false,
         councilSuggestions: pageData.councilSuggestions || [],
-        settingsLinks: pageData.settingsLinks || {{}},
-        providerHealth: pageData.providerHealth || {{ providers: [], hasMissing: false, footerNote: '' }},
-        telemetry: {{
+        settingsLinks: pageData.settingsLinks || {},
+        providerHealth: pageData.providerHealth || { providers: [], hasMissing: false, footerNote: '' },
+        telemetry: {
           enabled: !!pageData.telemetry?.settings?.sharing_enabled,
           endpoint: pageData.telemetry?.settings?.endpoint || '',
           shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
           autoChainEnabled: !!pageData.telemetry?.settings?.auto_chain_enabled,
-        }},
+        },
         liveReviewUrlBase: pageData.liveReviewUrl || '',
-        globalBenchmarks: pageData.globalBenchmarks || {{}},
+        globalBenchmarks: pageData.globalBenchmarks || {},
         benchmarkProviders: pageData.benchmarkProviders || [],
-        providerModels: pageData.providerModels || {{}},
+        providerModels: pageData.providerModels || {},
         personalRoutingTable: pageData.personalRoutingTable || null,
         tasteLenses: pageData.tasteLenses || null,
         formatProviderLabel,
         copiedKey: '',
         debugMode: new URLSearchParams(location.search).has('debug'),
-        copyLens(text, key) {{
+        copyLens(text, key) {
           if (!text) return;
-          const restore = () => {{ this.copiedKey = ''; }};
-          const setCopied = () => {{
+          const restore = () => { this.copiedKey = ''; };
+          const setCopied = () => {
             this.copiedKey = key;
             setTimeout(restore, 1800);
-          }};
-          if (navigator.clipboard?.writeText) {{
-            navigator.clipboard.writeText(text).then(setCopied, () => {{
+          };
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(setCopied, () => {
               this._copyFallback(text);
               setCopied();
-            }});
-          }} else {{
+            });
+          } else {
             this._copyFallback(text);
             setCopied();
-          }}
-        }},
-        _copyFallback(text) {{
+          }
+        },
+        _copyFallback(text) {
           // file:// pages on some browsers block navigator.clipboard. Use the
           // legacy textarea + execCommand path so the lens copies even when
           // the launchpad is opened directly from disk.
@@ -1325,19 +1857,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           ta.style.opacity = '0';
           document.body.appendChild(ta);
           ta.select();
-          try {{ document.execCommand('copy'); }} catch (_) {{ /* ignore */ }}
+          try { document.execCommand('copy'); } catch (_) { /* ignore */ }
           document.body.removeChild(ta);
-        }},
-        get routingTableProviders() {{
+        },
+        get routingTableProviders() {
           if (!this.personalRoutingTable?.by_task_type) return [];
           const set = new Set();
-          for (const taskType in this.personalRoutingTable.by_task_type) {{
-            for (const provider in this.personalRoutingTable.by_task_type[taskType]) {{
+          for (const taskType in this.personalRoutingTable.by_task_type) {
+            for (const provider in this.personalRoutingTable.by_task_type[taskType]) {
               set.add(provider);
-            }}
-          }}
+            }
+          }
           return Array.from(set).sort();
-        }},
+        },
         statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
         councilStatusMessages: pageData.councilLoadingMessages || [],
         ingestStatusMessages: [
@@ -1345,149 +1877,149 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           'Extracting task signals...',
           'Writing launchpad updates...',
         ],
-        init() {{
-          if (this.operation?.statusToken) {{
+        init() {
+          if (this.operation?.statusToken) {
             this.startOperationPolling(this.operation.statusToken);
-          }}
-        }},
-        get normalizedPrompt() {{
+          }
+        },
+        get normalizedPrompt() {
           return (this.prompt || '').trim().toLowerCase();
-        }},
-        get filteredCouncilSuggestions() {{
+        },
+        get filteredCouncilSuggestions() {
           const suggestions = this.councilSuggestions || [];
           const query = this.normalizedPrompt;
-          if (!query) {{
+          if (!query) {
             return suggestions.slice(0, 8);
-          }}
-          const queryTokens = query.split(/\\s+/).filter(Boolean);
-          return suggestions.filter((item) => {{
+          }
+          const queryTokens = query.split(/\s+/).filter(Boolean);
+          return suggestions.filter((item) => {
             const value = (typeof item === 'string' ? item : (item.text || '')).toLowerCase();
             return queryTokens.every((token) => value.includes(token));
-          }}).slice(0, 8);
-        }},
-        suggestionText(item) {{
+          }).slice(0, 8);
+        },
+        suggestionText(item) {
           if (typeof item === 'string') return item;
           return item?.text || '';
-        }},
-        suggestionReasons(item) {{
+        },
+        suggestionReasons(item) {
           if (typeof item === 'string') return [];
           return Array.isArray(item?.reasons) ? item.reasons : [];
-        }},
-        suggestionWinner(item) {{
+        },
+        suggestionWinner(item) {
           if (typeof item === 'string') return null;
           if (!item?.winner) return null;
           const w = String(item.winner);
           return w.charAt(0).toUpperCase() + w.slice(1);
-        }},
-        suggestionPriorPreview(item) {{
+        },
+        suggestionPriorPreview(item) {
           if (typeof item === 'string') return '';
           return item?.priorAssistantPreview || '';
-        }},
-        suggestionPriorFull(item) {{
+        },
+        suggestionPriorFull(item) {
           if (typeof item === 'string') return '';
           return item?.priorAssistantText || '';
-        }},
-        get showSuggestions() {{
+        },
+        get showSuggestions() {
           return this.suggestionsOpen && !this.busy && this.filteredCouncilSuggestions.length > 0;
-        }},
-        get suggestionsHeader() {{
+        },
+        get suggestionsHeader() {
           return this.normalizedPrompt ? 'Matching previous council queries' : 'Top used council queries';
-        }},
-        get busy() {{
+        },
+        get busy() {
           return !!this.operation && this.operation.status === 'running';
-        }},
-        get heroTitle() {{
-          if (this.operation?.kind === 'council' && this.busy) {{
+        },
+        get heroTitle() {
+          if (this.operation?.kind === 'council' && this.busy) {
             return 'Council in Progress';
-          }}
-          if (this.operation?.kind === 'ingest' && this.busy) {{
+          }
+          if (this.operation?.kind === 'ingest' && this.busy) {
             return 'Ingest in Progress';
-          }}
+          }
           // First-time vs returning user — count thread cards already
           // rendered. Avoids "Run Your First Council" greeting once the
           // user has any history at all.
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory ? 'Run a Council' : 'Own your memories.';
-        }},
+        },
         // Hide developer/placeholder endpoint values from the settings UI;
         // example.invalid is the RFC 6761 stub used during dev, localhost
         // is a test value. Show "Not configured" so users don't think a
         // broken URL is intentional.
-        get displayedEndpoint() {{
+        get displayedEndpoint() {
           const ep = this.telemetry?.endpoint || '';
           if (!ep) return 'Not configured';
-          if (/example\\.invalid|^https?:\\/\\/(localhost|127\\.0\\.0\\.1)/.test(ep)) {{
+          if (/example\.invalid|^https?:\/\/(localhost|127\.0\.0\.1)/.test(ep)) {
             return 'Not configured';
-          }}
+          }
           return ep;
-        }},
-        get heroLede() {{
-          if (this.operation?.kind === 'council' && this.busy) {{
+        },
+        get heroLede() {
+          if (this.operation?.kind === 'council' && this.busy) {
             return 'Trinity is asking the three labs for you. Routing JSON outcome lands when chairman finishes.';
-          }}
-          if (this.operation?.kind === 'ingest' && this.busy) {{
+          }
+          if (this.operation?.kind === 'ingest' && this.busy) {
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
-          }}
+          }
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory
             ? 'Three labs answer. You pick the strongest. Trinity remembers — across every provider, on your machine.'
             : 'The AI you trained should outlive the provider. Ask one question — Trinity asks Claude, Gemini, and Codex, tells you which agrees and why the disagreement matters.';
-        }},
-        get operationHeading() {{
-          if (!this.operation) {{
+        },
+        get operationHeading() {
+          if (!this.operation) {
             return '';
-          }}
-          if (this.operation.status === 'failed') {{
+          }
+          if (this.operation.status === 'failed') {
             return this.operation.kind === 'ingest' ? 'Transcript ingest failed' : 'Council failed';
-          }}
-          if (this.operation.status === 'canceled') {{
+          }
+          if (this.operation.status === 'canceled') {
             return 'Council stopped';
-          }}
+          }
           return this.operation.kind === 'ingest' ? 'Transcript ingest running' : 'Council running';
-        }},
-        get liveCouncilUrl() {{
-          if (!this.operation?.statusToken || !this.liveReviewUrlBase) {{
+        },
+        get liveCouncilUrl() {
+          if (!this.operation?.statusToken || !this.liveReviewUrlBase) {
             return '';
-          }}
+          }
           const params = new URLSearchParams();
           params.set('status_token', this.operation.statusToken);
-          if (this.operation.label) {{
+          if (this.operation.label) {
             params.set('task', this.operation.label);
-          }}
-          if (this.operation.memberOrder?.length) {{
+          }
+          if (this.operation.memberOrder?.length) {
             params.set('members', this.operation.memberOrder.join(','));
-          }}
-          return `${{this.liveReviewUrlBase}}?${{params.toString()}}`;
-        }},
-        get currentStatusMessage() {{
+          }
+          return `${this.liveReviewUrlBase}?${params.toString()}`;
+        },
+        get currentStatusMessage() {
           const messages = this.operation?.kind === 'ingest' ? this.ingestStatusMessages : this.councilStatusMessages;
           const message = messages[this.currentStatusIndex % messages.length] || 'Working...';
-          if (this.operation?.kind === 'council') {{
+          if (this.operation?.kind === 'council') {
             const synthesisStatus = this.operation?.synthesis?.status;
-            if (synthesisStatus === 'running') {{
+            if (synthesisStatus === 'running') {
               return 'Synthesizing the strongest answer...';
-            }}
+            }
             const activeProvider = this.operation?.activeProvider;
-            if (activeProvider) {{
-              return `${{formatProviderLabel(activeProvider)}}: ${{message}}`;
-            }}
-          }}
+            if (activeProvider) {
+              return `${formatProviderLabel(activeProvider)}: ${message}`;
+            }
+          }
           return message;
-        }},
-        get showProviderRows() {{
+        },
+        get showProviderRows() {
           return this.operation?.kind === 'council' && this.providerStatusRows.length > 0;
-        }},
-        get providerStatusRows() {{
-          if (this.operation?.kind !== 'council') {{
+        },
+        get providerStatusRows() {
+          if (this.operation?.kind !== 'council') {
             return [];
-          }}
-          const memberMap = this.operation?.members || {{}};
+          }
+          const memberMap = this.operation?.members || {};
           const providers = this.operation?.memberOrder?.length ? this.operation.memberOrder : Object.keys(memberMap);
-          const rows = providers.map((provider) => {{
-            const item = memberMap[provider] || {{}};
+          const rows = providers.map((provider) => {
+            const item = memberMap[provider] || {};
             const status = item.status || 'pending';
             const providerLabel = formatProviderLabel(provider);
-            return {{
+            return {
               provider,
               label: providerLabel,
               statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
@@ -1497,11 +2029,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 : status === 'failed'
                   ? (item.reasoning_summary || 'Provider failed.')
                   : '',
-            }};
-          }});
+            };
+          });
           const synthesisStatus = this.operation?.synthesis?.status || 'pending';
           const memberPending = rows.slice(0, providers.length).some((row) => row.statusClass === 'pending' || row.statusClass === 'running');
-          rows.push({{
+          rows.push({
             provider: 'analysis',
             label: 'Analysis',
             statusLabel: synthesisStatus === 'done' ? 'Done' : synthesisStatus === 'failed' ? 'Failed' : synthesisStatus === 'running' ? 'Running' : 'Queued',
@@ -1515,211 +2047,211 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   : memberPending
                     ? 'Waiting for member responses.'
                     : 'Ready to start final comparison.',
-          }});
+          });
           return rows;
-        }},
-        copyText(value) {{
-          if (!value) {{
+        },
+        copyText(value) {
+          if (!value) {
             return;
-          }}
-          if (navigator.clipboard?.writeText) {{
+          }
+          if (navigator.clipboard?.writeText) {
             navigator.clipboard.writeText(value).catch(() => null);
             return;
-          }}
+          }
           window.prompt('Copy this command:', value);
-        }},
-        formatScore(score, unit) {{
-          if (score === null || score === undefined) {{
+        },
+        formatScore(score, unit) {
+          if (score === null || score === undefined) {
             return '—';
-          }}
-          if (unit.includes('score')) {{
+          }
+          if (unit.includes('score')) {
             return score.toFixed(1);
-          }}
-          if (unit.includes('%')) {{
+          }
+          if (unit.includes('%')) {
             return score.toFixed(1);
-          }}
+          }
           return score.toFixed(1);
-        }},
-        thinkingLevel(provider) {{
+        },
+        thinkingLevel(provider) {
           // Surface the variant tag the reference-eval source attaches to a
           // model name, e.g. "Adaptive Reasoning, Max Effort" or "xhigh" —
           // the bit in parens after the display name. Empty if no variant.
           const meta = this.referenceEvalsMeta && this.referenceEvalsMeta.providers;
           if (!meta || !meta[provider] || !meta[provider].name) return '';
-          const m = String(meta[provider].name).match(/\\(([^)]+)\\)\\s*$/);
+          const m = String(meta[provider].name).match(/\(([^)]+)\)\s*$/);
           return m ? m[1] : '';
-        }},
-        triggerShortcut(url) {{
+        },
+        triggerShortcut(url) {
           const link = document.createElement('a');
           link.href = url;
           link.rel = 'noreferrer';
           document.body.appendChild(link);
           link.click();
           link.remove();
-        }},
-        scheduleLaunchpadReload(delay = 1400) {{
-          window.setTimeout(() => {{
+        },
+        scheduleLaunchpadReload(delay = 1400) {
+          window.setTimeout(() => {
             window.location.reload();
-          }}, delay);
-        }},
-        triggerSettingsAction(url) {{
+          }, delay);
+        },
+        triggerSettingsAction(url) {
           this.triggerShortcut(url);
           this.settingsOpen = false;
           this.scheduleLaunchpadReload();
-        }},
-        toggleSharing(event) {{
+        },
+        toggleSharing(event) {
           event.target.checked = this.telemetry.enabled;
           const isNowEnabled = !this.telemetry.enabled;
           const url = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
           this.triggerSettingsAction(url);
-        }},
-        toggleAutoChain(event) {{
+        },
+        toggleAutoChain(event) {
           event.target.checked = this.telemetry.autoChainEnabled;
           const isNowEnabled = !this.telemetry.autoChainEnabled;
           const url = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
           this.triggerSettingsAction(url);
-        }},
-        resetAnonymousId() {{
+        },
+        resetAnonymousId() {
           this.triggerSettingsAction(this.settingsLinks.reset);
-        }},
-        dismissOperation() {{
+        },
+        dismissOperation() {
           this.launchError = '';
           this.clearOperation();
-        }},
-        stopCurrentCouncil() {{
-          if (!this.operation?.statusToken || this.operation.kind !== 'council' || !this.busy) {{
+        },
+        stopCurrentCouncil() {
+          if (!this.operation?.statusToken || this.operation.kind !== 'council' || !this.busy) {
             return;
-          }}
-          const payload = {{
+          }
+          const payload = {
             name: 'stop_council',
-            args: {{
+            args: {
               status_token: this.operation.statusToken,
-            }},
-            metadata: {{
+            },
+            metadata: {
               kind: 'stop_council',
               source: 'launchpad',
-            }},
-          }};
+            },
+          };
           this.triggerShortcut(buildShortcutUrl(payload));
-        }},
-        openSuggestions() {{
+        },
+        openSuggestions() {
           this.suggestionsOpen = true;
-        }},
-        closeSuggestionsSoon() {{
-          window.setTimeout(() => {{
+        },
+        closeSuggestionsSoon() {
+          window.setTimeout(() => {
             this.suggestionsOpen = false;
-          }}, 120);
-        }},
-        handlePromptInput() {{
+          }, 120);
+        },
+        handlePromptInput() {
           this.suggestionsOpen = true;
-        }},
-        applySuggestion(suggestion) {{
+        },
+        applySuggestion(suggestion) {
           const text = this.suggestionText(suggestion);
           const prior = this.suggestionPriorFull(suggestion);
           // For thread-dependent prompts ("continue.", "Let me restart.")
           // prepend the prior assistant excerpt so fresh members see the
           // framing the user was responding to. Mirrors the canonical format
           // in src/trinity_local/thread_context.py.
-          if (prior && text) {{
+          if (prior && text) {
             const BUDGET = 1500;
             let excerpt = prior.trim();
-            if (excerpt.length > BUDGET) {{
+            if (excerpt.length > BUDGET) {
               const half = Math.floor(BUDGET / 2);
               excerpt = excerpt.slice(0, half).trimEnd()
-                + '\\n[... excerpt truncated ...]\\n'
+                + '\n[... excerpt truncated ...]\n'
                 + excerpt.slice(-half).trimStart();
-            }}
+            }
             this.prompt =
-              'Prior conversation context — the user is continuing a thread.\\n'
-              + 'The previous assistant turn said:\\n'
-              + '---\\n' + excerpt + '\\n---\\n\\n'
-              + 'Current user message:\\n'
+              'Prior conversation context — the user is continuing a thread.\n'
+              + 'The previous assistant turn said:\n'
+              + '---\n' + excerpt + '\n---\n\n'
+              + 'Current user message:\n'
               + text;
-          }} else {{
+          } else {
             this.prompt = text;
-          }}
+          }
           this.suggestionsOpen = false;
-        }},
-        beginOperation(operation) {{
-          this.operation = normalizeOperation({{
+        },
+        beginOperation(operation) {
+          this.operation = normalizeOperation({
             ...operation,
             status: 'running',
-            members: Object.fromEntries((operation.memberOrder || []).map((provider) => [provider, {{ status: 'pending' }}])),
-            synthesis: {{ status: 'pending' }},
-          }});
+            members: Object.fromEntries((operation.memberOrder || []).map((provider) => [provider, { status: 'pending' }])),
+            synthesis: { status: 'pending' },
+          });
           this.launchError = '';
           this.suggestionsOpen = false;
           this.startOperationPolling(operation.statusToken);
-        }},
-        stopOperationPolling() {{
-          if (this.statusPollHandle) {{
+        },
+        stopOperationPolling() {
+          if (this.statusPollHandle) {
             clearInterval(this.statusPollHandle);
             this.statusPollHandle = null;
-          }}
-          if (this.statusRotateHandle) {{
+          }
+          if (this.statusRotateHandle) {
             clearInterval(this.statusRotateHandle);
             this.statusRotateHandle = null;
-          }}
-        }},
-        clearOperation() {{
+          }
+        },
+        clearOperation() {
           this.operation = null;
           this.stopOperationPolling();
-        }},
-        startOperationPolling(token) {{
+        },
+        startOperationPolling(token) {
           this.stopOperationPolling();
           this.currentStatusIndex = 0;
-          this.statusRotateHandle = window.setInterval(() => {{
+          this.statusRotateHandle = window.setInterval(() => {
             this.currentStatusIndex++;
-          }}, 2500);
-          const check = () => {{
-            loadStatusScript(token, (status) => {{
+          }, 2500);
+          const check = () => {
+            loadStatusScript(token, (status) => {
               if (!status) return;
-              if (!this.operation) {{
+              if (!this.operation) {
                 return;
-              }}
-              if (status.status === 'running') {{
+              }
+              if (status.status === 'running') {
                 this.operation = normalizeOperation(status, this.operation);
                 return;
-              }}
-              if (status.status === 'failed') {{
+              }
+              if (status.status === 'failed') {
                 this.launchError = status.error || 'Council failed.';
-                this.operation = normalizeOperation({{ ...status, status: 'failed', error: this.launchError }}, this.operation);
+                this.operation = normalizeOperation({ ...status, status: 'failed', error: this.launchError }, this.operation);
                 this.stopOperationPolling();
                 return;
-              }}
-              if (status.status === 'canceled') {{
+              }
+              if (status.status === 'canceled') {
                 this.launchError = status.error || 'Council stopped.';
-                this.operation = normalizeOperation({{ ...status, status: 'canceled', error: this.launchError }}, this.operation);
+                this.operation = normalizeOperation({ ...status, status: 'canceled', error: this.launchError }, this.operation);
                 this.stopOperationPolling();
                 return;
-              }}
-              if (status.status === 'completed') {{
+              }
+              if (status.status === 'completed') {
                 this.clearOperation();
-                if (status.review_path) {{
+                if (status.review_path) {
                   navigateToReviewPath(status.review_path);
                   return;
-                }}
+                }
                 window.location.reload();
-              }}
-            }});
-          }};
+              }
+            });
+          };
           check();
           this.statusPollHandle = window.setInterval(check, 1500);
-        }},
-        launchCouncil() {{
-          if (this.busy) {{
+        },
+        launchCouncil() {
+          if (this.busy) {
             return;
-          }}
+          }
           const prompt = this.prompt.trim();
-          if (!prompt) {{
+          if (!prompt) {
             window.alert('Please enter a task first.');
             return;
-          }}
-          const statusToken = `launch_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
+          }
+          const statusToken = `launch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
           this.prompt = '';
-          const payload = {{
+          const payload = {
             name: 'launch_council',
-            args: {{
+            args: {
               task: prompt,
               goal: pageData.defaultGoal,
               members: pageData.defaultMembers,
@@ -1728,66 +2260,67 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               status_token: statusToken,
               notify: true,
               open_browser: false,
-            }},
-            metadata: {{
+            },
+            metadata: {
               kind: 'launch_council',
               source: 'launchpad',
-            }},
-          }};
-          this.beginOperation({{
+            },
+          };
+          this.beginOperation({
             kind: 'council',
             statusToken,
             label: prompt,
             memberOrder: [...pageData.defaultMembers],
-          }});
+          });
           this.triggerShortcut(buildShortcutUrl(payload));
-        }},
-        renderMeCard() {{
+        },
+        renderMeCard() {
           if (this.busy) return;
           // Render the strongest lens as a PNG + open in Preview. The card is
           // the spec-v1 "social object" — no point if it lives only as a CLI
           // output path. `open` works because the macOS Shortcut bridge runs
           // commands via /bin/sh.
           const out = '~/.trinity/share/me_card.png';
-          const command = `trinity-local me-card --out ${{out}} && open ${{out}}`;
-          const payload = {{
+          const command = `trinity-local me-card --out ${out} && open ${out}`;
+          const payload = {
             name: 'run_command',
-            args: {{ command }},
-            metadata: {{ kind: 'launchpad_me_card', source: 'launchpad' }},
-          }};
+            args: { command },
+            metadata: { kind: 'launchpad_me_card', source: 'launchpad' },
+          };
           this.copiedKey = 'me-card';
-          setTimeout(() => {{ if (this.copiedKey === 'me-card') this.copiedKey = ''; }}, 2400);
+          setTimeout(() => { if (this.copiedKey === 'me-card') this.copiedKey = ''; }, 2400);
           this.triggerShortcut(buildShortcutUrl(payload));
-        }},
-        ingestOnce() {{
-          if (this.busy) {{
+        },
+        ingestOnce() {
+          if (this.busy) {
             return;
-          }}
-          const statusToken = `ingest_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
-          const command = `trinity-local watch-once --notify --status-token ${{statusToken}}`;
-          const payload = {{
+          }
+          const statusToken = `ingest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+          const command = `trinity-local watch-once --notify --status-token ${statusToken}`;
+          const payload = {
             name: 'run_command',
-            args: {{
+            args: {
               command,
-            }},
-            metadata: {{
+            },
+            metadata: {
               kind: 'launchpad_ingest_once',
               source: 'launchpad',
-            }},
-          }};
-          this.beginOperation({{
+            },
+          };
+          this.beginOperation({
             kind: 'ingest',
             statusToken,
             label: 'Scan recent transcripts once',
-          }});
+          });
           this.settingsOpen = false;
           this.triggerShortcut(buildShortcutUrl(payload));
-        }},
-      }};
-    }}
+        },
+      };
+    }
 
-    createApp({{ LaunchpadApp, pageData }}).mount();
+    createApp({ LaunchpadApp, pageData }).mount();
     maybeSendTelemetry();
     renderChart();
   </script>
-{footer}"""
+</body>
+</html>

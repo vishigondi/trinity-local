@@ -214,6 +214,18 @@ else
     echo "FAIL: skill not bundled to $SKILL" >&2
     exit 1
 fi
+
+# Render the launchpad against the empty ~/.trinity/ — this is what the
+# HN reader sees on the very first portal-html. The rendered HTML gets
+# SCPed back to the host so we can screenshot the cold-start visually.
+~/trinity-venv/bin/trinity-local portal-html >/dev/null 2>&1 || true
+LAUNCHPAD=~/.trinity/portal_pages/launchpad.html
+if [ -f "$LAUNCHPAD" ]; then
+    echo "      ✓ cold-start launchpad rendered to $LAUNCHPAD ($(wc -c < $LAUNCHPAD) bytes)"
+else
+    echo "FAIL: cold-start launchpad did not render" >&2
+    exit 1
+fi
 REMOTE_EOF
 )
 
@@ -221,6 +233,17 @@ if ! sshpass -p "$VM_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile
     "$VM_USER@$VM_IP" "bash -s" <<< "$REMOTE_SCRIPT" >&2; then
     echo "FAIL: install or doctor failed inside VM" >&2
     exit 1
+fi
+
+# Pull the cold-start launchpad back to the host so we can screenshot it.
+# This is the HN-reader-first-look visual — the empty-state experience the
+# local smoke can't see (your own ~/.trinity has 12+ councils).
+COLD_OUT="$REPO_ROOT/docs/smoke/cold-start-launchpad.html"
+mkdir -p "$REPO_ROOT/docs/smoke"
+sshpass -p "$VM_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    "$VM_USER@$VM_IP:.trinity/portal_pages/launchpad.html" "$COLD_OUT" >&2 || true
+if [ -f "$COLD_OUT" ]; then
+    echo "      ✓ cold-start launchpad pulled to docs/smoke/cold-start-launchpad.html"
 fi
 
 END=$(date +%s)
