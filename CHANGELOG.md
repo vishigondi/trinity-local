@@ -3,6 +3,56 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 — ship-ready] — 2026-05-09
+
+Closing the v1 launch gap. Brand landed in code + agent context + manifesto essay.
+Browser smoke gate covers all 8 testable surfaces. Remaining items are human-gated
+(docker daemon, public push, tester DMs, HN timing).
+
+### Added
+- **`scripts/browser_smoke.py`** — 8-surface UI smoke via Python playwright. Asserts
+  chart bars, settings modal, routing table, Copy-for-sharing clipboard, recent-council
+  click → live page, back-trip to launchpad, Launch Council button presence, no
+  telemetry console errors. Saves per-surface screenshots to `docs/smoke/`. Exits 0
+  green / 1 fail / 2 setup error / 3 playwright missing. Replaces MCP-driven browser
+  checks that kept dying between sessions. First run: 8/8 green.
+- **`docs/founder-essay-draft.md`** — long-form manifesto piece for week-2 launch. Voice
+  belongs to the user; polish + ship after HN front-page lands. Covers: the structural
+  problem (labs commercially prevented from helping use a competitor), the local-first
+  architecture, why the council shape works, three load-bearing commitments (prompts
+  never upload, no LLM outside councils, free forever), the v1.1/v1.2/v2 arc, and the
+  bigger thesis (*own your memories now, because the next thing you'll need to own is
+  your agent*).
+
+### Updated
+- **`claude.md`** — Project identity rewritten to match v1.0 brand: *Trinity Local is
+  the cross-provider memory layer the labs are commercially prevented from building.*
+  Status block dated 2026-05-09. Points at `docs/spec-v1.md` (locked) and
+  `docs/spec-v2.md` (held). Removes the legacy "$20-200/mo Plus tiers" line (true but
+  off-brand for v1) — Trinity rides on user's subscriptions; pricing for hosted layers
+  is out of v1 scope.
+- **`docs/spec-v1.md`** — explicit weekly-digest deferral added to the "intentionally
+  NOT in v1" list. `digest.py` was removed during the v1.1 audit and not re-added;
+  `me-card` PNG is the v1 weekly-ish artifact. Real digest rendering returns in v1.1.
+
+### Verification (final state)
+- `pytest -q`: 400 passed
+- `python scripts/browser_smoke.py`: 8/8 surfaces green
+- `trinity-local doctor`: all checks green (provider CLIs authenticated)
+- `~/.trinity/SCHEMA_VERSION` = "1"
+- Hard prompts capability chart bar = 87 (Claude); routing table = 10 rows;
+  copy-for-sharing = 318 chars; recent-council card click renders chairman synthesis;
+  back-trip to launchpad works.
+
+### Still human-gated (cannot ship autonomously)
+- Docker smoke gate close (Docker daemon not running locally)
+- Public GitHub push (decision on repo URL + visibility)
+- 5 fresh-install tester DMs
+- HN post timing (Tuesday 9am ET per launch sequence)
+- OBS demo video (60s) — optional substitute is the static README sequence already shipped
+
+---
+
 ## [v1.0 — locked for May 13-15 ship] — 2026-05-09
 
 User dropped a fully-formed launch spec. Split into `docs/spec-v1.md` (locked, ships now)

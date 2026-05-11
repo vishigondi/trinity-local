@@ -195,6 +195,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 Deferred to `docs/spec-v2.md` (see that file for the held vision):
 
+- Weekly digest (the original spec listed this in v1.0; `digest.py` was removed during the v1.1 audit and not re-added. `me-card` PNG is the v1 weekly-ish artifact users actually share. Real digest rendering returns in v1.1 alongside the narrative video pipeline.)
 - Narrative video pipeline (v1.1, week 8)
 - Coach Lens / `trinity evolve` aspirational anchor (v1.2, week 12)
 - Hosted council orchestration / cross-machine sync (held in spec-v2.md, no pricing decided)

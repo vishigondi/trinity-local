@@ -1,16 +1,16 @@
 # claude.md — Trinity Local
 
-> Agent-facing project context. Companion to [`docs/scale-plan.md`](docs/scale-plan.md) (long-form Phase 0–9 roadmap) and [`docs/product-spec.md`](docs/product-spec.md) (positioning + GTM).
+> Agent-facing project context. Companion to [`docs/spec-v1.md`](docs/spec-v1.md) (locked v1 launch spec — ships May 13–15), [`docs/spec-v2.md`](docs/spec-v2.md) (held v2 vision), and [`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
 
 ## Project Identity
 
-**Trinity Local is a local evidence ledger for model choice.** It compares providers when model choice is uncertain, persists the chairman's Routing JSON plus the user's verdict / rejection signal as one labeled outcome, and recomputes the user's personal routing table and `/me` taste lenses from that ledger on demand. This repo ships a **synthesizer over provider outputs + a local evidence ledger** — not the HRM/TRM/Qwen-conductor learned-coordinator architecture, which lives in future / sibling work.
+**Trinity Local is the cross-provider memory layer the labs are commercially prevented from building.** Tagline: *Own your memories. The AI you trained should outlive the provider.* It watches Claude / ChatGPT / Gemini transcripts that already live on the user's machine, learns which model wins for which kind of question, and — when the user doesn't know which to ask — convenes them as a council and synthesizes one verifier-shaped verdict. The shareable artifact is the user's `/me` lens (paired tensions extracted from where they pushed back on a model), not council verdicts themselves.
 
-**Status (2026-05-07):** v1 shipped — see [`CHANGELOG.md`](CHANGELOG.md). The lens-discovery pipeline (4 stages + Stage 0 turn-pair gaps with deterministic validators) is the v1 capstone; produces taste-terminal-quality output with 342 tests passing. **v2 = Loop Constitution double-loop** for skill graduation, scoped in `~/.claude/plans/whimsical-imagining-firefly.md`. See "Loop Constitution (v2)" section below.
+**Status (2026-05-09):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 400 tests passing. **v2 = held vision** — Loop Constitution double-loop (substrate already shipped in `src/trinity_local/loop/`) + learned local chairman via DPO + per-member prompt formulation. Scoped in [`docs/spec-v2.md`](docs/spec-v2.md). Foundation laid in v1; no v2 features productized until post-launch.
 
-**The wedge is trust calibration, not cost optimization.** The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."* The shareable artifact is the user's `/me` lenses (pair-wise model-said / user-substituted / why-it-matters cards), not council verdicts.
+**The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 
-**The moat is the ledger.** Every run, replay, rating, and rejection becomes a row that improves routing judgment without adding new control paths. Frontier providers can't replicate this — they don't see the cross-model preference signal, and Trinity's `/me` content stays local. Trinity rides on subsidized consumer subscriptions ($20–$200/mo Claude / ChatGPT / Gemini Plus tiers) and never pays per call.
+**The moat is the ledger.** Every council emits structured Routing JSON to `~/.trinity/council_outcomes/<id>.json` — `agreed_claims`, `disagreed_claims` with `why_matters`, `winner`, `provider_scores`, `routing_lesson`. Every user click feeds `record_outcome` → `~/.trinity/council_feedback.jsonl` + `outcome.metadata.user_verdict`. Frontier providers can't see the cross-model preference signal; Trinity persists it locally. The personal routing table is computed on-demand from the outcomes directory (no separate state file). Trinity rides on subsidized consumer subscriptions and never pays per call. v1 is free forever; revenue model deferred (see `docs/spec-v2.md` for held hosted-capability description, no pricing committed).
 
 ## Architectural commitments (load-bearing, not negotiable)
 
