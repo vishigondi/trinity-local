@@ -180,6 +180,14 @@ Backup titles (use if the Dreaming hook decays):
 >    routing labels — `task_type`, `winner`, `confidence`. Powers a future leaderboard for
 >    the curious; works perfectly fine without it.
 >
+> The VentureBeat article has the deepest sentence in the debate: *"models may become
+> interchangeable, but the tooling and orchestration infrastructure will not."* Anthropic
+> is openly betting the moat is the tooling, not the model. We agree — and we think the
+> tooling should be **user-owned**, not lab-owned. Trinity isn't a competitor to LangGraph
+> or CrewAI or Pinecone — it sits *above* them, at the layer that decides which lab to
+> ask for which kind of question. Keep your modular stack; add a routing layer that
+> learns across it. That's the third answer to the binary the article frames.
+>
 > The interesting bit isn't the comparison — it's that every council emits *Routing JSON*
 > (winner / agreed_claims / disagreed_claims / routing_lesson / eval_seed). After a few
 > councils, the chairman picker gets smarter at routing *your* flavor of question to the

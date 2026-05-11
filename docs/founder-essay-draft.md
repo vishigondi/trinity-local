@@ -118,6 +118,32 @@ one is wrong and the others are right; they disagree because each has a slightly
 different prior over the answer space, and *those priors are the most valuable thing
 about them*. A council surfaces the priors. A chat with any single model erases them.
 
+## What Trinity is not
+
+A subtler thing worth naming: Trinity is not a competitor to LangGraph, CrewAI,
+Pinecone, DeepEval, or whatever else you've cobbled together for within-Claude
+state and within-Claude evaluation. The VentureBeat piece frames the question
+as binary — *"ditch your flexible, modular system, or stay locked into it."*
+That's a false binary. Trinity is the third answer: keep your modular stack;
+add a routing layer that learns *across* it.
+
+The article's deepest sentence is *"models may become interchangeable, but the
+tooling and orchestration infrastructure will not."* That's the Anthropic bet
+made openly. I agree with the technical claim and disagree with the
+ownership conclusion. Yes, tooling will lock you in. So the tooling should
+be **user-owned**, not lab-owned. Trinity is what user-owned tooling at the
+routing layer looks like — the layer that decides which lab to ask for which
+kind of question, with the decision criteria stored in `~/.trinity/cortex/`
+that you can grep, version-control, audit, port to a new machine, or share
+with your team. None of the labs can ship that, because none of the labs is
+allowed to route to a competitor.
+
+For compliance-driven shops: the local-first architecture isn't just a
+philosophical preference. Anthropic's hosted runtime means memory + state +
+routing all live on Anthropic infrastructure. Some industries legally cannot
+deploy that — data residency, BAA, etc. Trinity inside a VPC is a different
+shape entirely; the routing patterns stay in your environment.
+
 ## What I learned building this
 
 Three architectural commitments I won't compromise on, ever:
