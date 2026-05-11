@@ -840,6 +840,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <div class="actions" style="margin-top: 18px;">
             <button type="button" class="button primary" @click="launchCouncil" :disabled="busy">Launch Council</button>
           </div>
+          <p class="meta" style="margin-top: 12px; font-size: 13px; opacity: 0.7;">
+            Or drive Trinity from inside Claude Code: type <code>/trinity</code> after running <code>trinity-local install-mcp</code>. Same chairman, no tab switch.
+          </p>
 
               <section class="launch-status" v-if="operation || launchError">
                 <div class="spinner-row" v-if="busy">
@@ -990,10 +993,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="taste-share-row">
           <button class="button primary taste-share-btn" @click="copyLens(tasteLenses.combined_share_text, 'taste-share')">
             <span v-if="copiedKey === 'taste-share'">✓ Copied — paste anywhere</span>
-            <span v-else>Copy for sharing</span>
+            <span v-else>Copy as text</span>
           </button>
-          <span class="meta taste-share-meta">
-            One clean text block, ready for socials. Pair-wise context (what the model said / what you said back) stays private.
+          <button class="button ghost taste-share-btn" @click="renderMeCard" :disabled="busy" style="margin-left: 8px;">
+            <span v-if="copiedKey === 'me-card'">✓ Rendered — opening</span>
+            <span v-else>Save as PNG card</span>
+          </button>
+          <span class="meta taste-share-meta" style="display: block; margin-top: 8px;">
+            PNG renders the strongest lens as a 1200×630 card — the social object. Text version: one clean paste, pair-wise context (what the model said / what you said back) stays private.
           </span>
         </div>
       </section>
@@ -1733,6 +1740,23 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             label: prompt,
             memberOrder: [...pageData.defaultMembers],
           }});
+          this.triggerShortcut(buildShortcutUrl(payload));
+        }},
+        renderMeCard() {{
+          if (this.busy) return;
+          // Render the strongest lens as a PNG + open in Preview. The card is
+          // the spec-v1 "social object" — no point if it lives only as a CLI
+          // output path. `open` works because the macOS Shortcut bridge runs
+          // commands via /bin/sh.
+          const out = '~/.trinity/share/me_card.png';
+          const command = `trinity-local me-card --out ${{out}} && open ${{out}}`;
+          const payload = {{
+            name: 'run_command',
+            args: {{ command }},
+            metadata: {{ kind: 'launchpad_me_card', source: 'launchpad' }},
+          }};
+          this.copiedKey = 'me-card';
+          setTimeout(() => {{ if (this.copiedKey === 'me-card') this.copiedKey = ''; }}, 2400);
           this.triggerShortcut(buildShortcutUrl(payload));
         }},
         ingestOnce() {{

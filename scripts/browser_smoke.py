@@ -214,7 +214,7 @@ def main() -> int:
         # "Copied!" which would break any text-based selector run after.
         page.evaluate(
             """() => {
-              const btn = Array.from(document.querySelectorAll('button')).find(b => /Copy.*shar/i.test(b.textContent));
+              const btn = Array.from(document.querySelectorAll('button')).find(b => /(Copy.*shar|Copy as text)/i.test(b.textContent));
               btn?.scrollIntoView({block: 'center'});
             }"""
         )
@@ -225,7 +225,7 @@ def main() -> int:
               let copied = null;
               const orig = navigator.clipboard?.writeText;
               if (orig) navigator.clipboard.writeText = async (t) => { copied = t; return Promise.resolve(); };
-              const btn = Array.from(document.querySelectorAll('button')).find(b => /Copy.*shar/i.test(b.textContent));
+              const btn = Array.from(document.querySelectorAll('button')).find(b => /(Copy.*shar|Copy as text)/i.test(b.textContent));
               if (!btn) { if (orig) navigator.clipboard.writeText = orig; resolve({ok: false, reason: 'btn missing'}); return; }
               btn.click();
               setTimeout(() => {
