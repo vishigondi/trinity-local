@@ -34,9 +34,11 @@ class TestToolList:
 
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        # Canonical 6: route, run_council (now subsumes judge via responses=[...]),
-        # record_outcome, search_prompts, get_persona, get_council_status.
+        # v1.5 adds `ask` (the cheap default routing tool). v1.0 canonical 6:
+        # route, run_council (subsumes judge via responses=[...]), record_outcome,
+        # search_prompts, get_persona, get_council_status. v1.5: ask.
         assert names == {
+            "ask",
             "route", "run_council", "record_outcome",
             "search_prompts", "get_persona", "get_council_status",
         }, f"unexpected tool list: {names}"

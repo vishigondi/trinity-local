@@ -66,6 +66,39 @@ async def handle_list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="ask",
+            description=(
+                "Ask a single question and get one routed answer. Trinity routes via kNN over "
+                "the user's past prompts (which model has historically won for similar questions), "
+                "dispatches one call to the best provider, and returns a concise structured answer. "
+                "Use for 90% of consults — quick second opinion, cross-provider check, dodging a "
+                "rate limit on your own subscription.\n\n"
+                "Returns: {answer, routed_to, trust_score (0..1), latency_ms, optional runner_up, "
+                "optional escalate_hint='compare' when trust is low and you should consider calling "
+                "`run_council` for parallel perspectives instead}.\n\n"
+                "Cost: ~$0.01–0.05 typical, <2s. Single dispatched call, no flagship planning, "
+                "no multi-model fan-out. If you genuinely need disagreement-vs-agreement structure, "
+                "use `run_council` instead."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The user's question or task"},
+                    "available_providers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Provider names allowed to route to (default: all enabled in config)",
+                    },
+                    "thread_id": {
+                        "type": "string",
+                        "description": "Optional. Carries context across related calls (working memory).",
+                    },
+                    "top_k": {"type": "integer", "default": 5, "description": "How many past prompts to retrieve for the vote"},
+                },
+                "required": ["query"],
+            },
+        ),
+        Tool(
             name="run_council",
             description=(
                 "Launch a multi-provider comparison for the user's task. Use when the user "
@@ -209,6 +242,8 @@ async def handle_list_tools() -> list[Tool]:
 async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     arguments = arguments or {}
     try:
+        if name == "ask":
+            return await _ask(arguments)
         if name == "route":
             return await _route(arguments)
         if name == "run_council":
@@ -230,6 +265,63 @@ def _text(payload: dict | str) -> dict:
     """Wrap a JSON-serializable result as an MCP text response."""
     body = payload if isinstance(payload, str) else json.dumps(payload, indent=2, default=str)
     return {"type": "text", "text": body}
+
+
+def _dispatch_via_config(provider_name: str, prompt: str) -> str:
+    """Production dispatch shim used by `ask`. Looks up the named provider in
+    config, runs the CLI once, returns stdout. Errors raise; the MCP handler
+    catches them and returns an error response so Claude in the harness knows
+    the route failed and can retry / replan.
+    """
+    from pathlib import Path
+
+    from .config import load_config
+    from .providers import make_provider, ProviderError
+
+    config = load_config()
+    provider_config = None
+    for p in config.providers:
+        if p.name == provider_name and p.enabled:
+            provider_config = p
+            break
+    if provider_config is None:
+        raise ProviderError(f"Provider not configured or not enabled: {provider_name}")
+    provider = make_provider(provider_config)
+    result = provider.run(prompt, Path.cwd())
+    if result.returncode != 0:
+        raise ProviderError(f"{provider_name} exit {result.returncode}: {result.stderr[:200]}")
+    return result.stdout
+
+
+async def _ask(args: dict) -> list[Any]:
+    """Handle mcp__trinity-local__ask. Routes via kNN + dispatches once.
+    See `src/trinity_local/ask.py` for orchestration logic.
+    """
+    from .ask import run_ask
+
+    query = args.get("query")
+    if not query or not isinstance(query, str):
+        return [ErrorData(code=400, message="`query` is required and must be a string")]
+
+    available = args.get("available_providers")
+    if available is not None and not isinstance(available, list):
+        return [ErrorData(code=400, message="`available_providers` must be a list of provider names")]
+
+    top_k = int(args.get("top_k", 5))
+    # thread_id is accepted but not yet used in week-1 — wired in week-2.
+    _thread_id = args.get("thread_id")
+
+    try:
+        result = run_ask(
+            query,
+            dispatch_fn=_dispatch_via_config,
+            top_k=top_k,
+            available_providers=available,
+        )
+    except Exception as exc:
+        return [ErrorData(code=502, message=f"dispatch_failed: {type(exc).__name__}: {exc}")]
+
+    return [_text(result.to_dict())]
 
 
 async def _route(args: dict) -> list[Any]:

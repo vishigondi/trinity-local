@@ -149,3 +149,61 @@ class TestRunAsk:
         # No verbose "decision" or "evidence" blob in the compact return.
         assert "decision" not in payload
         assert "evidence_prompt_ids" not in payload
+
+
+class TestMcpAskHandler:
+    """The MCP `_ask` handler wraps run_ask and serializes for the agent.
+    Uses asyncio.run() to match the existing test pattern in test_mcp_tools.py.
+    """
+
+    def test_returns_compact_json_text_payload(self, monkeypatch):
+        import asyncio
+        import json as _json
+
+        from trinity_local import mcp_server
+
+        fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+        # Patch the dispatch shim so the test doesn't shell out.
+        monkeypatch.setattr(
+            mcp_server,
+            "_dispatch_via_config",
+            lambda provider, prompt: f"[stub-{provider}] {prompt}",
+        )
+
+        result = asyncio.run(mcp_server._ask({"query": "what's the migration path?"}))
+        assert isinstance(result, list) and len(result) == 1
+        payload = _json.loads(result[0]["text"])
+        assert payload["routed_to"] == "claude"
+        assert "claude" in payload["answer"]
+        # Confidence is high (5 unanimous hits) → no escalate_hint.
+        assert payload.get("escalate_hint") is None
+
+    def test_rejects_missing_query(self):
+        import asyncio
+
+        from trinity_local import mcp_server
+
+        result = asyncio.run(mcp_server._ask({}))
+        # Error path returns ErrorData, not a text payload.
+        assert hasattr(result[0], "code") or "ErrorData" in type(result[0]).__name__
+
+    def test_propagates_dispatch_failure_as_error(self, monkeypatch):
+        import asyncio
+
+        from trinity_local import mcp_server
+
+        fake_hits = [_hit(prompt_id="p1", user_winner="codex") for _ in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+
+        def broken_dispatch(provider, prompt):
+            raise RuntimeError("rate limit exceeded")
+
+        monkeypatch.setattr(mcp_server, "_dispatch_via_config", broken_dispatch)
+
+        result = asyncio.run(mcp_server._ask({"query": "q"}))
+        # Should surface as ErrorData, not crash the server.
+        assert hasattr(result[0], "code") or "ErrorData" in type(result[0]).__name__
+        # Error message should mention rate limit for Claude in harness to act on.
+        if hasattr(result[0], "message"):
+            assert "rate limit" in result[0].message
