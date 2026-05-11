@@ -94,14 +94,19 @@ question will get asked in HN comments + on X. Pre-empted answer:
 >
 > Same wedge ("coordination beats monolithic scaling"), different audience (researchers
 > vs. polyharness power users), different mechanism (their trained cortex vs. our
-> verifier-shaped ledger). The two coexist — the Sakana paper independently validates
-> the architectural thesis we're shipping. Their `Thinker / Worker / Verifier` role
-> decomposition is in `docs/spec-v2.md` as planned absorption when our v2 learned-cortex
-> work lands.
+> ledger + flagship-as-Conductor). The two coexist — the Sakana paper independently
+> validates the architectural thesis we're shipping. Their `Thinker / Worker / Verifier`
+> role decomposition is absorbed into `docs/spec-v1.5.md` as the `plan_and_execute`
+> three-list output schema. The key insight that drove our pivot from a trained
+> coordinator: their own 3B vs 7B ablation (Figure 7) shows both Conductor sizes find
+> the same routing — the 7B wins on natural-language prompt quality. A flagship model
+> with retrieval+cortex context produces better prompts than any 7B you could train,
+> so we ship the architecture via context engineering instead of paying for training.
 
 If asked in HN comments specifically: lead with the audience differentiation, link the
-arXiv paper, point at `docs/spec-v2.md` for our v2 plan that explicitly references
-their findings. Don't pretend the collision isn't there.
+arXiv paper, point at `docs/spec-v1.5.md` for our active plan (and the sunset header
+in `docs/spec-v2.md` for the trained-coordinator decision record). Don't pretend the
+collision isn't there.
 
 ---
 
@@ -221,12 +226,16 @@ Backup titles:
 
 ## What I'm holding back from the launch
 
-- v2 (Loop Constitution double-loop) is alpha. Mention briefly with a "what's next" link.
-  Not the launch headline — v1 is the wedge.
+- v1.5 (the MCP-primary routing product + cortex layer) is the *what's next*. Mention
+  briefly with a link to `docs/spec-v1.5.md` — ships June 3, 2026. Not the launch
+  headline — v1.0 is the ledger / data pipe; v1.5 is the routing turn.
 - The personal `/me` lens demo on real data — only mention if I have ≥3 lenses to show.
   An empty `me.md` undersells.
-- Anthropic Managed Agents tier — wait for pricing.
-- Hosted leaderboard — opt-in upload not yet wired (v1.1).
+- Hosted leaderboard — opt-in upload not yet wired; v1.5+ if needed.
+- Trained-coordinator path is **sunset** (former v2). If someone asks "why aren't you
+  training a 7B like Sakana?" answer: their own ablation shows the value is in
+  prompt-engineering quality, not routing decision. A flagship with cortex context
+  writes better prompts than any 7B. Reopens only if v1.5 ceilings.
 
 ---
 

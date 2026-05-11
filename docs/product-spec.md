@@ -1,12 +1,21 @@
 # Trinity Local — Product Spec & GTM Strategy
 
+> **Trajectory note (2026-05-11):** v1.0 ships May 13–15 with the council-centric
+> mechanic + Routing JSON ledger described below. **v1.5 ships June 3, 2026** with
+> the MCP-primary routing surface (`ask` cheap default + `compare` for hard
+> questions) + hippocampus + cortex two-tier memory + local model dispatch + rate-
+> limit dodge. Active next-spec: [`spec-v1.5.md`](spec-v1.5.md). Trained-coordinator
+> v2 is **sunset** — see sunset header in [`spec-v2.md`](spec-v2.md).
+
 ## The One-Liner
 
-> *"Trinity asks all your AIs at once, tells you when they agree, and remembers which one you actually trusted."*
+> *v1.0 (ships May 13–15):* *"Trinity asks all your AIs at once, tells you when they agree, and remembers which one you actually trusted."*
+>
+> *v1.5 (ships June 3):* *"Trinity is what Claude Code reaches for when it needs a different provider, a fresh perspective, or a way to dodge a rate limit. Learns at two levels — specific past decisions (hippocampus) and extracted patterns across them (cortex). Gets sharper, not slower, with use."*
 
 Trinity is a **routing substrate** — the layer underneath every AI harness that decides which model to call, runs a verifier-shaped council when uncertainty about model choice is itself the problem, and learns the user's taste from the picks they actually make.
 
-**The wedge is trust calibration, not cost optimization.** Cost savings are a side effect. The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."*
+**The wedge is trust calibration, not cost optimization.** Cost savings become a real claim in v1.5 once local model dispatch (Ollama + MLX) lands. The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."*
 
 **Product hierarchy** (consumer pitch order):
 

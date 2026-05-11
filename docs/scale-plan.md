@@ -1,12 +1,16 @@
 # Trinity Local: Scale to Every Claude Code User
 
-> **Status (2026-05-07):** v1 closed — see [`../CHANGELOG.md`](../CHANGELOG.md).
-> Phases 0–8 (substrate + lens-discovery pipeline) ship across v1.0 / v1.1 / v1
-> capstone. **v2 = Loop Constitution double-loop** (HRM-pattern: small operator +
-> many applications + state coupling) for skill graduation. v2 plan lives in
-> `~/.claude/plans/whimsical-imagining-firefly.md`; substrate ratified by council
-> `council_5fbf909119830643`. Phase descriptions below remain accurate as v1
-> reference; v2 work is scoped separately.
+> **Status (2026-05-11):** v1.0 ships May 13–15 — see [`../CHANGELOG.md`](../CHANGELOG.md)
+> and [`spec-v1.md`](spec-v1.md). Phases 0–8 below describe the v1 substrate (lens
+> pipeline, ledger, embeddings, MCP server). All accurate as v1 reference.
+>
+> **Next trajectory = v1.5** (ships June 3, 2026) — see [`spec-v1.5.md`](spec-v1.5.md).
+> The MCP-primary routing product with hippocampus + cortex two-tier memory. The
+> Loop Constitution double-loop (former v2 substrate, still in `src/trinity_local/loop/`)
+> is retained but not productized — `plan_and_execute` ships in v1.6 if v1.5's
+> `ask` + `compare` ceilings on multi-step workflows. Trained-coordinator v2 path is
+> **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
+> decision record).
 >
 > **Status (v1.1 shipped):** Canonical **6 MCP tools** — `route` /
 > `run_council` (subsumes `judge` via `responses=[...]`) / `record_outcome` /

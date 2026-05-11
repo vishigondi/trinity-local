@@ -3,6 +3,62 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [Trajectory pivot — v1.5 added, v2.0 sunset] — 2026-05-11
+
+After deep-reading the Sakana TRINITY paper (arXiv:2512.04388, ICLR 2026), the trajectory
+beyond v1.0 changed materially. Their 3B vs 7B Conductor ablation (Figure 7) shows both
+sizes find the same routing — the 7B wins only on natural-language prompt quality. A
+flagship model (Claude / GPT-5 / Gemini) with retrieval + cortex context produces better
+prompts than any local 7B could, so the trained-coordinator path in v2 stops being the
+shortest path to the pitch.
+
+### Added
+- **`docs/spec-v1.5.md`** — active next-trajectory spec. Ships **June 3, 2026.**
+  MCP-primary two-tier tool surface (`ask` cheap default + `compare` for hard
+  questions; `plan_and_execute` deferred to v1.6). Hippocampus + cortex two-tier
+  memory: kNN over episodes (existing) plus flagship-extracted routing rules per
+  basin (NEW). System-computed `trust_score` from 4 components (n_episodes,
+  consistency, recency_agreement, diversity). Basin classifier with cosine
+  threshold, top-3 soft membership, re-basining every 50 councils. Cortex
+  (routing) vs Lens (evaluation) composed flow inside `ask`. Model-version-shift
+  decay (not just calendar). Local model dispatch (Ollama + MLX) — contingent on
+  Week 3 dispatch resilience or cut from launch pitch. Human calibration gate
+  before Week 3 wires cortex into the query hot-path. Killer flow: when Claude
+  Code's own sub hits a rate limit, Trinity continues your work on Codex /
+  Gemini / local. Five-week plan, ship June 3.
+
+### Changed
+- **`docs/spec-v1.md`** — deferred-items section now points at v1.5 not v1.1/v1.2/v2.
+  Coach Lens (former v1.2) is absorbed into v1.5's cortex layer (the extracted
+  routing patterns ARE the coaching). Narrative video pipeline (former v1.1) is
+  deferred indefinitely — me-card PNG is the v1.0 social object.
+- **`claude.md`** — companions list + status updated to reflect v1.5 active spec.
+- **`README.md`** — *"What's next"* section rewrites to lead with v1.5 (MCP-primary
+  routing + cortex + local dispatch + rate-limit dodge). v2 references replaced.
+- **`docs/founder-essay-draft.md`** — *"What's next"* section rewrites: v1.5 as the
+  routing product, v1.6+ as multi-step orchestration, trained-coordinator path
+  explicitly sunset with the reasoning (Sakana ablation, no GPU training for an
+  architecture we can ship via context engineering).
+- **`docs/launch.md`** — Sakana FAQ updated to reference v1.5 (and v2 sunset header)
+  instead of v2 as the active spec. "What I'm holding back" section reframes around
+  v1.5 mention vs trained-coordinator decision record.
+
+### Sunset
+- **`docs/spec-v2.md`** — sunset header added. Trained-coordinator architecture
+  (Qwen3-0.6B + DPO / sep-CMA-ES) preserved below the header as architectural-decision
+  history. **Reopens only if v1.5 hits a quality ceiling on real user data.** v1.0
+  and v1.5 generate exactly the supervision data v2 would need if/when it lands.
+
+### Why
+The pitch — *"SOTA for you + your taste + your subs + saves cost"* — is what we
+want to be able to literally say at launch. v1.0 alone can't say it (no routing
+intelligence, no cost savings vs single-model). The trained-7B v2.0 path takes
+4–8 weeks of GPU training. v1.5's flagship-as-Conductor + cortex-via-flagship-
+extraction gets the same architecture in 5 weeks via context engineering. The
+world is also changing weekly — trained Conductors decay when models update.
+The cortex layer re-consolidates on demand. The moat is the ledger + extracted
+rules, not the weights.
+
 ## [v1.0 — ship-ready] — 2026-05-09
 
 Closing the v1 launch gap. Brand landed in code + agent context + manifesto essay.

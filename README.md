@@ -172,16 +172,25 @@ evidence into decision extraction.
 
 For full architecture: [`claude.md`](claude.md) (agent context) and
 [`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
-For the v2 next-layer (skill graduation via the Loop Constitution double-loop):
-[`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
 
-## What's next
+## What's next — Trinity v1.5 (ships June 3, 2026)
 
-The v1 ledger is the foundation. The held v2 work — narrative video pipeline, Coach Lens
-(`trinity-local evolve`), the Loop Constitution skill-graduation flow, a *learned local chairman*
-(Qwen3-0.6B fine-tuned on your DPO pairs + active learning + retrieval) — is scoped in
-[`docs/spec-v2.md`](docs/spec-v2.md). The v1 substrate (folder schema, Routing JSON ledger,
-MCP stable contract, lens-discovery pipeline) is what v2 builds on.
+v1.0 ships the ledger; **v1.5 turns it into a routing product Claude Code reaches for.**
+Same data, MCP-primary surface. When Claude (the agent) hits a hard decision, needs a
+different provider, or hits a rate limit on its own subscription, it calls
+`mcp__trinity-local__ask` — Trinity routes to your empirically-best model for that
+flavor of question (kNN + cortex-extracted rules) and dispatches via the CLIs you
+already pay for. Local model fallback (Ollama / MLX) for cheap subtasks.
+
+Two-tier memory architecture (hippocampus + cortex) inspired by how brains
+consolidate — kNN over episodes plus flagship-extracted routing rules per basin.
+*Free, local, MIT.* Full spec: [`docs/spec-v1.5.md`](docs/spec-v1.5.md).
+
+The trained-coordinator path (former v2) is sunset — Sakana's own ablation shows
+flagship prompt quality beats trained 7B routing, so v1.5 gets the same architecture
+via context engineering without paying for GPU training infrastructure. See the
+sunset header in [`docs/spec-v2.md`](docs/spec-v2.md) for the architectural-decision
+record.
 
 For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 

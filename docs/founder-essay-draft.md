@@ -141,21 +141,29 @@ launchpad shows you which model has been winning for which kind of question you 
 
 Then, in order:
 
-- **v1.1 (week 8): the narrative video pipeline.** 60-90 seconds of contradiction-and-
-  resolution rendered from your own council outcomes. The actual viral mechanism. Each
-  shared video links back to a permanent shareable URL. The watermark says *"made with
-  Trinity"* and that's the entire acquisition motion.
-- **v1.2 (week 12): the Coach Lens.** Trinity stops being a passive ledger and becomes
-  an active coach. *"You keep choosing X-style answers; the failure mode of X is Y;
-  here's the answer that would have pushed you past Y."*
-- **v2.0 (month 4-6): the learned local chairman.** Right now the chairman is a frontier
-  model. v2 trains a tiny model (Qwen3-0.6B) on your own preference pairs via DPO,
-  runs it locally on your Mac, and graduates it through champion-challenger against
-  the frontier chairman. The retrieval-augmented inference loop draws on every council
-  you've ever run. The active-learning loop only asks you to label cases where the local
-  chairman is most uncertain. After enough councils, your chairman knows your taste
-  better than any one frontier model could. *That* is what *own your memories* compounds
-  into.
+- **v1.5 (ships June 3, 2026): the routing product Claude Code reaches for.** Same
+  ledger. MCP-primary surface. When Claude (the agent inside Claude Code) hits a hard
+  decision or its own rate limit, it calls `mcp__trinity-local__ask` — Trinity routes
+  to your empirically-best model for that flavor of question and dispatches via the
+  CLIs you already pay for. Local model fallback (Ollama / MLX) sends easy subtasks
+  to free compute. The architecture is two-tier memory: kNN over your past prompts
+  (hippocampus) plus routing rules a flagship model extracts from your accumulated
+  council outcomes per task-type basin (cortex). Both layers fire at query time; the
+  rule generalizes, the episodes calibrate. Brains don't kNN over raw episodes.
+  Trinity shouldn't either.
+- **v1.6+ (post-v1.5): multi-step orchestration.** `plan_and_execute` for the rare
+  case Claude wants Trinity to plan a multi-step workflow (Sakana three-list output —
+  who plans, who implements, who verifies). v1.5 ships the routing; v1.6 ships the
+  orchestrator. The architecture is the same — a flagship Conductor reads cortex
+  context + emits the plan. No training. Just better prompts.
+- **The trained-coordinator path is sunset.** When Sakana published their TRINITY
+  paper in December (arXiv:2512.04388), I read it three times. Their own 3B vs 7B
+  ablation shows both Conductor sizes find the same routing — the 7B wins on
+  natural-language prompt quality. A flagship model with retrieval+cortex context
+  produces better prompts than any 7B you could train. So I'm not paying 4–8 weeks
+  of GPU training for an architecture I can ship in 5 weeks via context engineering.
+  If v1.5 hits a real quality ceiling on user data, the training path reopens. Not
+  until then.
 
 There's a bigger thesis behind all of it. *Own your memories now, because the next
 thing you'll need to own is your agent.* The labs are migrating from "the model I rent"
