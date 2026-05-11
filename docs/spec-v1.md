@@ -160,7 +160,7 @@ unmeasurable without telemetry that violates the privacy posture (see disagreeme
 | Day | Work |
 |---|---|
 | Day 1 (today) | Brand reconciliation: README hero, launch.md narrative, manifesto callouts |
-| Day 2 | Docker smoke gate close (the one remaining council_5699d0e62cf965d0 blocker) |
+| Day 2 | (~~Docker smoke~~ — dropped: v1 is macOS-only per scope; `smoke_install.sh local` + `browser_smoke.py` are the actual gates and both green. Docker smoke returns in v2 when Linux is in scope.) |
 | Day 3 | Cold-install test on a fresh Mac (human-gated, ≤8 min from `pip install` to first council) |
 | Day 4 | Founder narrative essay draft (the long-form post — week 2 in the spec, but draft now) |
 | Day 5 | 5 tester DMs sent; private install + watch them onboard |
