@@ -18,6 +18,10 @@
 | v2.0 | *Your local chairman replaces the frontier one for your kinds of questions* | Month 4–6 |
 | v2.1+ | *Federated taste — teams share what they trust* | Month 6+ |
 
+**Pricing:** undecided. v1 is free. Hosted capabilities below are described as
+*capabilities*, not as paid tiers — the revenue model is a separate decision the user
+hasn't made yet.
+
 ## v1.1 — narrative video pipeline (week 8)
 
 **Pitch:** the radar chart was the v1 social object; the narrative video is the v1.1 one.
@@ -54,28 +58,23 @@ Foundation in v1: the `disagreed_claims` + `routing_lesson` + `why_matters` fiel
 Routing JSON are already canonical. The personal_routing_table already has counter-evidence
 when chairman vs user disagree. v2 just renders it.
 
-## v1.2 — Trinity Pro hosted tier ($15/mo)
+## Held capability — hosted chairman + cross-machine sync (no v1.2 pricing tier)
 
-**Pitch:** *"You bring your own subscriptions for the council members. We host the
-chairman + provide cross-machine sync for your `/me` lens. Stays the same in price as one
-ChatGPT Plus."*
+Description of the *capability* in case there's ever a revenue model. Not committed.
 
-**What's hosted:**
+**What it would do:**
 - Council orchestration via Trinity-managed API proxies (so the user doesn't pay per-call
   for the chairman call when their plan caps out).
 - Trinity-managed embedding compute (so big corpora don't melt the user's Mac).
 - Cross-machine `/me` lens sync via E2E encryption.
 
-**What's NOT hosted (the privacy line):**
+**What stays local (the privacy line, non-negotiable even if monetized later):**
 - Prompts. Still locally dispatched, locally synthesized when local capacity allows.
-- The Routing JSON ledger. Still in `~/.trinity/`. Pro sync is opt-in per machine.
+- The Routing JSON ledger. Still in `~/.trinity/`. Any sync is opt-in per machine.
 - Member outputs. Same.
 
-**Cost basis:** at $15/mo with current frontier API economics, hosted chairman call costs
-amortize at roughly 200 councils/month per user before margin. Most users do <50.
-Cross-machine sync is mostly free (small JSON + encrypted blob).
-
-**Pricing note:** v1 spec had $12; bumped to $15 — see `spec-v1.md` disagreement #6.
+**Status:** the user hasn't decided on a revenue model. Free-forever v1 buys time to
+figure that out from real usage data, not from a launch-room pricing guess.
 
 ## v2.0 — Learned coordinator (Cortex)
 

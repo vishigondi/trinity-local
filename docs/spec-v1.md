@@ -129,15 +129,11 @@ The `/trinity` Claude Code skill is co-equal with the terminal path — see disa
 Future: `curl -sL trinity.local/install | bash` (week 2, gated on domain + GitHub Pages
 landing). `brew install trinity-local` (week 2). `npm i -g trinity-local` (week 4).
 
-## Pricing reveal
+## Pricing
 
-| Tier | Cost | Available |
-|---|---|---|
-| Free forever | $0 | v1.0 (now) — entire local CLI + MCP server, no account, no phone-home |
-| Trinity Pro | **$15/mo** | v1.2 (week 12) — hosted council orchestration, Trinity-managed embeddings, cross-machine lens sync via E2E encryption |
-| Trinity for Teams | Custom | v2 (month 6) — shared council outcomes within team, federated taste, admin observability |
-
-Original spec said $12/mo. Bumped to $15 — see disagreement #6.
+**Free.** The entire local CLI + MCP server. No account, no phone-home, no API proxy. Trinity
+rides on the Claude / Gemini / Codex CLI subscriptions the user already pays for. Hosted
+tiers and team plans are out of v1 scope — see `docs/spec-v2.md` for what's held.
 
 ## North-star metric
 
@@ -185,7 +181,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 5. **`/trinity` Claude Code skill is co-equal with the curl install.** Half the target users live inside Claude Code; the skill is already in the wheel via package-data. README shows both paths.
 
-6. **Pricing: $15/mo not $12.** $12 reads "didn't think hard"; $15 anchors at "less than one ChatGPT Plus" without commoditizing.
+6. **No pricing tier in v1.** Spec proposed Trinity Pro ($12 → $15/mo) and Trinity for Teams. Both stripped for v1 — tool is free; revenue model decision deferred. Hosted-chairman + cross-machine sync still appear in `docs/spec-v2.md` as held capabilities, not pricing tiers.
 
 7. **"Cross-provider switches prevented" metric is dropped.** Unmeasurable without telemetry the privacy posture forbids. Replaced with locally-observable metrics.
 
@@ -201,7 +197,7 @@ Deferred to `docs/spec-v2.md` (see that file for the held vision):
 
 - Narrative video pipeline (v1.1, week 8)
 - Coach Lens / `trinity evolve` aspirational anchor (v1.2, week 12)
-- Trinity Pro hosted tier (v1.2)
+- Hosted council orchestration / cross-machine sync (held in spec-v2.md, no pricing decided)
 - Federated / shared anything (v2, month 6)
 - Windows / Linux (v2+ — macOS-only is a feature, not a bug)
 - Loop Constitution double-loop full skill-graduation flow (substrate shipped; productized usage held)

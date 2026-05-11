@@ -16,17 +16,17 @@ the original three-spec drop — see spec-v1.md for the full list.
   ledger format + MCP stable contract + 6-tool surface (3 stable, 3 extended) + privacy
   posture + locally-observable metrics (replacing the spec's untrackable "switches
   prevented") + 8-minute HN-reader bar test.
-- **`docs/spec-v2.md`** — held vision: v1.1 narrative video pipeline, v1.2 Coach Lens +
-  Trinity Pro ($15/mo hosted chairman + cross-machine `/me` sync), v2.0 Learned
-  Coordinator (Qwen3-0.6B DPO fine-tune as local chairman + active learning loop with
-  surprise score as query selector + retrieval-augmented inference), v2.1+ federated
-  taste (Teams). Per-member prompt-formulation learning. Adversarial held-out as
+- **`docs/spec-v2.md`** — held vision: v1.1 narrative video pipeline, v1.2 Coach Lens,
+  hosted-chairman + cross-machine `/me` sync as described *capabilities* with no pricing
+  attached, v2.0 Learned Coordinator (Qwen3-0.6B DPO fine-tune as local chairman + active
+  learning loop with surprise score as query selector + retrieval-augmented inference),
+  v2.1+ federated taste. Per-member prompt-formulation learning. Adversarial held-out as
   echo-chamber defense.
 - **`~/.trinity/SCHEMA_VERSION`** — v2 forward-compat anchor. Written by `state_dir()`
   on first access. Bumping triggers a migration when v2 adds `videos/`, `lens/geometry/`,
   `models/cortex-v{n}/` subdirs.
 - **README brand swap**: H1 = *Own your memories*; manifesto callout above the fold;
-  Pricing table (Free / Pro $15 v1.2 / Teams v2 custom); v2 tease points at
+  no pricing tier (tool is free; revenue decision deferred); v2 tease points at
   `docs/spec-v2.md`.
 - **Launchpad cold-start hero** rewritten: first-time users land on H1 *Own your
   memories.* + lede *The AI you trained should outlive the provider. Ask one question
@@ -43,7 +43,7 @@ the original three-spec drop — see spec-v1.md for the full list.
 3. 6 MCP tools not 3 (stable/extended split — record_outcome / get_council_status / get_persona are load-bearing)
 4. me-card not radar chart as the social object
 5. `/trinity` Claude Code skill co-equal with curl install
-6. Pricing $15/mo not $12 (anchoring at "less than one ChatGPT Plus")
+6. No pricing tier — tool is free in v1; hosted-tier capability still described in spec-v2.md but no $ committed
 7. Drop "cross-provider switches prevented" metric (unmeasurable under privacy posture)
 8. Drop "30-second first council" claim (over-promise; realistic 30–90s)
 9. API keys not in `trinity.toml` (keychain only)

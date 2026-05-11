@@ -154,14 +154,6 @@ For full architecture: [`claude.md`](claude.md) (agent context) and
 For the v2 next-layer (skill graduation via the Loop Constitution double-loop):
 [`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
 
-## Pricing
-
-| Tier | Cost | When |
-|---|---|---|
-| **Free forever** | $0 | Now — entire local CLI + MCP server. No account, no phone-home, no API proxy. |
-| **Trinity Pro** | $15/mo | v1.2 (week 12) — hosted chairman orchestration when your local plan caps, Trinity-managed embeddings for big corpora, cross-machine `/me` lens sync via E2E encryption. Prompts still never upload. |
-| **Trinity for Teams** | Custom | v2 (month 6) — shared council outcomes within a team, federated taste profiles with per-user consent, admin observability. |
-
 ## What's next
 
 The v1 ledger is the foundation. The held v2 work — narrative video pipeline, Coach Lens
