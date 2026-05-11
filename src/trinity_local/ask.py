@@ -312,19 +312,30 @@ def run_ask(
     available_providers: list[str] | None = None,
     elapsed_ms: int | None = None,
     use_cortex: bool = True,
+    max_retries: int = 1,
 ) -> AskResult:
-    """End-to-end ask: route → dispatch → return.
+    """End-to-end ask: route → dispatch → return. With auto-retry on
+    rate-limit / billing / auth failures: if the primary's dispatch fails
+    in a way that classifies as "try a different provider," try the
+    runner_up (cortex challenger or kNN second place). This is the v1.5
+    killer flow — when Claude in the harness hits a rate limit, Trinity
+    seamlessly continues on Codex / Gemini / local.
 
     `dispatch_fn(provider_name, prompt) -> answer_text` is injected so tests
     can run without provider CLIs. Production wires through
-    `providers.make_provider(...).run(prompt, cwd).stdout`.
+    `providers.make_provider(...).run(prompt, cwd).stdout` and raises
+    ProviderError with the stderr embedded for our classifier to read.
 
     `use_cortex=False` disables cortex routing for A/B testing during the
-    human-calibration window — pure kNN path. Defaults to True so once a
-    consolidation pass has run, cortex rules drive routing for any basin
-    whose trust_score clears the floor.
+    human-calibration window — pure kNN path. Defaults to True.
+
+    `max_retries=1` controls how many provider-fallback attempts to try
+    after the primary fails. Each retry uses the next-best provider from
+    the decision. Set to 0 to disable auto-retry.
     """
     import time
+
+    from .dispatch_errors import classify_dispatch_failure
 
     decision = decide_route(
         query,
@@ -333,8 +344,55 @@ def run_ask(
         use_cortex=use_cortex,
     )
 
+    # Build the provider try-order: primary first, then runner_up if any.
+    # `available_providers` is the upper bound; never try a provider not
+    # in the harness's available pool.
+    try_order = [decision.routed_to]
+    if decision.runner_up and decision.runner_up != decision.routed_to:
+        try_order.append(decision.runner_up)
+    if available_providers:
+        try_order = [p for p in try_order if p in available_providers]
+
     t0 = time.monotonic()
-    answer = dispatch_fn(decision.routed_to, query)
+    answer: str | None = None
+    actually_routed_to = decision.routed_to
+    attempts = 0
+    last_failure = None
+
+    for provider_name in try_order:
+        if attempts > max_retries:
+            break
+        attempts += 1
+        try:
+            answer = dispatch_fn(provider_name, query)
+            actually_routed_to = provider_name
+            break
+        except Exception as exc:
+            # Pull stderr if the exception carries it (production
+            # ProviderError attaches the CLI's stderr to the message).
+            stderr_excerpt = str(exc)
+            failure = classify_dispatch_failure(
+                provider=provider_name,
+                returncode=getattr(exc, "returncode", 1),
+                stderr=stderr_excerpt,
+            )
+            last_failure = failure
+            if not failure.retry_with_other_provider:
+                # Auth-recovery-only / model-not-found / unknown — bail
+                # immediately. Caller decides what to do.
+                raise
+            # Otherwise loop continues to the next provider in try_order.
+
+    if answer is None:
+        # Exhausted retries — raise the last classified failure so the
+        # MCP handler can surface it to the agent with the kind label.
+        if last_failure is not None:
+            raise RuntimeError(
+                f"All providers failed. Last: {last_failure.provider} "
+                f"({last_failure.kind.value}). Excerpt: {last_failure.raw_stderr_excerpt[:200]}"
+            )
+        raise RuntimeError("dispatch failed with no classifiable error")
+
     dispatch_ms = int((time.monotonic() - t0) * 1000)
     total_ms = elapsed_ms if elapsed_ms is not None else dispatch_ms
 
@@ -342,9 +400,9 @@ def run_ask(
 
     return AskResult(
         answer=answer,
-        routed_to=decision.routed_to,
+        routed_to=actually_routed_to,
         trust_score=decision.trust_score,
-        runner_up=decision.runner_up,
+        runner_up=decision.runner_up if actually_routed_to == decision.routed_to else decision.routed_to,
         escalate_hint=escalate,
         latency_ms=total_ms,
         decision=decision,

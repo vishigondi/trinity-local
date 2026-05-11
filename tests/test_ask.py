@@ -344,6 +344,121 @@ class TestCortexInAskHotPath:
         assert without_cortex.routed_to == "claude"
 
 
+class TestRateLimitAutoRetry:
+    """The v1.5 killer flow: when Claude (primary) hits a rate limit,
+    Trinity routes to the runner-up provider seamlessly. Tests cover the
+    full taxonomy of dispatch failures — only the retry-with-other-provider
+    ones trigger fallback; auth-only / unknown failures bail immediately.
+    """
+
+    def test_rate_limit_on_primary_falls_to_runner_up(self, monkeypatch):
+        """Primary fails with rate-limit → runner-up is tried automatically."""
+        # 5 hits split: claude wins narrowly, codex is runner_up.
+        hits = (
+            [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(3)]
+            + [_hit(prompt_id=f"q{i}", user_winner="codex") for i in range(2)]
+        )
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        calls = []
+
+        def dispatch(provider: str, prompt: str) -> str:
+            calls.append(provider)
+            if provider == "claude":
+                raise RuntimeError("HTTP 429 Too Many Requests")
+            return f"[{provider}] success"
+
+        result = run_ask("q", dispatch_fn=dispatch, use_cortex=False)
+        # Claude was tried first, failed with rate-limit, codex was tried next.
+        assert calls == ["claude", "codex"]
+        # Final route reflects the actually-successful provider.
+        assert result.routed_to == "codex"
+        assert "codex" in result.answer
+
+    def test_all_providers_rate_limited_raises_with_kind(self, monkeypatch):
+        """Both primary and runner-up hit rate limits → raise so the caller
+        can decide (back off, escalate to user, etc.)."""
+        hits = (
+            [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(3)]
+            + [_hit(prompt_id=f"q{i}", user_winner="codex") for i in range(2)]
+        )
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        def dispatch(provider: str, prompt: str) -> str:
+            raise RuntimeError(f"{provider}: rate limit exceeded")
+
+        with pytest.raises(RuntimeError, match="All providers failed"):
+            run_ask("q", dispatch_fn=dispatch, use_cortex=False)
+
+    def test_auth_failure_on_primary_falls_to_runner_up(self, monkeypatch):
+        """Auth failure on one provider doesn't tell us anything about
+        the others — retry is sensible."""
+        hits = (
+            [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(3)]
+            + [_hit(prompt_id=f"q{i}", user_winner="codex") for i in range(2)]
+        )
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        def dispatch(provider: str, prompt: str) -> str:
+            if provider == "claude":
+                raise RuntimeError("401 Unauthorized")
+            return f"[{provider}] ok"
+
+        result = run_ask("q", dispatch_fn=dispatch, use_cortex=False)
+        assert result.routed_to == "codex"
+
+    def test_unknown_failure_does_not_retry(self, monkeypatch):
+        """Unknown failure shape — could be content policy, deterministic
+        bug, etc. Don't auto-retry; surface to caller."""
+        hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        calls = []
+
+        def dispatch(provider: str, prompt: str) -> str:
+            calls.append(provider)
+            raise RuntimeError("some weird unclassifiable CLI panic")
+
+        with pytest.raises(RuntimeError):
+            run_ask("q", dispatch_fn=dispatch, use_cortex=False)
+        # Should NOT retry with another provider — only one attempt.
+        assert len(calls) == 1
+
+    def test_model_not_found_does_not_retry(self, monkeypatch):
+        """Model deprecation is a config bug — the operator needs to fix
+        the model alias. Auto-retry would mask the issue."""
+        hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        calls = []
+
+        def dispatch(provider: str, prompt: str) -> str:
+            calls.append(provider)
+            raise RuntimeError("Model not found: deprecated-model-name")
+
+        with pytest.raises(RuntimeError):
+            run_ask("q", dispatch_fn=dispatch, use_cortex=False)
+        assert len(calls) == 1  # no retry
+
+    def test_max_retries_zero_disables_fallback(self, monkeypatch):
+        """max_retries=0 → only the primary is tried, no fallback."""
+        hits = (
+            [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(3)]
+            + [_hit(prompt_id=f"q{i}", user_winner="codex") for i in range(2)]
+        )
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: hits)
+
+        calls = []
+
+        def dispatch(provider: str, prompt: str) -> str:
+            calls.append(provider)
+            raise RuntimeError("HTTP 429 rate limit")
+
+        with pytest.raises(RuntimeError):
+            run_ask("q", dispatch_fn=dispatch, max_retries=0, use_cortex=False)
+        assert calls == ["claude"]  # no retry attempted
+
+
 class TestMcpAskHandler:
     """The MCP `_ask` handler wraps run_ask and serializes for the agent.
     Uses asyncio.run() to match the existing test pattern in test_mcp_tools.py.
