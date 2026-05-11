@@ -10,7 +10,7 @@
 
 **Trinity Local is the cross-provider memory layer the labs are commercially prevented from building.** Tagline: *Own your memories. The AI you trained should outlive the provider.* It watches Claude / ChatGPT / Gemini transcripts that already live on the user's machine, learns which model wins for which kind of question, and — when the user doesn't know which to ask — convenes them as a council and synthesizes one verifier-shaped verdict. The shareable artifact is the user's `/me` lens (paired tensions extracted from where they pushed back on a model), not council verdicts themselves.
 
-**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 400 tests passing. **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
+**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 438 tests passing (v1.5 Week 1+Week 2 work landed: `ask` MCP tool + cortex consolidation scaffold + `trinity-local consolidate` CLI). **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
 
 **The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 
@@ -25,7 +25,7 @@
 
 ## Calling the council from inside Claude Code
 
-Trinity is exposed as an MCP server. The canonical 6 tools are `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions**. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
+Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` as the cheap default for single-call routing (7 total). `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
 
 Bar for "hard":
 - Two senior engineers could reasonably disagree (architecture, API shape, refactor scope, naming, abstraction-vs-duplication)
@@ -99,7 +99,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Task kinds | `task_kinds.py` | Single `guess_task_kind()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
-| MCP | `mcp_server.py` | The canonical 6 tools (see below) |
+| MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` (see below) |
 | Portal | `portal_data.py`, `portal_template.py`, `portal_runtime.py`, `portal_install.py`, `portal_page.py` | Static HTML launchpad with autofill, personal routing table, council suggestions |
 | Telemetry | `telemetry.py`, `notifications.py` | Opt-in telemetry settings (privacy-clean), system notifications |
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |
@@ -211,7 +211,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 3. **Chairman auto-selection.** `predict_strongest_chairman(task)` looks up personal table → global priors → default order. Manual `--primary-provider` always wins.
 4. **Verifier-shaped chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
 5. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
-6. **Canonical 6 MCP tools.** `route`, `run_council` (now subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
+6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` as the cheap default single-call routing tool (90% case). The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.
@@ -267,7 +267,7 @@ Council `council_5fbf909119830643` (Codex won, high) ratified the substrate: mod
 ## Verified status
 
 - `pytest -q` — **289 passed**.
-- `trinity-local --mcp` exposes exactly the canonical 6 tools.
+- `trinity-local --mcp` exposes 7 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask`.
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.
 - `trinity-local portal-html` renders the launchpad with autofill chips, personal routing table card (or empty-state CTA), and global benchmarks.
