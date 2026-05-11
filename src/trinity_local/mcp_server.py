@@ -326,17 +326,22 @@ def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
 
 def _full_provider_pool() -> list[str]:
     """Build the available-provider pool: enabled config providers + detected
-    local Ollama models. The Conductor / ask uses this when the caller doesn't
-    pass an explicit `available_providers` list.
+    local Ollama models, with currently-unhealthy providers demoted to the
+    end. The Conductor / ask uses this when the caller doesn't pass an
+    explicit `available_providers` list.
+
+    Demotion (not exclusion) preserves the option for routing to fall back to
+    an unhealthy provider when nothing else fits, while keeping it from being
+    the first choice. Unhealthy = recent rate-limit / billing / auth failure
+    within the decay window — see dispatch_health.py.
     """
     from .config import load_config
+    from .dispatch_health import unhealthy_providers
     from .local_models import detect_local_models
 
     pool: list[str] = []
     try:
         config = load_config()
-        # config.providers is a dict keyed by name; iterate .values() for the
-        # ProviderConfig objects. (Iterating the dict yields keys.)
         for p in config.providers.values():
             if p.enabled:
                 pool.append(p.name)
@@ -347,6 +352,17 @@ def _full_provider_pool() -> list[str]:
             pool.append(m.provider_name)
     except Exception:
         pass
+
+    # Demote unhealthy providers to the end (preserve relative order otherwise).
+    try:
+        unhealthy = unhealthy_providers()
+    except Exception:
+        unhealthy = set()
+    if unhealthy:
+        healthy = [p for p in pool if p not in unhealthy]
+        sick = [p for p in pool if p in unhealthy]
+        pool = healthy + sick
+
     return pool
 
 
