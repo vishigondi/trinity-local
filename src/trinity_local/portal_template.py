@@ -1404,19 +1404,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // rendered. Avoids "Run Your First Council" greeting once the
           // user has any history at all.
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
-          return hasHistory ? 'Run a Council' : 'Run Your First Council';
+          return hasHistory ? 'Run a Council' : 'Own your memories.';
         }},
         get heroLede() {{
           if (this.operation?.kind === 'council' && this.busy) {{
-            return 'Three models enter. One answer wins. Watch the council unfold in real time.';
+            return 'Trinity is asking the three labs for you. Routing JSON outcome lands when chairman finishes.';
           }}
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
           }}
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory
-            ? 'Ask any question. See all three model answers side by side.'
-            : 'Ask the same question. See all the answers. Let Trinity compare real models on your real work.';
+            ? 'Ask once. See three answers. Trinity remembers which one you trusted.'
+            : 'The AI you trained should outlive the provider. Ask one question — Trinity asks Claude, Gemini, and Codex, tells you which agrees and why the disagreement matters.';
         }},
         get operationHeading() {{
           if (!this.operation) {{

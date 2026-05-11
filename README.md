@@ -1,15 +1,19 @@
 # Trinity Local
 
-> **Trinity asks all your AIs at once, tells you when they agree, and remembers which one you actually trusted.**
+## Own your memories.
+### The AI you trained should outlive the provider.
 
-Three frontier models answer your prompt in parallel. A chairman synthesizes them into one
-verifier-shaped verdict — *agreed claims, disagreed claims, and why the disagreement matters*.
-Trinity remembers which model you preferred. Over time it learns your taste and surfaces a
-personal `/me` lens you can share — paired tensions like *"leading proxy signal as forecast vs.
-official lagging metric as truth"* with named failure modes on each pole.
+You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives in three
+different SQLite caches, owned by three different companies, none of which are allowed to help
+you use the others.
 
-Local-first. Rides your existing Claude / Gemini / Codex subscriptions. Never sees your
-prompts on a server.
+Trinity is the local intelligence layer that watches all three, learns which one wins for which
+task, and — when it matters — convenes them as a council so you get the strongest answer instead
+of the most familiar one.
+
+Open source. Local-first. macOS today. *No account required.*
+
+> **The cross-provider memory layer the labs are commercially prevented from building.**
 
 ![your taste, distilled](docs/me_card_example.png)
 
@@ -150,14 +154,23 @@ For full architecture: [`claude.md`](claude.md) (agent context) and
 For the v2 next-layer (skill graduation via the Loop Constitution double-loop):
 [`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
 
-## What's next (v2-alpha)
+## Pricing
 
-> *Inversion, cull, and eviction are the wind.*
+| Tier | Cost | When |
+|---|---|---|
+| **Free forever** | $0 | Now — entire local CLI + MCP server. No account, no phone-home, no API proxy. |
+| **Trinity Pro** | $15/mo | v1.2 (week 12) — hosted chairman orchestration when your local plan caps, Trinity-managed embeddings for big corpora, cross-machine `/me` lens sync via E2E encryption. Prompts still never upload. |
+| **Trinity for Teams** | Custom | v2 (month 6) — shared council outcomes within a team, federated taste profiles with per-user consent, admin observability. |
 
-v2 turns Trinity from evidence ledger into skill factory. A double-loop graduates skills with
-their own passing test, evicts them when a new model lands. CLI today:
-`trinity-local loop frame --intent "<what skill to build>"`. Skills land at
-`~/.trinity/skills/<id>/`. Spec: [`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md).
+## What's next
+
+The v1 ledger is the foundation. The held v2 work — narrative video pipeline, Coach Lens
+(`trinity-local evolve`), the Loop Constitution skill-graduation flow, a *learned local chairman*
+(Qwen3-0.6B fine-tuned on your DPO pairs + active learning + retrieval) — is scoped in
+[`docs/spec-v2.md`](docs/spec-v2.md). The v1 substrate (folder schema, Routing JSON ledger,
+MCP stable contract, lens-discovery pipeline) is what v2 builds on.
+
+For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 
 ## Help
 
