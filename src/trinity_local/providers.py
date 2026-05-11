@@ -142,6 +142,33 @@ class MLXProvider(BaseProvider):
         return self._run_command(command, cwd)
 
 
+class OllamaProvider(BaseProvider):
+    """Local model dispatch via Ollama. Each model the user has pulled (via
+    `ollama pull <name>`) is a candidate worker; the chosen model goes through
+    `ollama run <model> "<prompt>"` and returns stdout.
+
+    Cost: $0 (runs on user hardware). Latency depends on the model + hardware.
+    Per spec-v1.5.md: when this works reliably at ship, the "and local models"
+    line stays in the pitch; if dispatch is wobbly, cut it from the pitch.
+    """
+
+    def run(self, prompt: str, cwd: Path) -> ProviderResult:
+        if not self.config.model:
+            raise ProviderError("Ollama provider requires a model name in config.")
+        # Ollama CLI: `ollama run <model> "<prompt>"` reads prompt as argv,
+        # outputs to stdout. The --hidethinking flag suppresses thinking
+        # blocks from reasoning models; not all models support it so we
+        # add it via config.args (configurable).
+        command = [
+            *self.config.command,
+            "run",
+            self.config.model,
+            prompt,
+            *self.config.args,
+        ]
+        return self._run_command(command, cwd)
+
+
 def make_provider(config: ProviderConfig) -> BaseProvider:
     if config.type == "cli":
         return CLIProvider(config)
@@ -149,4 +176,6 @@ def make_provider(config: ProviderConfig) -> BaseProvider:
         return CodexProvider(config)
     if config.type == "mlx":
         return MLXProvider(config)
+    if config.type == "ollama":
+        return OllamaProvider(config)
     raise ProviderError(f"Unsupported provider type: {config.type}")
