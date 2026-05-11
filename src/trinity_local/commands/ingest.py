@@ -1,9 +1,14 @@
-"""Handlers for features and examples commands."""
+"""Handler for the `features` command — extracts compact session features
+from the user's local transcripts (Claude Code, Codex, Gemini CLI, Cowork).
+Used for offline debugging / analysis; not on the live product path.
+
+The companion `examples` command was removed alongside v2 trained-coordinator
+sunset — it produced training data for a coordinator we're no longer training.
+"""
 from __future__ import annotations
 
 import json
 
-from ..example_builder import build_routing_examples
 from ..feature_extractors import extract_session_features
 from ..ingest import (
     iter_claude_code_sessions,
@@ -38,20 +43,8 @@ def register(subparsers):
     features_parser.add_argument("--limit", type=int, default=10)
     features_parser.set_defaults(handler=handle_features)
 
-    examples_parser = subparsers.add_parser("examples", help="Build routing examples from local transcripts")
-    examples_parser.add_argument("--source", default="all", choices=["all", "claude", "codex", "gemini", "cowork"])
-    examples_parser.add_argument("--limit", type=int, default=20)
-    examples_parser.set_defaults(handler=handle_examples)
-
 
 def handle_features(args):
     sessions = _load_sessions(args.source)
     features = [extract_session_features(session).to_dict() for session in sessions[: args.limit]]
     print(json.dumps(features, indent=2))
-
-
-def handle_examples(args):
-    sessions = _load_sessions(args.source)
-    features = [extract_session_features(session) for session in sessions]
-    examples = [example.to_dict() for example in build_routing_examples(features, [])[: args.limit]]
-    print(json.dumps(examples, indent=2))
