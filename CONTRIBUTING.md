@@ -26,8 +26,6 @@ Open a PR with at least:
 
 Files of interest if you hit a bug:
 
-- **MCP server staleness**: `src/trinity_local/loop/verify_web.py` has known docstring
-  errors (it claims Autobrowse needs no API key — wrong). Fix welcome.
 - **`refresh_launchpad()` reaper edge cases**: `src/trinity_local/refresh.py` reaps
   zombie tasks; if you have a task type it skips that it shouldn't, PR welcome.
 - **Browser smoke flakiness**: `scripts/browser_smoke.py` Surface 4's `scrollIntoView`
@@ -46,14 +44,21 @@ Known polish items captured in `docs/spec-v1.md` "Tier 4 deferred" + `docs/spec-
 - Empty-state copy for "Scored 0–100 from 0 replay councils" reads oddly
 - Recent-council titles can be very dev-y; cards could highlight chairman conclusion text instead
 
-## Priority 4 — v2 substrate work
+## Priority 4 — v1.6 + v2 trajectory work
 
-Held in `docs/spec-v2.md`. Concrete items:
+Active spec lives in `docs/spec-v1.5.md` (next ship target June 3, 2026); the
+trained-coordinator v2 path in `docs/spec-v2.md` is sunset. Concrete items
+worth contributing on:
 
-- Per-member prompt formulation (cortex emits `(model_id, role, prompt)` per turn)
-- Three-role action space (Thinker / Worker / Verifier) absorption into `loop/run.py`
-- sep-CMA-ES training pipeline as alternative to DPO (Sakana TRINITY paper evidence)
-- Reflections directory + weekly digest renderer
+- **`plan_and_execute` MCP tool** (v1.6) — multi-step orchestration with
+  flagship Conductor + recursive verification. The mechanic was prototyped in
+  the now-removed `src/trinity_local/loop/` substrate; rebuild it leaner.
+- **Basin classifier centroid-matching upgrade** — currently the cortex layer
+  keys on `task_type` (chairman label). Switch to embedding-similarity vs.
+  the lens-pipeline basin centroids for top-3 soft membership.
+- **MLX dispatch** — Ollama works; MLX detection ships behind an env-var
+  opt-in. Wire full MLX dispatch (the `mlx_lm` Python path) as a peer to
+  OllamaProvider.
 
 ## Priority 5 — Docs and tests
 

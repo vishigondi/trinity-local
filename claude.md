@@ -10,7 +10,7 @@
 
 **Trinity Local is the cross-provider memory layer the labs are commercially prevented from building.** Tagline: *Own your memories. The AI you trained should outlive the provider.* It watches Claude / ChatGPT / Gemini transcripts that already live on the user's machine, learns which model wins for which kind of question, and — when the user doesn't know which to ask — convenes them as a council and synthesizes one verifier-shaped verdict. The shareable artifact is the user's `/me` lens (paired tensions extracted from where they pushed back on a model), not council verdicts themselves.
 
-**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 518 tests passing (v1.5 Weeks 1–4 work landed: `ask` MCP tool + cortex consolidation + dispatch error classification + rate-limit auto-retry + rate-limit-saves metric + Ollama local-model dispatch + health-aware pool demotion + `get_cortex_rules` MCP introspection). **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
+**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 484 tests passing (v1.5 Weeks 1–4 work landed: `ask` MCP tool + cortex consolidation + dispatch error classification + rate-limit auto-retry + rate-limit-saves metric + Ollama local-model dispatch + health-aware pool demotion + `get_cortex_rules` MCP introspection). Loop Constitution substrate removed pre-launch (was 1,396 lines of v2-trajectory code that v1.5 doesn't use; the mechanic will be rebuilt leaner inside v1.6's `plan_and_execute`). **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
 
 **The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 
@@ -240,33 +240,21 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 - **Live server-side autofill on keystroke** — needs a local HTTP endpoint.
 - **Phase 9 learned tiny coordinator** — explicitly later. v1 collects the personal data; Phase 9 trains a per-user adapter against it.
 
-## Loop Constitution (v2, in development)
+## Loop Constitution substrate — removed; preserved in git history + spec
 
-v2 shifts Trinity from *evidence ledger* to *skill factory*. The mechanic is a **double-loop** in the HRM lineage: small operator + many applications + state coupling.
+The double-loop substrate (`frame` / `run` / `verify_web`, formerly `src/trinity_local/loop/`)
+was **removed from the codebase** as pre-launch simplification. The mechanic —
+*execute → verify → cull → re-verify → commit* — will be rebuilt leaner inside
+v1.5's `plan_and_execute` tool (ships in v1.6) driven by a flagship Conductor
+with cortex context, not by a trained local skill-factory model.
 
-```
-OUTER LOOP (slow, structural — the frame, taste sets it)
-    invert + plan = "what's worth building, what would fail"
-    │
-    ▼  (frame becomes inner-loop rubric)
-INNER LOOP (fast, recurring — small operator, many applications)
-    execute → verify → cull → re-verify → commit
-    │
-    ▼  (drift telemetry feeds back)
-OUTER LOOP audit
-    eviction = re-run outer when model lands or telemetry widens
-```
-
-- **Outer loop** (`trinity-loop frame`): one chairman call emits `inversions` + `eval_seed` for a skill intent. Sets the rails.
-- **Inner loop** (`trinity-loop run`): execute → verify → cull → re-verify → commit, iterated until verify passes or budget exhausts. Per iteration: 1 chairman call (execute) + 1 verify (Autobrowse for web tasks, chairman-rubric otherwise) + 1 chairman call (cull). Re-verify only fires when cull modified the artifact.
-- **State coupling**: `state.history` carries verify failures into next iteration's execute prompt. `cycles_to_converge` past threshold triggers outer-loop reframe.
-- **Eviction = outer rerun**: when a model lands, `trinity-loop reframe --on-model-release` re-runs `frame` against stale skills; failures get evicted.
-
-Council `council_5fbf909119830643` (Codex won, high) ratified the substrate: model called per-stage (not running the loop), supervisor owns continuity (state.json, no daemon), Autobrowse is the verifier, **cull → re-verify → commit is non-negotiable**. Plan in `~/.claude/plans/whimsical-imagining-firefly.md`.
+The architectural reference + the ratifying council outcomes live in
+[`docs/v2-loop-constitution.md`](docs/v2-loop-constitution.md). Git history
+preserves the prior implementation if v1.6 wants to study it.
 
 ## Verified status
 
-- `pytest -q` — **289 passed**.
+- `pytest -q` — **484 passed**.
 - `trinity-local --mcp` exposes 8 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_cortex_rules` (agent-facing introspection into extracted routing patterns).
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.

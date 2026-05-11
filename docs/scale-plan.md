@@ -6,9 +6,12 @@
 >
 > **Next trajectory = v1.5** (ships June 3, 2026) — see [`spec-v1.5.md`](spec-v1.5.md).
 > The MCP-primary routing product with hippocampus + cortex two-tier memory. The
-> Loop Constitution double-loop (former v2 substrate, still in `src/trinity_local/loop/`)
-> is retained but not productized — `plan_and_execute` ships in v1.6 if v1.5's
-> `ask` + `compare` ceilings on multi-step workflows. Trained-coordinator v2 path is
+> The Loop Constitution double-loop substrate (formerly `src/trinity_local/loop/`)
+> was removed alongside this trajectory pivot — pre-launch simplification. The
+> `cull → re-verify → commit` mechanic the substrate prototyped will be rebuilt
+> leaner inside v1.6's `plan_and_execute` (flagship Conductor + recursive
+> verification) if v1.5's `ask` + `compare` ceiling on multi-step workflows.
+> Spec is preserved in `docs/v2-loop-constitution.md` as architectural reference. Trained-coordinator v2 path is
 > **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
