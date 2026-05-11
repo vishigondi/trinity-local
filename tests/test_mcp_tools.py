@@ -34,11 +34,12 @@ class TestToolList:
 
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        # v1.5 adds `ask` (the cheap default routing tool). v1.0 canonical 6:
-        # route, run_council (subsumes judge via responses=[...]), record_outcome,
-        # search_prompts, get_persona, get_council_status. v1.5: ask.
+        # v1.0 canonical 6: route, run_council (subsumes judge via responses=[...]),
+        # record_outcome, search_prompts, get_persona, get_council_status.
+        # v1.5 adds `ask` (single-call routing) + `get_cortex_rules` (introspection
+        # for the agent into the user's extracted routing patterns).
         assert names == {
-            "ask",
+            "ask", "get_cortex_rules",
             "route", "run_council", "record_outcome",
             "search_prompts", "get_persona", "get_council_status",
         }, f"unexpected tool list: {names}"

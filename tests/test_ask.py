@@ -544,6 +544,121 @@ class TestRateLimitSavesMetric:
         assert result.answer == "ok"
 
 
+class TestMcpGetCortexRules:
+    """The agent-facing introspection tool. Lets Claude in the harness see
+    what Trinity has learned about which provider wins for which question
+    kind, with the system-computed trust_score gating which rules to lean on.
+    """
+
+    def test_empty_when_no_consolidation_yet(self, tmp_path, monkeypatch):
+        import asyncio
+        import json as _json
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        result = asyncio.run(mcp_server._get_cortex_rules({}))
+        payload = _json.loads(result[0]["text"])
+        assert payload["rules"] == {}
+        assert "consolidate" in payload["note"]
+
+    def test_returns_all_rules_when_no_filter(self, tmp_path, monkeypatch):
+        import asyncio
+        import json as _json
+        from trinity_local import mcp_server, cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Plant two patterns with different trust scores.
+        p1 = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.9, "claude": 0.1},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
+        )
+        p2 = cortex.RoutingPattern(
+            basin_id="code_review",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=5,
+            task_kinds=["code_review"],
+            winner_distribution={"claude": 0.8, "codex": 0.2},
+            routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.40, components={"n_episodes_norm": 0.2, "consistency_score": 0.8, "recency_agreement": 0.5, "diversity": 0.5}),
+        )
+        cortex.save_routing_patterns({"system_design": p1, "code_review": p2})
+
+        result = asyncio.run(mcp_server._get_cortex_rules({}))
+        payload = _json.loads(result[0]["text"])
+        assert set(payload["rules"].keys()) == {"system_design", "code_review"}
+        assert payload["total_basins"] == 2
+
+    def test_filters_by_basin_id(self, tmp_path, monkeypatch):
+        import asyncio
+        import json as _json
+        from trinity_local import mcp_server, cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        p = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30, task_kinds=["system_design"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.8, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.5}),
+        )
+        cortex.save_routing_patterns({"system_design": p})
+
+        result = asyncio.run(mcp_server._get_cortex_rules({"basin_id": "system_design"}))
+        payload = _json.loads(result[0]["text"])
+        assert "system_design" in payload["rules"]
+        # Filter to non-existent basin returns no matches but no error.
+        result = asyncio.run(mcp_server._get_cortex_rules({"basin_id": "nonexistent"}))
+        payload = _json.loads(result[0]["text"])
+        assert payload["rules"] == {}
+        assert payload["returned"] == 0
+
+    def test_filters_by_min_trust(self, tmp_path, monkeypatch):
+        import asyncio
+        import json as _json
+        from trinity_local import mcp_server, cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        high = cortex.RoutingPattern(
+            basin_id="high",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30, task_kinds=["high"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.85, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.6}),
+        )
+        low = cortex.RoutingPattern(
+            basin_id="low",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=3, task_kinds=["low"],
+            winner_distribution={"claude": 0.5, "codex": 0.5},
+            routing_rule=cortex.RoutingRule(primary="claude", challenger="codex", reason="r", subroutes=[]),
+            trust_score=cortex.TrustScore(value=0.30, components={"n_episodes_norm": 0.12, "consistency_score": 0.5, "recency_agreement": 0.3, "diversity": 0.5}),
+        )
+        cortex.save_routing_patterns({"high": high, "low": low})
+
+        result = asyncio.run(mcp_server._get_cortex_rules({"min_trust": 0.5}))
+        payload = _json.loads(result[0]["text"])
+        # Only the high-trust rule clears the filter.
+        assert set(payload["rules"].keys()) == {"high"}
+        assert payload["returned"] == 1
+        assert payload["total_basins"] == 2  # but both exist
+
+    def test_rejects_bad_input(self):
+        import asyncio
+        from trinity_local import mcp_server
+
+        bad = asyncio.run(mcp_server._get_cortex_rules({"basin_id": 123}))
+        assert hasattr(bad[0], "code")  # ErrorData
+        bad = asyncio.run(mcp_server._get_cortex_rules({"min_trust": "not-a-number"}))
+        assert hasattr(bad[0], "code")
+
+
 class TestMcpProviderPool:
     """The MCP layer composes the available-provider pool from config +
     detected local Ollama models. This is what makes ask aware of local

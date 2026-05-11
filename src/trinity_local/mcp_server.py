@@ -219,6 +219,35 @@ async def handle_list_tools() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
+            name="get_cortex_rules",
+            description=(
+                "Return the user's extracted routing patterns from "
+                "`~/.trinity/cortex/routing_patterns.json` — the cortex layer's "
+                "consolidated knowledge across past councils. Per-basin: which "
+                "provider wins, why, failure modes per loser, successful prompt "
+                "templates, and a system-computed trust_score (4 components, "
+                "weighted geometric mean). Pull this when planning a complex "
+                "task — it tells you which provider this user prefers for THIS "
+                "kind of question and why. Empty when no consolidation has run "
+                "yet (`trinity-local consolidate`). Filter to a specific basin "
+                "with the `basin_id` parameter; omit for the full map. v1.5."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "basin_id": {
+                        "type": "string",
+                        "description": "Optional. Return only the rule for this basin (task_kind).",
+                    },
+                    "min_trust": {
+                        "type": "number",
+                        "default": 0.0,
+                        "description": "Filter to rules with trust_score >= this value (0..1).",
+                    },
+                },
+            },
+        ),
+        Tool(
             name="get_council_status",
             description=(
                 "Poll an in-flight or completed council by `council_run_id` (returned from "
@@ -244,6 +273,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     try:
         if name == "ask":
             return await _ask(arguments)
+        if name == "get_cortex_rules":
+            return await _get_cortex_rules(arguments)
         if name == "route":
             return await _route(arguments)
         if name == "run_council":
@@ -400,6 +431,41 @@ async def _ask(args: dict) -> list[Any]:
         return [ErrorData(code=502, message=f"dispatch_failed: {type(exc).__name__}: {exc}")]
 
     return [_text(result.to_dict())]
+
+
+async def _get_cortex_rules(args: dict) -> list[Any]:
+    """Handle mcp__trinity-local__get_cortex_rules. Returns the user's
+    extracted routing patterns so the calling agent can inspect what
+    Trinity has learned about which model wins for which question kind.
+    """
+    from .cortex import load_routing_patterns
+
+    basin_id = args.get("basin_id")
+    if basin_id is not None and not isinstance(basin_id, str):
+        return [ErrorData(code=400, message="`basin_id` must be a string when provided")]
+    try:
+        min_trust = float(args.get("min_trust", 0.0))
+    except (TypeError, ValueError):
+        return [ErrorData(code=400, message="`min_trust` must be numeric")]
+
+    patterns = load_routing_patterns()
+    if not patterns:
+        return [_text({"rules": {}, "note": "No cortex consolidation yet. Run `trinity-local consolidate`."})]
+
+    # Filter
+    filtered: dict[str, dict] = {}
+    for bid, pattern in patterns.items():
+        if basin_id is not None and bid != basin_id:
+            continue
+        if pattern.trust_score.value < min_trust:
+            continue
+        filtered[bid] = pattern.to_dict()
+
+    return [_text({
+        "rules": filtered,
+        "total_basins": len(patterns),
+        "returned": len(filtered),
+    })]
 
 
 async def _route(args: dict) -> list[Any]:
