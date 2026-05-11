@@ -176,6 +176,24 @@ def memory_dir() -> Path:
     return path
 
 
+def cortex_dir() -> Path:
+    """v1.5 cortex layer — extracted routing patterns per basin, model-version
+    checkpoints, per-provider failure modes. Written by `trinity-local
+    consolidate`; read by `ask` at query time. See `docs/spec-v1.5.md`.
+    """
+    path = state_dir() / "cortex"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def cortex_routing_patterns_path() -> Path:
+    return cortex_dir() / "routing_patterns.json"
+
+
+def cortex_model_checkpoints_path() -> Path:
+    return cortex_dir() / "model_checkpoints.json"
+
+
 def prompt_nodes_path() -> Path:
     return memory_dir() / "prompt_nodes.jsonl"
 
