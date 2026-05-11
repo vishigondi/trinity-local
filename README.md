@@ -27,15 +27,23 @@ Open source. Local-first. macOS today. *No account required.*
 - **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
   use. The provider eats the inference cost; you keep the preference signal.
 
-## Quickstart (5 commands)
+## Quickstart (3 paths)
 
 ```bash
+# Fastest: pip + install-mcp
 pip install trinity-local
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
 trinity-local doctor                # verify providers + auth before your first council
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
 trinity-local me-build              # surface your taste lenses (after a few councils)
-trinity-local me-card                # render your /me lens as a 1200×630 PNG to share
+trinity-local me-card               # render your /me lens as a 1200×630 PNG to share
+
+# Or: clone + setup.sh — bootstraps venv + macOS Shortcut + Desktop launchpad icon
+git clone https://github.com/openclaw/trinity-local && cd trinity-local
+./setup.sh                          # one script does everything
+
+# Or, from inside Claude Code (after either of the two above):
+/trinity                            # the bundled skill re-runs install + first-council
 ```
 
 `trinity-local doctor` checks each provider CLI is installed + authenticated, the MCP server
