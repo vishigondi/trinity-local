@@ -27,10 +27,23 @@ Open source. Local-first. macOS today. *No account required.*
 - **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
   use. The provider eats the inference cost; you keep the preference signal.
 
+## Prereqs
+
+Trinity needs **Python 3.10+** (macOS Sequoia ships with 3.9 by default — check with
+`python3 --version`). If you need to upgrade:
+
+```bash
+brew install python   # 3.12 or newer
+```
+
+Plus the provider CLIs you want in the council: `claude`, `codex`, and/or `gemini` —
+each authenticated to your subscription. `trinity-local doctor` will tell you which
+are missing.
+
 ## Quickstart (3 paths)
 
 ```bash
-# Fastest: pip + install-mcp
+# Fastest: pip + install-mcp (assumes Python 3.10+ already)
 pip install trinity-local
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
 trinity-local doctor                # verify providers + auth before your first council
@@ -38,9 +51,9 @@ trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics
 trinity-local me-build              # surface your taste lenses (after a few councils)
 trinity-local me-card               # render your /me lens as a 1200×630 PNG to share
 
-# Or: clone + setup.sh — bootstraps venv + macOS Shortcut + Desktop launchpad icon
+# Or: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Desktop launchpad icon
 git clone https://github.com/openclaw/trinity-local && cd trinity-local
-./setup.sh                          # one script does everything
+./setup.sh                          # one script handles Python check + everything else
 
 # Or, from inside Claude Code (after either of the two above):
 /trinity                            # the bundled skill re-runs install + first-council

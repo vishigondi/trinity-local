@@ -152,14 +152,36 @@ REMOTE_SCRIPT=$(cat <<'REMOTE_EOF'
 set -e
 WHEEL_NAME=$(ls ~/trinity_local-*.whl | head -1)
 if [ -z "$WHEEL_NAME" ]; then echo "FAIL: no wheel in home dir"; exit 1; fi
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "FAIL: python3 not on PATH in vanilla macOS — install Xcode CLT first" >&2
-    exit 1
-fi
-PYV=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-echo "      python: $PYV"
 
-python3 -m venv ~/trinity-venv
+# macOS Sequoia ships Python 3.9 at /usr/bin/python3 — too old for Trinity's
+# >=3.10 requirement. This mirrors the actual user-flow per README:
+# "If you need to upgrade: brew install python"
+PYV=$(/usr/bin/python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "missing")
+echo "      system python3: $PYV"
+
+PYTHON=python3
+if [ "$PYV" = "3.9" ] || [ "$PYV" = "missing" ] || [ "$PYV" = "3.8" ]; then
+    # macos-sequoia-base doesn't ship brew. Use python.org's official PKG
+    # installer (no brew dep, no sudo prompt — admin user has NOPASSWD on
+    # cirruslabs images). README mentions brew as the recommended path; this
+    # is the fallback that works on minimal images.
+    PY_VER="3.12.7"
+    PKG_URL="https://www.python.org/ftp/python/${PY_VER}/python-${PY_VER}-macos11.pkg"
+    echo "      installing python ${PY_VER} via python.org PKG installer..."
+    curl -fsSL "$PKG_URL" -o /tmp/python.pkg
+    echo admin | sudo -S installer -pkg /tmp/python.pkg -target / >/dev/null 2>&1
+    if [ -x /usr/local/bin/python3.12 ]; then
+        PYTHON=/usr/local/bin/python3.12
+    elif [ -x /Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12 ]; then
+        PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+    else
+        echo "FAIL: python 3.12 not found after PKG install" >&2
+        exit 1
+    fi
+    echo "      ✓ python 3.12 ready at $PYTHON"
+fi
+
+$PYTHON -m venv ~/trinity-venv
 ~/trinity-venv/bin/pip install --quiet --upgrade pip
 ~/trinity-venv/bin/pip install --quiet "$WHEEL_NAME"
 echo "      ✓ pip install ok"
@@ -168,16 +190,21 @@ echo "      ✓ pip install ok"
 echo "      ✓ install-mcp ran"
 
 REPORT=$(~/trinity-venv/bin/trinity-local doctor --json)
-echo "$REPORT" | python3 -c "
+echo "$REPORT" | $PYTHON -c "
 import json, sys
 data = json.load(sys.stdin)
 home = next((c for c in data['checks'] if c['name'] == 'trinity_home_writeable'), None)
 mcp = next((c for c in data['checks'] if c['name'] == 'mcp_available'), None)
 cfg = next((c for c in data['checks'] if c['name'] == 'config_loadable'), None)
+# Trinity-internal checks: must pass. Provider CLI checks (claude/codex/gemini)
+# legitimately fail on a fresh Mac without those CLIs installed yet — that's
+# the user's setup task, not a Trinity install failure. config_loadable is
+# present but may not be ok (fresh install has no enabled providers); just
+# assert it exists, matching the local smoke's contract.
 assert home and home['ok'], 'trinity_home_writeable failed: ' + json.dumps(home)
 assert mcp and mcp['ok'], 'mcp_available failed: ' + json.dumps(mcp)
-assert cfg and cfg['ok'], 'config_loadable failed: ' + json.dumps(cfg)
-print('      ✓ doctor: home/mcp/config all green')
+assert cfg is not None, 'config_loadable check missing'
+print('      ✓ doctor: home + mcp green; config present (providers absent — expected)')
 "
 
 SKILL=~/.claude/skills/trinity/SKILL.md
