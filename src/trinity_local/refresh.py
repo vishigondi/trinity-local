@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def refresh_launchpad(*, title: str = "Trinity Launchpad") -> Path:
+def refresh_launchpad(*, title: str = "Trinity · Own your memories") -> Path:
     from .portal_page import write_portal_html
 
     _backfill_thread_manifests()

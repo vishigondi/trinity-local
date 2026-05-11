@@ -209,6 +209,17 @@ def main() -> int:
         page.screenshot(path=str(SHOTS_DIR / "3-routing-table.png"))
 
         # ─── Surface 4: Copy-for-sharing clipboard write ─────────────────────
+        # Scroll the lens section into view FIRST so the post-click screenshot
+        # frames the right surface. Clicking flips the button label to
+        # "Copied!" which would break any text-based selector run after.
+        page.evaluate(
+            """() => {
+              const btn = Array.from(document.querySelectorAll('button')).find(b => /Copy.*shar/i.test(b.textContent));
+              btn?.scrollIntoView({block: 'center'});
+            }"""
+        )
+        page.wait_for_timeout(300)
+
         copy_state = page.evaluate(
             """() => new Promise(resolve => {
               let copied = null;
@@ -230,14 +241,6 @@ def main() -> int:
             print(f"[ ✗ ] Surface 4 copy-for-sharing: {reason}")
             fails.append((4, "copy-for-sharing", reason))
 
-        # Focused screenshot of the /me lens + copy button.
-        page.evaluate(
-            """() => {
-              const btn = Array.from(document.querySelectorAll('button')).find(b => /Copy.*shar/i.test(b.textContent));
-              btn?.scrollIntoView({block: 'center'});
-            }"""
-        )
-        page.wait_for_timeout(300)
         page.screenshot(path=str(SHOTS_DIR / "4-copy-for-sharing.png"))
 
         # ─── Surface 5: Recent council click ─────────────────────────────────

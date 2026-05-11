@@ -9,11 +9,11 @@ PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
 CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 
 
-def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity Launchpad") -> str:
+def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Own your memories") -> str:
     extra_head = f"""
   <script src="{CHART_JS_SRC}"></script>
 """
-    head = render_html_head(f"{title} — Council First", extra_head=extra_head)
+    head = render_html_head(title, extra_head=extra_head)
     footer = render_html_footer()
 
     return f"""{head}
@@ -699,14 +699,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
         </div>
-        <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings">
+        <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>
         </button>
       </section>
 
       <section class="settings-modal" v-if="settingsOpen" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
         <div class="card" style="max-width: 460px; margin: 20px; position: relative;">
-          <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 24px; opacity: 0.6; transition: opacity 0.2s;">×</button>
+          <button @click="settingsOpen = false" style="position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; font-size: 24px; opacity: 0.6; transition: opacity 0.2s;" aria-label="Close settings">×</button>
           <div class="eyebrow">Settings</div>
           <h2>Launchpad controls</h2>
           <p class="meta">Telemetry is opt-in. Trinity can share anonymous Launchpad views and routing labels (provider scores by task type, winner, confidence) — never raw prompts, outputs, code, or file paths.</p>
@@ -716,10 +716,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </p>
 
           <div class="settings-list">
-            <div class="setting-row">
-              <span class="meta">Sharing enabled</span>
-              <span :class="telemetry.enabled ? 'badge success' : 'badge'">{{{{ telemetry.enabled ? 'On' : 'Off' }}}}</span>
-            </div>
             <div class="setting-row">
               <span class="meta">Endpoint</span>
               <span class="meta">{{{{ displayedEndpoint }}}}</span>

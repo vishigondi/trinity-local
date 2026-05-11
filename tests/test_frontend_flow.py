@@ -118,7 +118,6 @@ class TestLaunchpadFlow:
         assert '"launchpadUrl"' not in html
         assert "progressScriptBaseUrl" not in html
         assert "loadProgressScript" not in html
-        assert "{{ telemetry.enabled ? 'On' : 'Off' }}" in html
         assert "{{ operation.label }}" in html
         assert "councilLoadingMessages" in html
         assert "window.addEventListener('pageshow'" in html

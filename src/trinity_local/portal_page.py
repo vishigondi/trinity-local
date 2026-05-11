@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 
-def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
+def render_launchpad_html(*, title: str = "Trinity · Own your memories") -> str:
     # CLI's portal-html is the canonical place to refresh the live page;
     # force=True overwrites whatever's on disk with the current source.
     # MCP-side calls leave force=False so a stale long-running server can't
@@ -31,7 +31,7 @@ def render_launchpad_html(*, title: str = "Trinity Launchpad") -> str:
     return _render_template(page_data=page_data, recent_cards=recent_cards, title=title)
 
 
-def write_portal_html(*, title: str = "Trinity Launchpad") -> Path:
+def write_portal_html(*, title: str = "Trinity · Own your memories") -> Path:
     path = portal_pages_dir() / "launchpad.html"
     path.write_text(render_launchpad_html(title=title), encoding="utf-8")
     return path

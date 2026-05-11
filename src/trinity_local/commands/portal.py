@@ -17,7 +17,7 @@ from ..task_runtime import load_task_record
 
 def register(subparsers):
     pp = subparsers.add_parser("portal-html", help="Generate a bookmarkable static launchpad page")
-    pp.add_argument("--title", default="Trinity Launchpad")
+    pp.add_argument("--title", default="Trinity · Own your memories")
     pp.add_argument("--open-browser", action="store_true")
     pp.set_defaults(handler=handle_portal_html)
 
