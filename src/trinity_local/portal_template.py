@@ -695,7 +695,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)" @vue:mounted="init">
       <section class="card hero-shell">
         <div>
-          <div class="eyebrow">Trinity Launchpad</div>
+          <div class="eyebrow">Trinity · Own your memories</div>
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
         </div>
@@ -722,7 +722,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </div>
             <div class="setting-row">
               <span class="meta">Endpoint</span>
-              <span class="meta">{{{{ telemetry.endpoint || 'Not configured' }}}}</span>
+              <span class="meta">{{{{ displayedEndpoint }}}}</span>
             </div>
             <div class="setting-row">
               <span class="meta">Anonymous ID</span>
@@ -1405,6 +1405,18 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // user has any history at all.
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory ? 'Run a Council' : 'Own your memories.';
+        }},
+        // Hide developer/placeholder endpoint values from the settings UI;
+        // example.invalid is the RFC 6761 stub used during dev, localhost
+        // is a test value. Show "Not configured" so users don't think a
+        // broken URL is intentional.
+        get displayedEndpoint() {{
+          const ep = this.telemetry?.endpoint || '';
+          if (!ep) return 'Not configured';
+          if (/example\\.invalid|^https?:\\/\\/(localhost|127\\.0\\.0\\.1)/.test(ep)) {{
+            return 'Not configured';
+          }}
+          return ep;
         }},
         get heroLede() {{
           if (this.operation?.kind === 'council' && this.busy) {{
