@@ -5,8 +5,30 @@ from pathlib import Path
 from .config import trinity_home
 
 
+# v1 schema lock. Bump only when the on-disk layout changes in a way that
+# requires a migration. v2 adds new subdirs (videos/, lens/, models/) without
+# renaming existing ones — those land at SCHEMA_VERSION 2. See docs/spec-v1.md
+# "Folder layout" and docs/spec-v2.md "Foundations laid in v1."
+SCHEMA_VERSION = "1"
+
+
 def state_dir() -> Path:
-    return trinity_home()
+    home = trinity_home()
+    # Lazily anchor the schema version. Written once; future bumps go through
+    # an explicit migration script that updates this file under a transaction.
+    _ensure_schema_version(home)
+    return home
+
+
+def _ensure_schema_version(home: Path) -> None:
+    schema_path = home / "SCHEMA_VERSION"
+    if schema_path.exists():
+        return
+    try:
+        home.mkdir(parents=True, exist_ok=True)
+        schema_path.write_text(SCHEMA_VERSION + "\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def prompt_bundles_dir() -> Path:

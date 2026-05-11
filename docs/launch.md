@@ -3,92 +3,130 @@
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero
 > rewrite, blog hook, 60s demo script. Send me-card PNG with every external post.
 >
-> Council ratification: `council_4f34cd1181d5bd08` (Codex won, high). Verdict: **conditional
-> greenlight** with five edits applied. Major failure mode flagged: *"thread leads with
-> comparison surface; reader pattern-matches to Poe / ChatHub before reaching the ledger
-> moat in tweet 6."* Mitigation: ledger moved to tweets 1–2; opening verb changed from
-> "asks" to "records disagreement as routing evidence"; HN title de-jargoned; verbatim
-> lens example in tweet 5; CLI-auth setup caveat in tweet 8. Eval seed: *tweet 1 or 2 must
-> name the local Routing JSON ledger as the primary product behavior, not multi-model
-> comparison.*
+> v1 brand: **Own your memories. The AI you trained should outlive the provider.** Manifesto
+> sentence: *"the cross-provider memory layer the labs are commercially prevented from
+> building."* Narrative beat order (per docs/spec-v1.md): fragmentation pain → structural
+> problem → local-first answer → council as engine → taste capture → sovereignty stake →
+> bigger thesis.
+>
+> Prior council ratification: `council_4f34cd1181d5bd08` (Codex won, high, ledger-first
+> reordering). Subsequent user spec elevated the brand from ledger-mechanic to memory-
+> sovereignty; thread updated to lead with the structural argument, not the mechanic.
 
-## Twitter / X thread (10 tweets)
+## Twitter / X thread (12 tweets, narrative-beats order)
 
-> Council `council_4f34cd1181d5bd08` (Codex won, high) reordered: ledger to tweets 1–2,
-> recursive demo reframed, CLI-auth caveat added, verbatim lens in tweet 5.
+**Hook (1/12).** I have three AI subscriptions and I still copy-paste between tabs like
+an animal. Claude can't tell me when to use ChatGPT. ChatGPT can't tell me when to use
+Gemini. The labs are *commercially prevented* from helping you use a competitor.
 
-**The ledger (1/10).** Trinity Local doesn't just ask Claude / Gemini / Codex the same
-question. It records *the disagreement* as routing evidence — agreed claims, disagreed
-claims with `why_matters`, winner, scores. The *click* you make today changes which model
-gets trusted tomorrow.
+**The structural problem (2/12).** It's not a bug. Anthropic isn't allowed to recommend
+ChatGPT. OpenAI isn't allowed to recommend Claude. They built the labs you trust; they
+can't build the layer above them. Someone outside the labs has to.
 
-**The mechanic (2/10).** Every council emits structured Routing JSON to
-`~/.trinity/council_outcomes/<id>.json`. Not a chat log — a *labeled outcome*. After a
-few, Trinity has built a personal map of which model wins your kind of question. Frontier
-providers can't see that signal. You can.
+**Local-first answer (3/12).** Your transcripts already live on your machine. ~/.claude/.
+~/.codex/. ~/.gemini/. Three SQLite caches owned by three companies, none allowed to read
+each other. Trinity reads all three. Locally. No phone-home.
 
-**The wedge (3/10).** "Which model is best" is the wrong question. Models have *regions
-of competence* that depend on your taste, your codebase, your trade-offs. Trinity captures
-which region you actually live in. The data compounds.
+**The council as engine (4/12).** When you don't know which model is best for a question,
+ask three of them in parallel. A local chairman synthesizes — *agreed claims, disagreed
+claims, why the disagreement matters.* You click the answer you trusted. That click is
+the only training signal Trinity ever takes.
 
-**The privacy moat (4/10).** Your prompts never leave your machine. Trinity dispatches via
-the Claude / Gemini / Codex CLIs you already have. Subsidized by the subscriptions you're
-already paying for. No hosted controller. No per-call API billing.
-
-**The /me lens (5/10).** After a few councils, Trinity distills paired tensions from where
-you actually pushed back on a model. From my own ledger:
+**The taste capture (5/12).** After ~10 councils, Trinity has built a personal map of
+which model wins YOUR kind of question. From my own ledger:
 
 > *leading proxy signal as forecast* vs *official lagging metric as truth*
-> failure of the first: paranoid pattern-matching, signals everywhere
-> failure of the second: consensus follower, lag the move
+> failure of one: paranoid pattern-matching, signals everywhere
+> failure of the other: consensus follower, lag the move
 
-Spans three topical clusters. Run `me-card` to render it as a 1200×630 PNG. [me-card image]
+That's a paired tension extracted from where I pushed back on a model. Two-poled, both
+named. Run `me-card` to render it as a 1200×630 PNG. *This* is the social object.
 
-**Why now (6/10).** Trinity rides on consumer subscriptions — $20–200/mo flat tiers. No
-per-call billing. The provider eats inference cost. Your preference signal stays in your
-home directory. That's not a roadmap, that's the v1 cost model.
+**The sovereignty stake (6/12).** The harnesses are migrating cloud-side. Your context
+is becoming someone else's asset. Right now the .sqlite cache is still on your machine.
+Trinity is the local memory layer for the window before that closes.
 
-**The recursive demo (7/10).** I ran Trinity's launch council against its own readiness.
-It exposed the failure mode (skill-not-in-pip-path), named the deterministic test
-(`smoke_install.sh` asserts SKILL.md lands in `~/.claude/skills/trinity/`), drove the
-commit. The full council outcome is in the repo: `council_d55953003bb29f9d.json`.
+**The privacy moat (7/12).** Prompts never upload. No exceptions, no Pro tier that
+changes this. Telemetry is opt-in and ships only anonymous categorical labels — never
+content. Folder is yours. Break this once and the brand dies.
 
-**Skill install (8/10).** `pip install trinity-local && trinity-local install-mcp` — drops
-a `/trinity` skill into Claude Code globally. From a fresh terminal: type `/trinity` and
-you're in. (Caveat: Trinity rides on the Claude / Gemini / Codex CLIs being authenticated
-already. `trinity-local doctor` tells you which CLIs are missing.)
+**Why this is structurally yours forever (8/12).** Trinity rides on consumer
+subscriptions you already pay for. No per-call billing. No vendor lock-in — if you switch
+to Anthropic + Mistral tomorrow, the ledger you built still works. The taste you trained
+moves with you.
 
-**The takeaway (9/10).** Trust calibration > cost optimization. The shareable artifact is
-your `/me` lens, not council verdicts. Cross-pollinating lenses is how the network effect
-compounds.
+**The recursive demo (9/12).** I ran Trinity's launch council against its own readiness.
+It exposed the failure mode, named the deterministic test, drove the commit. The full
+outcome is in the repo: `council_d55953003bb29f9d.json`. Open-source the trail, not
+just the code.
 
-**CTA (10/10).** Trinity Local v1 ships open-source [date]. github.com/<repo>. If you
-build with two or more model providers, run one council. Tell me what you learned. The
-disagreed claims are the interesting part.
+**Install (10/12).** `pip install trinity-local && trinity-local install-mcp` — drops a
+`/trinity` skill into Claude Code globally. From a fresh terminal OR from inside Claude
+Code, you're three commands from a council on your real work. Caveat: Trinity needs the
+Claude / Gemini / Codex CLIs authenticated. `trinity-local doctor` tells you which are
+missing.
+
+**The bigger thesis (11/12).** *Own your memories now, because the next thing you'll need
+to own is your agent.* The labs are migrating from "the model I rent" to "the agent that
+acts for me." Your context — the work you've already done, the answers you trusted, the
+preferences you've expressed — is the asset that makes any agent useful. Trinity is the
+substrate that keeps that asset yours.
+
+**CTA (12/12).** Trinity Local v1 ships open-source [date]. github.com/<repo>. If you
+build with two or more model providers, run one council. Tell me what you learned.
 
 ---
 
-## README hero rewrite candidate
+## Founder narrative angle (use in HN comments + bio)
 
-> *Three frontier models answered the same question. Two agreed. One substituted a cleaner
-> frame than I asked for. I learned more from the disagreement than from any single answer.*
+> I'm a polyharness power user. Architecture background — IIT Kharagpur + Harvard GSD. I
+> built the propensity models at Mailchimp and an intelligence layer for the smart-home
+> stack at OpenClaw. I built Trinity because *I* needed it: I had Claude Code open in one
+> terminal, Codex in another, Gemini CLI in a browser tab, and I was copy-pasting between
+> them like an animal. The market is exhausted by visionary AI founders in 2026. Trinity
+> is the unsexy answer: my own context, on my machine, working for me.
+
+Don't lead with "I'm building the future of AI." Lead with "I got tired of copy-pasting
+between three tabs and I built this for myself." Personal voice scales further than
+visionary voice in 2026.
+
+---
+
+## README hero (locked, see README.md)
+
+> ## Own your memories.
+> ### The AI you trained should outlive the provider.
 >
-> Trinity Local turns that into a habit: ask all your AIs at once, see where they agree,
-> see why when they don't, and walk away with a ledger of which model handles
-> *your* questions best. Local-first. Rides your subscriptions. Prompts never upload.
+> You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives
+> in three different SQLite caches, owned by three different companies, none of which are
+> allowed to help you use the others.
+>
+> Trinity is the local intelligence layer that watches all three, learns which one wins
+> for which task, and — when it matters — convenes them as a council so you get the
+> strongest answer instead of the most familiar one.
+>
+> **The cross-provider memory layer the labs are commercially prevented from building.**
 
 ---
 
 ## Hacker News title + opener
 
-**Title:** *Show HN: Trinity Local — a local routing ledger for Claude, Gemini, and Codex*
+**Title:** *Show HN: Trinity Local — the cross-provider memory layer the labs can't build*
+
+Backup titles:
+- *Show HN: I got tired of copy-pasting between Claude / ChatGPT / Gemini and built this*
+- *Trinity Local: local memory layer for polyharness users (open source, macOS)*
 
 **First comment (the unfair-advantage post):**
 
-> I built this because "which AI is best" is the wrong question for me. Different models
-> have different regions of competence — and which region matters depends on the taste of
-> the person asking. Trinity asks all three, names the agreed claims, names the disagreed
-> ones with `why_matters`, and persists the verdict locally as one labeled outcome.
+> I have three AI subscriptions and I still copy-paste between tabs like an animal. Claude
+> can't tell me when ChatGPT is better. OpenAI can't tell me when Claude is better. It's a
+> structural problem — they're commercially prevented from helping you use a competitor.
+>
+> Trinity is the answer outside the labs. It reads ~/.claude/, ~/.codex/, ~/.gemini/ — the
+> SQLite caches that already live on your machine — and learns which model wins for which
+> kind of question you ask. When you don't know, it convenes the three of them as a
+> council in parallel, and a local chairman synthesizes the answer.
 >
 > Two architectural commitments worth flagging:
 >
