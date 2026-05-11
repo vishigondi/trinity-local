@@ -38,7 +38,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
     textarea {{
       width: 100%;
-      min-height: 132px;
+      min-height: 84px;
       padding: 16px;
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -1020,7 +1020,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
-      <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;">
+      <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;" v-if="debugMode">
         Page generated {{{{ pageData.regeneratedAt }}}} · stale? run <code>trinity-local portal-html</code> + Cmd+Shift+R
       </p>
     </div>
@@ -1291,6 +1291,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         tasteLenses: pageData.tasteLenses || null,
         formatProviderLabel,
         copiedKey: '',
+        debugMode: new URLSearchParams(location.search).has('debug'),
         copyLens(text, key) {{
           if (!text) return;
           const restore = () => {{ this.copiedKey = ''; }};

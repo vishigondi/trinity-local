@@ -49,11 +49,25 @@ def _esc(value: str | None) -> str:
     return html.escape(value or "")
 
 
+def _strip_thread_context(text: str) -> str:
+    """When the prompt was built by thread_context.build_threaded_prompt, the
+    actual user question lives after a "Current user message:\n" marker. The
+    preceding block is prior-assistant context that humans don't want as the
+    card title. Strip it for display.
+    """
+    marker = "Current user message:\n"
+    idx = text.find(marker)
+    if idx >= 0:
+        return text[idx + len(marker):].strip()
+    return text
+
+
 def _truncate(text: str, length: int = 88) -> str:
     """Truncate at the nearest word boundary so titles don't end mid-word
     like "or p…" or "the output a…". Falls back to hard cut only if the
     text contains no spaces in the budget window (rare, single long token).
     """
+    text = _strip_thread_context(text)
     if len(text) <= length:
         return text
     cut = text[:length]
@@ -531,6 +545,33 @@ def _load_taste_lenses() -> dict | None:
     return out
 
 
+def _format_relative_date(iso: str) -> str:
+    # ISO timestamp → friendly relative date for the recent-council cards.
+    # "2026-05-08T14:47:53+00:00" -> "May 8" or "Today" or "3 days ago".
+    # Falls back to the raw string if parsing fails — better noisy than blank.
+    from datetime import datetime, timezone
+
+    if not iso or iso == "unknown":
+        return iso or "unknown"
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return iso
+    now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
+    delta = (now - dt).total_seconds()
+    if delta < 0:
+        return dt.strftime("%b %-d")
+    if delta < 3600:
+        return "Just now"
+    if delta < 86400:
+        h = int(delta // 3600)
+        return "1 hour ago" if h == 1 else f"{h} hours ago"
+    if delta < 86400 * 7:
+        d = int(delta // 86400)
+        return "Yesterday" if d == 1 else f"{d} days ago"
+    return dt.strftime("%b %-d")
+
+
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:
     def _card(item: dict[str, str | None]) -> str:
         thread_id = item.get("chain_root_id") or item.get("council_id")
@@ -543,7 +584,7 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
         # which forwards to live_council.html with the same query string).
         href = f"../review_pages/{_esc(Path(str(review_path)).name)}?thread_id={_esc(str(thread_id))}"
         winner = (item.get("winner_provider") or "No winner yet").replace("_", " ").title()
-        created_at = item.get("created_at") or "unknown"
+        created_at = _format_relative_date(item.get("created_at") or "unknown")
         seg_count = int(item.get("segment_count") or 1)
         rounds_badge = (
             f' · <span style="opacity: 0.7;">{seg_count} rounds</span>'

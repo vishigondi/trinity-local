@@ -986,10 +986,10 @@ def render_live_council_page() -> str:
           <a class="button ghost" :href="pageData.launchpadUrl">Back to Launchpad</a>
           <a class="button ghost" v-if="threadViewUrl" :href="threadViewUrl">View full thread</a>
         </div>
-        <h1 v-if="threadTaskText && threadTaskText.length <= 240">{{{{ threadTaskText }}}}</h1>
-        <details v-if="threadTaskText && threadTaskText.length > 240" class="task-collapsible" :open="threadTaskText.length <= 600">
-          <summary>{{{{ threadTaskText.slice(0, 200) }}}}…</summary>
-          <p style="white-space: pre-wrap; margin: 12px 0 0;">{{{{ threadTaskText }}}}</p>
+        <h1 v-if="threadTaskTextDisplay && threadTaskTextDisplay.length <= 240">{{{{ threadTaskTextDisplay }}}}</h1>
+        <details v-if="threadTaskTextDisplay && threadTaskTextDisplay.length > 240" class="task-collapsible" :open="threadTaskTextDisplay.length <= 600">
+          <summary>{{{{ threadTaskTextDisplay.slice(0, 200) }}}}…</summary>
+          <p style="white-space: pre-wrap; margin: 12px 0 0;">{{{{ threadTaskTextDisplay }}}}</p>
         </details>
         <p class="lede" v-if="anyBusy">Each round fills in below as it completes. You can leave and come back without losing the run.</p>
       </section>
@@ -1305,6 +1305,14 @@ def render_live_council_page() -> str:
         }},
         get anyBusy() {{
           return this.segments.some((s) => s.busy);
+        }},
+        get threadTaskTextDisplay() {{
+          // Strip the `---` fence lines from the prior-context block so the
+          // review page reads as prose instead of leftover Markdown. The raw
+          // text with fences is what the models see — this is display only.
+          const raw = (this.threadTaskText || '').trim();
+          if (!raw) return '';
+          return raw.split('\\n').filter((line) => line.trim() !== '---').join('\\n').trim();
         }},
         get canChainNext() {{
           if (this.segments.length === 0) return false;
