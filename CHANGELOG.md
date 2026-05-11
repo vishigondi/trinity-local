@@ -3,6 +3,54 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 — locked for May 13-15 ship] — 2026-05-09
+
+User dropped a fully-formed launch spec. Split into `docs/spec-v1.md` (locked, ships now)
+and `docs/spec-v2.md` (held vision, foundation laid in v1). 10 disagreements applied vs
+the original three-spec drop — see spec-v1.md for the full list.
+
+### Added
+- **`docs/spec-v1.md`** — locked v1 launch spec. Brand: *Own your memories. The AI you
+  trained should outlive the provider.* Manifesto: *the cross-provider memory layer the
+  labs are commercially prevented from building.* Folder schema lock + Routing JSON
+  ledger format + MCP stable contract + 6-tool surface (3 stable, 3 extended) + privacy
+  posture + locally-observable metrics (replacing the spec's untrackable "switches
+  prevented") + 8-minute HN-reader bar test.
+- **`docs/spec-v2.md`** — held vision: v1.1 narrative video pipeline, v1.2 Coach Lens +
+  Trinity Pro ($15/mo hosted chairman + cross-machine `/me` sync), v2.0 Learned
+  Coordinator (Qwen3-0.6B DPO fine-tune as local chairman + active learning loop with
+  surprise score as query selector + retrieval-augmented inference), v2.1+ federated
+  taste (Teams). Per-member prompt-formulation learning. Adversarial held-out as
+  echo-chamber defense.
+- **`~/.trinity/SCHEMA_VERSION`** — v2 forward-compat anchor. Written by `state_dir()`
+  on first access. Bumping triggers a migration when v2 adds `videos/`, `lens/geometry/`,
+  `models/cortex-v{n}/` subdirs.
+- **README brand swap**: H1 = *Own your memories*; manifesto callout above the fold;
+  Pricing table (Free / Pro $15 v1.2 / Teams v2 custom); v2 tease points at
+  `docs/spec-v2.md`.
+- **Launchpad cold-start hero** rewritten: first-time users land on H1 *Own your
+  memories.* + lede *The AI you trained should outlive the provider. Ask one question
+  — Trinity asks Claude, Gemini, and Codex, tells you which agrees and why the
+  disagreement matters.*
+- **`docs/launch.md` Twitter/HN copy** rewritten to narrative-beats order (fragmentation
+  pain → structural problem → local-first → council as engine → taste capture →
+  sovereignty stake → bigger thesis). 12 tweets. Founder narrative angle added
+  (IIT KGP / Harvard GSD / Mailchimp credibility). HN title de-jargoned.
+
+### Disagreements applied vs original spec
+1. `~/.trinity/` not `~/trinity/` (macOS convention)
+2. numpy not FAISS (5ms matmul wins on 28k vectors)
+3. 6 MCP tools not 3 (stable/extended split — record_outcome / get_council_status / get_persona are load-bearing)
+4. me-card not radar chart as the social object
+5. `/trinity` Claude Code skill co-equal with curl install
+6. Pricing $15/mo not $12 (anchoring at "less than one ChatGPT Plus")
+7. Drop "cross-provider switches prevented" metric (unmeasurable under privacy posture)
+8. Drop "30-second first council" claim (over-promise; realistic 30–90s)
+9. API keys not in `trinity.toml` (keychain only)
+10. Pairs as derived export not SoT (preserves runtime metadata)
+
+---
+
 ## [v2-alpha] — UNRELEASED
 
 Loop Constitution double-loop for skill graduation. Substrate only — not on the v1 ship path.
