@@ -144,22 +144,32 @@ visionary voice in 2026.
 
 ## Hacker News title + opener
 
-**Title:** *Show HN: Trinity Local — the cross-provider memory layer the labs can't build*
+**Title (current-event hook, post-Dreaming):** *Show HN: Trinity Local — Anthropic's Dreaming,
+but across Claude / ChatGPT / Gemini, and the memory lives in your folder*
 
-Backup titles:
+Backup titles (use if the Dreaming hook decays):
+- *Show HN: Trinity Local — the cross-provider memory layer the labs can't build*
 - *Show HN: I got tired of copy-pasting between Claude / ChatGPT / Gemini and built this*
 - *Trinity Local: local memory layer for polyharness users (open source, macOS)*
 
-**First comment (the unfair-advantage post):**
+**First comment (the timing-anchored post):**
 
-> I have three AI subscriptions and I still copy-paste between tabs like an animal. Claude
-> can't tell me when ChatGPT is better. OpenAI can't tell me when Claude is better. It's a
-> structural problem — they're commercially prevented from helping you use a competitor.
+> Last week Anthropic shipped *Dreaming* — agents that learn from their own sessions on
+> infrastructure Anthropic owns. Harvey reported 6× task completion uplift. The technique
+> works. **Trinity is what learning-from-sessions looks like when the sessions live in your
+> folder, across all three labs — Claude, ChatGPT, and Gemini.** Open source, local, MIT.
 >
-> Trinity is the answer outside the labs. It reads ~/.claude/, ~/.codex/, ~/.gemini/ — the
-> SQLite caches that already live on your machine — and learns which model wins for which
-> kind of question you ask. When you don't know, it convenes the three of them as a
-> council in parallel, and a local chairman synthesizes the answer.
+> The structural problem Anthropic is now publicly validating: the three labs are
+> commercially prevented from helping you use a competitor. They can ship Dreaming /
+> Outcomes / Multi-Agent Orchestration — but only on top of their own runtime. Cross-
+> provider memory has to come from someone outside the labs.
+>
+> Trinity reads `~/.claude/`, `~/.codex/`, `~/.gemini/` — the SQLite caches that already
+> live on your machine — and consolidates them the same way Dreaming consolidates Anthropic-
+> hosted sessions: episodes → extracted routing patterns per question-kind (we call them
+> basins), with a system-computed trust score gating which patterns drive decisions. When
+> you don't know which lab to ask, Trinity convenes the three of them as a council and a
+> local chairman synthesizes the verdict.
 >
 > Two architectural commitments worth flagging:
 >

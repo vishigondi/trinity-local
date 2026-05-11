@@ -17,6 +17,7 @@ CORE_COMMAND_MODULES = (
     "ingest",
     "me",
     "me_card",
+    "metric",
     "portal",
     "replay",
     "research",

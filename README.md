@@ -1,21 +1,39 @@
 # Trinity Local
 
-## Own your memories.
+## Own your memories. Across every AI you use.
 ### The AI you trained should outlive the provider.
+
+> **Anthropic just shipped *Dreaming*.** Trinity does it across Claude, ChatGPT, and Gemini —
+> and the memory lives in your folder, not theirs.
 
 You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives in three
 different SQLite caches, owned by three different companies, none of which are allowed to help
-you use the others.
+you use the others. Anthropic's new agent stack — *Dreaming* (sessions consolidating into
+lessons), *Outcomes* (rubric-graded evaluation), *Multi-Agent Orchestration* (specialist
+sub-agents) — runs on infrastructure Anthropic owns. Harvey reported 6× task completion uplift.
+The pattern works. The lock-in is the cost.
 
-Trinity is the local intelligence layer that watches all three, learns which one wins for which
-task, and — when it matters — convenes them as a council so you get the strongest answer instead
-of the most familiar one.
+Trinity is the local, cross-provider answer. Same architectural ideas — episode-to-pattern
+consolidation, separate evaluation context, specialist orchestration — but the data lives in
+`~/.trinity/`, routing spans Claude + ChatGPT + Gemini + local models, and you can switch labs
+tomorrow without losing the memory you built up.
 
 Open source. Local-first. macOS today. *No account required.*
 
 > **The cross-provider memory layer the labs are commercially prevented from building.**
 
 ![your taste, distilled](docs/me_card_example.png)
+
+## For teams: vendor-neutral agent memory
+
+Trinity Local is free and built for individuals. **Trinity for Teams** (private beta) brings
+the same architecture — local routing across Claude, GPT, and Gemini, with consolidated
+patterns staying in your environment — to organizations that want the productivity gains of
+agent memory without committing to any one lab's runtime. MassMutual, ProgressiveRobot, and
+others have started naming "agent lock-in" as a procurement concern; Trinity is the
+architectural response.
+
+**Waitlist:** [trinity.local/teams](https://trinity.local/teams) — or email teams@openclaw.dev.
 
 ## Privacy is the wedge
 

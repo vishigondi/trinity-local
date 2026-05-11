@@ -26,6 +26,30 @@ will call Trinity when it needs:
 The launchpad becomes "what Trinity has learned about you" — the dashboard.
 The MCP tools are the actual product.
 
+## Strategic positioning (post-Dreaming)
+
+**v1.5's cortex consolidation is the local, cross-provider answer to Anthropic's
+*Dreaming*** (shipped Dec 2025; see VentureBeat: *"Anthropic wants to own your
+agents' memory, evals, and orchestration"*). Anthropic's stack:
+
+| Anthropic feature | Trinity equivalent | What's different |
+|---|---|---|
+| **Dreaming** — agents consolidate past sessions into reusable lessons | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes | Hosted on Anthropic infra vs. runs on your own subscription; single-provider vs. across Claude/GPT/Gemini; memory lives in Anthropic's storage vs. `~/.trinity/cortex/routing_patterns.json` |
+| **Outcomes** — rubric-graded eval by a separate grader agent | **Lens** — pair-wise tension evaluation in a separate context | Anthropic-grader vs. user-taste-derived lens from `me/lenses.json` |
+| **Multi-Agent Orchestration (MAO)** — specialist sub-agents with independent contexts | **Council** — Claude, GPT, Gemini in parallel, chairman synthesizes | Same-lab specialists vs. cross-lab council; Anthropic-owned vs. your-subs-owned |
+
+Same architectural ideas; opposite trust models. Anthropic ships them inside a
+runtime that locks you in (Albert: *"You're building an application for Macs —
+you don't want to re-implement every detail of macOS"* → Anthropic's stated
+goal is "the macOS of agents"). Trinity ships them in a way that keeps your
+cognitive substrate yours.
+
+The enterprise context that landed this week: MassMutual won't sign long-term
+contracts with any single AI vendor for exactly this reason. ProgressiveRobot
+is selling "Anthropic Agent Lock-In" risk audits. There is now a recognized
+enterprise category called *vendor-neutral agent memory* — and Trinity is
+structurally the simplest answer.
+
 ## The killer flow nobody else can offer
 
 ```

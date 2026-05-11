@@ -1,10 +1,20 @@
 # Why I stopped trusting any one AI lab with my context
 
-> Draft. Voice belongs to the user. Per `docs/spec-v1.md` launch sequence, this is the
-> week-2 long-form essay — the Wikipedia-of-Trinity-thinking that every subsequent piece
-> of marketing links back to. Polish + ship after the HN front-page lands.
+> Draft. Voice belongs to the user. Re-anchored after VentureBeat published "Anthropic
+> wants to own your agents' memory, evals, and orchestration — and that should make
+> enterprises nervous" (Dec 2025). Publish BEFORE the HN launch — this essay becomes the
+> philosophical anchor every subsequent piece of marketing links back to.
 
 ---
+
+Last week, Anthropic shipped *Dreaming*. Agents learn from their past sessions, extract
+lessons, and improve over time. Harvey reported a 6× task-completion uplift. They also
+shipped *Outcomes* (rubric-based evaluation by a separate grader agent) and *Multi-Agent
+Orchestration* (specialist sub-agents with independent context windows). The technical
+pattern works. The technical pattern is also exactly what I've been building for the past
+year — except mine runs locally, across all three labs, with the memory in *my* folder.
+
+That sentence is the entire reason this essay exists.
 
 I have three AI subscriptions and I still copy-paste between tabs like an animal.
 
@@ -17,7 +27,10 @@ It's not a bug. It's structural. Anthropic isn't allowed to recommend ChatGPT. O
 isn't allowed to recommend Claude. Google isn't allowed to recommend either. The labs
 that built the models you trust are commercially prevented from helping you use a
 competitor — and the moment you have more than one subscription, the lab that ships the
-layer above them is structurally impossible to be a lab.
+layer above them is structurally impossible to be a lab. Dreaming makes this more
+obvious, not less: Anthropic just shipped session-memory + cross-session learning, and
+they shipped it *inside their own runtime*. They had no choice. Cross-provider memory
+has to come from someone outside the labs.
 
 So I built it.
 
@@ -168,8 +181,19 @@ Then, in order:
 There's a bigger thesis behind all of it. *Own your memories now, because the next
 thing you'll need to own is your agent.* The labs are migrating from "the model I rent"
 to "the agent that acts for me." Your context — what you trust, what you reject, the
-tensions your taste lives at — is the asset that makes any agent useful. Trinity is the
-substrate that keeps that asset yours.
+tensions your taste lives at — is the asset that makes any agent useful.
+
+Dreaming makes this concrete. In two years, enterprises that adopted Anthropic's
+agent stack without architectural resistance won't own the playbook their teams built
+up; Anthropic will, in the form of agents trained on the patterns Dreaming extracted
+from their sessions. MassMutual has publicly said they won't sign long-term contracts
+with any AI vendor for exactly this reason. ProgressiveRobot has started selling
+"Anthropic Agent Lock-In" risk audits. The fear has a name now.
+
+Trinity is the architectural alternative that makes the cognitive substrate stay with
+the people who built it. The folder is yours. The patterns extracted from it are yours
+(`~/.trinity/cortex/routing_patterns.json` — open it in any text editor). The agent
+built from them belongs to you, not to the lab whose runtime hosted the consolidation.
 
 But you don't need to buy the bigger thesis to use the v1 thing. v1 is one CLI. Three
 labs. One ledger. Your taste.

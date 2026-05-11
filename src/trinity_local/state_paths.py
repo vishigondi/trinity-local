@@ -186,6 +186,16 @@ def cortex_dir() -> Path:
     return path
 
 
+def dispatch_outcomes_path() -> Path:
+    """JSONL log of `ask` dispatch outcomes — one line per call. Tracks the
+    rate-limit-saves metric named in docs/launch-package.md as the day-1
+    case-study number. Each line: {ts, query_excerpt, primary, succeeded_on,
+    retries, classified_kind}.
+    """
+    path = analytics_dir() / "dispatch_outcomes.jsonl"
+    return path
+
+
 def cortex_routing_patterns_path() -> Path:
     return cortex_dir() / "routing_patterns.json"
 

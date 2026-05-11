@@ -263,6 +263,45 @@ def _decide_from_hits(
     )
 
 
+def _log_dispatch_outcome(
+    *,
+    query: str,
+    primary: str,
+    succeeded_on: str | None,
+    retries: int,
+    failure,  # DispatchFailure | None — type avoided to keep import lazy
+) -> None:
+    """Append one line to ~/.trinity/analytics/dispatch_outcomes.jsonl. This
+    is the canonical record for the rate-limit-saves metric named in
+    docs/launch-package.md as the day-1 case-study number.
+
+    Wrapped in try/except so analytics never breaks the dispatch path —
+    spec architectural commitment: observability MUST NOT crash callers.
+    """
+    try:
+        import json
+        from datetime import datetime, timezone
+
+        from .state_paths import dispatch_outcomes_path
+
+        path = dispatch_outcomes_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            "query_excerpt": query[:80],
+            "primary": primary,
+            "succeeded_on": succeeded_on,  # None when all providers failed
+            "retries": retries,
+            "rate_limit_save": retries > 0 and succeeded_on is not None and succeeded_on != primary,
+            "failure_kind": failure.kind.value if failure is not None else None,
+        }
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        # Telemetry must never crash the user's flow. Silent skip.
+        pass
+
+
 def _compute_trust(votes: dict[str, float], n_hits: int, *, cold_start: bool = False) -> float:
     """4-component trust score will land in Week 2 alongside cortex rules.
     Week-1 stub uses 3 components (agreement, sample, recency-proxy=1.0) plus
@@ -384,14 +423,30 @@ def run_ask(
             # Otherwise loop continues to the next provider in try_order.
 
     if answer is None:
-        # Exhausted retries — raise the last classified failure so the
-        # MCP handler can surface it to the agent with the kind label.
+        # Exhausted retries — log the all-failed outcome before raising so
+        # the case-study counter still increments (failures matter too).
+        _log_dispatch_outcome(
+            query=query,
+            primary=decision.routed_to,
+            succeeded_on=None,
+            retries=attempts - 1,
+            failure=last_failure,
+        )
         if last_failure is not None:
             raise RuntimeError(
                 f"All providers failed. Last: {last_failure.provider} "
                 f"({last_failure.kind.value}). Excerpt: {last_failure.raw_stderr_excerpt[:200]}"
             )
         raise RuntimeError("dispatch failed with no classifiable error")
+
+    # Successful dispatch — log the outcome for the rate-limit-saves metric.
+    _log_dispatch_outcome(
+        query=query,
+        primary=decision.routed_to,
+        succeeded_on=actually_routed_to,
+        retries=attempts - 1,
+        failure=last_failure,
+    )
 
     dispatch_ms = int((time.monotonic() - t0) * 1000)
     total_ms = elapsed_ms if elapsed_ms is not None else dispatch_ms
