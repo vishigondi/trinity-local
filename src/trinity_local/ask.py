@@ -108,10 +108,75 @@ def decide_route(
     *,
     top_k: int = 5,
     available_providers: list[str] | None = None,
+    use_cortex: bool = True,
 ) -> AskDecision:
-    """Pure decision logic — no dispatch. Useful for dry-run / inspection."""
+    """Pure decision logic — no dispatch. Useful for dry-run / inspection.
+
+    Cortex layer is consulted first (week 3): classify the query into a basin
+    via task_kind, look up the routing pattern, and IF its trust_score clears
+    the band, use the cortex rule as the routing decision. The kNN path
+    becomes the calibration / fallback when cortex trust is too low.
+
+    `use_cortex=False` disables cortex lookup entirely — pure kNN. Useful for
+    A/B testing during the human-calibration window.
+    """
+    if use_cortex:
+        cortex_decision = _try_cortex_route(query, available_providers)
+        if cortex_decision is not None:
+            return cortex_decision
     hits = search_prompt_nodes(query, top_k=top_k)
     return _decide_from_hits(hits, available_providers=available_providers)
+
+
+def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskDecision | None:
+    """Look up a cortex routing rule for this query. Returns None if no rule
+    applies (no consolidation yet, basin doesn't match, or trust below floor).
+
+    For v1.5 Week 3 we map query → basin via task_kind classification (same
+    heuristic the chairman uses to label outcomes, so basin keys line up by
+    construction). A centroid-based basin classifier landing later in Week 3
+    upgrades this to soft top-3 membership; this is the simpler first cut.
+    """
+    try:
+        from .cortex import TRUST_KNN_FALLBACK, load_routing_patterns
+        from .task_kinds import guess_task_kind
+    except ImportError:
+        return None
+
+    patterns = load_routing_patterns()
+    if not patterns:
+        return None  # no consolidation has run yet
+
+    basin_id = guess_task_kind(query) or ""
+    pattern = patterns.get(basin_id)
+    if pattern is None:
+        return None
+
+    trust = pattern.trust_score.value
+    if trust < TRUST_KNN_FALLBACK:
+        # Cortex rule exists but trust is too low to drive routing alone —
+        # fall through to kNN. The rule will surface as calibration context
+        # in a future iteration but isn't used as the primary route.
+        return None
+
+    primary = pattern.routing_rule.primary
+    if available_providers and primary not in available_providers:
+        # Filter out unavailable primary — fall back to challenger if it's
+        # available, otherwise let kNN handle it.
+        challenger = pattern.routing_rule.challenger
+        if challenger and challenger in available_providers:
+            primary = challenger
+        else:
+            return None
+
+    return AskDecision(
+        routed_to=primary,
+        trust_score=trust,
+        runner_up=pattern.routing_rule.challenger,
+        vote_counts={primary: pattern.n_episodes},
+        evidence_prompt_ids=pattern.evidence[:5],
+        reason=f"cortex rule for basin '{basin_id}' (trust={trust:.2f}, {pattern.trust_score.interpretation})",
+    )
 
 
 def _decide_from_hits(
@@ -246,12 +311,18 @@ def run_ask(
     top_k: int = 5,
     available_providers: list[str] | None = None,
     elapsed_ms: int | None = None,
+    use_cortex: bool = True,
 ) -> AskResult:
     """End-to-end ask: route → dispatch → return.
 
     `dispatch_fn(provider_name, prompt) -> answer_text` is injected so tests
     can run without provider CLIs. Production wires through
     `providers.make_provider(...).run(prompt, cwd).stdout`.
+
+    `use_cortex=False` disables cortex routing for A/B testing during the
+    human-calibration window — pure kNN path. Defaults to True so once a
+    consolidation pass has run, cortex rules drive routing for any basin
+    whose trust_score clears the floor.
     """
     import time
 
@@ -259,6 +330,7 @@ def run_ask(
         query,
         top_k=top_k,
         available_providers=available_providers,
+        use_cortex=use_cortex,
     )
 
     t0 = time.monotonic()

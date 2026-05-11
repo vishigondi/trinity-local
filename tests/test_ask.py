@@ -196,6 +196,154 @@ class TestRunAsk:
         assert "evidence_prompt_ids" not in payload
 
 
+class TestCortexInAskHotPath:
+    """Wire cortex routing rules into ask. Cortex is consulted FIRST; if a
+    rule exists with trust >= floor, it routes. Otherwise fall back to kNN.
+    """
+
+    def test_cortex_rule_routes_when_trust_clears_floor(self, monkeypatch, tmp_path):
+        """When a basin has a high-trust cortex rule, ask routes via cortex
+        (not kNN), and the AskDecision reason names the cortex path."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        # Plant a high-trust cortex pattern for the basin "system_design".
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.9, "claude": 0.1},
+            routing_rule=cortex.RoutingRule(
+                primary="codex",
+                challenger="claude",
+                reason="codex wins for arch decisions",
+                subroutes=[],
+            ),
+            trust_score=cortex.TrustScore(
+                value=0.82,
+                components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7},
+            ),
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        # Stub task_kind classifier so query → "system_design".
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+
+        # kNN would route to "claude" (the hits all say so) — verify cortex
+        # OVERRIDES this when its trust clears the floor.
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("Design a schema for X")
+        assert decision.routed_to == "codex"
+        assert "cortex rule" in decision.reason
+        assert decision.trust_score == 0.82
+
+    def test_low_trust_cortex_rule_falls_through_to_knn(self, monkeypatch, tmp_path):
+        """When cortex trust is below TRUST_KNN_FALLBACK, fall back to kNN."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=3,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.34, "claude": 0.33, "gemini": 0.33},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.30,  # below TRUST_KNN_FALLBACK = 0.50
+                components={"n_episodes_norm": 0.1, "consistency_score": 0.34, "recency_agreement": 0.3, "diversity": 0.5},
+            ),
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("question")
+        assert decision.routed_to == "claude"
+        # Reason should NOT name cortex — we fell back to kNN.
+        assert "cortex" not in decision.reason
+
+    def test_no_consolidation_yet_falls_through_to_knn(self, monkeypatch, tmp_path):
+        """Day-1 install has no consolidation; ask uses kNN unchanged."""
+        from trinity_local import ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))  # no cortex file
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="codex") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("question")
+        assert decision.routed_to == "codex"
+        assert "cortex" not in decision.reason
+
+    def test_unavailable_cortex_primary_falls_to_challenger(self, monkeypatch, tmp_path):
+        """If the cortex rule names a primary the harness doesn't have available,
+        try the challenger; if THAT's also unavailable, fall back to kNN."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="b",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=20,
+            task_kinds=["b"],
+            winner_distribution={"codex": 0.7, "claude": 0.3},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.78,
+                components={"n_episodes_norm": 0.8, "consistency_score": 0.7, "recency_agreement": 0.85, "diversity": 0.6},
+            ),
+        )
+        cortex.save_routing_patterns({"b": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "b")
+
+        decision = ask_module.decide_route("q", available_providers=["claude", "gemini"])
+        # codex (primary) not available, claude (challenger) IS → route to claude.
+        assert decision.routed_to == "claude"
+        assert "cortex rule" in decision.reason
+
+    def test_use_cortex_false_skips_cortex_entirely(self, monkeypatch, tmp_path):
+        """A/B testing flag: skip cortex even if it's present."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="b",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=30,
+            task_kinds=["b"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.85,
+                components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 0.8, "diversity": 0.6},
+            ),
+        )
+        cortex.save_routing_patterns({"b": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "b")
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        # With cortex enabled, should route to codex.
+        with_cortex = ask_module.decide_route("q", use_cortex=True)
+        assert with_cortex.routed_to == "codex"
+        # With cortex disabled, falls back to kNN → claude.
+        without_cortex = ask_module.decide_route("q", use_cortex=False)
+        assert without_cortex.routed_to == "claude"
+
+
 class TestMcpAskHandler:
     """The MCP `_ask` handler wraps run_ask and serializes for the agent.
     Uses asyncio.run() to match the existing test pattern in test_mcp_tools.py.
