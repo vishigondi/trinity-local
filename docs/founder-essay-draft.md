@@ -204,10 +204,11 @@ Then, in order:
   If v1.5 hits a real quality ceiling on user data, the training path reopens. Not
   until then.
 
-There's a bigger thesis behind all of it. *Own your memories now, because the next
+There's a bigger thesis behind all of it. *Own your prompts now, because the next
 thing you'll need to own is your agent.* The labs are migrating from "the model I rent"
-to "the agent that acts for me." Your context — what you trust, what you reject, the
-tensions your taste lives at — is the asset that makes any agent useful.
+to "the agent that acts for me." Your prompts — what you've already asked, what you've
+trusted, what you've rejected — are the raw asset. Dream is the verb that turns them into
+the agent's memory: cortex rules, taste lens, routing brain.
 
 Dreaming makes this concrete. In two years, enterprises that adopted Anthropic's
 agent stack without architectural resistance won't own the playbook their teams built

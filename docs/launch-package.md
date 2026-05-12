@@ -19,11 +19,11 @@ at v1.0 launch — v1.5 is the technical proof that the architecture works.
 
 ## The locked positioning
 
-**Tagline:** *Own your memories. Across every AI you use.*
-**Subhead:** *The AI you trained should outlive the provider.*
+**Hero:** *Stop copy-pasting your prompts between chatbots.*
+**Sub:** *Own your prompts. Dream creates the memory.*
 
 **One-sentence pitch:** *Anthropic just shipped Dreaming. Trinity does it across Claude,
-ChatGPT, and Gemini — and the memory lives in your folder, not theirs.*
+ChatGPT, and Gemini — and the memory dream creates lives in your folder, not theirs.*
 
 **One-paragraph pitch:** *Anthropic, OpenAI, and Google are commercially prevented from
 helping you use a competitor. The agent stack they're each building — session-memory,

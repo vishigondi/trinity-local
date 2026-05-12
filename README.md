@@ -1,8 +1,10 @@
 # Trinity Local
 
-## We copy-paste prompts across chatbots like animals.
+## Stop copy-pasting your prompts between chatbots.
 
-### Trinity asks Claude, GPT, and Gemini at once — and gives you back one answer, filtered through your taste.
+### Own your prompts. Dream creates the memory.
+
+Trinity asks Claude, GPT, and Gemini at once — then synthesizes your prompts into a personal routing brain only you can see. Your prompts are yours. The memory built from them is yours too. The labs are commercially prevented from building this layer; someone outside them has to.
 
 ```bash
 pip install trinity-local && trinity-local install-mcp
@@ -23,14 +25,26 @@ asked multiple providers separately, and turns each cross-provider pair into a s
 council — bootstrapping your personal routing table from your own history before you run a
 single fresh council.
 
-### 2. It knows what you'd accept.
+### 2. It knows what you'd reject.
 
-Every council Trinity runs feeds a personal `/me` lens — paired tensions extracted from where
-you push back on the models. *"Leverage of present-state assets > ground-up structural
+Every time a model over-engineers and you push back to "just one line", Trinity logs it.
+Every five-level class hierarchy you reject, every "actually, just inline it" you write, every
+"no, simpler" — `dream` watches the *compression rejections* and builds a personal lens from
+them. Paired tensions like *"Leverage of present-state assets > ground-up structural
 ownership."* That's not a quote from a model; that's the shape your decisions actually take.
-The chairman reads this lens when synthesizing so the answer comes out in your voice.
+The chairman reads this lens before synthesizing, so the verdict comes back in your voice —
+*not* in the voice of a model that loves factory patterns.
 
-### 3. Local, free, your data.
+### 3. It learns which model stays simple for your kind of problem.
+
+Claude over-engineers Python refactors 3× more than GPT does. GPT hand-waves systems
+questions Gemini grinds through. *Your version of these scores* is different from anyone
+else's, because over-engineering is contextual — what's clean for a startup is sloppy for a
+bank. Trinity builds a per-category routing brain from your own corrections and routes the
+next question accordingly. The labs can't do this for you because they can't see across each
+other; only the layer above them can.
+
+### 4. Local, free, your data.
 
 Your prompts and the models' answers stay on your machine. Trinity rides your existing
 subscriptions — never proxies through a hosted API. Open source. macOS today. No account.

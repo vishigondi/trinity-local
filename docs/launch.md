@@ -3,11 +3,12 @@
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero
 > rewrite, blog hook, 60s demo script. Send me-card PNG with every external post.
 >
-> v1 brand: **Own your memories. The AI you trained should outlive the provider.** Manifesto
-> sentence: *"the cross-provider memory layer the labs are commercially prevented from
-> building."* Narrative beat order (per docs/spec-v1.md): fragmentation pain → structural
-> problem → local-first answer → council as engine → taste capture → sovereignty stake →
-> bigger thesis.
+> v1 brand: **Stop copy-pasting your prompts between chatbots. Own your prompts. Dream
+> creates the memory.** Manifesto sentence: *"the cross-provider memory layer the labs are
+> commercially prevented from building."* Three load-bearing pains in order: copy-paste pain →
+> siloed-thinking pain → over-engineering pain. The "Own your memories" standalone tagline is
+> retired; ownership now attaches to **prompts** (yours, raw) and **dream** is the verb that
+> turns them into **memory** (cortex + lens + routing — the only thing only Trinity does).
 >
 > Prior council ratification: `council_4f34cd1181d5bd08` (Codex won, high, ledger-first
 > reordering). Subsequent user spec elevated the brand from ledger-mechanic to memory-
@@ -66,11 +67,12 @@ Code, you're three commands from a council on your real work. Caveat: Trinity ne
 Claude / Gemini / Codex CLIs authenticated. `trinity-local doctor` tells you which are
 missing.
 
-**The bigger thesis (11/12).** *Own your memories now, because the next thing you'll need
-to own is your agent.* The labs are migrating from "the model I rent" to "the agent that
-acts for me." Your context — the work you've already done, the answers you trusted, the
-preferences you've expressed — is the asset that makes any agent useful. Trinity is the
-substrate that keeps that asset yours.
+**The bigger thesis (11/12).** *Own your prompts now, because the next thing you'll need to
+own is your agent.* The labs are migrating from "the model I rent" to "the agent that acts
+for me." Your prompts — the work you've already done, the answers you trusted, the
+preferences you've expressed — are the raw asset. Dream synthesizes them into memory: cortex
+rules, taste lens, routing brain. The labs can't build this because they can't see across
+each other. Trinity is the only layer above them that can.
 
 **CTA (12/12).** Trinity Local v1 ships open-source [date]. github.com/<repo>. If you
 build with two or more model providers, run one council. Tell me what you learned.
@@ -127,8 +129,8 @@ visionary voice in 2026.
 
 ## README hero (locked, see README.md)
 
-> ## Own your memories.
-> ### The AI you trained should outlive the provider.
+> ## Stop copy-pasting your prompts between chatbots.
+> ### Own your prompts. Dream creates the memory.
 >
 > You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives
 > in three different SQLite caches, owned by three different companies, none of which are

@@ -5,8 +5,9 @@
 > for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
 > **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
-> /me lens, and the personal routing table. The pitch users land on is "Own your memories"
-> — the cross-provider memory layer the labs can't build.
+> lens, and the personal routing table. The pitch users land on is *"Stop copy-pasting your
+> prompts between chatbots. Own your prompts. Dream creates the memory."* — the
+> cross-provider memory layer the labs can't build.
 >
 > **v1.5 is the routing product** that makes the full "SOTA + your taste + your subs +
 > saves cost" pitch literally true. It's MCP-primary, adds the cortex consolidation layer,
@@ -33,11 +34,26 @@ Anthropic just ship this?*
 
 ## The brand
 
-**Tagline:** *Own your memories.*
-**Subhead:** *The AI you trained should outlive the provider.*
+**Hero:** *Stop copy-pasting your prompts between chatbots.*
+**Sub:** *Own your prompts. Dream creates the memory.*
+
+The brand axis splits cleanly into three load-bearing words:
+- **prompts** — what you own (raw, today scattered across three browser tabs)
+- **dream** — the verb only Trinity has (synthesizes prompts → memory, offline, your data)
+- **memory** — what dream creates (cortex rules + the lens + the personal routing table)
+
+Three concrete pains underneath, each with a direct Trinity answer:
+
+| Pain | Trinity's answer |
+|---|---|
+| You copy-paste prompts between chatbots. | Trinity asks all three at once. |
+| Each chatbot only knows its slice of your thinking. | `dream` synthesizes your prompts into memory. |
+| Each chatbot over-engineers the same problem differently. | The lens learns your COMPRESSION rejections. The routing table de-weights over-engineers in your categories. |
 
 These go in the README H1, the HN title, the Twitter hook, and the homepage hero. Every
-piece of launch copy threads back to one of them.
+piece of launch copy threads back to one of them. The old standalone tagline *"Own your
+memories"* is retired — its meaning is now distributed across the prompts/dream/memory axis,
+where each word does distinct work instead of one phrase carrying ambiguity.
 
 ## The magic moment
 

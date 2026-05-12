@@ -9,7 +9,7 @@ PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
 CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
 
 
-def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Stop copy-pasting prompts") -> str:
+def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Stop copy-pasting your prompts") -> str:
     extra_head = f"""
   <script src="{CHART_JS_SRC}"></script>
 """
@@ -695,7 +695,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)" @vue:mounted="init">
       <section class="card hero-shell">
         <div>
-          <div class="eyebrow">Trinity · Stop copy-pasting prompts across chatbots</div>
+          <div class="eyebrow">Trinity · Stop copy-pasting your prompts between chatbots</div>
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
         </div>
@@ -1531,7 +1531,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // rendered. Avoids "Run Your First Council" greeting once the
           // user has any history at all.
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
-          return hasHistory ? 'Run a Council' : 'We copy-paste prompts across chatbots like animals.';
+          return hasHistory ? 'Run a Council' : 'Stop copy-pasting your prompts between chatbots.';
         }},
         // Hide developer/placeholder endpoint values from the settings UI;
         // example.invalid is the RFC 6761 stub used during dev, localhost
@@ -1554,8 +1554,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory
-            ? 'Trinity asks Claude, GPT, and Gemini at once — and gives you back one answer, filtered through your taste.'
-            : 'Trinity asks Claude, GPT, and Gemini at once — and gives you back one answer, filtered through your taste. One question, three labs, one verdict in your voice.';
+            ? 'Own your prompts. Dream creates the memory.'
+            : 'Own your prompts. Dream creates the memory. Trinity asks Claude, GPT, and Gemini at once, then synthesizes your prompts into a routing brain only you can see.';
         }},
         get operationHeading() {{
           if (!this.operation) {{
