@@ -15,12 +15,15 @@
 > **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
-> **MCP surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules`, 8 total):**
+> **MCP surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` +
+> `mark_cortex_rule_wrong`, 9 total):**
 > v1.0 ships `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
 > `record_outcome` / `search_prompts` / `get_persona` / `get_council_status`.
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
-> returns `escalate_hint=compare` when trust is low) and `get_cortex_rules`
-> (agent-facing introspection into extracted routing patterns). Hot-path
+> returns `escalate_hint=compare` when trust is low), `get_cortex_rules`
+> (agent-facing introspection into extracted routing patterns), and
+> `mark_cortex_rule_wrong` (harness-callable user veto; halves effective
+> trust per click, persists across consolidations). Hot-path
 > search/autofill/replay are **embedding-free** (substring + recency +
 > replay-value heuristics; no nomic on the read path). Personal routing
 > table is **computed on demand** from `council_outcomes/*.json` (mtime+size

@@ -8,7 +8,7 @@ consolidation orchestration. The actual pattern extraction is a flagship-model
 call that's injected via a callable — keeping it testable without LLM access,
 and (in production) routed through whatever the user's strongest sub is.
 
-The 5-component trust_score is the most load-bearing piece: it's what gates
+The 6-component trust_score is the most load-bearing piece: it's what gates
 whether a cortex rule is trusted enough to drive routing decisions. Per
 spec-v1.5.md:
 
@@ -229,7 +229,7 @@ def compute_trust_score(
     coherence_score: float = 0.5,
     audit_status: str = "unaudited",
 ) -> TrustScore:
-    """Compute the 5-component trust score. All inputs are derivable from
+    """Compute the 6-component trust score. All inputs are derivable from
     accumulated council outcomes; no flagship-declared values.
 
     Args:

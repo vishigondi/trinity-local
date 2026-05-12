@@ -489,7 +489,7 @@ to all tool calls.
 **Week 2 — Cortex consolidation (offline only)**
 - `trinity-local consolidate` CLI command + flagship-call extraction
 - `~/.trinity/cortex/routing_patterns.json` schema (write only — not yet read by `ask`)
-- 5-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence
+- 6-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence / audit_score. Plus a multiplicative `effective_trust = trust * 0.5^override_count` layered on top for user vetoes.
 - Model-checkpoint detection via `model_detector.py` deltas → version-shift decay
 - Evidence citations required; consolidator MUST cite council IDs per rule
 - Scheduled triggers (every 10 councils + nightly via launchd)

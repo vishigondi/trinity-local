@@ -128,9 +128,9 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 | `commands/portal.py` | `portal-html` (regenerates the launchpad) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |
 
-### MCP — v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules`
+### MCP — v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong`
 
-`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Gemini CLI). v1.0 ships 6; v1.5 adds two — `ask` for cheap single-call routing, `get_cortex_rules` for agent-facing introspection — for 8 total:
+`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Gemini CLI). v1.0 ships 6; v1.5 adds three — `ask` for cheap single-call routing, `get_cortex_rules` for agent-facing introspection, `mark_cortex_rule_wrong` for the harness-callable user veto — for 9 total:
 
 1. **`ask(query, available_providers?, thread_id?, top_k?)`** *(v1.5)* — kNN + cortex match → single dispatched call → concise structured return `{answer, routed_to, trust_score, latency_ms, escalate_hint?}`. The 90%-of-consults tool. Returns `escalate_hint=compare` when trust < 0.55 so the calling agent can choose to fan out instead.
 2. **`route(task, ...)`** — heuristic + k-NN; returns `{mode, primary, challenger, confidence, reason, shape_signals}`. No model calls. Deprecated in v1.5 in favor of `ask` for in-harness use (the calling agent can't shell out to dispatch via `route`'s advice alone); kept for backwards compatibility.
@@ -140,6 +140,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 6. **`get_persona()`** — returns `~/.trinity/me.md`.
 7. **`get_council_status(council_run_id)`** — in-protocol polling for async councils.
 8. **`get_cortex_rules(basin_id?, min_trust?)`** *(v1.5)* — returns extracted routing patterns per basin (winner distribution, trust score, failure modes, evidence). Lets a calling agent reason about *why* `ask` would route a given basin to a given provider — the cortex made visible.
+9. **`mark_cortex_rule_wrong(basin_id, reason?, reset?)`** *(v1.5)* — user-veto on a cortex routing rule. Each call increments `override_count`; `effective_trust = raw_trust × 0.5^count`. Two clicks quarter trust; three drops most rules out of routing entirely. Persists across consolidations — a fresh extraction can't erase the user's signal. Use `reset=true` to clear the count.
 
 ### State layout
 
@@ -202,7 +203,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 4. **Chairman auto-selection.** `predict_strongest_chairman(task)` consults personal table → global priors → default order.
 5. **Verifier-shaped chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
 6. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
-7. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules`).** v1.0: `route`, `run_council` (subsumes `judge`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5: `ask` (cheap single-call default) and `get_cortex_rules` (agent-facing introspection into routing patterns). 8 total.
+7. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong`).** v1.0: `route`, `run_council` (subsumes `judge`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5: `ask` (cheap single-call default), `get_cortex_rules` (agent-facing introspection), and `mark_cortex_rule_wrong` (harness-callable user veto). 9 total.
 8. **`/me-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 10. **v1.5 cortex layer (Week 2 shipped, refined post-launch).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json`. Each pattern carries a **structured geometric prior** of the basin: geometric median (Weiszfeld iteration, robust under L1), coherence score, manifold dim, bimodality flag (excess kurtosis on first-PC, requires N≥10), and typicality-ordered outcomes. The flagship extraction prompt is *prepended* with a one-paragraph shape description so the LLM does rule-extraction on structure instead of geometry-in-language. `trust_score` has 5 components (n_episodes / consistency / recency / diversity / coherence; weighted geometric mean) — coherence catches "confident rule on noisy basin." Wires into `ask` query hot-path in Week 3 after human calibration gate.

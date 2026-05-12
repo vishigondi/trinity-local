@@ -26,7 +26,7 @@
 
 ## Calling the council from inside Claude Code
 
-Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing) and `get_cortex_rules` (agent-facing introspection into extracted routing patterns) — 8 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
+Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
 
 Bar for "hard":
 - Two senior engineers could reasonably disagree (architecture, API shape, refactor scope, naming, abstraction-vs-duplication)
@@ -105,7 +105,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Task kinds | `task_kinds.py` | Single `guess_task_kind()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
-| MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` (see below) |
+| MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong` (see below) |
 | Portal | `portal_data.py`, `portal_template.py`, `portal_runtime.py`, `portal_install.py`, `portal_page.py` | Static HTML launchpad with autofill, personal routing table, council suggestions |
 | Telemetry | `telemetry.py`, `notifications.py` | Opt-in telemetry settings (privacy-clean), system notifications |
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |
@@ -217,7 +217,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 3. **Chairman auto-selection.** `predict_strongest_chairman(task)` looks up personal table → global priors → default order. Manual `--primary-provider` always wins.
 4. **Verifier-shaped chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
 5. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
-6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case) and `get_cortex_rules` (agent-facing introspection into extracted routing patterns) — 8 total. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
+6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule; halves effective trust per click) — 9 total. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.
