@@ -107,7 +107,7 @@ makes the routing visible to the user.
   provider can't silently leave everything "unaudited" (`48a2520`).
 - **Cortex override mechanism** (`377eab8`, `bffa173`, `a7e9e38`).
   User-veto on a rule via `cortex-override` CLI or MCP
-  `mark_cortex_rule_wrong`. Each click halves effective trust;
+  `mark_pick_wrong`. Each click halves effective trust;
   persists across consolidations. Launchpad Health column surfaces
   overridden state with a hover-title computing the exact demotion.
 - **Sigmoid-blended chairman picker** (task #52, `f06dcbb`). Replaces
@@ -126,10 +126,10 @@ makes the routing visible to the user.
   `HF_HUB_OFFLINE=1` so Trinity never makes outbound Hub calls at
   runtime — one-time `huggingface-cli download` pulls the embedding
   model, after which everything runs from cache.
-- **9th MCP tool** (`bffa173`): `mark_cortex_rule_wrong` — surface
+- **9th MCP tool** (`bffa173`): `mark_pick_wrong` — surface
   is now `ask` / `route` / `run_council` / `record_outcome` /
   `search_prompts` / `get_persona` / `get_council_status` /
-  `get_cortex_rules` / `mark_cortex_rule_wrong`.
+  `get_picks` / `mark_pick_wrong`.
 
 ### Changed
 
@@ -149,7 +149,7 @@ makes the routing visible to the user.
 
 571 passing (was 491 at session start). Coverage added for: cortex
 override CLI handler, consolidate CLI gating, ingest-recent wrapper,
-MCP `mark_cortex_rule_wrong`, audit failure stderr surfacing,
+MCP `mark_pick_wrong`, audit failure stderr surfacing,
 end-to-end centroid integration with real TF-IDF embeddings.
 `scripts/smoke_install.sh` now verifies the MCP tool list post-wheel-
 install — catches packaging gaps before the user hits them.

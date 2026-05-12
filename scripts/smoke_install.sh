@@ -124,7 +124,7 @@ from trinity_local.mcp_server import handle_list_tools
 tools = asyncio.run(handle_list_tools())
 names = {t.name for t in tools}
 expected = {
-    "ask", "get_cortex_rules", "mark_cortex_rule_wrong",
+    "ask", "get_picks", "mark_pick_wrong",
     "route", "run_council", "record_outcome",
     "search_prompts", "get_persona", "get_council_status",
 }

@@ -278,7 +278,7 @@ mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
 ```
 
 8 tools total: `ask`, `compare` (aliased to `run_council`), `record_outcome`,
-`search_prompts`, `get_persona`, `get_council_status`, `get_cortex_rules`,
+`search_prompts`, `get_persona`, `get_council_status`, `get_picks`,
 `route` (deprecated but retained).
 
 **Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (Sakana-style

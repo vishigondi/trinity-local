@@ -923,7 +923,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           High trust ({{{{ cortexRules.trust_use_rule }}}}+) → the rule drives routing. Medium ({{{{ cortexRules.trust_knn_fallback }}}}–{{{{ cortexRules.trust_use_rule }}}}) → rule + kNN fallback. Below {{{{ cortexRules.trust_knn_fallback }}}} → kNN only. Rebuild with <code>trinity-local consolidate</code>; add <code>--audit</code> to flag drift via an independent chairman.
         </p>
         <p class="meta" style="margin-top: 6px; font-size: 13px; opacity: 0.7;">
-          Disagree with a rule? Ask Claude to call <code>mark_cortex_rule_wrong(basin_id="...")</code> via MCP, or run <code>trinity-local cortex-override --basin &lt;id&gt;</code>. Each click halves effective trust; persists across consolidations.
+          Disagree with a rule? Ask Claude to call <code>mark_pick_wrong(basin_id="...")</code> via MCP, or run <code>trinity-local cortex-override --basin &lt;id&gt;</code>. Each click halves effective trust; persists across consolidations.
         </p>
       </section>
 
@@ -1442,7 +1442,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (overrides > 0) {{
             const factor = Math.pow(0.5, overrides);
             const pct = Math.round((1 - factor) * 100);
-            return `You've marked this rule wrong ${{overrides}} time(s). Effective trust is ${{(r.raw_trust_score || r.trust_score).toFixed(2)}} × ${{factor.toFixed(2)}} = ${{r.trust_score.toFixed(2)}} (${{pct}}% demoted). Use --reset on cortex-override / mark_cortex_rule_wrong(reset=true) to clear if you change your mind.`;
+            return `You've marked this rule wrong ${{overrides}} time(s). Effective trust is ${{(r.raw_trust_score || r.trust_score).toFixed(2)}} × ${{factor.toFixed(2)}} = ${{r.trust_score.toFixed(2)}} (${{pct}}% demoted). Use --reset on cortex-override / mark_pick_wrong(reset=true) to clear if you change your mind.`;
           }}
           if (r.bimodal_flag) return 'Basin embeddings split into two modes. The single rule.primary is wrong for half the queries — kNN fallback handles it for now. v1.6 will run HDBSCAN to split.';
           if (r.audit_status === 'disagreed') return 'An independent chairman read the same outcomes and disagreed with the extracted rule. Likely model drift; consider re-running consolidate.';

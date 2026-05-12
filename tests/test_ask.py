@@ -796,7 +796,7 @@ class TestMcpGetCortexRules:
         from trinity_local import mcp_server
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        result = asyncio.run(mcp_server._get_cortex_rules({}))
+        result = asyncio.run(mcp_server._get_picks({}))
         payload = _json.loads(result[0]["text"])
         assert payload["rules"] == {}
         assert "consolidate" in payload["note"]
@@ -828,7 +828,7 @@ class TestMcpGetCortexRules:
         )
         cortex.save_routing_patterns({"system_design": p1, "code_review": p2})
 
-        result = asyncio.run(mcp_server._get_cortex_rules({}))
+        result = asyncio.run(mcp_server._get_picks({}))
         payload = _json.loads(result[0]["text"])
         assert set(payload["rules"].keys()) == {"system_design", "code_review"}
         assert payload["total_basins"] == 2
@@ -849,11 +849,11 @@ class TestMcpGetCortexRules:
         )
         cortex.save_routing_patterns({"system_design": p})
 
-        result = asyncio.run(mcp_server._get_cortex_rules({"basin_id": "system_design"}))
+        result = asyncio.run(mcp_server._get_picks({"basin_id": "system_design"}))
         payload = _json.loads(result[0]["text"])
         assert "system_design" in payload["rules"]
         # Filter to non-existent basin returns no matches but no error.
-        result = asyncio.run(mcp_server._get_cortex_rules({"basin_id": "nonexistent"}))
+        result = asyncio.run(mcp_server._get_picks({"basin_id": "nonexistent"}))
         payload = _json.loads(result[0]["text"])
         assert payload["rules"] == {}
         assert payload["returned"] == 0
@@ -882,7 +882,7 @@ class TestMcpGetCortexRules:
         )
         cortex.save_routing_patterns({"high": high, "low": low})
 
-        result = asyncio.run(mcp_server._get_cortex_rules({"min_trust": 0.5}))
+        result = asyncio.run(mcp_server._get_picks({"min_trust": 0.5}))
         payload = _json.loads(result[0]["text"])
         # Only the high-trust rule clears the filter.
         assert set(payload["rules"].keys()) == {"high"}
@@ -893,9 +893,9 @@ class TestMcpGetCortexRules:
         import asyncio
         from trinity_local import mcp_server
 
-        bad = asyncio.run(mcp_server._get_cortex_rules({"basin_id": 123}))
+        bad = asyncio.run(mcp_server._get_picks({"basin_id": 123}))
         assert hasattr(bad[0], "code")  # ErrorData
-        bad = asyncio.run(mcp_server._get_cortex_rules({"min_trust": "not-a-number"}))
+        bad = asyncio.run(mcp_server._get_picks({"min_trust": "not-a-number"}))
         assert hasattr(bad[0], "code")
 
 
@@ -936,7 +936,7 @@ class TestMcpMarkCortexRuleWrong:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         self._plant_pattern("system_design", override=0)
 
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong(
+        result = asyncio.run(mcp_server._mark_pick_wrong(
             {"basin_id": "system_design", "reason": "wrong primary"}
         ))
         payload = json.loads(result[0]["text"])
@@ -958,8 +958,8 @@ class TestMcpMarkCortexRuleWrong:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         self._plant_pattern("b", override=0)
 
-        asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "b"}))
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "b"}))
+        asyncio.run(mcp_server._mark_pick_wrong({"basin_id": "b"}))
+        result = asyncio.run(mcp_server._mark_pick_wrong({"basin_id": "b"}))
         payload = json.loads(result[0]["text"])
         assert payload["override_count"] == 2
 
@@ -970,7 +970,7 @@ class TestMcpMarkCortexRuleWrong:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         self._plant_pattern("b", override=3)
 
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong(
+        result = asyncio.run(mcp_server._mark_pick_wrong(
             {"basin_id": "b", "reset": True}
         ))
         payload = json.loads(result[0]["text"])
@@ -987,7 +987,7 @@ class TestMcpMarkCortexRuleWrong:
         self._plant_pattern("system_design", override=0)
         self._plant_pattern("writing", override=0)
 
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "nope"}))
+        result = asyncio.run(mcp_server._mark_pick_wrong({"basin_id": "nope"}))
         payload = json.loads(result[0]["text"])
         assert payload["ok"] is False
         assert "nope" in payload["error"]
@@ -998,7 +998,7 @@ class TestMcpMarkCortexRuleWrong:
         from trinity_local import mcp_server
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "x"}))
+        result = asyncio.run(mcp_server._mark_pick_wrong({"basin_id": "x"}))
         payload = json.loads(result[0]["text"])
         assert payload["ok"] is False
         assert "consolidat" in payload["error"]
@@ -1008,7 +1008,7 @@ class TestMcpMarkCortexRuleWrong:
         from trinity_local import mcp_server
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({}))
+        result = asyncio.run(mcp_server._mark_pick_wrong({}))
         # ErrorData object (has .code)
         assert hasattr(result[0], "code")
         assert result[0].code == 400

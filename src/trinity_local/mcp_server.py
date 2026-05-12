@@ -219,7 +219,7 @@ async def handle_list_tools() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
         ),
         Tool(
-            name="get_cortex_rules",
+            name="get_picks",
             description=(
                 "Return the user's extracted routing patterns from "
                 "`~/.trinity/cortex/routing_patterns.json` — the cortex layer's "
@@ -248,7 +248,7 @@ async def handle_list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="mark_cortex_rule_wrong",
+            name="mark_pick_wrong",
             description=(
                 "User veto on a cortex routing rule. Each call increments the "
                 "rule's `override_count`; effective_trust = raw_trust × 0.5^count. "
@@ -307,10 +307,10 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     try:
         if name == "ask":
             return await _ask(arguments)
-        if name == "get_cortex_rules":
-            return await _get_cortex_rules(arguments)
-        if name == "mark_cortex_rule_wrong":
-            return await _mark_cortex_rule_wrong(arguments)
+        if name == "get_picks":
+            return await _get_picks(arguments)
+        if name == "mark_pick_wrong":
+            return await _mark_pick_wrong(arguments)
         if name == "route":
             return await _route(arguments)
         if name == "run_council":
@@ -487,7 +487,7 @@ async def _ask(args: dict) -> list[Any]:
     return [_text(result.to_dict())]
 
 
-async def _get_cortex_rules(args: dict) -> list[Any]:
+async def _get_picks(args: dict) -> list[Any]:
     """Handle mcp__trinity-local__get_cortex_rules. Returns the user's
     extracted routing patterns so the calling agent can inspect what
     Trinity has learned about which model wins for which question kind.
@@ -522,7 +522,7 @@ async def _get_cortex_rules(args: dict) -> list[Any]:
     })]
 
 
-async def _mark_cortex_rule_wrong(args: dict) -> list[Any]:
+async def _mark_pick_wrong(args: dict) -> list[Any]:
     """Handle mcp__trinity-local__mark_cortex_rule_wrong. Increments (or
     resets) the override_count on a basin's rule; effective_trust drops
     by 0.5^count. Persists across consolidations.
