@@ -106,17 +106,23 @@ def find_cross_provider_clusters(
 
     Algorithm:
       1. Filter to nodes WITH embeddings AND assistant response text.
-      2. Greedy clustering: for each node, find all other nodes whose
+      2. Stack embeddings + L2-normalize once. Each seed's cosine
+         against all others is then a single BLAS matmul (microseconds
+         per seed instead of milliseconds — 100× speedup over
+         element-by-element Python).
+      3. Greedy clustering: for each node, find all other nodes whose
          embedding similarity >= threshold. Form a cluster.
-      3. Drop clusters that don't span ``min_providers`` distinct
+      4. Drop clusters that don't span ``min_providers`` distinct
          providers (intra-provider near-duplicates aren't useful).
-      4. Keep one response per provider per cluster (the highest-similarity
+      5. Keep one response per provider per cluster (the highest-similarity
          to the representative) — synthetic councils don't want 5 claude
          responses, they want one per provider.
-      5. Cap cluster size for the chairman prompt budget.
+      6. Cap cluster size for the chairman prompt budget.
 
     Returns clusters sorted by coherence descending (tightest first).
     """
+    import numpy as np
+
     usable = [
         n for n in nodes
         if n.embedding and _node_response_text(n).strip()
@@ -125,23 +131,31 @@ def find_cross_provider_clusters(
     if n < 2:
         return []
 
-    assigned = [False] * n
+    # Vectorize: stack + L2-normalize ONCE. Subsequent cosine against
+    # any seed is just a single dot product against this matrix. Without
+    # this, find_cross_provider_clusters runs in O(N²·d) pure Python
+    # and a real-sized corpus (17k+ embeddings × 768 dims) takes hours.
+    emb_matrix = np.asarray([u.embedding for u in usable], dtype=np.float32)
+    norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0  # avoid /0 on a corrupt/empty embedding
+    emb_norm = emb_matrix / norms
+
+    assigned = np.zeros(n, dtype=bool)
     clusters: list[CrossProviderCluster] = []
 
     for i in range(n):
         if assigned[i]:
             continue
         seed = usable[i]
-        # Find every other unassigned node above the threshold.
-        members_idx = [i]
-        sims = [1.0]
-        for j in range(i + 1, n):
-            if assigned[j]:
-                continue
-            sim = _cosine(seed.embedding, usable[j].embedding)
-            if sim >= similarity_threshold:
-                members_idx.append(j)
-                sims.append(sim)
+        # One BLAS matmul: cosine of seed against every other vector.
+        sims_row = emb_norm @ emb_norm[i]  # shape (n,)
+        candidates = np.where((sims_row >= similarity_threshold) & ~assigned)[0]
+        if len(candidates) < 2:
+            continue
+        # Force seed to the front (its self-sim is 1.0; we want seed first
+        # so the per-provider tie-breaker prefers the seed).
+        members_idx = [int(i)] + [int(j) for j in candidates if int(j) != i]
+        sims = [1.0] + [float(sims_row[j]) for j in candidates if int(j) != i]
 
         if len(members_idx) < 2:
             continue
