@@ -270,6 +270,95 @@ class TestLoadSaveRoundtrip:
         loaded = load_routing_patterns()
         assert loaded["legacy"].basin_centroid == []
 
+    def test_end_to_end_centroid_chain_with_real_embeddings(self, tmp_path, monkeypatch):
+        """Integration test: real (TF-IDF) embeddings drive the full chain.
+
+        Stubs the FLAGSHIP extractor (too expensive to call in tests) but
+        uses the actual embeddings backend. Validates the path from
+        consolidation through query-time matching, end-to-end. This is
+        what catches the kinds of regressions stub-only tests miss:
+        wrong vector shape, empty centroid produced, embed() returning
+        the wrong type, etc.
+        """
+        from trinity_local import cortex
+        from trinity_local.ask import _best_centroid_match
+        from trinity_local.embeddings.backend_tfidf import cosine_similarity
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        # Three realistic outcomes about system design. Their prompts cluster
+        # together semantically — the centroid should be near them.
+        outcomes = [
+            {
+                "council_run_id": "c1",
+                "bundle_id": "b1",
+                "winner": "codex",
+                "winner_provider": "codex",
+                "synthesis_prompt": "Should I design this schema with one wide table or three normalized tables? Need to balance write performance against query simplicity.\n\nMember responses follow:",
+                "routing_label": {"task_type": "system_design", "winner": "codex", "routing_lesson": "codex wins for schema design"},
+            },
+            {
+                "council_run_id": "c2",
+                "bundle_id": "b2",
+                "winner": "codex",
+                "winner_provider": "codex",
+                "synthesis_prompt": "I'm building a multi-tenant SaaS and need to decide between row-level isolation versus per-tenant database. What are the tradeoffs?\n\nMember responses follow:",
+                "routing_label": {"task_type": "system_design", "winner": "codex"},
+            },
+            {
+                "council_run_id": "c3",
+                "bundle_id": "b3",
+                "winner": "claude",
+                "winner_provider": "claude",
+                "synthesis_prompt": "Design an event-sourcing approach for an audit trail. Append-only or compacted state snapshots?\n\nMember responses follow:",
+                "routing_label": {"task_type": "system_design", "winner": "claude"},
+            },
+        ]
+
+        # Stub extractor returns a valid rule structure.
+        def stub_extractor(outs):
+            return {
+                "primary": "codex",
+                "challenger": "claude",
+                "reason": "codex consistently produces concrete schemas",
+                "failure_modes": {"claude": "over-philosophizes when a table will do"},
+                "successful_prompts": {"codex": ["Should I design..."]},
+            }
+
+        pattern = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=outcomes,
+            task_kinds=["system_design"],
+            diversity_metric=0.5,
+            extractor=stub_extractor,
+        )
+
+        # Centroid must be populated with a real vector. The TF-IDF backend
+        # returns DEFAULT_DIM-length vectors.
+        assert pattern.basin_centroid, "Centroid should be populated by real embeddings"
+        assert len(pattern.basin_centroid) >= 256, "Centroid should match the embedding backend's dimension"
+        # Centroid should not be all zeros — TF-IDF over varied text produces signal.
+        assert any(abs(x) > 1e-6 for x in pattern.basin_centroid), "Centroid should have non-trivial values"
+
+        # Now save the pattern + verify the query-time path works end-to-end.
+        cortex.save_routing_patterns({"system_design": pattern})
+        loaded = cortex.load_routing_patterns()
+        assert loaded["system_design"].basin_centroid == pattern.basin_centroid
+
+        # A similar query should match the basin via centroid cosine sim.
+        # _best_centroid_match calls embed() on the query, then cosine
+        # against the basin_centroid. Test that the full path returns a hit.
+        match = _best_centroid_match(
+            "design a database schema for X",
+            loaded,
+        )
+        # Match should be non-None — the centroid was built from system-design
+        # prompts and the query is also about schema design.
+        assert match is not None, "Similar query should match system_design basin via centroid"
+        matched_pattern, matched_basin, sim = match
+        assert matched_basin == "system_design"
+        assert sim > 0.0
+
     def test_load_malformed_entries_skipped(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         from trinity_local.state_paths import cortex_routing_patterns_path
