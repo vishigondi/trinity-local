@@ -29,6 +29,12 @@ def register(subparsers):
     )
     sp.set_defaults(handler=handle_distill)
 
+    show = subparsers.add_parser(
+        "core-show",
+        help="Print the current ~/.trinity/core.md content (the singular distilled identity the chairman reads first).",
+    )
+    show.set_defaults(handler=handle_core_show)
+
 
 def handle_distill(args):
     from ..distill import distill_via_chairman
@@ -36,3 +42,30 @@ def handle_distill(args):
     report = distill_via_chairman(provider=args.provider, force=getattr(args, "force", False))
     print(json.dumps(report, indent=2))
     return 0 if report.get("ok") else 1
+
+
+def handle_core_show(args):
+    """Print core.md verbatim. Symmetric with `lens-show` for the lens.
+
+    Cold-install path: print a hint pointing at `distill` rather than an
+    empty file.
+    """
+    import sys
+    from ..state_paths import core_path
+    path = core_path()
+    if not path.exists():
+        print(
+            "# core.md not distilled yet — run `trinity-local distill`",
+            file=sys.stderr,
+        )
+        print(f"# expected at: {path}", file=sys.stderr)
+        return 1
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        print(
+            "# core.md is empty — run `trinity-local distill --force`",
+            file=sys.stderr,
+        )
+        return 1
+    print(text)
+    return 0
