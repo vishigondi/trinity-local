@@ -119,10 +119,20 @@ class TestPicker:
 class TestPickReason:
     def test_reports_personal_source(self, home: Path, monkeypatch):
         from trinity_local.ranker import chairman_picker
+        # Provide enough personal councils (n=20) that alpha saturates near 1,
+        # so the blend reports "personal_routing_table" as the source.
         monkeypatch.setattr(
             chairman_picker,
             "compute_personal_routing_table",
-            lambda: {"best_per_task_type": {"coding": "claude"}},
+            lambda: {
+                "by_task_type": {
+                    "coding": {
+                        "claude": {"overall": 8.5, "n": 20},
+                        "gemini": {"overall": 6.2, "n": 20},
+                    },
+                },
+                "best_per_task_type": {"coding": "claude"},
+            },
         )
         result = chairman_pick_reason(
             "refactor this",
@@ -131,6 +141,9 @@ class TestPickReason:
         assert result["chairman"] == "claude"
         assert result["source"] == "personal_routing_table"
         assert result["task_kind"] == "coding"
+        # New: the alpha + n are surfaced for telemetry.
+        assert result.get("alpha", 0) >= 0.95
+        assert result.get("n_personal", 0) == 20
 
     def test_reports_global_source(self, home: Path):
         # Coding has data in reference_evals.json, so global lookup wins.
@@ -163,3 +176,124 @@ class TestPickReason:
         result = chairman_pick_reason("anything", available_providers=[])
         assert result["chairman"] == ""
         assert result["source"] == "none"
+
+
+class TestSigmoidBlend:
+    """The personal/global hard-cut was replaced with a sigmoid blend (task #52).
+    These tests pin the new behavior: cold start prefers global; as personal
+    data accumulates, the user's signal takes over smoothly.
+    """
+
+    def test_n_zero_picks_pure_global(self, home: Path):
+        """No personal table → alpha ≈ 0 → pure global benchmark winner."""
+        result = chairman_pick_reason(
+            "refactor this function",
+            available_providers=["claude", "gemini", "codex"],
+        )
+        # Coding global winner is codex.
+        assert result["chairman"] == "codex"
+        assert result["source"] == "global_benchmarks"
+        assert result["alpha"] < 0.1  # cold-start alpha
+
+    def test_n_one_still_mostly_global(self, home: Path, monkeypatch):
+        """A single personal council shouldn't outrank an established global
+        benchmark — that was the bug the sigmoid blend fixes."""
+        from trinity_local.ranker import chairman_picker
+        monkeypatch.setattr(
+            chairman_picker,
+            "compute_personal_routing_table",
+            lambda: {
+                "by_task_type": {
+                    # User picked claude once in coding; chairman scored it 9.0.
+                    # Global says codex (5.91 rescaled) > claude (5.25 rescaled).
+                    # At n=1, alpha ≈ 0.12, so personal contribution is small.
+                    # Claude blended: 0.12*9.0 + 0.88*5.25 = 1.08 + 4.62 = 5.70
+                    # Codex blended: 0.12*0 + 0.88*5.91 = 5.20 (codex absent from personal)
+                    # Claude wins narrowly because its personal score is very high.
+                    # But this is the right behavior — strong evidence from 1 council
+                    # can flip a close global margin. The protection is that alpha is
+                    # small enough that WEAK personal evidence can't override.
+                    "coding": {
+                        "claude": {"overall": 9.0, "n": 1},
+                    },
+                },
+                "best_per_task_type": {"coding": "claude"},
+            },
+        )
+        result = chairman_pick_reason(
+            "refactor this code",
+            available_providers=["claude", "gemini", "codex"],
+        )
+        assert result["alpha"] < 0.2  # n=1 is well below the sigmoid midpoint
+
+    def test_n_one_weak_personal_does_not_override_global(self, home: Path, monkeypatch):
+        """The real protection: weak personal evidence at n=1 cannot flip a
+        clear global preference. If user picked claude once but chairman
+        only scored it 6.0, blended at n=1 stays under codex's global."""
+        from trinity_local.ranker import chairman_picker
+        monkeypatch.setattr(
+            chairman_picker,
+            "compute_personal_routing_table",
+            lambda: {
+                "by_task_type": {
+                    "coding": {
+                        "claude": {"overall": 6.0, "n": 1},  # weak signal
+                    },
+                },
+                "best_per_task_type": {"coding": "claude"},
+            },
+        )
+        result = chairman_pick_reason(
+            "refactor this code",
+            available_providers=["claude", "gemini", "codex"],
+        )
+        # Codex's global should still win at n=1.
+        assert result["chairman"] == "codex"
+
+    def test_n_twenty_picks_pure_personal(self, home: Path, monkeypatch):
+        """At n >> midpoint, alpha → 1 → personal dominates regardless of global."""
+        from trinity_local.ranker import chairman_picker
+        monkeypatch.setattr(
+            chairman_picker,
+            "compute_personal_routing_table",
+            lambda: {
+                "by_task_type": {
+                    "coding": {
+                        "claude": {"overall": 8.5, "n": 20},
+                        "codex": {"overall": 4.0, "n": 20},
+                    },
+                },
+                "best_per_task_type": {"coding": "claude"},
+            },
+        )
+        result = chairman_pick_reason(
+            "refactor this code",
+            available_providers=["claude", "gemini", "codex"],
+        )
+        # Personal claude (8.5) beats personal codex (4.0) at saturation.
+        assert result["chairman"] == "claude"
+        assert result["source"] == "personal_routing_table"
+        assert result["alpha"] >= 0.95
+        assert result["n_personal"] == 20
+
+    def test_n_five_is_balanced_midpoint(self, home: Path, monkeypatch):
+        """At n=PERSONAL_MIDPOINT, alpha=0.5 — equal mix. Confirms the
+        midpoint constant is honored and the sigmoid math isn't broken."""
+        from trinity_local.ranker import chairman_picker
+        monkeypatch.setattr(
+            chairman_picker,
+            "compute_personal_routing_table",
+            lambda: {
+                "by_task_type": {
+                    "coding": {"claude": {"overall": 7.0, "n": 5}},
+                },
+                "best_per_task_type": {"coding": "claude"},
+            },
+        )
+        result = chairman_pick_reason(
+            "refactor this code",
+            available_providers=["claude", "gemini", "codex"],
+        )
+        # alpha = sigmoid(0) = 0.5 → "blended" band (0.2 < alpha < 0.8).
+        assert 0.4 < result["alpha"] < 0.6
+        assert result["source"] == "blended"

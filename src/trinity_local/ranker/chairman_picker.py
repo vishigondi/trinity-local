@@ -1,17 +1,27 @@
 """Pick the chairman = the strongest predicted model for the task.
 
 Aligns the chairman role with the generator-verifier asymmetry: the strongest
-model recognizes good answers best. Lookup order:
+model recognizes good answers best.
 
-1. compute_personal_routing_table().best_per_task_type[task_kind]
-   — aggregated on demand from the user's own rated council outcomes. If
-     present for this task_kind, always preferred.
-2. global_benchmarks.py static priors mapped to task_kind. Cold-start.
-3. First provider in available_providers (deterministic fallback).
+**Personal/global sigmoid blend** (v1.5 task #52). The previous lookup was a
+hard cut: if ANY rated council existed for a task_kind, the personal pick
+won outright — even at n=1, where the signal is statistically meaningless.
+That left global benchmarks orphaned the moment a user ran their first
+council. The blended path:
+
+  alpha   = sigmoid((n - PERSONAL_MIDPOINT) / PERSONAL_STEEPNESS)
+  blended = alpha * personal_overall + (1 - alpha) * global_overall
+
+n is the count of personal councils for this task_kind. At n=0 → alpha ≈ 0
+→ ~100% global. At n=PERSONAL_MIDPOINT (5) → alpha = 0.5 → equal blend. At
+n=10 → alpha ≈ 0.99 → personal dominates. Smooth transition replaces the
+hard cut; cold-start works on day 1 and personalization compounds.
 
 Manual override (--primary-provider on the CLI) bypasses this entirely.
 """
 from __future__ import annotations
+
+import math
 
 from ..global_benchmarks import get_global_benchmarks
 from ..personal_routing import compute_personal_routing_table
@@ -26,29 +36,91 @@ from ..categories import task_kind_to_category as _registry_task_kind_to_categor
 _TASK_KIND_TO_BENCHMARK_CATEGORY: dict[str, str] = _registry_task_kind_to_category()
 
 
-def _personal_best(task_kind: str, available: list[str]) -> str | None:
+# Sigmoid tuning. Midpoint at 5 councils = 50% personal weight (the point
+# where the user has enough signal that their data is comparable to a noisy
+# external benchmark). Steepness 2 = transition spans roughly n=2 (mostly
+# global) to n=8 (mostly personal).
+PERSONAL_MIDPOINT = 5
+PERSONAL_STEEPNESS = 2.0
+# Per-provider overall score is in [0, 10] (chairman's overall is reported
+# on a 0..10 scale). Global benchmark scores from arena are in [0, 100]
+# (Elo-derived); rescale by /10 to make them commensurate before blending.
+_GLOBAL_RESCALE = 0.1
+
+
+def _sigmoid_alpha(n: int) -> float:
+    """Confidence in personal data given n councils in this task_kind."""
+    return 1.0 / (1.0 + math.exp(-(n - PERSONAL_MIDPOINT) / PERSONAL_STEEPNESS))
+
+
+def _personal_scores(task_kind: str, available: list[str]) -> tuple[dict[str, float], int]:
+    """Return ({provider: overall}, n_councils) from the personal routing table
+    for this task_kind. Empty dict + n=0 when no data."""
     try:
         data = compute_personal_routing_table()
     except Exception:
-        return None
-    best_map = data.get("best_per_task_type") or {}
-    candidate = best_map.get(task_kind)
-    if isinstance(candidate, str) and candidate in available:
-        return candidate
-    return None
+        return {}, 0
+    bucket = (data.get("by_task_type") or {}).get(task_kind) or {}
+    scores: dict[str, float] = {}
+    max_n = 0
+    for provider, sub in bucket.items():
+        if provider not in available:
+            continue
+        overall = sub.get("overall") if isinstance(sub, dict) else None
+        if overall is None:
+            continue
+        scores[provider] = float(overall)
+        max_n = max(max_n, int(sub.get("n", 0) or 0))
+    return scores, max_n
 
 
-def _global_best(task_kind: str, available: list[str]) -> str | None:
+def _global_scores(task_kind: str, available: list[str]) -> dict[str, float]:
+    """Return {provider: rescaled_overall} from global benchmarks for this
+    task_kind. Rescaled to [0, 10] to be commensurate with personal."""
     category = _TASK_KIND_TO_BENCHMARK_CATEGORY.get(task_kind, "reasoning")
     benchmarks = get_global_benchmarks().get(category) or {}
     models = benchmarks.get("models") or {}
-    if not models:
-        return None
-    candidates = [(provider, score) for provider, score in models.items() if provider in available]
-    if not candidates:
-        return None
-    candidates.sort(key=lambda pair: pair[1], reverse=True)
-    return candidates[0][0]
+    return {
+        provider: float(score) * _GLOBAL_RESCALE
+        for provider, score in models.items()
+        if provider in available
+    }
+
+
+def _blended_pick(
+    task_kind: str, available: list[str]
+) -> tuple[str | None, dict]:
+    """Sigmoid-blend personal vs global per provider; return the argmax and a
+    debug payload describing the alpha and the contributing scores."""
+    personal, n = _personal_scores(task_kind, available)
+    glb = _global_scores(task_kind, available)
+    alpha = _sigmoid_alpha(n)
+
+    # Build the candidate set: any provider with at least one signal source.
+    providers = set(personal) | set(glb)
+    if not providers:
+        return None, {"alpha": alpha, "n_personal": n, "blended": {}}
+
+    blended: dict[str, float] = {}
+    for p in providers:
+        p_score = personal.get(p)
+        g_score = glb.get(p)
+        # If only one signal exists for a provider, that one carries weight 1.
+        # Without this, a provider absent from global benchmarks but strong in
+        # personal data would have its score halved at low n.
+        if p_score is None:
+            blended[p] = g_score or 0.0
+        elif g_score is None:
+            blended[p] = p_score
+        else:
+            blended[p] = alpha * p_score + (1.0 - alpha) * g_score
+
+    best = max(blended.items(), key=lambda kv: kv[1])
+    return best[0], {
+        "alpha": round(alpha, 3),
+        "n_personal": n,
+        "blended": {p: round(s, 3) for p, s in blended.items()},
+    }
 
 
 def predict_strongest_chairman(
@@ -65,15 +137,9 @@ def predict_strongest_chairman(
     if not available_providers:
         return ""
     task_kind = guess_task_kind(task_text)
-
-    personal = _personal_best(task_kind, available_providers)
-    if personal:
-        return personal
-
-    global_pick = _global_best(task_kind, available_providers)
-    if global_pick:
-        return global_pick
-
+    pick, _ = _blended_pick(task_kind, available_providers)
+    if pick:
+        return pick
     return available_providers[0]
 
 
@@ -89,10 +155,26 @@ def chairman_pick_reason(
     if not available_providers:
         return {"chairman": "", "source": "none", "task_kind": ""}
     task_kind = guess_task_kind(task_text)
-    personal = _personal_best(task_kind, available_providers)
-    if personal:
-        return {"chairman": personal, "source": "personal_routing_table", "task_kind": task_kind}
-    global_pick = _global_best(task_kind, available_providers)
-    if global_pick:
-        return {"chairman": global_pick, "source": "global_benchmarks", "task_kind": task_kind}
-    return {"chairman": available_providers[0], "source": "default_order", "task_kind": task_kind}
+    pick, debug = _blended_pick(task_kind, available_providers)
+    if pick is None:
+        return {
+            "chairman": available_providers[0],
+            "source": "default_order",
+            "task_kind": task_kind,
+        }
+    # source describes WHERE the signal was pulled from. With sigmoid blend
+    # we report alpha + n so a caller (or telemetry) can see how trustworthy
+    # the personal data is at the time of the pick.
+    if debug["alpha"] >= 0.8:
+        source = "personal_routing_table"
+    elif debug["alpha"] <= 0.2:
+        source = "global_benchmarks"
+    else:
+        source = "blended"
+    return {
+        "chairman": pick,
+        "source": source,
+        "task_kind": task_kind,
+        "alpha": debug["alpha"],
+        "n_personal": debug["n_personal"],
+    }
