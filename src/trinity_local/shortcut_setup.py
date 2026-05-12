@@ -115,6 +115,72 @@ def write_dispatch_wrapper(python_executable: str | None = None) -> Path:
     return path
 
 
+def _render_launchpad_wrapper(python_executable: str) -> str:
+    """Shell wrapper for the desktop launchpad icon.
+
+    Regenerates the launchpad HTML, prints the resolved path on stdout, then
+    opens that path with the default browser. Failures during regen are
+    non-fatal — the wrapper falls through to opening the last-written HTML so
+    a transient breakage in the renderer doesn't strand the user on a click.
+    """
+    venv_root = str(project_venv_root(python_executable))
+    path_prefix = runtime_path_prefix(python_executable)
+    return f"""#!/bin/sh
+set -u
+
+TRINITY_VENV_ROOT="{venv_root}"
+TRINITY_PATH_PREFIX="{path_prefix}"
+LAUNCHPAD_FALLBACK="$HOME/.trinity/portal_pages/launchpad.html"
+
+choose_python() {{
+  for candidate in \\
+    "$TRINITY_VENV_ROOT/bin/python3" \\
+    "$TRINITY_VENV_ROOT/bin/python" \\
+    "$(command -v python3 2>/dev/null || true)" \\
+    "$(command -v python 2>/dev/null || true)"
+  do
+    [ -n "$candidate" ] || continue
+    [ -x "$candidate" ] || continue
+    if "$candidate" -c 'import trinity_local.refresh' >/dev/null 2>&1; then
+      printf '%s\\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}}
+
+export PATH="$TRINITY_PATH_PREFIX:$PATH"
+
+PYTHON_BIN="$(choose_python 2>/dev/null || true)"
+LAUNCHPAD_PATH=""
+if [ -n "$PYTHON_BIN" ]; then
+  LAUNCHPAD_PATH="$("$PYTHON_BIN" -c 'from trinity_local.refresh import refresh_launchpad; print(refresh_launchpad())' 2>/dev/null || true)"
+fi
+[ -n "$LAUNCHPAD_PATH" ] || LAUNCHPAD_PATH="$LAUNCHPAD_FALLBACK"
+
+exec /usr/bin/open "file://$LAUNCHPAD_PATH"
+"""
+
+
+def write_launchpad_wrapper(python_executable: str | None = None) -> Path:
+    """Write the trinity-launchpad wrapper script to ~/.trinity/bin/.
+
+    The desktop icon calls this wrapper instead of opening the cached HTML
+    directly, so every click refreshes content from the current template
+    (~1s regen vs always-stale clicks).
+    """
+    exec_path = python_executable or sys.executable
+    if not _validate_python_executable(exec_path):
+        raise FileNotFoundError(f"Python executable not found: {exec_path}")
+    if not _validate_venv_bin(exec_path):
+        raise FileNotFoundError(f"Virtual environment directory not found for {exec_path}")
+
+    path = shortcut_bin_dir() / "trinity-launchpad"
+    path.write_text(_render_launchpad_wrapper(exec_path), encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
 def _find_bundled_shortcut(shortcut_name: str = DEFAULT_SHORTCUT_NAME) -> Path | None:
     """Look for a bundled .shortcut file in the project root."""
     from .config import project_root

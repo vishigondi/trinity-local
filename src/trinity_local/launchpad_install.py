@@ -53,6 +53,12 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
     # Plain `do shell script` to launch the launchpad. The AppleScriptObjC
     # bridge (NSWorkspace) was throwing -1700 on Apple Silicon Sequoia; the
     # shell-script TCC prompt only appears once and is then granted forever.
+    #
+    # The wrapper at ~/.trinity/bin/trinity-launchpad regenerates the page
+    # before opening it, so every click sees fresh content from the current
+    # template. If the wrapper is missing (e.g. user upgraded the package but
+    # never re-ran install-mcp), fall back to opening the cached HTML.
+    wrapper = Path.home() / ".trinity" / "bin" / "trinity-launchpad"
     return (
         'on run argv\n'
         '  try\n'
@@ -70,7 +76,18 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
         '  on error\n'
         '    -- fall through to launchpad open\n'
         '  end try\n'
-        f'  do shell script "/usr/bin/open " & quoted form of "file://{launchpad}"\n'
+        f'  set wrapperPath to "{wrapper}"\n'
+        f'  set cachedPath to "{launchpad}"\n'
+        '  try\n'
+        '    set wrapperExists to (do shell script "test -x " & quoted form of wrapperPath & " && echo yes || echo no")\n'
+        '    if wrapperExists is "yes" then\n'
+        '      do shell script quoted form of wrapperPath\n'
+        '    else\n'
+        '      do shell script "/usr/bin/open " & quoted form of ("file://" & cachedPath)\n'
+        '    end if\n'
+        '  on error\n'
+        '    do shell script "/usr/bin/open " & quoted form of ("file://" & cachedPath)\n'
+        '  end try\n'
         '  return\n'
         'end run\n'
     )
@@ -217,6 +234,15 @@ def install_launchpad_shortcuts(
     if launchpad_path is None:
         from .refresh import refresh_launchpad
         launchpad_path = refresh_launchpad()
+    # Drop the regen-then-open wrapper at ~/.trinity/bin/trinity-launchpad so
+    # the desktop icon's AppleScript can call it. Best-effort: if writing the
+    # wrapper fails (e.g. missing venv), the AppleScript falls back to opening
+    # the cached HTML directly.
+    try:
+        from .shortcut_setup import write_launchpad_wrapper
+        write_launchpad_wrapper()
+    except (FileNotFoundError, OSError):
+        pass
     destinations = destinations or _default_launchpad_link_dirs()
     written: list[Path] = []
     for destination in destinations:
