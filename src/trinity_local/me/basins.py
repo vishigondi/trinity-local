@@ -77,7 +77,11 @@ def me_dir() -> Path:
 
 
 def basins_path() -> Path:
-    return me_dir() / "basins.json"
+    """The topology file. Renamed from `me/basins.json` → `memories/topics.json`
+    per the brand axis (topics = semantic memory; basins was math-jargon).
+    Migration handled by state_paths.memories_dir() on first access."""
+    from ..state_paths import topics_path
+    return topics_path()
 
 
 def _kmeans_pp_init(matrix, k: int, seed: int):

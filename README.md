@@ -4,47 +4,61 @@
 
 ### One question. Every model you use. One answer that knows you.
 
-Trinity asks Claude, GPT, and Gemini at once — then synthesizes your prompts into core memories only you can see: cortex rules (what models you trust for what), a lens (what you reject and accept), a routing brain (which provider stays simple for your kind of problem). Your prompts are yours. The core memories built from them are yours too. The labs are commercially prevented from building this layer; someone outside them has to.
-
 ```bash
 pip install trinity-local && trinity-local install-mcp
 ```
 
-That's it. One pain, one promise, one install command.
+One pain, one promise, one install command. The structure below cashes out each beat of
+the tagline.
 
 ---
 
-### 1. Ask once, get one answer.
+### Stop copy-pasting prompts.
 
-Three subscriptions, three tabs, three half-answers. Trinity sends your question to all of them
-in parallel and runs a synthesis pass that returns one verdict — what they agreed on, where they
-disagreed and why it matters, which one was right.
+Three subscriptions, three tabs, three half-answers. Trinity sends one question to
+every model you use in parallel and runs a synthesis pass that returns one verdict —
+what they agreed on, where they disagreed and why it matters, which one was right.
 
-It also looks back: Trinity scans the transcripts already on your machine, finds questions you
-asked multiple providers separately, and turns each cross-provider pair into a synthetic
-council — bootstrapping your personal routing table from your own history before you run a
-single fresh council.
+It also looks back: Trinity scans the transcripts already on your machine, finds
+questions you asked multiple providers separately, and turns each cross-provider pair
+into a synthetic council — bootstrapping your context from your own history before
+you run a single fresh council.
 
-### 2. It knows what you'd reject.
+### Own your context.
 
-Every time a model over-engineers and you push back to "just one line", Trinity logs it.
-Every five-level class hierarchy you reject, every "actually, just inline it" you write, every
-"no, simpler" — `dream` watches the *compression rejections* and builds a personal lens from
-them. Paired tensions like *"Leverage of present-state assets > ground-up structural
-ownership."* That's not a quote from a model; that's the shape your decisions actually take.
-The chairman reads this lens before synthesizing, so the verdict comes back in your voice —
-*not* in the voice of a model that loves factory patterns.
+Prompts are transient strings; *context* is the durable asset that shapes how every
+model answers. Trinity treats your context as a first-class object — indexed, embedded,
+yours. The labs are commercially prevented from helping you use a competitor, which
+means none of them can build the layer that holds context across them. Someone outside
+them has to.
 
-### 3. It learns which model stays simple for your kind of problem.
+### Dream your core memories.
 
-Claude over-engineers Python refactors 3× more than GPT does. GPT hand-waves systems
-questions Gemini grinds through. *Your version of these scores* is different from anyone
-else's, because over-engineering is contextual — what's clean for a startup is sloppy for a
-bank. Trinity builds a per-category routing brain from your own corrections and routes the
-next question accordingly. The labs can't do this for you because they can't see across each
-other; only the layer above them can.
+`trinity-local dream` synthesizes your prompts into **six pieces of memory** only you
+can see. Each is a different kind of memory; each lives in `~/.trinity/memories/`:
 
-### 4. Local, free, your data.
+| memory | what's in it | brain analog |
+|---|---|---|
+| `lens.md` | tensions you'd reject vs accept | value memory |
+| `picks.json` | your model picks per topic, with reasoning | procedural memory |
+| `routing.json` | per-category provider track record (numbers) | empirical memory |
+| `topics.json` | clusters of subjects you ask about | semantic memory |
+| `vocabulary.md` | how you use specific words | language memory |
+| `core.md` | one paragraph that subsumes them all | identity |
+
+The first five are the durable plural — your **core memories**. `core.md` (at
+`~/.trinity/core.md`) is the distilled singular — one paragraph that subsumes them all,
+read by the chairman first on every council.
+
+### One answer that knows you.
+
+The chairman reads `core.md` before synthesizing, so the verdict comes back in your
+voice — not in the voice of a model that loves factory patterns. When you push back on
+a response, the lens picks it up. The next council's chairman already knows. The labs
+can't do this for you because they can't see across each other; only the layer above
+them can.
+
+### Local, free, your data.
 
 Your prompts and the models' answers stay on your machine. Trinity rides your existing
 subscriptions — never proxies through a hosted API. Open source. macOS today. No account.

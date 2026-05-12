@@ -175,9 +175,94 @@ def watcher_dir() -> Path:
 
 
 def memory_dir() -> Path:
+    """Raw prompt index — the INPUT to dream. Holds PromptNode / TurnWindow
+    JSONL + cursors. Renamed to `prompts/` in Tier 1 #1 (still `memory/` for
+    on-disk back-compat).
+    """
     path = state_dir() / "memory"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def memories_dir() -> Path:
+    """The five durable memory types dream creates (lens, picks, routing,
+    topics, vocabulary). See claude.md Glossary → "core memories".
+
+    Migration: any pre-existing files at legacy paths
+    (`~/.trinity/cortex/routing_patterns.json`, `~/.trinity/me.md`,
+    `~/.trinity/me/basins.json`) are moved here on first access. The
+    underlying file content schemas are unchanged — only the filenames
+    align with the brand axis.
+    """
+    path = state_dir() / "memories"
+    path.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_memory_paths(path)
+    return path
+
+
+def _migrate_legacy_memory_paths(memories: Path) -> None:
+    """One-time best-effort move of legacy memory files into ~/.trinity/memories/.
+
+    Idempotent: if the new path already exists, the legacy file is left alone
+    (the legacy file is the on-disk source of truth only until the new path
+    is written; after migration the new path wins).
+    """
+    legacy_map = [
+        (state_dir() / "cortex" / "routing_patterns.json", memories / "picks.json"),
+        (state_dir() / "me.md", memories / "lens.md"),
+        (state_dir() / "me" / "basins.json", memories / "topics.json"),
+    ]
+    for legacy, new in legacy_map:
+        if new.exists() or not legacy.exists():
+            continue
+        try:
+            legacy.rename(new)
+        except OSError:
+            # Cross-device move or transient permission issue — copy + leave
+            # legacy in place so we never lose data.
+            try:
+                new.write_bytes(legacy.read_bytes())
+            except OSError:
+                pass
+
+
+def picks_path() -> Path:
+    """`picks.json` — your model picks per topic with reasoning.
+    Procedural memory. Written by `consolidate`, read by `ask` + chairman."""
+    return memories_dir() / "picks.json"
+
+
+def lens_path() -> Path:
+    """`lens.md` — paired tensions you'd reject vs accept.
+    Value memory. Written by `lens-build` (formerly `me-build`)."""
+    return memories_dir() / "lens.md"
+
+
+def topics_path() -> Path:
+    """`topics.json` — k-means clusters of subjects you ask about.
+    Semantic memory. Written by lens-build Stage 1."""
+    return memories_dir() / "topics.json"
+
+
+def routing_path() -> Path:
+    """`routing.json` — per-category provider track record (numbers).
+    Empirical memory. Computed on demand from council_outcomes/, written
+    on dream Phase 4 for the chairman context loader."""
+    return memories_dir() / "routing.json"
+
+
+def vocabulary_path() -> Path:
+    """`vocabulary.md` — bimodality detection on YOUR terminology.
+    Language memory. Written by dream Phase 2.5."""
+    return memories_dir() / "vocabulary.md"
+
+
+def core_path() -> Path:
+    """`core.md` — singular paragraph distillation subsuming the five
+    plural core memories. Identity. Read FIRST by the chairman on every
+    council; falls through to specific memory files only on demand.
+    Written by dream Phase 5."""
+    return state_dir() / "core.md"
 
 
 def cortex_dir() -> Path:
@@ -201,7 +286,11 @@ def dispatch_outcomes_path() -> Path:
 
 
 def cortex_routing_patterns_path() -> Path:
-    return cortex_dir() / "routing_patterns.json"
+    """Back-compat alias: returns the new picks.json path. Existing callers
+    that import this function keep working; new code should call picks_path()
+    directly. The migration into ~/.trinity/memories/ runs automatically
+    on first call to memories_dir()."""
+    return picks_path()
 
 
 def cortex_model_checkpoints_path() -> Path:

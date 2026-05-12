@@ -56,7 +56,13 @@ ME_SAMPLE_SIZE = 80
 
 
 def me_path() -> Path:
-    return state_dir() / "me.md"
+    """The lens file. Renamed from `me.md` → `memories/lens.md` per the
+    brand axis (lens is one of the five core memory types). The migration
+    happens automatically inside state_paths.memories_dir() on first
+    access; callers don't need to handle it. Back-compat alias kept so
+    existing imports still work."""
+    from .state_paths import lens_path
+    return lens_path()
 
 
 def _sample_diverse_with_embeddings(*, top_k: int, candidate_pool: int) -> list:

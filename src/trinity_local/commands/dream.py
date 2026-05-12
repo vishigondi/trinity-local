@@ -59,6 +59,11 @@ def register(subparsers):
         help="Skip the /me lens rebuild phase.",
     )
     sp.add_argument(
+        "--skip-distill",
+        action="store_true",
+        help="Skip Phase 5: emitting the one-paragraph core.md distillation.",
+    )
+    sp.add_argument(
         "--dry-run",
         action="store_true",
         help="Discover clusters and print the plan; don't call any flagship.",
@@ -179,16 +184,34 @@ def handle_dream(args):
 
     # ── Phase 4: rebuild /me lenses ────────────────────────────────────
     if args.skip_me_build:
-        print("dream phase 4/4: SKIPPED (--skip-me-build)", file=sys.stderr)
+        print("dream phase 4/5: SKIPPED (--skip-me-build)", file=sys.stderr)
         report["phases"]["me_build"] = {"skipped": True}
     else:
-        print("dream phase 4/4: rebuilding /me lenses…", file=sys.stderr)
+        print("dream phase 4/5: rebuilding /me lenses…", file=sys.stderr)
         me_report = _me_build(args.primary_provider or "claude")
         report["phases"]["me_build"] = me_report
+
+    # ── Phase 5: distill the five plural memories into singular core.md ──
+    # Always runs (cheap — one flagship call). Even if upstream phases
+    # were skipped, distill emits a core.md from whatever memories DO
+    # exist on disk.
+    if getattr(args, "skip_distill", False):
+        print("dream phase 5/5: SKIPPED (--skip-distill)", file=sys.stderr)
+        report["phases"]["distill"] = {"skipped": True}
+    else:
+        print("dream phase 5/5: distilling memories → core.md…", file=sys.stderr)
+        distill_report = _distill(args.primary_provider or "claude")
+        report["phases"]["distill"] = distill_report
 
     report["total_ms"] = int((time.monotonic() - started) * 1000)
     print(json.dumps(report, indent=2))
     return 0
+
+
+def _distill(provider: str) -> dict:
+    """Phase 5 — collapse the five plural core memories into one paragraph."""
+    from ..distill import distill_via_chairman
+    return distill_via_chairman(provider=provider)
 
 
 def _synthesize_all(clusters, primary_provider):

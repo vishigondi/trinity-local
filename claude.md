@@ -40,17 +40,29 @@ v1 SHIPS: councils + chairman synth + `dream` cold-start + cortex extraction + l
 
 A few words do specific work; they get conflated otherwise:
 
-- **prompts** — what the user owns (raw, indexed in `~/.trinity/memory/`). Inputs to dream.
-- **dream** — the verb only Trinity has. Reads prompts, emits memory (offline, your data).
-- **memory** — what dream creates: cortex rules + the lens + the personal routing table.
-- **cortex** — extracted routing patterns per basin/topic (rules with trust scores).
-- **lens** — paired-tension taste pairs in `~/.trinity/me.md`, the chairman reads it before synthesizing.
+- **prompts** — what the user owns (raw, indexed in `~/.trinity/memory/` for now; will move to `~/.trinity/prompts/` per Tier 1 #1). Inputs to dream.
+- **dream** — the verb only Trinity has. Reads prompts, emits core memories (offline, your data).
+- **core memories** — the five durable memory types dream creates (plural):
+
+  | memory | what's in it | brain analog |
+  |---|---|---|
+  | `lens.md` | tensions you'd reject vs accept | value memory |
+  | `picks.json` | your model picks per topic, with reasoning | procedural memory |
+  | `routing.json` | per-category provider track record (numbers) | empirical memory |
+  | `topics.json` | clusters of subjects you ask about | semantic memory |
+  | `vocabulary.md` | how you use specific words | language memory |
+
+  All five live in `~/.trinity/memories/`.
+
+- **core** — the singular distillation. `~/.trinity/core.md` is one paragraph that subsumes the five memories above — chairman reads it FIRST on every council, falls through to specific memory files only when it needs depth.
 - **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.
-- **chairman** — the synthesis model in a single council. Reads the lens, emits structured Routing JSON. Per-call role.
+- **chairman** — the synthesis model in a single council. Reads `core.md`, emits structured Routing JSON. Per-call role.
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
 - **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cowork). Trinity registers as an MCP server inside each.
 - **seat / member** — a provider acting as one voice in a council. Code uses `members=[...]`; marketing copy will use `seat` (table metaphor).
 - **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
+
+The map mirrors the tagline: prompts (what you own) → dream (the verb) → core memories (what dream creates, plural) → core (the distillation, singular). When in doubt about a name, look at the brain analog and pick the one that matches what the file actually stores.
 
 ## Calling the council from inside Claude Code
 
