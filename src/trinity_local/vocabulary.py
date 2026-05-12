@@ -258,16 +258,17 @@ def distill_vocabulary(
     Returns a report dict (`{ok, path, homonyms, synonyms, corpus_size}`).
     Returns `skipped: True` cleanly when no embedded prompts exist yet.
 
-    Uses the uncapped walker (same as dream) — the hot-path
-    `iter_prompt_nodes` caps at 5000 most-recent nodes, but recent ingest
-    skips embedding to keep the hot path fast. Embeddings sit on the
-    older seeded prompts below the cap. Without the uncapped walk,
-    vocabulary would always see 0 embedded prompts on a populated install.
+    Uses `iter_prompt_nodes(limit=None)` to walk the full corpus. The
+    default `iter_prompt_nodes()` caps at 5000 most-recent nodes (hot
+    path for launchpad/search), but recent ingest skips embedding to keep
+    that path fast — so embeddings sit on the older seeded prompts BELOW
+    the cap. `limit=None` lifts the cap and is cached in-process by file
+    mtime, so dream/vocabulary/basins all share the parse cost.
     """
-    from .commands.dream import _all_prompt_nodes_uncapped
+    from .memory.store import iter_prompt_nodes
     from .state_paths import vocabulary_path
 
-    nodes = _all_prompt_nodes_uncapped()
+    nodes = list(iter_prompt_nodes(limit=None))
     nodes_with_emb = [n for n in nodes if getattr(n, "embedding", None)]
     if not nodes_with_emb:
         return {

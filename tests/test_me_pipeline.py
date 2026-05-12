@@ -58,11 +58,11 @@ class TestBasins:
         ]
         bad = [_node(f"bad_{i}", f"poisoned {i}", [float("nan")] * 768) for i in range(5)]
 
-        # Stage 1 basins now reads via the uncapped walker (so populated
-        # installs aren't masked by the 5000-node hot-path cap on the
-        # default `iter_prompt_nodes`). Monkeypatch the actual source.
-        from trinity_local.commands import dream as dream_mod
-        monkeypatch.setattr(dream_mod, "_all_prompt_nodes_uncapped", lambda: list(good + bad))
+        # Stage 1 basins reads `iter_prompt_nodes(limit=None)` — the
+        # canonical uncapped walker (so populated installs aren't masked
+        # by the 5000-node hot-path cap on the default call). Patch on
+        # the basins module since the function is imported at the top.
+        monkeypatch.setattr(basins_mod, "iter_prompt_nodes", lambda **kw: iter(good + bad))
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
 
         result = basins_mod.compute_basins(k=5, seed=42)

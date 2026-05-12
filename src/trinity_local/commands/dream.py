@@ -82,23 +82,16 @@ def register(subparsers):
 
 
 def _all_prompt_nodes_uncapped() -> list:
-    """The hot-path `iter_prompt_nodes` is capped at TRINITY_PROMPT_NODE_LIMIT
-    (5000 default) to keep launchpad/search snappy. For dream, we want every
-    embedded node — temporarily lift the cap by direct iteration of the
-    JSONL store, bypassing the cap.
-    """
-    from .. import memory
-    from ..memory.store import _iter_jsonl_latest_by_id
-    from ..memory.schemas import PromptNode
-    from ..state_paths import prompt_nodes_path
+    """Back-compat alias — the canonical uncapped walker is
+    `iter_prompt_nodes(limit=None)` from trinity_local.memory.store, which
+    has been there all along. This helper used to reinvent it; kept as a
+    thin wrapper so existing tests that monkey-patch it stay green.
 
-    out = []
-    for raw in _iter_jsonl_latest_by_id(prompt_nodes_path()):
-        try:
-            out.append(PromptNode.from_dict(raw))
-        except (KeyError, TypeError):
-            continue
-    return out
+    New code should call `iter_prompt_nodes(limit=None)` directly — it's
+    cached in-process by file mtime so dream/vocabulary/basins all share
+    the parse cost on a hot session."""
+    from ..memory.store import iter_prompt_nodes
+    return list(iter_prompt_nodes(limit=None))
 
 
 def handle_dream(args):
