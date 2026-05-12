@@ -1,28 +1,39 @@
 # Trinity Local
 
-## Own your memories. Across every AI you use.
-### The AI you trained should outlive the provider.
+## We copy-paste prompts across chatbots like animals.
 
-> **Anthropic just shipped *Dreaming*.** Trinity does it across Claude, ChatGPT, and Gemini —
-> and the memory lives in your folder, not theirs.
+### Trinity asks Claude, GPT, and Gemini at once — and gives you back one answer, filtered through your taste.
 
-You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives in three
-different SQLite caches, owned by three different companies, none of which are allowed to help
-you use the others. Anthropic's new agent stack — *Dreaming* (sessions consolidating into
-lessons), *Outcomes* (rubric-graded evaluation), *Multi-Agent Orchestration* (specialist
-sub-agents) — runs on infrastructure Anthropic owns. Harvey reported 6× task completion uplift.
-The pattern works. The lock-in is the cost.
+```bash
+pip install trinity-local && trinity-local install-mcp
+```
 
-Trinity is the local, cross-provider answer. Same architectural ideas — episode-to-pattern
-consolidation, separate evaluation context, specialist orchestration — but the data lives in
-`~/.trinity/`, routing spans Claude + ChatGPT + Gemini + local models, and you can switch labs
-tomorrow without losing the memory you built up.
+That's it. One pain, one promise, one install command.
 
-Open source. Local-first. macOS today. *No account required.*
+---
 
-> **The cross-provider memory layer the labs are commercially prevented from building.**
+### 1. Ask once, get one answer.
 
-![your taste, distilled](docs/me_card_example.png)
+Three subscriptions, three tabs, three half-answers. Trinity sends your question to all of them
+in parallel and runs a synthesis pass that returns one verdict — what they agreed on, where they
+disagreed and why it matters, which one was right.
+
+It also looks back: Trinity scans the transcripts already on your machine, finds questions you
+asked multiple providers separately, and turns each cross-provider pair into a synthetic
+council — bootstrapping your personal routing table from your own history before you run a
+single fresh council.
+
+### 2. It knows what you'd accept.
+
+Every council Trinity runs feeds a personal `/me` lens — paired tensions extracted from where
+you push back on the models. *"Leverage of present-state assets > ground-up structural
+ownership."* That's not a quote from a model; that's the shape your decisions actually take.
+The chairman reads this lens when synthesizing so the answer comes out in your voice.
+
+### 3. Local, free, your data.
+
+Your prompts and the models' answers stay on your machine. Trinity rides your existing
+subscriptions — never proxies through a hosted API. Open source. macOS today. No account.
 
 ## For teams: vendor-neutral agent memory
 
@@ -256,6 +267,18 @@ For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
+
+## The deeper bet (philosophy, not pitch)
+
+The reason we built it: the AI you trained should outlive the provider. Today the labs are
+commercially prevented from helping you use a competitor — your accumulated context is locked
+to whichever subscription you stop paying for last. The cross-provider memory layer has to live
+*outside* the labs. That's what `~/.trinity/` is. The folder is the API; the lens is yours;
+switching providers tomorrow doesn't reset what they've learned about you.
+
+The copy-paste pain is the pain you have today. Memory portability is the freedom you'll want
+when one of the three labs starts charging triple. Trinity solves both — but leads with the one
+you already feel.
 
 ## Building Trinity
 

@@ -31,6 +31,7 @@ def _pin_hf_offline() -> None:
 CORE_COMMAND_MODULES = (
     "actions",
     "adapters",
+    "bootstrap_pairs",
     "cache",
     "cortex",
     "council",
