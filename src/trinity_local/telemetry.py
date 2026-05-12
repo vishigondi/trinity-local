@@ -33,6 +33,12 @@ class TelemetrySettings:
     # consensus rounds until chairman declares convergence OR max rounds.
     auto_chain_enabled: bool = False
     max_chain_rounds: int = 3
+    # When True, council_runner shells out `open <review_path>` after
+    # writing the final unified council page. macOS only — silently
+    # no-ops elsewhere. Off by default (some users don't want a browser
+    # tab on every council). Toggled via `trinity-local auto-open-enable`
+    # / `auto-open-disable`.
+    auto_open_council: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

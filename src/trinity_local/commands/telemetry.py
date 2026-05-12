@@ -49,6 +49,18 @@ def register(subparsers):
     )
     auto_chain_disable.set_defaults(handler=handle_auto_chain_disable)
 
+    auto_open_enable = subparsers.add_parser(
+        "auto-open-enable",
+        help="Open the council review page in the default browser as soon as it's written (macOS only)",
+    )
+    auto_open_enable.set_defaults(handler=handle_auto_open_enable)
+
+    auto_open_disable = subparsers.add_parser(
+        "auto-open-disable",
+        help="Disable auto-open; councils write the page but don't pop a browser tab",
+    )
+    auto_open_disable.set_defaults(handler=handle_auto_open_disable)
+
 
 def handle_telemetry_show(args):
     settings = load_telemetry_settings()
@@ -108,6 +120,22 @@ def handle_auto_chain_enable(args):
 def handle_auto_chain_disable(args):
     settings = load_telemetry_settings()
     settings.auto_chain_enabled = False
+    save_telemetry_settings(settings)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_auto_open_enable(args):
+    settings = load_telemetry_settings()
+    settings.auto_open_council = True
+    save_telemetry_settings(settings)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_auto_open_disable(args):
+    settings = load_telemetry_settings()
+    settings.auto_open_council = False
     save_telemetry_settings(settings)
     portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))

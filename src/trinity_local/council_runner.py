@@ -17,6 +17,28 @@ from .council_status import (
     update_synthesis_progress,
 )
 from .council_review import write_unified_council_page
+
+
+def _maybe_auto_open(review_path) -> None:
+    """Open the review page in the default browser when the user opted in
+    via `trinity-local auto-open-enable`. Off by default; macOS-only via
+    the `open` command; failures swallowed (the council write already
+    succeeded — a browser hiccup must not pollute the return).
+    """
+    try:
+        from .telemetry import load_telemetry_settings
+        if not load_telemetry_settings().auto_open_council:
+            return
+        import subprocess, sys
+        if sys.platform != "darwin":
+            return  # `open` is macOS-specific; Linux/Windows silently skip
+        subprocess.Popen(  # noqa: S603 — args are a fixed binary + Path
+            ["open", str(review_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        return
 from .council_runtime import (
     append_launch_event,
     chairman_says_converged,
@@ -375,6 +397,7 @@ def _run_chain(
     )
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(bundle, final_outcome)
+    _maybe_auto_open(review_path)
 
     task = task_from_council(
         bundle=bundle,
@@ -699,6 +722,7 @@ def run_council(
     )
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(bundle, final_outcome)
+    _maybe_auto_open(review_path)
 
     primary_event = create_launch_event(
         bundle=bundle,
@@ -1075,6 +1099,7 @@ def run_consensus_round(
     )
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(new_bundle, final_outcome)
+    _maybe_auto_open(review_path)  # chain-mode follow-up; same gate as fresh councils
 
     task = task_from_council(
         bundle=new_bundle,
