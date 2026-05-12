@@ -57,8 +57,8 @@
 | 4 | Split portal_page.py | ✅ done | 1,790 lines → `portal_page.py` (35), `portal_data.py` (348), `portal_template.py` (1260), `portal_install.py` (163), `portal_runtime.py` (37) |
 | 5 | Share polling runtime JS | ✅ done | `portal_runtime.py` with `portal_runtime_js()` — both launchpad and live council page inject the same `buildShortcutUrl` + `loadStatusScript` (with `!token` guard fixed on launchpad). |
 | 6 | Centralize Launchpad refresh | ✅ done | All callers use `refresh_launchpad()` via `refresh.py`. |
-| 7 | Standardize subprocess execution | ✅ done | `subprocess_utils.py` with `run_with_runtime_env()`. Wired into `providers.py`, `adapters.py`. |
-| 8 | Centralize runtime env | ✅ done | `runtime_env.py` with `build_runtime_env()`, `runtime_path_prefix()`. Used by subprocess_utils, dispatch_runner, shortcut_setup. |
+| 7 | Standardize subprocess execution | ✅ done | `run_with_runtime_env()` in `runtime_env.py` (the planned `subprocess_utils.py` split didn't materialize — both helpers fit in one module). Wired into `providers.py`, `adapters.py`. |
+| 8 | Centralize runtime env | ✅ done | `runtime_env.py` with `build_runtime_env()`, `runtime_path_prefix()`, `run_with_runtime_env()`. Used by `providers.py`, `adapters.py`, `dispatch_runner.py`, `shortcut_setup.py`. |
 | 9 | Complete state path migration | ✅ done | All duplicate `*_dir()` functions removed from `council_runtime.py`, `review.py`, `shortcut_setup.py`, `research/embeddings.py`, `research/hard_eval.py`, `research/ranking.py`. All use `state_paths.*` imports. |
 | 10 | Harden council parsing | ✅ done | `tests/test_council_runtime.py` added with regression cases |
 | 11 | Normalize config loading | ✅ done | `load_config(required=False)` for read-only commands; only provider-requiring commands call with `required=True`. |

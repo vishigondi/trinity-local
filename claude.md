@@ -101,7 +101,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Ranker | `ranker/` — `base.py`, `fallback.py`, `heuristic.py`, `knn_ranker.py`, `chairman_picker.py` (NEW), `types.py` | Routing decisions + chairman auto-selection (personal table → global benchmarks → default order) |
 | Council outcome | `council_feedback.py` | Append user verdicts; `record_council_outcome` (in `memory/store.py`) propagates to PromptNode |
 | State paths | `state_paths.py` | Single source of truth for `~/.trinity/` paths |
-| Runtime env | `runtime_env.py`, `subprocess_utils.py` | PATH-injection env builder + `run_with_runtime_env()` |
+| Runtime env | `runtime_env.py` | PATH-injection env builder + `run_with_runtime_env()` (both helpers live in one module — `subprocess_utils.py` was the original plan but the split didn't materialize) |
 | Task kinds | `task_kinds.py` | Single `guess_task_kind()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
