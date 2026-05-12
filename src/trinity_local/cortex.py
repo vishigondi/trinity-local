@@ -449,9 +449,19 @@ def consolidate_basin(
             verdict = auditor(rule, outcomes)
             if verdict in AUDIT_SCORE_MAP:
                 audit_status = verdict
-        except Exception:
-            # An audit failure must not break consolidation; leave the rule
-            # unaudited (neutral) and surface via logs.
+        except Exception as exc:
+            # An audit failure must not break consolidation, but it MUST
+            # surface — a user who ran `consolidate --audit` and silently
+            # got everything "unaudited" would have no idea their audit
+            # provider was broken. Print to stderr so the CLI's per-basin
+            # progress line shows the cause; trust component still falls
+            # back to the neutral identity (1.0 for unaudited).
+            import sys as _sys
+            print(
+                f"  ! audit failed for basin {basin_id!r}: "
+                f"{type(exc).__name__}: {exc}",
+                file=_sys.stderr,
+            )
             audit_status = "unaudited"
 
     trust = compute_trust_score(

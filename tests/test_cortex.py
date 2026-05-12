@@ -938,10 +938,12 @@ class TestConsolidateBasinWithAuditor:
         )
         assert pattern.audit_status == "unaudited"
 
-    def test_auditor_exception_falls_back_to_unaudited(self, tmp_path, monkeypatch):
+    def test_auditor_exception_falls_back_to_unaudited(self, tmp_path, monkeypatch, capsys):
         """A flaky auditor (e.g., the audit provider hit a rate limit) must
         not break consolidation. The pattern is still saved; its audit
-        status stays neutral."""
+        status stays neutral; AND the failure surfaces on stderr so the
+        operator knows their audit provider is broken (the silent-failure
+        mode this test pins)."""
         from trinity_local import cortex
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
@@ -961,6 +963,13 @@ class TestConsolidateBasinWithAuditor:
             auditor=auditor,
         )
         assert pattern.audit_status == "unaudited"
+        # The error must show up on stderr — without this, an operator who
+        # ran `--audit` against a broken provider would see every rule as
+        # "unaudited" with zero clue why. Loud failure beats silent fallback.
+        captured = capsys.readouterr()
+        assert "audit failed" in captured.err
+        assert "system_design" in captured.err
+        assert "rate limit" in captured.err
 
     def test_audit_status_persists_round_trip(self, tmp_path, monkeypatch):
         """The audit verdict must survive save → load so a later --audit
