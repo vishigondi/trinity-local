@@ -46,7 +46,7 @@ The router is the implementation. The verifier is the value. The personal prefer
 - **MCP server** (`trinity-local --mcp`): a stdio child of whatever harness launched it (Claude Code, Codex, Gemini CLI). Lives only while the harness is connected; dies on EOF. ~62MB resident, no embedding model loaded eagerly.
 - **CLI** (`trinity-local <command>`): one-shot subprocess. No persistent state.
 - **Council launches**: spawned as background subprocesses by `council-launch`. They run member providers in parallel, write outcomes to `~/.trinity/council_outcomes/`, and exit.
-- **`/me-build`**: cron-friendly. Runs once on demand or on a schedule (typical: daily). Loads the nomic embedding model (~22s ramp), samples ~80 diverse prompts via embedding-MMR, fires one chairman call, writes `~/.trinity/me.md`. The only place embeddings are loaded on the product path.
+- **`lens-build`**: cron-friendly. Runs once on demand or on a schedule (typical: daily). Loads the nomic embedding model (~22s ramp), samples ~80 diverse prompts via embedding-MMR, fires one chairman call, writes `~/.trinity/memories/lens.md`. The only place embeddings are loaded on the product path.
 
 The launchpad and search/autofill paths are **embedding-free** (substring + recency + replay-value heuristics). Cold-start is <300ms; warm queries are <200ms across 5000 cached PromptNodes.
 
@@ -75,7 +75,7 @@ These are problems that **require multi-provider observation** and cannot be sol
 
 When a task matters, you want more than one opinion. Trinity runs the same prompt through multiple providers and a chairman synthesizes a structured Routing JSON: structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `routing_lesson`, and `user_likely_values` derived from your `/me` profile.
 
-The chairman is loaded with `~/.trinity/me.md`, so it doesn't pick the universally best answer — it picks the answer that fits *this* user. Members generate broad; chairman condenses through your taste.
+The chairman is loaded with `~/.trinity/memories/lens.md`, so it doesn't pick the universally best answer — it picks the answer that fits *this* user. Members generate broad; chairman condenses through your taste.
 
 Each council run produces `(prompt, response_A, response_B, response_C, chairman_synthesis, routing_label, your_verdict)`. The Routing JSON is the supervision signal that feeds the personal routing table and, eventually, the Phase 9 learned controller.
 
@@ -137,7 +137,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 3. **`run_council(task, members, mode, sequence, primary_provider, responses)`** — spawns a council; runs members in parallel (or chain) then chairman. **When `responses=[...]` is provided**, skips dispatch and runs chairman synthesis only — the structured verdict path. Subsumes the former `judge` tool.
 4. **`record_outcome(council_run_id, user_winner, accepted, ...)`** — closes the supervision loop. Updates `CouncilOutcome.metadata.user_verdict` and the originating `PromptNode`.
 5. **`search_prompts(query, top_k)`** — heuristic search (substring + recency + replay-value); no embedding load.
-6. **`get_persona()`** — returns `~/.trinity/me.md`.
+6. **`get_persona()`** — returns `~/.trinity/memories/lens.md`.
 7. **`get_council_status(council_run_id)`** — in-protocol polling for async councils.
 8. **`get_picks(basin_id?, min_trust?)`** *(v1.5)* — returns extracted routing patterns per basin (winner distribution, trust score, failure modes, evidence). Lets a calling agent reason about *why* `ask` would route a given basin to a given provider — the cortex made visible.
 9. **`mark_pick_wrong(basin_id, reason?, reset?)`** *(v1.5)* — user-veto on a cortex routing rule. Each call increments `override_count`; `effective_trust = raw_trust × 0.5^count`. Two clicks quarter trust; three drops most rules out of routing entirely. Persists across consolidations — a fresh extraction can't erase the user's signal. Use `reset=true` to clear the count.
@@ -204,7 +204,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 5. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
 6. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
 7. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong`).** v1.0: `route`, `run_council` (subsumes `judge`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5: `ask` (cheap single-call default), `get_picks` (agent-facing introspection), and `mark_pick_wrong` (harness-callable user veto). 9 total.
-8. **`/me-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
+8. **`lens-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 10. **v1.5 cortex layer (Week 2 shipped, refined post-launch).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json`. Each pattern carries a **structured geometric prior** of the basin: geometric median (Weiszfeld iteration, robust under L1), coherence score, manifold dim, bimodality flag (excess kurtosis on first-PC, requires N≥10), and typicality-ordered outcomes. The flagship extraction prompt is *prepended* with a one-paragraph shape description so the LLM does rule-extraction on structure instead of geometry-in-language. `trust_score` has 5 components (n_episodes / consistency / recency / diversity / coherence; weighted geometric mean) — coherence catches "confident rule on noisy basin." Wires into `ask` query hot-path in Week 3 after human calibration gate.
 11. **Test suite: 541 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib). `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 8-surface browser smoke gate green.

@@ -27,7 +27,7 @@
 > search/autofill/replay are **embedding-free** (substring + recency +
 > replay-value heuristics; no nomic on the read path). Personal routing
 > table is **computed on demand** from `council_outcomes/*.json` (mtime+size
-> cache, no durable state file). `/me-build` IS a single chairman call over
+> cache, no durable state file). `lens-build` IS a single chairman call over
 > MMR-sampled prompts (rejection-aware embedding distance for sample
 > selection; ~/.taste/ no longer required). Memory tier collapsed:
 > `PromptNode` + `TurnWindow` only (`TranscriptNode` retired). Iteration
@@ -757,7 +757,7 @@ These are the only public surface. Everything else is plumbing.
 | `run_council(task, models, rubric)` | Multi-provider comparison with chairman synthesis; returns winner + stage_winners + recommendation + learning | Harness uncertain or user explicitly asks |
 | `record_outcome(task_id, model_used, mode, user_selected, accepted, edited, tests_passed, cost_usd, latency_sec)` | The most important call — closes the loop. Without it Trinity is a switchboard. With it, Trinity learns. | After the user acts |
 | `search_prompts(query)` | Returns ranked prior hard prompts (autofill from inside the harness) | User starts typing; harness offers replay candidates |
-| `get_persona()` | Returns `~/.trinity/me.md` (composed from taste-terminal's diarized memories). Lets harnesses load /me once at session start so every response is tailored to the user without an MCP round-trip per call. | Once at session start |
+| `get_persona()` | Returns `~/.trinity/memories/lens.md` (composed from taste-terminal's diarized memories). Lets harnesses load /me once at session start so every response is tailored to the user without an MCP round-trip per call. | Once at session start |
 
 These map onto existing internals:
 
@@ -768,7 +768,7 @@ These map onto existing internals:
 | `run_council` | `council_runner.run_council` |
 | `record_outcome` | `council_feedback.record_user_verdict` + new `outcome_recorder` |
 | `search_prompts` | New hierarchical memory index (8.4) |
-| `get_persona` | `me_builder.load_me()` reading `~/.trinity/me.md` (refreshed via `trinity-local me-build`) |
+| `get_persona` | `me_builder.load_me()` reading `~/.trinity/memories/lens.md` (refreshed via `trinity-local lens-build`) |
 
 The current MCP server already exposes `route`, `judge`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`. The four legacy tools (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) have been dropped from the public surface — they're dashboard reads, not routing primitives.
 
