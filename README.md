@@ -1,10 +1,10 @@
 # Trinity Local
 
-## Stop copy-pasting your prompts between chatbots.
+## Stop copy-pasting prompts. Own your context. Dream your core memories.
 
-### Own your prompts. Dream creates the memory.
+### One question, three models, one answer that knows you.
 
-Trinity asks Claude, GPT, and Gemini at once — then synthesizes your prompts into a personal routing brain only you can see. Your prompts are yours. The memory built from them is yours too. The labs are commercially prevented from building this layer; someone outside them has to.
+Trinity asks Claude, GPT, and Gemini at once — then synthesizes your prompts into core memories only you can see: cortex rules (what models you trust for what), a lens (what you reject and accept), a routing brain (which provider stays simple for your kind of problem). Your prompts are yours. The core memories built from them are yours too. The labs are commercially prevented from building this layer; someone outside them has to.
 
 ```bash
 pip install trinity-local && trinity-local install-mcp
