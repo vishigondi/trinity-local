@@ -87,11 +87,12 @@ class TestComputeTrustScore:
             diversity_metric=0.7,
         )
         payload = trust.to_dict()
-        # All 5 components present (n_episodes_norm, consistency_score,
-        # recency_agreement, diversity, coherence_score), all named, all numeric.
+        # All 6 components present (n_episodes_norm, consistency_score,
+        # recency_agreement, diversity, coherence_score, audit_score),
+        # all named, all numeric.
         assert set(payload["components"].keys()) == {
             "n_episodes_norm", "consistency_score", "recency_agreement",
-            "diversity", "coherence_score",
+            "diversity", "coherence_score", "audit_score",
         }
         for v in payload["components"].values():
             assert 0.0 <= v <= 1.0
@@ -760,3 +761,200 @@ class TestExtractionPromptIncludesGeometry:
             },
         )
         assert "NOISY" in prompt
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Chairman-audit-mode (task #47).
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestAuditScoreMap:
+    """The audit_score component derives from audit_status. Constants
+    deliberately pin: unaudited contributes the geomean identity (1.0)
+    so opt-in users aren't penalized, agreed and unaudited tie so the
+    audit doesn't double-reward correct rules, disagreed drops trust
+    by ~21% (one band lower), unclear is a small penalty."""
+
+    def test_known_statuses(self):
+        from trinity_local.cortex import AUDIT_SCORE_MAP, audit_score_for
+
+        assert audit_score_for("unaudited") == 1.0
+        assert audit_score_for("agreed") == 1.0
+        assert audit_score_for("disagreed") == 0.1
+        assert audit_score_for("unclear") == 0.5
+        assert set(AUDIT_SCORE_MAP.keys()) == {"unaudited", "agreed", "disagreed", "unclear"}
+
+    def test_unknown_status_treated_as_neutral(self):
+        from trinity_local.cortex import audit_score_for
+
+        # A foreign verdict (e.g., from a model that reinterpreted the prompt)
+        # must not silently demote trust. Fall back to neutral 0.5.
+        assert audit_score_for("inconclusive") == 0.5
+        assert audit_score_for("") == 0.5
+
+
+class TestParseAuditResponse:
+    """The audit chairman is asked for a one-word reply. Tolerate whitespace,
+    punctuation, markdown wrappers — but only accept the three canonical
+    verdicts; everything else returns 'unclear' (safe default)."""
+
+    def test_clean_one_word(self):
+        from trinity_local.cortex import parse_audit_response
+
+        assert parse_audit_response("agreed") == "agreed"
+        assert parse_audit_response("disagreed") == "disagreed"
+        assert parse_audit_response("unclear") == "unclear"
+
+    def test_uppercase_normalized(self):
+        from trinity_local.cortex import parse_audit_response
+
+        assert parse_audit_response("AGREED") == "agreed"
+        assert parse_audit_response("Disagreed.") == "disagreed"
+
+    def test_surrounding_whitespace_and_punctuation(self):
+        from trinity_local.cortex import parse_audit_response
+
+        assert parse_audit_response("  agreed.\n") == "agreed"
+        assert parse_audit_response("verdict: disagreed,") == "disagreed"
+
+    def test_garbage_falls_back_to_unclear(self):
+        from trinity_local.cortex import parse_audit_response
+
+        # Model didn't comply with the one-word constraint — safest is to
+        # treat as unclear (small trust penalty), not as a false "agreed".
+        assert parse_audit_response("the rule looks fine to me") == "unclear"
+        assert parse_audit_response("") == "unclear"
+        assert parse_audit_response("{\"verdict\": \"agreed\"}") == "agreed"  # token salvaged
+
+
+class TestConsolidateBasinWithAuditor:
+    def _outcomes(self):
+        return [
+            {
+                "council_run_id": f"c{i}",
+                "winner_provider": "claude",
+                "routing_label": {
+                    "task_type": "system_design",
+                    "winner": "claude",
+                    "routing_lesson": "claude wins for architecture",
+                    "agreed_claims": ["x"],
+                    "disagreed_claims": [],
+                },
+            }
+            for i in range(5)
+        ]
+
+    def test_disagreed_audit_demotes_trust(self, tmp_path, monkeypatch):
+        """The point of the audit: when an independent chairman disagrees
+        with the extracted rule, trust drops by ~21% so the rule stops
+        driving routing on its own (the cortex hot-path gates on
+        TRUST_KNN_FALLBACK)."""
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "challenger": "codex", "reason": "x"}
+
+        def audit_agreed(rule, outs):
+            return "agreed"
+
+        def audit_disagreed(rule, outs):
+            return "disagreed"
+
+        pattern_clean = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=self._outcomes(),
+            task_kinds=["system_design"],
+            diversity_metric=0.6,
+            extractor=extractor,
+            auditor=audit_agreed,
+        )
+        pattern_demoted = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=self._outcomes(),
+            task_kinds=["system_design"],
+            diversity_metric=0.6,
+            extractor=extractor,
+            auditor=audit_disagreed,
+        )
+
+        assert pattern_clean.audit_status == "agreed"
+        assert pattern_demoted.audit_status == "disagreed"
+        # Disagreed must drop trust below the cleared baseline.
+        assert pattern_demoted.trust_score.value < pattern_clean.trust_score.value
+        # Specifically, disagreed should land at least 15% below agreed —
+        # that's the demotion the AUDIT_SCORE_MAP encodes.
+        assert (
+            pattern_demoted.trust_score.value
+            < pattern_clean.trust_score.value * 0.85
+        )
+
+    def test_no_auditor_leaves_status_unaudited(self, tmp_path, monkeypatch):
+        """Audit is opt-in; default consolidate must not pay the second
+        flagship call."""
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "reason": "x"}
+
+        pattern = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=self._outcomes(),
+            task_kinds=["system_design"],
+            diversity_metric=0.6,
+            extractor=extractor,
+        )
+        assert pattern.audit_status == "unaudited"
+
+    def test_auditor_exception_falls_back_to_unaudited(self, tmp_path, monkeypatch):
+        """A flaky auditor (e.g., the audit provider hit a rate limit) must
+        not break consolidation. The pattern is still saved; its audit
+        status stays neutral."""
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "reason": "x"}
+
+        def auditor(rule, outs):
+            raise RuntimeError("audit provider hit rate limit")
+
+        pattern = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=self._outcomes(),
+            task_kinds=["system_design"],
+            diversity_metric=0.6,
+            extractor=extractor,
+            auditor=auditor,
+        )
+        assert pattern.audit_status == "unaudited"
+
+    def test_audit_status_persists_round_trip(self, tmp_path, monkeypatch):
+        """The audit verdict must survive save → load so a later --audit
+        re-run can compare against the prior verdict without re-running
+        extraction."""
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "reason": "x"}
+
+        def auditor(rule, outs):
+            return "agreed"
+
+        pattern = cortex.consolidate_basin(
+            basin_id="system_design",
+            outcomes=self._outcomes(),
+            task_kinds=["system_design"],
+            diversity_metric=0.6,
+            extractor=extractor,
+            auditor=auditor,
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+        loaded = cortex.load_routing_patterns()
+        assert loaded["system_design"].audit_status == "agreed"

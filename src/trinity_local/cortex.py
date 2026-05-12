@@ -39,12 +39,42 @@ TRUST_KNN_FALLBACK = 0.50
 # Component weights (geometric mean, then weighted). Tunable after the human-
 # calibration gate at end of Week 2.
 _TRUST_WEIGHTS = {
-    "n_episodes_norm": 0.25,
-    "consistency_score": 0.25,
-    "recency_agreement": 0.20,
+    "n_episodes_norm": 0.22,
+    "consistency_score": 0.22,
+    "recency_agreement": 0.18,
     "diversity": 0.10,
-    "coherence_score": 0.20,
+    "coherence_score": 0.18,
+    "audit_score": 0.10,
 }
+
+# Chairman-audit-mode (task #47). After consolidation extracts a rule via
+# a primary flagship, an *independent* chairman (different provider) is
+# asked to read the same outcomes and rate the rule. Disagreement is a
+# drift signal — either the primary chairman rubber-stamped a provider
+# too aggressively or a model silently regressed. Both are actionable;
+# the audit catches them per scale-plan §8.9.
+#
+# Mapping is multiplicative-via-geometric-mean: a "disagreed" audit at
+# weight 0.10 drops a 0.80 trust to ~0.63 (one band lower); "agreed"
+# nudges trust up slightly without making weak rules look strong; the
+# default "unaudited" stays neutral so opt-out users don't pay a
+# penalty for not running the audit pass.
+# Geomean identity for "no signal" is 1.0, not 0.5. Audit is opt-in;
+# rules that weren't audited shouldn't be penalized for the user not
+# running --audit. So unaudited contributes neutrally. The audit only
+# helps catch FAILED rules — agreed=1.0 (same as unaudited, just signals
+# it was run), disagreed=0.1 (strong demotion), unclear=0.5 (small
+# penalty since the auditor punted).
+AUDIT_SCORE_MAP = {
+    "unaudited": 1.0,
+    "agreed": 1.0,
+    "disagreed": 0.1,
+    "unclear": 0.5,
+}
+
+
+def audit_score_for(status: str) -> float:
+    return AUDIT_SCORE_MAP.get(status, 0.5)
 
 # Bimodality kurtosis threshold. Excess kurtosis below this on the first
 # PC distribution flags a basin as plausibly bimodal — at which point the
@@ -152,6 +182,12 @@ class RoutingPattern:
     # flagship can emit two rules instead of averaging them. <_BIMODALITY_KURTOSIS_THRESHOLD
     # → bimodal_flag=true.
     bimodal_flag: bool = False
+    # Chairman-audit-mode verdict on this rule (task #47). One of
+    # "unaudited" (default — opt-in via consolidate --audit), "agreed",
+    # "disagreed", "unclear". Feeds the `audit_score` trust component
+    # via AUDIT_SCORE_MAP. Persisted so a later --audit re-run can replace
+    # the verdict without re-extracting the rule.
+    audit_status: str = "unaudited"
 
     def to_dict(self) -> dict:
         return {
@@ -169,6 +205,7 @@ class RoutingPattern:
             "basin_centroid": self.basin_centroid,
             "manifold_dim": round(self.manifold_dim, 3),
             "bimodal_flag": self.bimodal_flag,
+            "audit_status": self.audit_status,
         }
 
 
@@ -180,6 +217,7 @@ def compute_trust_score(
     recent_winners: list[str],
     diversity_metric: float,
     coherence_score: float = 0.5,
+    audit_status: str = "unaudited",
 ) -> TrustScore:
     """Compute the 5-component trust score. All inputs are derivable from
     accumulated council outcomes; no flagship-declared values.
@@ -221,12 +259,18 @@ def compute_trust_score(
     # 5. Coherence already 0..1; passed through.
     coherence = max(0.0, min(1.0, coherence_score))
 
+    # 6. Audit score derived from audit_status. "unaudited" maps to 0.5
+    # (neutral) so opt-out users don't pay a penalty for not running the
+    # second-chairman pass; "agreed" rewards 0.9, "disagreed" demotes 0.1.
+    audit = audit_score_for(audit_status)
+
     components = {
         "n_episodes_norm": n_norm,
         "consistency_score": consistency,
         "recency_agreement": recency,
         "diversity": diversity,
         "coherence_score": coherence,
+        "audit_score": audit,
     }
     # Weighted geometric mean — penalizes any single weak component more than
     # a weighted arithmetic mean would. A basin with 50 episodes (n_norm=1.0)
@@ -299,6 +343,7 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         basin_centroid=raw.get("basin_centroid", []),
         manifold_dim=float(raw.get("manifold_dim", 0.0) or 0.0),
         bimodal_flag=bool(raw.get("bimodal_flag", False)),
+        audit_status=str(raw.get("audit_status", "unaudited") or "unaudited"),
     )
 
 
@@ -309,6 +354,12 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
 # Tests inject a stub that returns canned values.
 FlagshipExtractor = Callable[[list[dict]], dict[str, Any]]
 
+# Type alias for the chairman-audit extractor (task #47). Given an
+# already-extracted rule + the outcomes it was extracted from, returns one
+# of "agreed" | "disagreed" | "unclear". Production passes a *different*
+# provider than the primary extractor so the audit is independent.
+RuleAuditor = Callable[[RoutingRule, list[dict]], str]
+
 
 def consolidate_basin(
     *,
@@ -317,12 +368,22 @@ def consolidate_basin(
     task_kinds: list[str],
     diversity_metric: float,
     extractor: FlagshipExtractor,
+    auditor: RuleAuditor | None = None,
 ) -> RoutingPattern:
     """Run the consolidation pass for one basin: extract rule via flagship,
-    compute trust_score via system, return the assembled RoutingPattern.
+    optionally audit it via an independent chairman, compute trust_score
+    via system, return the assembled RoutingPattern.
 
-    The extractor is injectable — production passes a real flagship-call
-    function; tests pass a stub. This keeps the orchestration testable.
+    Args:
+        extractor: injectable flagship extractor (primary). Production
+            wires through `providers.make_provider(claude_opus).run`. Tests
+            pass a stub.
+        auditor: optional independent chairman that reads the extracted
+            rule + the same outcomes and returns a verdict (agreed /
+            disagreed / unclear). When provided, the verdict feeds the
+            audit_score trust component — disagreement demotes trust.
+            None ⇒ audit_status stays "unaudited" (neutral). Should use a
+            different provider than `extractor` to keep the check honest.
     """
     from datetime import datetime, timezone
 
@@ -378,6 +439,21 @@ def consolidate_basin(
         if (o.get("council_id") or o.get("bundle_id"))
     ][:20]
 
+    # Run the independent-chairman audit when one's wired in. Catches drift:
+    # if the primary chairman always picks `claude` regardless of merit,
+    # an audit chairman (different provider) reading the same outcomes
+    # will disagree, and the audit_score trust component demotes the rule.
+    audit_status = "unaudited"
+    if auditor is not None:
+        try:
+            verdict = auditor(rule, outcomes)
+            if verdict in AUDIT_SCORE_MAP:
+                audit_status = verdict
+        except Exception:
+            # An audit failure must not break consolidation; leave the rule
+            # unaudited (neutral) and surface via logs.
+            audit_status = "unaudited"
+
     trust = compute_trust_score(
         n_episodes=n_episodes,
         winner_distribution=winner_distribution,
@@ -385,6 +461,7 @@ def consolidate_basin(
         recent_winners=recent_winners,
         diversity_metric=diversity_metric,
         coherence_score=geometry["coherence_score"],
+        audit_status=audit_status,
     )
 
     return RoutingPattern(
@@ -401,6 +478,7 @@ def consolidate_basin(
         basin_centroid=geometry["centroid"],
         manifold_dim=geometry["manifold_dim"],
         bimodal_flag=geometry["bimodal_flag"],
+        audit_status=audit_status,
     )
 
 
@@ -914,6 +992,75 @@ def make_flagship_extractor(dispatch_fn: Callable[[str, str], str], basin_id: st
         return parse_extraction_response(response)
 
     return _extract
+
+
+_AUDIT_VERDICTS = {"agreed", "disagreed", "unclear"}
+
+
+def build_audit_prompt(rule: "RoutingRule", outcomes: list[dict]) -> str:
+    """Build the prompt an independent chairman reads to audit an extracted
+    rule. Asks for a single-word verdict so parsing stays trivial.
+    """
+    compressed: list[dict] = []
+    for o in outcomes[:20]:  # smaller sample than extraction — audit needs less
+        label = o.get("routing_label") or {}
+        compressed.append({
+            "council_id": o.get("council_run_id") or o.get("council_id"),
+            "winner": label.get("winner") or o.get("winner_provider"),
+            "routing_lesson": label.get("routing_lesson", ""),
+            "user_verdict": (o.get("metadata") or {}).get("user_verdict", {}).get("user_winner"),
+        })
+    return f"""You are auditing a routing rule another chairman extracted from real council outcomes. Reply with exactly ONE word: agreed, disagreed, or unclear.
+
+RULE BEING AUDITED:
+  primary: {rule.primary}
+  challenger: {rule.challenger or "none"}
+  reason: {rule.reason}
+
+EVIDENCE (council outcomes the rule was extracted from):
+{json.dumps(compressed, indent=2)}
+
+Question: does the evidence actually support primary={rule.primary!r} as the model to route this kind of question to?
+
+Reply with ONE word, no JSON, no markdown, no explanation:
+  agreed     — the evidence clearly backs the rule's primary
+  disagreed  — the evidence points at a different primary
+  unclear    — the evidence is mixed or insufficient
+"""
+
+
+def parse_audit_response(text: str) -> str:
+    """Parse the audit chairman's one-word reply. Tolerant of surrounding
+    whitespace, punctuation, markdown — but ONLY accepts one of the three
+    canonical verdicts. Anything else returns "unclear" (safe default)."""
+    first_word = ""
+    for tok in text.strip().lower().replace(".", " ").replace(",", " ").split():
+        cleaned = "".join(ch for ch in tok if ch.isalpha())
+        if cleaned in _AUDIT_VERDICTS:
+            return cleaned
+        if not first_word and cleaned:
+            first_word = cleaned
+    return "unclear"
+
+
+def make_rule_auditor(
+    dispatch_fn: Callable[[str, str], str],
+    audit_provider: str = "gemini",
+) -> RuleAuditor:
+    """Build a RuleAuditor backed by `dispatch_fn(audit_provider, prompt)`.
+
+    The default audit provider is `gemini` so it differs from the primary
+    extractor's default (`claude`). When the user's pool doesn't include
+    gemini, the CLI flag --audit-provider lets them pick another. An audit
+    by the SAME provider that wrote the rule is worse than no audit at all,
+    so the CLI refuses --audit-provider == default-extractor-provider.
+    """
+    def _audit(rule: "RoutingRule", outcomes: list[dict]) -> str:
+        prompt = build_audit_prompt(rule, outcomes)
+        response = dispatch_fn(audit_provider, prompt)
+        return parse_audit_response(response)
+
+    return _audit
 
 
 def consolidate_all(

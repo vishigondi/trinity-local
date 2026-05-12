@@ -43,6 +43,16 @@ def register(subparsers):
         default="claude",
         help="Which provider to use for the flagship extraction call (default: claude)",
     )
+    cp.add_argument(
+        "--audit",
+        action="store_true",
+        help="Run chairman-audit-mode: a second flagship (different provider) reads each extracted rule and votes agreed/disagreed/unclear. Disagreement demotes trust via the audit_score component. Catches both rubber-stamping by the primary chairman and silent model regressions.",
+    )
+    cp.add_argument(
+        "--audit-provider",
+        default=None,
+        help="Provider for the audit pass (default: gemini, or codex if --provider=gemini). Must differ from --provider — an audit by the same model that wrote the rule is worse than no audit at all.",
+    )
     cp.set_defaults(handler=handle_consolidate)
 
 
@@ -93,6 +103,25 @@ def handle_consolidate(args):
     # provider configs / shells out to the CLI.
     dispatch = _build_real_dispatch(args.provider)
 
+    auditor = None
+    if args.audit:
+        from ..cortex import make_rule_auditor
+
+        audit_provider = args.audit_provider or ("codex" if args.provider == "gemini" else "gemini")
+        if audit_provider == args.provider:
+            print(json.dumps({
+                "ok": False,
+                "reason": f"--audit-provider must differ from --provider; both are {args.provider!r}",
+            }, indent=2))
+            return 1
+        # The auditor calls a DIFFERENT provider via the same dispatch shim
+        # shape (dispatch_fn(provider_name, prompt) -> str). Need a real
+        # dispatch that respects the provider arg, not the captured-default
+        # `dispatch` above. Build a provider-aware one for the auditor.
+        audit_dispatch = _build_provider_routed_dispatch()
+        auditor = make_rule_auditor(audit_dispatch, audit_provider=audit_provider)
+        print(f"Chairman-audit-mode enabled (audit provider: {audit_provider})", file=sys.stderr)
+
     patterns: dict = {}
     for basin_id, basin_outcomes in eligible.items():
         extractor = make_flagship_extractor(dispatch, basin_id)
@@ -104,12 +133,14 @@ def handle_consolidate(args):
                 task_kinds=[basin_id],
                 diversity_metric=diversity,
                 extractor=extractor,
+                auditor=auditor,
             )
             patterns[basin_id] = pattern
+            audit_tag = f" audit={pattern.audit_status}" if auditor else ""
             print(
                 f"  ✓ {basin_id} (n={len(basin_outcomes)}) "
                 f"→ primary={pattern.routing_rule.primary} "
-                f"trust={pattern.trust_score.value:.2f} ({pattern.trust_score.interpretation})",
+                f"trust={pattern.trust_score.value:.2f} ({pattern.trust_score.interpretation}){audit_tag}",
                 file=sys.stderr,
             )
         except Exception as exc:  # noqa: BLE001 — surface to operator, don't abort the batch
@@ -155,6 +186,33 @@ def _build_real_dispatch(provider_name: str):
         # inside the try/except wrapper. Same regression that hit
         # mcp_server._dispatch_via_config in commit bb482da — kept fixed
         # here too.
+        for p in config.providers.values():
+            if p.name == provider_name and p.enabled:
+                cfg = p
+                break
+        if cfg is None:
+            raise ProviderError(f"Provider not configured or not enabled: {provider_name}")
+        prov = make_provider(cfg)
+        result = prov.run(prompt, Path.cwd())
+        if result.returncode != 0:
+            raise ProviderError(f"{provider_name} exit {result.returncode}: {result.stderr[:200]}")
+        return result.stdout
+
+    return _dispatch
+
+
+def _build_provider_routed_dispatch():
+    """Build a dispatch shim that respects its provider argument (unlike the
+    extractor dispatch, which is closed over a single provider). The audit
+    pass needs this because it deliberately calls a DIFFERENT provider than
+    the primary extractor — same shape, different routing.
+    """
+    from ..config import load_config
+    from ..providers import make_provider, ProviderError
+
+    def _dispatch(provider_name: str, prompt: str) -> str:
+        config = load_config()
+        cfg = None
         for p in config.providers.values():
             if p.name == provider_name and p.enabled:
                 cfg = p
