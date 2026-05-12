@@ -105,7 +105,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/portal.py` | `portal-html`, `open-review`, `serve` (local HTTP server for launchpad — alternative to file://) |
 | `commands/seed.py` | `seed-from-taste-terminal` |
 | `commands/replay.py` | `replay-history` |
-| `commands/me.py` | `me-build` (chairman-driven), `me-show` |
+| `commands/me.py` | `lens-build` (chairman-driven), `lens-show` |
 | `commands/me_card.py` | `me-card` (render a paired-tension lens as a 1200×630 PNG) |
 | `commands/actions.py` | `action-list`, `action-suggest`, `action-council`, `action-notify`, `action-complete` |
 | `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`, `shortcut-install` |
@@ -117,7 +117,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
 | `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
-| `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/me-build follow-up) |
+| `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/lens-build follow-up) |
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |
@@ -276,7 +276,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
     - Drift instrument (rolling cosine between `embed(me.md)` and weekly turns) was **rejected** as topic-shift-not-value-shift metaphor.
     - Output: pairs → `~/.trinity/me/lenses.json` (4–8 expected, ≤7 per spec), preserved-as-orderings → `me/orderings.json`, rejections → `me/rejections.jsonl`, basins → `me/basins.json`. Rendered to `~/.trinity/memories/lens.md` for chairman context loading.
     - 3 model calls per rebuild (Stage 0 + Stage 2 + Stage 3), all on user subscriptions.
-11. **Embedding-free product surface.** Launchpad autofill, MCP `search_prompts`, and `replay-history` candidate selection use pure heuristics (substring + recency + replay-value). No nomic model load on the hot path. `iter_prompt_nodes()` caps at the 5000 most-recent prompts (env var `TRINITY_PROMPT_NODE_LIMIT`) and is cached in-process by file mtime. Embeddings are written during seed and consumed only by `me-build`.
+11. **Embedding-free product surface.** Launchpad autofill, MCP `search_prompts`, and `replay-history` candidate selection use pure heuristics (substring + recency + replay-value). No nomic model load on the hot path. `iter_prompt_nodes()` caps at the 5000 most-recent prompts (env var `TRINITY_PROMPT_NODE_LIMIT`) and is cached in-process by file mtime. `iter_prompt_nodes(limit=None)` lifts the cap — what `lens-build`, `dream`, `vocabulary`, `consolidate`, and the seed/incremental_ingest dedup all consume. Embeddings are written during seed and read uncapped by consolidation passes.
 12. **Test suite: 289 passing.**
 
 ## What's deferred to v1.1+
