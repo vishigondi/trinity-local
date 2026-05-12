@@ -119,8 +119,8 @@ pip install trinity-local
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
 trinity-local doctor                # verify providers + auth before your first council
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
-trinity-local me-build              # surface your taste lenses (after a few councils)
-trinity-local me-card               # render your /me lens as a 1200×630 PNG to share
+trinity-local lens-build            # surface your taste lenses (after a few councils)
+trinity-local me-card               # render your strongest lens as a 1200×630 PNG to share
 
 # Or: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Desktop launchpad icon
 git clone https://github.com/openclaw/trinity-local && cd trinity-local
@@ -186,7 +186,7 @@ Every council writes:
 After enough councils:
 
 - A **personal routing table** emerges: *"For code_refactor prompts, Claude wins 7.8 / 10."*
-- A **`/me` lens** distills your taste into paired tensions across domains, with the
+- A **lens** distills your taste into paired tensions across domains, with the
   failure mode of pure-A and pure-B explicit. Run `trinity-local me-card` to render it as a
   shareable PNG.
 
@@ -286,7 +286,7 @@ For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 |---|---|
 | `trinity-local doctor` | Pre-flight checks; surfaces a fix line per ✗ |
 | `trinity-local council-launch --task "..."` | Run a council from the terminal |
-| `trinity-local me-build` | Build your `/me` lens from prompt history |
+| `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
 | `trinity-local portal-html --open` | Open the launchpad |
 | `trinity-local status` | Aggregate scoreboard, recent councils |

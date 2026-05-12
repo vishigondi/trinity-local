@@ -133,7 +133,7 @@ def _wrap(text: str, font, max_width: int, draw) -> list[str]:
 def render_me_card(data: CardLensData) -> bytes:
     """Render a 1200×630 PNG. Returns the bytes; caller writes to disk or
     pipes to stdout. Empty lens data still produces a card (fallback CTA
-    "run me-build to generate yours")."""
+    "run `lens-build` to generate yours")."""
     from PIL import Image, ImageDraw
 
     img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), COLOR_BG)
@@ -226,7 +226,7 @@ def render_me_card(data: CardLensData) -> bytes:
             y += 44
     else:
         # Empty state — invite the user to build their own /me
-        draw.text((margin, y), "Run trinity-local me-build",
+        draw.text((margin, y), "Run trinity-local lens-build",
                   font=headline, fill=COLOR_INK)
         y += 80
         draw.text((margin, y),
