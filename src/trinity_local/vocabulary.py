@@ -67,24 +67,32 @@ def _l2_normalize(vec):
     return vec / norm if norm > 0 else vec
 
 
-def _two_means_split_variance(vectors) -> float:
+def _two_means_split_variance(vectors, *, max_samples: int = 200) -> float:
     """K=2 split silhouette — bimodality score on [0, 1].
 
     Single-pass two-means seeded by the two farthest-apart points, then
     silhouette: mean per-point (b - a) / max(a, b) where a = mean distance
-    to own cluster, b = mean distance to other cluster. Rescaled from
-    [-1, 1] to [0, 1].
+    to own cluster, b = mean distance to other cluster.
 
-    - Unimodal (tight homogeneous cluster, forced split): silhouette ≈ 0
-      because every point's a ≈ b. Score ≈ 0.5 after rescale.
-    - Bimodal (real two-cluster structure): silhouette ≈ 0.7+. Score ≈ 0.85+.
+    - Unimodal (tight homogeneous cluster, forced split): silhouette ≈ 0.
+    - Bimodal (real two-cluster structure): silhouette ≈ 0.7+.
 
-    Pure numpy, no scipy/sklearn.
+    Pure numpy, no scipy/sklearn. Caps inputs at `max_samples` because
+    the pairwise distance matrices are O(n²·d) memory — a token appearing
+    in 5000 prompts with 768-d embeddings would otherwise allocate
+    ~19GB. 200 samples is comfortably above the statistical floor for
+    "is this bimodal or not."
     """
     import numpy as np
     n = len(vectors)
     if n < 4:
         return 0.0
+    # Subsample large context sets — distance-matrix memory is O(n²·d).
+    # Deterministic by stride so repeated runs return the same score.
+    if n > max_samples:
+        idx = np.linspace(0, n - 1, max_samples, dtype=int)
+        vectors = [vectors[i] for i in idx]
+        n = len(vectors)
     arr = np.asarray(vectors, dtype=float)
     # Seed centroids: two farthest-apart points.
     if n <= 50:
@@ -179,6 +187,12 @@ def find_synonyms(
     for i in range(len(tokens)):
         for j in range(i + 1, len(tokens)):
             sim = float(sims[i, j])
+            # Guard NaN/inf: a zero-norm mean vector slips through
+            # _l2_normalize (returns unnormalized), and `nan < threshold`
+            # is False — without this check, NaN pairs would leak into
+            # the output.
+            if not np.isfinite(sim):
+                continue
             if sim < threshold:
                 continue
             pairs.append((
@@ -243,11 +257,17 @@ def distill_vocabulary(
 
     Returns a report dict (`{ok, path, homonyms, synonyms, corpus_size}`).
     Returns `skipped: True` cleanly when no embedded prompts exist yet.
+
+    Uses the uncapped walker (same as dream) — the hot-path
+    `iter_prompt_nodes` caps at 5000 most-recent nodes, but recent ingest
+    skips embedding to keep the hot path fast. Embeddings sit on the
+    older seeded prompts below the cap. Without the uncapped walk,
+    vocabulary would always see 0 embedded prompts on a populated install.
     """
-    from .memory import iter_prompt_nodes
+    from .commands.dream import _all_prompt_nodes_uncapped
     from .state_paths import vocabulary_path
 
-    nodes = list(iter_prompt_nodes())
+    nodes = _all_prompt_nodes_uncapped()
     nodes_with_emb = [n for n in nodes if getattr(n, "embedding", None)]
     if not nodes_with_emb:
         return {
