@@ -61,11 +61,21 @@ def handle_me_build(args):
             k_basins=args.k_basins,
             dry_run=args.dry_run,
         )
-    print(json.dumps({
-        "ok": True,
-        "path": str(path),
-        **summary,
-    }, indent=2))
+    # Lens was just rewritten → core.md is now stale. Auto-fire distill
+    # so the chairman context loader sees the fresh summary on its next
+    # council. is_core_stale() guards the flagship call internally —
+    # safe to call unconditionally. Skipped in dry-run (no real changes).
+    distill_summary: dict | None = None
+    if not getattr(args, "dry_run", False):
+        try:
+            from ..distill import distill_via_chairman
+            distill_summary = distill_via_chairman()
+        except Exception as exc:
+            distill_summary = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    payload = {"ok": True, "path": str(path), **summary}
+    if distill_summary is not None:
+        payload["distill"] = distill_summary
+    print(json.dumps(payload, indent=2))
 
 
 def handle_me_show(args):

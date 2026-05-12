@@ -214,16 +214,28 @@ def handle_consolidate(args):
         return 1
 
     save_routing_patterns(patterns)
-    print(json.dumps({
+    # picks.json was just rewritten → core.md is now stale. Auto-fire
+    # distill so the chairman sees fresh picks in core context on its
+    # next council. is_core_stale() guards the call internally.
+    distill_summary: dict | None = None
+    try:
+        from ..distill import distill_via_chairman
+        distill_summary = distill_via_chairman(provider=args.provider)
+    except Exception as exc:
+        distill_summary = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    payload = {
         "ok": True,
         "basins_consolidated": len(patterns),
         "path": str(_routing_patterns_path()),
         "calibration_reminder": (
-            "Read ~/.trinity/cortex/routing_patterns.json and verify "
-            "≥70% of the extracted rules match your actual behavior before "
-            "the cortex wires into the query hot-path (Week 3)."
+            "Read ~/.trinity/memories/picks.json and verify ≥70% of the "
+            "extracted rules match your actual behavior before the cortex "
+            "wires into the query hot-path (Week 3)."
         ),
-    }, indent=2))
+    }
+    if distill_summary is not None:
+        payload["distill"] = distill_summary
+    print(json.dumps(payload, indent=2))
     return 0
 
 

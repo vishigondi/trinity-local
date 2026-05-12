@@ -216,6 +216,69 @@ class TestStalenessSkip:
         assert "forced rewrite" in core_path().read_text(encoding="utf-8")
 
 
+class TestAutoDistillHooks:
+    def test_lens_build_triggers_distill_when_stale(self, isolated_home, monkeypatch):
+        """After lens-build writes a fresh lens.md, the distill auto-fire
+        must run (core.md is now older than lens.md → stale → distill
+        runs)."""
+        from trinity_local.commands.me import handle_me_build
+        from trinity_local.state_paths import lens_path
+        from types import SimpleNamespace
+
+        # Stub the heavy lens-build itself — we're testing the auto-distill
+        # hook, not the lens pipeline.
+        def _stub_lens_pipeline(**kwargs):
+            lens_path().write_text("# Lens\n→ leverage.", encoding="utf-8")
+            return (lens_path(), {"stages_run": "stub"})
+        monkeypatch.setattr(
+            "trinity_local.commands.me.build_me_via_lens_pipeline",
+            _stub_lens_pipeline,
+        )
+
+        # Spy on distill_via_chairman to confirm it got called.
+        fired = []
+        def _fake_distill(**kwargs):
+            fired.append(True)
+            return {"ok": True, "skipped": False, "path": "/x/core.md"}
+        monkeypatch.setattr(
+            "trinity_local.distill.distill_via_chairman", _fake_distill,
+        )
+
+        args = SimpleNamespace(
+            legacy=False, dry_run=False, budget_chars=2000,
+            sample_size=80, k_basins=20,
+        )
+        handle_me_build(args)
+        assert fired == [True], "lens-build must auto-trigger distill after writing lens.md"
+
+    def test_lens_build_dry_run_does_not_distill(self, isolated_home, monkeypatch):
+        """Dry-run never writes anything, so triggering distill would just
+        burn a flagship call for nothing."""
+        from trinity_local.commands.me import handle_me_build
+        from types import SimpleNamespace
+
+        def _stub_lens_pipeline(**kwargs):
+            return ("/tmp/x", {"stages_run": "stage-1-only"})
+        monkeypatch.setattr(
+            "trinity_local.commands.me.build_me_via_lens_pipeline",
+            _stub_lens_pipeline,
+        )
+        fired = []
+        def _fake_distill(**kwargs):
+            fired.append(True)
+            return {"ok": True}
+        monkeypatch.setattr(
+            "trinity_local.distill.distill_via_chairman", _fake_distill,
+        )
+
+        args = SimpleNamespace(
+            legacy=False, dry_run=True, budget_chars=2000,
+            sample_size=80, k_basins=20,
+        )
+        handle_me_build(args)
+        assert fired == [], "dry-run must skip auto-distill"
+
+
 class TestMigration:
     def test_legacy_me_md_migrates_to_memories_lens(self, isolated_home):
         """Files at ~/.trinity/me.md should move to ~/.trinity/memories/lens.md
