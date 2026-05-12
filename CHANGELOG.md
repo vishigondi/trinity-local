@@ -3,6 +3,80 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.5 cortex Weeks 1–5 shipped] — 2026-05-12
+
+The cortex layer (the v1.5 trajectory's headline) lands end-to-end in
+one overnight session. Each piece is small; the composition is what
+makes the routing visible to the user.
+
+### Added
+
+- **Tool-triggered incremental ingest** (task #39, `9e8af06`).
+  MCP `ask` / `search_prompts` now scan transcripts newer than
+  `~/.trinity/memory/cursors.json` at the start of each call, bounded
+  at 1s. No manual `seed-from-taste-terminal` required to stay fresh.
+  CLI: `trinity-local ingest-recent`.
+- **Cortex structured geometric prior** (`c76ce09`). Consolidation
+  hands the flagship a tight numeric basin description (geometric
+  median via Weiszfeld, coherence via mean-cosine-to-median, manifold
+  dim via participation ratio, bimodal flag via excess kurtosis on
+  first PC, typicality-ordered evidence) instead of asking it to do
+  geometry-in-language. Trust score now has 6 components.
+- **Chairman-audit-mode** (task #47, `1844440`). `consolidate --audit`
+  runs a second flagship (different provider) to vote on each
+  extracted rule. Disagreement demotes trust via the audit_score
+  component. Catches both rubber-stamping by the primary chairman and
+  silent model regressions. Loud-fails on stderr so a broken audit
+  provider can't silently leave everything "unaudited" (`48a2520`).
+- **Cortex override mechanism** (`377eab8`, `bffa173`, `a7e9e38`).
+  User-veto on a rule via `cortex-override` CLI or MCP
+  `mark_cortex_rule_wrong`. Each click halves effective trust;
+  persists across consolidations. Launchpad Health column surfaces
+  overridden state with a hover-title computing the exact demotion.
+- **Sigmoid-blended chairman picker** (task #52, `f06dcbb`). Replaces
+  the hard "personal beats global the moment any rated council
+  exists" cut with `alpha = sigmoid((n - 5) / 2)` — cold-start uses
+  global benchmarks, personalization compounds smoothly.
+- **User-verdict-weighted personal routing table** (task #45,
+  `0bf19bd`). `record_outcome` was the most important tool, but its
+  signal was discarded by the aggregator. Now weighted 0.7 over
+  chairman scores.
+- **Launchpad surface upgrades**: personalization-% column per
+  task_type (task #40, `41ac8e7`), Health column (audit / bimodal /
+  override badges with hover-titles, `0e8aa31`/`a7e9e38`), "View
+  evidence" chips linking to source councils (`70fa970`).
+- **HF Hub offline default** (`aa1924d`). `main()` pins
+  `HF_HUB_OFFLINE=1` so Trinity never makes outbound Hub calls at
+  runtime — one-time `huggingface-cli download` pulls the embedding
+  model, after which everything runs from cache.
+- **9th MCP tool** (`bffa173`): `mark_cortex_rule_wrong` — surface
+  is now `ask` / `route` / `run_council` / `record_outcome` /
+  `search_prompts` / `get_persona` / `get_council_status` /
+  `get_cortex_rules` / `mark_cortex_rule_wrong`.
+
+### Changed
+
+- **Bimodal cortex rules fall through to kNN** (`a66c360`). v1.5
+  conservative behavior promised in spec but not actually wired —
+  now bimodal_flag=True forces fall-through regardless of trust.
+- **`make_flagship_extractor` honors `--provider`** (`12f86d1`).
+  Found-bug fix: previously hardcoded `dispatch_fn("claude", …)`
+  regardless of CLI choice; dispatch shim ignored its provider
+  argument. Both ends lied to each other so the bug was invisible
+  until traced.
+- **cortex.py split** (`9fcfbee`). Pure-numerical math (Weiszfeld,
+  PCA, kurtosis) extracted into `cortex_geometry.py` (304 LOC,
+  dependency-free). cortex.py dropped from 1,123 → 825 lines.
+
+### Tests
+
+571 passing (was 491 at session start). Coverage added for: cortex
+override CLI handler, consolidate CLI gating, ingest-recent wrapper,
+MCP `mark_cortex_rule_wrong`, audit failure stderr surfacing,
+end-to-end centroid integration with real TF-IDF embeddings.
+`scripts/smoke_install.sh` now verifies the MCP tool list post-wheel-
+install — catches packaging gaps before the user hits them.
+
 ## [Trajectory pivot — v1.5 added, v2.0 sunset] — 2026-05-11
 
 After deep-reading the Sakana TRINITY paper (arXiv:2512.04388, ICLR 2026), the trajectory
