@@ -225,7 +225,7 @@ async def handle_list_tools() -> list[Tool]:
                 "`~/.trinity/cortex/routing_patterns.json` — the cortex layer's "
                 "consolidated knowledge across past councils. Per-basin: which "
                 "provider wins, why, failure modes per loser, successful prompt "
-                "templates, and a system-computed trust_score (4 components, "
+                "templates, and a system-computed trust_score (5 components, "
                 "weighted geometric mean). Pull this when planning a complex "
                 "task — it tells you which provider this user prefers for THIS "
                 "kind of question and why. Empty when no consolidation has run "

@@ -181,6 +181,16 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
         # in a future iteration but isn't used as the primary route.
         return None
 
+    if getattr(pattern, "bimodal_flag", False):
+        # The basin's evidence embeddings split into two distinguishable
+        # modes (excess kurtosis on first PC < threshold). A single
+        # `primary` provider would be wrong half the time. v1.5 conservative
+        # behavior: fall through to kNN so per-query semantics pick the
+        # right side of the split. v1.6 will run HDBSCAN to actually split
+        # the basin into two separate rules per the v1.5 spec calibration
+        # gate (>15% bimodal-flagged → promote HDBSCAN).
+        return None
+
     primary = pattern.routing_rule.primary
     if available_providers and primary not in available_providers:
         # Filter out unavailable primary — fall back to challenger if it's
@@ -376,9 +386,10 @@ def _log_dispatch_outcome(
 
 
 def _compute_trust(votes: dict[str, float], n_hits: int, *, cold_start: bool = False) -> float:
-    """4-component trust score will land in Week 2 alongside cortex rules.
-    Week-1 stub uses 3 components (agreement, sample, recency-proxy=1.0) plus
-    two hard floors:
+    """The kNN-vote trust here is distinct from `cortex.compute_trust_score`
+    (5-component, basin-level): this is the per-query confidence in the
+    voted provider given the retrieved neighbours. Uses 3 components
+    (agreement, sample, recency-proxy=1.0) plus two hard floors:
 
     - **min-hits floor:** with fewer than 2 hits, trust caps at 0.5 regardless
       of agreement. One data point isn't enough signal to recommend without

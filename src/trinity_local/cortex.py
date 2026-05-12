@@ -8,7 +8,7 @@ consolidation orchestration. The actual pattern extraction is a flagship-model
 call that's injected via a callable — keeping it testable without LLM access,
 and (in production) routed through whatever the user's strongest sub is.
 
-The 4-component trust_score is the most load-bearing piece: it's what gates
+The 5-component trust_score is the most load-bearing piece: it's what gates
 whether a cortex rule is trusted enough to drive routing decisions. Per
 spec-v1.5.md:
 

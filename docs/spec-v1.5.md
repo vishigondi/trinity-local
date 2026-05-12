@@ -198,7 +198,7 @@ For each basin in ~/.trinity/me/basins.json:
 ```
 
 **Trust is computed by the system, not declared by the flagship.** The flagship
-describes the rule; the system computes whether to trust it. The 4-component
+describes the rule; the system computes whether to trust it. The 5-component
 score combines:
 
 1. **n_episodes_norm** = `min(1.0, n_episodes / 25)` — small basins are inherently
@@ -210,8 +210,13 @@ score combines:
 4. **diversity** = embed-distance spread within the basin — high = real cluster of
    varied queries; low = the "basin" is actually 47 near-duplicates and the rule
    is a niche artifact.
+5. **coherence_score** = mean cosine similarity from evidence embeddings to the
+   geometric median (see "Structured geometric prior" section below). Catches
+   "confident rule on noisy basin" — the highest-risk failure mode for a router.
+   Without this signal, a 25-episode basin with high consistency but spread-out
+   embeddings reads as high-trust when it shouldn't.
 
-Final `trust_score.value` is a weighted geometric mean of the four components.
+Final `trust_score.value` is a weighted geometric mean of the five components.
 
 Evidence citations are mandatory — the consolidator MUST cite which council
 outcomes produced each rule. Verifiable against drift.
@@ -484,7 +489,7 @@ to all tool calls.
 **Week 2 — Cortex consolidation (offline only)**
 - `trinity-local consolidate` CLI command + flagship-call extraction
 - `~/.trinity/cortex/routing_patterns.json` schema (write only — not yet read by `ask`)
-- 4-component `trust_score` computed by the system (not the flagship)
+- 5-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence
 - Model-checkpoint detection via `model_detector.py` deltas → version-shift decay
 - Evidence citations required; consolidator MUST cite council IDs per rule
 - Scheduled triggers (every 10 councils + nightly via launchd)

@@ -435,6 +435,42 @@ class TestCortexInAskHotPath:
         # Reason should NOT name cortex — we fell back to kNN.
         assert "cortex" not in decision.reason
 
+    def test_bimodal_cortex_rule_falls_through_to_knn(self, monkeypatch, tmp_path):
+        """When a cortex rule is flagged bimodal, the single `primary` is
+        wrong half the time. v1.5 conservative behavior: don't route from
+        cortex; let kNN pick per-query so the right mode wins."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=20,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.55, "claude": 0.45},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.78,  # above TRUST_USE_RULE — would route, except...
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.55,
+                    "recency_agreement": 0.5, "diversity": 0.7, "coherence_score": 0.6,
+                },
+            ),
+            bimodal_flag=True,  # ← the guard
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("question")
+        assert decision.routed_to == "claude"
+        # Reason should NOT name cortex — bimodal flag forced fall-through.
+        assert "cortex" not in decision.reason
+
     def test_no_consolidation_yet_falls_through_to_knn(self, monkeypatch, tmp_path):
         """Day-1 install has no consolidation; ask uses kNN unchanged."""
         from trinity_local import ask as ask_module
