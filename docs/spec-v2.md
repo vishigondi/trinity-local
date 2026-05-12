@@ -170,7 +170,7 @@ Index (always live) ←──── retrieve ←─── New input → Chairman
 
 ### Phase 0 — Corpus normalization
 Already in v1: `~/.trinity/memory/prompt_nodes.jsonl` carries 18k+ normalized prompts with
-domain tags inferable from `task_kind`. Pair-mining sources:
+domain tags inferable from `task_type`. Pair-mining sources:
 - Explicit user verdicts from `~/.trinity/council_feedback.jsonl` (already 21+ entries).
 - `outcome.metadata.user_verdict.user_winner` per persisted council outcome.
 - Stage 0 turn-pair rejections from `~/.trinity/me/rejections.jsonl` (52 validated entries).

@@ -156,7 +156,7 @@ For each basin in ~/.trinity/me/basins.json:
   "basin_id": "concrete_shippable_vs_comprehensive_ideal",
   "consolidated_at": "2026-05-20T10:30:00Z",
   "n_episodes": 47,
-  "task_kinds": ["system_design", "architecture_decision", "launch_readiness"],
+  "task_types": ["system_design", "architecture_decision", "launch_readiness"],
   "winner_distribution": {"claude": 0.62, "codex": 0.31, "gemini": 0.07},
   "routing_rule": {
     "primary": "claude",

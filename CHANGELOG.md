@@ -3,6 +3,83 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [Brand v2 + housekeeping pivot] — 2026-05-12 (PM)
+
+A consolidation pass after the v1.5 cortex shipped this morning. No new
+features; mostly terminology and brand cleanup so the codebase, docs,
+and product surface stop fighting each other.
+
+### Brand
+
+- **Hero pivoted three times in one day**:
+  v1: *Own your memories.* (retired — too abstract, no mechanism)
+  v1.5: *We copy-paste prompts across chatbots like animals.* (retired —
+  strong but standalone)
+  v2 final: **Stop copy-pasting prompts. Own your context. Dream your core
+  memories.** Sub: *One question. Every model you use. One answer that
+  knows you.* Brand axis: **prompts** (raw, yours, indexed) → **dream**
+  (the verb only Trinity has — offline synthesis) → **core memories**
+  (what dream creates: cortex + lens + routing). Ratified through three
+  rounds of cross-provider council iteration (`bundle_42f8cea9c9e705e5`),
+  then a fourth user revision swapping the council's "Forge" verdict
+  back to "Dream" because the council didn't know Dream is the CLI
+  feature name + Anthropic Dreaming analog.
+- **README hero + four-row elaboration rewritten**, claude.md project
+  identity + status block updated, launchpad title + eyebrow + heroTitle
+  + heroLede + cold-start lede all aligned. Older "Own your memories"
+  references in earlier entries below describe what was true at the
+  time of those commits and are preserved as history.
+
+### Terminology
+
+- **`task_kind`/`task_kinds` → `task_type`/`task_types`** unified across
+  ~40 files. Two names for the same axis (heuristic classifier output vs
+  Routing JSON schema field); collapsed to `task_type`. `task_kinds.py`
+  module renamed `task_types.py`. `guess_task_kind()` kept as a
+  back-compat alias to `guess_task_type()`. Distinct from `category`
+  (the coarser LMArena-aligned grouping in `categories.py`).
+- **`portal_*.py` → `launchpad_*.py`** (5 files: `portal_data`,
+  `portal_template`, `portal_runtime`, `portal_install`, `portal_page`).
+  User-facing copy says "launchpad" exclusively; the code lost its
+  fossil. `~/.trinity/portal_pages/` on-disk path kept for back-compat.
+- **"verifier-shaped" terminology dropped** in favor of "structured".
+  Sakana's "verifier" has a precise meaning (test cases that pass/fail);
+  Trinity's chairman synthesizes structured output, doesn't verify.
+  Kept Sakana's exact term in `docs/spec-v2.md` + `docs/v2-loop-constitution.md`
+  where it names the actual three-role action space.
+
+### Bug fixes
+
+- **Thread manifest losing iteration rounds** when consensus_round
+  rounds shared a deterministic bundle_id. Two stacked bugs in
+  `update_thread_manifest`: wrong chain_root_id fallback +
+  dedup-by-bundle_id collapsed every round into one. `?thread_id=` URLs
+  in the launchpad now show the full chain (3 rounds for the brand
+  iteration bundle that exposed the bug).
+
+### UX
+
+- **Notifications default OFF**. `notify()` now reads
+  `~/.trinity/settings/notifications.json` and silently skips unless
+  explicitly enabled. The config.notifications flag existed but wasn't
+  honored anywhere. CLI: `trinity-local notifications-enable` /
+  `notifications-disable`.
+- **Desktop launchpad icon stays simple**: just
+  `exec /usr/bin/open file://.../launchpad.html`. Brief experiment with
+  background regen reverted — `refresh_launchpad()` is already wired
+  into every state-mutation path (council save, watch cycle, telemetry
+  toggle), so the page on disk is fresh by the time the user clicks.
+- **`trinity-local dream`** — one-command cold-start from earlier in
+  the day kept. Reframed in the brand axis as the verb that produces
+  the core memories.
+
+### Stats
+
+- 611 tests passing (added: 6 thread-manifest regression tests, 4
+  launchpad-wrapper tests, 8 dream tests; net +13 from morning).
+- 8 commits this PM session (`369739b`, `d28f2bf`, `92c1927`,
+  `e8a5f21`, `3c44bbd`, `41bd265`, `9a2ef8c`, `7200a9f`, `6940593`).
+
 ## [v1.5 cortex Weeks 1–5 shipped] — 2026-05-12
 
 The cortex layer (the v1.5 trajectory's headline) lands end-to-end in
