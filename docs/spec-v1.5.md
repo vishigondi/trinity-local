@@ -34,8 +34,8 @@ agents' memory, evals, and orchestration"*). Anthropic's stack:
 
 | Anthropic feature | Trinity equivalent | What's different |
 |---|---|---|
-| **Dreaming** — agents consolidate past sessions into reusable lessons | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes | Hosted on Anthropic infra vs. runs on your own subscription; single-provider vs. across Claude/GPT/Gemini; memory lives in Anthropic's storage vs. `~/.trinity/cortex/routing_patterns.json` |
-| **Outcomes** — rubric-graded eval by a separate grader agent | **Lens** — pair-wise tension evaluation in a separate context | Anthropic-grader vs. user-taste-derived lens from `me/lenses.json` |
+| **Dreaming** — agents consolidate past sessions into reusable lessons | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes | Hosted on Anthropic infra vs. runs on your own subscription; single-provider vs. across Claude/GPT/Gemini; memory lives in Anthropic's storage vs. `~/.trinity/memories/picks.json` |
+| **Outcomes** — rubric-graded eval by a separate grader agent | **Lens** — pair-wise tension evaluation in a separate context | Anthropic-grader vs. user-taste-derived lens from `memories/lens.md` |
 | **Multi-Agent Orchestration (MAO)** — specialist sub-agents with independent contexts | **Council** — Claude, GPT, Gemini in parallel, chairman synthesizes | Same-lab specialists vs. cross-lab council; Anthropic-owned vs. your-subs-owned |
 
 Same architectural ideas; opposite trust models. Anthropic ships them inside a
@@ -103,14 +103,14 @@ Brains don't kNN over raw episodes. They consolidate. Trinity should too.
 
 ```
 TIER 1 — Hippocampus (episodic, fast write, slow recall)
-├── ~/.trinity/memory/prompt_nodes.jsonl       v1 — individual user prompts
+├── ~/.trinity/prompts/prompt_nodes.jsonl       v1 — individual user prompts
 ├── ~/.trinity/memory/turn_windows.jsonl       v1 — with surrounding context
 └── ~/.trinity/council_outcomes/*.json         v1 — individual council decisions
 
 TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
 ├── ~/.trinity/memories/topics.json                  v1 — task-type clusters
-├── ~/.trinity/me/lenses.json                  v1 — taste tensions
-├── ~/.trinity/cortex/routing_patterns.json    NEW — routing rules per basin
+├── ~/.trinity/memories/lens.md                  v1 — taste tensions
+├── ~/.trinity/memories/picks.json    NEW — routing rules per basin
 ├── ~/.trinity/cortex/failure_modes.json       NEW — per-model failure patterns
 └── ~/.trinity/cortex/successful_prompts.json  NEW — per-model good-prompt templates
 ```
@@ -140,7 +140,7 @@ For each basin in ~/.trinity/memories/topics.json:
     3. Failure modes per losing provider (when they lose, HOW do they fail?)
     4. Successful prompt-shape patterns per winning provider
     5. Evidence decay: weight recent over old
-  Write rule to ~/.trinity/cortex/routing_patterns.json keyed by basin_id
+  Write rule to ~/.trinity/memories/picks.json keyed by basin_id
 ```
 
 **Triggers:**
@@ -395,7 +395,7 @@ roles and the spec needs them not to fight.
 | Layer | When | Decides | Source |
 |---|---|---|---|
 | **Cortex** | Pre-fan-out | *Which provider should I ask?* | Routing patterns extracted from accumulated council winners |
-| **Lens** | Post-fan-out | *Is this response good enough by my taste?* | Pairwise preference geometry (`/me/lenses.json` + pair-wise rejection vectors) |
+| **Lens** | Post-fan-out | *Is this response good enough by my taste?* | Pairwise preference geometry (`/memories/lens.md` + pair-wise rejection vectors) |
 
 A successful council outcome feeds both:
 - **Cortex signal:** this provider won → reinforce routing rule for this basin
@@ -488,7 +488,7 @@ to all tool calls.
 
 **Week 2 — Cortex consolidation (offline only)**
 - `trinity-local consolidate` CLI command + flagship-call extraction
-- `~/.trinity/cortex/routing_patterns.json` schema (write only — not yet read by `ask`)
+- `~/.trinity/memories/picks.json` schema (write only — not yet read by `ask`)
 - 6-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence / audit_score. Plus a multiplicative `effective_trust = trust * 0.5^override_count` layered on top for user vetoes.
 - Model-checkpoint detection via `model_detector.py` deltas → version-shift decay
 - Evidence citations required; consolidator MUST cite council IDs per rule
@@ -556,7 +556,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
    `ESCALATE_HINT_THRESHOLD = 0.55` in `ask.py`. Below that the `ask`
    return carries `escalate_hint=compare` so the calling agent can choose.
 5. **Cortex eval signal vs lens basins.** 🟡 Outstanding. The two layers
-   (cortex routing rules and `me/lenses.json` paired tensions) share basin
+   (cortex routing rules and `memories/lens.md` paired tensions) share basin
    semantics but no automated cross-check fires today. v1.6 item:
    compare them, soft-warn on disagreement (don't hard-fail — the user
    may have shifted preferences faster than the consolidator caught up).

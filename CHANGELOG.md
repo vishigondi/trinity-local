@@ -3,6 +3,112 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [5-memories restructure + polish-iterate + auto-distill] — 2026-05-12 (late PM)
+
+Cohesive arc of 11 commits after the brand-v2/housekeeping commit
+landed. Three load-bearing things ship here:
+
+1. The five plural **core memories** finally have a coherent shape on
+   disk + a singular **`core.md`** distillation the chairman reads
+   first on every council.
+2. **Polish-iterate end-to-end**: detect polish-shape tasks, surface in
+   MCP route() output, opt-in setting + CLI + launchpad toggle to
+   auto-chain just for them.
+3. **Auto-distill is now load-bearing**: `lens-build` and `consolidate`
+   auto-fire `distill_via_chairman` so `core.md` stays fresh; staleness
+   skip guards the flagship call; launchpad shows a badge when core
+   needs distilling.
+
+### Five memories + one core
+
+- **`memories/` directory** now holds the durable plural memories
+  (`5-memories restructure` commit `46591e0`):
+    - `lens.md`       — value memory (paired tensions)
+    - `picks.json`    — procedural memory (model picks per topic)
+    - `routing.json`  — empirical memory (per-category provider scores)
+    - `topics.json`   — semantic memory (k-means clusters)
+    - `vocabulary.md` — language memory (per Phase 2.5)
+- **`core.md`** at `~/.trinity/` top-level (singular) — one paragraph
+  the chairman reads FIRST before falling through to specific memories.
+- **`prompts/`** (was `memory/`) — raw indexed prompts, the INPUT to
+  dream. Renamed to disambiguate from `memories/` (one letter apart was
+  a confusion grenade).
+- **Renames inside `memories/`**: `cortex_rules.json` → `picks.json`,
+  `me.md` → `lens.md`, `basins.json` → `topics.json`. All migrate on
+  first access; back-compat function names retained.
+
+### Phase 5 distill (commit `46591e0` + follow-ups)
+
+- New `trinity-local distill` CLI + dream Phase 5/5.
+- One flagship call reads the five plural memories + emits one
+  paragraph in second person ("You ship leverage over...").
+- **Chairman reads core.md FIRST** (`b5d4d04`): if present, the
+  ~200-char distilled paragraph replaces the full lens in chairman
+  context. Falls through to `lens.md` (and explains why) on cold
+  installs without `core.md`.
+- **Staleness skip** (`188744a`): `is_core_stale()` compares core.md
+  mtime to every source. If core is newer than all of them, distill
+  short-circuits with `skipped=True`. Saves ~$0.05–0.20 of flagship
+  cost per redundant invocation.
+- **Auto-distill hooks** (`fcbab35`): `lens-build` and `consolidate`
+  call `distill_via_chairman()` on completion. Dry-run paths skip.
+
+### Phase 2.5 vocabulary distillation (commit `d8043b3`)
+
+- New `trinity-local vocabulary` CLI + dream Phase 2.5/5.
+- Pure-geometric (no LLM): walks PromptNode embeddings, runs k=2
+  silhouette to find homonyms (one word, two meanings) + cosine sim
+  of mean-context vectors to find synonyms (two words, one meaning).
+- Emits `memories/vocabulary.md` as one of the five plural memories.
+
+### Polish-iterate end-to-end
+
+- **Detection layer** (`d3650ab`): `is_polish_task(text)` heuristic in
+  `task_types.py`. Two-path matcher tuned for recall: literal phrases
+  ("make this better", "tighten this", "any better?") + short
+  imperative hints (≤20 words + "shorter"/"simpler"/etc.).
+- **Surfaced in MCP `route()`** as `auto_iterate_recommended: bool` so
+  harnesses + the launchpad can offer iteration without us silently
+  changing council mode (`d3650ab`).
+- **Opt-in setting** (`d893b1a`): `polish_auto_iterate: bool = False`
+  on TelemetrySettings. When ON, council-launch fires consensus-round
+  iteration ONLY for polish tasks (vs the existing global
+  `auto_chain_enabled` which fires for every council).
+- **CLI toggle**: `trinity-local polish-auto-enable` / `polish-auto-disable`.
+- **Launchpad toggle** (`64332df`): new row in the settings panel
+  beneath "Auto-chain new councils" — flip from the UI.
+
+### Other shipped pieces
+
+- **`freeze_routing_to_disk()`** (`1a3d5f9`) — `routing.json` finally
+  has a writer. Phase 4 of dream calls it after lens-build runs; the
+  per-category provider track record is now visible to the chairman
+  via core.md without re-walking council_outcomes/ per call.
+- **MCP tool rename** (`218d3e4`): `get_cortex_rules` → `get_picks`;
+  `mark_cortex_rule_wrong` → `mark_pick_wrong`. Clean, no aliases —
+  pre-launch.
+- **`tasks/` → `todos/`** (in `b5d4d04`): user-facing on-disk path
+  rename to disambiguate from `task_type` (the classifier label).
+  Function name `tasks_dir()` kept for internal back-compat.
+- **`me-build` → `lens-build`** (`b5d4d04`, no alias): CLI renamed to
+  match the file at `memories/lens.md`.
+- **"Personal routing table" → "Routing"** (`188744a`): launchpad
+  eyebrow + footer copy matches the filename (`routing.json`) + the
+  brain-analog row in README.
+- **Launchpad core-status badge** (`56b5acd`): `_core_status()` emits
+  `empty` / `missing` / `stale` / `fresh`. Stale + missing render an
+  in-card hint inside the Routing card directing the user to
+  `trinity-local distill`.
+
+### Stats
+
+- 23 commits this PM session (`46591e0`, `d8043b3`, `b5d4d04`,
+  `1a3d5f9`, `188744a`, `218d3e4`, `d3650ab`, `d893b1a`, `64332df`,
+  `fcbab35`, `56b5acd`, …).
+- 654 tests passing (was 605 at session start; net +49 across the new
+  features).
+- 8/8 browser smoke surfaces green.
+
 ## [Brand v2 + housekeeping pivot] — 2026-05-12 (PM)
 
 A consolidation pass after the v1.5 cortex shipped this morning. No new

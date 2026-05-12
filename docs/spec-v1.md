@@ -129,7 +129,7 @@ Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disapp
 ├── cache/embeddings.jsonl    ← embedding cache (rebuildable)
 ├── settings/telemetry.json   ← opt-in only, default off
 ├── analytics/                ← routing_label_events.jsonl, knn_advisory.jsonl
-├── tasks/, actions/, prompt_bundles/, watcher/, share/, skills/, bin/  ← runtime state
+├── todos/, actions/, prompt_bundles/, watcher/, share/, skills/, bin/  ← runtime state
 └── (config layered: source-tree config.json + user-overlay env vars; trinity.toml v1.1+)
 ```
 
@@ -231,7 +231,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 
 **Lands in v1.5:**
 - **MCP-primary surface** — three-tier tools (`ask` cheap / `compare` medium / `plan_and_execute` expensive). Claude Code calls Trinity as a specialist consult.
-- **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/cortex/routing_patterns.json`. The cognitive consolidation step the brain does during sleep. Hippocampus (kNN) + Cortex (rules) two-tier memory.
+- **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/memories/picks.json`. The cognitive consolidation step the brain does during sleep. Hippocampus (kNN) + Cortex (rules) two-tier memory.
 - **Local model dispatch** — Ollama + MLX added to the dispatch layer. Local routes for easy subtasks = zero subscription cost.
 - **Rate-limit handling + Conductor replan** — when Claude's own sub hits its limit, Trinity continues your work via Codex/Gemini/local. The cross-provider rate-limit-dodge is the killer flow.
 - **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) does Sakana's three-role planning with cortex context. No training required.
