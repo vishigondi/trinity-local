@@ -183,7 +183,15 @@ def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Ba
     embeddings = []
     texts = []
     skipped_nan = 0
-    for node in iter_prompt_nodes():
+    # Use the uncapped walker (same as dream + vocabulary): the hot-path
+    # `iter_prompt_nodes` caps at 5000 most-recent prompts, but recent
+    # ingest skips embedding to keep the hot path fast. Embeddings sit
+    # on older seeded prompts below the cap. Without uncapping, basin
+    # discovery saw 0 embedded prompts on a populated install and
+    # collapsed to "basins=0" — exactly the vocabulary bug from a few
+    # commits ago, same root cause.
+    from ..commands.dream import _all_prompt_nodes_uncapped
+    for node in _all_prompt_nodes_uncapped():
         emb = getattr(node, "embedding", None)
         if not emb:
             continue
