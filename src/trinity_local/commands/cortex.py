@@ -149,7 +149,13 @@ def _build_real_dispatch(provider_name: str):
         # the rule, not a council. (The ask dispatch shim is per-provider.)
         config = load_config()
         cfg = None
-        for p in config.providers:
+        # config.providers is a DICT keyed by name; iterate .values() for the
+        # ProviderConfig objects. Iterating the dict directly yields keys
+        # (strings), which would crash silently on .name/.enabled access
+        # inside the try/except wrapper. Same regression that hit
+        # mcp_server._dispatch_via_config in commit bb482da — kept fixed
+        # here too.
+        for p in config.providers.values():
             if p.name == provider_name and p.enabled:
                 cfg = p
                 break
