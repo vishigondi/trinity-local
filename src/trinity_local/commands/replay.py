@@ -91,10 +91,27 @@ def _select_candidates(
     source_filter: str | None,
     force: bool,
 ) -> list[tuple[PromptNode, str]]:
-    """Pick replay-worthy nodes. Returns (node, task_type) pairs."""
+    """Pick replay-worthy nodes. Returns (node, task_type) pairs.
+
+    Filters applied (in order):
+    - Skip too-short text (< 8 chars).
+    - Skip nodes that look like SYSTEM prompts ("You are extracting...",
+      "You are a...") — these are scaffolding the user's tools fired, not
+      questions the user typed.
+    - Dedup by 200-char text prefix so 8 copies of the same nightly
+      ingest prompt don't crowd the top of the replay list.
+    - Skip already-evaluated nodes (unless --force).
+    """
     candidates: list[tuple[PromptNode, str, float]] = []
+    seen_prefixes: set[str] = set()
     for node in iter_prompt_nodes():
         if not node.text or len(node.text) < 8:
+            continue
+        # System-prompt heuristic: the first sentence starts with "You are
+        # …" or "You will …" / "You will receive …". Real user questions
+        # almost never open this way. Cheap regex-free guard.
+        text_lower = node.text.lstrip().lower()
+        if text_lower.startswith(("you are ", "you will ")):
             continue
         if source_filter and node.provider != source_filter:
             continue
@@ -105,6 +122,13 @@ def _select_candidates(
             # Already evaluated against current lineup at some point — skip
             # unless --force. Phase 9 will refine this with a model-version check.
             continue
+        # Dedup by 200-char prefix. Stops the same nightly-ingest prompt
+        # firing 8 times from filling the top-N. The prefix is long
+        # enough that genuinely-different questions don't collide.
+        prefix = node.text[:200]
+        if prefix in seen_prefixes:
+            continue
+        seen_prefixes.add(prefix)
         candidates.append((node, kind, _candidate_score(node)))
     candidates.sort(key=lambda triple: triple[2], reverse=True)
     return [(n, k) for n, k, _ in candidates[:limit]]
