@@ -965,7 +965,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card" v-if="personalRoutingTable">
-        <div class="eyebrow">Personal routing table</div>
+        <div class="eyebrow">Routing</div>
         <h2>Best model per task type, from your own councils</h2>
         <p class="meta">
           Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman blends your data with global benchmarks — the personalization % below shows how much your data drives the pick today.
@@ -1001,7 +1001,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card" v-if="!personalRoutingTable">
-        <div class="eyebrow">Personal routing table</div>
+        <div class="eyebrow">Routing</div>
         <h2>Run replay-history to learn which model works best for you</h2>
         <p class="meta">
           Trinity will re-run your highest-leverage past prompts against the current model lineup
@@ -1092,7 +1092,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="card">
         <div class="eyebrow">Your training history</div>
         <h2>Every council you've taught the router</h2>
-        <p class="meta">Reopen any thread to change your verdict. Every rating feeds the personal routing table above — the moat is this ledger, not any one answer.</p>
+        <p class="meta">Reopen any thread to change your verdict. Every rating feeds your routing above — the moat is this ledger, not any one answer.</p>
         <div class="grid grid-2" style="margin-top: 20px;">
           {recent_cards}
         </div>

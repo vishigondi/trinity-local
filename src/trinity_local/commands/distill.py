@@ -22,12 +22,17 @@ def register(subparsers):
         default="claude",
         help="Chairman provider for the distillation pass (default: claude).",
     )
+    sp.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-distill even if core.md is already newer than every source memory.",
+    )
     sp.set_defaults(handler=handle_distill)
 
 
 def handle_distill(args):
     from ..distill import distill_via_chairman
 
-    report = distill_via_chairman(provider=args.provider)
+    report = distill_via_chairman(provider=args.provider, force=getattr(args, "force", False))
     print(json.dumps(report, indent=2))
     return 0 if report.get("ok") else 1

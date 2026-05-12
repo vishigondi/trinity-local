@@ -62,6 +62,40 @@ def _has_any_memory() -> bool:
     )
 
 
+def is_core_stale() -> bool:
+    """True when `core.md` is older than ANY of its source memories.
+
+    Distill rebuilds the singular core from the five plural memories; if no
+    source memory has been touched since the last distill, re-running just
+    spends a flagship call to write the same paragraph back. This check
+    lets the CLI + dream Phase 5 skip the call when nothing changed.
+
+    Returns True for:
+      - core.md missing but at least one source memory present (never built)
+      - any source memory's mtime > core.md's mtime
+
+    Returns False when core.md is present and newer than every source.
+    """
+    core = core_path()
+    sources = (lens_path(), picks_path(), routing_path(), topics_path(), vocabulary_path())
+    existing_sources = [p for p in sources if p.exists()]
+    if not existing_sources:
+        return False  # no memories at all — nothing to distill yet
+    if not core.exists():
+        return True
+    try:
+        core_mtime = core.stat().st_mtime
+    except OSError:
+        return True
+    for src in existing_sources:
+        try:
+            if src.stat().st_mtime > core_mtime:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def build_distill_prompt() -> str:
     """Compose the chairman prompt for the Phase 5 distillation.
 
@@ -118,17 +152,26 @@ def write_core(text: str) -> Path:
     return path
 
 
-def distill_via_chairman(*, provider: str = "claude") -> dict:
+def distill_via_chairman(*, provider: str = "claude", force: bool = False) -> dict:
     """End-to-end Phase 5: load memories → chairman call → write core.md.
 
     Returns a small report dict (`{ok, provider, path, chars, skipped?, reason?}`).
-    Cheap and idempotent — safe to call from dream or directly.
+    Cheap and idempotent — safe to call from dream or directly. When `force`
+    is False (the default), skips the flagship call entirely if `core.md` is
+    already newer than every source memory.
     """
     if not _has_any_memory():
         return {
             "ok": False,
             "skipped": True,
             "reason": "no core memories present yet — run lens-build + consolidate first",
+        }
+    if not force and not is_core_stale():
+        return {
+            "ok": True,
+            "skipped": True,
+            "reason": "core.md is already fresh (newer than every source memory)",
+            "path": str(core_path()),
         }
     prompt = build_distill_prompt()
     if not prompt:

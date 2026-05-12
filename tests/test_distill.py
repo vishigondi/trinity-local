@@ -101,17 +101,21 @@ class TestDistillEndToEnd:
 
     def test_empty_provider_output_does_not_overwrite_core(self, isolated_home):
         """If the provider returns empty stdout, distill must NOT clobber
-        an existing core.md with whitespace."""
+        an existing core.md with whitespace. Force re-distill so the
+        staleness skip doesn't short-circuit before the provider call."""
         from trinity_local.distill import distill_via_chairman
         from trinity_local.state_paths import core_path, lens_path
 
-        _seed_memory(lens_path(), "# Lens\n→ x.")
+        # core.md must EXIST so the "doesn't overwrite" path is meaningful.
         core_path().write_text("Existing manifesto.\n", encoding="utf-8")
+        _seed_memory(lens_path(), "# Lens\n→ x.")
 
         fake_result = type("R", (), {"stdout": "   ", "stderr": ""})()
         with patch("trinity_local.providers.make_provider") as make:
             make.return_value.run.return_value = fake_result
-            report = distill_via_chairman(provider="claude")
+            # force=True bypasses the staleness check so we actually exercise
+            # the empty-output guard.
+            report = distill_via_chairman(provider="claude", force=True)
 
         assert report["ok"] is False
         assert "empty" in report.get("error", "").lower()
@@ -125,7 +129,7 @@ class TestDistillCLI:
 
         with patch("trinity_local.distill.distill_via_chairman") as fake:
             fake.return_value = {"ok": True, "path": "/x/core.md", "chars": 200, "provider": "claude"}
-            rc = handle_distill(SimpleNamespace(provider="claude"))
+            rc = handle_distill(SimpleNamespace(provider="claude", force=False))
 
         assert rc == 0
         out = capsys.readouterr().out
@@ -133,17 +137,83 @@ class TestDistillCLI:
         assert payload["ok"] is True
         assert payload["provider"] == "claude"
 
-    def test_handle_distill_returns_1_on_skip(self, isolated_home, capsys):
-        """Cold-install skip should surface as exit code 1 so a watchdog can
-        detect 'nothing to distill yet' without parsing JSON."""
+    def test_handle_distill_returns_1_on_cold_install_skip(self, isolated_home, capsys):
+        """Cold-install skip (ok=False, no memories) should surface as exit
+        code 1 so a watchdog can detect 'nothing to distill yet' without
+        parsing JSON."""
         from trinity_local.commands.distill import handle_distill
         from types import SimpleNamespace
 
-        rc = handle_distill(SimpleNamespace(provider="claude"))
+        rc = handle_distill(SimpleNamespace(provider="claude", force=False))
 
         assert rc == 1
         payload = json.loads(capsys.readouterr().out)
+        assert payload.get("ok") is False
         assert payload.get("skipped") is True
+
+
+class TestStalenessSkip:
+    def test_returns_ok_skipped_when_core_already_fresh(self, isolated_home):
+        """If core.md is newer than every source memory, distill MUST NOT
+        burn a flagship call. It returns ok=True, skipped=True — so a
+        watchdog sees 'no work needed, but no error'."""
+        from trinity_local.distill import distill_via_chairman
+        from trinity_local.state_paths import core_path, lens_path
+        import time
+
+        # Source memory first.
+        _seed_memory(lens_path(), "# Lens\n→ leverage.")
+        time.sleep(0.05)  # ensure distinct mtime
+        # Core newer than every source.
+        _seed_memory(core_path(), "You ship leverage.")
+
+        # Guard: ANY provider call here is a bug — distill should skip.
+        with patch("trinity_local.providers.make_provider") as make:
+            report = distill_via_chairman(provider="claude")
+
+        make.assert_not_called()
+        assert report["ok"] is True
+        assert report.get("skipped") is True
+        assert "fresh" in report.get("reason", "").lower()
+
+    def test_re_distills_when_a_source_is_newer(self, isolated_home):
+        """If a lens-build / consolidate has touched a memory since the last
+        distill, the next distill call MUST run."""
+        from trinity_local.distill import distill_via_chairman
+        from trinity_local.state_paths import core_path, lens_path
+        import time
+
+        # Distill an older core.md first, then update the lens.
+        _seed_memory(core_path(), "old paragraph")
+        time.sleep(0.05)
+        _seed_memory(lens_path(), "# Lens\n→ newer evidence")
+
+        fake_result = type("R", (), {"stdout": "you ship leverage now", "stderr": ""})()
+        with patch("trinity_local.providers.make_provider") as make:
+            make.return_value.run.return_value = fake_result
+            report = distill_via_chairman(provider="claude")
+
+        assert report["ok"] is True
+        assert report.get("skipped") is not True
+        assert core_path().read_text(encoding="utf-8").startswith("you ship leverage now")
+
+    def test_force_overrides_freshness_check(self, isolated_home):
+        from trinity_local.distill import distill_via_chairman
+        from trinity_local.state_paths import core_path, lens_path
+        import time
+
+        _seed_memory(lens_path(), "# Lens\n→ x.")
+        time.sleep(0.05)
+        _seed_memory(core_path(), "fresh paragraph")
+
+        fake_result = type("R", (), {"stdout": "forced rewrite", "stderr": ""})()
+        with patch("trinity_local.providers.make_provider") as make:
+            make.return_value.run.return_value = fake_result
+            report = distill_via_chairman(provider="claude", force=True)
+
+        assert report["ok"] is True
+        assert report.get("skipped") is not True
+        assert "forced rewrite" in core_path().read_text(encoding="utf-8")
 
 
 class TestMigration:

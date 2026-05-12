@@ -375,7 +375,9 @@ class TestLaunchpadRendering:
 
         path = write_portal_html(title="Launchpad")
         html = path.read_text(encoding="utf-8")
-        assert "Personal routing table" in html
+        # Eyebrow renamed "Personal routing table" → "Routing" per the
+        # confusion-grenade cleanup (overlapped with the file name + verbose).
+        assert ">Routing<" in html
         assert "personalRoutingTable" in html  # the v-if/data binding hooks
 
     def test_empty_state_card_shown_when_table_missing(self, home: Path, monkeypatch):
