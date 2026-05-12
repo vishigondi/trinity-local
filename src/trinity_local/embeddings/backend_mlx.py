@@ -88,8 +88,25 @@ class MlxEmbedder:
         if self._loaded:
             return
 
+        import os
         from sentence_transformers import SentenceTransformer
-        self._model = SentenceTransformer(MODEL_ID, trust_remote_code=True)
+
+        try:
+            self._model = SentenceTransformer(MODEL_ID, trust_remote_code=True)
+        except Exception as exc:
+            # HF_HUB_OFFLINE=1 + missing cache surfaces as an obscure
+            # OfflineModeIsEnabled / FileNotFoundError. Translate to an
+            # actionable one-liner so the user knows the exact fix.
+            offline = os.environ.get("HF_HUB_OFFLINE", "0") in {"1", "true", "True"}
+            if offline:
+                raise RuntimeError(
+                    f"Trinity is in offline mode (HF_HUB_OFFLINE=1) but the model "
+                    f"{MODEL_ID!r} isn't in the local HF cache. Run once with "
+                    f"online access to pull it:\n"
+                    f"  HF_HUB_OFFLINE=0 huggingface-cli download {MODEL_ID}\n"
+                    f"After that, Trinity will load from cache without touching the Hub."
+                ) from exc
+            raise
         self._loaded = True
 
     def embed(self, text: str, *, dim: int = DEFAULT_DIM) -> list[float]:

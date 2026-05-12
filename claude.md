@@ -22,6 +22,7 @@
 2. **Prompt content never uploads.** Even with v1.1 aggregation enabled, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. Anonymous, opt-in only.
 3. **Local-first inference.** Phase 9's learned router runs on the user's hardware. No hosted controller. No per-call API billing.
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own CLI subscriptions (Claude Code, Codex, Gemini CLI, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both cost basis and privacy.
+5. **HF Hub offline by default.** `main()` pins `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` via `setdefault` at startup. The embedding model is pulled once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`; after that Trinity loads from `~/.cache/huggingface/hub/` and never contacts the Hub during normal operation. Privacy + reliability invariant — no surprise outbound calls from the running system, no telemetry to upstream model hosts, MCP child processes inherit the env so the guarantee propagates through every spawn.
 
 ## Calling the council from inside Claude Code
 
@@ -254,7 +255,7 @@ preserves the prior implementation if v1.6 wants to study it.
 
 ## Verified status
 
-- `pytest -q` — **516 passed**.
+- `pytest -q` — **519 passed**.
 - `trinity-local --mcp` exposes 8 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_cortex_rules` (agent-facing introspection into extracted routing patterns).
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.

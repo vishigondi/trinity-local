@@ -95,6 +95,21 @@ git clone https://github.com/openclaw/trinity-local && cd trinity-local
 dependency is present, and your Trinity directory is writable — surfaces a one-line fix for
 each ✗ before you hit a live council.
 
+### Offline by default — and a one-time embedding model download
+
+Trinity pins `HF_HUB_OFFLINE=1` at startup, so the running system never makes outbound
+HuggingFace calls during normal operation. The embedding model (`nomic-embed-text-v1.5`,
+~270MB) ships once via an explicit, opt-in download:
+
+```bash
+HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/nomic-embed-text-v1.5
+```
+
+After that the model lives at `~/.cache/huggingface/hub/` (or `$HF_HOME`) and Trinity
+loads it from cache — no Hub contact. Override per-invocation if you ever need to pull
+a new version (`HF_HUB_OFFLINE=0 trinity-local …`); otherwise the offline guarantee holds
+across every CLI call and every MCP child process.
+
 ### Drive it from inside Claude Code
 
 `trinity-local install-mcp` also drops a `/trinity` skill into `~/.claude/skills/trinity/`

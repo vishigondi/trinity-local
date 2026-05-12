@@ -2,8 +2,30 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 from collections.abc import Iterable
 from types import ModuleType
+
+
+def _pin_hf_offline() -> None:
+    """Default Trinity to fully offline behavior for the HuggingFace Hub.
+
+    Trinity should never make outbound HF calls during normal operation —
+    embeddings rely on a model that's already cached at
+    ``~/.cache/huggingface/hub/`` (or wherever ``HF_HOME`` points). The
+    one-time download is a deliberate user action via
+    ``huggingface-cli download nomic-ai/nomic-embed-text-v1.5`` (or by
+    running once with ``HF_HUB_OFFLINE=0 trinity-local seed-from-taste-terminal``).
+
+    Why setdefault and not unconditional set: a user who explicitly wants
+    online behavior (e.g. CI pulling fresh model weights) can export
+    ``HF_HUB_OFFLINE=0`` before invoking ``trinity-local`` and we honor it.
+    """
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+    # Suppress the "no telemetry permission" log line that fires even when
+    # the rest of HF is fully offline.
+    os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
 
 CORE_COMMAND_MODULES = (
@@ -79,6 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    _pin_hf_offline()
     parser = build_parser()
     parser.add_argument("--mcp", action="store_true", help="Run as an MCP server")
     args = parser.parse_args()

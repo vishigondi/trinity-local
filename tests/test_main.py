@@ -53,3 +53,29 @@ def test_load_mcp_runner_errors_cleanly_when_missing(monkeypatch: pytest.MonkeyP
 
     with pytest.raises(SystemExit, match="MCP server support is not available"):
         main._load_mcp_runner()
+
+
+def test_pin_hf_offline_sets_defaults(monkeypatch: pytest.MonkeyPatch):
+    """`_pin_hf_offline` should set HF/transformers offline env vars when
+    they are unset, so the running system never makes outbound HF calls."""
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    monkeypatch.delenv("HF_HUB_DISABLE_TELEMETRY", raising=False)
+
+    main._pin_hf_offline()
+
+    import os
+    assert os.environ["HF_HUB_OFFLINE"] == "1"
+    assert os.environ["TRANSFORMERS_OFFLINE"] == "1"
+    assert os.environ["HF_HUB_DISABLE_TELEMETRY"] == "1"
+
+
+def test_pin_hf_offline_preserves_user_override(monkeypatch: pytest.MonkeyPatch):
+    """A user who explicitly sets HF_HUB_OFFLINE=0 (e.g. to pull a new
+    model) should not have it stomped — `setdefault` semantics."""
+    monkeypatch.setenv("HF_HUB_OFFLINE", "0")
+
+    main._pin_hf_offline()
+
+    import os
+    assert os.environ["HF_HUB_OFFLINE"] == "0"
