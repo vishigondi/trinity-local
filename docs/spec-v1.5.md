@@ -536,23 +536,30 @@ to all tool calls.
   and dilutes the cortex headline. The Conductor mechanics described in the
   Architecture section all stay valid; they just ship in v1.6.
 
-## Open questions (need decisions before Week 2)
+## Open questions (status after Weeks 1–5)
 
-1. **Default Conductor model:** Claude Opus by default (most reliable
-   structured JSON output)? Per-task-kind override possible later via
-   `~/.trinity/trinity.toml`?
-2. **Local model preference order:** when Ollama AND MLX both have the same
-   model, prefer which? Default: MLX (Mac native, faster). Configurable.
-3. **Cortex consolidation cost:** ~10–20 flagship calls/night. Use user's
-   Claude sub? Or fall back to a cheaper Haiku-class call for consolidation
-   to save tokens? Default: Opus for consolidation (it's the slow path; we
-   want the best extraction).
-4. **`compare` retrieval-confidence trigger:** at what confidence level
-   does Trinity suggest Claude bump `ask` → `compare`? Default: < 0.6 in the
-   tool return so Claude can decide.
-5. **Cortex eval signal:** lens basins are the held-out validation set. If
-   the cortex routing rule for a basin contradicts the user's known
-   `me/lenses.json` for that basin, flag for review. Hard-fail or soft-warn?
+Weeks 1–5 have shipped; here's where each open question landed:
+
+1. **Default Conductor model.** ✅ Resolved: `--provider claude` is the
+   default for `consolidate`, `--audit-provider gemini` (or codex when
+   `--provider gemini`) for the audit pass. Per-task-kind override is a
+   v1.6 item if pattern demands it.
+2. **Local model preference order** (Ollama vs MLX for the same model).
+   🟡 Deferred. Local dispatch shipped behind env-gated detection;
+   preference order will get tuned when the v1.5 user cohort has enough
+   local-dispatch outcomes to inform the call. v1.6 follow-up.
+3. **Cortex consolidation cost.** ✅ Resolved: `--provider` defaults to
+   `claude` (Opus is the slow path; user wants the best extraction);
+   `--audit` opts into a second flagship via `--audit-provider`. Cheaper
+   Haiku-class fallback is a v1.6 toggle.
+4. **`compare` retrieval-confidence trigger.** ✅ Resolved at
+   `ESCALATE_HINT_THRESHOLD = 0.55` in `ask.py`. Below that the `ask`
+   return carries `escalate_hint=compare` so the calling agent can choose.
+5. **Cortex eval signal vs lens basins.** 🟡 Outstanding. The two layers
+   (cortex routing rules and `me/lenses.json` paired tensions) share basin
+   semantics but no automated cross-check fires today. v1.6 item:
+   compare them, soft-warn on disagreement (don't hard-fail — the user
+   may have shifted preferences faster than the consolidator caught up).
 
 ## Foundations from v1.0 that v1.5 depends on (do NOT break)
 
