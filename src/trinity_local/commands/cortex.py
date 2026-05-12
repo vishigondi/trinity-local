@@ -100,8 +100,9 @@ def handle_consolidate(args):
         return 1
 
     # Build the production dispatch shim. Lazy-imported because it touches
-    # provider configs / shells out to the CLI.
-    dispatch = _build_real_dispatch(args.provider)
+    # provider configs / shells out to the CLI. Provider-routed — same
+    # primitive serves both extractor and auditor.
+    dispatch = _build_real_dispatch()
 
     auditor = None
     if args.audit:
@@ -114,17 +115,12 @@ def handle_consolidate(args):
                 "reason": f"--audit-provider must differ from --provider; both are {args.provider!r}",
             }, indent=2))
             return 1
-        # The auditor calls a DIFFERENT provider via the same dispatch shim
-        # shape (dispatch_fn(provider_name, prompt) -> str). Need a real
-        # dispatch that respects the provider arg, not the captured-default
-        # `dispatch` above. Build a provider-aware one for the auditor.
-        audit_dispatch = _build_provider_routed_dispatch()
-        auditor = make_rule_auditor(audit_dispatch, audit_provider=audit_provider)
+        auditor = make_rule_auditor(dispatch, audit_provider=audit_provider)
         print(f"Chairman-audit-mode enabled (audit provider: {audit_provider})", file=sys.stderr)
 
     patterns: dict = {}
     for basin_id, basin_outcomes in eligible.items():
-        extractor = make_flagship_extractor(dispatch, basin_id)
+        extractor = make_flagship_extractor(dispatch, basin_id, provider=args.provider)
         diversity = _entropy_diversity(basin_outcomes)
         try:
             pattern = consolidate_basin(
@@ -165,47 +161,15 @@ def handle_consolidate(args):
     return 0
 
 
-def _build_real_dispatch(provider_name: str):
+def _build_real_dispatch():
     """Production dispatch shim — runs the provider CLI once per call.
     Returns a Callable matching dispatch_fn(provider, prompt) -> response_text.
-    Separate from the ask shim so it's easy to swap in a different model or
-    cheaper sub for consolidation later.
-    """
-    from ..config import load_config
-    from ..providers import make_provider, ProviderError
 
-    def _dispatch(_provider: str, prompt: str) -> str:
-        # Note: we ignore the first arg here and always route to the user's
-        # configured `provider_name` flag — consolidation is one model writing
-        # the rule, not a council. (The ask dispatch shim is per-provider.)
-        config = load_config()
-        cfg = None
-        # config.providers is a DICT keyed by name; iterate .values() for the
-        # ProviderConfig objects. Iterating the dict directly yields keys
-        # (strings), which would crash silently on .name/.enabled access
-        # inside the try/except wrapper. Same regression that hit
-        # mcp_server._dispatch_via_config in commit bb482da — kept fixed
-        # here too.
-        for p in config.providers.values():
-            if p.name == provider_name and p.enabled:
-                cfg = p
-                break
-        if cfg is None:
-            raise ProviderError(f"Provider not configured or not enabled: {provider_name}")
-        prov = make_provider(cfg)
-        result = prov.run(prompt, Path.cwd())
-        if result.returncode != 0:
-            raise ProviderError(f"{provider_name} exit {result.returncode}: {result.stderr[:200]}")
-        return result.stdout
-
-    return _dispatch
-
-
-def _build_provider_routed_dispatch():
-    """Build a dispatch shim that respects its provider argument (unlike the
-    extractor dispatch, which is closed over a single provider). The audit
-    pass needs this because it deliberately calls a DIFFERENT provider than
-    the primary extractor — same shape, different routing.
+    Provider-routed: honors its first argument (the provider name passed by
+    the extractor or auditor). The previous version closed over a single
+    --provider flag and silently ignored the dispatch-call's provider arg,
+    which hid a bug where make_flagship_extractor was hardcoding "claude"
+    regardless of CLI choice. Both ends now agree on the provider.
     """
     from ..config import load_config
     from ..providers import make_provider, ProviderError
@@ -213,6 +177,11 @@ def _build_provider_routed_dispatch():
     def _dispatch(provider_name: str, prompt: str) -> str:
         config = load_config()
         cfg = None
+        # config.providers is a dict keyed by name; iterate .values() for the
+        # ProviderConfig objects. Iterating the dict yields keys (strings),
+        # which crashes silently on .name/.enabled access inside the
+        # try/except wrapper. Same regression that hit
+        # mcp_server._dispatch_via_config in commit bb482da.
         for p in config.providers.values():
             if p.name == provider_name and p.enabled:
                 cfg = p

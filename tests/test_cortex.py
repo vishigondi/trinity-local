@@ -459,6 +459,35 @@ class TestBuildExtractionPrompt:
         assert '"council_id": "c40"' not in prompt
 
 
+class TestFlagshipExtractorProviderRouting:
+    """make_flagship_extractor must dispatch to the provider the caller
+    asked for. The old version hard-coded "claude" regardless of CLI
+    choice — that's the bug this test pins."""
+
+    def test_default_provider_is_claude(self):
+        from trinity_local.cortex import make_flagship_extractor
+
+        seen = []
+        def fake_dispatch(provider, prompt):
+            seen.append(provider)
+            return '{"primary": "claude"}'
+        ext = make_flagship_extractor(fake_dispatch, basin_id="b")
+        ext([{"routing_label": {"winner": "claude"}}])
+        assert seen == ["claude"]
+
+    def test_custom_provider_threads_through(self):
+        from trinity_local.cortex import make_flagship_extractor
+
+        seen = []
+        def fake_dispatch(provider, prompt):
+            seen.append(provider)
+            return '{"primary": "gemini"}'
+        ext = make_flagship_extractor(fake_dispatch, basin_id="b", provider="gemini")
+        ext([{"routing_label": {"winner": "gemini"}}])
+        # Previously this would have been ["claude"] — bug fixed.
+        assert seen == ["gemini"]
+
+
 class TestParseExtractionResponse:
     def test_parses_bare_json(self):
         from trinity_local.cortex import parse_extraction_response

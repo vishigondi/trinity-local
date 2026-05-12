@@ -679,18 +679,27 @@ def parse_extraction_response(text: str) -> dict[str, Any]:
     return json.loads(text[start:end])
 
 
-def make_flagship_extractor(dispatch_fn: Callable[[str, str], str], basin_id: str) -> FlagshipExtractor:
+def make_flagship_extractor(
+    dispatch_fn: Callable[[str, str], str],
+    basin_id: str,
+    provider: str = "claude",
+) -> FlagshipExtractor:
     """Build the FlagshipExtractor production runs. dispatch_fn is injected so
     tests can mock it. Production wires through `providers.make_provider(...)`.
 
     `dispatch_fn(provider_name, prompt) -> response_text` is the same signature
-    as the ask-dispatch shim. Default provider for cortex consolidation is
-    claude (most reliable structured JSON output per spec-v1.5.md), but
-    callers can vary it per basin to amortize cost across subs.
+    as the ask-dispatch shim. ``provider`` defaults to claude (most reliable
+    structured JSON output per spec-v1.5.md) but callers (the CLI's
+    `--provider` flag, in particular) pass through whatever the user picked.
+
+    Previously this hard-coded ``"claude"`` regardless of CLI choice — the
+    closed-over dispatch shim swallowed the disagreement. The bug was
+    invisible because both ignored each other; making both honor the
+    provider arg surfaces real CLI control over the extraction provider.
     """
     def _extract(outcomes: list[dict], geometry: dict | None = None) -> dict[str, Any]:
         prompt = build_extraction_prompt(basin_id, outcomes, geometry=geometry)
-        response = dispatch_fn("claude", prompt)
+        response = dispatch_fn(provider, prompt)
         return parse_extraction_response(response)
 
     return _extract
