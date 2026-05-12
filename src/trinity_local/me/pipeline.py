@@ -158,9 +158,9 @@ def render_me_markdown(
     behavioral evidence the chairman should see when scoring future
     council members against the user's actual choices.
     """
-    lines: list[str] = ["# /me", "", "## Lenses (paired tensions)", ""]
+    lines: list[str] = ["# Lens", "", "## Lenses (paired tensions)", ""]
     if not accepted:
-        lines.append("(No paired tensions found yet — run me-build with more decisions.)")
+        lines.append("(No paired tensions found yet — run lens-build with more decisions.)")
     for i, p in enumerate(accepted, 1):
         lines.append(f"### {i}. {p.pole_a} ↔ {p.pole_b}")
         lines.append(f"- Pure-{p.pole_a} fails as: **{p.failure_a or 'unspecified'}**")
