@@ -49,7 +49,7 @@ Otherwise, summarize what's installed and suggest the obvious next move:
 
 > Trinity is set up. Try:
 > - `/council <a hard question>` — compare Claude / Gemini / Codex on one prompt
-> - `trinity-local me-build` — distill your taste lenses from existing transcripts (after a few councils)
+> - `trinity-local lens-build` — distill your taste lenses from existing transcripts (after a few councils)
 > - `trinity-local me-card` — render your strongest lens as a 1200×630 PNG to share
 
 After any council, remember to call `mcp__trinity-local__record_outcome(council_run_id=..., user_winner=...)` once the user picks the answer they preferred — that's the supervision signal that improves Trinity's chairman picker over time.
