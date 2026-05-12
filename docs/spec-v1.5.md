@@ -259,6 +259,23 @@ Existing tools that stay: `record_outcome`, `search_prompts`, `get_persona`,
 `get_council_status`. `route` (advice-only) is **deprecated** — it's useless
 when Claude can't shell out to dispatch.
 
+```
+mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
+  → { rules: [{basin_id, primary, challenger, trust_score, n_episodes,
+               failure_modes, winner_distribution, ...}, ...] }
+
+  Cost: free (local read), <50ms
+  Use when: an agent wants to introspect why `ask` would route a given basin
+  the way it does — surfaces the consolidated routing patterns. Same data the
+  launchpad's "What Trinity has learned about you" card renders. Filter by
+  basin_id for a single rule, or by min_trust to only see high-confidence
+  rules (e.g. 0.75+ for production routing decisions).
+```
+
+8 tools total: `ask`, `compare` (aliased to `run_council`), `record_outcome`,
+`search_prompts`, `get_persona`, `get_council_status`, `get_cortex_rules`,
+`route` (deprecated but retained).
+
 **Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (Sakana-style
 3-list multi-step workflow with `dry_run` mode and recursive verification).
 Conductor-as-flagship-prompt mechanics stay valid; just not in the v1.5 ship.
