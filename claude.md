@@ -177,7 +177,7 @@ Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
 
 ```
 ~/.trinity/
-├── tasks/                          # Durable task records
+├── todos/                          # Durable todo records (was `tasks/` pre-rename — disambiguates from `task_type` classifier label)
 ├── actions/                        # Pending action records
 ├── prompt_bundles/                 # Saved prompt bundles
 ├── council_outcomes/               # Council outcome JSON (with routing_label + chain_steps)
