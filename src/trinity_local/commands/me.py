@@ -61,18 +61,28 @@ def handle_me_build(args):
             k_basins=args.k_basins,
             dry_run=args.dry_run,
         )
-    # Lens was just rewritten → core.md is now stale. Auto-fire distill
-    # so the chairman context loader sees the fresh summary on its next
-    # council. is_core_stale() guards the flagship call internally —
-    # safe to call unconditionally. Skipped in dry-run (no real changes).
+    # Lens was just rewritten → freeze the routing table to disk +
+    # auto-fire distill. Both are no-ops if the data hasn't changed
+    # (routing is empty without rated councils; distill skips if
+    # core.md is already newer than every source memory). Skipped
+    # in dry-run since no real changes hit disk.
+    routing_summary: dict | None = None
     distill_summary: dict | None = None
     if not getattr(args, "dry_run", False):
+        try:
+            from ..personal_routing import freeze_routing_to_disk
+            table = freeze_routing_to_disk()
+            routing_summary = {"task_types": len((table or {}).get("by_task_type") or {})}
+        except Exception as exc:
+            routing_summary = {"error": f"{type(exc).__name__}: {exc}"}
         try:
             from ..distill import distill_via_chairman
             distill_summary = distill_via_chairman()
         except Exception as exc:
             distill_summary = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
     payload = {"ok": True, "path": str(path), **summary}
+    if routing_summary is not None:
+        payload["routing_frozen"] = routing_summary
     if distill_summary is not None:
         payload["distill"] = distill_summary
     print(json.dumps(payload, indent=2))

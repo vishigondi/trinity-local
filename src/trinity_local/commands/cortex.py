@@ -217,7 +217,14 @@ def handle_consolidate(args):
     # picks.json was just rewritten → core.md is now stale. Auto-fire
     # distill so the chairman sees fresh picks in core context on its
     # next council. is_core_stale() guards the call internally.
+    routing_summary: dict | None = None
     distill_summary: dict | None = None
+    try:
+        from ..personal_routing import freeze_routing_to_disk
+        table = freeze_routing_to_disk()
+        routing_summary = {"task_types": len((table or {}).get("by_task_type") or {})}
+    except Exception as exc:
+        routing_summary = {"error": f"{type(exc).__name__}: {exc}"}
     try:
         from ..distill import distill_via_chairman
         distill_summary = distill_via_chairman(provider=args.provider)
@@ -227,6 +234,7 @@ def handle_consolidate(args):
         "ok": True,
         "basins_consolidated": len(patterns),
         "path": str(_routing_patterns_path()),
+        **({"routing_frozen": routing_summary} if routing_summary is not None else {}),
         "calibration_reminder": (
             "Read ~/.trinity/memories/picks.json and verify ≥70% of the "
             "extracted rules match your actual behavior before the cortex "
