@@ -65,7 +65,7 @@
 | 12 | Deduplicate task-kind classification | ✅ done | `task_kinds.py` with `guess_task_kind()`. `watch_runtime.py` and `research/replay.py` both import from it. |
 | 13 | Fix dispatch wrapper portability | ✅ done | `dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang. |
 | 14 | Operator surfaces (cache-stats, watch errors) | ✅ done | `commands/cache.py` with `cache-stats`/`cache-clear`; `commands/status.py` reads `watch_errors.jsonl`. |
-| 15 | Deprecate old council-html path | ✅ done | `council-html` now requires `--outcome`, always uses `write_unified_council_page`. `render_review_html`/`write_review_html` deleted from `council_review.py`. |
+| 15 | Deprecate old council-html path | ✅ done | The `council-html` CLI subcommand was retired entirely; `council_runner.write_unified_council_page()` is the single page writer now and runs after every council. `render_review_html` / `write_review_html` deleted from `council_review.py`. Public surface for sharing council pages is `council-share`. |
 | 16 | Legacy module cleanup | ✅ done | `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` deleted. `scoreboard` moved to `commands/status.py`. |
 | 17 | Vendor static lib prep | ❌ not started | (Implemented as Phase 6) |
 
