@@ -978,6 +978,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <p class="meta">
           Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman blends your data with global benchmarks — the personalization % below shows how much your data drives the pick today.
         </p>
+        <p class="meta" v-if="coreStatus.state === 'stale'" style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+          ⚠️ Your <code>core.md</code> is stale — a memory file was updated since the last distill. Run <code>trinity-local distill</code> so the chairman reads the freshest synthesis on the next council.
+        </p>
+        <p class="meta" v-if="coreStatus.state === 'missing'" style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+          💡 You have core memories but no distillation yet. Run <code>trinity-local distill</code> to produce <code>~/.trinity/core.md</code> — the one paragraph chairmen read first.
+        </p>
         <table class="routing-table">
           <thead>
             <tr>
@@ -1370,6 +1376,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           autoChainEnabled: !!pageData.telemetry?.settings?.auto_chain_enabled,
           polishAutoIterate: !!pageData.telemetry?.settings?.polish_auto_iterate,
         }},
+        coreStatus: pageData.coreStatus || {{ state: 'empty' }},
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],

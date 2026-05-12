@@ -521,6 +521,7 @@ def build_page_data(
         "personalRoutingTable": personal_routing,
         "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
+        "coreStatus": _core_status(),
         # Just the count — actual cards are server-rendered into the body
         # via build_recent_cards_html. The hero h1 no longer branches on
         # this (promise wins the H1 in idle state); kept exposed in case
@@ -531,6 +532,44 @@ def build_page_data(
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
     }
+
+
+def _core_status() -> dict:
+    """Report the freshness of ~/.trinity/core.md vs the five plural
+    memories it distills. The launchpad surfaces this as a one-line
+    hint so users notice when a fresh `distill` would help.
+
+    Returns one of three states:
+    - `{"state": "missing"}`  → core.md never built; lens/picks/... exist
+    - `{"state": "stale"}`    → one or more source memories are newer
+    - `{"state": "fresh"}`    → core.md is the newest of the bunch
+    - `{"state": "empty"}`    → no memories present yet (cold install)
+    """
+    from .state_paths import (
+        core_path, lens_path, picks_path, routing_path,
+        topics_path, vocabulary_path,
+    )
+    core = core_path()
+    sources = [
+        lens_path(), picks_path(), routing_path(),
+        topics_path(), vocabulary_path(),
+    ]
+    existing_sources = [p for p in sources if p.exists()]
+    if not existing_sources:
+        return {"state": "empty"}
+    if not core.exists():
+        return {"state": "missing"}
+    try:
+        core_mtime = core.stat().st_mtime
+    except OSError:
+        return {"state": "missing"}
+    for src in existing_sources:
+        try:
+            if src.stat().st_mtime > core_mtime:
+                return {"state": "stale", "stale_source": src.name}
+        except OSError:
+            continue
+    return {"state": "fresh"}
 
 
 def _load_cortex_rules() -> dict | None:
