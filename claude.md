@@ -60,9 +60,9 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 |--------|-------------|
 | `commands/ingest.py` | `features`, `examples` |
 | `commands/tasks.py` | `task-create`, `task-show`, `task-sync`, `bundle-create`, `launch-create` |
-| `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-html`, `council-launch`, `council-rate`, `council-stop`, `council-share` |
+| `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-launch`, `council-rate`, `council-stop`, `council-share`, `council-iterate` (replaces former `auto-chain`; `--rounds N` for sequential refinement) |
 | `commands/council_last.py` | `council-last` (rerun the most recent council bundle against the current model lineup) |
-| `commands/portal.py` | `portal-html`, `open-review` |
+| `commands/portal.py` | `portal-html`, `open-review`, `serve` (local HTTP server for launchpad — alternative to file://) |
 | `commands/seed.py` | `seed-from-taste-terminal` |
 | `commands/replay.py` | `replay-history` |
 | `commands/me.py` | `me-build` (chairman-driven), `me-show` |
@@ -77,9 +77,9 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
-| `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics` |
+| `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |
-| `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint` |
+| `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint`, `auto-chain-enable`, `auto-chain-disable` |
 
 ### Core layers
 
