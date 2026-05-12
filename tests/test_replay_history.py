@@ -441,3 +441,70 @@ class TestColdStartAugmentation:
         # n=5 is the midpoint → alpha = 0.5 → 50%
         expected_alpha = sigmoid_alpha(5)
         assert table["cold_start"]["system_design"]["alpha"] == round(expected_alpha, 3)
+
+
+class TestCortexRulesHealthSurface:
+    """The launchpad cortex rules card shows a "Health" column derived from
+    audit_status + bimodal_flag (the operational signals trust_score doesn't
+    surface on its own)."""
+
+    def test_audit_status_and_bimodal_flag_surfaced(self, home: Path):
+        from trinity_local import cortex, portal_data
+
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-12T03:00:00Z",
+            n_episodes=20,
+            task_kinds=["system_design"],
+            winner_distribution={"claude": 0.7, "codex": 0.3},
+            routing_rule=cortex.RoutingRule(primary="claude", challenger="codex", reason="x", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.75,
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.7,
+                    "recency_agreement": 0.7, "diversity": 0.7,
+                    "coherence_score": 0.7, "audit_score": 1.0,
+                },
+            ),
+            audit_status="disagreed",
+            bimodal_flag=True,
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        surface = portal_data._load_cortex_rules()
+        assert surface is not None
+        assert len(surface["rules"]) == 1
+        r = surface["rules"][0]
+        # Both health signals must round-trip onto the launchpad surface
+        # so the Vue template can render the Health column.
+        assert r["audit_status"] == "disagreed"
+        assert r["bimodal_flag"] is True
+
+    def test_defaults_unaudited_and_not_bimodal_when_absent(self, home: Path):
+        from trinity_local import cortex, portal_data
+
+        # Save a pattern with the older shape (no audit_status / bimodal_flag).
+        # Even though current dataclass defaults populate them, the surface
+        # must tolerate older serialized files via getattr.
+        pattern = cortex.RoutingPattern(
+            basin_id="writing",
+            consolidated_at="2026-05-12T03:00:00Z",
+            n_episodes=5,
+            task_kinds=["writing"],
+            winner_distribution={"gemini": 1.0},
+            routing_rule=cortex.RoutingRule(primary="gemini", challenger=None, reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.4,
+                components={
+                    "n_episodes_norm": 0.2, "consistency_score": 1.0,
+                    "recency_agreement": 0.5, "diversity": 0.5,
+                    "coherence_score": 0.5, "audit_score": 1.0,
+                },
+            ),
+        )
+        cortex.save_routing_patterns({"writing": pattern})
+
+        surface = portal_data._load_cortex_rules()
+        r = surface["rules"][0]
+        assert r["audit_status"] == "unaudited"
+        assert r["bimodal_flag"] is False

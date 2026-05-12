@@ -544,6 +544,8 @@ def _load_cortex_rules() -> dict | None:
             "trust_band": p.trust_score.interpretation,
             "n_episodes": p.n_episodes,
             "winner_share": round(p.winner_distribution.get(p.routing_rule.primary, 0.0), 3),
+            "audit_status": getattr(p, "audit_status", "unaudited"),
+            "bimodal_flag": getattr(p, "bimodal_flag", False),
         })
     # Highest trust first — that's what the user wants to see at the top.
     rules.sort(key=lambda r: r["trust_score"], reverse=True)

@@ -882,6 +882,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               <th>Primary</th>
               <th>Challenger</th>
               <th>Trust</th>
+              <th>Health</th>
               <th style="text-align: left;">Why</th>
             </tr>
           </thead>
@@ -894,12 +895,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <strong>{{{{ r.trust_score.toFixed(2) }}}}</strong>
                 <span class="meta" style="display: block; font-size: 11px;">{{{{ r.trust_band }}}}</span>
               </td>
+              <td>
+                <span class="meta" v-if="ruleHealthLabel(r)" :title="ruleHealthTitle(r)">{{{{ ruleHealthLabel(r) }}}}</span>
+                <span class="meta" v-if="!ruleHealthLabel(r)">—</span>
+              </td>
               <td class="meta" style="font-size: 13px;">{{{{ r.reason || '—' }}}}</td>
             </tr>
           </tbody>
         </table>
         <p class="meta" style="margin-top: 12px; font-size: 13px; opacity: 0.7;">
-          High trust ({{{{ cortexRules.trust_use_rule }}}}+) → the rule drives routing. Medium ({{{{ cortexRules.trust_knn_fallback }}}}–{{{{ cortexRules.trust_use_rule }}}}) → rule + kNN fallback. Below {{{{ cortexRules.trust_knn_fallback }}}} → kNN only. Rebuild with <code>trinity-local consolidate</code>.
+          High trust ({{{{ cortexRules.trust_use_rule }}}}+) → the rule drives routing. Medium ({{{{ cortexRules.trust_knn_fallback }}}}–{{{{ cortexRules.trust_use_rule }}}}) → rule + kNN fallback. Below {{{{ cortexRules.trust_knn_fallback }}}} → kNN only. Rebuild with <code>trinity-local consolidate</code>; add <code>--audit</code> to flag drift via an independent chairman.
         </p>
       </section>
 
@@ -1394,6 +1399,25 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // is missing (older portal_data without the augmentation) so the
           // column degrades to a "—" gracefully.
           return this.personalRoutingTable?.cold_start?.[taskType] || null;
+        }},
+        ruleHealthLabel(r) {{
+          // The Health column on the cortex rules card surfaces two signals
+          // the trust score already encodes — bimodality and audit verdict —
+          // because their meaning is operational (recommend a rebuild) while
+          // trust is just a number. Returns empty string when neither signal
+          // fires; the caller renders "—" in that case.
+          if (r.bimodal_flag) return '⚠ bimodal';
+          if (r.audit_status === 'disagreed') return '⚠ drift';
+          if (r.audit_status === 'agreed') return '✓ audited';
+          if (r.audit_status === 'unclear') return '? audit';
+          return '';
+        }},
+        ruleHealthTitle(r) {{
+          if (r.bimodal_flag) return 'Basin embeddings split into two modes. The single rule.primary is wrong for half the queries — kNN fallback handles it for now. v1.6 will run HDBSCAN to split.';
+          if (r.audit_status === 'disagreed') return 'An independent chairman read the same outcomes and disagreed with the extracted rule. Likely model drift; consider re-running consolidate.';
+          if (r.audit_status === 'agreed') return 'An independent chairman read the same outcomes and confirmed the extracted rule. High confidence.';
+          if (r.audit_status === 'unclear') return 'The audit chairman returned an unclear verdict on this rule.';
+          return 'No audit has been run on this rule. Run consolidate --audit to check for drift.';
         }},
         statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
         councilStatusMessages: pageData.councilLoadingMessages || [],
