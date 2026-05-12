@@ -54,17 +54,19 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (17 modules):
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (22 modules):
 
 | Module | Key commands |
 |--------|-------------|
 | `commands/ingest.py` | `features`, `examples` |
 | `commands/tasks.py` | `task-create`, `task-show`, `task-sync`, `bundle-create`, `launch-create` |
 | `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-html`, `council-launch`, `council-rate`, `council-stop`, `council-share` |
+| `commands/council_last.py` | `council-last` (rerun the most recent council bundle against the current model lineup) |
 | `commands/portal.py` | `portal-html`, `open-review` |
-| `commands/seed.py` | `seed-from-taste-terminal` (NEW) |
-| `commands/replay.py` | `replay-history` (NEW) |
+| `commands/seed.py` | `seed-from-taste-terminal` |
+| `commands/replay.py` | `replay-history` |
 | `commands/me.py` | `me-build` (chairman-driven), `me-show` |
+| `commands/me_card.py` | `me-card` (render a paired-tension lens as a 1200×630 PNG) |
 | `commands/actions.py` | `action-list`, `action-suggest`, `action-council`, `action-notify`, `action-complete` |
 | `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`, `shortcut-install` |
 | `commands/watch.py` | `watch-once`, `watch-loop`, `ingest-recent` |
@@ -72,6 +74,9 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/adapters.py` | `adapters` |
 | `commands/status.py` | `status`, `scoreboard` |
 | `commands/cache.py` | `cache-stats`, `cache-clear` |
+| `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
+| `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
+| `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics` |
 | `commands/install.py` | `install-mcp`, `install-hooks` |
 | `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint` |
