@@ -391,3 +391,53 @@ class TestLaunchpadRendering:
         html = path.read_text(encoding="utf-8")
         assert "Run replay-history" in html
         assert "trinity-local replay-history" in html
+
+
+class TestColdStartAugmentation:
+    """The launchpad surfaces sigmoid-blend alpha per task_type (task #40).
+    Without this, the personal routing card just shows aggregates with no
+    signal about whether to trust them — the user can't tell whether their
+    n=1 council is driving routing or being correctly down-weighted."""
+
+    def test_cold_start_block_attached_per_task_type(self, home: Path, monkeypatch):
+        from trinity_local import personal_routing, portal_data
+
+        monkeypatch.setattr(personal_routing, "compute_personal_routing_table", lambda: {
+            "councils_aggregated": 21,
+            "by_task_type": {
+                "code_refactor": {"claude": {"overall": 8.5, "n": 20}},
+                "writing": {"claude": {"overall": 7.0, "n": 1}},
+            },
+            "best_per_task_type": {"code_refactor": "claude", "writing": "claude"},
+        })
+
+        table = portal_data._load_personal_routing_table()
+        assert table is not None
+        assert "cold_start" in table
+        # n=20 saturates the sigmoid → ~100% personalized
+        refactor = table["cold_start"]["code_refactor"]
+        assert refactor["n_personal"] == 20
+        assert refactor["personalization_pct"] >= 95
+        # n=1 is well below the midpoint → mostly global
+        writing = table["cold_start"]["writing"]
+        assert writing["n_personal"] == 1
+        assert writing["personalization_pct"] <= 15
+
+    def test_personalization_pct_matches_chairman_picker_alpha(self, home: Path, monkeypatch):
+        """The launchpad must use the SAME sigmoid the chairman picker uses.
+        Without single-source-of-truth, the displayed % would mislead — user
+        sees 60% on the card but the chairman is actually weighting at 30%."""
+        from trinity_local import personal_routing, portal_data
+        from trinity_local.ranker.chairman_picker import sigmoid_alpha
+
+        monkeypatch.setattr(personal_routing, "compute_personal_routing_table", lambda: {
+            "councils_aggregated": 5,
+            "by_task_type": {
+                "system_design": {"claude": {"overall": 7.5, "n": 5}},
+            },
+            "best_per_task_type": {"system_design": "claude"},
+        })
+        table = portal_data._load_personal_routing_table()
+        # n=5 is the midpoint → alpha = 0.5 → 50%
+        expected_alpha = sigmoid_alpha(5)
+        assert table["cold_start"]["system_design"]["alpha"] == round(expected_alpha, 3)

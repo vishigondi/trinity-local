@@ -944,13 +944,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">Personal routing table</div>
         <h2>Best model per task type, from your own councils</h2>
         <p class="meta">
-          Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils — the chairman uses this to pick the right model for your next question. More councils = sharper routing.
+          Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman blends your data with global benchmarks — the personalization % below shows how much your data drives the pick today.
         </p>
         <table class="routing-table">
           <thead>
             <tr>
               <th>Task type</th>
               <th>Best</th>
+              <th style="text-align: right;">Personalization</th>
               <th v-for="provider in routingTableProviders" style="text-align: right;">{{{{ provider.toUpperCase() }}}}</th>
             </tr>
           </thead>
@@ -960,6 +961,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
               </td>
               <td><span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span></td>
+              <td style="text-align: right;">
+                <span class="benchmark-score" v-if="coldStartFor(taskType)">{{{{ coldStartFor(taskType).personalization_pct }}}}%</span>
+                <span class="benchmark-unit" v-if="coldStartFor(taskType)">n={{{{ coldStartFor(taskType).n_personal }}}}</span>
+                <span class="benchmark-unit" v-if="!coldStartFor(taskType)">—</span>
+              </td>
               <td v-for="provider in routingTableProviders" style="text-align: right;">
                 <span class="benchmark-score" v-if="scores[provider]">{{{{ scores[provider].overall.toFixed(1) }}}}</span>
                 <span class="benchmark-unit" v-if="!scores[provider]">—</span>
@@ -1380,6 +1386,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             }}
           }}
           return Array.from(set).sort();
+        }},
+        coldStartFor(taskType) {{
+          // Returns {{n_personal, alpha, personalization_pct}} for a task_type
+          // when the cold-start block is present (server-side computed by
+          // portal_data._load_personal_routing_table). Null when the block
+          // is missing (older portal_data without the augmentation) so the
+          // column degrades to a "—" gracefully.
+          return this.personalRoutingTable?.cold_start?.[taskType] || null;
         }},
         statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
         councilStatusMessages: pageData.councilLoadingMessages || [],

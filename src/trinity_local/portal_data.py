@@ -408,15 +408,36 @@ def _load_personal_routing_table() -> dict | None:
     Returns None when no councils have been rated yet so the launchpad shows
     the empty-state CTA. The single source of truth is the council_outcomes
     directory; aggregation is cached in-process by directory mtime.
+
+    Augments the table with a ``cold_start`` block per task_type so the
+    launchpad can render "X% personalized" badges that match the chairman
+    picker's actual sigmoid weighting (task #40).
     """
     from .personal_routing import compute_personal_routing_table
+    from .ranker.chairman_picker import sigmoid_alpha
 
     try:
         table = compute_personal_routing_table()
     except Exception:
         return None
-    if not table.get("by_task_type"):
+    by_task = table.get("by_task_type") or {}
+    if not by_task:
         return None
+
+    cold_start: dict[str, dict] = {}
+    for task_type, providers in by_task.items():
+        n_personal = 0
+        for sub in providers.values():
+            if isinstance(sub, dict):
+                n_personal = max(n_personal, int(sub.get("n", 0) or 0))
+        alpha = sigmoid_alpha(n_personal)
+        cold_start[task_type] = {
+            "n_personal": n_personal,
+            "alpha": round(alpha, 3),
+            "personalization_pct": int(round(alpha * 100)),
+        }
+    table = dict(table)
+    table["cold_start"] = cold_start
     return table
 
 

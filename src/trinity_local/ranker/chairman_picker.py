@@ -48,9 +48,19 @@ PERSONAL_STEEPNESS = 2.0
 _GLOBAL_RESCALE = 0.1
 
 
-def _sigmoid_alpha(n: int) -> float:
-    """Confidence in personal data given n councils in this task_kind."""
+def sigmoid_alpha(n: int) -> float:
+    """Confidence in personal data given n councils in this task_kind.
+
+    The same sigmoid the blend uses, exposed so the launchpad can render
+    "X% personalized" badges that line up with the chairman's actual
+    weighting. Single source of truth — if the curve gets tuned, every
+    surface that displays it tracks the change.
+    """
     return 1.0 / (1.0 + math.exp(-(n - PERSONAL_MIDPOINT) / PERSONAL_STEEPNESS))
+
+
+# Backward-compat alias for any in-tree caller still using the private name.
+_sigmoid_alpha = sigmoid_alpha
 
 
 def _personal_scores(task_kind: str, available: list[str]) -> tuple[dict[str, float], int]:
