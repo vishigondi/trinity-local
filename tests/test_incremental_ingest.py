@@ -238,6 +238,66 @@ class TestIngestRecent:
         # Should walk all four default sources
         assert set(seen_sources) == set(incremental_ingest.DEFAULT_SOURCES)
 
+    def test_cli_handler_threads_args_and_prints_result(self, isolated_state, monkeypatch, capsys):
+        """`trinity-local ingest-recent` is a thin wrapper around ingest_recent()
+        but its job is concrete: thread --source / --deadline through, print the
+        IngestResult shape as JSON. Without this test, a refactor to
+        ingest_recent's kwargs could break the CLI silently."""
+        import json
+        from types import SimpleNamespace
+        from trinity_local import incremental_ingest
+        from trinity_local.commands.watch import handle_ingest_recent
+
+        captured_args: dict = {}
+
+        def stub_ingest(*, sources, deadline_s):
+            captured_args["sources"] = sources
+            captured_args["deadline_s"] = deadline_s
+            return incremental_ingest.IngestResult(
+                scanned=5,
+                added=2,
+                skipped_existing=3,
+                sources=list(sources),
+                took_ms=42,
+            )
+
+        monkeypatch.setattr(incremental_ingest, "ingest_recent", stub_ingest)
+        # Also patch the bound reference in commands/watch.py (it does a
+        # local `from ..incremental_ingest import ingest_recent` inside the
+        # handler, so monkeypatch on the module is the canonical surface).
+
+        handle_ingest_recent(SimpleNamespace(sources=["claude", "codex"], deadline=3.5))
+        out = json.loads(capsys.readouterr().out)
+
+        # Args were honored — not silently dropped via positional-kwarg drift.
+        assert captured_args["sources"] == ["claude", "codex"]
+        assert captured_args["deadline_s"] == 3.5
+        # IngestResult.to_dict() shape is what the JSON output looks like.
+        assert out["scanned"] == 5
+        assert out["added"] == 2
+        assert out["sources"] == ["claude", "codex"]
+
+    def test_cli_handler_defaults_to_all_sources_when_empty(self, isolated_state, monkeypatch, capsys):
+        """args.sources defaults to [] from argparse (action="append"). The
+        handler must fan out to DEFAULT_SOURCES, not pass an empty list to
+        ingest_recent (which would walk zero sources)."""
+        import json
+        from types import SimpleNamespace
+        from trinity_local import incremental_ingest
+        from trinity_local.commands.watch import handle_ingest_recent
+
+        captured_sources = []
+
+        def stub_ingest(*, sources, deadline_s):
+            captured_sources.extend(sources)
+            return incremental_ingest.IngestResult(sources=list(sources))
+
+        monkeypatch.setattr(incremental_ingest, "ingest_recent", stub_ingest)
+        handle_ingest_recent(SimpleNamespace(sources=[], deadline=10.0))
+        capsys.readouterr()
+
+        assert set(captured_sources) == set(incremental_ingest.DEFAULT_SOURCES)
+
     def test_dedupe_by_node_id(self, isolated_state, monkeypatch, tmp_path):
         """Calling twice with the same turn must not insert duplicates."""
         path = tmp_path / "p.jsonl"

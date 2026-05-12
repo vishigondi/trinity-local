@@ -255,7 +255,7 @@ preserves the prior implementation if v1.6 wants to study it.
 
 ## Verified status
 
-- `pytest -q` — **569 passed**.
+- `pytest -q` — **571 passed**.
 - `trinity-local --mcp` exposes 9 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_cortex_rules` (agent-facing introspection into extracted routing patterns) + v1.5 `mark_cortex_rule_wrong` (user-veto on a cortex rule; halves effective trust per click).
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.
