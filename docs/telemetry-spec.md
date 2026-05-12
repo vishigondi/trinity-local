@@ -62,7 +62,18 @@ The product continues to learn locally first.
 
 Telemetry is a derived export layer, not the operational core.
 
-## 4. Split “views” from “ratings”
+## 3a. No surprise outbound calls
+
+Trinity makes zero outbound network calls during normal operation outside
+the (opt-in) telemetry path. `main()` pins `HF_HUB_OFFLINE=1` +
+`TRANSFORMERS_OFFLINE=1` + `HF_HUB_DISABLE_TELEMETRY=1` at startup via
+`setdefault`, so the embedding model loads from `~/.cache/huggingface/hub/`
+without contacting the Hub. The one-time download is a deliberate user
+action via `HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/nomic-embed-text-v1.5`.
+MCP child processes inherit the env so the guarantee propagates through
+every spawn. Override per-invocation when explicitly pulling fresh weights.
+
+## 4. Split "views" from "ratings"
 
 Launchpad opens and Elo snapshots are different event types.
 
