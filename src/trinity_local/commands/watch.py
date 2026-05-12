@@ -1,4 +1,4 @@
-"""Handlers for watch-once, watch-loop."""
+"""Handlers for watch-once, watch-loop, ingest-recent."""
 from __future__ import annotations
 
 import json
@@ -19,6 +19,14 @@ def register(subparsers):
     wlp.add_argument("--notify", action="store_true")
     wlp.add_argument("--interval", type=int, default=30)
     wlp.set_defaults(handler=handle_watch_loop)
+
+    ip = subparsers.add_parser(
+        "ingest-recent",
+        help="Incremental cursor-based ingest into the memory index (same path MCP ask/search_prompts fires on the hot path)",
+    )
+    ip.add_argument("--source", action="append", dest="sources", choices=["claude", "codex", "gemini", "cowork"], default=[])
+    ip.add_argument("--deadline", type=float, default=10.0, help="Max seconds to spend (default: 10)")
+    ip.set_defaults(handler=handle_ingest_recent)
 
 
 def handle_watch_once(args):
@@ -70,3 +78,11 @@ def handle_watch_once(args):
 def handle_watch_loop(args):
     sources = args.sources or ["cowork", "claude", "gemini", "codex"]
     watch_loop(sources=sources, notify=args.notify, interval_seconds=args.interval)
+
+
+def handle_ingest_recent(args):
+    from ..incremental_ingest import DEFAULT_SOURCES, ingest_recent
+
+    sources = args.sources or list(DEFAULT_SOURCES)
+    result = ingest_recent(sources=sources, deadline_s=args.deadline)
+    print(json.dumps(result.to_dict(), indent=2))

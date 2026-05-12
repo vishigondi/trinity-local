@@ -1,0 +1,277 @@
+"""Tests for tool-triggered incremental ingest.
+
+The module's job is small but its bounds matter: it must persist a cursor
+across calls so a second pass doesn't re-walk the same files, it must
+respect the deadline so it can't block MCP latency, and a parser
+breakage on one file must not poison the whole batch.
+"""
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from trinity_local import incremental_ingest
+from trinity_local.incremental_ingest import (
+    IngestResult,
+    _load_cursors,
+    _save_cursors,
+    ingest_recent,
+)
+
+
+class _FakeTurn:
+    def __init__(
+        self,
+        transcript_id: str,
+        turn_index: int,
+        text: str,
+        provider: str = "claude",
+    ):
+        self.transcript_id = transcript_id
+        self.turn_index = turn_index
+        self.text = text
+        self.provider = provider
+        self.source_path = f"/fake/{transcript_id}"
+        self.timestamp = "2026-05-11T12:00:00Z"
+        self.preceding_assistant_text = ""
+        self.following_assistant_text = ""
+
+
+class _FakeSession:
+    """Minimal session shape the real parsers return."""
+
+
+def _stub_iter_prompt_turns_factory(turns_per_path: dict[Path, list]):
+    """Return a stub for `iter_prompt_turns(session)` that uses session-id
+    threading to look up turns. We tag each fake session with the path so
+    the stub can route correctly."""
+
+    def _stub(session):
+        path = getattr(session, "_path", None)
+        return iter(turns_per_path.get(path, []))
+
+    return _stub
+
+
+@pytest.fixture
+def isolated_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    return tmp_path
+
+
+class TestCursorPersistence:
+    def test_load_empty_when_no_file(self, isolated_state):
+        assert _load_cursors() == {}
+
+    def test_round_trip(self, isolated_state):
+        _save_cursors({"claude": 1234.5, "codex": 2345.6})
+        loaded = _load_cursors()
+        assert loaded == {"claude": 1234.5, "codex": 2345.6}
+
+    def test_legacy_scalar_form_tolerated(self, isolated_state):
+        # Older code may have written `{source: mtime}` directly.
+        from trinity_local.state_paths import ingest_cursors_path
+
+        path = ingest_cursors_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"claude": 1500.0}), encoding="utf-8")
+        loaded = _load_cursors()
+        assert loaded == {"claude": 1500.0}
+
+    def test_atomic_replace_via_tmp(self, isolated_state):
+        from trinity_local.state_paths import ingest_cursors_path
+
+        _save_cursors({"claude": 100.0})
+        # The .tmp file should be gone after the atomic rename completes
+        path = ingest_cursors_path()
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        assert path.exists()
+        assert not tmp.exists()
+
+
+class TestIngestRecent:
+    def test_no_sources_no_errors(self, isolated_state, monkeypatch):
+        # _iter_recent_paths returns nothing for an empty source.
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            lambda source, since: iter([]),
+        )
+        result = ingest_recent(sources=["claude"])
+        assert isinstance(result, IngestResult)
+        assert result.scanned == 0
+        assert result.added == 0
+        # Cursor should still be written so we don't re-scan from zero.
+        assert _load_cursors() == {"claude": 0.0}
+
+    def test_appends_prompt_nodes_and_updates_cursor(self, isolated_state, monkeypatch, tmp_path):
+        # Two fake transcripts with one turn each.
+        path_a = tmp_path / "a.jsonl"
+        path_b = tmp_path / "b.jsonl"
+        path_a.write_text("{}", encoding="utf-8")
+        path_b.write_text("{}", encoding="utf-8")
+
+        session_a = _FakeSession()
+        session_a._path = path_a
+        session_b = _FakeSession()
+        session_b._path = path_b
+
+        turns_by_path = {
+            path_a: [_FakeTurn("ta", 0, "How do I configure pytest?")],
+            path_b: [_FakeTurn("tb", 0, "Why is my React state stale?")],
+        }
+
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            lambda source, since: iter([path_a, path_b]) if source == "claude" else iter([]),
+        )
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._parse_source_path",
+            lambda source, path: (
+                session_a if path == path_a
+                else session_b if path == path_b
+                else None
+            ),
+        )
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest.iter_prompt_turns",
+            _stub_iter_prompt_turns_factory(turns_by_path),
+        )
+
+        result = ingest_recent(sources=["claude"])
+        assert result.scanned == 2
+        assert result.added == 2
+        # Cursor updated to the max mtime of the scanned files
+        cursors = _load_cursors()
+        assert "claude" in cursors
+        assert cursors["claude"] > 0
+
+        # Second call should skip everything (cursor + de-dupe both gate)
+        result2 = ingest_recent(sources=["claude"])
+        # Cursor is now >= file mtimes so no paths are returned
+        assert result2.added == 0
+
+    def test_parser_breakage_isolated(self, isolated_state, monkeypatch, tmp_path):
+        """A single broken parser must not stop the whole batch."""
+        good_path = tmp_path / "good.jsonl"
+        bad_path = tmp_path / "bad.jsonl"
+        good_path.write_text("{}", encoding="utf-8")
+        bad_path.write_text("garbage", encoding="utf-8")
+
+        good_session = _FakeSession()
+        good_session._path = good_path
+        turns_by_path = {good_path: [_FakeTurn("good", 0, "Working turn")]}
+
+        def _parse(source, path):
+            if path == bad_path:
+                raise ValueError("parser blew up")
+            return good_session
+
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            lambda source, since: iter([bad_path, good_path]) if source == "claude" else iter([]),
+        )
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._parse_source_path",
+            _parse,
+        )
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest.iter_prompt_turns",
+            _stub_iter_prompt_turns_factory(turns_by_path),
+        )
+
+        result = ingest_recent(sources=["claude"])
+        assert result.skipped_parse >= 1
+        assert result.added == 1  # the good path still produced its node
+
+    def test_deadline_respected(self, isolated_state, monkeypatch, tmp_path):
+        """When we blow the deadline, we stop and persist what we have."""
+        # Build many paths so the loop has more work than the deadline allows
+        paths = [tmp_path / f"p{i}.jsonl" for i in range(50)]
+        for p in paths:
+            p.write_text("{}", encoding="utf-8")
+        sessions = []
+        turns_by_path = {}
+        for i, p in enumerate(paths):
+            s = _FakeSession()
+            s._path = p
+            sessions.append(s)
+            turns_by_path[p] = [_FakeTurn(f"t{i}", 0, f"Turn {i} text")]
+
+        def _slow_parse(source, path):
+            time.sleep(0.05)  # 50ms per file × 50 files = 2.5s
+            return sessions[paths.index(path)]
+
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            lambda source, since: iter(paths) if source == "claude" else iter([]),
+        )
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._parse_source_path",
+            _slow_parse,
+        )
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest.iter_prompt_turns",
+            _stub_iter_prompt_turns_factory(turns_by_path),
+        )
+
+        result = ingest_recent(sources=["claude"], deadline_s=0.2)
+        assert result.deadline_hit is True
+        assert result.scanned < len(paths)  # didn't get through them all
+        assert result.took_ms <= 1500  # Some leeway but bounded
+
+    def test_default_sources_when_none_given(self, isolated_state, monkeypatch):
+        seen_sources = []
+
+        def _stub(source, since):
+            seen_sources.append(source)
+            return iter([])
+
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            _stub,
+        )
+        ingest_recent()
+        # Should walk all four default sources
+        assert set(seen_sources) == set(incremental_ingest.DEFAULT_SOURCES)
+
+    def test_dedupe_by_node_id(self, isolated_state, monkeypatch, tmp_path):
+        """Calling twice with the same turn must not insert duplicates."""
+        path = tmp_path / "p.jsonl"
+        path.write_text("{}", encoding="utf-8")
+        session = _FakeSession()
+        session._path = path
+        turn = _FakeTurn("same_transcript", 0, "stable text content")
+        turns_by_path = {path: [turn]}
+
+        # First call: cursor is 0 so file is returned. Make sure the file
+        # mtime stays the same so the second call also returns it (we want
+        # to test dedupe, not cursor gating).
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._iter_recent_paths",
+            lambda source, since: iter([path]) if source == "claude" else iter([]),
+        )
+        monkeypatch.setattr(
+            "trinity_local.watch_runtime._parse_source_path",
+            lambda source, p: session,
+        )
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest.iter_prompt_turns",
+            _stub_iter_prompt_turns_factory(turns_by_path),
+        )
+
+        # Force cursor stays at zero so file is re-walked
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest._load_cursors",
+            lambda: {},
+        )
+
+        r1 = ingest_recent(sources=["claude"])
+        r2 = ingest_recent(sources=["claude"])
+        assert r1.added == 1
+        # Second pass walks the same file, same turn → stable node_id → skip
+        assert r2.added == 0
+        assert r2.skipped_existing >= 1

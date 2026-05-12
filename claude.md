@@ -10,7 +10,7 @@
 
 **Trinity Local is the cross-provider memory layer the labs are commercially prevented from building.** Tagline: *Own your memories. The AI you trained should outlive the provider.* It watches Claude / ChatGPT / Gemini transcripts that already live on the user's machine, learns which model wins for which kind of question, and — when the user doesn't know which to ask — convenes them as a council and synthesizes one verifier-shaped verdict. The shareable artifact is the user's `/me` lens (paired tensions extracted from where they pushed back on a model), not council verdicts themselves.
 
-**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 492 tests passing (v1.5 Weeks 1–5 work landed: `ask` MCP tool + cortex consolidation with **embedded basin centroids** for real semantic clustering + dispatch error classification + rate-limit auto-retry + rate-limit-saves metric + Ollama local-model dispatch + health-aware pool demotion + `get_cortex_rules` MCP introspection + cortex rules visible on the launchpad). Loop Constitution substrate removed pre-launch (was 1,396 lines of v2-trajectory code that v1.5 doesn't use; the mechanic will be rebuilt leaner inside v1.6's `plan_and_execute`). **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
+**Status (2026-05-11):** v1.0 locked for May 13–15 ship — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand: *Own your memories.* Folder schema locked at `SCHEMA_VERSION = 1`. 8-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 502 tests passing (v1.5 Weeks 1–5 work landed: `ask` MCP tool + cortex consolidation with **embedded basin centroids** for real semantic clustering + dispatch error classification + rate-limit auto-retry + rate-limit-saves metric + Ollama local-model dispatch + health-aware pool demotion + `get_cortex_rules` MCP introspection + cortex rules visible on the launchpad + **tool-triggered incremental ingest** — `ask` / `search_prompts` now auto-pick up new transcripts within a 1s deadline so MCP-driven flows stay fresh without a manual `seed-from-taste-terminal` rerun). Loop Constitution substrate removed pre-launch (was 1,396 lines of v2-trajectory code that v1.5 doesn't use; the mechanic will be rebuilt leaner inside v1.6's `plan_and_execute`). **Next trajectory = v1.5** (target ship June 3, 2026): MCP-primary two-tier tool surface (`ask` cheap default + `compare` hard-question side-by-side; `plan_and_execute` deferred to v1.6 to keep cortex as the v1.5 headline), hippocampus + cortex two-tier memory (cortex = flagship-extracted routing patterns per basin with system-computed `trust_score`), basin classifier with re-basining + soft membership, Cortex (routing) vs Lens (evaluation) composed flow inside `ask`, local model dispatch (Ollama + MLX, contingent on Week 3 dispatch resilience or cut from pitch), rate-limit detection + Conductor replan, model-version-shift decay (not just calendar decay), human calibration gate before cortex wires into query hot-path. The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
 
 **The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 
@@ -66,7 +66,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/me.py` | `me-build` (chairman-driven), `me-show` |
 | `commands/actions.py` | `action-list`, `action-suggest`, `action-council`, `action-notify`, `action-complete` |
 | `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`, `shortcut-install` |
-| `commands/watch.py` | `watch-once`, `watch-loop` |
+| `commands/watch.py` | `watch-once`, `watch-loop`, `ingest-recent` |
 | `commands/review.py` | `review` |
 | `commands/adapters.py` | `adapters` |
 | `commands/status.py` | `status`, `scoreboard` |
@@ -147,7 +147,7 @@ Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ├── memory/
 │   ├── prompt_nodes.jsonl          # PromptNode index (hierarchical memory tier 1)
 │   ├── turn_windows.jsonl          # TurnWindow index (tier 2 — local context)
-│   ├── cursors.json                # Per-source ingest cursors (for tool-triggered ingest, future)
+│   ├── cursors.json                # Per-source memory ingest cursors (consumed by tool-triggered `ingest_recent()`)
 │   └── embeddings_matrix.npy       # numpy fast-path matrix (lazy)
 ├── analytics/
 │   ├── routing_label_events.jsonl  # Chairman parse-success rate
@@ -234,7 +234,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 ## What's deferred to v1.1+
 
 - **§8.9 Aggregation endpoint** — Cloudflare Worker for live global priors + public leaderboard. Read access free for all; upload opt-in only with anonymous categorical labels (no prompt content). Ship after Routing JSON parse-success ≥85% sustained and ≥50 opt-in users.
-- **Tool-triggered cursor-based ingest** — when MCP tools fire, run an incremental scan of recent transcripts. Cursors live at `~/.trinity/memory/cursors.json`. Currently incremental ingest happens via `seed-from-taste-terminal` (one-shot) and the existing `watch-once` watcher.
+- ~~**Tool-triggered cursor-based ingest**~~ — **shipped.** `incremental_ingest.ingest_recent()` walks transcripts newer than `~/.trinity/memory/cursors.json`, appends `PromptNode` records (no embedding — hot path stays embedding-free), persists the cursor atomically. MCP `ask` and `search_prompts` fire this at the start of each call with a 1s deadline so MCP-driven flows stay fresh without a manual `seed-from-taste-terminal` rerun. CLI: `trinity-local ingest-recent`. Errors swallowed so a parser breakage on one file can't take down the tool surface.
 - **Auto-recommended chain mode** — `route()` doesn't auto-recommend `chain` until enough chain councils accumulate.
 - **Local + global Elo blend** with sigmoid alpha over local council count (the `personal_routing_table` already replaces global as data accumulates; the explicit blend math is cosmetic for v1).
 - **Live server-side autofill on keystroke** — needs a local HTTP endpoint.
@@ -254,7 +254,7 @@ preserves the prior implementation if v1.6 wants to study it.
 
 ## Verified status
 
-- `pytest -q` — **492 passed**.
+- `pytest -q` — **502 passed**.
 - `trinity-local --mcp` exposes 8 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_cortex_rules` (agent-facing introspection into extracted routing patterns).
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.

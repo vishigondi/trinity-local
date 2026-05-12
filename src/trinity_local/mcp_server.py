@@ -355,6 +355,22 @@ def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
     return result.stdout
 
 
+def _trigger_incremental_ingest() -> None:
+    """Fire-and-forget: scan transcripts newer than the per-source memory
+    cursor and append fresh ``PromptNode``s. Runs at the start of ``ask`` /
+    ``search_prompts`` so MCP-driven flows pick up new conversations
+    without a manual ``seed-from-taste-terminal`` rerun. Bounded at 1s so
+    it cannot dominate user-facing latency; errors are swallowed so a
+    parser breakage cannot take down the tool surface.
+    """
+    try:
+        from .incremental_ingest import ingest_recent
+
+        ingest_recent(deadline_s=1.0)
+    except Exception:
+        return
+
+
 def _full_provider_pool() -> list[str]:
     """Build the available-provider pool: enabled config providers + detected
     local Ollama models, with currently-unhealthy providers demoted to the
@@ -406,6 +422,8 @@ async def _ask(args: dict) -> list[Any]:
     query = args.get("query")
     if not query or not isinstance(query, str):
         return [ErrorData(code=400, message="`query` is required and must be a string")]
+
+    _trigger_incremental_ingest()
 
     available = args.get("available_providers")
     if available is not None and not isinstance(available, list):
@@ -938,6 +956,7 @@ async def _search_prompts(args: dict) -> list[Any]:
 
     query = args["query"]
     top_k = int(args.get("top_k") or 8)
+    _trigger_incremental_ingest()
     raw_results = search_prompt_nodes(query, top_k=top_k)
 
     # Confidence + filtering at the API level. Surface tokens like "MCP" or
