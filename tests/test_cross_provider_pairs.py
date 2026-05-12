@@ -65,7 +65,7 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="best db?", embedding=[1.0, 0.0]),
             _node(id_="n2", provider="gemini", text="best db?", embedding=[0.99, 0.05]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert len(clusters) == 1
         assert clusters[0].n_providers == 2
         assert clusters[0].providers == {"claude", "gemini"}
@@ -76,7 +76,7 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="best db?", embedding=[1.0, 0.0]),
             _node(id_="n2", provider="claude", text="best db?", embedding=[0.99, 0.05]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert clusters == []
 
     def test_distant_embeddings_not_clustered(self):
@@ -84,7 +84,7 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="db?", embedding=[1.0, 0.0]),
             _node(id_="n2", provider="gemini", text="weather?", embedding=[0.0, 1.0]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert clusters == []
 
     def test_missing_embedding_skipped(self):
@@ -92,7 +92,7 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="x", embedding=[]),
             _node(id_="n2", provider="gemini", text="x", embedding=[1.0, 0.0]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert clusters == []
 
     def test_missing_response_text_skipped(self):
@@ -100,7 +100,7 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="x", embedding=[1.0, 0.0], response=""),
             _node(id_="n2", provider="gemini", text="x", embedding=[0.99, 0.05]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert clusters == []  # n1 had no response text, no useful pair
 
     def test_dedupes_to_one_per_provider(self):
@@ -112,7 +112,7 @@ class TestFindClusters:
             _node(id_="n3", provider="claude", text="best db?", embedding=[0.97, 0.1], response="C"),
             _node(id_="n4", provider="gemini", text="best db?", embedding=[0.98, 0.07], response="G"),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert len(clusters) == 1
         cluster = clusters[0]
         # One per provider — not 4 entries
@@ -128,8 +128,8 @@ class TestFindClusters:
             _node(id_="n1", provider="claude", text="x", embedding=[1.0, 0.0]),
             _node(id_="n2", provider="gemini", text="x", embedding=[0.99, 0.05]),
         ]
-        assert len(find_cross_provider_clusters(nodes, min_providers=2)) == 1
-        assert find_cross_provider_clusters(nodes, min_providers=3) == []
+        assert len(find_cross_provider_clusters(nodes, min_providers=2, min_prompt_words=0)) == 1
+        assert find_cross_provider_clusters(nodes, min_providers=3, min_prompt_words=0) == []
 
     def test_threshold_tightens_clusters(self):
         """Below default threshold, two distant questions get clustered;
@@ -139,9 +139,9 @@ class TestFindClusters:
             _node(id_="n2", provider="gemini", text="y", embedding=[0.7, 0.7]),  # sim ≈ 0.71
         ]
         # 0.6 threshold → they pair
-        assert len(find_cross_provider_clusters(nodes, similarity_threshold=0.6)) == 1
+        assert len(find_cross_provider_clusters(nodes, similarity_threshold=0.6, min_prompt_words=0)) == 1
         # 0.85 threshold → they don't
-        assert find_cross_provider_clusters(nodes, similarity_threshold=0.85) == []
+        assert find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0) == []
 
     def test_coherence_sorted_descending(self):
         """Tightest cluster (highest coherence) comes first."""
@@ -153,12 +153,12 @@ class TestFindClusters:
             _node(id_="b1", provider="claude", text="y", embedding=[0.0, 1.0]),
             _node(id_="b2", provider="gemini", text="y", embedding=[0.5, 0.866]),
         ]
-        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters(nodes, similarity_threshold=0.85, min_prompt_words=0)
         assert len(clusters) == 2
         assert clusters[0].coherence > clusters[1].coherence
 
     def test_handles_empty_input(self):
-        assert find_cross_provider_clusters([], similarity_threshold=0.85) == []
+        assert find_cross_provider_clusters([], similarity_threshold=0.85, min_prompt_words=0) == []
 
     def test_uses_preceding_response_when_following_empty(self):
         """Gemini Takeout sometimes has the assistant text before, not after."""
@@ -175,7 +175,7 @@ class TestFindClusters:
             preceding_assistant_text="answer from preceding",
             following_assistant_text="",  # empty — fall back to preceding
         )
-        clusters = find_cross_provider_clusters([n1, n2], similarity_threshold=0.85)
+        clusters = find_cross_provider_clusters([n1, n2], similarity_threshold=0.85, min_prompt_words=0)
         assert len(clusters) == 1
         gemini = next(m for m in clusters[0].members if m.provider == "gemini")
         assert gemini.response_text == "answer from preceding"
@@ -217,7 +217,10 @@ class TestBootstrapPairsCLI:
             upsert_prompt_node(_node(
                 id_=f"n{i}",
                 provider=provider,
-                text=f"question {i // 2}",
+                # Use ≥6 words so the default min_prompt_words filter
+                # doesn't drop these (it's tuned to skip conversational
+                # filler like "thank you" / "more options").
+                text=f"What is the best database for analytics workload number {i // 2}",
                 embedding=embed,
                 response=f"answer {i}",
             ))

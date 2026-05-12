@@ -31,6 +31,11 @@ from .memory.schemas import PromptNode
 # floor for nomic-embed-text-v1.5 semantic equivalence — below that you
 # start including topically-related but distinct questions.
 DEFAULT_SIMILARITY_THRESHOLD = 0.85
+# Drop clusters whose representative prompt is conversational filler.
+# Greedy clustering on the real corpus surfaces "10 more", "Thank you",
+# "comma separated" first because short generic prompts match across
+# providers trivially. Worth zero as synthetic-council seeds.
+DEFAULT_MIN_PROMPT_WORDS = 6
 
 
 @dataclass
@@ -100,6 +105,7 @@ def find_cross_provider_clusters(
     similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     min_providers: int = 2,
     max_cluster_size: int = 8,
+    min_prompt_words: int = DEFAULT_MIN_PROMPT_WORDS,
 ) -> list[CrossProviderCluster]:
     """Discover clusters of PromptNodes that ask effectively the same
     question across ≥ ``min_providers`` providers.
@@ -125,7 +131,12 @@ def find_cross_provider_clusters(
 
     usable = [
         n for n in nodes
-        if n.embedding and _node_response_text(n).strip()
+        if n.embedding
+        and _node_response_text(n).strip()
+        # Drop prompts too short to be useful synthesis seeds.
+        # "Thank you", "10 more", "comma separated" cluster trivially
+        # but yield zero signal as virtual councils.
+        and len((n.text or "").split()) >= min_prompt_words
     ]
     n = len(usable)
     if n < 2:

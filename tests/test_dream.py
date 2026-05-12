@@ -43,7 +43,9 @@ def _plant_node(tmp_path, *, id_, provider, embedding, response="answer"):
         provider=provider,
         source_path=f"/fake/{id_}",
         turn_index=0,
-        text=f"question for {id_}",
+        # ≥6 words to clear the default min_prompt_words filter
+        # (filters conversational filler from cross-provider discovery).
+        text=f"What is the canonical answer for question identifier {id_}",
         embedding=embedding,
         created_at="2026-05-12T00:00:00Z",
         following_assistant_text=response,
