@@ -205,7 +205,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 8. **`/me-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 10. **v1.5 cortex layer (Week 2 shipped).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json` with system-computed `trust_score` (4 components, weighted geometric mean). Wires into `ask` query hot-path in Week 3 after human calibration gate.
-11. **Test suite: 438 passing.** Cortex consolidation (21 tests), `ask` orchestration + MCP handler (17 tests), plus the v1.0 base.
+11. **Test suite: 492 passing.** Cortex consolidation (incl. end-to-end centroid integration with real embeddings), `ask` orchestration + MCP handler, plus the v1.0 base.
 
 ---
 
