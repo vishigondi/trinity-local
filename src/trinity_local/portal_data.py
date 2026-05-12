@@ -546,6 +546,11 @@ def _load_cortex_rules() -> dict | None:
             "winner_share": round(p.winner_distribution.get(p.routing_rule.primary, 0.0), 3),
             "audit_status": getattr(p, "audit_status", "unaudited"),
             "bimodal_flag": getattr(p, "bimodal_flag", False),
+            # First few council_run_ids the rule was extracted from. Capped
+            # at 5 (the full set is in council_outcomes/ — only need a peek
+            # for the launchpad evidence chips). Empty list when the
+            # consolidator didn't record IDs (older patterns).
+            "evidence": (getattr(p, "evidence", None) or [])[:5],
         })
     # Highest trust first — that's what the user wants to see at the top.
     rules.sort(key=lambda r: r["trust_score"], reverse=True)

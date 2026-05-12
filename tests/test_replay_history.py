@@ -508,3 +508,35 @@ class TestCortexRulesHealthSurface:
         r = surface["rules"][0]
         assert r["audit_status"] == "unaudited"
         assert r["bimodal_flag"] is False
+
+    def test_evidence_council_ids_surfaced_capped_at_five(self, home: Path):
+        """Each rule should expose a small list of council_run_ids so the
+        launchpad can render "View evidence" chips per spec-v1.5 Week 5."""
+        from trinity_local import cortex, portal_data
+
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-12T04:00:00Z",
+            n_episodes=20,
+            task_kinds=["system_design"],
+            winner_distribution={"claude": 0.6},
+            routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.6,
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.6,
+                    "recency_agreement": 0.6, "diversity": 0.5,
+                    "coherence_score": 0.6, "audit_score": 1.0,
+                },
+            ),
+            evidence=[f"council_{i:04d}" for i in range(15)],
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        surface = portal_data._load_cortex_rules()
+        r = surface["rules"][0]
+        # Cap at 5 — the launchpad only needs a peek; full set is in
+        # ~/.trinity/council_outcomes/.
+        assert len(r["evidence"]) == 5
+        assert r["evidence"][0] == "council_0000"
+        assert r["evidence"][4] == "council_0004"

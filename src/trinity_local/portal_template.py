@@ -899,7 +899,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <span class="meta" v-if="ruleHealthLabel(r)" :title="ruleHealthTitle(r)">{{{{ ruleHealthLabel(r) }}}}</span>
                 <span class="meta" v-if="!ruleHealthLabel(r)">—</span>
               </td>
-              <td class="meta" style="font-size: 13px;">{{{{ r.reason || '—' }}}}</td>
+              <td class="meta" style="font-size: 13px;">
+                {{{{ r.reason || '—' }}}}
+                <div v-if="r.evidence && r.evidence.length" style="margin-top: 6px;">
+                  <span class="meta" style="font-size: 11px; opacity: 0.7;">
+                    From {{{{ r.n_episodes }}}} councils, view:
+                  </span>
+                  <a v-for="cid in r.evidence"
+                     :key="cid"
+                     :href="evidenceUrl(cid)"
+                     class="suggestion-chip"
+                     style="font-size: 11px; margin-left: 4px; text-decoration: none;"
+                     :title="'Open council ' + cid">
+                    {{{{ cid.replace('council_', '').slice(0, 8) }}}}
+                  </a>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -1418,6 +1433,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (r.audit_status === 'agreed') return 'An independent chairman read the same outcomes and confirmed the extracted rule. High confidence.';
           if (r.audit_status === 'unclear') return 'The audit chairman returned an unclear verdict on this rule.';
           return 'No audit has been run on this rule. Run consolidate --audit to check for drift.';
+        }},
+        evidenceUrl(councilId) {{
+          // Each evidence chip links to the existing live council page for
+          // that outcome. Uses ?thread_id= so the harness page renders the
+          // full council UI with members + chairman synthesis. Falls back to
+          // a plain `?council_id=` fragment when the launchpad's live-council
+          // base URL isn't configured — degrades to a same-page anchor.
+          const base = pageData.liveReviewUrl || '';
+          if (base) {{
+            const sep = base.includes('?') ? '&' : '?';
+            return `${{base}}${{sep}}thread_id=${{encodeURIComponent(councilId)}}`;
+          }}
+          return `#${{councilId}}`;
         }},
         statusScriptBaseUrl: pageData.statusScriptBaseUrl || '',
         councilStatusMessages: pageData.councilLoadingMessages || [],
