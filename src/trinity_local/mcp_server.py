@@ -582,10 +582,11 @@ async def _route(args: dict) -> list[Any]:
     latency_pref = (args.get("latency") or "normal").lower()
 
     from .ranker import prompt_calls_for_council
-    from .task_types import guess_task_type
+    from .task_types import guess_task_type, is_polish_task
 
     chairman_pick = chairman_pick_reason(task, available_providers=available)
     task_type = chairman_pick.get("task_type") or guess_task_type(task)
+    polish = is_polish_task(task)
 
     decision = None
     try:
@@ -672,6 +673,13 @@ async def _route(args: dict) -> list[Any]:
         "budget": budget_pref,
         "latency": latency_pref,
         "should_auto_council": mode == "council",
+        # Polish-shape tasks ("make this better", "tighten this", ≤20 words
+        # + "shorter"/"simpler"/etc.) benefit from consensus_round iteration
+        # — the first pass catches the obvious; the value is in rounds 2-3
+        # where each model refines against the others' outputs. Surfaced
+        # here so harnesses + the launchpad can OFFER auto-iterate without
+        # changing default behavior.
+        "auto_iterate_recommended": polish,
     }
     return [_text(payload)]
 
