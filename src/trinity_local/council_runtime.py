@@ -515,18 +515,33 @@ def update_thread_manifest(outcome: CouncilOutcome) -> Path:
     metadata = outcome.metadata or {}
     chain_root_id = metadata.get("chain_root_id") or outcome.bundle_id
     segments = _read_thread_segments(chain_root_id)
+    round_number = int(metadata.get("round_number") or 1)
 
     entry = {
         "council_id": outcome.council_run_id,
         "bundle_id": outcome.bundle_id,
-        "round_number": int(metadata.get("round_number") or 1),
+        "round_number": round_number,
         "started_at": metadata.get("started_at") or outcome.created_at,
         "parent_council_id": metadata.get("parent_council_id"),
     }
+    # Dedup: only replace the prior entry for THIS round, not every entry
+    # sharing this bundle_id. Consensus rounds share bundle_id (deterministic
+    # from task_cluster + task_text), so the old dedup-by-bundle_id collapsed
+    # every round into one segment. New rule:
+    #   - same council_id (finalizing the same finalized round) → replace
+    #   - same (bundle_id, round_number) AND pending entry (no council_id) →
+    #     replace (pending → finalized handoff)
+    # Each round_number gets its own segment.
     segments = [
         s for s in segments
-        if s.get("bundle_id") != outcome.bundle_id
-        and s.get("council_id") != outcome.council_run_id
+        if not (
+            (s.get("council_id") is not None and s.get("council_id") == outcome.council_run_id)
+            or (
+                s.get("council_id") is None
+                and s.get("bundle_id") == outcome.bundle_id
+                and int(s.get("round_number") or 1) == round_number
+            )
+        )
     ]
     segments.append(entry)
     return _write_thread_manifest(chain_root_id, segments)
@@ -562,7 +577,17 @@ def register_pending_round(
         "parent_council_id": parent_council_id,
         "running": True,
     }
-    segments = [s for s in segments if s.get("bundle_id") != bundle_id]
+    # Same dedup principle as update_thread_manifest: only collapse a prior
+    # pending entry for THIS exact (bundle_id, round_number). Consensus rounds
+    # share bundle_id, so blanket bundle_id removal would wipe prior rounds.
+    rn = int(round_number)
+    segments = [
+        s for s in segments
+        if not (
+            s.get("bundle_id") == bundle_id
+            and int(s.get("round_number") or 1) == rn
+        )
+    ]
     segments.append(entry)
     return _write_thread_manifest(chain_root_id, segments)
 

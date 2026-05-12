@@ -24,6 +24,22 @@
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own CLI subscriptions (Claude Code, Codex, Gemini CLI, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both cost basis and privacy.
 5. **HF Hub offline by default.** `main()` pins `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` via `setdefault` at startup. The embedding model is pulled once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`; after that Trinity loads from `~/.cache/huggingface/hub/` and never contacts the Hub during normal operation. Privacy + reliability invariant — no surprise outbound calls from the running system, no telemetry to upstream model hosts, MCP child processes inherit the env so the guarantee propagates through every spawn.
 
+## Glossary (load-bearing terms)
+
+A few words do specific work; they get conflated otherwise:
+
+- **prompts** — what the user owns (raw, indexed in `~/.trinity/memory/`). Inputs to dream.
+- **dream** — the verb only Trinity has. Reads prompts, emits memory (offline, your data).
+- **memory** — what dream creates: cortex rules + the lens + the personal routing table.
+- **cortex** — extracted routing patterns per basin/topic (rules with trust scores).
+- **lens** — paired-tension taste pairs in `~/.trinity/me.md`, the chairman reads it before synthesizing.
+- **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.
+- **chairman** — the synthesis model in a single council. Reads the lens, emits structured Routing JSON. Per-call role.
+- **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
+- **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cowork). Trinity registers as an MCP server inside each.
+- **seat / member** — a provider acting as one voice in a council. Code uses `members=[...]`; marketing copy will use `seat` (table metaphor).
+- **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
+
 ## Calling the council from inside Claude Code
 
 Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.

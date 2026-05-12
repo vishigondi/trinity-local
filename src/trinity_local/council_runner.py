@@ -827,9 +827,15 @@ def run_consensus_round(
     # Inherits task + goal from the parent; context_excerpt is replaced with
     # the prior round's per-provider outputs.
     round_number = int(parent_outcome.metadata.get("round_number") or 1) + 1
+    # Chain root MUST be the bundle_id, not the parent's council_run_id.
+    # `bundle_id` is deterministic from (task_cluster_id, task_text, goal,
+    # origin_session) — so consensus rounds of the same task share it, AND it
+    # matches the `?thread_id=` URL the launchpad emits for the originating
+    # bundle. Using parent.council_run_id forks the chain into a manifest the
+    # bundle URL never opens.
     chain_root_id = (
         parent_outcome.metadata.get("chain_root_id")
-        or parent_outcome.council_run_id
+        or parent_outcome.bundle_id
     )
 
     new_bundle = create_prompt_bundle(

@@ -197,6 +197,94 @@ class TestThreadManifest:
         assert ids.count("c2") == 1
         assert ids == ["root1", "c2"]
 
+    def test_consensus_rounds_sharing_bundle_id_all_appear(self, tmp_path, monkeypatch):
+        """Regression for the lost-iterations bug.
+
+        consensus_round rounds derive their bundle_id deterministically from
+        (task_cluster_id, task_text, goal, origin_session) — so all rounds of
+        a refinement chain share ONE bundle_id. The old dedup-by-bundle_id
+        wiped the prior round each time update_thread_manifest ran, leaving
+        only the latest round visible at `?thread_id=bundle_X`.
+
+        This test pins the fix: rounds 1+2+3 of the same bundle MUST all
+        appear in the manifest, ordered by round_number.
+        """
+        from trinity_local.council_runtime import update_thread_manifest, _read_thread_manifest
+        from trinity_local.council_schema import CouncilOutcome
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        # All three rounds share bundle_id (deterministic hash).
+        SHARED_BUNDLE = "bundle_42f8cea9c9e705e5"
+
+        def _round(council_id: str, round_number: int, parent: str | None) -> CouncilOutcome:
+            meta = {"chain_root_id": SHARED_BUNDLE, "round_number": round_number}
+            if parent:
+                meta["parent_council_id"] = parent
+            return CouncilOutcome(
+                council_run_id=council_id,
+                bundle_id=SHARED_BUNDLE,
+                task_cluster_id="copywriting_polish",
+                primary_provider="claude",
+                created_at=f"2026-05-12T14:3{round_number}:00",
+                metadata=meta,
+            )
+
+        update_thread_manifest(_round("council_caf", round_number=1, parent=None))
+        update_thread_manifest(_round("council_32b", round_number=2, parent="council_caf"))
+        path = update_thread_manifest(_round("council_dd0", round_number=3, parent="council_32b"))
+
+        # Manifest lives at the bundle-keyed filename (matches the URL the
+        # launchpad emits for this bundle).
+        assert path.name == f"_thread_{SHARED_BUNDLE}.js"
+
+        body = _read_thread_manifest(path)
+        ids = [s["council_id"] for s in body["segments"]]
+        assert ids == ["council_caf", "council_32b", "council_dd0"], (
+            f"All three rounds must survive in the manifest; got {ids}"
+        )
+        round_numbers = [s["round_number"] for s in body["segments"]]
+        assert round_numbers == [1, 2, 3]
+
+    def test_pending_to_finalized_only_replaces_same_round(self, tmp_path, monkeypatch):
+        """When register_pending_round adds a placeholder for round 2 and
+        update_thread_manifest later replaces it, prior rounds' completed
+        entries must not be collateral damage."""
+        from trinity_local.council_runtime import (
+            update_thread_manifest, register_pending_round, _read_thread_manifest
+        )
+        from trinity_local.council_schema import CouncilOutcome
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        (tmp_path / "council_outcomes").mkdir(parents=True, exist_ok=True)
+
+        SHARED = "bundle_shared_xyz"
+
+        def _round(cid: str, rn: int) -> CouncilOutcome:
+            return CouncilOutcome(
+                council_run_id=cid, bundle_id=SHARED, task_cluster_id="c",
+                primary_provider="claude",
+                created_at=f"2026-05-12T14:3{rn}:00",
+                metadata={"chain_root_id": SHARED, "round_number": rn},
+            )
+
+        # Round 1 finalized.
+        update_thread_manifest(_round("c1", 1))
+        # Round 2 pending (no council_id yet).
+        register_pending_round(
+            chain_root_id=SHARED, bundle_id=SHARED, status_token="tok2",
+            round_number=2, parent_council_id="c1",
+        )
+        # Round 2 finalizes — should REPLACE only the pending round-2 entry.
+        path = update_thread_manifest(_round("c2", 2))
+
+        body = _read_thread_manifest(path)
+        ids = [s["council_id"] for s in body["segments"]]
+        assert ids == ["c1", "c2"], (
+            f"Pending→finalized handoff must only replace round 2's entry; got {ids}"
+        )
+
     def test_pending_round_is_replaced_by_completed_outcome(self, tmp_path, monkeypatch):
         # When a chain round starts we register a pending segment (no
         # council_id yet, status_token set, running=true) so the thread

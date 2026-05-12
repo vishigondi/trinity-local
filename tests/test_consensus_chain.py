@@ -202,7 +202,11 @@ class TestRunConsensusRound:
         outcome = result.outcome
         assert outcome.metadata["parent_council_id"] == parent.council_run_id
         assert outcome.metadata["round_number"] == 2
-        assert outcome.metadata["chain_root_id"] == parent.council_run_id
+        # chain_root_id is the parent's bundle_id, NOT council_run_id.
+        # This makes ?thread_id=bundle_X URLs find the manifest for the
+        # whole iteration chain, including consensus rounds that re-derive
+        # the same bundle_id from (task_cluster + task_text).
+        assert outcome.metadata["chain_root_id"] == parent.bundle_id
         assert outcome.mode == "consensus_round"
         assert outcome.routing_label is not None
         assert chairman_says_converged(outcome.routing_label) is True
