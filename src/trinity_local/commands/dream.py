@@ -54,9 +54,12 @@ def register(subparsers):
         help="Skip the cortex consolidation phase (you'll need to run `trinity-local consolidate` separately).",
     )
     sp.add_argument(
-        "--skip-me-build",
+        "--skip-lens-build",
         action="store_true",
-        help="Skip the /me lens rebuild phase.",
+        # Backward-compat short option until anyone scripting against the
+        # pre-rename CLI surfaces (no one has, but it's a safe alias).
+        dest="skip_me_build",
+        help="Skip the lens rebuild phase (Phase 4 — `lens-build`).",
     )
     sp.add_argument(
         "--skip-vocabulary",
@@ -182,7 +185,7 @@ def handle_dream(args):
 
     # ── Phase 4: rebuild lenses + freeze routing to disk ───────────────
     if args.skip_me_build:
-        print("dream phase 4/5: SKIPPED (--skip-me-build)", file=sys.stderr)
+        print("dream phase 4/5: SKIPPED (--skip-lens-build)", file=sys.stderr)
         report["phases"]["me_build"] = {"skipped": True}
     else:
         print("dream phase 4/5: rebuilding lenses + freezing routing…", file=sys.stderr)
