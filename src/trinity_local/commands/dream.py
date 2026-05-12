@@ -187,13 +187,24 @@ def handle_dream(args):
         consolidate_report = _consolidate(args.primary_provider or "claude")
         report["phases"]["consolidate"] = consolidate_report
 
-    # ── Phase 4: rebuild /me lenses ────────────────────────────────────
+    # ── Phase 4: rebuild lenses + freeze routing to disk ───────────────
     if args.skip_me_build:
         print("dream phase 4/5: SKIPPED (--skip-me-build)", file=sys.stderr)
         report["phases"]["me_build"] = {"skipped": True}
     else:
-        print("dream phase 4/5: rebuilding /me lenses…", file=sys.stderr)
+        print("dream phase 4/5: rebuilding lenses + freezing routing…", file=sys.stderr)
         me_report = _me_build(args.primary_provider or "claude")
+        # Freeze the empirical-memory entry to memories/routing.json so the
+        # chairman context loader (and Phase 5 distill) sees the routing
+        # signal without re-walking council_outcomes/ on every call.
+        try:
+            from ..personal_routing import freeze_routing_to_disk
+            table = freeze_routing_to_disk()
+            me_report["routing_frozen"] = {
+                "task_types": len(table or {}),
+            }
+        except Exception as exc:
+            me_report["routing_frozen"] = {"error": f"{type(exc).__name__}: {exc}"}
         report["phases"]["me_build"] = me_report
 
     # ── Phase 2.5: vocabulary distillation ─────────────────────────────

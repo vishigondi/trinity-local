@@ -235,3 +235,30 @@ def invalidate_cache() -> None:
     global _CACHE, _CACHE_KEY
     _CACHE = None
     _CACHE_KEY = None
+
+
+def freeze_routing_to_disk() -> dict[str, Any]:
+    """Write the current routing table to `~/.trinity/memories/routing.json`.
+
+    The table is otherwise lazy-computed on every call from
+    `council_outcomes/`. Freezing lets the chairman context loader, Phase 5
+    distill, and any external reader see the empirical-memory entry without
+    re-walking the outcomes dir each time.
+
+    Returns the table that was written (same shape as
+    compute_personal_routing_table). Skips writing if the table is empty.
+    """
+    import json
+    from pathlib import Path
+    from .state_paths import routing_path
+
+    table = compute_personal_routing_table()
+    # `table` is always a dict with metadata keys (computed_at,
+    # councils_aggregated) even when no councils have been rated. The real
+    # "is there routing signal" check is whether the per-task-type bucket
+    # has entries.
+    if not table.get("by_task_type"):
+        return table
+    path: Path = routing_path()
+    path.write_text(json.dumps(table, indent=2, sort_keys=True), encoding="utf-8")
+    return table
