@@ -12,3 +12,10 @@ state/
 .pytest_cache/
 .mypy_cache/
 .Trinity Dispatch-signed.shortcut
+
+# Session / dev artifacts — playwright traces, ad-hoc screenshots, agent state
+.claude/
+.claude.json
+.playwright-mcp/
+*.png
+mock_gen.py

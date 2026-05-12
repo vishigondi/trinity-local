@@ -189,7 +189,11 @@ def main() -> int:
         # ─── Surface 3: Personal routing table ───────────────────────────────
         routing_state = page.evaluate(
             """() => {
-              const rows = document.querySelectorAll('table.routing-table tbody tr');
+              // Exclude .cortex-rules-table — that's the "what Trinity learned"
+              // card which shares the .routing-table base class but has its
+              // own first-cell shape (plain text, no .benchmark-category div).
+              // We want the personal routing table specifically.
+              const rows = document.querySelectorAll('table.routing-table:not(.cortex-rules-table) tbody tr');
               const first = rows[0];
               const first_task = first?.querySelector('td:first-child .benchmark-category')?.textContent?.trim();
               return {row_count: rows.length, first_task};

@@ -76,6 +76,8 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/cache.py` | `cache-stats`, `cache-clear` |
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
+| `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
+| `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/me-build follow-up) |
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |

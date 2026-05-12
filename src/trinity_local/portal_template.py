@@ -875,7 +875,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <p class="meta">
           The cortex layer reads {{{{ cortexRules.total_basins }}}} basin{{{{ cortexRules.total_basins === 1 ? '' : 's' }}}} of council outcomes and extracts one routing rule per kind of question. Trust score is computed from sample size, agreement consistency, recency, and basin diversity — it gates when the rule drives `ask` instead of the kNN fallback.
         </p>
-        <table class="routing-table" style="margin-top: 16px;">
+        <table class="routing-table cortex-rules-table" style="margin-top: 16px;">
           <thead>
             <tr>
               <th style="text-align: left;">Kind of question</th>

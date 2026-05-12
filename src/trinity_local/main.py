@@ -37,6 +37,7 @@ CORE_COMMAND_MODULES = (
     "council",
     "council_last",
     "doctor",
+    "dream",
     "ingest",
     "me",
     "me_card",
