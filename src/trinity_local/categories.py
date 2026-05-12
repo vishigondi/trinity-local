@@ -8,7 +8,7 @@ no external data is auto-fetched.
 from __future__ import annotations
 
 
-# (key, display label, trinity task_kinds that map into this category)
+# (key, display label, trinity task_types that map into this category)
 # Order matters — UI renders categories in this order on the launchpad.
 CATEGORY_REGISTRY: list[tuple[str, str, tuple[str, ...]]] = [
     ("overall",               "Overall",                ("general", "cowork_general")),
@@ -37,7 +37,7 @@ CATEGORY_REGISTRY: list[tuple[str, str, tuple[str, ...]]] = [
 ]
 
 
-# Default category for any task_kind not explicitly registered above.
+# Default category for any task_type not explicitly registered above.
 # Anything that smells like reasoning lands here instead of disappearing
 # from the capabilities chart entirely.
 DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND = "hard_prompts"
@@ -52,9 +52,9 @@ def category_labels() -> dict[str, str]:
 
 
 def task_kind_to_category() -> dict[str, str]:
-    """Reverse map trinity task_kind → category key."""
+    """Reverse map trinity task_type → category key."""
     out: dict[str, str] = {}
-    for key, _, task_kinds in CATEGORY_REGISTRY:
-        for kind in task_kinds:
+    for key, _, task_types in CATEGORY_REGISTRY:
+        for kind in task_types:
             out[kind] = key
     return out

@@ -59,7 +59,7 @@ def _render_routing_label_section(outcome: CouncilOutcome) -> str:
             f'task_domain: {_esc(label.task_domain or "—")}</p>'
         )
     if label.routing_lesson:
-        # Humanize task_kind enums in the lesson (model_identity_query →
+        # Humanize task_type enums in the lesson (model_identity_query →
         # "model identity question"). The chairman cites them verbatim; users
         # read them.
         lesson = label.routing_lesson.replace("_", " ")

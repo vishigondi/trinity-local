@@ -2,7 +2,7 @@
 
 Also exposes `prompt_calls_for_council(task_text) -> (escalate, signals)` —
 a structural-shape detector used by route() to escalate prompts that ask for
-a comparison even when task_kind is something pedestrian. Folded in from the
+a comparison even when task_type is something pedestrian. Folded in from the
 former standalone `prompt_shape.py`; same logic, one fewer top-level module.
 """
 from __future__ import annotations
@@ -112,19 +112,19 @@ def prompt_calls_for_council(task_text: str) -> tuple[bool, list[str]]:
 
 
 class HeuristicRanker(Ranker):
-    """Routes based on task_kind (research/coding/debugging/general).
+    """Routes based on task_type (research/coding/debugging/general).
 
     Evidence comes from recent session outcomes and cost comparisons.
     Recommendations: research→gemini, coding→codex, default→claude.
-    Confidence is fixed by task_kind (0.72/0.68/0.55).
+    Confidence is fixed by task_type (0.72/0.68/0.55).
     """
 
     def advise(self, context: RoutingContext) -> RoutingDecision:
-        """Advise based on task_kind with outcome/cost evidence."""
-        task_kind = context.task_kind
+        """Advise based on task_type with outcome/cost evidence."""
+        task_type = context.task_type
         evidence = self._gather_evidence(context)
 
-        if task_kind in {"research", "cowork_general"}:
+        if task_type in {"research", "cowork_general"}:
             return RoutingDecision(
                 recommended_provider="gemini",
                 top_k=["gemini", "codex"],
@@ -135,7 +135,7 @@ class HeuristicRanker(Ranker):
                 ],
                 backend="heuristic",
             )
-        if task_kind in {"coding", "debugging"}:
+        if task_type in {"coding", "debugging"}:
             return RoutingDecision(
                 recommended_provider="codex",
                 top_k=["codex", "claude"],
@@ -168,14 +168,14 @@ class HeuristicRanker(Ranker):
             outcomes = _load_outcomes()
             provider_outcomes = [
                 o for o in outcomes
-                if o.provider == context.current_provider and o.task_kind == context.task_kind
+                if o.provider == context.current_provider and o.task_type == context.task_type
             ]
             if len(provider_outcomes) >= 3:
                 completed = sum(1 for o in provider_outcomes[-10:] if o.completed)
                 total = min(len(provider_outcomes), 10)
                 rate = completed / total
                 evidence.append(
-                    f"{context.current_provider} completed {completed}/{total} recent {context.task_kind} tasks "
+                    f"{context.current_provider} completed {completed}/{total} recent {context.task_type} tasks "
                     f"({rate:.0%} completion rate)."
                 )
                 errored = sum(1 for o in provider_outcomes[-10:] if o.error_count > 0)

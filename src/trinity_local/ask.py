@@ -113,7 +113,7 @@ def decide_route(
     """Pure decision logic — no dispatch. Useful for dry-run / inspection.
 
     Cortex layer is consulted first (week 3): classify the query into a basin
-    via task_kind, look up the routing pattern, and IF its trust_score clears
+    via task_type, look up the routing pattern, and IF its trust_score clears
     the band, use the cortex rule as the routing decision. The kNN path
     becomes the calibration / fallback when cortex trust is too low.
 
@@ -133,7 +133,7 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
     applies (no consolidation yet, basin doesn't match, or trust below floor).
 
     Lookup strategy:
-      1. Exact match on guessed task_kind (cheapest, most precise — when
+      1. Exact match on guessed task_type (cheapest, most precise — when
          the chairman's classifier emits the same label for current query
          as it did for the basin's evidence outcomes, this is the right
          answer with no embedding cost).
@@ -152,7 +152,7 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
     """
     try:
         from .cortex import TRUST_KNN_FALLBACK, load_routing_patterns
-        from .task_kinds import guess_task_kind
+        from .task_types import guess_task_type
     except ImportError:
         return None
 
@@ -160,9 +160,9 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
     if not patterns:
         return None  # no consolidation has run yet
 
-    task_kind = guess_task_kind(query) or ""
-    pattern = patterns.get(task_kind)
-    match_reason = f"basin '{task_kind}' (exact)"
+    task_type = guess_task_type(query) or ""
+    pattern = patterns.get(task_type)
+    match_reason = f"basin '{task_type}' (exact)"
 
     if pattern is None:
         # Centroid fall-through: embed the query, find the closest basin

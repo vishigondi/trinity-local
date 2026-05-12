@@ -52,7 +52,7 @@ class TestCheckDrift:
             ts = (now - timedelta(days=10) + timedelta(hours=i)).isoformat()
             records.append({
                 "provider": "claude", "model_id": "claude-sonnet-4",
-                "task_kind": "coding", "completed": True,
+                "task_type": "coding", "completed": True,
                 "error_count": 0, "timestamp": ts,
             })
 
@@ -61,7 +61,7 @@ class TestCheckDrift:
             ts = (now - timedelta(days=3) + timedelta(hours=i)).isoformat()
             records.append({
                 "provider": "claude", "model_id": "claude-sonnet-4",
-                "task_kind": "coding", "completed": False,
+                "task_type": "coding", "completed": False,
                 "error_count": 0, "timestamp": ts,
             })
 
@@ -89,14 +89,14 @@ class TestCheckDrift:
             ts = (now - timedelta(days=10) + timedelta(hours=i)).isoformat()
             records.append({
                 "provider": "gemini", "model_id": "gemini-2.5-pro",
-                "task_kind": "research", "completed": True,
+                "task_type": "research", "completed": True,
                 "error_count": 0, "timestamp": ts,
             })
         for i in range(4):
             ts = (now - timedelta(days=3) + timedelta(hours=i)).isoformat()
             records.append({
                 "provider": "gemini", "model_id": "gemini-2.5-pro",
-                "task_kind": "research", "completed": True,
+                "task_type": "research", "completed": True,
                 "error_count": 0, "timestamp": ts,
             })
 

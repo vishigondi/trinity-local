@@ -217,7 +217,7 @@ class TestCentroidBasinMatch:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.9, "claude": 0.1},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
@@ -225,8 +225,8 @@ class TestCentroidBasinMatch:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "system_design")
 
         # Sentinel: if the centroid path runs, embed() would be called.
         from trinity_local import embeddings
@@ -239,7 +239,7 @@ class TestCentroidBasinMatch:
         assert "exact" in decision.reason
 
     def test_centroid_match_picks_semantic_neighbor(self, monkeypatch, tmp_path):
-        """Query maps to task_kind 'general' but a high-trust cortex rule
+        """Query maps to task_type 'general' but a high-trust cortex rule
         exists for 'system_design' with a centroid. Centroid match finds it."""
         from trinity_local import cortex, ask as ask_module
 
@@ -250,7 +250,7 @@ class TestCentroidBasinMatch:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.9},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
@@ -258,8 +258,8 @@ class TestCentroidBasinMatch:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "general")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "general")
         from trinity_local import embeddings
         # Query embedding aligns perfectly with the centroid (cosine = 1.0).
         monkeypatch.setattr(embeddings, "embed", lambda text, **kw: centroid)
@@ -279,7 +279,7 @@ class TestCentroidBasinMatch:
             basin_id="legacy_basin",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["x"],
+            task_types=["x"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.5}),
@@ -287,8 +287,8 @@ class TestCentroidBasinMatch:
         )
         cortex.save_routing_patterns({"legacy_basin": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "no_match")
         from trinity_local import embeddings
         monkeypatch.setattr(embeddings, "embed", lambda text, **kw: [1.0] + [0.0] * 255)
 
@@ -311,7 +311,7 @@ class TestCentroidBasinMatch:
             basin_id="orthogonal_basin",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["x"],
+            task_types=["x"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.5}),
@@ -319,8 +319,8 @@ class TestCentroidBasinMatch:
         )
         cortex.save_routing_patterns({"orthogonal_basin": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "no_match")
         from trinity_local import embeddings
         # Query vector orthogonal to basin centroid.
         monkeypatch.setattr(embeddings, "embed", lambda text, **kw: [0.0, 1.0] + [0.0] * 254)
@@ -341,7 +341,7 @@ class TestCentroidBasinMatch:
         pattern = cortex.RoutingPattern(
             basin_id="b",
             consolidated_at="2026-05-20T10:30:00Z",
-            n_episodes=30, task_kinds=["x"],
+            n_episodes=30, task_types=["x"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 0.8, "diversity": 0.6}),
@@ -349,8 +349,8 @@ class TestCentroidBasinMatch:
         )
         cortex.save_routing_patterns({"b": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "no_match")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "no_match")
         from trinity_local import embeddings
         monkeypatch.setattr(embeddings, "embed", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("embed model broken")))
 
@@ -378,7 +378,7 @@ class TestCortexInAskHotPath:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.9, "claude": 0.1},
             routing_rule=cortex.RoutingRule(
                 primary="codex",
@@ -393,9 +393,9 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        # Stub task_kind classifier so query → "system_design".
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+        # Stub task_type classifier so query → "system_design".
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "system_design")
 
         # kNN would route to "claude" (the hits all say so) — verify cortex
         # OVERRIDES this when its trust clears the floor.
@@ -416,7 +416,7 @@ class TestCortexInAskHotPath:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=3,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.34, "claude": 0.33, "gemini": 0.33},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -426,8 +426,8 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "system_design")
 
         knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
@@ -448,7 +448,7 @@ class TestCortexInAskHotPath:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=20,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.55, "claude": 0.45},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -462,8 +462,8 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "system_design")
 
         knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
@@ -486,7 +486,7 @@ class TestCortexInAskHotPath:
             basin_id="system_design",
             consolidated_at="2026-05-12T05:00:00Z",
             n_episodes=20,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.7, "claude": 0.3},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -501,8 +501,8 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "system_design")
 
         knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
@@ -534,7 +534,7 @@ class TestCortexInAskHotPath:
             basin_id="b",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=20,
-            task_kinds=["b"],
+            task_types=["b"],
             winner_distribution={"codex": 0.7, "claude": 0.3},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -544,8 +544,8 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"b": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "b")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "b")
 
         decision = ask_module.decide_route("q", available_providers=["claude", "gemini"])
         # codex (primary) not available, claude (challenger) IS → route to claude.
@@ -561,7 +561,7 @@ class TestCortexInAskHotPath:
             basin_id="b",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["b"],
+            task_types=["b"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -571,8 +571,8 @@ class TestCortexInAskHotPath:
         )
         cortex.save_routing_patterns({"b": pattern})
 
-        from trinity_local import task_kinds
-        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "b")
+        from trinity_local import task_types
+        monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "b")
         knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
 
@@ -812,7 +812,7 @@ class TestMcpGetCortexRules:
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=30,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"codex": 0.9, "claude": 0.1},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.82, components={"n_episodes_norm": 1.0, "consistency_score": 0.9, "recency_agreement": 0.8, "diversity": 0.7}),
@@ -821,7 +821,7 @@ class TestMcpGetCortexRules:
             basin_id="code_review",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=5,
-            task_kinds=["code_review"],
+            task_types=["code_review"],
             winner_distribution={"claude": 0.8, "codex": 0.2},
             routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.40, components={"n_episodes_norm": 0.2, "consistency_score": 0.8, "recency_agreement": 0.5, "diversity": 0.5}),
@@ -842,7 +842,7 @@ class TestMcpGetCortexRules:
         p = cortex.RoutingPattern(
             basin_id="system_design",
             consolidated_at="2026-05-20T10:30:00Z",
-            n_episodes=30, task_kinds=["system_design"],
+            n_episodes=30, task_types=["system_design"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.8, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.5}),
@@ -867,7 +867,7 @@ class TestMcpGetCortexRules:
         high = cortex.RoutingPattern(
             basin_id="high",
             consolidated_at="2026-05-20T10:30:00Z",
-            n_episodes=30, task_kinds=["high"],
+            n_episodes=30, task_types=["high"],
             winner_distribution={"codex": 1.0},
             routing_rule=cortex.RoutingRule(primary="codex", challenger=None, reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.85, components={"n_episodes_norm": 1.0, "consistency_score": 1.0, "recency_agreement": 1.0, "diversity": 0.6}),
@@ -875,7 +875,7 @@ class TestMcpGetCortexRules:
         low = cortex.RoutingPattern(
             basin_id="low",
             consolidated_at="2026-05-20T10:30:00Z",
-            n_episodes=3, task_kinds=["low"],
+            n_episodes=3, task_types=["low"],
             winner_distribution={"claude": 0.5, "codex": 0.5},
             routing_rule=cortex.RoutingRule(primary="claude", challenger="codex", reason="r", subroutes=[]),
             trust_score=cortex.TrustScore(value=0.30, components={"n_episodes_norm": 0.12, "consistency_score": 0.5, "recency_agreement": 0.3, "diversity": 0.5}),
@@ -912,7 +912,7 @@ class TestMcpMarkCortexRuleWrong:
             basin_id=basin,
             consolidated_at="2026-05-12T06:00:00Z",
             n_episodes=20,
-            task_kinds=[basin],
+            task_types=[basin],
             winner_distribution={"claude": 0.8},
             routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="x", subroutes=[]),
             trust_score=cortex.TrustScore(

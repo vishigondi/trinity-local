@@ -16,12 +16,12 @@ class TestRoutingContext:
         """Construct with required fields only."""
         ctx = RoutingContext(
             task_text="Fix the auth bug",
-            task_kind="debug",
+            task_type="debug",
             current_provider="claude",
             session_id="session-123",
         )
         assert ctx.task_text == "Fix the auth bug"
-        assert ctx.task_kind == "debug"
+        assert ctx.task_type == "debug"
         assert ctx.current_provider == "claude"
         assert ctx.session_id == "session-123"
         assert ctx.has_web is False
@@ -32,7 +32,7 @@ class TestRoutingContext:
         """Construct with all fields."""
         ctx = RoutingContext(
             task_text="Implement feature",
-            task_kind="feature",
+            task_type="feature",
             current_provider="codex",
             session_id="session-456",
             task_id="task-789",
@@ -55,12 +55,12 @@ class TestRoutingContext:
         """RoutingContext is immutable."""
         ctx = RoutingContext(
             task_text="test",
-            task_kind="debug",
+            task_type="debug",
             current_provider="claude",
             session_id="123",
         )
         with pytest.raises(AttributeError):
-            ctx.task_kind = "feature"
+            ctx.task_type = "feature"
 
 
 class TestRoutingDecision:
@@ -121,7 +121,7 @@ class TestHeuristicRanker:
         ranker = HeuristicRanker()
         ctx = RoutingContext(
             task_text="Compare the top 5 machine learning frameworks",
-            task_kind="research",
+            task_type="research",
             current_provider="claude",
             session_id="sess-001",
         )
@@ -138,7 +138,7 @@ class TestHeuristicRanker:
         ranker = HeuristicRanker()
         ctx = RoutingContext(
             task_text="Fix the bug in the authentication module",
-            task_kind="coding",
+            task_type="coding",
             current_provider="claude",
             session_id="sess-002",
         )
@@ -154,7 +154,7 @@ class TestHeuristicRanker:
         ranker = HeuristicRanker()
         ctx = RoutingContext(
             task_text="Why is this import failing?",
-            task_kind="debugging",
+            task_type="debugging",
             current_provider="claude",
             session_id="sess-003",
         )
@@ -168,7 +168,7 @@ class TestHeuristicRanker:
         ranker = HeuristicRanker()
         ctx = RoutingContext(
             task_text="Help me draft an email",
-            task_kind="writing",
+            task_type="writing",
             current_provider="claude",
             session_id="sess-004",
         )
@@ -188,7 +188,7 @@ class TestKnnRanker:
         ranker = KnnRanker()
         ctx = RoutingContext(
             task_text="Fix the auth bug",
-            task_kind="debugging",
+            task_type="debugging",
             current_provider="claude",
             session_id="sess-005",
         )
@@ -201,7 +201,7 @@ class TestKnnRanker:
         ranker = KnnRanker()
         ctx = RoutingContext(
             task_text="",
-            task_kind="coding",
+            task_type="coding",
             current_provider="claude",
             session_id="sess-006",
         )
@@ -219,7 +219,7 @@ class TestKnnRanker:
         ranker = KnnRanker()
         ctx = RoutingContext(
             task_text="Compare machine learning frameworks",
-            task_kind="research",
+            task_type="research",
             current_provider="claude",
             session_id="sess-007",
         )
@@ -233,7 +233,7 @@ class TestKnnRanker:
         ranker = KnnRanker()
         ctx = RoutingContext(
             task_text="Debug the issue",
-            task_kind="debugging",
+            task_type="debugging",
             current_provider="claude",
             session_id="sess-008",
             metadata={"project": "test-project"},
@@ -252,7 +252,7 @@ class TestFallbackRanker:
         ranker = FallbackRanker()
         ctx = RoutingContext(
             task_text="Fix the database query",
-            task_kind="coding",
+            task_type="coding",
             current_provider="claude",
             session_id="sess-009",
         )
@@ -265,7 +265,7 @@ class TestFallbackRanker:
         ranker = FallbackRanker()
         ctx = RoutingContext(
             task_text="Compare algorithms",
-            task_kind="research",
+            task_type="research",
             current_provider="claude",
             session_id="sess-010",
         )
@@ -277,12 +277,12 @@ class TestFallbackRanker:
     def test_all_task_kinds(self):
         """FallbackRanker handles all task kinds."""
         ranker = FallbackRanker()
-        for task_kind in ["research", "coding", "debugging", "writing", "general"]:
+        for task_type in ["research", "coding", "debugging", "writing", "general"]:
             ctx = RoutingContext(
-                task_text=f"Task: {task_kind}",
-                task_kind=task_kind,
+                task_text=f"Task: {task_type}",
+                task_type=task_type,
                 current_provider="claude",
-                session_id=f"sess-{task_kind}",
+                session_id=f"sess-{task_type}",
             )
             decision = ranker.advise(ctx)
             assert decision is not None
@@ -306,7 +306,7 @@ class TestBuildDefaultRanker:
         ranker = build_default_ranker()
         ctx = RoutingContext(
             task_text="Test task",
-            task_kind="coding",
+            task_type="coding",
             current_provider="claude",
             session_id="sess-factory-test",
         )

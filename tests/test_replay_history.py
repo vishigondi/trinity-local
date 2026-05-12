@@ -103,7 +103,7 @@ class TestAggregateRoutingTable:
         councils = [
             {
                 "council_run_id": "c1",
-                "task_kind": "coding",
+                "task_type": "coding",
                 "routing_label": {
                     "task_type": "code_refactor",
                     "provider_scores": {
@@ -114,7 +114,7 @@ class TestAggregateRoutingTable:
             },
             {
                 "council_run_id": "c2",
-                "task_kind": "coding",
+                "task_type": "coding",
                 "routing_label": {
                     "task_type": "code_refactor",
                     "provider_scores": {
@@ -125,7 +125,7 @@ class TestAggregateRoutingTable:
             },
             {
                 "council_run_id": "c3",
-                "task_kind": "writing",
+                "task_type": "writing",
                 "routing_label": {
                     "task_type": "writing",
                     "provider_scores": {
@@ -154,13 +154,13 @@ class TestAggregateRoutingTable:
         assert "computed_at" in table
 
     def test_falls_back_to_task_kind_when_routing_label_missing(self, home: Path):
-        """If chairman didn't emit a routing_label.task_type, use the council's task_kind."""
+        """If chairman didn't emit a routing_label.task_type, use the council's task_type."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
         councils = [
             {
                 "council_run_id": "c1",
-                "task_kind": "general",
+                "task_type": "general",
                 "routing_label": {"provider_scores": {"claude": {"overall": 7.0}}},
             },
         ]
@@ -176,7 +176,7 @@ class TestAggregateRoutingTable:
         councils = [
             {
                 "council_run_id": f"c{i}",
-                "task_kind": "code_refactor",
+                "task_type": "code_refactor",
                 "routing_label": {
                     "task_type": "code_refactor",
                     "provider_scores": {
@@ -200,7 +200,7 @@ class TestAggregateRoutingTable:
         councils = [
             {
                 "council_run_id": "c1",
-                "task_kind": "writing",
+                "task_type": "writing",
                 "routing_label": {
                     "task_type": "writing",
                     "provider_scores": {
@@ -455,7 +455,7 @@ class TestCortexRulesHealthSurface:
             basin_id="system_design",
             consolidated_at="2026-05-12T03:00:00Z",
             n_episodes=20,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"claude": 0.7, "codex": 0.3},
             routing_rule=cortex.RoutingRule(primary="claude", challenger="codex", reason="x", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -490,7 +490,7 @@ class TestCortexRulesHealthSurface:
             basin_id="writing",
             consolidated_at="2026-05-12T03:00:00Z",
             n_episodes=5,
-            task_kinds=["writing"],
+            task_types=["writing"],
             winner_distribution={"gemini": 1.0},
             routing_rule=cortex.RoutingRule(primary="gemini", challenger=None, reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
@@ -518,7 +518,7 @@ class TestCortexRulesHealthSurface:
             basin_id="system_design",
             consolidated_at="2026-05-12T04:00:00Z",
             n_episodes=20,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             winner_distribution={"claude": 0.6},
             routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="", subroutes=[]),
             trust_score=cortex.TrustScore(

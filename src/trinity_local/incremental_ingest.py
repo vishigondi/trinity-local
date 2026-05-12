@@ -24,7 +24,7 @@ from .ingest import iter_prompt_turns
 from .memory import PromptNode, upsert_prompt_node
 from .memory.store import iter_prompt_nodes
 from .state_paths import ingest_cursors_path
-from .task_kinds import guess_task_kind
+from .task_types import guess_task_type
 from .utils import now_iso, stable_id
 
 
@@ -162,7 +162,7 @@ def ingest_recent(
                     timestamp=turn.timestamp,
                     preceding_assistant_text=turn.preceding_assistant_text,
                     following_assistant_text=turn.following_assistant_text,
-                    themes=[guess_task_kind(turn.text)] if turn.text else [],
+                    themes=[guess_task_type(turn.text)] if turn.text else [],
                 )
                 upsert_prompt_node(node)
                 existing_ids.add(node_id)

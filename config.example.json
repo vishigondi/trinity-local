@@ -23,7 +23,7 @@
           "thinker",
           "verifier"
         ],
-        "task_kinds": [
+        "task_types": [
           "general",
           "reasoning",
           "coding"
@@ -47,7 +47,7 @@
           "worker",
           "verifier"
         ],
-        "task_kinds": [
+        "task_types": [
           "general",
           "reasoning",
           "coding",
@@ -71,7 +71,7 @@
           "thinker",
           "verifier"
         ],
-        "task_kinds": [
+        "task_types": [
           "general",
           "reasoning",
           "research"
@@ -97,7 +97,7 @@
           "worker",
           "verifier"
         ],
-        "task_kinds": [
+        "task_types": [
           "coding",
           "debugging"
         ]

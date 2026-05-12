@@ -140,7 +140,7 @@ class TestPickReason:
         )
         assert result["chairman"] == "claude"
         assert result["source"] == "personal_routing_table"
-        assert result["task_kind"] == "coding"
+        assert result["task_type"] == "coding"
         # New: the alpha + n are surfaced for telemetry.
         assert result.get("alpha", 0) >= 0.95
         assert result.get("n_personal", 0) == 20
@@ -153,7 +153,7 @@ class TestPickReason:
         )
         assert result["chairman"] == "codex"
         assert result["source"] == "global_benchmarks"
-        assert result["task_kind"] == "coding"
+        assert result["task_type"] == "coding"
 
     def test_reports_default_source_for_unmapped_category(self, home: Path):
         # Writing maps to creative_writing, which has no reference data with
@@ -163,7 +163,7 @@ class TestPickReason:
             available_providers=["claude", "gemini", "codex"],
         )
         assert result["source"] == "default_order"
-        assert result["task_kind"] == "writing"
+        assert result["task_type"] == "writing"
 
     def test_reports_default_source_when_no_match(self, home: Path):
         result = chairman_pick_reason(

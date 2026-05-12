@@ -98,13 +98,13 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Embeddings | `embeddings/` — `__init__.py`, `backend_mlx.py`, `backend_tfidf.py`, `cache.py` | `nomic-embed-text-v1.5` at **768d**, batched embed with cache-awareness, Nomic prefix preservation |
 | Ingest | `ingest.py` | Parsers: `parse_claude_code_session`, `parse_codex_session`, `parse_gemini_cli_session`, `parse_cowork_session`, `parse_claude_ai_export`, `parse_chatgpt_export`, `parse_gemini_takeout_html`. `iter_prompt_turns(session)` yields clean user-facing turns (sidechain / API errors / synthetic stripped). Gemini Takeout cells are grouped into multi-turn sessions by 30-minute time-proximity (source_format_version "2") so prior-thread context is preserved across cells Google flattened. |
 | Thread context | `thread_context.py` | Canonical `build_threaded_prompt()` formatter — prepends preceding-assistant excerpt to short turns ("continue.", "Let me restart.") so fresh models replay with context. Used by both autofill and replay-history. |
-| Categories | `categories.py` | Trinity capability categories aligned with the LMArena leaderboard (Coding/Math/Creative Writing/Hard Prompts/Multi-Turn/Instruction Following/Overall). Single source for the task_kind→category map and UI labels. |
+| Categories | `categories.py` | Trinity capability categories aligned with the LMArena leaderboard (Coding/Math/Creative Writing/Hard Prompts/Multi-Turn/Instruction Following/Overall). Single source for the task_type→category map and UI labels. |
 | Model detection | `model_detector.py` | Probes each provider CLI for the strongest model it accepts. Driven by `data/model_candidates.json` (synced from artificialanalysis.ai). `trinity-local models-detect` writes winners to `~/.trinity/detected_models.json`; runtime prefers detected over config.json. |
 | Ranker | `ranker/` — `base.py`, `fallback.py`, `heuristic.py`, `knn_ranker.py`, `chairman_picker.py` (NEW), `types.py` | Routing decisions + chairman auto-selection (personal table → global benchmarks → default order) |
 | Council outcome | `council_feedback.py` | Append user verdicts; `record_council_outcome` (in `memory/store.py`) propagates to PromptNode |
 | State paths | `state_paths.py` | Single source of truth for `~/.trinity/` paths |
 | Runtime env | `runtime_env.py` | PATH-injection env builder + `run_with_runtime_env()` (both helpers live in one module — `subprocess_utils.py` was the original plan but the split didn't materialize) |
-| Task kinds | `task_kinds.py` | Single `guess_task_kind()` heuristic classifier (no LLM) |
+| Task kinds | `task_types.py` | Single `guess_task_type()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
 | MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong` (see below) |

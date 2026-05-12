@@ -15,7 +15,7 @@ class ProviderConfig:
     command: list[str]
     args: list[str]
     roles: set[str]
-    task_kinds: set[str]
+    task_types: set[str]
     model: str | None = None
 
 
@@ -82,7 +82,7 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
             command=list(provider["command"]),
             args=list(provider.get("args", [])),
             roles=set(provider.get("roles", [])),
-            task_kinds=set(provider.get("task_kinds", [])),
+            task_types=set(provider.get("task_types", [])),
             model=provider.get("model"),
         )
 

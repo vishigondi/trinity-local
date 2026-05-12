@@ -26,7 +26,7 @@ def _make_event(**overrides) -> AdvisoryEvent:
         timestamp="2026-04-28T01:00:00Z",
         session_id="test-session-1",
         provider="claude",
-        task_kind="coding",
+        task_type="coding",
         prompt_len=100,
         knn_available=True,
         neighbor_count=5,
@@ -94,7 +94,7 @@ class TestReport:
         for i in range(5):
             log_advisory_event(_make_event(
                 session_id=f"report-{i}",
-                task_kind="coding" if i < 3 else "research",
+                task_type="coding" if i < 3 else "research",
                 council_confidence=0.8 if i < 3 else 0.3,
                 evidence_count=3 + i,
                 was_upgraded=i < 2,

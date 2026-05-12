@@ -145,7 +145,7 @@ def handle_embed(args):
             example_id=ex.example_id,
             provider=ex.chosen_provider,
             label=ex.label,
-            task_kind=t.task_kind_hint or "general",
+            task_type=t.task_kind_hint or "general",
             method=backend,
             vector=vector,
             text_hash=hashlib.sha1(text.encode()).hexdigest()[:16],
@@ -207,7 +207,7 @@ def handle_rank(args):
         if report.provider_accuracy:
             print(f"    by provider: {', '.join(f'{k}={v:.0%}' for k, v in sorted(report.provider_accuracy.items()))}")
         if report.task_kind_accuracy:
-            print(f"    by task_kind: {', '.join(f'{k}={v:.0%}' for k, v in sorted(report.task_kind_accuracy.items()))}")
+            print(f"    by task_type: {', '.join(f'{k}={v:.0%}' for k, v in sorted(report.task_kind_accuracy.items()))}")
         print()
     print(f"  Report: {report_path}")
 
@@ -312,7 +312,7 @@ def handle_hardeval(args):
             example_id=ex.example_id,
             provider=ex.chosen_provider,
             label=ex.label,
-            task_kind=t.task_kind_hint or "general",
+            task_type=t.task_kind_hint or "general",
             method=backend,
             vector=vector,
             text_hash=hashlib.sha1(text.encode()).hexdigest()[:16],

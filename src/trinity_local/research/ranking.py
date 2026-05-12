@@ -66,7 +66,7 @@ class RankingReport:
 def _heuristic_label(example: RoutingExample) -> str:
     """The current heuristic: provider is always "good_fit" unless the
     task kind suggests council."""
-    task_kind = example.transcript.task_kind_hint or "general"
+    task_type = example.transcript.task_kind_hint or "general"
     provider = example.chosen_provider
 
     # The heuristic always says the chosen provider is fine

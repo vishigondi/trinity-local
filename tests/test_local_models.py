@@ -150,7 +150,7 @@ class TestOllamaProviderDispatch:
             command=["ollama"],
             args=[],
             roles=set(),
-            task_kinds=set(),
+            task_types=set(),
             model="qwen3:32b",
         )
         captured = {}
@@ -184,7 +184,7 @@ class TestOllamaProviderDispatch:
             command=["ollama"],
             args=[],
             roles=set(),
-            task_kinds=set(),
+            task_types=set(),
             model=None,  # the bug we're guarding
         )
         with pytest.raises(ProviderError, match="model name"):
@@ -206,7 +206,7 @@ class TestMakeProviderDispatch:
             command=["ollama"],
             args=[],
             roles=set(),
-            task_kinds=set(),
+            task_types=set(),
             model="qwen3:32b",
         )
         provider = make_provider(cfg)

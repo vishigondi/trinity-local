@@ -7,7 +7,7 @@ an embedding. The data needed to compare "what claude said when I asked
 X" vs "what gemini said when I asked the same X" already exists on disk
 — Trinity just hasn't been mining it.
 
-This module does the mining: O(N²) cosine sim within each task_kind
+This module does the mining: O(N²) cosine sim within each task_type
 bucket (cheap at ~thousands of nodes per bucket), groups embeddings
 above a configurable threshold into clusters, drops clusters that don't
 span ≥ 2 providers, returns the cross-provider clusters as candidates

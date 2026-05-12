@@ -237,7 +237,7 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {
                     "basin_id": {
                         "type": "string",
-                        "description": "Optional. Return only the rule for this basin (task_kind).",
+                        "description": "Optional. Return only the rule for this basin (task_type).",
                     },
                     "min_trust": {
                         "type": "number",
@@ -266,7 +266,7 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {
                     "basin_id": {
                         "type": "string",
-                        "description": "The basin / task_kind whose rule should be marked wrong.",
+                        "description": "The basin / task_type whose rule should be marked wrong.",
                     },
                     "reason": {
                         "type": "string",
@@ -381,7 +381,7 @@ def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
         command=["ollama"],
         args=[],
         roles=set(),
-        task_kinds=set(),
+        task_types=set(),
         model=model,
     )
     provider = OllamaProvider(cfg)
@@ -582,17 +582,17 @@ async def _route(args: dict) -> list[Any]:
     latency_pref = (args.get("latency") or "normal").lower()
 
     from .ranker import prompt_calls_for_council
-    from .task_kinds import guess_task_kind
+    from .task_types import guess_task_type
 
     chairman_pick = chairman_pick_reason(task, available_providers=available)
-    task_kind = chairman_pick.get("task_kind") or guess_task_kind(task)
+    task_type = chairman_pick.get("task_type") or guess_task_type(task)
 
     decision = None
     try:
         ranker = build_default_ranker()
         decision = ranker.advise(RoutingContext(
             task_text=task,
-            task_kind=task_kind,
+            task_type=task_type,
             current_provider=current_provider,
             session_id="mcp_route",
             metadata={"budget": budget_pref, "latency": latency_pref},
@@ -630,7 +630,7 @@ async def _route(args: dict) -> list[Any]:
     # Prompt-shape escalation: if the task literally contains "A) ... B) ..."
     # numbered alternatives, "vs.", "which is best", "tradeoffs", etc., the
     # user is asking for a comparison — escalate to mode=council regardless
-    # of what task_kind says. Single-answer routing on a multi-candidate
+    # of what task_type says. Single-answer routing on a multi-candidate
     # prompt under-recommends council and starves the personal routing table.
     council_signals: list[str] = []
     escalate, council_signals = prompt_calls_for_council(task)
@@ -666,7 +666,7 @@ async def _route(args: dict) -> list[Any]:
         "challenger": challenger,
         "confidence": confidence,
         "reason": reason,
-        "task_kind": task_kind,
+        "task_type": task_type,
         "chairman_source": chairman_pick.get("source", "default_order"),
         "shape_signals": council_signals,
         "budget": budget_pref,

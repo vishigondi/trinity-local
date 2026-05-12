@@ -182,7 +182,7 @@ class TestRunConsensusRound:
         def _pc(name: str, model: str) -> ProviderConfig:
             return ProviderConfig(
                 name=name, type="cli", enabled=True, label=name,
-                command=["echo"], args=[], roles=set(), task_kinds=set(),
+                command=["echo"], args=[], roles=set(), task_types=set(),
                 model=model,
             )
 
@@ -223,7 +223,7 @@ class TestRunConsensusRound:
         def _pc(name: str, model: str) -> ProviderConfig:
             return ProviderConfig(
                 name=name, type="cli", enabled=True, label=name,
-                command=["echo"], args=[], roles=set(), task_kinds=set(),
+                command=["echo"], args=[], roles=set(), task_types=set(),
                 model=model,
             )
 

@@ -265,7 +265,7 @@ class TestSeedCLI:
         assert len(nodes) == result["prompts_indexed"]
         # Embedding length matches requested dim
         assert all(len(n.embedding) == 768 for n in nodes)
-        # Each PromptNode has at least one theme via guess_task_kind
+        # Each PromptNode has at least one theme via guess_task_type
         assert all(n.themes for n in nodes)
 
         # Multi-turn sources produce TurnWindows

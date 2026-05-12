@@ -22,7 +22,7 @@ from ..ingest import (
     parse_gemini_cli_session,
 )
 from ..state_paths import replay_examples_dir
-from ..task_kinds import guess_task_kind
+from ..task_types import guess_task_type
 from ..training_schema import (
     ModelDescriptor,
     RoutingExample,
@@ -67,7 +67,7 @@ def _weak_label(features: SessionFeatures) -> str:
 
 def _guess_task_kind(text: str) -> str:
     """Compatibility wrapper around the shared task kind classifier."""
-    return guess_task_kind(text)
+    return guess_task_type(text)
 
 
 def _features_to_example(features: SessionFeatures) -> RoutingExample | None:
@@ -78,7 +78,7 @@ def _features_to_example(features: SessionFeatures) -> RoutingExample | None:
     if features.extra.get("is_low_signal_prompt") or features.extra.get("is_automated"):
         return None
 
-    task_kind = _guess_task_kind(prompt)
+    task_type = _guess_task_kind(prompt)
     label = _weak_label(features)
 
     window = TranscriptWindow(
@@ -92,7 +92,7 @@ def _features_to_example(features: SessionFeatures) -> RoutingExample | None:
         first_user_text=prompt[:2000],
         planner_text=(features.planner_text or "")[:1000] or None,
         final_text=(features.final_text or "")[:1000] or None,
-        task_kind_hint=task_kind,
+        task_kind_hint=task_type,
         model=features.model,
         tools=features.tools,
         outcome=features.outcome,

@@ -135,7 +135,7 @@ def run_review(
             command=reviewer_command,
             args=[],
             roles=set(),
-            task_kinds=set(),
+            task_types=set(),
             model=None,
         )
     )

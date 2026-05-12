@@ -23,7 +23,7 @@ def _plant_pattern(basin: str, *, override: int = 0) -> None:
         basin_id=basin,
         consolidated_at="2026-05-12T07:00:00Z",
         n_episodes=20,
-        task_kinds=[basin],
+        task_types=[basin],
         winner_distribution={"claude": 0.8},
         routing_rule=cortex.RoutingRule(
             primary="claude", challenger=None, reason="x", subroutes=[]

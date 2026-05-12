@@ -30,7 +30,7 @@ class EmbeddingRecord:
     example_id: str
     provider: str
     label: str
-    task_kind: str
+    task_type: str
     method: str  # "tfidf", "sentence-transformers", "mlx"
     vector: list[float]
     text_hash: str  # For dedup
@@ -112,7 +112,7 @@ def build_tfidf_vectors(
                 example_id=ex.example_id,
                 provider=ex.chosen_provider,
                 label=ex.label,
-                task_kind=ex.transcript.task_kind_hint or "general",
+                task_type=ex.transcript.task_kind_hint or "general",
                 method="tfidf",
                 vector=[0.0],
                 text_hash=_text_hash(texts[i]),
@@ -142,7 +142,7 @@ def build_tfidf_vectors(
             example_id=example.example_id,
             provider=example.chosen_provider,
             label=example.label,
-            task_kind=example.transcript.task_kind_hint or "general",
+            task_type=example.transcript.task_kind_hint or "general",
             method="tfidf",
             vector=vector,
             text_hash=_text_hash(text),

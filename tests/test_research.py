@@ -33,7 +33,7 @@ def _make_example(
     example_id: str = "ex_test",
     provider: str = "claude",
     label: str = "good_fit",
-    task_kind: str = "coding",
+    task_type: str = "coding",
     first_text: str = "Write a function to sort a list",
     completed: bool = True,
     tool_errors: int = 0,
@@ -46,7 +46,7 @@ def _make_example(
             provider=provider,
             source_path="/tmp/test.jsonl",
             first_user_text=first_text,
-            task_kind_hint=task_kind,
+            task_kind_hint=task_type,
             model=ModelDescriptor(provider=provider),
             outcome=OutcomeSignals(
                 completed=completed,

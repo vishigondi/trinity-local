@@ -35,7 +35,7 @@ from .task_runtime import (
     tasks_dir,
 )
 from .task_schema import TaskRecommendation
-from .task_kinds import guess_task_kind
+from .task_types import guess_task_type
 
 
 @dataclass
@@ -158,7 +158,7 @@ def _parse_source_path(source: str, path: Path):
 
 
 def _guess_task_kind(text: str, provider: str) -> str:
-    return guess_task_kind(text, provider=provider)
+    return guess_task_type(text, provider=provider)
 
 
 def _normalize_prompt_key(text: str) -> str:
@@ -197,7 +197,7 @@ def _task_timestamp(task) -> datetime | None:
         return None
 
 
-def _similar_recent_task_count(*, prompt: str, provider: str, task_kind: str, exclude_task_id: str | None = None) -> int:
+def _similar_recent_task_count(*, prompt: str, provider: str, task_type: str, exclude_task_id: str | None = None) -> int:
     prompt_key = _normalize_prompt_key(prompt)
     if not prompt_key:
         return 0
@@ -218,7 +218,7 @@ def _similar_recent_task_count(*, prompt: str, provider: str, task_kind: str, ex
         if not other_key:
             continue
         same_provider = (task.source_provider or provider) == provider
-        same_kind = task_kind in task.tags if task.tags else False
+        same_kind = task_type in task.tags if task.tags else False
         overlap = len(set(prompt_key.split()) & set(other_key.split()))
         if same_provider and same_kind and (other_key == prompt_key or overlap >= 4):
             count += 1
@@ -226,7 +226,7 @@ def _similar_recent_task_count(*, prompt: str, provider: str, task_kind: str, ex
 
 
 def _detect_provider_switch(
-    features, prompt: str, task_kind: str
+    features, prompt: str, task_type: str
 ) -> tuple[str | None, str | None]:
     """Check if a similar prompt appeared in a different provider recently.
 
@@ -320,7 +320,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             outcome_rec = OutcomeRecord(
                 provider=features.provider,
                 model_id=features.model.normalized_model_id,
-                task_kind=task_kind_guess,
+                task_type=task_kind_guess,
                 completed=bool(features.outcome.completed),
                 error_count=features.outcome.tool_errors_total or 0,
                 session_seconds=features.outcome.session_seconds,
@@ -337,7 +337,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 outcome_rec = OutcomeRecord(
                     provider=switched_from,
                     model_id=None,
-                    task_kind=task_kind_guess,
+                    task_type=task_kind_guess,
                     completed=False,
                     error_count=0,
                     session_seconds=None,
@@ -369,10 +369,10 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                         pass  # Analytics must never break the watcher
 
             # Use unified ranker interface (heuristic + k-NN with fallback)
-            task_kind = task_kind_guess
+            task_type = task_kind_guess
             routing_ctx = RoutingContext(
                 task_text=prompt,
-                task_kind=task_kind,
+                task_type=task_type,
                 current_provider=features.provider,
                 session_id=session.session_id,
                 task_id=None,
@@ -396,7 +396,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 task_cluster_id=session.session_id[:16] if not features.project_hint else f"{features.project_hint}-{session.session_id[:8]}",
                 task_text=prompt,
                 context_excerpt=features.final_text or "",
-                goal=f"Handle this {task_kind} task with the best provider.",
+                goal=f"Handle this {task_type} task with the best provider.",
                 comparison_instructions="Prefer the strongest answer for the user's current task.",
                 origin_session_id=session.session_id,
                 origin_provider=features.provider,
@@ -408,7 +408,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
                 title=prompt.splitlines()[0][:120],
                 status="suggested",
                 recommendation=recommendation,
-                tags=[task_kind],
+                tags=[task_type],
                 metadata={"cwd": features.cwd or ".", "source_path": session.source_path},
             )
             # --- Explicit switch linkage (Fix 3) ---

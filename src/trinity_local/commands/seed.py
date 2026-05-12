@@ -34,7 +34,7 @@ from ..memory import (
     upsert_prompt_node,
     upsert_turn_window,
 )
-from ..task_kinds import guess_task_kind
+from ..task_types import guess_task_type
 from ..utils import now_iso, stable_id
 
 
@@ -130,7 +130,7 @@ def _stage_session(session, existing_ids: set[str]) -> dict | None:
         if node_id in existing_ids:
             continue
         prompt_texts.append(f"search_document: {turn.text}")
-        keepers.append((turn, node_id, guess_task_kind(turn.text)))
+        keepers.append((turn, node_id, guess_task_type(turn.text)))
 
     is_multi_turn = len(turns) > 1
     window_texts: list[str] = []

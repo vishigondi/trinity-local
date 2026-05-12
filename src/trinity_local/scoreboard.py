@@ -30,11 +30,11 @@ def append_run(record: dict) -> None:
         handle.write(json.dumps(record) + "\n")
 
 
-def update_provider_score(provider: str, task_kind: str, success: bool) -> None:
+def update_provider_score(provider: str, task_type: str, success: bool) -> None:
     data = load_scoreboard()
     provider_entry = data.setdefault(provider, {})
     task_entry = provider_entry.setdefault(
-        task_kind, {"score": 0.0, "successes": 0, "failures": 0}
+        task_type, {"score": 0.0, "successes": 0, "failures": 0}
     )
 
     if success:
@@ -47,12 +47,12 @@ def update_provider_score(provider: str, task_kind: str, success: bool) -> None:
     save_scoreboard(data)
 
 
-def best_provider_for_task(task_kind: str) -> tuple[str, float] | None:
+def best_provider_for_task(task_type: str) -> tuple[str, float] | None:
     data = load_scoreboard()
     best_name: str | None = None
     best_score = float("-inf")
     for provider, provider_entry in data.items():
-        task_entry = provider_entry.get(task_kind)
+        task_entry = provider_entry.get(task_type)
         if not task_entry:
             continue
         score = float(task_entry.get("score", 0.0))

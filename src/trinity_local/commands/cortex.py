@@ -191,7 +191,7 @@ def handle_consolidate(args):
             pattern = consolidate_basin(
                 basin_id=basin_id,
                 outcomes=basin_outcomes,
-                task_kinds=[basin_id],
+                task_types=[basin_id],
                 diversity_metric=diversity,
                 extractor=extractor,
                 auditor=auditor,

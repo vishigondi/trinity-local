@@ -1,6 +1,6 @@
 """Model drift detection.
 
-Tracks (provider, normalized_model_id, task_kind) → rolling outcome scores.
+Tracks (provider, normalized_model_id, task_type) → rolling outcome scores.
 Compares current-week scores against a 2-week baseline and emits alerts when
 a provider's quality drops significantly.
 
@@ -24,7 +24,7 @@ class DriftAlert:
     """A detected quality change for a provider/model/task combination."""
     provider: str
     model_id: str | None
-    task_kind: str
+    task_type: str
     baseline_score: float
     current_score: float
     delta_pct: float
@@ -41,7 +41,7 @@ class OutcomeRecord:
     """One session outcome for drift tracking."""
     provider: str
     model_id: str | None
-    task_kind: str
+    task_type: str
     completed: bool
     error_count: int
     session_seconds: float | None
@@ -79,7 +79,7 @@ def _load_outcomes() -> list[OutcomeRecord]:
         records.append(OutcomeRecord(
             provider=raw.get("provider", ""),
             model_id=raw.get("model_id"),
-            task_kind=raw.get("task_kind", "general"),
+            task_type=raw.get("task_type", "general"),
             completed=raw.get("completed", False),
             error_count=raw.get("error_count", 0),
             session_seconds=raw.get("session_seconds"),
@@ -117,7 +117,7 @@ def check_drift(
 ) -> list[DriftAlert]:
     """Check for model drift by comparing recent outcomes to baseline.
 
-    Returns a list of DriftAlert for any (provider, model, task_kind) combo
+    Returns a list of DriftAlert for any (provider, model, task_type) combo
     where current-window quality has dropped by more than threshold_pct.
     """
     now = datetime.now(timezone.utc).timestamp()
@@ -126,7 +126,7 @@ def check_drift(
 
     outcomes = _load_outcomes()
 
-    # Group by (provider, model_id, task_kind).
+    # Group by (provider, model_id, task_type).
     # Keep this as a plain type alias assignment so it works at runtime on 3.10+.
     Key = Tuple[str, Optional[str], str]
     current_scores: dict[Key, list[float]] = {}
@@ -136,7 +136,7 @@ def check_drift(
         ts = _parse_ts(record.timestamp)
         if ts <= 0:
             continue
-        key: Key = (record.provider, record.model_id, record.task_kind)
+        key: Key = (record.provider, record.model_id, record.task_type)
         score = _score_outcome(record)
 
         if ts >= current_cutoff:
@@ -159,18 +159,18 @@ def check_drift(
         delta_pct = ((current_avg - baseline_avg) / baseline_avg) * 100
 
         if delta_pct < -threshold_pct:
-            provider, model_id, task_kind = key
+            provider, model_id, task_type = key
             alerts.append(DriftAlert(
                 provider=provider,
                 model_id=model_id,
-                task_kind=task_kind,
+                task_type=task_type,
                 baseline_score=round(baseline_avg, 3),
                 current_score=round(current_avg, 3),
                 delta_pct=round(delta_pct, 1),
                 baseline_sessions=len(baseline),
                 current_sessions=len(current),
                 message=(
-                    f"{provider}'s {task_kind} quality dropped {abs(delta_pct):.0f}% "
+                    f"{provider}'s {task_type} quality dropped {abs(delta_pct):.0f}% "
                     f"this week vs prior 2 weeks "
                     f"(model: {model_id or 'unknown'}, "
                     f"{len(current)} recent sessions vs {len(baseline)} baseline)"

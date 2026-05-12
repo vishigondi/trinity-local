@@ -14,7 +14,7 @@ class RoutingContext:
     """
 
     task_text: str
-    task_kind: str
+    task_type: str
     current_provider: str
     session_id: str
 

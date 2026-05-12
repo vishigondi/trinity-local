@@ -3,7 +3,7 @@
 Two entry points:
 
   aggregate_routing_table(councils)
-      Pure aggregation — given a list of {task_kind, routing_label, user_winner}
+      Pure aggregation — given a list of {task_type, routing_label, user_winner}
       dicts, compute per-task-type means + winners. User verdicts are the
       ground truth signal: when present they dominate the chairman's per-
       provider `provider_scores` via a fixed weighting (see USER_VERDICT_WEIGHT).
@@ -71,7 +71,7 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
 
     Each item should have:
         - routing_label: dict (with provider_scores + task_type)
-        - task_kind: str (fallback when label lacks task_type)
+        - task_type: str (fallback when label lacks task_type)
         - user_winner: str | None (the provider the user picked via
           record_outcome; weighted heavily — see USER_VERDICT_WEIGHT)
     """
@@ -79,7 +79,7 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
     materialised = list(councils)
     for c in materialised:
         label = c.get("routing_label") or {}
-        task_type = label.get("task_type") or c.get("task_kind") or "general"
+        task_type = label.get("task_type") or c.get("task_type") or "general"
         scores = label.get("provider_scores") or {}
         user_winner = c.get("user_winner") or None
         for provider, sub in scores.items():
@@ -151,7 +151,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
             except Exception:
                 all_clean = False
                 continue
-        task_kind = (outcome.metadata or {}).get("task_kind")
+        task_type = (outcome.metadata or {}).get("task_type")
         # Pull the user's verdict if it was recorded. Lives under
         # outcome.metadata.user_verdict.user_winner — written by
         # record_outcome / commands/council_rate.
@@ -159,7 +159,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
         user_winner = user_verdict.get("user_winner") if isinstance(user_verdict, dict) else None
         records.append({
             "council_run_id": council_id,
-            "task_kind": task_kind,
+            "task_type": task_type,
             "routing_label": label_dict,
             "user_winner": user_winner,
         })
@@ -167,7 +167,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
 
 
 def _iter_rated_councils() -> Iterable[dict[str, Any]]:
-    """Yield {task_kind, routing_label} dicts for every council outcome on disk
+    """Yield {task_type, routing_label} dicts for every council outcome on disk
     that carries a routing_label. Both rated (user verdict in
     council_feedback.jsonl) and unrated (replay-history) outcomes contribute,
     so the personal routing table reflects ALL evidence the user has

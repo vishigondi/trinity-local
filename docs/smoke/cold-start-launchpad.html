@@ -1653,9 +1653,9 @@ function loadOutcomeScript(councilId, onComplete) {
         mlx: 'rgba(124, 96, 130, 0.85)',
       };
 
-      // Trinity task_kind → category map, injected from the server's
+      // Trinity task_type → category map, injected from the server's
       // canonical CATEGORY_REGISTRY so the launchpad chart never drifts
-      // out-of-sync with new task_kinds. Unknown kinds bucket into
+      // out-of-sync with new task_types. Unknown kinds bucket into
       // `defaultCategoryForUnknownTaskKind` (default: hard_prompts) instead
       // of disappearing from the chart.
       const TASK_KIND_TO_CATEGORY = pageData.taskKindToCategory || {};
@@ -1701,7 +1701,7 @@ function loadOutcomeScript(councilId, onComplete) {
       // Personal preference chart — uses the LMArena-aligned CATEGORY_REGISTRY
       // for its X-axis (NOT the globalBenchmarks keys, which are a different
       // scheme: ArtificialAnalysis intelligence/coding/agentic). Reusing the
-      // benchmarks X-axis was the original bug — task_kinds bucketed into
+      // benchmarks X-axis was the original bug — task_types bucketed into
       // hard_prompts / overall / etc never matched intelligence / agentic.
       const personal = pageData.personalRoutingTable;
       const personalCtx = document.getElementById('personal-preference-chart');
@@ -1712,7 +1712,7 @@ function loadOutcomeScript(councilId, onComplete) {
         const personalDatasets = providers.map((provider) => ({
           label: provider.charAt(0).toUpperCase() + provider.slice(1),
           data: personalCategoryKeys.map((cat) => {
-            // Average overall scores for any task_kind that maps to this category.
+            // Average overall scores for any task_type that maps to this category.
             const scores = [];
             for (const [taskKind, providerScores] of Object.entries(byTaskType)) {
               const mappedCat = TASK_KIND_TO_CATEGORY[taskKind] || DEFAULT_CATEGORY;

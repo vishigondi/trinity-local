@@ -141,7 +141,7 @@ class TestConsolidateBasin:
         pattern = consolidate_basin(
             basin_id="concrete_vs_comprehensive",
             outcomes=outcomes,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.7,
             extractor=_stub_extractor(extracted),
         )
@@ -161,7 +161,7 @@ class TestConsolidateBasin:
             consolidate_basin(
                 basin_id="empty",
                 outcomes=[],
-                task_kinds=[],
+                task_types=[],
                 diversity_metric=0.5,
                 extractor=_stub_extractor({"primary": "claude"}),
             )
@@ -177,7 +177,7 @@ class TestConsolidateBasin:
         pattern = consolidate_basin(
             basin_id="b",
             outcomes=outcomes,
-            task_kinds=[],
+            task_types=[],
             diversity_metric=0.5,
             extractor=_stub_extractor(extracted),
         )
@@ -203,7 +203,7 @@ class TestLoadSaveRoundtrip:
             basin_id="b1",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=20,
-            task_kinds=["x"],
+            task_types=["x"],
             winner_distribution={"claude": 0.7, "codex": 0.3},
             routing_rule=RoutingRule(
                 primary="claude",
@@ -239,7 +239,7 @@ class TestLoadSaveRoundtrip:
             basin_id="b_with_centroid",
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=20,
-            task_kinds=["x"],
+            task_types=["x"],
             winner_distribution={"claude": 1.0},
             routing_rule=RoutingRule(primary="claude", challenger=None, reason="r", subroutes=[]),
             trust_score=TrustScore(value=0.6, components={}),
@@ -263,7 +263,7 @@ class TestLoadSaveRoundtrip:
                 "basin_id": "legacy",
                 "consolidated_at": "2026-01-01T00:00:00Z",
                 "n_episodes": 5,
-                "task_kinds": [],
+                "task_types": [],
                 "winner_distribution": {"claude": 1.0},
                 "routing_rule": {"primary": "claude", "challenger": None, "reason": "", "subroutes": []},
                 "trust_score": {"value": 0.5, "components": {}, "computed_by": "system"},
@@ -331,7 +331,7 @@ class TestLoadSaveRoundtrip:
         pattern = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=outcomes,
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.5,
             extractor=stub_extractor,
         )
@@ -371,7 +371,7 @@ class TestLoadSaveRoundtrip:
                 "basin_id": "good",
                 "consolidated_at": "2026-01-01T00:00:00Z",
                 "n_episodes": 5,
-                "task_kinds": [],
+                "task_types": [],
                 "winner_distribution": {"claude": 1.0},
                 "routing_rule": {"primary": "claude", "challenger": None, "reason": "", "subroutes": []},
                 "trust_score": {"value": 0.5, "components": {}, "computed_by": "system"},
@@ -894,7 +894,7 @@ class TestConsolidateBasinWithAuditor:
         pattern_clean = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=self._outcomes(),
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.6,
             extractor=extractor,
             auditor=audit_agreed,
@@ -902,7 +902,7 @@ class TestConsolidateBasinWithAuditor:
         pattern_demoted = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=self._outcomes(),
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.6,
             extractor=extractor,
             auditor=audit_disagreed,
@@ -932,7 +932,7 @@ class TestConsolidateBasinWithAuditor:
         pattern = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=self._outcomes(),
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.6,
             extractor=extractor,
         )
@@ -957,7 +957,7 @@ class TestConsolidateBasinWithAuditor:
         pattern = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=self._outcomes(),
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.6,
             extractor=extractor,
             auditor=auditor,
@@ -988,7 +988,7 @@ class TestConsolidateBasinWithAuditor:
         pattern = cortex.consolidate_basin(
             basin_id="system_design",
             outcomes=self._outcomes(),
-            task_kinds=["system_design"],
+            task_types=["system_design"],
             diversity_metric=0.6,
             extractor=extractor,
             auditor=auditor,
@@ -1015,7 +1015,7 @@ class TestEffectiveTrust:
             basin_id="b",
             consolidated_at="2026-05-12T00:00:00Z",
             n_episodes=20,
-            task_kinds=["b"],
+            task_types=["b"],
             winner_distribution={"claude": 0.8},
             routing_rule=RoutingRule(primary="claude", challenger=None, reason="x", subroutes=[]),
             trust_score=TrustScore(
@@ -1081,7 +1081,7 @@ class TestConsolidatePreservesOverrideCount:
         pattern = cortex.consolidate_basin(
             basin_id="b",
             outcomes=outcomes,
-            task_kinds=["b"],
+            task_types=["b"],
             diversity_metric=0.5,
             extractor=extractor,
             prior_override_count=2,
@@ -1104,7 +1104,7 @@ class TestConsolidatePreservesOverrideCount:
         pattern = cortex.consolidate_basin(
             basin_id="b",
             outcomes=outcomes,
-            task_kinds=["b"],
+            task_types=["b"],
             diversity_metric=0.5,
             extractor=extractor,
         )

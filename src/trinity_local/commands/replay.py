@@ -34,7 +34,7 @@ from ..memory.replay_value import (
     theme_score,
 )
 from ..ranker import predict_strongest_chairman
-from ..task_kinds import guess_task_kind
+from ..task_types import guess_task_type
 from ..utils import now_iso, stable_id
 
 
@@ -44,7 +44,7 @@ def register(subparsers):
         help="Re-evaluate top-N replay-worthy past prompts against the current model lineup",
     )
     parser.add_argument("--limit", type=int, default=20, help="Max councils to run")
-    parser.add_argument("--task-type", default=None, help="Only replay prompts of this task_kind")
+    parser.add_argument("--task-type", default=None, help="Only replay prompts of this task_type")
     parser.add_argument("--source", default=None, help="Only replay prompts from this provider source")
     parser.add_argument(
         "--members",
@@ -91,14 +91,14 @@ def _select_candidates(
     source_filter: str | None,
     force: bool,
 ) -> list[tuple[PromptNode, str]]:
-    """Pick replay-worthy nodes. Returns (node, task_kind) pairs."""
+    """Pick replay-worthy nodes. Returns (node, task_type) pairs."""
     candidates: list[tuple[PromptNode, str, float]] = []
     for node in iter_prompt_nodes():
         if not node.text or len(node.text) < 8:
             continue
         if source_filter and node.provider != source_filter:
             continue
-        kind = guess_task_kind(node.text)
+        kind = guess_task_type(node.text)
         if task_type_filter and kind != task_type_filter:
             continue
         if not force and node.council_run_ids:
@@ -113,12 +113,12 @@ def _select_candidates(
 from ..personal_routing import aggregate_routing_table as _aggregate_routing_table
 
 
-def _format_dry_run_row(idx: int, node: PromptNode, task_kind: str) -> str:
+def _format_dry_run_row(idx: int, node: PromptNode, task_type: str) -> str:
     snippet = node.text.replace("\n", " ").strip()
     if len(snippet) > 100:
         snippet = snippet[:97] + "..."
     return (
-        f"  [{idx + 1:>3}] task_kind={task_kind:<15} provider={node.provider:<10} "
+        f"  [{idx + 1:>3}] task_type={task_type:<15} provider={node.provider:<10} "
         f"councils={len(node.council_run_ids)} "
         f"→ {snippet}"
     )
@@ -151,7 +151,7 @@ def handle_replay_history(args):
             "dry_run": True,
             "candidates": len(candidates),
             "preview": [
-                {"prompt_id": n.id, "task_kind": k, "text": n.text[:120]}
+                {"prompt_id": n.id, "task_type": k, "text": n.text[:120]}
                 for n, k in candidates
             ],
         }, indent=2))
@@ -191,7 +191,7 @@ def handle_replay_history(args):
             metadata={
                 "replay_history": True,
                 "prompt_node_id": node.id,
-                "task_kind": kind,
+                "task_type": kind,
                 "original_provider": node.provider,
             },
         )
@@ -221,7 +221,7 @@ def handle_replay_history(args):
         council_results.append({
             "council_run_id": outcome.council_run_id,
             "prompt_node_id": node.id,
-            "task_kind": kind,
+            "task_type": kind,
             "primary_provider": outcome.primary_provider,
             "winner_provider": outcome.winner_provider,
             "elapsed_seconds": round(elapsed, 2),
@@ -233,7 +233,7 @@ def handle_replay_history(args):
             scores = routing_label["provider_scores"]
             if winner in scores and isinstance(scores[winner], dict):
                 overall = f" (overall {scores[winner].get('overall', '?')})"
-        print(f"  -> task_kind={kind} winner={winner}{overall} [{elapsed:.0f}s]", file=sys.stderr)
+        print(f"  -> task_type={kind} winner={winner}{overall} [{elapsed:.0f}s]", file=sys.stderr)
 
     elapsed_total = time.time() - started
     # Aggregate just THIS replay run's outcomes for the CLI summary. The

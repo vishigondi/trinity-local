@@ -490,7 +490,7 @@ class TestCouncilFailureMetadata:
                     command=["claude"],
                     args=[],
                     roles=set(),
-                    task_kinds=set(),
+                    task_types=set(),
                 ),
                 "gemini": ProviderConfig(
                     name="gemini",
@@ -500,7 +500,7 @@ class TestCouncilFailureMetadata:
                     command=["gemini"],
                     args=[],
                     roles=set(),
-                    task_kinds=set(),
+                    task_types=set(),
                 ),
                 "codex": ProviderConfig(
                     name="codex",
@@ -510,7 +510,7 @@ class TestCouncilFailureMetadata:
                     command=["codex"],
                     args=[],
                     roles=set(),
-                    task_kinds=set(),
+                    task_types=set(),
                 ),
             },
             role_preferences={},

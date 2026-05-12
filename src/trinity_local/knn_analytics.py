@@ -34,7 +34,7 @@ class AdvisoryEvent:
     timestamp: str
     session_id: str
     provider: str
-    task_kind: str
+    task_type: str
     prompt_len: int
 
     # k-NN outputs
@@ -83,7 +83,7 @@ def load_advisory_log() -> list[AdvisoryEvent]:
                 timestamp=raw.get("timestamp", ""),
                 session_id=raw.get("session_id", ""),
                 provider=raw.get("provider", ""),
-                task_kind=raw.get("task_kind", ""),
+                task_type=raw.get("task_type", ""),
                 prompt_len=raw.get("prompt_len", 0),
                 knn_available=raw.get("knn_available", False),
                 neighbor_count=raw.get("neighbor_count", 0),
@@ -248,7 +248,7 @@ def generate_report() -> AdvisoryReport:
     # Threshold analysis by task kind
     by_kind: dict[str, list[float]] = defaultdict(list)
     for e in active:
-        by_kind[e.task_kind].append(e.council_confidence)
+        by_kind[e.task_type].append(e.council_confidence)
     for kind, confs in by_kind.items():
         report.confidence_by_task_kind[kind] = {
             "mean": sum(confs) / len(confs),

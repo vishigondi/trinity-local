@@ -161,7 +161,7 @@ class RoutingPattern:
     basin_id: str
     consolidated_at: str
     n_episodes: int
-    task_kinds: list[str]
+    task_types: list[str]
     winner_distribution: dict[str, float]
     routing_rule: RoutingRule
     trust_score: TrustScore
@@ -203,7 +203,7 @@ class RoutingPattern:
             "basin_id": self.basin_id,
             "consolidated_at": self.consolidated_at,
             "n_episodes": self.n_episodes,
-            "task_kinds": self.task_kinds,
+            "task_types": self.task_types,
             "winner_distribution": {k: round(v, 3) for k, v in self.winner_distribution.items()},
             "routing_rule": asdict(self.routing_rule),
             "trust_score": self.trust_score.to_dict(),
@@ -365,7 +365,7 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         basin_id=raw["basin_id"],
         consolidated_at=raw["consolidated_at"],
         n_episodes=raw["n_episodes"],
-        task_kinds=raw.get("task_kinds", []),
+        task_types=raw.get("task_types", []),
         winner_distribution=raw.get("winner_distribution", {}),
         routing_rule=rule,
         trust_score=trust,
@@ -399,7 +399,7 @@ def consolidate_basin(
     *,
     basin_id: str,
     outcomes: list[dict],
-    task_kinds: list[str],
+    task_types: list[str],
     diversity_metric: float,
     extractor: FlagshipExtractor,
     auditor: RuleAuditor | None = None,
@@ -518,7 +518,7 @@ def consolidate_basin(
         basin_id=basin_id,
         consolidated_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         n_episodes=n_episodes,
-        task_kinds=task_kinds,
+        task_types=task_types,
         winner_distribution=winner_distribution,
         routing_rule=rule,
         trust_score=trust,
@@ -845,7 +845,7 @@ def consolidate_all(
         if len(basin_outcomes) < min_basin_size:
             continue
         extractor = make_flagship_extractor(dispatch_fn, basin_id)
-        # task_kinds is just [basin_id] for v1.5 Week 2 since we use task_type
+        # task_types is just [basin_id] for v1.5 Week 2 since we use task_type
         # AS the basin. Week 3 the basin classifier maps multiple task_types
         # into one true basin and this list expands accordingly.
         # Diversity metric stub: use winner-distribution Shannon entropy as a
@@ -854,7 +854,7 @@ def consolidate_all(
         patterns[basin_id] = consolidate_basin(
             basin_id=basin_id,
             outcomes=basin_outcomes,
-            task_kinds=[basin_id],
+            task_types=[basin_id],
             diversity_metric=diversity,
             extractor=extractor,
         )

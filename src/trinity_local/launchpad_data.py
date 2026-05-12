@@ -481,7 +481,7 @@ def build_page_data(
         "benchmarkProviders": benchmark_providers,
         # Server-injected canonical map so the launchpad's per-category bar
         # chart aggregates ALL personal routing entries (not just the six
-        # task_kinds an out-of-sync hardcoded JS map happened to know about).
+        # task_types an out-of-sync hardcoded JS map happened to know about).
         "taskKindToCategory": _task_kind_to_category(),
         "defaultCategoryForUnknownTaskKind": DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND,
         # The personal chart's X-axis uses the LMArena-aligned CATEGORY_REGISTRY

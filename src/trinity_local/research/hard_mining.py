@@ -332,7 +332,7 @@ def mine_hard_via_embeddings(
 def _build_hard_example(features: SessionFeatures, hard_type: str, *, sim: float | None = None) -> HardExample:
     """Build a HardExample from features."""
     prompt = (features.first_user_text or "").strip()
-    task_kind = _guess_task_kind(prompt)
+    task_type = _guess_task_kind(prompt)
     label = _hard_type_to_label(hard_type)
 
     window = TranscriptWindow(
@@ -346,7 +346,7 @@ def _build_hard_example(features: SessionFeatures, hard_type: str, *, sim: float
         first_user_text=prompt[:2000],
         planner_text=(features.planner_text or "")[:1000] or None,
         final_text=(features.final_text or "")[:1000] or None,
-        task_kind_hint=task_kind,
+        task_kind_hint=task_type,
         model=features.model,
         tools=features.tools,
         outcome=features.outcome,
