@@ -87,9 +87,11 @@ class TestComputeTrustScore:
             diversity_metric=0.7,
         )
         payload = trust.to_dict()
-        # All 4 components present, all named, all numeric.
+        # All 5 components present (n_episodes_norm, consistency_score,
+        # recency_agreement, diversity, coherence_score), all named, all numeric.
         assert set(payload["components"].keys()) == {
-            "n_episodes_norm", "consistency_score", "recency_agreement", "diversity"
+            "n_episodes_norm", "consistency_score", "recency_agreement",
+            "diversity", "coherence_score",
         }
         for v in payload["components"].values():
             assert 0.0 <= v <= 1.0
@@ -553,3 +555,208 @@ class TestConsolidateAll:
         patterns = cortex.consolidate_all(dispatch_fn=stub_dispatch, min_basin_size=3)
         # Should NOT consolidate a basin with only 2 outcomes.
         assert patterns == {}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Basin geometry — geometric median, manifold dim, bimodality flag.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestBasinGeometry:
+    """Pure-numerical tests on _weiszfeld_median / _participation_ratio /
+    _excess_kurtosis — no embeddings needed. These are the building blocks
+    the structured geometric prior rides on.
+    """
+
+    def test_weiszfeld_median_matches_mean_for_symmetric_points(self):
+        from trinity_local.cortex import _weiszfeld_median
+
+        # Four points symmetric around (0, 0) → median should be near (0, 0).
+        points = [[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]]
+        median = _weiszfeld_median(points)
+        assert abs(median[0]) < 0.05
+        assert abs(median[1]) < 0.05
+
+    def test_weiszfeld_robust_to_outlier(self):
+        """The whole point: one extreme outlier should NOT drag the median
+        the way it drags the arithmetic mean. The mean of these five points
+        is dominated by the outlier; the median sits on the cluster.
+        """
+        from trinity_local.cortex import _weiszfeld_median
+
+        points = [
+            [0.0, 0.0], [0.1, 0.0], [-0.1, 0.0], [0.0, 0.1],
+            [100.0, 100.0],  # one extreme outlier
+        ]
+        median = _weiszfeld_median(points)
+        # Mean of these five points has each coord ≈ 20. Median should stay
+        # near the cluster (within 10 of origin).
+        assert abs(median[0]) < 10.0
+        assert abs(median[1]) < 10.0
+
+    def test_weiszfeld_handles_single_point(self):
+        from trinity_local.cortex import _weiszfeld_median
+
+        median = _weiszfeld_median([[3.0, 4.0, 5.0]])
+        assert median == [3.0, 4.0, 5.0]
+
+    def test_weiszfeld_handles_empty(self):
+        from trinity_local.cortex import _weiszfeld_median
+
+        assert _weiszfeld_median([]) == []
+
+    def test_participation_ratio_low_for_collinear_points(self):
+        """All points on a single line → 1 effective dim."""
+        from trinity_local.cortex import _participation_ratio, _weiszfeld_median
+
+        points = [[float(i), float(i * 2), float(i * 3)] for i in range(-3, 4)]
+        center = _weiszfeld_median(points)
+        pr = _participation_ratio(points, center)
+        # On a perfect 1D line, PR ≈ 1.
+        assert pr < 1.5
+
+    def test_participation_ratio_higher_for_noise(self):
+        """Spread points isotropically → PR climbs."""
+        from trinity_local.cortex import _participation_ratio, _weiszfeld_median
+
+        # Eight points roughly at corners of a 3D cube — covers all three axes.
+        points = [
+            [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0], [1.0, -1.0, 1.0],
+            [-1.0, -1.0, 1.0], [1.0, 1.0, -1.0], [-1.0, 1.0, -1.0],
+            [1.0, -1.0, -1.0], [-1.0, -1.0, -1.0],
+        ]
+        center = _weiszfeld_median(points)
+        pr = _participation_ratio(points, center)
+        # Cube spans all three dimensions equally → PR ≈ 3.
+        assert pr > 2.5
+
+    def test_excess_kurtosis_bimodal_distribution(self):
+        """Bimodal data has flat-topped or twin-peaked shape → kurtosis < 3
+        (excess < 0)."""
+        from trinity_local.cortex import _excess_kurtosis
+
+        # Two clusters around -1 and +1, evenly populated.
+        bimodal = [-1.0, -1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        assert _excess_kurtosis(bimodal) < -0.5
+
+    def test_excess_kurtosis_normal_like(self):
+        from trinity_local.cortex import _excess_kurtosis
+
+        # 30 samples roughly normal-shaped (concentrated around 0).
+        vals = [0.0] * 20 + [-1.0] * 4 + [1.0] * 4 + [-2.0] * 1 + [2.0] * 1
+        # Should be NOT bimodal (positive or near-zero excess kurtosis).
+        assert _excess_kurtosis(vals) > -1.0
+
+
+class TestComputeBasinGeometry:
+    """End-to-end geometry computation on real (TF-IDF) embeddings —
+    catches regressions in how the geometry dict gets assembled from raw
+    outcomes."""
+
+    def test_returns_empty_when_no_prompts(self, tmp_path, monkeypatch):
+        from trinity_local.cortex import _compute_basin_geometry
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Outcomes with no synthesis_prompt and no routing_label.task_type
+        outcomes = [{"council_run_id": "c1"}, {"council_run_id": "c2"}]
+        geo = _compute_basin_geometry(outcomes)
+        # Empty geometry shape — caller falls through.
+        assert geo["centroid"] == []
+        assert geo["coherence_score"] == 0.5  # neutral
+        assert geo["bimodal_flag"] is False
+
+    def test_coherent_basin_high_coherence_score(self, tmp_path, monkeypatch):
+        """A basin where every outcome is about the same topic should
+        produce a tight cluster → low manifold_dim → high coherence."""
+        from trinity_local.cortex import _compute_basin_geometry
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        outcomes = []
+        for i in range(8):
+            outcomes.append({
+                "council_run_id": f"c{i}",
+                "synthesis_prompt": f"How do I configure pytest fixtures for case {i}? Need parametrize + tmp_path.\n\nMember responses follow:",
+            })
+        geo = _compute_basin_geometry(outcomes)
+        assert geo["centroid"], "Should have real centroid for non-empty basin"
+        # Coherent basin → coherence > 0.5 (neutral)
+        assert geo["coherence_score"] > 0.4
+
+    def test_geometry_orders_outcomes_by_distance_from_median(self, tmp_path, monkeypatch):
+        """ordered_indices must put typical (close to median) outcomes first."""
+        from trinity_local.cortex import _compute_basin_geometry
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Five similar prompts + one outlier — outlier should land last.
+        outcomes = [
+            {"council_run_id": "c0", "synthesis_prompt": "How do I configure pytest fixtures?"},
+            {"council_run_id": "c1", "synthesis_prompt": "How do I configure pytest parametrize?"},
+            {"council_run_id": "c2", "synthesis_prompt": "How do I configure pytest markers?"},
+            {"council_run_id": "c3", "synthesis_prompt": "How do I configure pytest plugins?"},
+            {"council_run_id": "c4", "synthesis_prompt": "How do I configure pytest hooks?"},
+            {"council_run_id": "c5", "synthesis_prompt": "What's the best macaroni and cheese recipe with bechamel sauce?"},
+        ]
+        geo = _compute_basin_geometry(outcomes)
+        assert geo["ordered_indices"], "Should return ordering"
+        # The macaroni prompt should be at or near the end (index 5).
+        assert geo["ordered_indices"][-1] == 5
+
+
+class TestExtractionPromptIncludesGeometry:
+    def test_geometry_block_only_when_provided(self):
+        from trinity_local.cortex import build_extraction_prompt
+
+        outcomes = [{
+            "council_run_id": "c1",
+            "routing_label": {"winner": "claude", "routing_lesson": "x"},
+        }]
+
+        without = build_extraction_prompt("system_design", outcomes, geometry=None)
+        assert "BASIN GEOMETRY" not in without
+
+        with_geo = build_extraction_prompt(
+            "system_design",
+            outcomes,
+            geometry={
+                "centroid": [0.1, 0.2, 0.3],
+                "manifold_dim": 1.2,
+                "coherence_score": 0.85,
+                "bimodal_flag": False,
+                "ordered_indices": [0],
+            },
+        )
+        assert "BASIN GEOMETRY: COHERENT" in with_geo
+        assert "manifold_dim=1.20" in with_geo
+
+    def test_bimodal_shape_telegraphed(self):
+        from trinity_local.cortex import build_extraction_prompt
+
+        prompt = build_extraction_prompt(
+            "system_design",
+            [{"routing_label": {"winner": "claude"}}],
+            geometry={
+                "centroid": [0.1],
+                "manifold_dim": 2.5,
+                "coherence_score": 0.5,
+                "bimodal_flag": True,
+                "ordered_indices": [0],
+            },
+        )
+        assert "BIMODAL" in prompt
+        assert "TWO subroutes" in prompt
+
+    def test_noisy_shape_encourages_no_rule(self):
+        from trinity_local.cortex import build_extraction_prompt
+
+        prompt = build_extraction_prompt(
+            "system_design",
+            [{"routing_label": {"winner": "claude"}}],
+            geometry={
+                "centroid": [0.1],
+                "manifold_dim": 4.5,
+                "coherence_score": 0.1,
+                "bimodal_flag": False,
+                "ordered_indices": [0],
+            },
+        )
+        assert "NOISY" in prompt

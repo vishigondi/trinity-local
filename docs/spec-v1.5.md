@@ -324,48 +324,63 @@ that compete with active ones.
 
 The basin set IS treated as a versioned artifact, not a static schema.
 
-### Cortex centroid refinements (v1.6+)
+### Structured geometric prior for consolidation (shipped v1.5)
 
-v1.5 ships **Euclidean mean** of evidence-prompt embeddings as `basin_centroid`
-(see `cortex._compute_basin_centroid`). Known failure modes — none are
-launch-blockers but each is worth tracking:
+Cortex consolidation no longer hands the flagship raw outcomes and asks
+it to do geometry-in-language. The consolidation pass now extracts a
+structured geometric prior from each basin's evidence-prompt embeddings
+and *prepends it* to the extraction prompt. The flagship reads "this
+basin is BIMODAL with manifold_dim=2.97" and conditions on that fact
+directly. This is the core architectural move: **rule-extraction on
+structure, not geometry-in-language.**
 
-**Failure mode A — bimodal basins.** A basin like `system_design` might
-hold two semantically-distinct subtopics (e.g. "schema design" and "API
-design"). Their embedding clouds are separated; Euclidean mean lands
-between the two modes, matching neither well at query time. The clean
-fix is *sub-basin discovery* — detect that the basin contains 2+
-density-connected clusters and split into separate routing rules.
-**HDBSCAN** is the standard tool: O(N log N), no `k` needed, native
-outlier labels. ~150 LOC if vendored or one `hdbscan` dep.
+Components, all in `cortex._compute_basin_geometry`:
 
-**Failure mode B — outlier contamination.** A single mis-classified
-outcome with an extreme embedding can drag the Euclidean mean off the
-true cluster center. The cheap fix is the **geometric median**
-(Weiszfeld iteration) — robust under L1, drops outliers automatically,
-~30 LOC, no deps. Should ship before HDBSCAN because it's a one-line
-swap with no behavioral surprises.
+1. **Geometric median** (Weiszfeld iteration) replaces the Euclidean
+   mean as `basin_centroid`. Robust under L1 — one outlier outcome can
+   no longer drag the centroid off the cluster. ~30 LOC, no deps.
 
-**Failure mode C — curved single manifold.** A basin's embeddings lie
-on a curve in ambient space (Euclidean mean is off-manifold). The
-classical fix is **Isomap geodesic centroid** — build k-NN graph,
-all-pairs SSSP, pick the geodesic median. But for v1.5 use cases this
-is mostly subsumed by HDBSCAN (which reports single-cluster basins
-correctly) and geometric median (which handles off-manifold drag from
-outliers). Defer until data shows curved-but-not-bimodal basins are
-common.
+2. **Coherence score** = mean cosine similarity of evidence embeddings
+   to the geometric median. Saturates naturally at 1.0 (every point
+   coincides). Becomes a 5th trust component (weight 0.20) — without
+   this signal, a confident rule on a noisy basin reads as high-trust,
+   which is the most dangerous failure mode for a router.
 
-**Failure mode D — manifold dimensionality as trust signal.** If a
-basin's embeddings sit on a low-dim manifold (PCA explained-variance
-concentrated in 2–3 components), it's a coherent cluster → trust↑.
-If variance is spread across many components and N is small, it's
-noise → trust↓. Cheap addition to `trust_score` — uses `np.linalg.svd`
-on the centered embedding matrix, no SSSP needed.
+3. **Manifold dim** via participation ratio of the centered embedding
+   matrix — a descriptive numeric signal surfaced to the LLM prompt.
+   Not used directly in trust (PR scales with ambient dim, noisy for
+   high-dim embeddings); coherence does the heavy lifting there.
 
-**Order of bang-per-buck for v1.6:** geometric median (low risk, clear
-win) → HDBSCAN sub-basin → manifold-dim trust component. Skip Isomap
-unless v1.5 calibration shows curved-single-manifold is a real failure
-class in production data.
+4. **Bimodality flag** via excess kurtosis on the first-PC distribution
+   (computed by power iteration; threshold `-1.3`, requires N≥10).
+   Negative excess kurtosis flatter than uniform indicates a plausibly
+   twin-peaked basin. The extraction prompt then tells the flagship
+   "this basin has BIMODAL geometry; return TWO subroutes if the modes
+   route to different providers." v1.5 only *flags*; v1.6 wires HDBSCAN
+   to actually split.
+
+5. **Typicality ordering** — outcomes sorted by L2 distance from the
+   median (typical → outlier). The compressed-outcomes block in the
+   extraction prompt receives them in this order so the flagship
+   weights the head of the list more heavily.
+
+### Deferred to v1.6
+
+**HDBSCAN sub-basin discovery.** v1.5 *flags* bimodality; the flagship
+is told "return two subroutes" but the basin itself stays unified in
+the consolidated patterns file. v1.6 should: detect when bimodality
+flag has fired ≥3 consolidations in a row, run HDBSCAN on that basin's
+embeddings, persist each cluster as a separate basin with its own
+centroid + rule. ~150 LOC vendored or one `hdbscan` dep.
+
+**Calibration gate before promoting HDBSCAN to v1.5:** if Week 2
+calibration data shows >15% of basins flagging bimodal, promote HDBSCAN
+to v1.5. If <5%, the flag is enough.
+
+**Isomap geodesic centroid.** Skip. Only beats geometric median +
+HDBSCAN in one specific data shape (single connected curved manifold,
+not multimodal). Revisit only if calibration shows curved-single-manifold
+is a real failure class.
 
 ### Cortex (routing) vs Lens (evaluation) — two layers, same data
 
