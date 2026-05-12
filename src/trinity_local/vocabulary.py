@@ -158,12 +158,24 @@ def find_homonyms(token_contexts: dict[str, list], *, top_n: int) -> list[tuple[
     """Rank tokens by k=2 bimodality score over their context embeddings.
 
     Returns [(token, score, n_contexts), ...] descending by score, top_n only.
+
+    Ranking detail — silhouette saturates at 1.0 for genuinely bimodal
+    tokens, so on a real corpus the top is `code`, `find`, `which` —
+    common verbs that legitimately span many contexts but are too
+    generic to surface as actionable overloads. We secondary-sort by
+    INVERSE frequency: among tokens with equally-high bimodality,
+    prefer the rarer one. Domain-specific overloads ("react", "lens",
+    "thread") rank above generic English ("which", "find") even when
+    their raw scores are identical.
     """
     scored: list[tuple[str, float, int]] = []
     for tok, vecs in token_contexts.items():
         score = _two_means_split_variance(vecs)
         scored.append((tok, score, len(vecs)))
-    scored.sort(key=lambda r: r[1], reverse=True)
+    # Sort by (bimodality DESC, frequency ASC) — high score + rare = most
+    # actionable. `-len(vecs)` would put high-frequency on top; we want the
+    # OPPOSITE so the secondary key is len(vecs) ascending.
+    scored.sort(key=lambda r: (-r[1], r[2]))
     return scored[:top_n]
 
 
