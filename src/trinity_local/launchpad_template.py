@@ -778,6 +778,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </label>
           </div>
 
+          <div class="sharing-toggle" style="margin-top: 0;">
+            <span class="meta">Polish-only auto-iterate (consensus rounds fire only for "make this better" / "tighten this" tasks)</span>
+            <label class="toggle-switch">
+              <input type="checkbox" :checked="telemetry.polishAutoIterate" @change="togglePolishAutoIterate">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
           <section class="provider-health-list" v-if="providerHealth.hasMissing">
             <div class="eyebrow">Providers</div>
             <div class="provider-health-item" v-for="provider in providerHealth.providers">
@@ -1360,6 +1368,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           endpoint: pageData.telemetry?.settings?.endpoint || '',
           shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
           autoChainEnabled: !!pageData.telemetry?.settings?.auto_chain_enabled,
+          polishAutoIterate: !!pageData.telemetry?.settings?.polish_auto_iterate,
         }},
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
@@ -1703,6 +1712,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           event.target.checked = this.telemetry.autoChainEnabled;
           const isNowEnabled = !this.telemetry.autoChainEnabled;
           const url = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
+          this.triggerSettingsAction(url);
+        }},
+        togglePolishAutoIterate(event) {{
+          event.target.checked = this.telemetry.polishAutoIterate;
+          const isNowEnabled = !this.telemetry.polishAutoIterate;
+          const url = isNowEnabled ? this.settingsLinks.polishAutoEnable : this.settingsLinks.polishAutoDisable;
           this.triggerSettingsAction(url);
         }},
         resetAnonymousId() {{

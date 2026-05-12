@@ -393,12 +393,30 @@ def _settings_links() -> dict[str, str]:
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
+    polish_auto_enable = make_shortcut_invocation(
+        dispatch=make_dispatch_action(
+            "run_command",
+            args={"command": "trinity-local polish-auto-enable"},
+            metadata={"kind": "polish_auto_enable"},
+        ),
+        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    )
+    polish_auto_disable = make_shortcut_invocation(
+        dispatch=make_dispatch_action(
+            "run_command",
+            args={"command": "trinity-local polish-auto-disable"},
+            metadata={"kind": "polish_auto_disable"},
+        ),
+        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    )
     return {
         "enable": enable.url,
         "disable": disable.url,
         "reset": reset.url,
         "autoChainEnable": auto_chain_enable.url,
         "autoChainDisable": auto_chain_disable.url,
+        "polishAutoEnable": polish_auto_enable.url,
+        "polishAutoDisable": polish_auto_disable.url,
     }
 
 
