@@ -1554,8 +1554,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
           const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
           return hasHistory
-            ? 'One question, three models, one answer that knows you.'
-            : 'One question, three models, one answer that knows you. Trinity asks Claude, GPT, and Gemini at once, then synthesizes your prompts into core memories only you can see.';
+            ? 'One question. Every model you use. One answer that knows you.'
+            : 'One question. Every model you use. One answer that knows you. Trinity asks across your stack at once, then synthesizes your prompts into core memories only you can see.';
         }},
         get operationHeading() {{
           if (!this.operation) {{

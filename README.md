@@ -2,7 +2,7 @@
 
 ## Stop copy-pasting prompts. Own your context. Dream your core memories.
 
-### One question, three models, one answer that knows you.
+### One question. Every model you use. One answer that knows you.
 
 Trinity asks Claude, GPT, and Gemini at once — then synthesizes your prompts into core memories only you can see: cortex rules (what models you trust for what), a lens (what you reject and accept), a routing brain (which provider stays simple for your kind of problem). Your prompts are yours. The core memories built from them are yours too. The labs are commercially prevented from building this layer; someone outside them has to.
 
