@@ -324,6 +324,49 @@ that compete with active ones.
 
 The basin set IS treated as a versioned artifact, not a static schema.
 
+### Cortex centroid refinements (v1.6+)
+
+v1.5 ships **Euclidean mean** of evidence-prompt embeddings as `basin_centroid`
+(see `cortex._compute_basin_centroid`). Known failure modes — none are
+launch-blockers but each is worth tracking:
+
+**Failure mode A — bimodal basins.** A basin like `system_design` might
+hold two semantically-distinct subtopics (e.g. "schema design" and "API
+design"). Their embedding clouds are separated; Euclidean mean lands
+between the two modes, matching neither well at query time. The clean
+fix is *sub-basin discovery* — detect that the basin contains 2+
+density-connected clusters and split into separate routing rules.
+**HDBSCAN** is the standard tool: O(N log N), no `k` needed, native
+outlier labels. ~150 LOC if vendored or one `hdbscan` dep.
+
+**Failure mode B — outlier contamination.** A single mis-classified
+outcome with an extreme embedding can drag the Euclidean mean off the
+true cluster center. The cheap fix is the **geometric median**
+(Weiszfeld iteration) — robust under L1, drops outliers automatically,
+~30 LOC, no deps. Should ship before HDBSCAN because it's a one-line
+swap with no behavioral surprises.
+
+**Failure mode C — curved single manifold.** A basin's embeddings lie
+on a curve in ambient space (Euclidean mean is off-manifold). The
+classical fix is **Isomap geodesic centroid** — build k-NN graph,
+all-pairs SSSP, pick the geodesic median. But for v1.5 use cases this
+is mostly subsumed by HDBSCAN (which reports single-cluster basins
+correctly) and geometric median (which handles off-manifold drag from
+outliers). Defer until data shows curved-but-not-bimodal basins are
+common.
+
+**Failure mode D — manifold dimensionality as trust signal.** If a
+basin's embeddings sit on a low-dim manifold (PCA explained-variance
+concentrated in 2–3 components), it's a coherent cluster → trust↑.
+If variance is spread across many components and N is small, it's
+noise → trust↓. Cheap addition to `trust_score` — uses `np.linalg.svd`
+on the centered embedding matrix, no SSSP needed.
+
+**Order of bang-per-buck for v1.6:** geometric median (low risk, clear
+win) → HDBSCAN sub-basin → manifold-dim trust component. Skip Isomap
+unless v1.5 calibration shows curved-single-manifold is a real failure
+class in production data.
+
 ### Cortex (routing) vs Lens (evaluation) — two layers, same data
 
 This was implicit; making it explicit because the layers serve different
