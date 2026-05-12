@@ -97,7 +97,9 @@ def handle_status(args):
     print()
 
     # Tasks & Actions
-    print(f"  Tasks:     {task_count}")
+    # Display label matches the on-disk directory (~/.trinity/todos/);
+    # internal Python name `tasks_dir()` retained for back-compat.
+    print(f"  Todos:     {task_count}")
     print(f"  Actions:   {len(pending_actions)} pending, {len(completed_actions)} completed")
     print(f"  Reviews:   {review_count}")
     print(f"  Councils:  {council_count}")
