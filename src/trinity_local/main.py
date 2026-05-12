@@ -52,6 +52,7 @@ CORE_COMMAND_MODULES = (
     "status",
     "tasks",
     "telemetry",
+    "vocabulary",
     "watch",
 )
 

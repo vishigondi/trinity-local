@@ -504,8 +504,9 @@ def build_page_data(
         "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
         # Just the count — actual cards are server-rendered into the body
-        # via build_recent_cards_html. The hero h1 reads this to decide
-        # between "Run Your First Council" (new user) and "Run a Council".
+        # via build_recent_cards_html. The hero h1 no longer branches on
+        # this (promise wins the H1 in idle state); kept exposed in case
+        # other sections want a first-run greeting affordance.
         "recentCouncilsCount": len(recent_councils),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old

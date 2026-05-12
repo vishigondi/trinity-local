@@ -176,12 +176,36 @@ def watcher_dir() -> Path:
 
 def memory_dir() -> Path:
     """Raw prompt index — the INPUT to dream. Holds PromptNode / TurnWindow
-    JSONL + cursors. Renamed to `prompts/` in Tier 1 #1 (still `memory/` for
-    on-disk back-compat).
+    JSONL + cursors.
+
+    Renamed `memory/` → `prompts/` to match the brand axis: prompts (raw,
+    yours, the INPUT) vs memories (plural, what dream creates, the OUTPUT).
+    The two differed by one letter, which was a confusion grenade.
+
+    Back-compat function name kept so existing imports work; on disk the
+    files live under ~/.trinity/prompts/. Migration is one-time + idempotent:
+    if the legacy ~/.trinity/memory/ exists and the new ~/.trinity/prompts/
+    does not, the whole directory is renamed.
     """
-    path = state_dir() / "memory"
+    path = state_dir() / "prompts"
+    legacy = state_dir() / "memory"
+    if not path.exists() and legacy.exists():
+        try:
+            legacy.rename(path)
+        except OSError:
+            # Cross-device or permission edge — leave legacy in place,
+            # create the new path empty so writes go forward. The
+            # raw_prompts_dir() consumer is structured-write-only, so a
+            # split state still functions — readers cap from the new path.
+            pass
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def prompts_dir() -> Path:
+    """Brand-aligned alias for memory_dir(). New code should call this;
+    existing imports of memory_dir() keep working."""
+    return memory_dir()
 
 
 def memories_dir() -> Path:

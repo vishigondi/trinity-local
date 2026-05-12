@@ -1,0 +1,165 @@
+"""Tests for Phase 2.5 vocabulary distillation.
+
+Pure-geometric scan of the user's prompt corpus that surfaces two kinds
+of terminology overload: homonyms (one word, multiple meanings) and
+synonyms (multiple words, one meaning). Output is markdown at
+~/.trinity/memories/vocabulary.md. Read by the chairman as one of the
+five plural core memories.
+"""
+from __future__ import annotations
+
+import pytest
+import numpy as np
+
+
+@pytest.fixture
+def isolated_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    return tmp_path
+
+
+def _plant_node(*, id_, text, embedding):
+    from trinity_local.memory import upsert_prompt_node
+    from trinity_local.memory.schemas import PromptNode
+    upsert_prompt_node(PromptNode(
+        id=id_,
+        transcript_id=f"t_{id_}",
+        provider="claude",
+        source_path=f"/fake/{id_}",
+        turn_index=0,
+        text=text,
+        embedding=list(embedding),
+        created_at="2026-05-12T00:00:00Z",
+        following_assistant_text="",
+    ))
+
+
+class TestTokenize:
+    def test_lowercases_and_drops_stopwords(self):
+        from trinity_local.vocabulary import _tokenize
+        toks = _tokenize("The Task is to refactor the migration script")
+        assert "task" in toks
+        assert "refactor" in toks
+        assert "migration" in toks
+        assert "script" in toks
+        # Stopwords filtered.
+        assert "the" not in toks
+        assert "is" not in toks
+        assert "to" not in toks
+
+    def test_requires_3_char_minimum(self):
+        from trinity_local.vocabulary import _tokenize
+        toks = _tokenize("an X two-char ok longer fine")
+        assert "two-char" in toks
+        assert "longer" in toks
+        assert "fine" in toks
+        # "an" and "X" too short or stopword.
+        assert "an" not in toks
+
+
+class TestSkipsWhenEmpty:
+    def test_skip_when_no_prompts(self, isolated_home):
+        from trinity_local.vocabulary import distill_vocabulary
+        report = distill_vocabulary()
+        assert report["ok"] is False
+        assert report.get("skipped") is True
+
+    def test_skip_when_corpus_below_min_freq(self, isolated_home):
+        """If every token appears only once, nothing meets the threshold —
+        report skipped, don't emit an empty file."""
+        from trinity_local.vocabulary import distill_vocabulary
+        for i in range(3):
+            _plant_node(
+                id_=f"p{i}", text=f"unique_word_{i}",
+                embedding=np.random.randn(8).tolist(),
+            )
+        report = distill_vocabulary(min_freq=5)
+        assert report["ok"] is False
+        assert report.get("skipped") is True
+
+
+class TestHomonymDetection:
+    def test_detects_token_used_in_two_distant_contexts(self, isolated_home):
+        """Plant `task` in two semantically distant clusters (5 in one,
+        5 in another, far apart in embedding space). Bimodality score
+        should be high."""
+        # 10 prompts using "task" — first 5 in cluster A, last 5 in cluster B.
+        for i in range(5):
+            emb = [1.0, 0.0] + [0.0] * 6  # cluster A
+            _plant_node(id_=f"a{i}", text=f"task description in domain alpha {i}", embedding=emb)
+        for i in range(5):
+            emb = [0.0, 1.0] + [0.0] * 6  # cluster B, orthogonal
+            _plant_node(id_=f"b{i}", text=f"task progress check in domain beta {i}", embedding=emb)
+
+        from trinity_local.vocabulary import distill_vocabulary
+        report = distill_vocabulary(min_freq=5, top_homonyms=10, synonym_threshold=0.99)
+        assert report["ok"] is True
+        text = (isolated_home / "memories" / "vocabulary.md").read_text()
+        # Homonym section must list "task" because its contexts split between
+        # two orthogonal centroids.
+        assert "task" in text.lower()
+        # Bimodality column present.
+        assert "bimodality" in text.lower()
+
+    def test_unimodal_token_scores_low(self, isolated_home):
+        """A token that always appears in the same context cluster should
+        have a low bimodality score (not surface as a homonym)."""
+        from trinity_local.vocabulary import (
+            _gather_token_contexts, find_homonyms,
+        )
+        # 8 contexts all very close together → unimodal.
+        nodes = []
+        for i in range(8):
+            from trinity_local.memory.schemas import PromptNode
+            jitter = (np.random.randn(8) * 0.01).tolist()
+            base = [1.0, 0.0] + [0.0] * 6
+            emb = [b + j for b, j in zip(base, jitter)]
+            nodes.append(PromptNode(
+                id=f"u{i}", transcript_id="x", provider="claude",
+                source_path="/x", turn_index=0,
+                text=f"unimodal_token always appears together here {i}",
+                embedding=emb, created_at="2026-05-12T00:00:00Z",
+                following_assistant_text="",
+            ))
+        contexts = _gather_token_contexts(nodes, min_freq=5)
+        homonyms = find_homonyms(contexts, top_n=10)
+        for tok, score, _ in homonyms:
+            if tok == "unimodal_token":
+                assert score < 0.4, f"unimodal token should score < 0.4, got {score:.3f}"
+
+
+class TestSynonymDetection:
+    def test_detects_near_identical_context_pairs(self, isolated_home):
+        """Plant `delete` and `remove` always in the same embedding context —
+        they should surface as a synonym candidate."""
+        # 6 prompts using "delete" all sit in cluster A.
+        for i in range(6):
+            emb = [1.0, 0.0] + [0.0] * 6
+            _plant_node(id_=f"d{i}", text=f"delete the obsolete record {i}", embedding=emb)
+        # 6 prompts using "remove" also in cluster A — synonyms.
+        for i in range(6):
+            emb = [1.0, 0.0] + [0.0] * 6
+            _plant_node(id_=f"r{i}", text=f"remove the obsolete record {i}", embedding=emb)
+
+        from trinity_local.vocabulary import distill_vocabulary
+        report = distill_vocabulary(min_freq=5, synonym_threshold=0.85)
+        assert report["ok"] is True
+        text = (isolated_home / "memories" / "vocabulary.md").read_text()
+        # Synonym table should pair delete and remove.
+        assert "delete" in text.lower() and "remove" in text.lower()
+        assert "synonym" in text.lower()
+
+
+class TestVocabularyPath:
+    def test_writes_to_memories_vocabulary_md(self, isolated_home):
+        from trinity_local.vocabulary import distill_vocabulary
+        from trinity_local.state_paths import vocabulary_path
+
+        for i in range(6):
+            emb = [1.0, 0.0] + [0.0] * 6
+            _plant_node(id_=f"p{i}", text=f"refactor migration script step {i}", embedding=emb)
+
+        report = distill_vocabulary(min_freq=5)
+        assert report["ok"] is True
+        assert vocabulary_path().exists()
+        assert report["path"] == str(vocabulary_path())

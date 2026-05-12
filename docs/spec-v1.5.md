@@ -108,7 +108,7 @@ TIER 1 — Hippocampus (episodic, fast write, slow recall)
 └── ~/.trinity/council_outcomes/*.json         v1 — individual council decisions
 
 TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
-├── ~/.trinity/me/basins.json                  v1 — task-type clusters
+├── ~/.trinity/memories/topics.json                  v1 — task-type clusters
 ├── ~/.trinity/me/lenses.json                  v1 — taste tensions
 ├── ~/.trinity/cortex/routing_patterns.json    NEW — routing rules per basin
 ├── ~/.trinity/cortex/failure_modes.json       NEW — per-model failure patterns
@@ -132,7 +132,7 @@ A flagship model extracts routing patterns from accumulated council outcomes.
 Runs offline.
 
 ```
-For each basin in ~/.trinity/me/basins.json:
+For each basin in ~/.trinity/memories/topics.json:
   Gather all council_outcomes whose lens basin matches
   Send them to a flagship model with a prompt that asks for:
     1. Routing rule: primary + challenger + confidence + why (one sentence)
@@ -569,7 +569,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 | Routing JSON ledger canonical fields | v1.5 cortex extracts patterns from these — schema is the training data shape |
 | MCP stable contract | `record_outcome`, `search_prompts`, `get_persona`, `get_council_status` unchanged; `run_council` aliased to `compare`; `route` deprecated |
 | Embeddings pipeline (nomic 768d) | v1.5 uses same index — no re-embedding required |
-| Lens-discovery outputs (basins, lenses, rejections) | basins.json is the cortex consolidation key; lenses are the eval set |
+| Lens-discovery outputs (basins, lenses, rejections) | topics.json is the cortex consolidation key; lenses are the eval set |
 | Privacy posture (prompts never upload) | unchanged. Cortex consolidation runs on user's flagship sub — local dispatch, not hosted. |
 
 ## What v1.5 explicitly does NOT do

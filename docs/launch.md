@@ -250,7 +250,7 @@ Backup titles (use if the Dreaming hook decays):
   briefly with a link to `docs/spec-v1.5.md` — ships June 3, 2026. Not the launch
   headline — v1.0 is the ledger / data pipe; v1.5 is the routing turn.
 - The personal `/me` lens demo on real data — only mention if I have ≥3 lenses to show.
-  An empty `me.md` undersells.
+  An empty `lens.md` undersells.
 - Hosted leaderboard — opt-in upload not yet wired; v1.5+ if needed.
 - Trained-coordinator path is **sunset** (former v2). If someone asks "why aren't you
   training a 7B like Sakana?" answer: their own ablation shows the value is in

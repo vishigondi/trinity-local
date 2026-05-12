@@ -66,7 +66,7 @@ The map mirrors the tagline: prompts (what you own) → dream (the verb) → cor
 
 ## Calling the council from inside Claude Code
 
-Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/me.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
+Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/memories/lens.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
 
 Bar for "hard":
 - Two senior engineers could reasonably disagree (architecture, API shape, refactor scope, naming, abstraction-vs-duplication)
@@ -165,7 +165,7 @@ These are the only public surface. Lifecycle order:
 
 4. **`search_prompts(query, top_k)`** → ranked replay candidates from the hierarchical memory index, scored by `replay_value_score`.
 
-5. **`get_persona()`** → returns `~/.trinity/me.md`. The chairman already loads this internally, but exposing it lets *any* harness (Claude Code, Codex, Gemini CLI) pull the persona once at session start and tailor responses without an MCP round trip per call.
+5. **`get_persona()`** → returns `~/.trinity/memories/lens.md`. The chairman already loads this internally, but exposing it lets *any* harness (Claude Code, Codex, Gemini CLI) pull the persona once at session start and tailor responses without an MCP round trip per call.
 
 6. **`get_council_status(council_run_id)`** → in-protocol polling for async councils. Returns status (running/completed/failed/canceled), per-member progress, synthesis state, and outcome summary (winner, agreed/disagreed claims, routing_lesson) when complete. Required for harnesses without filesystem access; also the only way to detect a stuck member without watching `~/.trinity/portal_pages/status/`.
 
@@ -274,7 +274,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
     - **Stage 3 — Pair mining (1 chairman call)**: chairman proposes 6–12 pair candidates and applies the three tests as a JSON verifier — **tension** (decisions in both directions), **dual evidence** (regret/correction/cost on both poles), **failure-mode legibility** (named failure mode on each pole). Verdict per pair: `accepted | preserve_as_ordering | dropped`.
     - **Stage 4 — Basin post-filter (deterministic, no LLM)**: drops accepted pairs whose tension evidence sits in a single basin. This is what makes basin tags load-bearing — without the post-filter, the LLM can ignore them and the topology evidence is dead code.
     - Drift instrument (rolling cosine between `embed(me.md)` and weekly turns) was **rejected** as topic-shift-not-value-shift metaphor.
-    - Output: pairs → `~/.trinity/me/lenses.json` (4–8 expected, ≤7 per spec), preserved-as-orderings → `me/orderings.json`, rejections → `me/rejections.jsonl`, basins → `me/basins.json`. Rendered to `~/.trinity/me.md` for chairman context loading.
+    - Output: pairs → `~/.trinity/me/lenses.json` (4–8 expected, ≤7 per spec), preserved-as-orderings → `me/orderings.json`, rejections → `me/rejections.jsonl`, basins → `me/basins.json`. Rendered to `~/.trinity/memories/lens.md` for chairman context loading.
     - 3 model calls per rebuild (Stage 0 + Stage 2 + Stage 3), all on user subscriptions.
 11. **Embedding-free product surface.** Launchpad autofill, MCP `search_prompts`, and `replay-history` candidate selection use pure heuristics (substring + recency + replay-value). No nomic model load on the hot path. `iter_prompt_nodes()` caps at the 5000 most-recent prompts (env var `TRINITY_PROMPT_NODE_LIMIT`) and is cached in-process by file mtime. Embeddings are written during seed and consumed only by `me-build`.
 12. **Test suite: 289 passing.**

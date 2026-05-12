@@ -96,7 +96,7 @@ they're all load-bearing for the supervision loop. Mapping:
 | `add_pair` | `record_outcome` | Stable contract |
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |
-| — | `get_persona` | Extended (reads `me.md` so harnesses don't re-fetch per call) |
+| — | `get_persona` | Extended (reads `lens.md` so harnesses don't re-fetch per call) |
 
 Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disappear.
 
@@ -108,17 +108,22 @@ Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disapp
 ├── council_outcomes/{id}.json + {id}.js  ← council data + JSONP wrapper
 ├── council_outcomes/_thread_{bundle}.js   ← thread manifest
 ├── council_feedback.jsonl    ← user verdicts (append-only)
-├── memory/                   ← PromptNode + TurnWindow indexes (the "hippocampus")
-│   ├── prompt_nodes.jsonl
+├── prompts/                  ← raw prompt index (the "hippocampus" — INPUT to dream)
+│   ├── prompt_nodes.jsonl    ←   (was `memory/`; renamed per brand axis: prompts vs memories)
 │   ├── turn_windows.jsonl
 │   └── embeddings_matrix.npy ← numpy matmul fast-path; FAISS-compatible interface
-├── me/                       ← lens-discovery pipeline output
+├── memories/                 ← five plural core memories (OUTPUT of dream)
+│   ├── lens.md               ← value memory — paired tensions
+│   ├── picks.json            ← procedural memory — model picks per topic
+│   ├── routing.json          ← empirical memory — provider track record
+│   ├── topics.json           ← semantic memory — subject clusters
+│   └── vocabulary.md         ← language memory — how you use words
+├── core.md                   ← singular distillation; chairman reads this first
+├── me/                       ← lens-discovery intermediate output
 │   ├── lenses.json
 │   ├── orderings.json
 │   ├── rejections.jsonl
-│   ├── decisions.jsonl
-│   └── basins.json
-├── me.md                     ← rendered persona for chairman context
+│   └── decisions.jsonl
 ├── portal_pages/launchpad.html  ← the conversion event
 ├── review_pages/             ← per-council review HTML
 ├── cache/embeddings.jsonl    ← embedding cache (rebuildable)

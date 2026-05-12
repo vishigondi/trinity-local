@@ -59,6 +59,11 @@ def register(subparsers):
         help="Skip the /me lens rebuild phase.",
     )
     sp.add_argument(
+        "--skip-vocabulary",
+        action="store_true",
+        help="Skip Phase 2.5: scanning vocabulary for homonyms + synonyms.",
+    )
+    sp.add_argument(
         "--skip-distill",
         action="store_true",
         help="Skip Phase 5: emitting the one-paragraph core.md distillation.",
@@ -191,6 +196,16 @@ def handle_dream(args):
         me_report = _me_build(args.primary_provider or "claude")
         report["phases"]["me_build"] = me_report
 
+    # ── Phase 2.5: vocabulary distillation ─────────────────────────────
+    # Pure-geometric scan; zero LLM calls. Builds the language-memory
+    # entry in the core-memories set.
+    if getattr(args, "skip_vocabulary", False):
+        print("dream phase 2.5/5: SKIPPED (--skip-vocabulary)", file=sys.stderr)
+        report["phases"]["vocabulary"] = {"skipped": True}
+    else:
+        print("dream phase 2.5/5: scanning vocabulary for overloads…", file=sys.stderr)
+        report["phases"]["vocabulary"] = _vocabulary_scan()
+
     # ── Phase 5: distill the five plural memories into singular core.md ──
     # Always runs (cheap — one flagship call). Even if upstream phases
     # were skipped, distill emits a core.md from whatever memories DO
@@ -206,6 +221,12 @@ def handle_dream(args):
     report["total_ms"] = int((time.monotonic() - started) * 1000)
     print(json.dumps(report, indent=2))
     return 0
+
+
+def _vocabulary_scan() -> dict:
+    """Phase 2.5 — geometric scan of the user's terminology."""
+    from ..vocabulary import distill_vocabulary
+    return distill_vocabulary()
 
 
 def _distill(provider: str) -> dict:

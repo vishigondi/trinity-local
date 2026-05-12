@@ -375,7 +375,7 @@ Keep generated-page code close to the page type. Current shipped modules:
 - `portal_data.py` — assembles the JSON payload the launchpad reads
 - `portal_runtime.py` — refresh + open-in-browser plumbing
 - `council_review.py` — unified council page (handles both `?status_token=` in-flight and `?council_id=` post-hoc views; rating UI is inline)
-- `me_lenses.py` — parses `~/.trinity/me.md` into structured taste lenses for the launchpad card
+- `me_lenses.py` — parses `~/.trinity/memories/lens.md` into structured taste lenses for the launchpad card
 - `council_share.py` — was deleted along with the `--safe` Privacy-Safe Share Card. (The `council-share` CLI command is still in `commands/council.py` and copies the unified review HTML to Desktop.)
 
 Future surfaces (deferred): `digest_page.py`, `radar_page.py`, `battle_card_page.py`. The `/me` lens cards subsume the social-artifact role for now.

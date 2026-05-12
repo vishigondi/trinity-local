@@ -1110,7 +1110,7 @@ def render_live_council_page() -> str:
         <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
         <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
-          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction. <strong>Auto-chain</strong> keeps going until the three models converge — useful when you suspect the first round missed something none of them flagged alone.
+          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction. <strong>Auto-chain</strong> keeps going until the models converge — useful when you suspect the first round missed something none of them flagged alone.
         </p>
         <div class="chain-loading" v-if="chainBusy">
           <span class="spinner" aria-hidden="true"></span>

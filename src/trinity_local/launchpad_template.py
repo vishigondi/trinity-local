@@ -695,9 +695,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)" @vue:mounted="init">
       <section class="card hero-shell">
         <div>
-          <div class="eyebrow">Trinity · Stop copy-pasting prompts. Own your context. Dream your core memories.</div>
+          <div class="eyebrow">Trinity</div>
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
+          <p class="meta hero-mechanism" v-if="heroMechanism">{{{{ heroMechanism }}}}</p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>
@@ -806,8 +807,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="launch-grid">
         <article class="card">
           <div class="eyebrow">Council</div>
-          <h2>Ask all three labs at once</h2>
-          <p class="meta">Three frontier models answer in parallel. A local chairman synthesizes — agreed claims, disagreed claims with <em>why_matters</em>, picked winner. You override; that click trains the local router.</p>
+          <h2>Ask every model at once</h2>
+          <p class="meta">Every model you use — frontier and local — answers in parallel. A local chairman synthesizes — agreed claims, disagreed claims with <em>why_matters</em>, picked winner. You override; that click trains the local router.</p>
           <label class="label mb-sm" for="council-prompt">Task</label>
           <textarea
             id="council-prompt"
@@ -1527,11 +1528,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Ingest in Progress';
           }}
-          // First-time vs returning user — count thread cards already
-          // rendered. Avoids "Run Your First Council" greeting once the
-          // user has any history at all.
-          const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
-          return hasHistory ? 'Run a Council' : 'Stop copy-pasting prompts. Own your context. Dream your core memories.';
+          // Workspace-first: H1 names what this surface does. The tagline
+          // lives in the lede below, where it has room to breathe.
+          return 'Run a Council';
         }},
         // Hide developer/placeholder endpoint values from the settings UI;
         // example.invalid is the RFC 6761 stub used during dev, localhost
@@ -1547,15 +1546,18 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         }},
         get heroLede() {{
           if (this.operation?.kind === 'council' && this.busy) {{
-            return 'Trinity is asking the three labs for you. Routing JSON outcome lands when chairman finishes.';
+            return 'Trinity is asking every model you use. Routing JSON outcome lands when chairman finishes.';
           }}
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
           }}
-          const hasHistory = (pageData.recentCouncilsCount || 0) > 0;
-          return hasHistory
-            ? 'One question. Every model you use. One answer that knows you.'
-            : 'One question. Every model you use. One answer that knows you. Trinity asks across your stack at once, then synthesizes your prompts into core memories only you can see.';
+          return 'Stop copy-pasting prompts. Own your context. Dream your core memories.';
+        }},
+        get heroMechanism() {{
+          if (this.busy) {{
+            return '';
+          }}
+          return 'One question. Every model you use. One answer that knows you.';
         }},
         get operationHeading() {{
           if (!this.operation) {{
