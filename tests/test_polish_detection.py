@@ -68,6 +68,31 @@ class TestIsPolishTask:
             assert not is_polish_task(prompt), f"should NOT detect polish in: {prompt!r}"
 
 
+class TestLaunchpadPolishHint:
+    """Pin the client-side polish hint UI: petite-vue getter must exist
+    in the rendered launchpad HTML, and the in-card hint paragraph must
+    be wired to it."""
+
+    def test_polish_hint_renders_in_launchpad_html(self, tmp_path, monkeypatch):
+        from trinity_local.launchpad_page import write_portal_html
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        path = write_portal_html(title="Test")
+        html = path.read_text(encoding="utf-8")
+
+        # JS-side detection must be defined.
+        assert "get isPolishLike()" in html
+        assert "get polishHintVisible()" in html
+        # In-card hint paragraph must be present + bound to polishHintVisible.
+        assert 'v-if="polishHintVisible"' in html
+        # Both hint variants must render (auto-on AND auto-off paths).
+        assert "Polish task detected" in html
+        # One of the literal phrases the JS detector matches MUST be in
+        # the source — proves the heuristic transferred from Python.
+        assert "make this better" in html
+        assert "tighten this" in html
+
+
 class TestPolishAutoIterateSetting:
     def test_default_is_off(self, tmp_path, monkeypatch):
         """Out of the box, polish auto-iterate must NOT fire — feature is

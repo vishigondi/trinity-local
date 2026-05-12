@@ -846,6 +846,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </button>
           </div>
 
+          <p class="meta" v-if="polishHintVisible" style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+            <span v-if="polishAutoIterate">🔁 Polish task detected — this council will auto-iterate up to 3 rounds toward convergence (`polish-auto-iterate` is on).</span>
+            <span v-else>💡 Polish task detected. Iteration (3 rounds of consensus refinement) usually crystallizes the answer. <a href="#" @click.prevent="settingsOpen = true">Turn on polish auto-iterate</a> in settings.</span>
+          </p>
+
           <div class="actions" style="margin-top: 18px;">
             <button type="button" class="button primary" @click="launchCouncil" :disabled="busy">Launch Council</button>
           </div>
@@ -1536,6 +1541,46 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         }},
         get busy() {{
           return !!this.operation && this.operation.status === 'running';
+        }},
+        // Mirror of Python `is_polish_task` (task_types.py). Heuristic
+        // tuned for recall — better to over-suggest iteration than miss
+        // a polish task. Two paths:
+        //   1) literal polish phrase ("make this better", "tighten this",
+        //      "any better?", …)
+        //   2) ≤20 words AND contains a short imperative hint
+        //      ("shorter", "simpler", "clearer", …)
+        get isPolishLike() {{
+          const text = (this.prompt || '').toLowerCase().trim();
+          if (!text) return false;
+          const phrases = [
+            'make this better', 'make it better',
+            'make this stronger', 'make it stronger',
+            'make this sharper', 'make it sharper',
+            'improve this', 'polish this', 'polish it',
+            'tighten this', 'tighten it',
+            'rewrite this', 'refine this', 'edit this',
+            'is this clearer', 'is this stronger', 'is this better',
+            'any better', 'does this make sense', 'is this right',
+          ];
+          for (const p of phrases) {{
+            if (text.includes(p)) return true;
+          }}
+          const wordCount = text.split(/\\s+/).filter(Boolean).length;
+          if (wordCount <= 20) {{
+            const hints = ['shorter', 'simpler', 'clearer', 'stronger', 'punchier', 'crisper'];
+            for (const h of hints) {{
+              if (text.includes(h)) return true;
+            }}
+          }}
+          return false;
+        }},
+        get polishHintVisible() {{
+          // Only surface the hint once the user has actually typed something
+          // and we recognized polish. No hint = no noise.
+          return this.isPolishLike && (this.prompt || '').trim().length >= 8;
+        }},
+        get polishAutoIterate() {{
+          return !!this.telemetry?.polishAutoIterate;
         }},
         get heroTitle() {{
           if (this.operation?.kind === 'council' && this.busy) {{
