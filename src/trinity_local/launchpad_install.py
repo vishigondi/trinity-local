@@ -54,11 +54,11 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
     # bridge (NSWorkspace) was throwing -1700 on Apple Silicon Sequoia; the
     # shell-script TCC prompt only appears once and is then granted forever.
     #
-    # The wrapper at ~/.trinity/bin/trinity-launchpad regenerates the page
-    # before opening it, so every click sees fresh content from the current
-    # template. If the wrapper is missing (e.g. user upgraded the package but
-    # never re-ran install-mcp), fall back to opening the cached HTML.
-    wrapper = Path.home() / ".trinity" / "bin" / "trinity-launchpad"
+    # The `notify` argv path is the surface external callers use to display
+    # macOS notifications via the Trinity app's bundle (icon-polish). Default
+    # action is just "open the launchpad" — no regen, no Python boot. The
+    # page on disk is kept fresh by refresh_launchpad() calls baked into
+    # every state-mutation path (council save, watch cycle, telemetry).
     return (
         'on run argv\n'
         '  try\n'
@@ -76,18 +76,7 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
         '  on error\n'
         '    -- fall through to launchpad open\n'
         '  end try\n'
-        f'  set wrapperPath to "{wrapper}"\n'
-        f'  set cachedPath to "{launchpad}"\n'
-        '  try\n'
-        '    set wrapperExists to (do shell script "test -x " & quoted form of wrapperPath & " && echo yes || echo no")\n'
-        '    if wrapperExists is "yes" then\n'
-        '      do shell script quoted form of wrapperPath\n'
-        '    else\n'
-        '      do shell script "/usr/bin/open " & quoted form of ("file://" & cachedPath)\n'
-        '    end if\n'
-        '  on error\n'
-        '    do shell script "/usr/bin/open " & quoted form of ("file://" & cachedPath)\n'
-        '  end try\n'
+        f'  do shell script "/usr/bin/open " & quoted form of "file://{launchpad}"\n'
         '  return\n'
         'end run\n'
     )

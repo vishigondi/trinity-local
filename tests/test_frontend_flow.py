@@ -90,7 +90,10 @@ class TestLaunchpadFlow:
 
         assert path.exists()
         html = path.read_text(encoding="utf-8")
-        assert "Run Your First Council" in html
+        # Hero copy for cold-start users (no recent councils) — updated
+        # from "Run Your First Council" to the locked tagline per the brand
+        # pivot. Returning users see "Run a Council" instead.
+        assert "Dream your core memories" in html
         assert "launch_council" in html
         assert "Launchpad controls" in html
         assert "petite-vue@0.4.1" in html

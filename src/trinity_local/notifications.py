@@ -29,7 +29,29 @@ def _find_trinity_app() -> Path | None:
     return None
 
 
+def notifications_enabled() -> bool:
+    """Read ~/.trinity/settings/notifications.json — defaults to OFF.
+
+    macOS Notification Center popups for every "ready to start council",
+    "council ready", "drift alert", etc. turn into a steady wall of
+    interruption once Trinity is running councils + watching transcripts.
+    Off by default; flip on with `trinity-local notifications-enable`.
+    """
+    try:
+        from .state_paths import state_dir
+        settings = state_dir() / "settings" / "notifications.json"
+        if not settings.exists():
+            return False
+        import json
+        data = json.loads(settings.read_text(encoding="utf-8"))
+        return bool(data.get("enabled", False))
+    except Exception:
+        return False
+
+
 def notify(title: str, message: str) -> None:
+    if not notifications_enabled():
+        return
     system = platform.system().lower()
     try:
         if system == "darwin":

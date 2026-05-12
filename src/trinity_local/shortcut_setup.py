@@ -116,49 +116,25 @@ def write_dispatch_wrapper(python_executable: str | None = None) -> Path:
 
 
 def _render_launchpad_wrapper(python_executable: str) -> str:
-    """Shell wrapper for the desktop launchpad icon.
+    """Trivially simple wrapper: just open the cached launchpad HTML.
 
-    Regenerates the launchpad HTML, prints the resolved path on stdout, then
-    opens that path with the default browser. Failures during regen are
-    non-fatal — the wrapper falls through to opening the last-written HTML so
-    a transient breakage in the renderer doesn't strand the user on a click.
+    refresh_launchpad() is already wired into every state-mutation path
+    that matters (council save, watch cycle, telemetry toggle, etc.), so
+    the launchpad on disk is fresh by the time the user clicks. The
+    wrapper exists to give the desktop icon ONE path to open — keeping
+    the icon's AppleScript dumb. No Python boot, no regen wait, no
+    background process; just a 50ms shell-out to `/usr/bin/open`.
+
+    Dev iteration on the template itself: run `trinity-local portal-html`
+    after editing — that's the explicit "rebuild the page" command. The
+    wrapper deliberately doesn't second-guess your edits.
     """
-    venv_root = str(project_venv_root(python_executable))
-    path_prefix = runtime_path_prefix(python_executable)
-    return f"""#!/bin/sh
-set -u
-
-TRINITY_VENV_ROOT="{venv_root}"
-TRINITY_PATH_PREFIX="{path_prefix}"
-LAUNCHPAD_FALLBACK="$HOME/.trinity/portal_pages/launchpad.html"
-
-choose_python() {{
-  for candidate in \\
-    "$TRINITY_VENV_ROOT/bin/python3" \\
-    "$TRINITY_VENV_ROOT/bin/python" \\
-    "$(command -v python3 2>/dev/null || true)" \\
-    "$(command -v python 2>/dev/null || true)"
-  do
-    [ -n "$candidate" ] || continue
-    [ -x "$candidate" ] || continue
-    if "$candidate" -c 'import trinity_local.refresh' >/dev/null 2>&1; then
-      printf '%s\\n' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}}
-
-export PATH="$TRINITY_PATH_PREFIX:$PATH"
-
-PYTHON_BIN="$(choose_python 2>/dev/null || true)"
-LAUNCHPAD_PATH=""
-if [ -n "$PYTHON_BIN" ]; then
-  LAUNCHPAD_PATH="$("$PYTHON_BIN" -c 'from trinity_local.refresh import refresh_launchpad; print(refresh_launchpad())' 2>/dev/null || true)"
-fi
-[ -n "$LAUNCHPAD_PATH" ] || LAUNCHPAD_PATH="$LAUNCHPAD_FALLBACK"
-
-exec /usr/bin/open "file://$LAUNCHPAD_PATH"
+    # python_executable kept in the signature for parity with
+    # write_dispatch_wrapper (and future use), even though this wrapper
+    # doesn't currently shell into Python.
+    _ = python_executable
+    return """#!/bin/sh
+exec /usr/bin/open "file://$HOME/.trinity/portal_pages/launchpad.html"
 """
 
 
