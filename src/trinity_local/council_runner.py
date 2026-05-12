@@ -21,19 +21,45 @@ from .council_review import write_unified_council_page
 
 def _maybe_auto_open(review_path) -> None:
     """Open the review page in the default browser when the user opted in
-    via `trinity-local auto-open-enable`. Off by default; macOS-only via
-    the `open` command; failures swallowed (the council write already
-    succeeded — a browser hiccup must not pollute the return).
+    via `trinity-local auto-open-enable`. Off by default; macOS-only;
+    failures swallowed (the council write already succeeded — a browser
+    hiccup must not pollute the return).
+
+    Tab discipline (per the user's UX ask): every council opens into a
+    single named window via ``window.open(url, "trinity-council")``. The
+    browser's named-window mechanism reuses the existing tab — no new
+    tab per council, doesn't touch the launchpad's tab. Opened in
+    background (`-g`) so it doesn't steal focus.
     """
     try:
         from .telemetry import load_telemetry_settings
         if not load_telemetry_settings().auto_open_council:
             return
-        import subprocess, sys
+        import json
+        import subprocess
+        import sys
+        from .state_paths import portal_pages_dir
+
         if sys.platform != "darwin":
-            return  # `open` is macOS-specific; Linux/Windows silently skip
-        subprocess.Popen(  # noqa: S603 — args are a fixed binary + Path
-            ["open", str(review_path)],
+            return  # macOS-only — Linux/Windows silently skip
+
+        # Stable launcher URL — same path every time, browser is more
+        # likely to reuse the launcher tab too. Tiny page; sole job is to
+        # call window.open into the named "trinity-council" window.
+        launcher = portal_pages_dir() / "_open_council.html"
+        council_url = "file://" + str(review_path)
+        launcher.write_text(
+            "<!DOCTYPE html><html><head>"
+            "<title>Opening council…</title>"
+            '<meta charset="utf-8">'
+            "<script>"
+            f"window.open({json.dumps(council_url)}, 'trinity-council');"
+            "window.close();"
+            "</script></head><body>Opening Trinity council window…</body></html>",
+            encoding="utf-8",
+        )
+        subprocess.Popen(  # noqa: S603 — fixed binary + controlled path
+            ["open", "-g", str(launcher)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
