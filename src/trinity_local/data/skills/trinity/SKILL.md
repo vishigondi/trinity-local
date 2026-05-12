@@ -25,7 +25,7 @@ If both fail because the user is on a managed Python, surface the error and reco
 
 ## 3. Register the MCP server in Claude Code, Codex, and Gemini CLI
 
-This wires the Trinity MCP tools into every harness the user has installed. v1.0 ships 6 tools (`run_council`, `route`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (introspection into extracted routing patterns), and `mark_pick_wrong` (user-veto on a cortex rule — halves effective trust per click) — 9 total. The install edits `~/.claude.json`, `~/.gemini.json`, and `~/.codex/config.toml` — non-destructive, only adds the Trinity entry.
+This wires the Trinity MCP tools into every harness the user has installed. v1.0 ships 6 tools (`run_council`, `route`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick — halves effective trust per click) — 9 total. The install edits `~/.claude.json`, `~/.gemini.json`, and `~/.codex/config.toml` — non-destructive, only adds the Trinity entry.
 
 !`trinity-local install-mcp`
 

@@ -57,7 +57,7 @@ structurally the simplest answer.
 Claude (harness): I'll use mcp__trinity-local__ask to get a second opinion
                   on the migration strategy...
 [Trinity: kNN finds 12 similar past queries; Codex won 9/12 for this user's
-          "migration strategy" basin; cortex rule says "Codex for impl-mode
+          "migration strategy" basin; pick says "Codex for impl-mode
           subroute"]
 [Trinity dispatches one call to Codex]
 Codex: <answer>
@@ -437,11 +437,11 @@ There are two conductor layers, not one:
    call. Free for us. Most of the routing-decision intelligence happens here.
 
 2. **Trinity's internal mini-conductor** — only kicks in for `compare` and
-   `plan_and_execute`. For `ask`, retrieval + cortex rule + heuristic routing
+   `plan_and_execute`. For `ask`, retrieval + pick + heuristic routing
    handles it. No flagship call wasted on meta-planning.
 
 For `plan_and_execute`: a flagship (default Claude Opus) gets the context
-package (kNN episodes + cortex rules + lens basins + pool composition + cost
+package (kNN episodes + picks + lens basins + pool composition + cost
 metadata) and outputs Sakana's 3-list. Dispatcher executes. Verification
 step reviews.
 

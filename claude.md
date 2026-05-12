@@ -13,7 +13,7 @@
 > **Stop copy-pasting prompts. Own your context. Dream your core memories.**
 > *One question. Every model you use. One answer that knows you.*
 
-The brand axis: **prompts** (raw, yours, indexed) → **dream** (the verb only Trinity has — offline synthesis on your data) → **core memories** (what dream creates: cortex rules + the lens + the routing table). Plural intentional — these are structurally distinct memories that survive consolidation, not one monolithic blob. The sub-line carries the mechanic: one→many→one is the council shape ("every model you use" because Trinity isn't structurally locked at three — works whether you have Claude+Gemini today or Claude+GPT+Gemini+Cowork+Ollama tomorrow), and "knows you" is the lens-conditioned chairman.
+The brand axis: **prompts** (raw, yours, indexed) → **dream** (the verb only Trinity has — offline synthesis on your data) → **core memories** (what dream creates: picks + the lens + the routing table). Plural intentional — these are structurally distinct memories that survive consolidation, not one monolithic blob. The sub-line carries the mechanic: one→many→one is the council shape ("every model you use" because Trinity isn't structurally locked at three — works whether you have Claude+Gemini today or Claude+GPT+Gemini+Cowork+Ollama tomorrow), and "knows you" is the lens-conditioned chairman.
 
 Three load-bearing pains underneath, each with a direct Trinity answer:
 1. You copy-paste prompts between chatbots → Trinity asks all three at once
@@ -66,7 +66,7 @@ The map mirrors the tagline: prompts (what you own) → dream (the verb) → cor
 
 ## Calling the council from inside Claude Code
 
-Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (agent-facing introspection into extracted routing patterns), and `mark_pick_wrong` (user-veto on a cortex rule — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/memories/lens.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
+Trinity is exposed as an MCP server. v1.0 ships 6 canonical tools (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (agent-facing introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick — halves effective trust per click, persists across consolidations) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/memories/lens.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
 
 Bar for "hard":
 - Two senior engineers could reasonably disagree (architecture, API shape, refactor scope, naming, abstraction-vs-duplication)
@@ -259,7 +259,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 3. **Chairman auto-selection.** `predict_strongest_chairman(task)` looks up personal table → global priors → default order. Manual `--primary-provider` always wins.
 4. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
 5. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
-6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_picks` (agent-facing introspection into extracted routing patterns), and `mark_pick_wrong` (user-veto on a cortex rule; halves effective trust per click) — 9 total. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
+6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_picks` (agent-facing introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick; halves effective trust per click) — 9 total. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.
@@ -303,7 +303,7 @@ preserves the prior implementation if v1.6 wants to study it.
 ## Verified status
 
 - `pytest -q` — **576 passed**.
-- `trinity-local --mcp` exposes 9 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_picks` (agent-facing introspection into extracted routing patterns) + v1.5 `mark_pick_wrong` (user-veto on a cortex rule; halves effective trust per click).
+- `trinity-local --mcp` exposes 9 tools: the v1.0 canonical 6 (`route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_picks` (agent-facing introspection into extracted picks) + v1.5 `mark_pick_wrong` (user-veto on a pick; halves effective trust per click).
 - `trinity-local seed-from-taste-terminal --limit 10` runs end-to-end on real exports.
 - `trinity-local replay-history --dry-run` lists ranked candidates with reason chips.
 - `trinity-local portal-html` renders the launchpad with autofill chips, personal routing table card (or empty-state CTA), and global benchmarks.
