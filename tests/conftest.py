@@ -14,7 +14,7 @@ def tmp_state_dir(tmp_path: Path) -> Path:
     """Create a temporary state directory mimicking trinity-local's ~/.trinity/ layout."""
     state = tmp_path / "trinity_home"
     for sub in [
-        "tasks", "actions", "prompt_bundles", "council_outcomes",
+        "todos", "actions", "prompt_bundles", "council_outcomes",
         "task_sync", "portal_pages", "review_pages", "watcher",
     ]:
         (state / sub).mkdir(parents=True)

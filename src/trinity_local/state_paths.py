@@ -133,7 +133,19 @@ def research_dir() -> Path:
 
 
 def tasks_dir() -> Path:
-    path = state_dir() / "tasks"
+    """Durable todo records — one JSON file per pending action (council
+    launches, review-ready handoffs). Lives at `~/.trinity/todos/` to
+    disambiguate from `task_type` (the classifier label, NOT a stored
+    record). Pre-launch directory rename: if a legacy
+    `~/.trinity/tasks/` exists from an earlier dev install, move it to
+    `todos/` once."""
+    path = state_dir() / "todos"
+    legacy = state_dir() / "tasks"
+    if not path.exists() and legacy.exists():
+        try:
+            legacy.rename(path)
+        except OSError:
+            pass
     path.mkdir(parents=True, exist_ok=True)
     return path
 

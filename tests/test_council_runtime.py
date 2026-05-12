@@ -101,7 +101,8 @@ class TestChairmanPromptOrdering:
         from trinity_local.council_runtime import render_primary_council_prompt
         from trinity_local.council_schema import CouncilMemberResult, PromptBundle
 
-        # Force /me to exist for this test by writing a synthetic me.md.
+        # Force /me to exist for this test by writing a synthetic lens.
+        # (Pre-rename path was ~/.trinity/me.md — file auto-migrates.)
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         (tmp_path / "me.md").write_text(
             "# /me\nUser profile: prefers terse answers.\n",
@@ -119,6 +120,58 @@ class TestChairmanPromptOrdering:
         assert me_pos > 0, "User profile section missing"
         assert task_pos > me_pos, "task must come AFTER /me"
         assert member_pos > task_pos, "members must come AFTER task"
+
+    def test_chairman_prefers_core_md_over_lens_md(self, tmp_path, monkeypatch):
+        """When ~/.trinity/core.md exists, the chairman context loader must
+        use the distilled paragraph and NOT the full lens. core is the
+        identity memory — one paragraph subsuming the five plural memories.
+        Loading both wastes context; loading only lens defeats Phase 5."""
+        from trinity_local.council_runtime import render_primary_council_prompt
+        from trinity_local.council_schema import CouncilMemberResult, PromptBundle
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Both files present — core.md should win.
+        (tmp_path / "core.md").write_text(
+            "You ship leverage over structural ownership.", encoding="utf-8",
+        )
+        (tmp_path / "memories").mkdir()
+        (tmp_path / "memories" / "lens.md").write_text(
+            "# Lens\nSHOULD NOT APPEAR — core.md takes precedence.\n",
+            encoding="utf-8",
+        )
+
+        bundle = PromptBundle(bundle_id="b", task_cluster_id="c", task_text="Pick a cache.")
+        members = [CouncilMemberResult(provider="claude", model="opus", output_text="Redis.")]
+        prompt = render_primary_council_prompt(bundle, members)
+
+        assert "You ship leverage over structural ownership." in prompt
+        assert "SHOULD NOT APPEAR" not in prompt, (
+            "When core.md exists, the full lens MUST NOT also be loaded — "
+            "it duplicates context and defeats the distillation."
+        )
+
+    def test_chairman_falls_back_to_lens_when_core_missing(self, tmp_path, monkeypatch):
+        """Cold install — no core.md distilled yet. Chairman must still load
+        the lens so it has SOMETHING to personalize on."""
+        from trinity_local.council_runtime import render_primary_council_prompt
+        from trinity_local.council_schema import CouncilMemberResult, PromptBundle
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # core.md absent, only lens.md present.
+        (tmp_path / "memories").mkdir()
+        (tmp_path / "memories" / "lens.md").write_text(
+            "# Lens\nFallback context line.\n", encoding="utf-8",
+        )
+
+        bundle = PromptBundle(bundle_id="b", task_cluster_id="c", task_text="Pick a cache.")
+        members = [CouncilMemberResult(provider="claude", model="opus", output_text="Redis.")]
+        prompt = render_primary_council_prompt(bundle, members)
+
+        assert "Fallback context line" in prompt
+        assert "core.md" not in prompt or "not yet distilled" in prompt, (
+            "When core.md is absent, prompt should still mention WHY "
+            "the lens is being read directly."
+        )
 
 
 class TestThreadManifest:

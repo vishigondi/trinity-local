@@ -275,18 +275,41 @@ def render_primary_council_prompt(
         "is to pick the answer that best fits THIS user — not the world. "
         "Members generate broad; you condense through the user's taste.",
     ]
-    # User profile from /me — chairman becomes a personalised verifier when present.
+    # User profile — chairman reads `core.md` FIRST (one paragraph, the
+    # distillation of all five plural memories) and falls through to the
+    # full `lens.md` only when core is absent. This keeps each council
+    # cheap on a populated install (just one paragraph in context) while
+    # cold-start installs still get the full lens.
     try:
+        from .state_paths import core_path
         from .me_builder import load_me
 
-        me_doc = load_me()
-        if me_doc:
+        core = ""
+        cpath = core_path()
+        if cpath.exists():
+            try:
+                core = cpath.read_text(encoding="utf-8").strip()
+            except OSError:
+                core = ""
+        if core:
             sections.append(
-                "User profile (from ~/.trinity/me.md, distilled from prior transcripts).\n"
-                "Use this to score 'which answer fits THIS user'. Do not echo it back; "
-                "use it as latent context.\n\n"
-                f"{me_doc}"
+                "User profile (from ~/.trinity/core.md — distilled paragraph "
+                "subsuming the five plural core memories).\n"
+                "Use this to score 'which answer fits THIS user'. Do not echo "
+                "it back; use it as latent context.\n\n"
+                f"{core}"
             )
+        else:
+            me_doc = load_me()
+            if me_doc:
+                sections.append(
+                    "User profile (from ~/.trinity/memories/lens.md — paired "
+                    "tensions extracted from prior transcripts; core.md not "
+                    "yet distilled).\n"
+                    "Use this to score 'which answer fits THIS user'. Do not "
+                    "echo it back; use it as latent context.\n\n"
+                    f"{me_doc}"
+                )
     except Exception:
         pass
     sections.append(f"Original task:\n{bundle.task_text}")

@@ -17,42 +17,34 @@ from ..me_builder import (
 
 def register(subparsers):
     build_parser = subparsers.add_parser(
-        "me-build",
-        help="Build ~/.trinity/me.md via the 3-stage lens-discovery pipeline (Option C).",
+        "lens-build",
+        help="Build ~/.trinity/memories/lens.md via the 3-stage lens-discovery pipeline.",
     )
     build_parser.add_argument(
-        "--budget-chars",
-        type=int,
-        default=ME_BUDGET_CHARS,
-        help=f"Soft cap on /me size when using --legacy (default {ME_BUDGET_CHARS}).",
+        "--budget-chars", type=int, default=ME_BUDGET_CHARS,
+        help=f"Soft cap on lens.md size when using --legacy (default {ME_BUDGET_CHARS}).",
     )
     build_parser.add_argument(
-        "--sample-size",
-        type=int,
-        default=ME_SAMPLE_SIZE,
+        "--sample-size", type=int, default=ME_SAMPLE_SIZE,
         help=f"How many representative prompts to feed the chairman (default {ME_SAMPLE_SIZE}).",
     )
     build_parser.add_argument(
-        "--k-basins",
-        type=int,
-        default=20,
+        "--k-basins", type=int, default=20,
         help="Stage 1 k-means cluster count (default 20).",
     )
     build_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Stage 1 only — cluster basins and print their summary, no LLM calls.",
+        "--dry-run", action="store_true",
+        help="Stage 1 only — cluster topics and print their summary, no LLM calls.",
     )
     build_parser.add_argument(
-        "--legacy",
-        action="store_true",
+        "--legacy", action="store_true",
         help="Use the old single-pass chairman builder (pre-Option C).",
     )
     build_parser.set_defaults(handler=handle_me_build)
 
     show_parser = subparsers.add_parser(
-        "me-show",
-        help="Print the current ~/.trinity/me.md content.",
+        "lens-show",
+        help="Print the current ~/.trinity/memories/lens.md content.",
     )
     show_parser.set_defaults(handler=handle_me_show)
 

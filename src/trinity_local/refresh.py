@@ -31,7 +31,11 @@ def _reap_zombie_tasks(stale_after_minutes: int = 60) -> int:
 
     from .state_paths import state_dir
 
-    tasks_dir = state_dir() / "tasks"
+    # Use the canonical helper so the legacy `tasks/` → `todos/` rename
+    # is handled transparently. Local var still named `tasks_dir` so the
+    # rest of this function reads identically.
+    from .state_paths import tasks_dir as _todos_dir
+    tasks_dir = _todos_dir()
     if not tasks_dir.is_dir():
         return 0
     now = time.time()
