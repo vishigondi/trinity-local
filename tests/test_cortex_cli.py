@@ -141,3 +141,148 @@ class TestCortexOverrideCLI:
             capsys,
         )
         assert payload["reason"] == "claude over-engineers in this basin"
+
+
+def _consolidate_args(**overrides) -> SimpleNamespace:
+    """argparse Namespace with consolidate's argument defaults."""
+    base = {
+        "min_basin_size": 3,
+        "dry_run": False,
+        "basin": None,
+        "provider": "claude",
+        "audit": False,
+        "audit_provider": None,
+    }
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def _plant_outcomes(home: Path, basin: str, n: int) -> None:
+    """Write N council_outcome JSON files all classified to `basin`."""
+    out_dir = home / "council_outcomes"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(n):
+        (out_dir / f"council_{basin}_{i:04d}.json").write_text(
+            json.dumps({
+                "council_run_id": f"{basin}_c{i}",
+                "bundle_id": f"{basin}_b{i}",
+                "winner_provider": "claude",
+                "routing_label": {
+                    "task_type": basin,
+                    "winner": "claude",
+                    "routing_lesson": "claude wins",
+                    "agreed_claims": ["x"],
+                    "disagreed_claims": [],
+                },
+            }),
+            encoding="utf-8",
+        )
+
+
+class TestConsolidateCLI:
+    """Coverage for the branches of `handle_consolidate` that don't require
+    a real flagship call. The full extraction path is exercised by
+    test_cortex.TestConsolidateAll with a stub dispatch; these tests pin
+    the CLI's *gating* logic (dry-run, --audit-provider conflict, etc.)
+    that lives in the command module, not in cortex.py."""
+
+    def test_no_outcomes_returns_zero_with_reason(self, tmp_path, monkeypatch, capsys):
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        rc = handle_consolidate(_consolidate_args())
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        # Empty state is exit 0 (it's a valid no-op), not exit 1.
+        assert rc == 0
+        assert payload["ok"] is False
+        assert "no council outcomes" in payload["reason"]
+
+    def test_dry_run_lists_eligible_and_skipped_without_dispatching(self, tmp_path, monkeypatch, capsys):
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # One basin with 5 outcomes (eligible), one with 1 (below min=3)
+        _plant_outcomes(tmp_path, "system_design", 5)
+        _plant_outcomes(tmp_path, "tiny_basin", 1)
+
+        rc = handle_consolidate(_consolidate_args(dry_run=True))
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert rc == 0
+        assert payload["mode"] == "dry-run"
+        assert payload["eligible_basins"] == {"system_design": 5}
+        assert payload["skipped_below_min"] == {"tiny_basin": 1}
+        # Dry-run must NOT have called any provider — no audit chatter
+        # on stderr is the proxy.
+        assert "Chairman-audit-mode" not in captured.err
+
+    def test_audit_provider_conflict_returns_one(self, tmp_path, monkeypatch, capsys):
+        """--audit-provider == --provider is invalid (an audit by the same
+        model that wrote the rule is worse than no audit at all). Should
+        exit 1 with a clear reason before any dispatch happens."""
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        _plant_outcomes(tmp_path, "b", 5)
+
+        rc = handle_consolidate(_consolidate_args(
+            audit=True, audit_provider="claude", provider="claude"
+        ))
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert rc == 1
+        assert payload["ok"] is False
+        assert "must differ" in payload["reason"]
+        assert "claude" in payload["reason"]
+
+    def test_min_basin_size_filter_excludes_small_basins(self, tmp_path, monkeypatch, capsys):
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        _plant_outcomes(tmp_path, "small", 2)
+        _plant_outcomes(tmp_path, "big", 5)
+
+        rc = handle_consolidate(_consolidate_args(min_basin_size=4, dry_run=True))
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert rc == 0
+        # min_basin_size=4 excludes both "small" (n=2) and would have
+        # been excluding "big" if n<4. Only "big" should be eligible.
+        assert payload["eligible_basins"] == {"big": 5}
+        assert payload["skipped_below_min"] == {"small": 2}
+
+    def test_basin_filter_narrows_to_named_basins(self, tmp_path, monkeypatch, capsys):
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        _plant_outcomes(tmp_path, "a", 5)
+        _plant_outcomes(tmp_path, "b", 5)
+        _plant_outcomes(tmp_path, "c", 5)
+
+        rc = handle_consolidate(_consolidate_args(basin=["a", "c"], dry_run=True))
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert rc == 0
+        # --basin filters BEFORE min-size — only the named basins should
+        # be present in the dry-run report.
+        assert set(payload["eligible_basins"].keys()) == {"a", "c"}
+
+    def test_no_eligible_basins_returns_one(self, tmp_path, monkeypatch, capsys):
+        """When every basin is below min-size, exit 1 with a reason that
+        lists the basins-below-min so the operator can lower --min-basin-size."""
+        from trinity_local.commands.cortex import handle_consolidate
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        _plant_outcomes(tmp_path, "a", 2)
+        _plant_outcomes(tmp_path, "b", 1)
+
+        rc = handle_consolidate(_consolidate_args(min_basin_size=3))
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert rc == 1
+        assert payload["ok"] is False
+        assert "no basins" in payload["reason"]
+        # The basins-below-min listing helps the operator decide whether
+        # to wait for more councils or lower the threshold.
+        assert payload["basins_below_min"] == {"a": 2, "b": 1}
