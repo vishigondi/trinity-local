@@ -6,7 +6,7 @@ Public tools, in lifecycle order:
   - run_council(task, members, mode, sequence, responses)
       "Run the task across multiple models." — N+1 model calls.
       When `responses` is provided, skips member dispatch and goes straight
-      to chairman synthesis (one model call). This is the verifier-shaped
+      to chairman synthesis (one model call). This is the structured
       verdict path: agreed_claims, disagreed_claims, winner, routing_lesson.
   - record_outcome(council_run_id, user_winner, accepted, edited, ...)
       "Trinity, here's what actually happened." — closes the supervision loop.
@@ -108,7 +108,7 @@ async def handle_list_tools() -> list[Tool]:
                 "and the path to the live review page; the council runs asynchronously.\n\n"
                 "When `responses` is provided (pre-supplied member outputs), skips member dispatch "
                 "and goes straight to chairman synthesis — one model call instead of N+1. This is "
-                "the verifier-shaped verdict path. Use when you ALREADY HAVE multiple model outputs "
+                "the structured verdict path. Use when you ALREADY HAVE multiple model outputs "
                 "and just want the structured verdict (agreed_claims, disagreed_claims, winner, "
                 "routing_lesson, eval_seed)."
             ),
@@ -133,7 +133,7 @@ async def handle_list_tools() -> list[Tool]:
                         "type": "array",
                         "description": (
                             "Pre-supplied member outputs. When present, skips member dispatch "
-                            "and runs chairman synthesis only (verifier-shaped verdict)."
+                            "and runs chairman synthesis only (structured verdict)."
                         ),
                         "items": {
                             "type": "object",
@@ -707,7 +707,7 @@ async def _synthesize_responses(args: dict, responses: list[dict]) -> list[Any]:
 
     Equivalent to running a council where members already executed; we skip
     the dispatch and feed the chairman directly. One model call (chairman)
-    instead of N+1. Returns the verifier-shaped Routing JSON inline.
+    instead of N+1. Returns the structured Routing JSON inline.
     """
     from .council_runtime import (
         create_council_outcome,
@@ -814,7 +814,7 @@ async def _synthesize_responses(args: dict, responses: list[dict]) -> list[Any]:
 
 async def _run_council(args: dict) -> list[Any]:
     # Pre-supplied responses → chairman synthesis only. One model call instead
-    # of N+1. Same outcome shape (verifier-shaped Routing JSON), persisted as
+    # of N+1. Same outcome shape (structured Routing JSON), persisted as
     # a CouncilOutcome so subsequent record_outcome calls can attach.
     #
     # Distinguish "absent" from "explicitly empty": passing responses=[] is a

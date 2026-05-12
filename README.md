@@ -149,7 +149,7 @@ the file, future `install-mcp` runs leave it alone.
 |---|---|---|---|---|---|
 | Data source | **Your own prompts** | Crowd votes | Test fixtures | n/a (router) | Yours, but no persistence |
 | Cost basis | Your own subscriptions | Hosted | Per-call API | Per-call API | Per-call API |
-| Output | **Verifier-shaped Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
+| Output | **Structured Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
 | Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
 | Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
 | Shareable artifact | **`/me` lens PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |

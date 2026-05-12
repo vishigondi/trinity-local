@@ -13,7 +13,7 @@
 >
 > *v1.5 (ships June 3):* *"Trinity is what Claude Code reaches for when it needs a different provider, a fresh perspective, or a way to dodge a rate limit. Learns at two levels — specific past decisions (hippocampus) and extracted patterns across them (cortex). Gets sharper, not slower, with use."*
 
-Trinity is a **routing substrate** — the layer underneath every AI harness that decides which model to call, runs a verifier-shaped council when uncertainty about model choice is itself the problem, and learns the user's taste from the picks they actually make.
+Trinity is a **routing substrate** — the layer underneath every AI harness that decides which model to call, runs a structured council when uncertainty about model choice is itself the problem, and learns the user's taste from the picks they actually make.
 
 **The wedge is trust calibration, not cost optimization.** Cost savings become a real claim in v1.5 once local model dispatch (Ollama + MLX) lands. The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."*
 
@@ -73,7 +73,7 @@ These are problems that **require multi-provider observation** and cannot be sol
 > "These models agreed on these claims, disagreed on these, here's why the
 > disagreement matters — and which answer fits *you*."
 
-When a task matters, you want more than one opinion. Trinity runs the same prompt through multiple providers and a chairman synthesizes a verifier-shaped Routing JSON: structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `routing_lesson`, and `user_likely_values` derived from your `/me` profile.
+When a task matters, you want more than one opinion. Trinity runs the same prompt through multiple providers and a chairman synthesizes a structured Routing JSON: structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `routing_lesson`, and `user_likely_values` derived from your `/me` profile.
 
 The chairman is loaded with `~/.trinity/me.md`, so it doesn't pick the universally best answer — it picks the answer that fits *this* user. Members generate broad; chairman condenses through your taste.
 
@@ -134,7 +134,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 
 1. **`ask(query, available_providers?, thread_id?, top_k?)`** *(v1.5)* — kNN + cortex match → single dispatched call → concise structured return `{answer, routed_to, trust_score, latency_ms, escalate_hint?}`. The 90%-of-consults tool. Returns `escalate_hint=compare` when trust < 0.55 so the calling agent can choose to fan out instead.
 2. **`route(task, ...)`** — heuristic + k-NN; returns `{mode, primary, challenger, confidence, reason, shape_signals}`. No model calls. Deprecated in v1.5 in favor of `ask` for in-harness use (the calling agent can't shell out to dispatch via `route`'s advice alone); kept for backwards compatibility.
-3. **`run_council(task, members, mode, sequence, primary_provider, responses)`** — spawns a council; runs members in parallel (or chain) then chairman. **When `responses=[...]` is provided**, skips dispatch and runs chairman synthesis only — the verifier-shaped verdict path. Subsumes the former `judge` tool.
+3. **`run_council(task, members, mode, sequence, primary_provider, responses)`** — spawns a council; runs members in parallel (or chain) then chairman. **When `responses=[...]` is provided**, skips dispatch and runs chairman synthesis only — the structured verdict path. Subsumes the former `judge` tool.
 4. **`record_outcome(council_run_id, user_winner, accepted, ...)`** — closes the supervision loop. Updates `CouncilOutcome.metadata.user_verdict` and the originating `PromptNode`.
 5. **`search_prompts(query, top_k)`** — heuristic search (substring + recency + replay-value); no embedding load.
 6. **`get_persona()`** — returns `~/.trinity/me.md`.
@@ -147,7 +147,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 ```
 ~/.trinity/
 ├── tasks/                          # Durable task records
-├── council_outcomes/               # Council outcome JSON (verifier-shaped routing_label + chain_steps) — CANONICAL store
+├── council_outcomes/               # Council outcome JSON (structured routing_label + chain_steps) — CANONICAL store
 ├── council_progress/               # Live council progress (JSON + JS) for polling
 ├── reviews/                        # Post-hoc review JSON
 ├── review_pages/                   # Static HTML review pages
@@ -201,7 +201,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 2. **Embedding-free hot path.** Launchpad autofill, MCP `search_prompts`, `replay-history`. Substring + recency + replay-value heuristics. ~150ms warm query over 5000 cached recent PromptNodes.
 3. **Personal routing table (on-demand).** Computed by walking `council_outcomes/*.json`, mtime-cached. Read by chairman_picker + launchpad.
 4. **Chairman auto-selection.** `predict_strongest_chairman(task)` consults personal table → global priors → default order.
-5. **Verifier-shaped chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
+5. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
 6. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
 7. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong`).** v1.0: `route`, `run_council` (subsumes `judge`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5: `ask` (cheap single-call default), `get_cortex_rules` (agent-facing introspection), and `mark_cortex_rule_wrong` (harness-callable user veto). 9 total.
 8. **`/me-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
@@ -242,13 +242,13 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 The blog post writes itself:
 
-> "I ran 50 of my favorite prompts through 3 AI coding tools. The chairman synthesized verifier-shaped verdicts personalised to my `/me`. The rankings surprised me. Here's the data — run it on your own prompts."
+> "I ran 50 of my favorite prompts through 3 AI coding tools. The chairman synthesized structured verdicts personalised to my `/me`. The rankings surprised me. Here's the data — run it on your own prompts."
 
 Why this order:
 
 1. **Council is generative.** It produces a new artifact (cross-provider verdict) that didn't exist before.
 2. **Council extracts constitutional data.** Every run feeds Routing JSON into the local evidence ledger; the personal routing table aggregates on demand.
-3. **Council is the proof.** Multi-provider chairman synthesis with verifier-shaped Routing JSON (agreed_claims / disagreed_claims with why_matters) already validates the multi-provider thesis.
+3. **Council is the proof.** Multi-provider chairman synthesis with structured Routing JSON (agreed_claims / disagreed_claims with why_matters) already validates the multi-provider thesis.
 4. **`/me` lenses are the shareable social object.** Pair-wise principles distilled from your prompt history (title + why-it-matters per implicit rejection); copyable to socials with one click. Verbatim prompts stay local — only the principle ships.
 
 ### Distribution

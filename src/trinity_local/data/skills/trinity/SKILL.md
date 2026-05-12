@@ -39,7 +39,7 @@ If any required check fails, stop and walk the user through the surfaced fix lin
 
 ## 5. (Optional) First council
 
-If the user passed an argument, launch a council against it so they see a verifier-shaped Routing JSON on their first run:
+If the user passed an argument, launch a council against it so they see a structured Routing JSON on their first run:
 
 ```
 mcp__trinity-local__run_council(task="$ARGUMENTS", members=["claude","gemini","codex"], mode="parallel")

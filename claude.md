@@ -90,7 +90,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Config | `config.py`, `config.json` | Provider definitions, role/task preferences, `trinity_home()` |
 | Providers | `providers.py` | Subprocess wrappers for CLI provider calls |
 | Council runner | `council_runner.py` | Parallel + chain-mode multi-model execution |
-| Council runtime | `council_runtime.py` | Bundle creation, chairman prompt rendering (with verifier JSON contract), Routing JSON parsing, outcome construction |
+| Council runtime | `council_runtime.py` | Bundle creation, chairman prompt rendering (with structured JSON contract), Routing JSON parsing, outcome construction |
 | Council schema | `council_schema.py` | `PromptBundle`, `LaunchEvent`, `CouncilMemberResult`, `CouncilChainStep` (NEW), `CouncilRoutingLabel` (with `agreed_claims` / `disagreed_claims`), `CouncilOutcome` (with `mode` and `chain_steps`) |
 | Council status | `council_status.py` | Live run-state, member streaming, chairman synthesis progress |
 | Council review | `council_review.py` | Static HTML review pages, structured Routing label section, live page with streaming member responses |
@@ -119,7 +119,7 @@ These are the only public surface. Lifecycle order:
 
 1. **`route(task, harness, available_models, budget, latency)`** → `{mode, primary, challenger, confidence, reason, fallback}`. No model calls — heuristic + k-NN + chairman picker. Cheap, called before the harness picks a model.
 
-2. **`run_council(task, members, mode, sequence, primary_provider, responses)`** → council launched asynchronously. `mode="parallel"` (default) runs members concurrently then chairman. `mode="chain"` runs sequence serially with each step seeing prior outputs. **When `responses=[...]` is provided** (pre-supplied member outputs), skips dispatch and runs chairman synthesis only — one model call instead of N+1, returns the verifier-shaped Routing JSON inline. This subsumes the former `judge` tool.
+2. **`run_council(task, members, mode, sequence, primary_provider, responses)`** → council launched asynchronously. `mode="parallel"` (default) runs members concurrently then chairman. `mode="chain"` runs sequence serially with each step seeing prior outputs. **When `responses=[...]` is provided** (pre-supplied member outputs), skips dispatch and runs chairman synthesis only — one model call instead of N+1, returns the structured Routing JSON inline. This subsumes the former `judge` tool.
 
 3. **`record_outcome(council_run_id, user_winner, accepted, edited, tests_passed, cost_usd, latency_sec, answer_label)`** → closes the supervision loop. Updates `council_feedback`, `CouncilOutcome.metadata.user_verdict`, and the originating `PromptNode` via `memory.record_council_outcome`. **The most important tool** — without it Trinity is a switchboard.
 
@@ -184,7 +184,7 @@ top-N replay candidates
     ↓ replay-history loop
 council_runner.run_council per candidate (auto-picked chairman)
     ↓ chairman synthesis
-verifier-shaped Routing JSON (agreed_claims, disagreed_claims, provider_scores, routing_lesson)
+structured Routing JSON (agreed_claims, disagreed_claims, provider_scores, routing_lesson)
     ↓ persisted in ~/.trinity/council_outcomes/{id}.json (the canonical store)
     ↓ compute_personal_routing_table() aggregates on demand by task_type
     ↓ chairman_picker → next council picks the right chairman
@@ -217,7 +217,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 1. **Memory index live.** `seed-from-taste-terminal` populates `~/.trinity/memory/` from claude_ai + chatgpt + gemini takeout exports. 768d nomic embeddings, batched. Numpy matmul fast-path brings 28k-vector search from ~3s to ~5ms.
 2. **Personal routing table.** `replay-history --limit 20` re-evaluates top-N replay candidates against the current model lineup. Aggregation by `task_type` is computed on demand by `compute_personal_routing_table()` walking `~/.trinity/council_outcomes/*.json` (no separate state file — the council outcomes directory is canonical, can't drift from itself). Cached in-process by directory mtime.
 3. **Chairman auto-selection.** `predict_strongest_chairman(task)` looks up personal table → global priors → default order. Manual `--primary-provider` always wins.
-4. **Verifier-shaped chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
+4. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
 5. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
 6. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_cortex_rules` + `mark_cortex_rule_wrong`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_cortex_rules` (agent-facing introspection into extracted routing patterns), and `mark_cortex_rule_wrong` (user-veto on a cortex rule; halves effective trust per click) — 9 total. The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.

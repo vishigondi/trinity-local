@@ -324,7 +324,7 @@ The lens-discovery pipeline + the launch-readiness gates that took it from "ship
      Opening verb changed: *"asks all three"* → *"records disagreement as routing
      evidence"* + the behavior-change line *"the click you make today changes which model
      gets trusted tomorrow."*
-  2. HN title de-jargoned: dropped "verifier-shaped" — *"Show HN: Trinity Local — a local
+  2. HN title de-jargoned: dropped "structured" — *"Show HN: Trinity Local — a local
      routing ledger for Claude, Gemini, and Codex."*
   3. Tweet 5 `/me` lens uses verbatim accepted lens from `~/.trinity/me/lenses.json`
      (*"leading proxy signal as forecast"* vs *"official lagging metric as truth,"* with
@@ -485,7 +485,7 @@ The substrate that everything since builds on.
 - **Memory hierarchy** — `PromptNode` (atom) + `TurnWindow` (local context) index. Numpy matmul
   fast-path (28k vectors → ~5ms search).
 - **Council runner** — parallel-mode (members run simultaneously) and chain-mode (sequential
-  refinement). Chairman synthesis emits verifier-shaped Routing JSON with `agreed_claims`,
+  refinement). Chairman synthesis emits structured Routing JSON with `agreed_claims`,
   `disagreed_claims`, `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
 - **6 canonical MCP tools** (settled in v1.1; called out here for substrate completeness).
 - **Personal routing table** — chairman-auto-selection via `predict_strongest_chairman()`.
