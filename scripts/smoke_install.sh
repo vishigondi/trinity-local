@@ -114,6 +114,31 @@ print('✓ Trinity-internal checks pass (provider CLIs absent in smoke env, expe
     fi
     echo "✓ /trinity skill installed at \$HOME/.claude/skills/trinity/SKILL.md"
 
+    # spec-v1.5 Week 5 gate: the MCP path must actually work post-install.
+    # install-mcp only writes config files; doctor only checks the env. A
+    # missing dep in the wheel would slip past both. Verify the MCP server
+    # module imports AND list_tools returns the 9 expected names.
+    if ! "$SMOKE_DIR/venv/bin/python" -c '
+import asyncio, sys
+from trinity_local.mcp_server import handle_list_tools
+tools = asyncio.run(handle_list_tools())
+names = {t.name for t in tools}
+expected = {
+    "ask", "get_cortex_rules", "mark_cortex_rule_wrong",
+    "route", "run_council", "record_outcome",
+    "search_prompts", "get_persona", "get_council_status",
+}
+missing = expected - names
+extra = names - expected
+if missing or extra:
+    print(f"FAIL: MCP tool list mismatch (missing={missing}, extra={extra})", file=sys.stderr)
+    sys.exit(1)
+print(f"  ✓ MCP exposes {len(names)} tools: {sorted(names)}")
+'; then
+        echo "FAIL: MCP server import or tool list check failed" >&2
+        exit 1
+    fi
+
     echo
     echo "=== local smoke PASSED ==="
 }
