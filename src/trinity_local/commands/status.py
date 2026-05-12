@@ -103,6 +103,36 @@ def handle_status(args):
     print(f"  Councils:  {council_count}")
     print()
 
+    # Core memories — the five plural memories dream creates + the
+    # singular core.md distillation. Reading paths from state_paths so
+    # auto-migration kicks in transparently.
+    from ..state_paths import (
+        core_path, lens_path, picks_path, routing_path,
+        topics_path, vocabulary_path,
+    )
+    print("  Memories:")
+    for label, path in [
+        ("lens.md       ", lens_path()),
+        ("picks.json    ", picks_path()),
+        ("routing.json  ", routing_path()),
+        ("topics.json   ", topics_path()),
+        ("vocabulary.md ", vocabulary_path()),
+    ]:
+        if path.exists():
+            size = path.stat().st_size
+            print(f"    ✅ {label} {size:>8,} bytes")
+        else:
+            print(f"    · {label} not built")
+    core = core_path()
+    if core.exists():
+        # Show whether core is fresh vs stale relative to its source memories.
+        from ..distill import is_core_stale
+        stale = is_core_stale()
+        marker = "⚠️ stale" if stale else "✅ fresh"
+        print(f"    {marker} core.md       {core.stat().st_size:>8,} bytes — chairman reads this first")
+    else:
+        print(f"    · core.md       not distilled — run `trinity-local distill`")
+    print()
 
     # Drift
     if drift_alerts:
