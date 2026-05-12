@@ -353,12 +353,12 @@ class TestRoundTripThroughCouncil:
 
 class TestLaunchpadRendering:
     def test_card_appears_when_table_has_data(self, home: Path, monkeypatch):
-        from trinity_local import portal_data
+        from trinity_local import launchpad_data
         from trinity_local.adapters import AdapterStatus
-        from trinity_local.portal_page import write_portal_html
+        from trinity_local.launchpad_page import write_portal_html
         from trinity_local.utils import now_iso
 
-        monkeypatch.setattr(portal_data, "check_all_adapters", lambda: [
+        monkeypatch.setattr(launchpad_data, "check_all_adapters", lambda: [
             AdapterStatus(provider="claude", cli_name="claude", installed=True),
             AdapterStatus(provider="gemini", cli_name="gemini", installed=True),
         ])
@@ -379,11 +379,11 @@ class TestLaunchpadRendering:
         assert "personalRoutingTable" in html  # the v-if/data binding hooks
 
     def test_empty_state_card_shown_when_table_missing(self, home: Path, monkeypatch):
-        from trinity_local import portal_data
+        from trinity_local import launchpad_data
         from trinity_local.adapters import AdapterStatus
-        from trinity_local.portal_page import write_portal_html
+        from trinity_local.launchpad_page import write_portal_html
 
-        monkeypatch.setattr(portal_data, "check_all_adapters", lambda: [
+        monkeypatch.setattr(launchpad_data, "check_all_adapters", lambda: [
             AdapterStatus(provider="claude", cli_name="claude", installed=True),
         ])
 
@@ -400,7 +400,7 @@ class TestColdStartAugmentation:
     n=1 council is driving routing or being correctly down-weighted."""
 
     def test_cold_start_block_attached_per_task_type(self, home: Path, monkeypatch):
-        from trinity_local import personal_routing, portal_data
+        from trinity_local import personal_routing, launchpad_data
 
         monkeypatch.setattr(personal_routing, "compute_personal_routing_table", lambda: {
             "councils_aggregated": 21,
@@ -411,7 +411,7 @@ class TestColdStartAugmentation:
             "best_per_task_type": {"code_refactor": "claude", "writing": "claude"},
         })
 
-        table = portal_data._load_personal_routing_table()
+        table = launchpad_data._load_personal_routing_table()
         assert table is not None
         assert "cold_start" in table
         # n=20 saturates the sigmoid → ~100% personalized
@@ -427,7 +427,7 @@ class TestColdStartAugmentation:
         """The launchpad must use the SAME sigmoid the chairman picker uses.
         Without single-source-of-truth, the displayed % would mislead — user
         sees 60% on the card but the chairman is actually weighting at 30%."""
-        from trinity_local import personal_routing, portal_data
+        from trinity_local import personal_routing, launchpad_data
         from trinity_local.ranker.chairman_picker import sigmoid_alpha
 
         monkeypatch.setattr(personal_routing, "compute_personal_routing_table", lambda: {
@@ -437,7 +437,7 @@ class TestColdStartAugmentation:
             },
             "best_per_task_type": {"system_design": "claude"},
         })
-        table = portal_data._load_personal_routing_table()
+        table = launchpad_data._load_personal_routing_table()
         # n=5 is the midpoint → alpha = 0.5 → 50%
         expected_alpha = sigmoid_alpha(5)
         assert table["cold_start"]["system_design"]["alpha"] == round(expected_alpha, 3)
@@ -449,7 +449,7 @@ class TestCortexRulesHealthSurface:
     surface on its own)."""
 
     def test_audit_status_and_bimodal_flag_surfaced(self, home: Path):
-        from trinity_local import cortex, portal_data
+        from trinity_local import cortex, launchpad_data
 
         pattern = cortex.RoutingPattern(
             basin_id="system_design",
@@ -471,7 +471,7 @@ class TestCortexRulesHealthSurface:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        surface = portal_data._load_cortex_rules()
+        surface = launchpad_data._load_cortex_rules()
         assert surface is not None
         assert len(surface["rules"]) == 1
         r = surface["rules"][0]
@@ -481,7 +481,7 @@ class TestCortexRulesHealthSurface:
         assert r["bimodal_flag"] is True
 
     def test_defaults_unaudited_and_not_bimodal_when_absent(self, home: Path):
-        from trinity_local import cortex, portal_data
+        from trinity_local import cortex, launchpad_data
 
         # Save a pattern with the older shape (no audit_status / bimodal_flag).
         # Even though current dataclass defaults populate them, the surface
@@ -504,7 +504,7 @@ class TestCortexRulesHealthSurface:
         )
         cortex.save_routing_patterns({"writing": pattern})
 
-        surface = portal_data._load_cortex_rules()
+        surface = launchpad_data._load_cortex_rules()
         r = surface["rules"][0]
         assert r["audit_status"] == "unaudited"
         assert r["bimodal_flag"] is False
@@ -512,7 +512,7 @@ class TestCortexRulesHealthSurface:
     def test_evidence_council_ids_surfaced_capped_at_five(self, home: Path):
         """Each rule should expose a small list of council_run_ids so the
         launchpad can render "View evidence" chips per spec-v1.5 Week 5."""
-        from trinity_local import cortex, portal_data
+        from trinity_local import cortex, launchpad_data
 
         pattern = cortex.RoutingPattern(
             basin_id="system_design",
@@ -533,7 +533,7 @@ class TestCortexRulesHealthSurface:
         )
         cortex.save_routing_patterns({"system_design": pattern})
 
-        surface = portal_data._load_cortex_rules()
+        surface = launchpad_data._load_cortex_rules()
         r = surface["rules"][0]
         # Cap at 5 — the launchpad only needs a peek; full set is in
         # ~/.trinity/council_outcomes/.

@@ -62,6 +62,10 @@ def review_pages_dir() -> Path:
 
 
 def portal_pages_dir() -> Path:
+    # Directory name kept as portal_pages/ for on-disk back-compat with existing
+    # ~/.trinity/ installs; Python module names and function callers have moved
+    # to "launchpad_*" but the served path string lives in user filesystems and
+    # is regenerable anyway, so we don't migrate it.
     path = state_dir() / "portal_pages"
     path.mkdir(parents=True, exist_ok=True)
     return path

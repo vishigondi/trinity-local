@@ -13,7 +13,7 @@ def home(patch_trinity_home: Path) -> Path:
 
 class TestReplayCandidates:
     def test_falls_back_to_strings_when_memory_empty(self, home: Path):
-        from trinity_local.portal_data import _load_replay_candidates
+        from trinity_local.launchpad_data import _load_replay_candidates
 
         result = _load_replay_candidates(limit=8)
         assert isinstance(result, list)
@@ -24,7 +24,7 @@ class TestReplayCandidates:
     def test_returns_dicts_when_memory_populated(self, home: Path):
         from trinity_local.embeddings import embed
         from trinity_local.memory import PromptNode, upsert_prompt_node
-        from trinity_local.portal_data import _load_replay_candidates
+        from trinity_local.launchpad_data import _load_replay_candidates
         from trinity_local.utils import now_iso
 
         upsert_prompt_node(PromptNode(
@@ -70,12 +70,12 @@ class TestLaunchpadRenderWithAutofill:
         from trinity_local.embeddings import embed
         from trinity_local.memory import PromptNode, upsert_prompt_node
         from trinity_local.utils import now_iso
-        from trinity_local.portal_page import write_portal_html
+        from trinity_local.launchpad_page import write_portal_html
         # Stub out the heavy adapter check to keep this test fast/deterministic
-        from trinity_local import portal_data
+        from trinity_local import launchpad_data
         from trinity_local.adapters import AdapterStatus
         monkeypatch.setattr(
-            portal_data,
+            launchpad_data,
             "check_all_adapters",
             lambda: [
                 AdapterStatus(provider="claude", cli_name="claude", installed=True),

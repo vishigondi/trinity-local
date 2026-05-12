@@ -25,7 +25,7 @@ from .council_schema import CouncilOutcome, PromptBundle
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
 from .markdown_utils import render_markdown
-from .portal_runtime import portal_runtime_js
+from .launchpad_runtime import launchpad_runtime_js
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .state_paths import (
     council_outcomes_dir,
@@ -465,7 +465,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     import {{ createApp }} from '{PETITE_VUE_MODULE}';
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
-    {portal_runtime_js()}
+    {launchpad_runtime_js()}
 
     function CouncilApp(pageData) {{
       const initialProvider = pageData.initialSelection?.provider || '';
@@ -1141,7 +1141,7 @@ def render_live_council_page() -> str:
     import {{ createApp }} from '{PETITE_VUE_MODULE}';
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
-    {portal_runtime_js()}
+    {launchpad_runtime_js()}
 
     function getParams() {{
       const params = new URLSearchParams(window.location.search);
@@ -1164,7 +1164,7 @@ def render_live_council_page() -> str:
       if (!base || !threadId) {{ onComplete(null); return; }}
       delete window.__TRINITY_COUNCIL_THREAD__[threadId];
       const script = document.createElement('script');
-      // file:// URLs can't carry query strings — see portal_runtime.js comment.
+      // file:// URLs can't carry query strings — see launchpad_runtime.js comment.
       // Use the document's protocol instead of sniffing the (now-relative) base.
       const isFile = window.location.protocol === 'file:';
       const cacheBuster = isFile ? '' : '?t=' + Date.now();

@@ -14,7 +14,7 @@ from trinity_local.council_runner import run_council
 from trinity_local.council_runtime import create_prompt_bundle, save_prompt_bundle
 from trinity_local.council_status import load_council_status, write_council_status
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
-from trinity_local.portal_page import install_launchpad_shortcuts, write_portal_html
+from trinity_local.launchpad_page import install_launchpad_shortcuts, write_portal_html
 from trinity_local.providers import ProviderError, ProviderResult
 from trinity_local.shortcut_setup import _render_dispatch_wrapper
 from trinity_local.telemetry import (
@@ -74,7 +74,7 @@ class TestLaunchpadFlow:
         _write_council_fixture(patch_trinity_home)
         enable_telemetry(endpoint="https://telemetry.example/collect")
         monkeypatch.setattr(
-            "trinity_local.portal_data.check_all_adapters",
+            "trinity_local.launchpad_data.check_all_adapters",
             lambda: [
                 AdapterStatus(provider="claude", cli_name="claude", installed=True, version="1.0.0"),
                 AdapterStatus(
@@ -145,23 +145,23 @@ class TestLaunchpadFlow:
             (target / "Contents" / "Resources").mkdir(parents=True, exist_ok=True)
             (target / "Contents" / "Info.plist").write_text(script, encoding="utf-8")
 
-        import trinity_local.portal_install as portal_install
+        import trinity_local.launchpad_install as launchpad_install
 
-        original_compile = portal_install._compile_launchpad_app
-        original_find_icon = portal_install._find_launchpad_icon_source
-        original_apply_icon = portal_install._apply_launchpad_icon
-        portal_install._compile_launchpad_app = fake_compile
-        portal_install._find_launchpad_icon_source = lambda: None
-        portal_install._apply_launchpad_icon = lambda app_path, image_path: None
+        original_compile = launchpad_install._compile_launchpad_app
+        original_find_icon = launchpad_install._find_launchpad_icon_source
+        original_apply_icon = launchpad_install._apply_launchpad_icon
+        launchpad_install._compile_launchpad_app = fake_compile
+        launchpad_install._find_launchpad_icon_source = lambda: None
+        launchpad_install._apply_launchpad_icon = lambda app_path, image_path: None
         try:
             written = install_launchpad_shortcuts(
                 launchpad_path=launchpad_path,
                 destinations=[desktop_dir, applications_dir],
             )
         finally:
-            portal_install._compile_launchpad_app = original_compile
-            portal_install._find_launchpad_icon_source = original_find_icon
-            portal_install._apply_launchpad_icon = original_apply_icon
+            launchpad_install._compile_launchpad_app = original_compile
+            launchpad_install._find_launchpad_icon_source = original_find_icon
+            launchpad_install._apply_launchpad_icon = original_apply_icon
 
         assert len(written) == 2
         app_path = applications_dir / "Trinity.app"

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from .design_system import render_html_footer, render_html_head
-from .portal_runtime import portal_runtime_js
+from .launchpad_runtime import launchpad_runtime_js
 
 PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
 CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
@@ -1109,7 +1109,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
-    {portal_runtime_js()}
+    {launchpad_runtime_js()}
 
     function maybeSendTelemetry() {{
       const telemetry = pageData.telemetry || {{}};
@@ -1413,8 +1413,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         coldStartFor(taskType) {{
           // Returns {{n_personal, alpha, personalization_pct}} for a task_type
           // when the cold-start block is present (server-side computed by
-          // portal_data._load_personal_routing_table). Null when the block
-          // is missing (older portal_data without the augmentation) so the
+          // launchpad_data._load_personal_routing_table). Null when the block
+          // is missing (older launchpad_data without the augmentation) so the
           // column degrades to a "—" gracefully.
           return this.personalRoutingTable?.cold_start?.[taskType] || null;
         }},

@@ -8,7 +8,7 @@ to. Without this, scores are garbage.
 
 This module is the single canonical formatter, used by:
   - `commands/replay.py` when building bundles for re-evaluation
-  - `portal_template.py` when the user clicks an autofill suggestion that
+  - `launchpad_template.py` when the user clicks an autofill suggestion that
     has stored thread context
 """
 from __future__ import annotations

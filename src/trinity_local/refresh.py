@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def refresh_launchpad(*, title: str = "Trinity · Own your memories") -> Path:
-    from .portal_page import write_portal_html
+    from .launchpad_page import write_portal_html
 
     _backfill_thread_manifests()
     _reap_zombie_tasks()

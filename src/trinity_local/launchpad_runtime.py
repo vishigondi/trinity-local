@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def portal_runtime_js() -> str:
+def launchpad_runtime_js() -> str:
     """Shared JS runtime block injected into Launchpad and live council pages."""
     return """
 window.__TRINITY_COUNCIL_STATUS__ = window.__TRINITY_COUNCIL_STATUS__ || {};
