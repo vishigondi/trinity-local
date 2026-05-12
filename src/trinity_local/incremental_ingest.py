@@ -85,7 +85,10 @@ def _save_cursors(cursors: dict[str, float]) -> None:
 
 
 def _existing_prompt_node_ids() -> set[str]:
-    return {node.id for node in iter_prompt_nodes()}
+    # Uncapped: dedup needs every existing ID, not the 5000 most-recent.
+    # Otherwise incremental_ingest reappends prompts whose IDs sit below
+    # the cap (most of the user's corpus on a populated install).
+    return {node.id for node in iter_prompt_nodes(limit=None)}
 
 
 def ingest_recent(

@@ -72,7 +72,12 @@ def _iter_sources(root: Path, source: str) -> Iterator[SessionRecord]:
 
 
 def _existing_prompt_node_ids() -> set[str]:
-    return {n.id for n in iter_prompt_nodes()}
+    # Uncapped: dedup needs to see EVERY existing prompt ID, not just the
+    # 5000 most-recent. Without this, re-running seed against an 18k-node
+    # corpus would re-ingest the older 13k as if they were new (file
+    # bloats; _iter_jsonl_latest_by_id collapses reads but the writes
+    # waste disk + slow down subsequent loads).
+    return {n.id for n in iter_prompt_nodes(limit=None)}
 
 
 def _embed_in_batches(texts: list[str], *, dim: int, batch_size: int) -> list[list[float]]:

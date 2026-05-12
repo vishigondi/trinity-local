@@ -104,7 +104,12 @@ def _select_candidates(
     """
     candidates: list[tuple[PromptNode, str, float]] = []
     seen_prefixes: set[str] = set()
-    for node in iter_prompt_nodes():
+    # Uncapped: replay-history wants the WHOLE corpus to mine for the
+    # most-replay-valuable nodes, not just the 5000 most-recent. Recent
+    # prompts are more likely to have been already-evaluated (filtered
+    # out below by `node.council_run_ids`); valuable un-evaluated nodes
+    # often sit deeper in history.
+    for node in iter_prompt_nodes(limit=None):
         if not node.text or len(node.text) < 8:
             continue
         # System-prompt heuristic: the first sentence starts with "You are

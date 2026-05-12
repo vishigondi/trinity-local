@@ -83,7 +83,10 @@ def iter_turn_pairs(limit: int | None = None):
     `next_user_text` is the user turn AFTER the current one — used for
     REFRAME persistence validation. Empty string if unavailable.
     """
-    nodes = list(iter_prompt_nodes())
+    # Uncapped: Stage 0 turn-pair extraction needs the full corpus, not
+    # just the 5000 most-recent (which contain almost no
+    # preceding_assistant_text since recent ingest skips that path).
+    nodes = list(iter_prompt_nodes(limit=None))
     yielded = 0
     for i, node in enumerate(nodes):
         assistant = (node.preceding_assistant_text or "").strip()

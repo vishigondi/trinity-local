@@ -63,7 +63,10 @@ def handle_bootstrap_pairs(args):
     from ..cross_provider_pairs import cluster_to_synthesis_args, find_cross_provider_clusters
     from ..memory import iter_prompt_nodes
 
-    nodes = list(iter_prompt_nodes())
+    # Uncapped: bootstrap-pairs is a corpus-wide mining pass (phases 1+2
+    # of dream), not the hot search path. The default 5000-node cap
+    # masks the older embedded cohort that dream needs.
+    nodes = list(iter_prompt_nodes(limit=None))
     if not nodes:
         print(json.dumps({"ok": False, "reason": "no prompt nodes — run seed-from-taste-terminal first"}, indent=2))
         return 1
