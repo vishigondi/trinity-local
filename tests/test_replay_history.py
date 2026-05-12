@@ -167,6 +167,94 @@ class TestAggregateRoutingTable:
         table = _aggregate_routing_table(councils)
         assert "general" in table["by_task_type"]
 
+    def test_user_verdict_overrides_chairman_winner(self, home: Path):
+        """User picked codex even though chairman scored claude higher —
+        the personal routing table must credit codex, not claude. record_outcome
+        is the most important tool; its signal must propagate."""
+        from trinity_local.commands.replay import _aggregate_routing_table
+
+        councils = [
+            {
+                "council_run_id": f"c{i}",
+                "task_kind": "code_refactor",
+                "routing_label": {
+                    "task_type": "code_refactor",
+                    "provider_scores": {
+                        "claude": {"overall": 8.0},  # chairman likes claude
+                        "codex": {"overall": 6.0},
+                    },
+                },
+                "user_winner": "codex",  # user disagreed, every time
+            }
+            for i in range(3)
+        ]
+        table = _aggregate_routing_table(councils)
+        # codex should win despite chairman scoring it lower.
+        assert table["best_per_task_type"]["code_refactor"] == "codex"
+
+    def test_council_with_no_user_verdict_uses_chairman_scores_unchanged(self, home: Path):
+        """Backward compat: councils without user_winner aggregate exactly
+        as they did before the verdict-weighting change shipped."""
+        from trinity_local.commands.replay import _aggregate_routing_table
+
+        councils = [
+            {
+                "council_run_id": "c1",
+                "task_kind": "writing",
+                "routing_label": {
+                    "task_type": "writing",
+                    "provider_scores": {
+                        "claude": {"overall": 8.0},
+                        "gemini": {"overall": 6.0},
+                    },
+                },
+                # No user_winner key — chairman is the only signal.
+            },
+        ]
+        table = _aggregate_routing_table(councils)
+        assert table["by_task_type"]["writing"]["claude"]["overall"] == 8.0
+        assert table["by_task_type"]["writing"]["gemini"]["overall"] == 6.0
+
+    def test_mixed_user_verdicts_and_chairman_only_blend_correctly(self, home: Path):
+        """Some councils have verdicts, others don't. Each contributes its
+        own effective score and they get averaged into the same bucket."""
+        from trinity_local.commands.replay import _aggregate_routing_table
+
+        councils = [
+            # No verdict — chairman scores pass through (claude=8, codex=6)
+            {
+                "council_run_id": "c1",
+                "routing_label": {
+                    "task_type": "system_design",
+                    "provider_scores": {
+                        "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
+                    },
+                },
+            },
+            # User picked codex — codex gets boosted, claude gets penalized
+            {
+                "council_run_id": "c2",
+                "routing_label": {
+                    "task_type": "system_design",
+                    "provider_scores": {
+                        "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
+                    },
+                },
+                "user_winner": "codex",
+            },
+        ]
+        table = _aggregate_routing_table(councils)
+        # The user-verdict council credits codex with 0.7*10 + 0.3*6 = 8.8;
+        # the chairman-only council leaves codex at 6.0. Mean ≈ 7.4.
+        # Claude in the user-verdict council = 0.7*0 + 0.3*8 = 2.4; chairman-
+        # only leaves it at 8.0. Mean ≈ 5.2.
+        codex_mean = table["by_task_type"]["system_design"]["codex"]["overall"]
+        claude_mean = table["by_task_type"]["system_design"]["claude"]["overall"]
+        assert codex_mean > claude_mean, (
+            f"codex (user-preferred) should outrank claude after a single verdict: "
+            f"codex={codex_mean} vs claude={claude_mean}"
+        )
+
 
 class TestDryRun:
     def test_dry_run_lists_candidates_without_running_councils(self, home: Path, capsys, monkeypatch):

@@ -3,8 +3,10 @@
 Two entry points:
 
   aggregate_routing_table(councils)
-      Pure aggregation — given a list of {task_kind, routing_label} dicts,
-      compute per-task-type means + winners.
+      Pure aggregation — given a list of {task_kind, routing_label, user_winner}
+      dicts, compute per-task-type means + winners. User verdicts are the
+      ground truth signal: when present they dominate the chairman's per-
+      provider `provider_scores` via a fixed weighting (see USER_VERDICT_WEIGHT).
 
   compute_personal_routing_table()
       Walk every rated council outcome on disk and aggregate. Called from
@@ -36,12 +38,42 @@ from .state_paths import council_outcomes_dir
 from .utils import now_iso
 
 
+# User verdicts ARE the ground truth — they're what `record_outcome` was
+# called "the most important tool" for in claude.md. When a council has a
+# user_winner, we blend its contribution as:
+#
+#   effective_overall = USER_VERDICT_WEIGHT * (10 if winner else 0)
+#                     + (1 - USER_VERDICT_WEIGHT) * chairman_overall
+#
+# At weight 0.7: a user-picked codex with chairman_overall 6.0 contributes
+# 7.0 + 1.8 = 8.8 (much stronger than the chairman's 6.0); a user-rejected
+# claude with chairman_overall 8.0 contributes 0 + 2.4 = 2.4 (close to a
+# vote against). When NO user_winner exists, weight collapses to chairman
+# scores unchanged — backward compatible.
+USER_VERDICT_WEIGHT = 0.7
+USER_WINNER_SCORE = 10.0  # the "ceiling" overall chairman scores are scaled against
+
+
+def _blend_with_verdict(chairman_overall: float, is_user_winner: bool | None) -> float:
+    """Effective contribution for a single (council, provider) cell.
+
+    `is_user_winner` is None when this council had no user verdict at all
+    — chairman score passes through unchanged (backward compat).
+    """
+    if is_user_winner is None:
+        return chairman_overall
+    target = USER_WINNER_SCORE if is_user_winner else 0.0
+    return USER_VERDICT_WEIGHT * target + (1.0 - USER_VERDICT_WEIGHT) * chairman_overall
+
+
 def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Group routing labels by task_type and compute per-provider mean overall.
 
     Each item should have:
         - routing_label: dict (with provider_scores + task_type)
         - task_kind: str (fallback when label lacks task_type)
+        - user_winner: str | None (the provider the user picked via
+          record_outcome; weighted heavily — see USER_VERDICT_WEIGHT)
     """
     by_task: dict[str, dict[str, list[float]]] = {}
     materialised = list(councils)
@@ -49,11 +81,16 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
         label = c.get("routing_label") or {}
         task_type = label.get("task_type") or c.get("task_kind") or "general"
         scores = label.get("provider_scores") or {}
+        user_winner = c.get("user_winner") or None
         for provider, sub in scores.items():
             overall = sub.get("overall") if isinstance(sub, dict) else None
             if overall is None:
                 continue
-            by_task.setdefault(task_type, {}).setdefault(provider, []).append(float(overall))
+            is_winner: bool | None = None
+            if user_winner is not None:
+                is_winner = provider == user_winner
+            effective = _blend_with_verdict(float(overall), is_winner)
+            by_task.setdefault(task_type, {}).setdefault(provider, []).append(effective)
 
     by_task_type: dict[str, dict[str, dict[str, float]]] = {}
     best_per_task_type: dict[str, str] = {}
@@ -115,10 +152,16 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
                 all_clean = False
                 continue
         task_kind = (outcome.metadata or {}).get("task_kind")
+        # Pull the user's verdict if it was recorded. Lives under
+        # outcome.metadata.user_verdict.user_winner — written by
+        # record_outcome / commands/council_rate.
+        user_verdict = (outcome.metadata or {}).get("user_verdict") or {}
+        user_winner = user_verdict.get("user_winner") if isinstance(user_verdict, dict) else None
         records.append({
             "council_run_id": council_id,
             "task_kind": task_kind,
             "routing_label": label_dict,
+            "user_winner": user_winner,
         })
     return records, all_clean
 
