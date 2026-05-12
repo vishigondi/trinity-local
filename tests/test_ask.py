@@ -471,6 +471,45 @@ class TestCortexInAskHotPath:
         # Reason should NOT name cortex — bimodal flag forced fall-through.
         assert "cortex" not in decision.reason
 
+    def test_overridden_cortex_rule_falls_through_to_knn(self, monkeypatch, tmp_path):
+        """When the user has marked a rule wrong (override_count > 0), the
+        effective_trust drops by 0.5^count. Two overrides quarter trust;
+        a 0.85 rule with 2 overrides lands at 0.21 — well below
+        TRUST_KNN_FALLBACK. The hot-path must respect this, not the raw
+        trust_score.value (the user's veto would be silently ignored)."""
+        from trinity_local import cortex, ask as ask_module
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-12T05:00:00Z",
+            n_episodes=20,
+            task_kinds=["system_design"],
+            winner_distribution={"codex": 0.7, "claude": 0.3},
+            routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.85,  # high RAW trust — would drive routing without the override
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.7,
+                    "recency_agreement": 0.8, "diversity": 0.7,
+                    "coherence_score": 0.85, "audit_score": 1.0,
+                },
+            ),
+            override_count=2,  # user clicked "wrong" twice → effective trust = 0.85 * 0.25 = 0.21
+        )
+        cortex.save_routing_patterns({"system_design": pattern})
+
+        from trinity_local import task_kinds
+        monkeypatch.setattr(task_kinds, "guess_task_kind", lambda text, provider=None: "system_design")
+
+        knn_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
+        monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: knn_hits)
+
+        decision = ask_module.decide_route("question")
+        assert decision.routed_to == "claude"
+        # Reason should NOT name cortex — override forced fall-through.
+        assert "cortex" not in decision.reason
+
     def test_no_consolidation_yet_falls_through_to_knn(self, monkeypatch, tmp_path):
         """Day-1 install has no consolidation; ask uses kNN unchanged."""
         from trinity_local import ask as ask_module

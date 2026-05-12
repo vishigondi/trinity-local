@@ -526,7 +526,7 @@ def _load_cortex_rules() -> dict | None:
     an empty-state CTA pointing at `trinity-local consolidate`.
     """
     try:
-        from .cortex import load_routing_patterns, TRUST_KNN_FALLBACK, TRUST_USE_RULE
+        from .cortex import effective_trust, load_routing_patterns, TRUST_KNN_FALLBACK, TRUST_USE_RULE
     except Exception:
         return None
     patterns = load_routing_patterns()
@@ -540,12 +540,19 @@ def _load_cortex_rules() -> dict | None:
             "primary": p.routing_rule.primary,
             "challenger": p.routing_rule.challenger,
             "reason": p.routing_rule.reason,
-            "trust_score": round(p.trust_score.value, 3),
+            # Surface BOTH the raw trust (data quality) and the effective
+            # trust (after user-veto penalty). The launchpad sorts on
+            # effective so overridden rules sink; the band label reflects
+            # effective too so a heavily-overridden 0.9-quality rule reads
+            # as "kNN fallback" not "use rule alone".
+            "trust_score": round(effective_trust(p), 3),
+            "raw_trust_score": round(p.trust_score.value, 3),
             "trust_band": p.trust_score.interpretation,
             "n_episodes": p.n_episodes,
             "winner_share": round(p.winner_distribution.get(p.routing_rule.primary, 0.0), 3),
             "audit_status": getattr(p, "audit_status", "unaudited"),
             "bimodal_flag": getattr(p, "bimodal_flag", False),
+            "override_count": getattr(p, "override_count", 0),
             # First few council_run_ids the rule was extracted from. Capped
             # at 5 (the full set is in council_outcomes/ — only need a peek
             # for the launchpad evidence chips). Empty list when the

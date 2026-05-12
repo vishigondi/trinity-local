@@ -188,6 +188,15 @@ class RoutingPattern:
     # via AUDIT_SCORE_MAP. Persisted so a later --audit re-run can replace
     # the verdict without re-extracting the rule.
     audit_status: str = "unaudited"
+    # User-veto count. Incremented by `trinity-local cortex-override
+    # --basin <id>`. Each click halves effective trust via
+    # ``effective_trust(pattern)``; 3+ overrides on a high-trust rule
+    # drops it below TRUST_KNN_FALLBACK so the rule stops driving
+    # routing. Persists across consolidations — the user's "this is
+    # wrong" signal must not be erased by a fresh extraction (the
+    # whole point is to teach the consolidator the rule was wrong).
+    # Spec-v1.5 Week 5 ship item.
+    override_count: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -206,6 +215,7 @@ class RoutingPattern:
             "manifold_dim": round(self.manifold_dim, 3),
             "bimodal_flag": self.bimodal_flag,
             "audit_status": self.audit_status,
+            "override_count": self.override_count,
         }
 
 
@@ -286,6 +296,29 @@ def compute_trust_score(
     return TrustScore(value=value, components=components)
 
 
+# Per-override multiplicative penalty. 0.5 chosen so:
+#   - 1 override: trust × 0.5 (drops one full band: use-rule → kNN-fallback)
+#   - 2 overrides: trust × 0.25 (deep in ignore-rule band)
+#   - 3+ overrides: rule is effectively dead
+# Anyone clicking "wrong" twice is sending a strong veto; the rule should
+# stop driving routing immediately.
+_OVERRIDE_PENALTY = 0.5
+
+
+def effective_trust(pattern: "RoutingPattern") -> float:
+    """Trust score with the user-veto penalty applied.
+
+    The components in `pattern.trust_score` stay clean (data-quality
+    signals only); overrides are a hard user veto layered on top. Callers
+    that gate on trust (the cortex hot-path in ask, the launchpad sort
+    order) must use THIS function, not `pattern.trust_score.value`,
+    otherwise an overridden rule still drives routing.
+    """
+    if pattern.override_count <= 0:
+        return pattern.trust_score.value
+    return pattern.trust_score.value * (_OVERRIDE_PENALTY ** pattern.override_count)
+
+
 def load_routing_patterns() -> dict[str, RoutingPattern]:
     """Read the cortex routing_patterns.json. Empty dict if file doesn't exist."""
     path = cortex_routing_patterns_path()
@@ -344,6 +377,7 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         manifold_dim=float(raw.get("manifold_dim", 0.0) or 0.0),
         bimodal_flag=bool(raw.get("bimodal_flag", False)),
         audit_status=str(raw.get("audit_status", "unaudited") or "unaudited"),
+        override_count=int(raw.get("override_count", 0) or 0),
     )
 
 
@@ -369,6 +403,7 @@ def consolidate_basin(
     diversity_metric: float,
     extractor: FlagshipExtractor,
     auditor: RuleAuditor | None = None,
+    prior_override_count: int = 0,
 ) -> RoutingPattern:
     """Run the consolidation pass for one basin: extract rule via flagship,
     optionally audit it via an independent chairman, compute trust_score
@@ -384,6 +419,11 @@ def consolidate_basin(
             audit_score trust component — disagreement demotes trust.
             None ⇒ audit_status stays "unaudited" (neutral). Should use a
             different provider than `extractor` to keep the check honest.
+        prior_override_count: user-veto count carried over from the prior
+            consolidation pass. The CLI's consolidate-all loop reads the
+            existing pattern's override_count and passes it here so a
+            fresh extraction doesn't erase the user's "this rule is
+            wrong" signal. Default 0 = new basin / no prior overrides.
     """
     from datetime import datetime, timezone
 
@@ -489,6 +529,7 @@ def consolidate_basin(
         manifold_dim=geometry["manifold_dim"],
         bimodal_flag=geometry["bimodal_flag"],
         audit_status=audit_status,
+        override_count=prior_override_count,
     )
 
 

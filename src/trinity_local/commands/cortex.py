@@ -55,6 +55,64 @@ def register(subparsers):
     )
     cp.set_defaults(handler=handle_consolidate)
 
+    op = subparsers.add_parser(
+        "cortex-override",
+        help="Mark a cortex routing rule wrong; halves effective trust per click. Persists across consolidations.",
+    )
+    op.add_argument(
+        "--basin",
+        required=True,
+        help="Basin id (task_type) of the rule to demote.",
+    )
+    op.add_argument(
+        "--reason",
+        default=None,
+        help="Optional one-line reason — stored alongside the override for future audit.",
+    )
+    op.add_argument(
+        "--reset",
+        action="store_true",
+        help="Reset override_count for this basin to 0 (the user changed their mind / the next consolidate got it right).",
+    )
+    op.set_defaults(handler=handle_cortex_override)
+
+
+def handle_cortex_override(args):
+    from ..cortex import effective_trust, load_routing_patterns, save_routing_patterns
+
+    patterns = load_routing_patterns()
+    if not patterns:
+        print(json.dumps({"ok": False, "reason": "no cortex consolidation yet — run `trinity-local consolidate` first"}, indent=2))
+        return 1
+    if args.basin not in patterns:
+        available = sorted(patterns.keys())
+        print(json.dumps({
+            "ok": False,
+            "reason": f"basin {args.basin!r} not in cortex; known basins: {available}",
+        }, indent=2))
+        return 1
+
+    pattern = patterns[args.basin]
+    prior = pattern.override_count
+    if args.reset:
+        pattern.override_count = 0
+        action = "reset"
+    else:
+        pattern.override_count = prior + 1
+        action = "incremented"
+    save_routing_patterns(patterns)
+
+    print(json.dumps({
+        "ok": True,
+        "basin_id": args.basin,
+        "action": action,
+        "override_count": pattern.override_count,
+        "raw_trust": round(pattern.trust_score.value, 3),
+        "effective_trust": round(effective_trust(pattern), 3),
+        "reason": args.reason,
+    }, indent=2))
+    return 0
+
 
 def handle_consolidate(args):
     from ..cortex import (
@@ -118,10 +176,17 @@ def handle_consolidate(args):
         auditor = make_rule_auditor(dispatch, audit_provider=audit_provider)
         print(f"Chairman-audit-mode enabled (audit provider: {audit_provider})", file=sys.stderr)
 
+    # Preserve user-veto state across re-extractions. Without this, every
+    # `consolidate` would erase the user's "this rule is wrong" signal — the
+    # whole point of overrides is that they persist until the user resets them.
+    from ..cortex import load_routing_patterns as _load_prior_patterns
+    prior_patterns = _load_prior_patterns()
+
     patterns: dict = {}
     for basin_id, basin_outcomes in eligible.items():
         extractor = make_flagship_extractor(dispatch, basin_id, provider=args.provider)
         diversity = _entropy_diversity(basin_outcomes)
+        prior_override = prior_patterns[basin_id].override_count if basin_id in prior_patterns else 0
         try:
             pattern = consolidate_basin(
                 basin_id=basin_id,
@@ -130,6 +195,7 @@ def handle_consolidate(args):
                 diversity_metric=diversity,
                 extractor=extractor,
                 auditor=auditor,
+                prior_override_count=prior_override,
             )
             patterns[basin_id] = pattern
             audit_tag = f" audit={pattern.audit_status}" if auditor else ""

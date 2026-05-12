@@ -174,7 +174,10 @@ def _try_cortex_route(query: str, available_providers: list[str] | None) -> AskD
         pattern = match[0]
         match_reason = f"basin '{match[1]}' (centroid match, sim={match[2]:.2f})"
 
-    trust = pattern.trust_score.value
+    # Use effective_trust (applies user-override penalty) — bare
+    # trust_score.value would let an overridden rule still drive routing.
+    from .cortex import effective_trust
+    trust = effective_trust(pattern)
     if trust < TRUST_KNN_FALLBACK:
         # Cortex rule exists but trust is too low to drive routing alone —
         # fall through to kNN. The rule will surface as calibration context
@@ -251,11 +254,14 @@ def _best_centroid_match(
             sim = cosine_similarity(query_vec, centroid)
         except Exception:
             continue
-        # Tie-break by trust so close matches resolve to the more confident
-        # rule. Threshold 0.40 — calibrated empirically; embedding cosine
-        # tends to run lower than label cosine because the centroid is a
-        # MEAN of varied prompts and the query is one specific prompt.
-        score_with_trust = sim * 1000 + pattern.trust_score.value
+        # Tie-break by effective trust so close matches resolve to the more
+        # confident rule, AND an overridden rule loses ties to a co-matching
+        # un-overridden one. Threshold 0.40 — calibrated empirically;
+        # embedding cosine tends to run lower than label cosine because the
+        # centroid is a MEAN of varied prompts and the query is one specific
+        # prompt.
+        from .cortex import effective_trust as _eff_trust
+        score_with_trust = sim * 1000 + _eff_trust(pattern)
         if sim >= 0.40 and score_with_trust > best_sim:
             best_sim = score_with_trust
             best = (pattern, basin_id, sim)

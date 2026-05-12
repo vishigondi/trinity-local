@@ -996,3 +996,116 @@ class TestConsolidateBasinWithAuditor:
         cortex.save_routing_patterns({"system_design": pattern})
         loaded = cortex.load_routing_patterns()
         assert loaded["system_design"].audit_status == "agreed"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Override mechanism — user veto (#) spec-v1.5 Week 5.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestEffectiveTrust:
+    """Override count multiplicatively demotes trust. 1 override halves it,
+    2 quarters it, etc. The components (data-quality signals) stay clean —
+    overrides are a hard user veto layered on top."""
+
+    def _pattern(self, *, trust_value: float = 0.85, override_count: int = 0):
+        from trinity_local.cortex import RoutingPattern, RoutingRule, TrustScore
+
+        return RoutingPattern(
+            basin_id="b",
+            consolidated_at="2026-05-12T00:00:00Z",
+            n_episodes=20,
+            task_kinds=["b"],
+            winner_distribution={"claude": 0.8},
+            routing_rule=RoutingRule(primary="claude", challenger=None, reason="x", subroutes=[]),
+            trust_score=TrustScore(
+                value=trust_value,
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.8,
+                    "recency_agreement": 0.8, "diversity": 0.8,
+                    "coherence_score": 0.85, "audit_score": 1.0,
+                },
+            ),
+            override_count=override_count,
+        )
+
+    def test_no_override_returns_raw_trust(self):
+        from trinity_local.cortex import effective_trust
+
+        assert effective_trust(self._pattern(trust_value=0.85)) == 0.85
+
+    def test_one_override_halves_trust(self):
+        from trinity_local.cortex import effective_trust
+
+        assert effective_trust(self._pattern(trust_value=0.85, override_count=1)) == 0.85 * 0.5
+
+    def test_two_overrides_quarters_trust(self):
+        from trinity_local.cortex import effective_trust
+
+        result = effective_trust(self._pattern(trust_value=0.85, override_count=2))
+        assert abs(result - 0.85 * 0.25) < 1e-9
+
+    def test_override_persists_through_save_load(self, tmp_path, monkeypatch):
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        pattern = self._pattern(trust_value=0.7, override_count=2)
+        cortex.save_routing_patterns({"b": pattern})
+        loaded = cortex.load_routing_patterns()
+        assert loaded["b"].override_count == 2
+        assert abs(cortex.effective_trust(loaded["b"]) - 0.7 * 0.25) < 1e-9
+
+
+class TestConsolidatePreservesOverrideCount:
+    """The user marked a rule wrong; a later `consolidate` re-extracts the
+    rule. The override_count MUST carry over — otherwise the user's veto
+    is silently erased and the demoted rule comes back at full trust."""
+
+    def test_prior_override_count_propagates(self, tmp_path, monkeypatch):
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        outcomes = [
+            {
+                "council_run_id": f"c{i}",
+                "winner_provider": "claude",
+                "routing_label": {"task_type": "b", "winner": "claude"},
+            }
+            for i in range(5)
+        ]
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "reason": "x"}
+
+        pattern = cortex.consolidate_basin(
+            basin_id="b",
+            outcomes=outcomes,
+            task_kinds=["b"],
+            diversity_metric=0.5,
+            extractor=extractor,
+            prior_override_count=2,
+        )
+        assert pattern.override_count == 2
+
+    def test_default_prior_is_zero(self, tmp_path, monkeypatch):
+        from trinity_local import cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+
+        outcomes = [
+            {"council_run_id": "c1", "winner_provider": "claude",
+             "routing_label": {"task_type": "b", "winner": "claude"}},
+        ]
+
+        def extractor(outs, geometry=None):
+            return {"primary": "claude", "reason": "x"}
+
+        pattern = cortex.consolidate_basin(
+            basin_id="b",
+            outcomes=outcomes,
+            task_kinds=["b"],
+            diversity_metric=0.5,
+            extractor=extractor,
+        )
+        assert pattern.override_count == 0
