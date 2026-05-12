@@ -210,13 +210,22 @@ def _check_mcp_available() -> CheckResult:
         )
 
 
-def _check_memory_seeded() -> CheckResult:
+def _check_prompts_seeded() -> CheckResult:
     """Soft check: do we have any prompt history? Doctor passes either way
-    (a fresh install is legitimately empty), but surfaces a hint."""
-    nodes = state_dir() / "memory" / "prompt_nodes.jsonl"
+    (a fresh install is legitimately empty), but surfaces a hint.
+
+    Reads from ~/.trinity/prompts/prompt_nodes.jsonl (renamed from
+    `memory/` per the brand axis: prompts are raw, memories is the
+    consolidated output).
+    """
+    # state_dir() / "memory" was the v1.0 path; the renamed location is
+    # state_dir() / "prompts". `prompts_dir()` resolves either via the
+    # in-place migration helper.
+    from .state_paths import prompts_dir
+    nodes = prompts_dir() / "prompt_nodes.jsonl"
     if not nodes.exists() or nodes.stat().st_size == 0:
         return CheckResult(
-            name="memory_seeded",
+            name="prompts_seeded",
             ok=True,  # not blocking — first-time users have empty memory
             detail="no transcripts seeded yet (you can still run councils)",
             fix="trinity-local seed-from-taste-terminal --path ~/projects/taste-terminal/data/exports   # if you have transcripts to ingest",
@@ -224,27 +233,54 @@ def _check_memory_seeded() -> CheckResult:
     # Approximate count from line count
     line_count = sum(1 for _ in nodes.open())
     return CheckResult(
-        name="memory_seeded",
+        name="prompts_seeded",
         ok=True,
-        detail=f"{line_count} prompt nodes indexed",
+        detail=f"{line_count} prompt nodes indexed at ~/.trinity/prompts/",
     )
 
 
-def _check_me_built() -> CheckResult:
-    """Soft check: has /me been built? Doctor passes either way."""
-    me = state_dir() / "me.md"
-    if not me.exists():
+def _check_lens_built() -> CheckResult:
+    """Soft check: has the lens been built? Doctor passes either way.
+
+    Reads from ~/.trinity/memories/lens.md (renamed from `me.md` per
+    the 5-memories restructure)."""
+    from .state_paths import lens_path
+    lens = lens_path()
+    if not lens.exists():
         return CheckResult(
-            name="me_built",
+            name="lens_built",
             ok=True,  # not blocking
-            detail="/me not built yet",
-            fix="trinity-local me-build   # builds your taste lenses (after running a few councils)",
+            detail="lens not built yet",
+            fix="trinity-local lens-build   # builds your taste lenses (after running a few councils)",
         )
-    size = me.stat().st_size
+    size = lens.stat().st_size
     return CheckResult(
-        name="me_built",
+        name="lens_built",
         ok=True,
-        detail=f"~/.trinity/me.md present ({size} bytes)",
+        detail=f"~/.trinity/memories/lens.md present ({size} bytes)",
+    )
+
+
+def _check_core_distilled() -> CheckResult:
+    """Soft check: has the singular core.md distillation been built?
+
+    core.md is what the chairman reads FIRST on every council — when
+    missing, chairman falls through to the full lens.md (more context,
+    longer prompts). Surface the upgrade path."""
+    from .state_paths import core_path
+    core = core_path()
+    if not core.exists():
+        return CheckResult(
+            name="core_distilled",
+            ok=True,
+            detail="core.md not distilled yet (chairman falls through to full lens)",
+            fix="trinity-local distill   # writes ~/.trinity/core.md — the singular paragraph chairman reads first",
+        )
+    size = core.stat().st_size
+    return CheckResult(
+        name="core_distilled",
+        ok=True,
+        detail=f"~/.trinity/core.md present ({size} bytes)",
     )
 
 
@@ -257,8 +293,9 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))
     report.checks.append(_check_provider("gemini", "gemini"))
-    report.checks.append(_check_memory_seeded())
-    report.checks.append(_check_me_built())
+    report.checks.append(_check_prompts_seeded())
+    report.checks.append(_check_lens_built())
+    report.checks.append(_check_core_distilled())
     return report
 
 
