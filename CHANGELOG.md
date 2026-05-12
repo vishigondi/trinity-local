@@ -3,6 +3,109 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [Validation-driven scale + signal-quality fixes] — 2026-05-12 (evening)
+
+Coherent arc of ~10 commits driven by running the actual product
+against the user's real 46k-prompt install. Synthetic unit-test data
+(≤10 vectors per token) hid these — every issue here was caught by a
+hands-on `trinity-local <command>` followed by "wait, that's not
+right." Pattern worth keeping: real-data validation > unit tests for
+catching prod-scale issues.
+
+### Real-data bugs caught + fixed
+
+- **doctor reported "not seeded" on a 46k-prompt install** (`f7bf19b`).
+  The old `_check_memory_seeded` / `_check_me_built` read pre-rename
+  paths (`~/.trinity/memory/`, `me.md`) that no longer existed after
+  the 5-memories restructure. Renamed to `_check_prompts_seeded` /
+  `_check_lens_built` + added `_check_core_distilled`. Doctor now
+  reports `46099 prompt nodes indexed`, `lens.md present (6431 bytes)`,
+  `core.md present (928 bytes)`.
+
+- **vocabulary distillation: 3 bugs in one feature** (`2dfc769`):
+  (a) capped `iter_prompt_nodes` saw 0 embedded prompts despite 18k
+  present — uncapped walker fix;
+  (b) `_two_means_split_variance` OOM'd on 1000+-context tokens
+  (19GB pairwise matrix) — `max_samples=200` deterministic stride;
+  (c) NaN cosines leaked into synonym table (`sim < threshold` is
+  False for NaN) — explicit `np.isfinite()` check.
+  After the three fixes, `vocabulary` produces real signal:
+  `assistant↔feature 0.992, com↔https 0.986`.
+
+- **cross_provider_pairs: 350× speedup** (`b511ff6`). Pure-Python
+  `_cosine` loop on 17.8k×17.8k pairs = ~106 minutes (extrapolated;
+  never finished in any earlier session attempt). Vectorized via
+  single BLAS matmul per seed — full clustering now runs in 18s.
+  Found 249 cross-provider clusters in real data on first runnable
+  execution.
+
+- **dream cluster preview surfaced filler** (`862b93e`). After
+  vectorization made dream actually runnable, top 30 clusters were
+  conversational filler ("10 more", "Thank you.", "More options").
+  Added `min_prompt_words=6` filter so substantive cross-provider
+  questions (NextJS+Vercel streaming, japandi cabinet research,
+  modular wet-core den) rank first.
+
+- **basins.compute_basins: same cap bug as vocabulary** (`7cb93a1`).
+  Used `iter_prompt_nodes()` capped at 5000 — `lens-build --dry-run`
+  reported basins=0 on a populated install. Same fix.
+
+- **Architectural smell caught after 3rd repeat** (`6f50087`).
+  After vocabulary, basins, and dream all reinvented the uncapped
+  walker, audited and discovered `iter_prompt_nodes(limit=None)` is
+  the canonical uncapped API. Removed `_all_prompt_nodes_uncapped`
+  helper; three modules now share the in-process mtime cache so the
+  18k-node parse cost is paid once per process, not 3×.
+
+- **replay-history: top 4/5 candidates were the same scaffolding
+  prompt** (`71c3a83`). "You are extracting durable facts about
+  the user…" appeared 4× in top-5 because no system-prompt filter and
+  no text dedup. Added both: skip text starting with "You are " /
+  "You will ", dedup by 200-char prefix.
+
+- **Audit caught 5 more silently-buggy capped callers** (`5812c6b`).
+  Same root-cause as vocabulary/basins. Fixed `bootstrap_pairs`,
+  `seed`, `incremental_ingest`, `me/turn_pairs`, `replay`. Each was
+  silently missing the older embedded cohort (which contains
+  embeddings; recent ingest skips embedding to keep the hot path
+  fast). The launchpad's `search_prompt_nodes` is intentionally
+  kept capped — that's the hot UI path where the cap is correct.
+
+### Copy + naming
+
+- **"cortex rule" → "pick" everywhere it refers to data** (`18eb65f`).
+  After `mark_pick_wrong` / `picks.json` renames, descriptive copy
+  still said "user-veto on a cortex rule". Now "user-veto on a pick".
+  `cortex` retained for the LAYER (consolidation process).
+- **core-show CLI** (`2c208f6`). Symmetric with `lens-show`. Prints
+  `core.md` verbatim, stderr-only hint when missing (so
+  `core-show | pbcopy` doesn't pollute the clipboard).
+- **lens.md header**: pipeline.py was writing `# /me` as the file
+  header. Renamed → `# Lens`. Legacy `--legacy` build path keeps
+  `# /me` since the chairman is instructed to emit that exact name +
+  the legacy validator checks for it.
+
+### Validation confirmed end-to-end on real install
+
+- Chairman prompt loads `core.md` FIRST. Spot-checked
+  `render_primary_council_prompt()`:
+  > User profile (from ~/.trinity/core.md — distilled paragraph
+  > subsuming the five plural core memories). … You ship leverage
+  > over ownership and the concrete artifact at the boundary over
+  > the comprehensive ideal…
+- `lens-show`, `core-show`, `doctor`, `vocabulary`, `dream --dry-run`,
+  `lens-build --dry-run`, `replay-history --dry-run` all run cleanly
+  on real 18k-embedding corpus.
+- 657 tests passing across the arc.
+- 8/8 browser smoke surfaces green throughout.
+
+### Stats
+
+- 10 commits this evening session (`f7bf19b`, `2dfc769`, `18eb65f`,
+  `8972599`, `b511ff6`, `862b93e`, `7cb93a1`, `6f50087`, `71c3a83`,
+  `5812c6b`, plus this changelog commit).
+- 657 tests passing (was 654 at session start).
+
 ## [5-memories restructure + polish-iterate + auto-distill] — 2026-05-12 (late PM)
 
 Cohesive arc of 11 commits after the brand-v2/housekeeping commit
