@@ -73,6 +73,18 @@ def register(subparsers):
     )
     notif_disable.set_defaults(handler=handle_notifications_disable)
 
+    polish_enable = subparsers.add_parser(
+        "polish-auto-enable",
+        help="Auto-iterate (consensus_round x N) when a council's task looks like polish ('make this better', 'tighten this'). Targeted version of auto-chain-enable.",
+    )
+    polish_enable.set_defaults(handler=handle_polish_auto_enable)
+
+    polish_disable = subparsers.add_parser(
+        "polish-auto-disable",
+        help="Disable targeted polish auto-iterate (default — polish tasks run a single council unless --auto-chain-enable is on)",
+    )
+    polish_disable.set_defaults(handler=handle_polish_auto_disable)
+
 
 def handle_telemetry_show(args):
     settings = load_telemetry_settings()
@@ -171,3 +183,19 @@ def handle_notifications_enable(args):
 def handle_notifications_disable(args):
     payload = _write_notifications_setting(False)
     print(json.dumps({"notifications": payload}, indent=2))
+
+
+def handle_polish_auto_enable(args):
+    settings = load_telemetry_settings()
+    settings.polish_auto_iterate = True
+    save_telemetry_settings(settings)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
+
+
+def handle_polish_auto_disable(args):
+    settings = load_telemetry_settings()
+    settings.polish_auto_iterate = False
+    save_telemetry_settings(settings)
+    portal_path = refresh_launchpad()
+    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))

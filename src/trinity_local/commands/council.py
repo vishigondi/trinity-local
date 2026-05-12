@@ -391,7 +391,17 @@ def handle_council_start(args):
         from ..council_runtime import chairman_says_converged
 
         settings = load_telemetry_settings()
-        if settings.auto_chain_enabled:
+        # Two paths fire auto-chain:
+        #   (a) global `auto_chain_enabled` — auto-iterate every council
+        #   (b) targeted `polish_auto_iterate` — only when the task is
+        #       polish-shaped (make-this-better / tighten / etc.). Default
+        #       OFF; lets the user opt into iteration without blanket-
+        #       firing it on architecture or debugging questions.
+        from ..task_types import is_polish_task
+        should_auto_chain = bool(settings.auto_chain_enabled) or (
+            bool(settings.polish_auto_iterate) and is_polish_task(bundle.task_text)
+        )
+        if should_auto_chain:
             chain_results = auto_chain_council(
                 config=config,
                 initial_outcome=result.outcome,

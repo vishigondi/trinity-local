@@ -68,6 +68,70 @@ class TestIsPolishTask:
             assert not is_polish_task(prompt), f"should NOT detect polish in: {prompt!r}"
 
 
+class TestPolishAutoIterateSetting:
+    def test_default_is_off(self, tmp_path, monkeypatch):
+        """Out of the box, polish auto-iterate must NOT fire — feature is
+        explicitly opt-in so the user controls the multi-flagship cost."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.telemetry import load_telemetry_settings
+        settings = load_telemetry_settings()
+        assert settings.polish_auto_iterate is False
+
+    def test_cli_toggle_persists(self, tmp_path, monkeypatch, capsys):
+        """polish-auto-enable / polish-auto-disable must round-trip
+        through the on-disk settings file."""
+        from trinity_local.commands.telemetry import (
+            handle_polish_auto_enable, handle_polish_auto_disable,
+        )
+        from trinity_local.telemetry import load_telemetry_settings
+        from types import SimpleNamespace
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Stub refresh_launchpad to avoid the full launchpad render.
+        import trinity_local.commands.telemetry as telem_mod
+        monkeypatch.setattr(telem_mod, "refresh_launchpad", lambda: tmp_path / "x.html")
+
+        handle_polish_auto_enable(SimpleNamespace())
+        assert load_telemetry_settings().polish_auto_iterate is True
+
+        handle_polish_auto_disable(SimpleNamespace())
+        assert load_telemetry_settings().polish_auto_iterate is False
+
+    def test_council_launch_branches_on_polish_when_setting_on(self, tmp_path, monkeypatch):
+        """When polish_auto_iterate=True, council-launch's auto-chain
+        branch must fire FOR polish tasks AND NOT fire for non-polish.
+        Tests the decision predicate directly — the full council-launch
+        handler dispatches real provider CLIs."""
+        from trinity_local.task_types import is_polish_task
+
+        # The decision in council.py:
+        #   should_auto_chain = bool(settings.auto_chain_enabled) or (
+        #       bool(settings.polish_auto_iterate) and is_polish_task(bundle.task_text)
+        #   )
+        # Pin both branches.
+        polish_text = "Make this tagline tighter — any better?"
+        non_polish_text = "Pick a Redis vs Memcached for our session cache"
+
+        assert is_polish_task(polish_text) is True
+        assert is_polish_task(non_polish_text) is False
+
+        # Simulate the branch:
+        for auto_chain, polish_auto, task, expected in [
+            (False, False, polish_text, False),        # both off → no fire
+            (False, False, non_polish_text, False),    # both off → no fire
+            (True,  False, polish_text, True),         # global on → fire
+            (True,  False, non_polish_text, True),     # global on → fire
+            (False, True,  polish_text, True),         # polish-only → fire (polish task)
+            (False, True,  non_polish_text, False),    # polish-only → NO fire (not polish)
+            (True,  True,  non_polish_text, True),     # both on, global wins
+        ]:
+            decision = bool(auto_chain) or (bool(polish_auto) and is_polish_task(task))
+            assert decision is expected, (
+                f"auto_chain={auto_chain}, polish_auto={polish_auto}, "
+                f"task={task!r} → expected {expected}, got {decision}"
+            )
+
+
 class TestRouteSurfacesPolish:
     def test_route_includes_auto_iterate_recommended_true_for_polish(self, tmp_path, monkeypatch):
         """When route() is asked about a polish task, the payload's

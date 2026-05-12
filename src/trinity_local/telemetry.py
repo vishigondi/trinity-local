@@ -33,6 +33,12 @@ class TelemetrySettings:
     # consensus rounds until chairman declares convergence OR max rounds.
     auto_chain_enabled: bool = False
     max_chain_rounds: int = 3
+    # Targeted auto-chain: even when the global `auto_chain_enabled` is
+    # off, polish-shape tasks ("make this better", "tighten this", short
+    # imperative hints) auto-iterate to consensus_round. Off by default.
+    # Toggle via `trinity-local polish-auto-enable` / `polish-auto-disable`.
+    # See `is_polish_task` in task_types.py for the detection rules.
+    polish_auto_iterate: bool = False
     # When True, council_runner shells out `open <review_path>` after
     # writing the final unified council page. macOS only — silently
     # no-ops elsewhere. Off by default (some users don't want a browser
