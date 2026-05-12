@@ -36,10 +36,12 @@ class TestToolList:
         names = {t.name for t in tools}
         # v1.0 canonical 6: route, run_council (subsumes judge via responses=[...]),
         # record_outcome, search_prompts, get_persona, get_council_status.
-        # v1.5 adds `ask` (single-call routing) + `get_cortex_rules` (introspection
-        # for the agent into the user's extracted routing patterns).
+        # v1.5 adds: `ask` (single-call routing), `get_cortex_rules`
+        # (introspection for the agent into the user's extracted routing
+        # patterns), `mark_cortex_rule_wrong` (user-veto on a cortex rule;
+        # spec-v1.5 Week 5).
         assert names == {
-            "ask", "get_cortex_rules",
+            "ask", "get_cortex_rules", "mark_cortex_rule_wrong",
             "route", "run_council", "record_outcome",
             "search_prompts", "get_persona", "get_council_status",
         }, f"unexpected tool list: {names}"

@@ -225,7 +225,7 @@ async def handle_list_tools() -> list[Tool]:
                 "`~/.trinity/cortex/routing_patterns.json` — the cortex layer's "
                 "consolidated knowledge across past councils. Per-basin: which "
                 "provider wins, why, failure modes per loser, successful prompt "
-                "templates, and a system-computed trust_score (5 components, "
+                "templates, and a system-computed trust_score (6 components, "
                 "weighted geometric mean). Pull this when planning a complex "
                 "task — it tells you which provider this user prefers for THIS "
                 "kind of question and why. Empty when no consolidation has run "
@@ -245,6 +245,40 @@ async def handle_list_tools() -> list[Tool]:
                         "description": "Filter to rules with trust_score >= this value (0..1).",
                     },
                 },
+            },
+        ),
+        Tool(
+            name="mark_cortex_rule_wrong",
+            description=(
+                "User veto on a cortex routing rule. Each call increments the "
+                "rule's `override_count`; effective_trust = raw_trust × 0.5^count. "
+                "Two clicks quarter the trust; three drops most rules out of "
+                "routing entirely. Persists across consolidations — a fresh "
+                "extraction can't erase the user's signal. Call when the user "
+                "says something like \"that cortex rule for system_design is "
+                "wrong\" or when you observe the rule producing bad routing "
+                "decisions enough times. Use `reset=true` to clear the count "
+                "(user changed their mind, or a later extraction got it right). "
+                "Spec-v1.5 Week 5."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "basin_id": {
+                        "type": "string",
+                        "description": "The basin / task_kind whose rule should be marked wrong.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional one-line reason — surfaced in the response payload for the calling agent's context.",
+                    },
+                    "reset": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Reset override_count to 0 instead of incrementing. For when the user changes their mind.",
+                    },
+                },
+                "required": ["basin_id"],
             },
         ),
         Tool(
@@ -275,6 +309,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _ask(arguments)
         if name == "get_cortex_rules":
             return await _get_cortex_rules(arguments)
+        if name == "mark_cortex_rule_wrong":
+            return await _mark_cortex_rule_wrong(arguments)
         if name == "route":
             return await _route(arguments)
         if name == "run_council":
@@ -483,6 +519,48 @@ async def _get_cortex_rules(args: dict) -> list[Any]:
         "rules": filtered,
         "total_basins": len(patterns),
         "returned": len(filtered),
+    })]
+
+
+async def _mark_cortex_rule_wrong(args: dict) -> list[Any]:
+    """Handle mcp__trinity-local__mark_cortex_rule_wrong. Increments (or
+    resets) the override_count on a basin's rule; effective_trust drops
+    by 0.5^count. Persists across consolidations.
+    """
+    from .cortex import effective_trust, load_routing_patterns, save_routing_patterns
+
+    basin_id = args.get("basin_id")
+    if not basin_id or not isinstance(basin_id, str):
+        return [ErrorData(code=400, message="`basin_id` is required and must be a string")]
+    reset = bool(args.get("reset", False))
+    reason = args.get("reason")
+
+    patterns = load_routing_patterns()
+    if not patterns:
+        return [_text({
+            "ok": False,
+            "error": "No cortex consolidation yet — run `trinity-local consolidate` first.",
+        })]
+    if basin_id not in patterns:
+        return [_text({
+            "ok": False,
+            "error": f"basin {basin_id!r} not in cortex",
+            "known_basins": sorted(patterns.keys()),
+        })]
+
+    pattern = patterns[basin_id]
+    prior = pattern.override_count
+    pattern.override_count = 0 if reset else prior + 1
+    save_routing_patterns(patterns)
+
+    return [_text({
+        "ok": True,
+        "basin_id": basin_id,
+        "action": "reset" if reset else "incremented",
+        "override_count": pattern.override_count,
+        "raw_trust": round(pattern.trust_score.value, 3),
+        "effective_trust": round(effective_trust(pattern), 3),
+        "reason": reason,
     })]
 
 

@@ -6,6 +6,8 @@ Hits are fabricated as SearchResult instances so we don't depend on a populated
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from trinity_local import ask as ask_module
@@ -895,6 +897,121 @@ class TestMcpGetCortexRules:
         assert hasattr(bad[0], "code")  # ErrorData
         bad = asyncio.run(mcp_server._get_cortex_rules({"min_trust": "not-a-number"}))
         assert hasattr(bad[0], "code")
+
+
+class TestMcpMarkCortexRuleWrong:
+    """The harness-callable user veto. Each call halves effective trust;
+    reset clears the count. Persists across consolidations (covered in
+    test_cortex.TestConsolidatePreservesOverrideCount)."""
+
+    def _plant_pattern(self, basin: str, *, override: int = 0) -> None:
+        """Append a pattern to whatever's already on disk (save_routing_patterns
+        replaces the whole file, so we have to merge ourselves)."""
+        from trinity_local import cortex
+        pattern = cortex.RoutingPattern(
+            basin_id=basin,
+            consolidated_at="2026-05-12T06:00:00Z",
+            n_episodes=20,
+            task_kinds=[basin],
+            winner_distribution={"claude": 0.8},
+            routing_rule=cortex.RoutingRule(primary="claude", challenger=None, reason="x", subroutes=[]),
+            trust_score=cortex.TrustScore(
+                value=0.8,
+                components={
+                    "n_episodes_norm": 0.8, "consistency_score": 0.8,
+                    "recency_agreement": 0.8, "diversity": 0.7,
+                    "coherence_score": 0.8, "audit_score": 1.0,
+                },
+            ),
+            override_count=override,
+        )
+        existing = cortex.load_routing_patterns()
+        existing[basin] = pattern
+        cortex.save_routing_patterns(existing)
+
+    def test_increment_returns_ok_with_updated_count(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import cortex, mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        self._plant_pattern("system_design", override=0)
+
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong(
+            {"basin_id": "system_design", "reason": "wrong primary"}
+        ))
+        payload = json.loads(result[0]["text"])
+        assert payload["ok"] is True
+        assert payload["action"] == "incremented"
+        assert payload["override_count"] == 1
+        # Effective trust = raw * 0.5
+        assert abs(payload["effective_trust"] - 0.8 * 0.5) < 0.01
+        assert payload["reason"] == "wrong primary"
+
+        # Persisted: load again, count should still be 1
+        loaded = cortex.load_routing_patterns()
+        assert loaded["system_design"].override_count == 1
+
+    def test_repeated_increment_compounds(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        self._plant_pattern("b", override=0)
+
+        asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "b"}))
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "b"}))
+        payload = json.loads(result[0]["text"])
+        assert payload["override_count"] == 2
+
+    def test_reset_clears_count(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        self._plant_pattern("b", override=3)
+
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong(
+            {"basin_id": "b", "reset": True}
+        ))
+        payload = json.loads(result[0]["text"])
+        assert payload["action"] == "reset"
+        assert payload["override_count"] == 0
+        # effective trust back to raw
+        assert abs(payload["effective_trust"] - 0.8) < 0.01
+
+    def test_missing_basin_returns_known_basins_list(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        self._plant_pattern("system_design", override=0)
+        self._plant_pattern("writing", override=0)
+
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "nope"}))
+        payload = json.loads(result[0]["text"])
+        assert payload["ok"] is False
+        assert "nope" in payload["error"]
+        assert set(payload["known_basins"]) == {"system_design", "writing"}
+
+    def test_no_consolidation_yet(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({"basin_id": "x"}))
+        payload = json.loads(result[0]["text"])
+        assert payload["ok"] is False
+        assert "consolidat" in payload["error"]
+
+    def test_missing_basin_id_returns_400(self, tmp_path, monkeypatch):
+        import asyncio
+        from trinity_local import mcp_server
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        result = asyncio.run(mcp_server._mark_cortex_rule_wrong({}))
+        # ErrorData object (has .code)
+        assert hasattr(result[0], "code")
+        assert result[0].code == 400
 
 
 class TestMcpProviderPool:
