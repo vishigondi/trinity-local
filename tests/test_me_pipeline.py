@@ -35,11 +35,14 @@ class TestBasins:
         from trinity_local.memory.schemas import PromptNode
         from trinity_local.me import basins as basins_mod
 
-        # Build a synthetic corpus: 30 well-separated rows + 5 NaN
-        def _node(node_id: str, text: str, embedding: list[float]) -> PromptNode:
+        # Build a synthetic corpus: 30 well-separated rows + 5 NaN.
+        # Each node gets a unique transcript_id so thread-aware clustering
+        # treats each turn as its own session and the test exercises the
+        # NaN-skip path (not the thread-collapse path).
+        def _node(node_id: str, text: str, embedding: list[float], tid: str) -> PromptNode:
             return PromptNode(
                 id=node_id,
-                transcript_id="t",
+                transcript_id=tid,
                 provider="test",
                 source_path="/tmp/x",
                 turn_index=0,
@@ -53,10 +56,11 @@ class TestBasins:
                 f"p_{i:02d}",
                 f"prompt {i}",
                 np.eye(10)[i % 10].tolist() + [0.0] * 758,
+                f"thread_{i:02d}",  # one thread per turn — exercise k-means
             )
             for i in range(30)
         ]
-        bad = [_node(f"bad_{i}", f"poisoned {i}", [float("nan")] * 768) for i in range(5)]
+        bad = [_node(f"bad_{i}", f"poisoned {i}", [float("nan")] * 768, f"thread_bad_{i}") for i in range(5)]
 
         # Stage 1 basins reads `iter_prompt_nodes(limit=None)` — the
         # canonical uncapped walker (so populated installs aren't masked

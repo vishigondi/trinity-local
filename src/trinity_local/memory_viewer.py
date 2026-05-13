@@ -480,6 +480,58 @@ def render_memory_viewer_html() -> str:
       border-left: 3px solid var(--accent);
       line-height: 1.5;
     }}
+    .topics-rep-thread.expandable {{
+      cursor: pointer;
+      transition: background 0.1s;
+    }}
+    .topics-rep-thread.expandable:hover {{
+      background: var(--surface-muted);
+    }}
+    .topics-rep-head {{
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }}
+    .topics-rep-headline {{ flex: 1; min-width: 0; }}
+    .topics-rep-meta {{
+      font-size: 11px;
+      color: var(--meta);
+      white-space: nowrap;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }}
+    .topics-rep-chev {{
+      color: var(--meta);
+      font-size: 13px;
+      width: 12px;
+      text-align: center;
+    }}
+    .topics-rep-turns {{
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0;
+      display: none;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }}
+    .topics-rep-thread.open .topics-rep-turns {{ display: block; }}
+    .topics-rep-turn {{
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--fg);
+    }}
+    .topics-rep-turn-idx {{
+      font-family: ui-monospace, monospace;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 11px;
+    }}
     /* JSON syntax highlight (used for topics.json Raw view + others) */
     .json-body {{ font-family: ui-monospace, monospace; font-size: 12px; }}
     .json-key {{ color: #255847; }}
@@ -816,17 +868,21 @@ def render_memory_viewer_html() -> str:
       // haven't been written yet (legacy topics.json files from before the
       // representatives feature shipped — those clear on the next lens-build).
       function labelFor(b) {{
+        // New thread shape: reps[0].headline. Legacy: reps[0].snippet.
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
-        if (reps.length && reps[0].snippet) {{
-          const words = reps[0].snippet.trim().split(/\\s+/).slice(0, 4).join(" ");
+        const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
+        if (text) {{
+          const words = text.trim().split(/\\s+/).slice(0, 4).join(" ");
           if (words) return words.length > 36 ? words.slice(0, 36) + "…" : words;
         }}
         return (b.top_terms && b.top_terms[0]) || b.id || "?";
       }}
       function tooltipFor(b) {{
-        // Hover tooltip = full top representative if we have one.
+        // Hover tooltip = headline (or legacy snippet) of the top
+        // representative; fall back to top_terms.
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
-        if (reps.length && reps[0].snippet) return reps[0].snippet;
+        const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
+        if (text) return text;
         return (b.top_terms || []).join(", ");
       }}
       const nodes = basins.map((b, i) => ({{
@@ -982,6 +1038,46 @@ def render_memory_viewer_html() -> str:
         labelSel.attr("x", d => d.x).attr("y", d => d.y + radiusFor(d) + 14);
       }});
 
+      function renderThreadRep(rep) {{
+        // One representative thread = a clickable card.
+        // - Headline = single turn closest to basin centroid
+        // - Click to expand: shows all turns in conversational order
+        // - Single-turn threads (Gemini Takeout) get no expand affordance
+        const li = el("li", "topics-rep topics-rep-thread");
+        const turnCount = Number(rep.turn_count || (rep.turns && rep.turns.length) || 1);
+        const headRow = el("div", "topics-rep-head");
+        headRow.appendChild(el("span", "topics-rep-headline", rep.headline || "(no headline)"));
+        if (turnCount > 1) {{
+          const chev = el("span", "topics-rep-chev", "▸");
+          const meta = el("span", "topics-rep-meta",
+            turnCount + " turn" + (turnCount === 1 ? "" : "s"));
+          headRow.appendChild(meta);
+          headRow.appendChild(chev);
+          li.classList.add("expandable");
+          const turnsList = el("ol", "topics-rep-turns");
+          (rep.turns || []).forEach(turn => {{
+            const tl = el("li", "topics-rep-turn");
+            tl.appendChild(el("span", "topics-rep-turn-idx",
+              "T" + (Number(turn.turn_index || 0) + 1)));
+            tl.appendChild(el("span", "topics-rep-turn-text",
+              turn.snippet || turn.id || ""));
+            turnsList.appendChild(tl);
+          }});
+          // Lazy-attach the turns list — collapsed by default.
+          li.appendChild(headRow);
+          li.appendChild(turnsList);
+          li.addEventListener("click", (event) => {{
+            event.stopPropagation();
+            li.classList.toggle("open");
+            chev.textContent = li.classList.contains("open") ? "▾" : "▸";
+          }});
+        }} else {{
+          // Single-turn thread — no expand needed; just show the headline.
+          li.appendChild(headRow);
+        }}
+        return li;
+      }}
+
       function showDetail(b) {{
         const total = nodes.reduce((s, n) => s + n.size, 0);
         const pct = total > 0 ? (100 * (b.size || 0) / total) : 0;
@@ -989,20 +1085,35 @@ def render_memory_viewer_html() -> str:
         const head = el("div");
         head.appendChild(el("span", "basin-id", b.id || "?"));
         head.appendChild(document.createTextNode(" · "));
-        head.appendChild(document.createTextNode(
-          (b.size || 0).toLocaleString() + " prompts (" + pct.toFixed(1) + "% of corpus)"));
+        // New thread-aware schema: basin.size is total turns,
+        // basin.thread_count is distinct sessions. Legacy: only size.
+        if (typeof b.thread_count === "number" && b.thread_count > 0) {{
+          head.appendChild(document.createTextNode(
+            b.thread_count.toLocaleString() + " threads · " +
+            (b.size || 0).toLocaleString() + " turns (" + pct.toFixed(1) + "% of corpus)"));
+        }} else {{
+          head.appendChild(document.createTextNode(
+            (b.size || 0).toLocaleString() + " prompts (" + pct.toFixed(1) + "% of corpus)"));
+        }}
         detail.appendChild(head);
-        // Representatives — the top-K prompts closest to centroid.
-        // This is the headline drill-down: TF-IDF top_terms surface
-        // vocabulary, but representatives surface what the user was
-        // actually asking. Surface them first so users see real prompts.
+
+        // Representatives — top-K closest to centroid. New shape is
+        // thread-aware: each rep carries transcript_id, turn_count,
+        // headline, turns[]. Legacy shape was flat {{id, snippet}}; the
+        // renderer handles both so a stale topics.json doesn't break.
         if (Array.isArray(b.representatives) && b.representatives.length) {{
+          const isThreadShape = b.representatives[0] && Array.isArray(b.representatives[0].turns);
           detail.appendChild(el("div", "topics-reps-label",
-            "Most-representative prompts (closest to centroid)"));
+            isThreadShape
+              ? "Most-representative threads (click to expand turns)"
+              : "Most-representative prompts (closest to centroid)"));
           const ul = el("ul", "topics-reps-list");
           b.representatives.forEach(rep => {{
-            const li = el("li", "topics-rep", rep.snippet || rep.id || "");
-            ul.appendChild(li);
+            if (isThreadShape) {{
+              ul.appendChild(renderThreadRep(rep));
+            }} else {{
+              ul.appendChild(el("li", "topics-rep", rep.snippet || rep.id || ""));
+            }}
           }});
           detail.appendChild(ul);
         }}

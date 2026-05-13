@@ -54,15 +54,20 @@ _STOPWORDS = {
 @dataclass
 class Basin:
     id: str
-    size: int
+    size: int   # total turn count across all threads in this basin
     top_terms: list[str]
     centroid: list[float]
     prompt_ids: list[str] = field(default_factory=list)
-    # Top-K prompts closest to the basin centroid — the most semantically
-    # representative members. Stored as (prompt_id, snippet) tuples for
-    # the launchpad/memory-viewer drill-down. TF-IDF top_terms tell you
-    # the vocabulary; representatives tell you what the user actually asked.
-    representatives: list[dict[str, str]] = field(default_factory=list)
+    # Top-K threads closest to the basin centroid — the most semantically
+    # representative conversations. Per-thread shape:
+    #   {transcript_id, turn_count, headline, turns: [{id, snippet, turn_index}]}
+    # Stored under `representatives` for backward-compat with the older
+    # per-turn shape; the viewer detects the new shape by the presence of
+    # `transcript_id` + `turns`.
+    representatives: list[dict[str, Any]] = field(default_factory=list)
+    # NEW for thread-aware topology: how many distinct sessions (threads)
+    # landed in this basin. `size` is the total turn count.
+    thread_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         # No truncation on prompt_ids. Earlier code capped at 50 "for readable
@@ -75,6 +80,7 @@ class Basin:
         return {
             "id": self.id,
             "size": self.size,
+            "thread_count": self.thread_count,
             "top_terms": self.top_terms,
             "centroid": self.centroid,
             "prompt_ids": self.prompt_ids,
@@ -182,81 +188,143 @@ def _top_terms_for_cluster(texts: list[str], all_texts: list[str], top_n: int = 
 
 
 def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Basin]:
-    """Cluster all PromptNode embeddings into k basins.
+    """Cluster threads (sessions) into k basins.
 
-    Skips nodes without embeddings. Returns sorted by descending size so
-    the most prevalent basin is b00.
+    Each thread's centroid is the mean embedding of its turns. We cluster
+    threads, not turns — a multi-turn conversation about tweet-drafting
+    becomes ONE point in basin-space, not N points scattered across
+    "drafting" / "shortening" / "polishing" basins.
+
+    Single-turn sources (Gemini Takeout) naturally become threads of
+    size 1 — same code path, no special casing.
+
+    Skips nodes without embeddings. Returns basins sorted by total turn
+    count descending so b00 is the most prevalent.
     """
     try:
         import numpy as np
     except ImportError as exc:
         raise RuntimeError("numpy is required for basin clustering") from exc
 
-    nodes = []
-    embeddings = []
-    texts = []
-    skipped_nan = 0
     # Use `iter_prompt_nodes(limit=None)` to lift the 5000-node hot-path
     # cap. Recent ingest skips embedding to keep the launchpad/search
     # path fast, so embeddings sit on the older seeded prompts BELOW
-    # the cap. Without the explicit `limit=None`, basin discovery saw 0
-    # embedded prompts on a populated install (same root cause that bit
-    # vocabulary a few commits ago — both fixed by using the same API).
+    # the cap.
+    nodes: list = []
+    skipped_nan = 0
     for node in iter_prompt_nodes(limit=None):
         emb = getattr(node, "embedding", None)
         if not emb:
             continue
-        # Skip embeddings with non-finite values — a small fraction of the
-        # 18k corpus has NaN vectors (likely from a bad embed batch). They
-        # poison k-means via NaN-propagating centroids, which collapses
-        # every row into one cluster.
+        # Skip embeddings with non-finite values — bad embed batches
+        # poison k-means via NaN-propagating centroids.
         if any(v != v or v == float("inf") or v == float("-inf") for v in emb):
             skipped_nan += 1
             continue
         nodes.append(node)
-        embeddings.append(emb)
-        texts.append(node.text or "")
 
     if not nodes:
         return []
 
-    matrix = np.array(embeddings, dtype=np.float32)
-    labels, centroids = _kmeans(matrix, k=min(k, len(nodes)), seed=seed)
+    # Group turns by transcript_id. A missing transcript_id falls back to
+    # a synthetic per-turn thread (the node's own id) so single-turn
+    # sources still cluster.
+    threads: dict[str, list[int]] = {}
+    for idx, node in enumerate(nodes):
+        tid = getattr(node, "transcript_id", None) or node.id
+        threads.setdefault(tid, []).append(idx)
+
+    thread_ids = list(threads.keys())
+    thread_centroids = np.zeros((len(thread_ids), len(nodes[0].embedding)), dtype=np.float32)
+    for ti, tid in enumerate(thread_ids):
+        thread_centroids[ti] = np.mean(
+            [nodes[i].embedding for i in threads[tid]], axis=0, dtype=np.float32,
+        )
+
+    # Cluster THREADS, not turns. `labels[ti]` is the basin id for thread `tid`.
+    labels, basin_centroids = _kmeans(thread_centroids, k=min(k, len(thread_ids)), seed=seed)
+
+    REPRESENTATIVE_K = 5
+    REPRESENTATIVE_MAX_CHARS = 280
+    TURNS_PER_REP = 10  # cap turns rendered per representative thread
 
     basins: list[Basin] = []
-    REPRESENTATIVE_K = 5         # top-K representative prompts per basin
-    REPRESENTATIVE_MAX_CHARS = 280  # tweet-length snippet so the JSON stays compact
-    for cluster_idx in range(len(centroids)):
-        member_indices = [i for i, lbl in enumerate(labels) if lbl == cluster_idx]
-        if not member_indices:
+    for cluster_idx in range(len(basin_centroids)):
+        thread_indices = [ti for ti, lbl in enumerate(labels) if lbl == cluster_idx]
+        if not thread_indices:
             continue
-        cluster_texts = [texts[i] for i in member_indices]
-        top_terms = _top_terms_for_cluster(cluster_texts, texts)
-        # Most-representative prompts: smallest L2 distance from centroid.
-        # These tell the user what the basin is actually about — TF-IDF
-        # top_terms surface vocabulary but the prompts surface intent.
-        centroid_vec = centroids[cluster_idx]
-        member_distances = [
-            (i, float(np.linalg.norm(matrix[i] - centroid_vec)))
-            for i in member_indices
+
+        # All turns across all threads in this basin (for top_terms,
+        # prompt_ids, total-size).
+        member_turn_indices: list[int] = []
+        for ti in thread_indices:
+            member_turn_indices.extend(threads[thread_ids[ti]])
+
+        cluster_texts = [(nodes[i].text or "") for i in member_turn_indices]
+        all_texts = [(n.text or "") for n in nodes]
+        top_terms = _top_terms_for_cluster(cluster_texts, all_texts)
+
+        # Pick representative THREADS: closest to basin centroid in
+        # thread-centroid space.
+        basin_centroid = basin_centroids[cluster_idx]
+        thread_distances = [
+            (ti, float(np.linalg.norm(thread_centroids[ti] - basin_centroid)))
+            for ti in thread_indices
         ]
-        member_distances.sort(key=lambda pair: pair[1])
-        reps: list[dict[str, str]] = []
-        for i, dist in member_distances[:REPRESENTATIVE_K]:
-            snippet = (texts[i] or "").strip()
-            if len(snippet) > REPRESENTATIVE_MAX_CHARS:
-                snippet = snippet[:REPRESENTATIVE_MAX_CHARS].rstrip() + "…"
-            reps.append({"id": nodes[i].id, "snippet": snippet})
+        thread_distances.sort(key=lambda pair: pair[1])
+
+        reps: list[dict[str, Any]] = []
+        for ti, dist in thread_distances[:REPRESENTATIVE_K]:
+            tid = thread_ids[ti]
+            turn_idx_in_nodes = threads[tid]
+            # Sort the thread's turns by their original turn_index so
+            # the viewer renders them in conversational order.
+            turn_idx_in_nodes = sorted(
+                turn_idx_in_nodes,
+                key=lambda i: getattr(nodes[i], "turn_index", 0),
+            )
+            # Headline = the single turn closest to the BASIN centroid
+            # within this thread (= the turn most central to "why this
+            # thread is here").
+            headline_idx = min(
+                turn_idx_in_nodes,
+                key=lambda i: float(np.linalg.norm(
+                    np.array(nodes[i].embedding, dtype=np.float32) - basin_centroid
+                )),
+            )
+
+            def _snippet(text: str) -> str:
+                s = (text or "").strip()
+                if len(s) > REPRESENTATIVE_MAX_CHARS:
+                    return s[:REPRESENTATIVE_MAX_CHARS].rstrip() + "…"
+                return s
+
+            turns_payload = [
+                {
+                    "id": nodes[i].id,
+                    "snippet": _snippet(nodes[i].text or ""),
+                    "turn_index": getattr(nodes[i], "turn_index", 0),
+                }
+                for i in turn_idx_in_nodes[:TURNS_PER_REP]
+            ]
+            reps.append({
+                "transcript_id": tid,
+                "turn_count": len(turn_idx_in_nodes),
+                "headline": _snippet(nodes[headline_idx].text or ""),
+                "turns": turns_payload,
+            })
+
         basins.append(Basin(
             id=f"b{cluster_idx:02d}",
-            size=len(member_indices),
+            size=len(member_turn_indices),  # total turn count
+            thread_count=len(thread_indices),
             top_terms=top_terms,
-            centroid=centroids[cluster_idx].tolist(),
-            prompt_ids=[nodes[i].id for i in member_indices],
+            centroid=basin_centroids[cluster_idx].tolist(),
+            prompt_ids=[nodes[i].id for i in member_turn_indices],
             representatives=reps,
         ))
+
     basins.sort(key=lambda b: -b.size)
-    # Rename ids in size order so b00 is always the largest.
     for i, basin in enumerate(basins):
         basin.id = f"b{i:02d}"
     return basins
