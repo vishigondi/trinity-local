@@ -105,6 +105,19 @@ def render_memory_viewer_html() -> str:
 
     files_json = _json.dumps(ALLOWED_FILES, ensure_ascii=True)
     memories_payload = _json.dumps(_read_memory_contents(), ensure_ascii=True)
+    # Inline the same memory-health payload the launchpad surfaces so
+    # the viewer can carry the "audit-disagreed" / "stale" / "user-
+    # overrides" warning forward when the user clicks through to inspect.
+    # Same shape as launchpad_data._memory_health(). Resolved at render
+    # time so the warning travels with the file, not with the page that
+    # linked you to it.
+    try:
+        from .launchpad_data import _memory_health
+        health_payload = _json.dumps(_memory_health(), ensure_ascii=True)
+    except Exception:
+        # Memory viewer must not crash when the launchpad data layer
+        # has unrelated issues — degrade silently to no banners.
+        health_payload = "{}"
     nav_links = _render_nav_links()
     # Bundled JS deps — same pattern as launchpad_template.py
     # (petite-vue + Chart.js from CDN). `marked` is the standard markdown
@@ -277,6 +290,47 @@ def render_memory_viewer_html() -> str:
       font-size: 13px;
       color: var(--meta);
       margin: 0;
+    }}
+    /* Per-file health banner — carries the launchpad's memory-health
+       warning into the file view so the user reads in context. Same
+       warm-warning fill + warning-color left border as the launchpad
+       row (DESIGN.md palette: --warning #b26a1f). */
+    .viewer-health-banner {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: rgba(178, 106, 31, 0.08);
+      border-left: 3px solid var(--warning);
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }}
+    .viewer-health-status {{
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--meta);
+    }}
+    .viewer-health-hint {{
+      color: var(--fg);
+      flex: 1;
+      min-width: 200px;
+    }}
+    .viewer-health-cmd {{
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }}
+    .viewer-health-cmd:hover {{
+      background: var(--surface-muted);
     }}
     pre.body {{
       font-family: ui-monospace, "SF Mono", Monaco, monospace;
@@ -610,6 +664,10 @@ def render_memory_viewer_html() -> str:
     // so the viewer works under file:// from the desktop shortcut.
     // Refreshes whenever portal-html runs.
     window.__TRINITY_MEMORIES__ = {memories_payload};
+    // Health signal travels with the file: when the launchpad surfaced
+    // "picks.json audit-disagreed", clicking through to inspect should
+    // KEEP that warning visible so the user reads the file in context.
+    window.__TRINITY_MEMORY_HEALTH__ = {health_payload};
     const FILES = {files_json};
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("file") || FILES[0].name;
@@ -635,6 +693,36 @@ def render_memory_viewer_html() -> str:
       const wrap = el("div", "content-header");
       wrap.appendChild(el("h2", null, file.name));
       wrap.appendChild(el("p", "meta", file.brain + " · " + file.tagline));
+      // Per-file health banner: filter the inlined health payload to
+      // issues that mention this file by name. The launchpad surfaces
+      // the same data in aggregate; the viewer surfaces it in-context
+      // so the user reads the file knowing what's stale about it.
+      const issues = ((window.__TRINITY_MEMORY_HEALTH__ || {{}}).issues) || [];
+      const relevant = issues.filter(i => i.name === file.name);
+      relevant.forEach(issue => {{
+        const banner = el("div", "viewer-health-banner");
+        banner.appendChild(el("span", "viewer-health-status", issue.status));
+        const hintWrap = el("span", "viewer-health-hint");
+        hintWrap.textContent = issue.hint || "";
+        banner.appendChild(hintWrap);
+        // Mirror the launchpad's click-to-copy command chip OR the
+        // "Inspect →" href so the same action surfaces in both places.
+        if (issue.command) {{
+          const chip = el("button", "viewer-health-cmd");
+          chip.type = "button";
+          chip.textContent = issue.command;
+          chip.title = "Copy: " + issue.command;
+          chip.addEventListener("click", () => {{
+            if (navigator.clipboard?.writeText) {{
+              navigator.clipboard.writeText(issue.command).catch(() => null);
+            }}
+            chip.textContent = "✓ Copied";
+            setTimeout(() => {{ chip.textContent = issue.command; }}, 2200);
+          }});
+          banner.appendChild(chip);
+        }}
+        wrap.appendChild(banner);
+      }});
       return wrap;
     }}
     function renderEmpty(file) {{
