@@ -188,6 +188,29 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       border-radius: 999px;
     }}
 
+    /* Tick #79: ↻ Rebuild chip shared by the lens-rebuild (tick #76)
+       and cortex-rebuild (tick #77) eyebrow chips on the launchpad.
+       Inline styles drifted to ~200-char copies on each chip; one
+       class + .lp-rebuild-chip references keeps them in sync. The
+       memory viewer's .viewer-rebuild-chip is a sibling visual (see
+       memory_viewer.py) — both render the same '↻ Rebuild' copy
+       (unified in tick #79) but live in different CSS contexts. */
+    .lp-rebuild-chip {{
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--text-secondary, #6e6058);
+      background: transparent;
+      border: 1px solid var(--border, #d7ccb9);
+      border-radius: 999px;
+      padding: 2px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      opacity: 0.9;
+    }}
+
     .suggestion-winner {{
       font-size: 12px;
       color: var(--text-muted);
@@ -1002,9 +1025,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                the command or scroll to the explanatory paragraph
                below. -->
           <button type="button"
+                  class="lp-rebuild-chip"
                   @click.stop="copyText('trinity-local consolidate', 'cortex-rebuild')"
-                  title="Copy: trinity-local consolidate"
-                  style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-secondary, #6e6058); background: transparent; border: 1px solid var(--border, #d7ccb9); border-radius: 999px; padding: 2px 10px; cursor: pointer; white-space: nowrap; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.9;">
+                  title="Copy: trinity-local consolidate">
             <span v-if="copiedKey === 'cortex-rebuild'">✓ Copied</span>
             <span v-else>↻ Rebuild</span>
           </button>
@@ -1196,9 +1219,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                empty-state card below still shows the bare command. -->
           <button v-if="tasteLenses"
                   type="button"
+                  class="lp-rebuild-chip"
                   @click.stop="copyText('trinity-local lens-build', 'lens-rebuild')"
-                  title="Copy: trinity-local lens-build"
-                  style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-secondary, #6e6058); background: transparent; border: 1px solid var(--border, #d7ccb9); border-radius: 999px; padding: 2px 10px; cursor: pointer; white-space: nowrap; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.9;">
+                  title="Copy: trinity-local lens-build">
             <span v-if="copiedKey === 'lens-rebuild'">✓ Copied</span>
             <span v-else>↻ Rebuild</span>
           </button>

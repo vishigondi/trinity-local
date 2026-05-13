@@ -181,3 +181,25 @@ class TestShortcutStatus:
         html = render_launchpad_html()
         assert "copyText('trinity-local consolidate', 'cortex-rebuild')" in html
         assert "copiedKey === 'cortex-rebuild'" in html
+
+    def test_rebuild_chips_use_shared_css_class(self, isolated_home):
+        """Tick #80 — both launchpad rebuild chips share the
+        `.lp-rebuild-chip` CSS class instead of duplicating ~200-char
+        inline styles. Principle #11 (shared UI primitives) at the CSS
+        layer. Drift target: a future hand-styled chip that misses the
+        class would render with bare-button look instead of the
+        unified pill."""
+        from trinity_local.launchpad_page import render_launchpad_html
+        html = render_launchpad_html()
+        # Class definition exists
+        assert ".lp-rebuild-chip {" in html, (
+            "CSS rule for .lp-rebuild-chip was dropped — the rebuild "
+            "pills will fall back to default browser button styling"
+        )
+        # Both chips reference it (not just one); the launchpad has at
+        # least two chips today (lens + cortex). Counting catches the
+        # case where a future chip forgets the class.
+        assert html.count('class="lp-rebuild-chip"') >= 2, (
+            "fewer than 2 chips use the shared class — verify rebuild "
+            "chips on lens + cortex cards both opt in"
+        )
