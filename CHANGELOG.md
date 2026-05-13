@@ -3,6 +3,106 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
+
+29 ticks across four substantive arcs. The structural story matters
+more than the per-tick diff — capturing the shapes here so a future
+audit can pick up where this left off.
+
+### Embedding pipeline NaN safety (ticks #55-59, #68, #83)
+
+Tick #55 caught a real bug via a new opt-in `@pytest.mark.real_corpus`
+suite: `thread_lid` was missing the NaN filter that `thread_centroids`
+already had, and a single non-finite row was poisoning the entire
+cosine similarity matrix → corrupting `depth_score` for ~40 unrelated
+`gemini_takeout` transcripts. Three follow-up ticks closed the class:
+
+- **#56**: promoted three inline filter shapes
+  (`_embedding_is_finite`, `_valid_embedding`, inline `any(v != v ...)`)
+  to one `is_finite_embedding()` helper in `embeddings/__init__.py`.
+  Added the filter to two consumers (`cross_provider_pairs`,
+  `vocabulary._gather_token_contexts`) that had been missing it entirely.
+- **#58**: write-boundary gate. `put_cached` silently refuses non-finite
+  vectors; `embed`/`embed_batch` sanitize backend output via TF-IDF
+  fallback. The cache is the persistence boundary — once bad data is
+  cached it sticks and gets re-served on every hit.
+- **#59**: dropped redundant `if not emb` pre-checks now that
+  `is_finite_embedding` is the single-source filter.
+- **#68 + #83**: real-corpus integration tests for the two other
+  matmul pipelines (`cross_provider_pairs`, `vocabulary.find_homonyms`).
+  All three matmul-shaped pipelines now have real-data gates.
+
+Earned three new meta-principles in `claude.md`: #16 ("one non-finite
+poisons the matrix"), #17 ("three inline shapes = missing helper"),
+#18 ("embedding similarity ≠ structural similarity").
+
+### Verdict-capture defense-in-depth (ticks #69-74)
+
+Tick #69's real-corpus census found 3 of 19 council outcomes carried
+verdicts (16% capture rate). Trinity's moat thesis rests on this
+signal; 84% silent meant the ledger was mostly empty. Five-stage arc:
+
+- **#69 Find**: `~/.trinity/council_outcomes/*.json` walk surfaced the
+  real ratio. Reframed task #109 (principles.md) as data-gated.
+- **#70 Visible**: launchpad "N of M rated" eyebrow + accent prompt
+  when total ≥ 5 AND rate < 50%.
+- **#71 Verify-after**: 3s `loadOutcomeScript` re-fetch after click;
+  badge flips to "Save failed" when `user_verdict.user_winner` is
+  absent post-fire.
+- **#72 Preempt-CLI**: `doctor` flags missing macOS Shortcut up front.
+- **#73 Preempt-UI**: launchpad top-banner mirrors the doctor check
+  with the same remediation copy.
+
+### Invisible-armor catch + AST scanner (ticks #63-65)
+
+Tick #63 found that `test_knn_advisor` and `test_knn_analytics` were
+setting `os.environ["TRINITY_HOME"]` at module top-level — pytest
+imports every test module during collection, so the env var leaked
+process-wide and the real-corpus depth tests silently skipped while
+passing in isolation. Three-part fix:
+
+- Both files converted to `autouse` + `monkeypatch.setenv` fixtures.
+- `iter_prompt_nodes` cache signature now keys on `str(path)` so a
+  future module-level pollution invalidates automatically.
+- **#64**: AST scanner at `tests/test_no_module_level_env_mutation.py`
+  fails the suite on any future `os.environ[]`/`sys.path` write at
+  module top level. Earned meta-principle #19.
+- **#65**: CONTRIBUTING.md updated with the rule + pointer.
+
+### Cherry-pick UX + rebuild chip pattern (ticks #60-61, #76-80, #82)
+
+- **#60-61**: Quote chip on each member response — appends
+  `> [Provider]: <text>` to the refinement input. Multi-quote stacks.
+  Solves the hand-rolled flow that produced
+  `bundle_42f8cea9c9e705e5` ("Stop copy-pasting prompts. Own your
+  context. Dream your core memories." — Gemini's "Own your context"
+  merged with Claude's response). Smoke regression guard on Surface 9.
+- **#76-77**: ↻ Rebuild chips on lens and cortex cards (closes
+  forward-arc "see a rejected lens → rebuild" + "see stale routing →
+  consolidate" gaps). Parameterized `copyText(value, flashKey)` helper
+  supports flash-on-copy across the launchpad.
+- **#78**: `copyHealthCommand` migrated to delegate to the new helper.
+- **#79**: Memory viewer rebuild chip copy unified to `↻ Rebuild`.
+- **#80**: Extracted `.lp-rebuild-chip` CSS class — two ~200-char
+  inline styles collapsed to one rule.
+- **#82**: Provider install ⧉ button gained `✓` flash feedback —
+  closes the audit-for-shape on `copyText` flash adoption (5/5 sites
+  now use the parameterized helper).
+
+### Other (consolidated)
+
+- knn_advisor + hard_mining: dropped MLX-only gates that locked the
+  k-NN advisory layer to `[mlx]`-equipped installs (#66-67).
+  watch_runtime's gate stays — the 0.7 cosine threshold is
+  MLX-calibrated; comment added so a future audit doesn't "fix" it.
+- Doctor gains `_check_feedback_consistency` to surface orphaned
+  feedback entries — tick #69 found 16 of 19 feedback entries pointed
+  to outcomes deleted by older cleanup passes (#75).
+- Forward-arc section in claude.md synced to reflect what's shipped
+  across the four pillars (#81).
+- Test count 791 → 833 across the session; 29 browser surfaces stay
+  green throughout.
+
 ## [v1.0 ship day — chip polish + stale-basin handling] — 2026-05-13 (evening)
 
 Three ticks after the cross-memory navigation entry below closed
