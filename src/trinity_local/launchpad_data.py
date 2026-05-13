@@ -848,6 +848,40 @@ def _format_relative_date(iso: str) -> str:
     return dt.strftime("%b %-d")
 
 
+# In-process cache for topics.json — invalidated on file mtime change.
+# A single launchpad render calls into the helpers below 4× (cortex card,
+# recent-card builder, both topology-helper consumers); without this we
+# parse the file 4×. Mtime-keyed so a manual edit / fresh lens-build
+# write triggers a re-parse on the next call without restart.
+_TOPICS_BASINS_CACHE: tuple[float, list[dict]] | None = None
+
+
+def _load_topics_basins() -> list[dict]:
+    """Read topics.json once per file-version; return basin list.
+
+    Both `_topology_basin_labels` and `_task_to_topology_basin` need
+    the same parsed payload — sharing keeps a single launchpad render
+    from re-parsing the file 4×. Returns [] on any error so callers
+    keep their existing graceful-degradation paths.
+    """
+    global _TOPICS_BASINS_CACHE
+    try:
+        from .state_paths import topics_path
+        topics_p = topics_path()
+        if not topics_p.exists():
+            _TOPICS_BASINS_CACHE = None
+            return []
+        mtime = topics_p.stat().st_mtime
+        if _TOPICS_BASINS_CACHE and _TOPICS_BASINS_CACHE[0] == mtime:
+            return _TOPICS_BASINS_CACHE[1]
+        topics = json.loads(topics_p.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    basins = topics.get("basins") or []
+    _TOPICS_BASINS_CACHE = (mtime, basins)
+    return basins
+
+
 def _topology_basin_labels() -> dict[str, str]:
     """Return {basin_id: "term1 · term2 · term3"} from topics.json.
 
@@ -859,16 +893,8 @@ def _topology_basin_labels() -> dict[str, str]:
     Returns {} when topics.json is missing or unparseable so chips
     keep working with their fallback "Open basin <id>" tooltip.
     """
-    try:
-        from .state_paths import topics_path
-        topics_p = topics_path()
-        if not topics_p.exists():
-            return {}
-        topics = json.loads(topics_p.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
     out: dict[str, str] = {}
-    for b in topics.get("basins") or []:
+    for b in _load_topics_basins():
         bid = b.get("id")
         if not bid:
             continue
@@ -893,7 +919,6 @@ def _task_to_topology_basin() -> dict[str, str]:
     """
     try:
         from .cortex import load_routing_patterns
-        from .state_paths import topics_path
     except Exception:
         return {}
     try:
@@ -902,14 +927,7 @@ def _task_to_topology_basin() -> dict[str, str]:
         patterns = None
     if not patterns:
         return {}
-    try:
-        topics_p = topics_path()
-        if not topics_p.exists():
-            return {}
-        topics = json.loads(topics_p.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    basins = topics.get("basins") or []
+    basins = _load_topics_basins()
     if not basins:
         return {}
     # Pre-compute per-basin norm + centroid once.
