@@ -1028,6 +1028,41 @@ async def _record_outcome(args: dict) -> list[Any]:
                 user_winner=user_winner,  # None when abandoned — that's fine
             )
 
+        # Append a merge row to ~/.trinity/me/merges.jsonl — this is the
+        # canonical paired-preference record (user chose X over Y). Only
+        # written when there's a real verdict (not abandonment); v1.5+
+        # downstream views (direction-of-preference vectors, lens.md,
+        # picks.json) will read this corpus rather than recomputing from
+        # council_outcomes/. Strictly additive — existing consumers
+        # unaffected.
+        if not abandoned and user_winner:
+            try:
+                from .merges import record_merge
+                rejected = [
+                    mr.provider
+                    for mr in (outcome.member_results or [])
+                    if mr.provider and mr.provider != user_winner
+                ]
+                record_merge({
+                    "type": "council_winner",
+                    "council_id": council_run_id,
+                    "task_type": (
+                        outcome.routing_label.task_type
+                        if outcome.routing_label else None
+                    ),
+                    "chosen": user_winner,
+                    "rejected": rejected,
+                    "chairman_winner": (
+                        outcome.routing_label.winner
+                        if outcome.routing_label else None
+                    ),
+                    "answer_label": args.get("answer_label"),
+                })
+            except Exception:
+                # Merge log is a side-channel; never let it break the
+                # primary record_outcome flow.
+                pass
+
     return [_text({
         "ok": True,
         "feedback": feedback,
