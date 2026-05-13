@@ -127,6 +127,15 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 # Used to render cross-links from each recent card to the
                 # matching picks.json / routing.json viewer entries.
                 "task_type": None,
+                # Tick #94: any_rated tracks whether ANY round in the
+                # chain has user_verdict.user_winner. Surfaces as an
+                # "Unrated" badge on the recent card so the user can
+                # see at a glance which cards still need their verdict.
+                # Pillar 4 funnel-widening — complements tick #93's
+                # `trinity-local unrated` CLI by surfacing the same
+                # information on the launchpad where the rating UX
+                # already lives (click card → rate winner).
+                "any_rated": False,
             },
         )
         thread["segment_count"] += 1
@@ -135,6 +144,10 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
         routing_label = raw.get("routing_label") or {}
         if isinstance(routing_label, dict) and routing_label.get("task_type"):
             thread["task_type"] = routing_label["task_type"]
+        # Mark thread as rated if THIS round carries a verdict
+        verdict = metadata.get("user_verdict") or {}
+        if isinstance(verdict, dict) and verdict.get("user_winner"):
+            thread["any_rated"] = True
         # Earliest round = round_number 1 (or smallest round_number) carries
         # the original prompt for the title.
         if round_number == 1 or thread["root_bundle_id"] is None:
@@ -164,6 +177,7 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 "created_at": thread["latest_created_at"],
                 "segment_count": thread["segment_count"],
                 "task_type": thread.get("task_type"),
+                "rated": thread.get("any_rated", False),
                 "review_page_path": str(
                     (review_pages_dir() / "live_council.html").resolve()
                 ),
@@ -1144,11 +1158,27 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
                 + "".join(chips)
                 + "</div>"
             )
+        # Tick #94: "Unrated" badge on cards without user_verdict. The
+        # cards already click through to the live council page where
+        # the rating UX lives; the badge tells the user WHICH cards
+        # need their attention without forcing them to open each one.
+        # Same shape as the verdict-stats eyebrow from tick #70 — both
+        # make the rate funnel visible; this one is per-card-actionable.
+        unrated_badge = (
+            ""
+            if item.get("rated")
+            else '<span class="unrated-badge" '
+                 'style="margin-left: 8px; padding: 2px 8px; '
+                 'border-radius: 999px; background: rgba(178, 106, 31, 0.12); '
+                 'color: var(--accent, #b57438); font-size: 11px; '
+                 'font-weight: 500; letter-spacing: 0.02em;">'
+                 'Unrated</span>'
+        )
         return f"""
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <a href="{href}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
             <article class="card council-card">
-              <div class="eyebrow">Thread</div>
+              <div class="eyebrow">Thread{unrated_badge}</div>
               <h3 class="council-title">{_esc(str(item['title']))}</h3>
               <p class="meta">{_esc(winner)} · {_esc(created_at)}{rounds_badge}</p>
             </article>

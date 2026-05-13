@@ -198,6 +198,57 @@ class TestShortcutStatus:
         # The conditional render that drives the icon swap
         assert "copiedKey === 'install-' + provider.provider" in html
 
+    def test_recent_cards_show_unrated_badge(self, isolated_home, tmp_path):
+        """Tick #94 — recent cards visually distinguish unrated vs
+        rated councils. An unrated thread (no segment carries
+        metadata.user_verdict.user_winner) gets a small badge in the
+        eyebrow; a rated thread renders the bare 'Thread' eyebrow.
+
+        Surfaces Pillar 4 (rate funnel) AT the click target — the
+        cards already click through to the live council where rating
+        happens; the badge tells the user WHICH cards need their
+        attention without opening each one.
+        """
+        import json as _json
+        # Two threads: one rated, one not. The function under test
+        # (build_recent_cards_html) takes the same recent_councils
+        # dict shape that _load_recent_councils emits, so we can
+        # test it directly without needing a full corpus on disk.
+        from trinity_local.launchpad_data import build_recent_cards_html
+        recent = [
+            {
+                "council_id": "council_rated",
+                "chain_root_id": "council_rated",
+                "title": "Rated council",
+                "winner_provider": "claude",
+                "created_at": "2026-05-13T10:00:00+00:00",
+                "segment_count": 1,
+                "task_type": None,
+                "rated": True,
+                "review_page_path": str(tmp_path / "live_council.html"),
+            },
+            {
+                "council_id": "council_unrated",
+                "chain_root_id": "council_unrated",
+                "title": "Unrated council",
+                "winner_provider": "codex",
+                "created_at": "2026-05-13T11:00:00+00:00",
+                "segment_count": 1,
+                "task_type": None,
+                "rated": False,
+                "review_page_path": str(tmp_path / "live_council.html"),
+            },
+        ]
+        html = build_recent_cards_html(recent)
+        # The unrated card has the badge
+        assert "Unrated council" in html
+        assert "unrated-badge" in html
+        # Count exactly one badge — the rated card must NOT have it
+        assert html.count("unrated-badge") == 1, (
+            "Rated card should NOT carry the Unrated badge — got "
+            f"{html.count('unrated-badge')} badges for 1 unrated + 1 rated"
+        )
+
     def test_rebuild_chips_use_shared_css_class(self, isolated_home):
         """Tick #80 — both launchpad rebuild chips share the
         `.lp-rebuild-chip` CSS class instead of duplicating ~200-char
