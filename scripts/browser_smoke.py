@@ -236,7 +236,7 @@ def main() -> int:
             print(f"[ ✗ ] Surface 2 settings: {reason}")
             fails.append((2, "settings gear", reason))
 
-        # ─── Surface 3: Personal routing table ───────────────────────────────
+        # ─── Surface 3: Personal routing table + cortex basin links ──────────
         routing_state = page.evaluate(
             """() => {
               // Exclude .cortex-rules-table — that's the "what Trinity learned"
@@ -246,13 +246,32 @@ def main() -> int:
               const rows = document.querySelectorAll('table.routing-table:not(.cortex-rules-table) tbody tr');
               const first = rows[0];
               const first_task = first?.querySelector('td:first-child .benchmark-category')?.textContent?.trim();
-              return {row_count: rows.length, first_task};
+              // Tick #19: cortex basin_id is a deep-link to the picks viewer.
+              // Pull the first basin link's href for assertion.
+              const cortexLink = document.querySelector('.cortex-rules-table tbody tr td:first-child a');
+              const cortexHref = cortexLink?.getAttribute('href') || null;
+              const cortexLinkCount = document.querySelectorAll('.cortex-rules-table tbody tr td:first-child a').length;
+              const cortexRowCount = document.querySelectorAll('.cortex-rules-table tbody tr').length;
+              return {row_count: rows.length, first_task, cortexHref, cortexLinkCount, cortexRowCount};
             }"""
         )
-        if routing_state.get("row_count", 0) >= 1 and routing_state.get("first_task"):
-            print(f"[ ✓ ] Surface 3 routing table: {routing_state['row_count']} rows (first: '{routing_state['first_task']}')")
+        # Cortex link is optional — installs without cortex consolidation
+        # don't render the table at all (the section is v-if). When the
+        # table IS rendered, every row must carry a memory.html?file=picks.json
+        # deep-link in the first cell.
+        cortex_rows = routing_state.get("cortexRowCount") or 0
+        cortex_links_ok = (
+            cortex_rows == 0  # no cortex table → nothing to assert
+            or (
+                routing_state.get("cortexLinkCount") == cortex_rows
+                and "memory.html?file=picks.json&task=" in (routing_state.get("cortexHref") or "")
+            )
+        )
+        if routing_state.get("row_count", 0) >= 1 and routing_state.get("first_task") and cortex_links_ok:
+            cortex_note = f" · cortex {cortex_rows} rows w/ basin links" if cortex_rows else ""
+            print(f"[ ✓ ] Surface 3 routing table: {routing_state['row_count']} rows (first: '{routing_state['first_task']}'){cortex_note}")
         else:
-            reason = f"row_count={routing_state.get('row_count')}"
+            reason = f"row_count={routing_state.get('row_count')} cortex_links_ok={cortex_links_ok} cortex_rows={cortex_rows}"
             print(f"[ ✗ ] Surface 3 routing table: {reason}")
             fails.append((3, "routing table", reason))
 

@@ -941,7 +941,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </thead>
           <tbody>
             <tr v-for="r in cortexRules.rules">
-              <td style="font-weight: 500;">{{{{ r.basin_id.replace(/_/g, ' ') }}}}</td>
+              <td style="font-weight: 500;">
+                <!-- Cross-memory deep-link: basin_id → memory.html with
+                     this basin focused. Memory viewer's picks Reader
+                     surfaces failure_modes + the routing-scores xlink
+                     this table doesn't show. Plain-text fallback when
+                     no basin_id (defensive — shouldn't happen). -->
+                <a v-if="r.basin_id"
+                   :href="'../portal_pages/memory.html?file=picks.json&task=' + encodeURIComponent(r.basin_id)"
+                   style="color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text-muted);"
+                   :title="'View ' + r.basin_id + ' in memory viewer'">
+                  {{{{ r.basin_id.replace(/_/g, ' ') }}}}
+                </a>
+                <span v-else>{{{{ r.basin_id.replace(/_/g, ' ') }}}}</span>
+              </td>
               <td><span class="suggestion-chip">{{{{ formatProviderLabel(r.primary) }}}}</span></td>
               <td><span class="meta">{{{{ r.challenger ? formatProviderLabel(r.challenger) : '—' }}}}</span></td>
               <td>
