@@ -3,6 +3,76 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 ship day — forward-arc trilogy] — 2026-05-13
+
+Day 1 of the 3-day v1.0 ship window. Yesterday's CHANGELOG entry
+("Memory viewer + topic graph + nav harmonization") shipped the
+*inspectable* surface. claude.md commit `adc28f9` then extracted
+meta-principles + plotted three forward predictions from 241
+commits of history. This entry covers the trilogy that turned all
+three predictions into working code:
+
+### 1. Drift surfacing (tick #8 — `a723ac2`)
+
+`is_core_stale` / `override_count` / `audit_status` / pre-thread-aware
+topics — all four signals already existed but the launchpad never
+told the user about them. New `_memory_health()` in launchpad_data.py
+aggregates the four into a structured payload; new `.memory-health-card`
+section in launchpad_template.py renders it ONLY when non-empty
+(silence is the all-good state — no "everything fresh!" badge spam).
+
+Surface 15 added to the smoke. The card renders inline above the
+Council card, top of the user's eye path, before they ask a new
+question.
+
+### 2. Action-from-view (tick #9 — `d519d4b`)
+
+Memory-health hints stopped being prose-only ("run `trinity-local
+distill`") and became click-to-copy chips. Schema gain: each issue
+now carries `command` (CLI to copy) OR `href` (in-app navigation
+target). The audit-disagreed issue gets href → memory.html?file=picks.json
+because inspection is the right next action there, not a re-run.
+
+Chip flow: shows the literal command; click → clipboard + flips to
+"✓ Copied" for 2.4s. Same pattern as the existing taste-share copy
+button. Closes 90% of the "see drift → act on it" UX gap with zero
+new infrastructure (full one-click dispatch via macOS Shortcut is
+queued; copy-to-clipboard delivers the value today).
+
+### 3. Cross-memory navigation (tick #10 — `f35f715`)
+
+picks.json and routing.json both key by task_type but lived in
+silos. Pure URL plumbing closes the gap:
+
+- Each pick card → "View routing scores →" chip → `memory.html?file=routing.json&task=<basin>`
+- Each routing-row task name → dotted-underline link → `memory.html?file=picks.json&task=<task>`
+- Both readers honor `?task=` query param: scroll-to + highlight ring/tint on the matching entry
+
+Round-trip stable. No schema changes. ~70 LOC across both renderers.
+First cut at the cross-memory pattern; topics/lens links are natural
+expansion points.
+
+### Day-1 ship state
+
+- 658 tests pass.
+- 16/16 smoke surfaces green (Surface 15 validates the action chip
+  actually copies; Surface 14b validates memory viewer renders).
+- claude.md status block + patterns + forward arc all reflect
+  current state. CHANGELOG (this entry) captures today's work.
+
+### What's still queued (not blocking ship)
+
+- **Full one-click action via Shortcut dispatch.** Chips currently
+  copy; making them actually execute needs new dispatch_registry
+  actions + macOS Shortcut setup. Copy is 90% of the win.
+- **Topics graph / lens cross-memory links.** The bi-directional
+  picks↔routing pattern is the template; extending to topics (basin
+  → council list) + lens (lens line → source prompts) is mechanical
+  follow-up.
+- **CHANGELOG entry rolled forward as the day progresses.** This
+  entry is the day-1 baseline; later entries should append rather
+  than rewrite.
+
 ## [Memory viewer + topic graph + nav harmonization] — 2026-05-12 (late)
 
 A second arc, driven by user-flagged UX gaps after the brand-pivot
