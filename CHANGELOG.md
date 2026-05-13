@@ -3,6 +3,47 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 ship day — chip polish + stale-basin handling] — 2026-05-13 (evening)
+
+Three ticks after the cross-memory navigation entry below closed
+the chip link graph. The chips themselves shipped fine; their
+hover surface had two real issues:
+
+### Tooltip arc (ticks #38–39)
+
+The lens card showed `b03`, the routing-table chip said
+`Open basin b07 in the topology graph` — neither told the user
+what the basin was *about* until they clicked through.
+
+- `_topology_basin_labels()` reads topics.json once at page-build
+  time, returns `{basin_id: "term1 · term2 · term3"}` (top-3 of
+  each basin's TF-IDF terms). Threaded through `page_data` as
+  `topologyBasinLabels`; a tiny Vue method `basinHoverLabel`
+  consumes it for the lens-card + cortex-card chips (`#38`).
+- Viewer-side: `loadCrossMemoryMaps` now also exposes a
+  `basinLabels` Map. Shared `basinHoverTitle()` helper threads
+  through the picks→topology xlink and routing→topology chip
+  (`#39`). Same wording on both halves — "Basin <id> — <terms>"
+  when terms exist, "Open basin <id> in the topology graph" as
+  fallback.
+
+### Stale-basin banner (tick #40)
+
+When a `?basin=<id>` deep-link arrived but no node matched (most
+likely cause: lens-build re-ran with different cluster ids since
+the chip was rendered), the topology view silently rendered the
+empty "click a basin" message — no feedback to the user that the
+link they followed was stale.
+
+The detail panel now surfaces a warm-warning banner reusing the
+same `.viewer-health-banner` shape the picks Reader's "not yet"
+banner uses: "not found" status + a click-to-copy
+`trinity-local lens-build` chip so the user can rebuild without
+context-switching.
+
+Browser smoke grew 28 → 29 (stale-basin banner); test suite
+714 → 727.
+
 ## [v1.0 ship day — cross-memory navigation closed] — 2026-05-13 (later same day)
 
 After the forward-arc trilogy below, twelve more ticks closed the
