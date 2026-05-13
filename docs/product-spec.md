@@ -39,7 +39,7 @@ The router is the implementation. The verifier is the value. The personal prefer
 2. **Prompt content never uploads.** Even with future opt-in aggregation, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. `/me` content is treated as sensitive derived prompt content; it stays local by default.
 3. **Local-first inference.** Phase 9's learned router runs on the user's hardware. No hosted controller, no per-call API billing.
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's CLI subscriptions (Claude Code, Codex CLI, Gemini CLI, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both the cost basis and the privacy commitment.
-5. **Hosted components may only be registries, not controllers.** Trinity may host public registry metadata, public cold-start priors, and curated public/famous persona documents. It must not host ordinary users' private `/me.md`, raw prompts, transcript derivatives, per-call inference, or a routing controller.
+5. **Hosted components may only be registries, not controllers.** Trinity may host public registry metadata, public cold-start priors, and curated public/famous persona documents. It must not host ordinary users' private `/lens.md`, raw prompts, transcript derivatives, per-call inference, or a routing controller.
 
 ### What runs and when
 
@@ -109,7 +109,7 @@ External benchmarks (artificialanalysis.ai's Intelligence/Coding/Agentic indices
 
 > "Two senior engineers could reasonably disagree about this — and you've already made similar architectural choices three times. Here's what fits you."
 
-The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) and conditions every synthesis on your demonstrated taste, vocabulary, implicit rejections, and abstract lenses. The persona is built locally, never uploads.
+The chairman reads `/me` (composed by `lens-build` from sampled diverse prompts) and conditions every synthesis on your demonstrated taste, vocabulary, implicit rejections, and abstract lenses. The persona is built locally, never uploads.
 
 ---
 
@@ -122,7 +122,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 | Module | Key commands |
 |--------|-------------|
 | `commands/council.py` | `council-launch`, `council-rate`, `council-stop`, `council-share`, `council-html` |
-| `commands/me.py` | `me-build` (chairman-driven), `me-show` |
+| `commands/me.py` | `lens-build` (chairman-driven), `lens-show` |
 | `commands/seed.py` | `seed-from-taste-terminal` (ingest from claude_ai/chatgpt/gemini takeout exports) |
 | `commands/replay.py` | `replay-history` |
 | `commands/portal.py` | `portal-html` (regenerates the launchpad) |
@@ -158,7 +158,7 @@ The chairman reads `/me` (composed by `me-build` from sampled diverse prompts) a
 │   ├── prompt_nodes.jsonl          # PromptNode index (atomic retrieval unit)
 │   ├── turn_windows.jsonl          # TurnWindow index (local context)
 │   └── cursors.json                # Per-source ingest cursors
-├── me.md                           # Built by `me-build` via chairman call
+├── lens.md                         # Built by `lens-build` via chairman call
 ├── analytics/
 │   └── routing_label_events.jsonl  # Chairman parse-success rate
 ├── outcomes.jsonl                  # Per-session outcome records (drift)
@@ -181,7 +181,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 - **Daemon / always-resident server** — the MCP server is a stdio child of whatever harness launched it; dies on EOF. No background process, no launchd, no systemd.
 - **`run` command** (Thinker/Worker/Verifier loop) — replaced by council; the user's CLI is the agent loop.
 - **Cost aggregation per provider** — subsidized subscriptions = roughly fixed per-task cost; latency is the actual scarce resource.
-- **`~/.taste/` dependency** — `me-build` now builds /me from sampled PromptNodes via a chairman call. taste-terminal is no longer a runtime dependency.
+- **`~/.taste/` dependency** — `lens-build` now builds /me from sampled PromptNodes via a chairman call. taste-terminal is no longer a runtime dependency.
 
 ---
 
@@ -191,20 +191,20 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 - **Not an orchestrator.** The council is a one-shot multi-provider comparison; chain mode is sequential refinement of one task. Long-horizon orchestration belongs to the harness's agent loop.
 - **Not a server.** No `localhost:8080`. No WebSocket. No database. The MCP stdio server is a child process of the harness, not an independent service.
 - **Not an always-on daemon.** Nothing runs when no harness is connected.
-- **Not a hosted /me warehouse.** The opt-in registry will store metadata + curated public personas only — never private `/me.md`.
+- **Not a hosted /me warehouse.** The opt-in registry will store metadata + curated public personas only — never private `/lens.md`.
 
 ---
 
 ## What's working today (v1.1)
 
-1. **Memory index live.** `seed-from-taste-terminal` populates `~/.trinity/memory/` from claude_ai + chatgpt + gemini takeout exports. 768d nomic embeddings written at ingest, used by `me-build` only.
+1. **Memory index live.** `seed-from-taste-terminal` populates `~/.trinity/prompts/` from claude_ai + chatgpt + gemini takeout exports. 768d nomic embeddings written at ingest, used by `lens-build` only.
 2. **Embedding-free hot path.** Launchpad autofill, MCP `search_prompts`, `replay-history`. Substring + recency + replay-value heuristics. ~150ms warm query over 5000 cached recent PromptNodes.
 3. **Personal routing table (on-demand).** Computed by walking `council_outcomes/*.json`, mtime-cached. Read by chairman_picker + launchpad.
 4. **Chairman auto-selection.** `predict_strongest_chairman(task)` consults personal table → global priors → default order.
 5. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
 6. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
 7. **MCP tool surface (v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong`).** v1.0: `route`, `run_council` (subsumes `judge`), `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5: `ask` (cheap single-call default), `get_picks` (agent-facing introspection), and `mark_pick_wrong` (harness-callable user veto). 9 total.
-8. **`lens-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/me.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
+8. **`lens-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/lens.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 10. **v1.5 cortex layer (Week 2 shipped, refined post-launch).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json`. Each pattern carries a **structured geometric prior** of the basin: geometric median (Weiszfeld iteration, robust under L1), coherence score, manifold dim, bimodality flag (excess kurtosis on first-PC, requires N≥10), and typicality-ordered outcomes. The flagship extraction prompt is *prepended* with a one-paragraph shape description so the LLM does rule-extraction on structure instead of geometry-in-language. `trust_score` has 5 components (n_episodes / consistency / recency / diversity / coherence; weighted geometric mean) — coherence catches "confident rule on noisy basin." Wires into `ask` query hot-path in Week 3 after human calibration gate.
 11. **Test suite: 541 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib). `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 8-surface browser smoke gate green.
@@ -215,7 +215,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 - **Tier 2 #7 — merge global_benchmarks + personal table into one read-time blend.** Currently two launchpad cards; collapse to one with sigmoid-alpha confidence as personal `n` grows.
 - **Aggregation endpoint (§8.9).** Cloudflare Worker for live global priors + public leaderboard. Read access free for all; upload opt-in only with anonymous categorical labels (no prompt content). Ship after Routing JSON parse-success ≥85% sustained and ≥50 opt-in users.
-- **Profile-DB / shared personas (v1.2).** Architecture D from `council_ab29d9e1fbd0ed50` — opt-in registry of metadata + curated famous-person personas built from public sources. **Never** hosts ordinary user `/me.md`.
+- **Profile-DB / shared personas (v1.2).** Architecture D from `council_ab29d9e1fbd0ed50` — opt-in registry of metadata + curated famous-person personas built from public sources. **Never** hosts ordinary user `/lens.md`.
 - **Harness auto-invocation.** `route()` returns `should_auto_council: bool` based on 5 trigger conditions (irreversible state, multi-architecture choice, load-bearing commitment edits, low confidence, user-override history). Rate-limited at 1 per 10 user turns / 1 per 20 min.
 - **Tool-triggered cursor-based incremental ingest.** Cursors live at `~/.trinity/memory/cursors.json`; fires on MCP tool invocation rather than the existing one-off `seed-from-taste-terminal`.
 - **Phase 9 learned tiny coordinator.** v1 collects the personal data; Phase 9 trains a per-user adapter against it.
@@ -278,7 +278,7 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 3. **Static HTML for UI.** The launchpad is regenerated from file state. No React. No build step. No WebSocket. Open in any browser.
 4. **Filesystem is the index.** Computed views (e.g., the personal routing table) walk canonical directories on demand and cache by mtime. No durable secondary state files for derived data.
 5. **CLI for power users.** Every operation is a `trinity-local <subcommand>`. The launchpad has minimal in-page settings (telemetry sharing toggle, anonymous-id reset, ingest controls, auto-chain enable/disable) — no full configuration app.
-6. **Minimal dependencies.** Python stdlib + numpy. Optional `[mlx]` extras for embedding writes during seed and embedding-MMR sampling during `me-build`.
+6. **Minimal dependencies.** Python stdlib + numpy. Optional `[mlx]` extras for embedding writes during seed and embedding-MMR sampling during `lens-build`.
 
 ---
 

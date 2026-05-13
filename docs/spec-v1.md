@@ -40,7 +40,7 @@ Anthropic just ship this?*
 The brand axis splits cleanly into three load-bearing words:
 - **prompts** — what you own (raw, today scattered across three browser tabs)
 - **dream** — the verb only Trinity has (synthesizes prompts → memory, offline, your data)
-- **memory** — what dream creates (cortex rules + the lens + the personal routing table)
+- **memory** — what dream creates (picks + the lens + the personal routing table, all under `~/.trinity/memories/`; see the five-plural-plus-core mapping in claude.md)
 
 Three concrete pains underneath, each with a direct Trinity answer:
 
@@ -75,8 +75,8 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 ### Surfaces
 - `trinity-local council-launch` — fan out to Claude/Gemini/Codex CLIs, chairman synthesizes, returns Routing JSON outcome
 - `trinity-local council-last` — instant council on the last Claude Code prompt (zero-data onboarding)
-- `trinity-local me-build` — 4-stage lens-discovery pipeline (basins → decisions → pair-mining → basin post-filter) + Stage 0 turn-pair gaps
-- `trinity-local me-card` — render strongest `/me` lens as a 1200×630 PNG (the actual social object — see disagreement #4)
+- `trinity-local lens-build` — 4-stage lens-discovery pipeline (basins → decisions → pair-mining → basin post-filter) + Stage 0 turn-pair gaps
+- `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local doctor` — pre-flight cold-install checks
 - `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Gemini CLI + drops `/trinity` skill
@@ -209,7 +209,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 2. **numpy not FAISS.** Numpy matmul gets ~5ms on 28k vectors; FAISS adds a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
-3. **6 MCP tools, not 3.** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (me.md hand-off). Spec's 3 are renamed as the "stable contract"; the other 3 ship as "extended."
+3. **9 MCP tools shipped (6 canonical + 3 v1.5 additions).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 ships 6: `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`.
 
 4. **`me-card` is the social object, not the radar chart.** Radar charts are commoditized; the me-card paired-tension PNG is unique to Trinity and renders the lens-discovery output as a shareable artifact. Radar stays as a secondary asset.
 

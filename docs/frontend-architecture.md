@@ -370,10 +370,11 @@ They should not attempt to turn the browser into the orchestrator.
 
 Keep generated-page code close to the page type. Current shipped modules:
 
-- `portal_page.py` — launchpad orchestrator
-- `portal_template.py` — launchpad HTML/CSS/JS template (includes settings modal, autofill, personal-routing-table card, /me lenses card)
-- `portal_data.py` — assembles the JSON payload the launchpad reads
-- `portal_runtime.py` — refresh + open-in-browser plumbing
+- `launchpad_page.py` — launchpad orchestrator (also writes the memory viewer alongside)
+- `launchpad_template.py` — launchpad HTML/CSS/JS template (settings modal, autofill, personal-routing-table card, lens card, memory-chip card)
+- `launchpad_data.py` — assembles the JSON payload the launchpad reads
+- `launchpad_runtime.py` — refresh + open-in-browser plumbing
+- `memory_viewer.py` — generic memory.html viewer (renders lens.md / picks.json / routing.json / topics.json / vocabulary.md / core.md with inlined contents)
 - `council_review.py` — unified council page (handles both `?status_token=` in-flight and `?council_id=` post-hoc views; rating UI is inline)
 - `me_lenses.py` — parses `~/.trinity/memories/lens.md` into structured taste lenses for the launchpad card
 - `council_share.py` — was deleted along with the `--safe` Privacy-Safe Share Card. (The `council-share` CLI command is still in `commands/council.py` and copies the unified review HTML to Desktop.)

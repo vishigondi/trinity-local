@@ -91,7 +91,7 @@ def handle_me_build(args):
 def handle_me_show(args):
     text = load_me()
     if not text:
-        print(f"# /me not built yet — run `trinity-local me-build`")
+        print("# lens not built yet — run `trinity-local lens-build`")
         print(f"# expected at: {me_path()}")
         return
     print(text)

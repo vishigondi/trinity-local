@@ -61,6 +61,11 @@ _FILE_PATH_RESOLVERS = {
 def _read_memory_contents() -> dict[str, str | None]:
     """Read each memory file at render time. Returns name → contents, with
     None for missing files (the viewer renders an empty-state for those).
+
+    Rendering is client-side: `marked` handles markdown, the inline JSON
+    viewer (in the embedded JS) handles JSON. Keeps it DRY — same JS
+    libs Trinity already pulls (petite-vue, Chart.js); no parallel
+    server-side renderer to maintain.
     """
     contents: dict[str, str | None] = {}
     for name, resolver in _FILE_PATH_RESOLVERS.items():
@@ -101,12 +106,19 @@ def render_memory_viewer_html() -> str:
     files_json = _json.dumps(ALLOWED_FILES, ensure_ascii=True)
     memories_payload = _json.dumps(_read_memory_contents(), ensure_ascii=True)
     nav_links = _render_nav_links()
+    # Bundled JS deps — same pattern as launchpad_template.py
+    # (petite-vue + Chart.js from CDN). `marked` is the standard markdown
+    # renderer; ~30KB gzipped. Kills the dual-renderer problem (we already
+    # have markdown_utils server-side for council pages; client-side
+    # marked() keeps the memory viewer DRY).
+    marked_src = "https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trinity · Memory viewer</title>
+  <script src="{marked_src}"></script>
   <style>
     :root {{
       --bg: #fafaf7;
@@ -227,6 +239,121 @@ def render_memory_viewer_html() -> str:
       padding: 2px 6px;
       border-radius: 4px;
     }}
+    /* Rendered markdown ─────────────────────────────────────────────── */
+    .markdown-body {{ font-size: 14px; line-height: 1.65; }}
+    .markdown-body h1 {{ font-size: 22px; margin: 28px 0 12px; }}
+    .markdown-body h2 {{ font-size: 18px; margin: 24px 0 10px; }}
+    .markdown-body h3 {{ font-size: 16px; margin: 20px 0 8px; }}
+    .markdown-body p {{ margin: 10px 0; }}
+    .markdown-body ul, .markdown-body ol {{ margin: 10px 0; padding-left: 24px; }}
+    .markdown-body li {{ margin: 4px 0; }}
+    .markdown-body code {{
+      font-family: ui-monospace, "SF Mono", Monaco, monospace;
+      font-size: 0.92em;
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }}
+    .markdown-body pre {{
+      background: var(--code-bg);
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }}
+    .markdown-body pre code {{ background: none; padding: 0; }}
+    .markdown-body blockquote {{
+      border-left: 3px solid var(--accent);
+      padding: 4px 14px;
+      margin: 12px 0;
+      color: var(--meta);
+    }}
+    .markdown-body table {{
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+      width: 100%;
+    }}
+    .markdown-body th, .markdown-body td {{
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }}
+    .markdown-body th {{ background: var(--code-bg); font-weight: 600; }}
+    .markdown-body tr:nth-child(even) td {{ background: #fbfbf8; }}
+    .markdown-body em {{ color: var(--meta); }}
+    /* JSON quick views ──────────────────────────────────────────────── */
+    .pick-card {{
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      background: white;
+    }}
+    .pick-head {{ display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }}
+    .pick-basin {{
+      font-family: ui-monospace, "SF Mono", Monaco, monospace;
+      font-size: 14px;
+      color: var(--accent);
+      font-weight: 600;
+    }}
+    .pick-primary {{
+      font-size: 13px;
+      color: var(--fg);
+    }}
+    .pick-badge {{
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--code-bg);
+      color: var(--meta);
+    }}
+    .pick-badge.high {{ background: #dcfce7; color: #166534; }}
+    .pick-badge.med  {{ background: #fef9c3; color: #854d0e; }}
+    .pick-badge.low  {{ background: #fee2e2; color: #991b1b; }}
+    .pick-meta {{ margin-top: 8px; font-size: 12px; color: var(--meta); }}
+    .pick-failures {{ margin-top: 10px; font-size: 13px; }}
+    .pick-failures ul {{ margin: 4px 0 0; padding-left: 20px; }}
+    .routing-table {{
+      border-collapse: collapse;
+      font-size: 13px;
+      width: 100%;
+      margin: 12px 0;
+    }}
+    .routing-table th, .routing-table td {{
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+    }}
+    .routing-table th {{ background: var(--code-bg); font-weight: 600; text-align: left; }}
+    .routing-table td.score {{ text-align: right; font-family: ui-monospace, monospace; }}
+    .routing-table td.best {{ background: rgba(34, 197, 94, 0.08); font-weight: 600; }}
+    /* JSON syntax highlight (used for topics.json + raw fallback) */
+    .json-body {{ font-family: ui-monospace, monospace; font-size: 12px; }}
+    .json-key {{ color: #6366f1; }}
+    .json-str {{ color: #166534; }}
+    .json-num {{ color: #b45309; }}
+    .json-bool {{ color: #be185d; }}
+    .json-null {{ color: var(--meta); }}
+    /* View toggle */
+    .view-toggle {{
+      display: inline-flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+    }}
+    .view-toggle button {{
+      border: 1px solid var(--border);
+      background: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--meta);
+    }}
+    .view-toggle button.active {{
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }}
   </style>
 </head>
 <body>
@@ -297,15 +424,208 @@ def render_memory_viewer_html() -> str:
       content.appendChild(renderHeader(file));
       if (text === null || text === undefined || !text.trim()) {{
         content.appendChild(renderEmpty(file));
+      }} else if (file.name.endsWith(".md")) {{
+        renderMarkdown(content, text);
       }} else {{
-        let body = text;
-        // Pretty-print JSON so the raw file's compactness doesn't tank readability.
-        if (file.name.endsWith(".json")) {{
-          try {{ body = JSON.stringify(JSON.parse(text), null, 2); }}
-          catch (_) {{ /* malformed JSON — show raw */ }}
-        }}
-        content.appendChild(el("pre", "body", body));
+        renderJson(content, file.name, text);
       }}
+    }}
+
+    // ─── Markdown rendering ──────────────────────────────────────────────
+    // Uses `marked` (CDN dep, same pattern as petite-vue/Chart.js). Parsed
+    // HTML goes through DOMParser so we never call innerHTML on the live
+    // tree — avoids the XSS surface even if a memory file is hand-edited.
+    function renderMarkdown(target, mdText) {{
+      const wrap = el("div", "markdown-body");
+      try {{
+        const html = window.marked ? window.marked.parse(mdText) : null;
+        if (html) {{
+          const parsed = new DOMParser().parseFromString(html, "text/html");
+          // Strip any <script>/<style>/<iframe> tags before adopting nodes —
+          // marked doesn't emit them but a future config change could.
+          parsed.querySelectorAll("script,style,iframe,object,embed").forEach(n => n.remove());
+          while (parsed.body.firstChild) wrap.appendChild(parsed.body.firstChild);
+        }} else {{
+          // marked failed to load — fall through to raw text in <pre>
+          wrap.appendChild(el("pre", "body", mdText));
+        }}
+      }} catch (e) {{
+        wrap.appendChild(el("pre", "body", mdText));
+      }}
+      target.appendChild(wrap);
+    }}
+
+    // ─── JSON rendering ──────────────────────────────────────────────────
+    // Two views: a schema-aware "Reader" view (cards/tables for picks +
+    // routing) and a "Raw" pretty-printed JSON view. Toggle preserves
+    // across nav clicks via the active button state.
+    function renderJson(target, name, jsonText) {{
+      let parsed = null;
+      try {{ parsed = JSON.parse(jsonText); }}
+      catch (_) {{
+        target.appendChild(el("pre", "body", jsonText));
+        return;
+      }}
+
+      const readerSupported = name === "picks.json" || name === "routing.json";
+      const toggleWrap = el("div", "view-toggle");
+      const readerBtn = el("button", null, "Reader");
+      const rawBtn = el("button", null, "Raw JSON");
+      const viewWrap = el("div");
+
+      function showReader() {{
+        readerBtn.classList.add("active");
+        rawBtn.classList.remove("active");
+        clearChildren(viewWrap);
+        if (name === "picks.json") renderPicksReader(viewWrap, parsed);
+        else if (name === "routing.json") renderRoutingReader(viewWrap, parsed);
+      }}
+      function showRaw() {{
+        rawBtn.classList.add("active");
+        readerBtn.classList.remove("active");
+        clearChildren(viewWrap);
+        const pre = el("pre", "body json-body");
+        pre.appendChild(highlightJson(JSON.stringify(parsed, null, 2)));
+        viewWrap.appendChild(pre);
+      }}
+
+      readerBtn.addEventListener("click", showReader);
+      rawBtn.addEventListener("click", showRaw);
+      if (readerSupported) toggleWrap.appendChild(readerBtn);
+      toggleWrap.appendChild(rawBtn);
+      target.appendChild(toggleWrap);
+      target.appendChild(viewWrap);
+      if (readerSupported) showReader();
+      else showRaw();
+    }}
+
+    function clearChildren(node) {{ while (node.firstChild) node.removeChild(node.firstChild); }}
+
+    function trustBadgeClass(score) {{
+      if (typeof score !== "number") return "";
+      if (score >= 0.7) return "high";
+      if (score >= 0.4) return "med";
+      return "low";
+    }}
+
+    function renderPicksReader(target, picks) {{
+      // picks.json shape: {{basin_id: {{routing_rule: {{primary, confidence, ...}},
+      //   trust_score: {{value, interpretation}}, n_episodes, failure_modes, ...}}}}
+      const basins = Object.keys(picks);
+      if (basins.length === 0) {{
+        target.appendChild(el("p", "meta", "No picks yet — run trinity-local consolidate."));
+        return;
+      }}
+      basins.forEach(basinId => {{
+        const p = picks[basinId];
+        const card = el("div", "pick-card");
+        const head = el("div", "pick-head");
+        head.appendChild(el("span", "pick-basin", basinId));
+        const rule = p.routing_rule || {{}};
+        if (rule.primary) {{
+          head.appendChild(el("span", "pick-primary", "Use " + rule.primary));
+        }}
+        const trust = p.trust_score || {{}};
+        const tval = typeof trust.value === "number" ? trust.value : null;
+        if (tval !== null) {{
+          const badge = el("span", "pick-badge " + trustBadgeClass(tval),
+            "trust " + tval.toFixed(2) + (trust.interpretation ? " · " + trust.interpretation : ""));
+          head.appendChild(badge);
+        }}
+        if (typeof p.n_episodes === "number") {{
+          head.appendChild(el("span", "pick-badge", "n=" + p.n_episodes));
+        }}
+        if (p.audit_status) {{
+          head.appendChild(el("span", "pick-badge", "audit: " + p.audit_status));
+        }}
+        card.appendChild(head);
+        if (rule.reasoning || rule.why_matters) {{
+          card.appendChild(el("div", "pick-meta", rule.reasoning || rule.why_matters));
+        }}
+        if (Array.isArray(p.failure_modes) && p.failure_modes.length) {{
+          const fwrap = el("div", "pick-failures");
+          fwrap.appendChild(el("strong", null, "Known failure modes:"));
+          const ul = el("ul");
+          p.failure_modes.forEach(fm => ul.appendChild(el("li", null, typeof fm === "string" ? fm : JSON.stringify(fm))));
+          fwrap.appendChild(ul);
+          card.appendChild(fwrap);
+        }}
+        target.appendChild(card);
+      }});
+    }}
+
+    function renderRoutingReader(target, routing) {{
+      // routing.json shape: {{by_task_type: {{task: {{provider: {{n, overall}}}}}},
+      //   best_per_task_type: {{task: provider}}, computed_at: iso}}
+      const by = routing.by_task_type || {{}};
+      const best = routing.best_per_task_type || {{}};
+      const taskTypes = Object.keys(by).sort();
+      if (taskTypes.length === 0) {{
+        target.appendChild(el("p", "meta", "No routing data yet — record outcomes via record_outcome (or run replay-history)."));
+        return;
+      }}
+      const providers = new Set();
+      taskTypes.forEach(t => Object.keys(by[t] || {{}}).forEach(p => providers.add(p)));
+      const provList = Array.from(providers).sort();
+
+      const tbl = el("table", "routing-table");
+      const thead = el("thead");
+      const hr = el("tr");
+      hr.appendChild(el("th", null, "Task type"));
+      provList.forEach(p => hr.appendChild(el("th", null, p)));
+      hr.appendChild(el("th", null, "Best"));
+      thead.appendChild(hr);
+      tbl.appendChild(thead);
+
+      const tbody = el("tbody");
+      taskTypes.forEach(t => {{
+        const tr = el("tr");
+        tr.appendChild(el("td", null, t));
+        const row = by[t] || {{}};
+        provList.forEach(p => {{
+          const cell = row[p];
+          const td = el("td", "score");
+          if (cell && typeof cell.overall === "number") {{
+            const txt = cell.overall.toFixed(1) + (typeof cell.n === "number" ? " (n=" + cell.n + ")" : "");
+            td.textContent = txt;
+            if (best[t] === p) td.classList.add("best");
+          }} else {{
+            td.textContent = "—";
+          }}
+          tr.appendChild(td);
+        }});
+        tr.appendChild(el("td", null, best[t] || "—"));
+        tbody.appendChild(tr);
+      }});
+      tbl.appendChild(tbody);
+      target.appendChild(tbl);
+      if (routing.computed_at) {{
+        target.appendChild(el("p", "meta", "Computed " + routing.computed_at));
+      }}
+    }}
+
+    function highlightJson(text) {{
+      // Token-level highlight — returns a DocumentFragment. Standalone
+      // (no library) so we don't pull a JSON renderer just for this.
+      const frag = document.createDocumentFragment();
+      const re = /("[^"\\\\]*(?:\\\\.[^"\\\\]*)*")(\\s*:)?|\\b(true|false|null)\\b|(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)/g;
+      let last = 0;
+      let m;
+      while ((m = re.exec(text)) !== null) {{
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        if (m[1]) {{
+          const span = el("span", m[2] ? "json-key" : "json-str", m[1]);
+          frag.appendChild(span);
+          if (m[2]) frag.appendChild(document.createTextNode(m[2]));
+        }} else if (m[3]) {{
+          frag.appendChild(el("span", m[3] === "null" ? "json-null" : "json-bool", m[3]));
+        }} else if (m[4]) {{
+          frag.appendChild(el("span", "json-num", m[4]));
+        }}
+        last = re.lastIndex;
+      }}
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      return frag;
     }}
 
     function suggestionFor(name) {{

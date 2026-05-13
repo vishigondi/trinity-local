@@ -679,13 +679,25 @@ def main() -> int:
                 page.evaluate("""() => document.querySelector('a.memory-chip')?.click()""")
             page.wait_for_timeout(800)  # let fetch + DOM render settle
             viewer_state = page.evaluate(
-                """() => ({
-                  url: window.location.href,
-                  title: document.querySelector('.content-header h2')?.textContent,
-                  bodyLen: (document.querySelector('pre.body')?.textContent || '').length,
-                  activeNav: document.querySelector('.memory-nav-link.active')?.dataset.file,
-                  navCount: document.querySelectorAll('.memory-nav-link').length,
-                })"""
+                """() => {
+                  // .md → .markdown-body (rendered via marked + DOMParser)
+                  // .json → .pick-card / .routing-table / .json-body (raw view)
+                  // Either way, the rendered region carries text.
+                  const renderRoot =
+                    document.querySelector('.markdown-body') ||
+                    document.querySelector('.pick-card') ||
+                    document.querySelector('.routing-table') ||
+                    document.querySelector('.json-body') ||
+                    document.querySelector('pre.body');
+                  return {
+                    url: window.location.href,
+                    title: document.querySelector('.content-header h2')?.textContent,
+                    bodyLen: (renderRoot?.textContent || '').length,
+                    hasMarkdownBody: !!document.querySelector('.markdown-body'),
+                    activeNav: document.querySelector('.memory-nav-link.active')?.dataset.file,
+                    navCount: document.querySelectorAll('.memory-nav-link').length,
+                  };
+                }"""
             )
             page.screenshot(path=str(SHOTS_DIR / "14-memory-viewer.png"), full_page=True)
             on_viewer = "memory.html" in viewer_state.get("url", "")

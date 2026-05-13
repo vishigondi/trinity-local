@@ -126,7 +126,7 @@ pipeline, and the `share/` folder convention.
 pushed you past Y was hidden in this council you didn't notice."*
 
 **What's needed:**
-- New command: `trinity-local evolve` (or `me-evolve` for naming parity with `me-build`).
+- New command: `trinity-local evolve` (or `lens-evolve` for naming parity with `lens-build`).
 - Logic: walk recent councils, find ones where the user picked a chairman-disagreed answer,
   surface the *runner-up* and the chairman's `why_matters`. Render as a card.
 - UI surface: launchpad gets a "What Trinity wants you to try next" section.
