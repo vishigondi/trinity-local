@@ -23,21 +23,25 @@ Surfaces:
     1. Launchpad cold-render: Ratings chart bars rendered
    1b. Autofill content quality: no scaffolding leaks in councilSuggestions
     2. Settings gear: modal opens, sharing + auto-chain toggles present
-    3. Personal routing table: >=1 row, columns readable
+    3. Personal routing table: >=1 row + every row links to routing.json viewer
+       (tick #20); plus cortex basin links → picks.json viewer (tick #19)
     4. Lenses Copy-for-sharing: clipboard write fires with non-empty text
     5. Recent council click: live page loads with chairman synthesis
     6. Live council: Back to Launchpad returns home; winner persists on reload
     7. Launch Council button: present + clickable (full e2e gated on macOS Shortcut)
     8. Telemetry guard: no example.invalid console errors
     9. Multi-round thread render: 3 chain segments visible with round numbers
-   10. Recent council card content: title + winner + rounds badge per card
+   10. Recent council card content: title + winner + rounds badge per card,
+       plus cross-memory chips → picks + routing viewer (tick #15)
    11. Autofill apply: clicking a suggestion fills the textarea
    12. Settings toggle binding: each :checked reflects underlying telemetry state
-   13. Lens card render: paired-lenses block populates when tasteLenses exists
+   13. Lens card render: paired-lenses block populates when tasteLenses exists,
+       includes "View full lens →" cross-link to memory viewer (tick #12)
    14. Memory viewer + launchpad link: chip links → memory.html loads + renders file
-   15. Memory-health row: drift signals (core stale / picks audit / topology) surface inline
+   15. Memory-health row: drift signals (core stale / picks audit / topology) surface
+       inline with click-to-copy command chips that capture clipboard correctly
    16. Per-file health banner: same signal travels into the memory viewer when a stale
-       file is opened, with a click-to-copy command chip mirroring Surface 15
+       file is opened, with chip mirroring Surface 15 + nav-dot indicator (tick #18)
 
 Exit codes:
     0 — all surfaces pass
