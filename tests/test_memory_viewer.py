@@ -312,6 +312,42 @@ class TestPicksToTopologyCrossLink:
         )
 
 
+class TestRoutingToTopologyCrossLink:
+    """Tick #33 — routing → topology cross-link via task_type → pick →
+    centroid → basin. Routing doesn't carry centroids itself; the
+    bridge piggybacks on the shared taskToBasinId map that tick #32
+    already computes from picks.basin_centroid."""
+
+    def test_chip_class_defined(self, isolated_home):
+        html = _render()
+        assert ".routing-topology-chip" in html, ".routing-topology-chip CSS missing"
+        assert '"routing-topology-chip"' in html, (
+            "renderRoutingReader doesn't construct a .routing-topology-chip anchor"
+        )
+
+    def test_chip_reuses_shared_task_basin_map(self, isolated_home):
+        html = _render()
+        # The chip must read from the same taskToBasinId Map that
+        # tick #32's picks Reader uses. If a future refactor splits
+        # the two sides, the picks→topology and routing→topology
+        # links could disagree on whether a task has a basin match.
+        assert "routingTaskToBasinId" in html, (
+            "renderRoutingReader doesn't pull from loadCrossMemoryMaps"
+        )
+        assert "loadCrossMemoryMaps()" in html, (
+            "shared cross-memory loader not called from routing Reader"
+        )
+
+    def test_chip_targets_topology_with_basin_param(self, isolated_home):
+        html = _render()
+        # The href must use the same ?basin= deep-link contract the
+        # topology view handles (tick #32). If they diverge, the
+        # click lands but the panel doesn't open.
+        assert 'memory.html?file=topics.json&basin=" + encodeURIComponent(topoBasinId)' in html, (
+            "routing→topology xlink template drifted from ?basin= deep-link"
+        )
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the

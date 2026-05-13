@@ -510,6 +510,27 @@ def render_memory_viewer_html() -> str:
     .routing-task-link:hover {{
       border-bottom-style: solid;
     }}
+    /* Routing → topology chip. Only renders when the row's task_type
+       has a centroid match into topics.json. Sits inline next to the
+       task name link, kept visually quiet so the primary task→picks
+       link stays the dominant affordance. */
+    .routing-topology-chip {{
+      display: inline-block;
+      margin-left: 8px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--meta);
+      text-decoration: none;
+      padding: 1px 6px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      vertical-align: middle;
+    }}
+    .routing-topology-chip:hover {{
+      color: var(--accent);
+      border-color: var(--accent);
+    }}
     tr.routing-row-focused td {{
       background: rgba(181, 116, 56, 0.10);
     }}
@@ -1244,6 +1265,14 @@ def render_memory_viewer_html() -> str:
         target.appendChild(banner);
       }}
 
+      // Cross-memory bridge: routing.json doesn't carry centroids, but
+      // picks.json does, and picks task_type ↔ routing task_type share
+      // the same label space (both keyed by task_type). So routing
+      // → topology is a two-hop chain: routing task → pick → centroid →
+      // topology basin. Reuse the shared taskToBasinId map (tick #32)
+      // so the matching rule can't drift from the picks/topology side.
+      const {{ taskToBasinId: routingTaskToBasinId }} = loadCrossMemoryMaps();
+
       const tbody = el("tbody");
       taskTypes.forEach(t => {{
         const tr = el("tr");
@@ -1257,6 +1286,17 @@ def render_memory_viewer_html() -> str:
         const taskLink = el("a", "routing-task-link", t);
         taskLink.href = "memory.html?file=picks.json&task=" + encodeURIComponent(t);
         taskTd.appendChild(taskLink);
+        // Topology xlink: only renders when this task_type has been
+        // consolidated into a pick AND the pick's centroid found a
+        // topology match. Closes the routing → topology gap so the
+        // user can jump from a score row to the prompts that fed it.
+        const topoBasinId = routingTaskToBasinId.get(t);
+        if (topoBasinId) {{
+          const topoLink = el("a", "routing-topology-chip", "topology");
+          topoLink.href = "memory.html?file=topics.json&basin=" + encodeURIComponent(topoBasinId);
+          topoLink.title = "Open basin " + topoBasinId + " in the topology graph";
+          taskTd.appendChild(topoLink);
+        }}
         tr.appendChild(taskTd);
         const row = by[t] || {{}};
         provList.forEach(p => {{

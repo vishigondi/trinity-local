@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 24 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 25 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -68,6 +68,10 @@ Surfaces:
        renders 'View in topology →' targeting topics.html?basin=<id>;
        topology auto-opens the matching basin's detail panel + highlights
        its neighborhood on load (tick #32).
+   24. Routing → topology chip: each routing-table row whose task_type has
+       a centroid-matched basin renders a small .routing-topology-chip
+       next to the task name, completing the routing/picks/topology
+       triangle of cross-links (tick #33).
 
 Exit codes:
     0 — all surfaces pass
@@ -1438,6 +1442,48 @@ def main() -> int:
                 )
                 print(f"[ ✗ ] Surface 23 picks→topology: {reason}")
                 fails.append((23, "picks→topology xlink", reason))
+
+        # ─── Surface 24: Routing → topology chip ─────────────────────────────
+        # The routing table renders a small .routing-topology-chip next
+        # to task names whose task_type maps to a topology basin (via
+        # the shared taskToBasinId map). Closes the routing/picks/topology
+        # cross-link triangle. SKIPPED if zero rows have a chip (means
+        # this install has no picks bridging routing↔topology).
+        page.goto(
+            f"{base_url}/portal_pages/memory.html?file=routing.json",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SHOTS_DIR / "24-routing-to-topology.png"))
+        chip_state = page.evaluate(
+            """() => {
+              const chips = Array.from(document.querySelectorAll('a.routing-topology-chip'));
+              if (!chips.length) return {ok: true, skipped: true, reason: 'no routing rows have a topology match'};
+              const href = chips[0].getAttribute('href') || '';
+              const m = href.match(/[?&]basin=([^&]+)/);
+              const rows = document.querySelectorAll('table.routing-table tbody tr');
+              return {
+                ok: !!m && href.includes('topics.json'),
+                chip_count: chips.length,
+                row_count: rows.length,
+                href: href,
+                basin: m ? decodeURIComponent(m[1]) : null,
+              };
+            }"""
+        )
+        if chip_state.get("skipped"):
+            print(f"[ - ] Surface 24 routing→topology: SKIPPED ({chip_state['reason']})")
+        elif chip_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 24 routing→topology: "
+                f"{chip_state['chip_count']}/{chip_state['row_count']} rows chip-linked "
+                f"to topology · first → basin={chip_state['basin']}"
+            )
+        else:
+            reason = f"href={chip_state.get('href')!r}"
+            print(f"[ ✗ ] Surface 24 routing→topology: {reason}")
+            fails.append((24, "routing→topology chip", reason))
 
         browser.close()
 
