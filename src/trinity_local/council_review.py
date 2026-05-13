@@ -748,6 +748,13 @@ def render_live_council_page() -> str:
       background: rgba(45, 106, 79, 0.06);
       border-color: var(--success);
     }}
+    .confirmation-box.save-failed {{
+      background: rgba(139, 30, 30, 0.06);
+      border-color: rgba(139, 30, 30, 0.3);
+    }}
+    .confirmation-box.save-failed .eyebrow {{
+      color: #8b1e1e;
+    }}
 
     .provider-status-header {{
       display: flex;
@@ -1079,7 +1086,9 @@ def render_live_council_page() -> str:
               <div class="provider-status-header">
                 <div class="provider-status-name">{{{{ row.label }}}}</div>
                 <div class="provider-status-badge" :class="row.statusClass" v-if="row.statusClass !== 'done'">{{{{ row.statusLabel }}}}</div>
-                <div class="provider-status-badge done" v-if="seg.selectedProvider === row.provider">Preferred</div>
+                <div class="provider-status-badge done" v-if="seg.selectedProvider === row.provider && !seg.verifyFailed && !seg.verifyPending">Preferred</div>
+                <div class="provider-status-badge running" v-if="seg.selectedProvider === row.provider && seg.verifyPending">Saving…</div>
+                <div class="provider-status-badge failed" v-if="seg.selectedProvider === row.provider && seg.verifyFailed">Save failed</div>
                 <button
                   type="button"
                   class="quote-member-btn"
@@ -1095,10 +1104,22 @@ def render_live_council_page() -> str:
           </div>
         </section>
 
-        <section class="card confirmation-box" v-if="seg.expanded && seg.selectedProvider">
-          <div class="eyebrow">Preference saved</div>
+        <section class="card confirmation-box" v-if="seg.expanded && seg.selectedProvider && !seg.verifyFailed">
+          <div class="eyebrow" v-if="!seg.verifyPending">Preference saved</div>
+          <div class="eyebrow" v-if="seg.verifyPending">Saving…</div>
           <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} is your preferred answer</h2>
           <p class="meta">Trinity uses this for local ratings and future routing.</p>
+        </section>
+        <section class="card confirmation-box save-failed" v-if="seg.expanded && seg.selectedProvider && seg.verifyFailed">
+          <div class="eyebrow">Rating didn't save</div>
+          <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} verdict not persisted to outcome JSON</h2>
+          <p class="meta">
+            The macOS Shortcut may not be installed. Run
+            <code>trinity-local shortcut-install</code>
+            and re-click the answer. Tick #69 found this silent-failure mode
+            accounts for the bulk of unrated councils — make sure to install
+            the Shortcut before rating again.
+          </p>
         </section>
       </div>
 
@@ -1403,7 +1424,32 @@ def render_live_council_page() -> str:
             metadata: {{ kind: 'council_feedback', source: 'unified_review' }},
           }};
           this._fireShortcut(buildShortcutUrl(payload));
-          this._patchSegment(seg.key, {{ selectedProvider: provider }});
+          // Optimistic UI: paint "Preferred" immediately. Then verify
+          // the shortcut actually persisted within 3s — tick #69's data
+          // audit found 3 of 19 outcomes rated (16%) because the
+          // shortcut can fail silently when not installed, and the UI
+          // was lying about success. After 3s, re-load the outcome
+          // JSONP and check metadata.user_verdict.user_winner; if
+          // missing, set verifyFailed so the template shows a
+          // "rating didn't save" banner with install guidance.
+          this._patchSegment(seg.key, {{
+            selectedProvider: provider,
+            verifyPending: true,
+            verifyFailed: false,
+          }});
+          const targetSegKey = seg.key;
+          const targetCouncilId = seg.councilId;
+          setTimeout(() => {{
+            loadOutcomeScript(targetCouncilId, (outcome) => {{
+              const persisted = (
+                outcome?.metadata?.user_verdict?.user_winner === provider
+              );
+              this._patchSegment(targetSegKey, {{
+                verifyPending: false,
+                verifyFailed: !persisted,
+              }});
+            }});
+          }}, 3000);
         }},
         quoteMember(provider, row) {{
           // Append a quoted fragment of this member's response into the

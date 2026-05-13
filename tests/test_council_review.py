@@ -151,6 +151,18 @@ class TestCouncilReviewMarkdown:
         assert "quoteMember(row.provider, row)" in html
         assert "quote-member-btn" in html
         assert "@click.stop=" in html
+        # Verify-on-shortcut-fire (tick #71). chooseMember can't trust
+        # the shortcut URL succeeded — if the macOS Shortcut isn't
+        # installed, the URL goes nowhere, the user_verdict never gets
+        # written, and the optimistic "Preferred" badge lies. After 3s,
+        # re-load the outcome JSONP and check the verdict actually
+        # persisted; if not, switch the badge to "Save failed" with
+        # install guidance. This is the root cause behind tick #69's
+        # 16% verdict-capture rate.
+        assert "verifyPending" in html
+        assert "verifyFailed" in html
+        assert "Save failed" in html
+        assert "shortcut-install" in html
 
         path = write_live_council_page()
         assert path.name == "live_council.html"
