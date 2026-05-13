@@ -343,6 +343,40 @@ def save_rejections(signals: list[RejectionSignal]) -> Path:
     with path.open("w") as f:
         for sig in signals:
             f.write(json.dumps(sig.to_dict()) + "\n")
+    # Also fan out to the unified merges.jsonl corpus (tick #46). The
+    # rejections.jsonl is the canonical store for lens-build's own
+    # pipeline; the merge log is a side-channel that aggregates ALL
+    # tacit-record acts (council winners + cortex overrides + these
+    # in-thread overwrites) so v1.5+ direction-of-preference vectors
+    # have one place to read from.
+    #
+    # Dedup on (signal_id) so re-runs of lens-build don't double-count
+    # the same (prompt_id, type) pair — save_rejections truncates
+    # rejections.jsonl but the merge log is append-only.
+    try:
+        from ..merges import record_merge, iter_merge_records
+        seen_ids: set[str] = set()
+        for row in iter_merge_records():
+            if row.get("type") == "in_thread_overwrite":
+                sid = row.get("signal_id")
+                if isinstance(sid, str):
+                    seen_ids.add(sid)
+        for sig in signals:
+            if sig.id in seen_ids:
+                continue
+            record_merge({
+                "type": "in_thread_overwrite",
+                "signal_type": sig.type,
+                "signal_id": sig.id,
+                "prompt_id": sig.prompt_id,
+                "basin": sig.basin,
+                "model_quote": sig.model_quote,
+                "user_substitute": sig.user_substitute,
+                "why_signal": sig.why_signal,
+            })
+    except Exception:
+        # Side-channel: failure here can't break lens-build.
+        pass
     return path
 
 
