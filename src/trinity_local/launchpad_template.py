@@ -1073,7 +1073,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <h2>The patterns in how you think</h2>
         <p class="meta">
           Trinity surfaced the tensions your decisions encode (lenses) and
-          the principles you redirect away from. Refreshes when /me-build runs.
+          the principles you redirect away from. Refreshes when lens-build runs.
         </p>
 
         <div class="taste-block" v-if="tasteLenses.paired_lenses && tasteLenses.paired_lenses.length">
@@ -1129,6 +1129,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span v-if="copiedKey === 'me-card'">✓ Rendered — opening</span>
             <span v-else>Save as PNG card</span>
           </button>
+          <!-- Cross-memory link: lens card preview → full lens.md viewer.
+               The "Your memories, raw" chip card below links to the same
+               place, but a user reading the lens preview here shouldn't
+               have to scroll down to find that chip. Closes the gap. -->
+          <a class="button ghost taste-share-btn" href="../portal_pages/memory.html?file=lens.md" style="margin-left: 8px; text-decoration: none;">
+            View full lens →
+          </a>
           <span class="meta taste-share-meta" style="display: block; margin-top: 8px;">
             PNG renders the strongest lens as a 1200×630 card — the social object. Text version: one clean paste, pair-wise context (what the model said / what you said back) stays private.
           </span>

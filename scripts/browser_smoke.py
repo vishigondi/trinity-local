@@ -626,7 +626,12 @@ def main() -> int:
                 const paired = tasteCard.querySelectorAll('.taste-block .taste-list li').length;
                 const vocab = tasteCard.querySelectorAll('.taste-vocab-chip').length;
                 const shareBtn = !!Array.from(tasteCard.querySelectorAll('button')).find(b => /copy/i.test(b.textContent));
-                return {variant: 'lenses', paired_count: paired, vocab_count: vocab, has_share_btn: shareBtn};
+                // Cross-memory link: the rich preview here should link to
+                // the full lens.md viewer (commit dd283b0's queued item).
+                const fullLensLink = !!Array.from(tasteCard.querySelectorAll('a')).find(
+                  a => /view full lens/i.test(a.textContent) && (a.getAttribute('href') || '').includes('memory.html')
+                );
+                return {variant: 'lenses', paired_count: paired, vocab_count: vocab, has_share_btn: shareBtn, has_full_lens_link: fullLensLink};
               }
               // Empty-state — the section right below the routing card carrying the lens-build CTA.
               const emptyHeading = Array.from(document.querySelectorAll('h2'))
@@ -635,9 +640,13 @@ def main() -> int:
             }"""
         )
         if lens_state.get("variant") == "lenses":
-            ok = lens_state.get("paired_count", 0) >= 1 and lens_state.get("has_share_btn")
+            ok = (
+                lens_state.get("paired_count", 0) >= 1
+                and lens_state.get("has_share_btn")
+                and lens_state.get("has_full_lens_link")
+            )
             if ok:
-                print(f"[ ✓ ] Surface 13 lens card: {lens_state['paired_count']} lens items + share button rendered")
+                print(f"[ ✓ ] Surface 13 lens card: {lens_state['paired_count']} lens items + share button + full-lens link")
             else:
                 reason = f"lens card present but incomplete: {lens_state}"
                 print(f"[ ✗ ] Surface 13 lens card: {reason}")
