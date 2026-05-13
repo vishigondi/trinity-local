@@ -22,18 +22,8 @@ from __future__ import annotations
 import math
 from typing import Iterable
 
+from ..embeddings import is_finite_embedding
 from ..memory.schemas import PromptNode
-
-
-def _embedding_is_finite(emb: list[float]) -> bool:
-    """Cheap NaN/Inf filter — embedded by older models or interrupted
-    embed batches can produce non-finite components that poison every
-    downstream centroid computation. Mirrors the filter `me/basins.py`
-    applies before clustering."""
-    for v in emb:
-        if v != v or v == float("inf") or v == float("-inf"):
-            return False
-    return True
 
 
 def thread_centroids(nodes: Iterable[PromptNode]) -> dict[str, list[float]]:
@@ -54,7 +44,7 @@ def thread_centroids(nodes: Iterable[PromptNode]) -> dict[str, list[float]]:
         emb = getattr(node, "embedding", None) or []
         if not emb:
             continue
-        if not _embedding_is_finite(emb):
+        if not is_finite_embedding(emb):
             continue
         tid = getattr(node, "transcript_id", None)
         if not tid:
@@ -165,7 +155,7 @@ def thread_inter_turn_distance(
         emb = getattr(node, "embedding", None) or []
         if not emb:
             continue
-        if not _embedding_is_finite(emb):
+        if not is_finite_embedding(emb):
             continue
         by_thread.setdefault(tid, []).append(node)
     out: dict[str, float] = {}
@@ -213,7 +203,7 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
         emb = getattr(node, "embedding", None) or []
         if not (tid and emb):
             continue
-        if not _embedding_is_finite(emb):
+        if not is_finite_embedding(emb):
             continue
         items.append((tid, emb))
     if len(items) < 3:

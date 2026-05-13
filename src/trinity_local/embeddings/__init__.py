@@ -47,6 +47,35 @@ def get_backend() -> str:
 DEFAULT_DIM = 768
 
 
+def is_finite_embedding(emb) -> bool:
+    """True if `emb` is a non-empty sequence of all-finite floats.
+
+    Single source of truth for the NaN/Inf filter — historically the
+    same shape was inlined three different ways in `me/depth.py`,
+    `me/basins.py`, and `me_builder.py`, and two other consumers
+    (`cross_provider_pairs.py`, `vocabulary._gather_token_contexts`)
+    forgot it entirely. A single non-finite row poisons numpy matmuls
+    (NaN cells propagate across every other row's distances) and
+    silently corrupts cluster centroids; the bug only surfaces when
+    real-corpus tests exercise downstream signals. Centralizing the
+    check lets every embedding consumer call one function and lets
+    the audit grep for one name.
+
+    Returns False for None, empty sequences, and anything containing
+    NaN, +inf, or -inf. Cheap inline loop — faster than np conversion
+    for the filter step (avoids materializing an array per row).
+    """
+    if not emb:
+        return False
+    try:
+        for v in emb:
+            if v != v or v == float("inf") or v == float("-inf"):
+                return False
+    except TypeError:
+        return False
+    return True
+
+
 def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
     """Embed text into a dense vector.
 

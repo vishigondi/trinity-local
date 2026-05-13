@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
+from ..embeddings import is_finite_embedding
 from ..memory.store import iter_prompt_nodes
 from ..state_paths import state_dir
 
@@ -268,8 +269,9 @@ def compute_basins(
         if not emb:
             continue
         # Skip embeddings with non-finite values — bad embed batches
-        # poison k-means via NaN-propagating centroids.
-        if any(v != v or v == float("inf") or v == float("-inf") for v in emb):
+        # poison k-means via NaN-propagating centroids. Shared with
+        # me/depth, me_builder, cross_provider_pairs, vocabulary.
+        if not is_finite_embedding(emb):
             skipped_nan += 1
             continue
         nodes.append(node)

@@ -148,3 +148,28 @@ class TestPublicAPI:
 
         assert len(vec) == 512
         assert get_cached("fallback vector", dim=512) == vec
+
+
+class TestIsFiniteEmbedding:
+    """is_finite_embedding is the single source of truth for the NaN/Inf
+    filter. Five consumers (me/depth, me/basins, me_builder, cross_provider_pairs,
+    vocabulary) all call it before any matmul or k-means. Each shape below
+    must return the same answer the consumers were inlining for years."""
+
+    def test_finite_floats_pass(self):
+        from trinity_local.embeddings import is_finite_embedding
+        assert is_finite_embedding([0.1, -0.2, 3.14, 0.0])
+
+    def test_empty_rejected(self):
+        from trinity_local.embeddings import is_finite_embedding
+        assert not is_finite_embedding([])
+        assert not is_finite_embedding(None)
+
+    def test_nan_rejected(self):
+        from trinity_local.embeddings import is_finite_embedding
+        assert not is_finite_embedding([1.0, float("nan"), 0.5])
+
+    def test_inf_rejected(self):
+        from trinity_local.embeddings import is_finite_embedding
+        assert not is_finite_embedding([1.0, float("inf"), 0.5])
+        assert not is_finite_embedding([1.0, float("-inf"), 0.5])

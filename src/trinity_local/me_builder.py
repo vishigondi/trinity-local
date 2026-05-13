@@ -101,21 +101,11 @@ def _sample_diverse_with_embeddings(*, top_k: int, candidate_pool: int) -> list:
     # `n.embedding` could be wrong-dim (legacy 4d test fixtures, partial
     # writes), contain NaN/Inf (numpy poisons MMR), or be empty. The chairman
     # can't extract patterns from "No." or "ok thanks." either.
+    from .embeddings import is_finite_embedding
     EXPECTED_DIM = 768
 
     def _valid_embedding(emb) -> bool:
-        if not emb or len(emb) != EXPECTED_DIM:
-            return False
-        # math.isfinite() is faster than np conversion for the filter step,
-        # and avoids materializing an array per row.
-        try:
-            import math
-            for v in emb:
-                if not math.isfinite(v):
-                    return False
-        except (TypeError, ValueError):
-            return False
-        return True
+        return is_finite_embedding(emb) and len(emb) == EXPECTED_DIM
 
     nodes = [
         n for n in iter_prompt_nodes(limit=candidate_pool)

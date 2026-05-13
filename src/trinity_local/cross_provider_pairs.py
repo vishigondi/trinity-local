@@ -23,6 +23,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from .embeddings import is_finite_embedding
 from .memory.schemas import PromptNode
 
 
@@ -131,7 +132,10 @@ def find_cross_provider_clusters(
 
     usable = [
         n for n in nodes
-        if n.embedding
+        # NaN-or-Inf embeddings poison the cosine matmul (a single bad
+        # row contaminates every column it touches). Same shape as the
+        # filter in me/depth.py:thread_lid and me/basins.py.
+        if is_finite_embedding(n.embedding)
         and _node_response_text(n).strip()
         # Drop prompts too short to be useful synthesis seeds.
         # "Thank you", "10 more", "comma separated" cluster trivially

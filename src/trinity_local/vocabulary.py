@@ -30,6 +30,8 @@ import re
 from collections import defaultdict
 from typing import Iterable
 
+from .embeddings import is_finite_embedding
+
 
 # Conservative defaults — surface only the most-overloaded terms; first run
 # on a real corpus showed ~12 surfaces is the right ballpark before noise
@@ -144,7 +146,10 @@ def _gather_token_contexts(nodes: Iterable, *, min_freq: int) -> dict[str, list]
     contexts: dict[str, list] = defaultdict(list)
     for node in nodes:
         emb = getattr(node, "embedding", None)
-        if not emb:
+        # NaN-or-Inf embeddings poison the k=2 silhouette downstream
+        # (numpy distance computations propagate NaN). Same shape as
+        # the filter in me/depth.py and me/basins.py.
+        if not is_finite_embedding(emb):
             continue
         text = getattr(node, "text", "") or ""
         for tok in set(_tokenize(text)):
