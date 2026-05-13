@@ -36,6 +36,8 @@ Surfaces:
    13. Lens card render: paired-lenses block populates when tasteLenses exists
    14. Memory viewer + launchpad link: chip links → memory.html loads + renders file
    15. Memory-health row: drift signals (core stale / picks audit / topology) surface inline
+   16. Per-file health banner: same signal travels into the memory viewer when a stale
+       file is opened, with a click-to-copy command chip mirroring Surface 15
 
 Exit codes:
     0 — all surfaces pass
@@ -794,6 +796,117 @@ def main() -> int:
             reason = f"issue_count={ic} card_rendered={card} rendered_item_count={rendered_n} — data/DOM mismatch"
             print(f"[ ✗ ] Surface 15 memory-health: {reason}")
             fails.append((15, "memory-health row", reason))
+
+        # ─── Surface 16: Per-file health banner in the memory viewer ─────────
+        # The launchpad's memory-health row tells the user "core.md stale".
+        # When they click through to inspect core.md, the same warning has
+        # to travel with the file. Tick #13 shipped this; Surface 16 is the
+        # regression guard. Strategy:
+        #   - Read the inlined memory-health payload (already populated by
+        #     render_memory_viewer_html).
+        #   - For the FIRST file with a stale issue, navigate to its viewer,
+        #     assert banner present + chip works (mirrors Surface 15).
+        #   - Also navigate to a known-healthy file (whichever the payload
+        #     reports as fresh) and assert banner is ABSENT.
+        # Skip cleanly when all four signals are fresh — same silent-fresh
+        # semantics as Surface 15.
+        stale_target = None
+        healthy_target = None
+        if ic > 0:
+            stale_target = (health_state.get("first_name") or "").strip() or None
+        # Healthy = a memory NOT in the issues list. Pick lens.md if no issue
+        # mentions it, else picks.json, else core.md (one of these is always
+        # in the file set unless the install is completely empty).
+        if ic == 0:
+            healthy_target = "lens.md"
+        else:
+            issue_names = set()
+            issue_names_state = page.evaluate(
+                """() => {
+                  const script = document.getElementById('page-data');
+                  const data = script ? JSON.parse(script.textContent || '{}') : {};
+                  return ((data.memoryHealth || {}).issues || []).map(i => i.name);
+                }"""
+            )
+            issue_names = set(issue_names_state or [])
+            for candidate in ("lens.md", "picks.json", "vocabulary.md", "core.md"):
+                if candidate not in issue_names:
+                    healthy_target = candidate
+                    break
+
+        if stale_target:
+            page.goto(
+                f"{base_url}/portal_pages/memory.html?file={stale_target}",
+                wait_until="networkidle",
+                timeout=10000,
+            )
+            page.wait_for_timeout(800)
+            banner_check = page.evaluate(
+                """() => new Promise(resolve => {
+                  const banner = document.querySelector('.viewer-health-banner');
+                  if (!banner) { resolve({present: false}); return; }
+                  const chip = document.querySelector('.viewer-health-cmd');
+                  if (!chip) { resolve({present: true, chip: false}); return; }
+                  const expected = chip.textContent.trim();
+                  let captured = null;
+                  const orig = navigator.clipboard?.writeText;
+                  if (orig) navigator.clipboard.writeText = async (t) => { captured = t; return Promise.resolve(); };
+                  chip.click();
+                  setTimeout(() => {
+                    const after = chip.textContent.trim();
+                    if (orig) navigator.clipboard.writeText = orig;
+                    resolve({
+                      present: true,
+                      chip: true,
+                      expected,
+                      captured,
+                      matches: captured === expected,
+                      flipped: after.startsWith('✓'),
+                    });
+                  }, 200);
+                })"""
+            )
+            stale_ok = (
+                banner_check.get("present")
+                and (
+                    not banner_check.get("chip")  # banner without command (href-only) still valid
+                    or (banner_check.get("matches") and banner_check.get("flipped"))
+                )
+            )
+        else:
+            stale_ok = True
+            banner_check = {"skipped": "all signals fresh on launchpad"}
+
+        healthy_ok = True
+        healthy_present = None
+        if healthy_target:
+            page.goto(
+                f"{base_url}/portal_pages/memory.html?file={healthy_target}",
+                wait_until="networkidle",
+                timeout=10000,
+            )
+            page.wait_for_timeout(500)
+            healthy_present = page.evaluate(
+                "() => !!document.querySelector('.viewer-health-banner')"
+            )
+            healthy_ok = not healthy_present
+
+        if stale_ok and healthy_ok:
+            note = []
+            if stale_target:
+                if banner_check.get("chip"):
+                    note.append(f"stale={stale_target} (chip works)")
+                else:
+                    note.append(f"stale={stale_target} (href-only)")
+            else:
+                note.append("no stale files")
+            if healthy_target:
+                note.append(f"healthy={healthy_target} (silent)")
+            print(f"[ ✓ ] Surface 16 per-file health banner: {' · '.join(note)}")
+        else:
+            reason = f"stale_target={stale_target} banner={banner_check} healthy_target={healthy_target} healthy_present={healthy_present}"
+            print(f"[ ✗ ] Surface 16 per-file health banner: {reason}")
+            fails.append((16, "per-file health banner", reason))
 
         browser.close()
 
