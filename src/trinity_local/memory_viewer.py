@@ -5,6 +5,12 @@ the requested memory file by query param (?file=lens.md, picks.json...).
 JSON is pretty-printed; .md is shown raw. No markdown rendering for now —
 chairman context is the source of truth, this is for human inspection.
 
+Memory contents are inlined into a `window.__TRINITY_MEMORIES__` global at
+write time (same pattern as council thread manifests in live_council.html).
+This makes the viewer work under file:// — no `fetch()`, no `trinity-local
+serve` required — which matters because the launchpad opens via file://
+from the macOS desktop shortcut, and the chips link straight here.
+
 Linked from the launchpad. Generated alongside the launchpad on
 `portal-html` and on every refresh.
 """
@@ -12,26 +18,58 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .state_paths import portal_pages_dir
+from .state_paths import (
+    core_path,
+    lens_path,
+    picks_path,
+    portal_pages_dir,
+    routing_path,
+    topics_path,
+    vocabulary_path,
+)
 
 
-# Allowlist matches what's in state_paths. The viewer JS validates the
-# ?file= param against this list before fetching — even though we're
-# local-only, that keeps the relative-URL surface bounded.
+# Allowlist matches what's in state_paths. Used by render time (to load
+# file contents into the inlined JS payload) and by the client-side JS
+# (to validate the ?file= param against a known set).
 ALLOWED_FILES: list[dict[str, str]] = [
-    {"name": "lens.md", "rel": "../memories/lens.md", "brain": "value memory",
+    {"name": "lens.md", "brain": "value memory",
      "tagline": "Tensions you'd reject vs accept. Written by lens-build."},
-    {"name": "picks.json", "rel": "../memories/picks.json", "brain": "procedural memory",
+    {"name": "picks.json", "brain": "procedural memory",
      "tagline": "Model picks per topic with reasoning. Written by consolidate."},
-    {"name": "routing.json", "rel": "../memories/routing.json", "brain": "empirical memory",
+    {"name": "routing.json", "brain": "empirical memory",
      "tagline": "Per-category provider track record. Computed from council outcomes."},
-    {"name": "topics.json", "rel": "../memories/topics.json", "brain": "semantic memory",
+    {"name": "topics.json", "brain": "semantic memory",
      "tagline": "K-means clusters of subjects you ask about. Written by lens-build Stage 1."},
-    {"name": "vocabulary.md", "rel": "../memories/vocabulary.md", "brain": "language memory",
+    {"name": "vocabulary.md", "brain": "language memory",
      "tagline": "Phrases you keep using + your overloaded terms. Written by dream Phase 2.5."},
-    {"name": "core.md", "rel": "../core.md", "brain": "identity",
+    {"name": "core.md", "brain": "identity",
      "tagline": "One-paragraph distillation. Chairman reads this FIRST on every council."},
 ]
+
+
+_FILE_PATH_RESOLVERS = {
+    "lens.md": lens_path,
+    "picks.json": picks_path,
+    "routing.json": routing_path,
+    "topics.json": topics_path,
+    "vocabulary.md": vocabulary_path,
+    "core.md": core_path,
+}
+
+
+def _read_memory_contents() -> dict[str, str | None]:
+    """Read each memory file at render time. Returns name → contents, with
+    None for missing files (the viewer renders an empty-state for those).
+    """
+    contents: dict[str, str | None] = {}
+    for name, resolver in _FILE_PATH_RESOLVERS.items():
+        path = resolver()
+        try:
+            contents[name] = path.read_text(encoding="utf-8")
+        except (OSError, FileNotFoundError):
+            contents[name] = None
+    return contents
 
 
 def _render_nav_links() -> str:
@@ -52,10 +90,16 @@ def _render_nav_links() -> str:
 
 
 def render_memory_viewer_html() -> str:
-    """Return the viewer HTML — static page, JS handles the fetch."""
+    """Return the viewer HTML with memory contents inlined.
+
+    Reads each memory file at render time and emits its contents into
+    `window.__TRINITY_MEMORIES__` so the page works under file:// (no
+    fetch needed). Same pattern as live_council.html's thread manifests.
+    """
     import json as _json
 
     files_json = _json.dumps(ALLOWED_FILES, ensure_ascii=True)
+    memories_payload = _json.dumps(_read_memory_contents(), ensure_ascii=True)
     nav_links = _render_nav_links()
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -201,6 +245,10 @@ def render_memory_viewer_html() -> str:
   </div>
 
   <script>
+    // Memory contents are inlined at render time (not fetched at runtime)
+    // so the viewer works under file:// from the desktop shortcut.
+    // Refreshes whenever portal-html runs.
+    window.__TRINITY_MEMORIES__ = {memories_payload};
     const FILES = {files_json};
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("file") || FILES[0].name;
@@ -235,20 +283,6 @@ def render_memory_viewer_html() -> str:
       wrap.appendChild(document.createTextNode(" to generate it."));
       return wrap;
     }}
-    function renderError(file, message) {{
-      const wrap = el("div", "error");
-      wrap.appendChild(document.createTextNode("Could not load "));
-      wrap.appendChild(el("code", null, file.rel));
-      wrap.appendChild(document.createTextNode(" (" + message + "). "));
-      wrap.appendChild(document.createTextNode(
-        "If you opened this page via file:// the browser blocks local fetches — start the server with "));
-      wrap.appendChild(el("code", null, "trinity-local serve"));
-      wrap.appendChild(document.createTextNode(" and open via "));
-      wrap.appendChild(el("code", null, "http://localhost:8765/portal_pages/memory.html"));
-      wrap.appendChild(document.createTextNode("."));
-      return wrap;
-    }}
-
     if (!file) {{
       clearContent();
       const errWrap = el("div", "error");
@@ -257,32 +291,21 @@ def render_memory_viewer_html() -> str:
       errWrap.appendChild(document.createTextNode(". Pick one from the nav."));
       content.appendChild(errWrap);
     }} else {{
-      fetch(file.rel)
-        .then(r => {{
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.text();
-        }})
-        .then(text => {{
-          clearContent();
-          if (!text.trim()) {{
-            content.appendChild(renderHeader(file));
-            content.appendChild(renderEmpty(file));
-            return;
-          }}
-          let body = text;
-          // Pretty-print JSON so the raw file's compactness doesn't tank readability.
-          if (file.name.endsWith(".json")) {{
-            try {{ body = JSON.stringify(JSON.parse(text), null, 2); }}
-            catch (_) {{ /* malformed JSON — show raw */ }}
-          }}
-          content.appendChild(renderHeader(file));
-          content.appendChild(el("pre", "body", body));
-        }})
-        .catch(err => {{
-          clearContent();
-          content.appendChild(renderHeader(file));
-          content.appendChild(renderError(file, err.message));
-        }});
+      // Read from the inlined payload — no fetch, works under file://.
+      const text = window.__TRINITY_MEMORIES__?.[file.name];
+      clearContent();
+      content.appendChild(renderHeader(file));
+      if (text === null || text === undefined || !text.trim()) {{
+        content.appendChild(renderEmpty(file));
+      }} else {{
+        let body = text;
+        // Pretty-print JSON so the raw file's compactness doesn't tank readability.
+        if (file.name.endsWith(".json")) {{
+          try {{ body = JSON.stringify(JSON.parse(text), null, 2); }}
+          catch (_) {{ /* malformed JSON — show raw */ }}
+        }}
+        content.appendChild(el("pre", "body", body));
+      }}
     }}
 
     function suggestionFor(name) {{
