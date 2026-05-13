@@ -239,15 +239,6 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
       margin-top: 24px;
     }}
 
-    .page-header-bar {{
-      display: flex;
-      justify-content: flex-start;
-      align-items: flex-start;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }}
-
     .answers-grid-three {{
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }}
@@ -381,19 +372,15 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         grid-template-columns: 1fr;
       }}
 
-      .page-header-bar {{
-        flex-direction: column;
-        align-items: flex-start;
-      }}
-    }}
   </style>
 
-  <main>
-    <div id="council-app" v-scope="CouncilApp(pageData)">
+  <div id="council-app" v-scope="CouncilApp(pageData)">
+    <header class="trinity-topbar">
+      <a class="topbar-back" :href="pageData.launchpadUrl">← Launchpad</a>
+      <h1 class="topbar-title">Council review</h1>
+    </header>
+    <main>
       <section class="card mb-lg">
-        <div class="page-header-bar">
-          <a class="button ghost" :href="pageData.launchpadUrl">Back to Launchpad</a>
-        </div>
         <h1>{_esc(page_title)}</h1>
         <p class="lede">Read the analysis below, compare the responses, then pick your preference.</p>
       </section>
@@ -451,8 +438,8 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
           Redirecting to the live council page so you can watch it stream in…
         </p>
       </section>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
   <script type="module">
@@ -667,14 +654,6 @@ def render_live_council_page() -> str:
       content: "▾ ";
     }}
 
-    .page-header-bar {{
-      display: flex;
-      justify-content: flex-start;
-      align-items: flex-start;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }}
 
     .launch-status {{
       display: grid;
@@ -936,13 +915,6 @@ def render_live_council_page() -> str:
       }}
     }}
 
-    @media (max-width: 768px) {{
-      .page-header-bar {{
-        flex-direction: column;
-        align-items: flex-start;
-      }}
-    }}
-
     .chain-segment-divider {{
       margin: 32px 0 8px;
       padding: 12px 18px;
@@ -977,13 +949,15 @@ def render_live_council_page() -> str:
       color: var(--text-primary);
     }}
   </style>
-  <main>
-    <div id="live-council-app" v-scope="LiveCouncilApp(pageData)" @vue:mounted="init">
+  <div id="live-council-app" v-scope="LiveCouncilApp(pageData)" @vue:mounted="init">
+    <header class="trinity-topbar">
+      <a class="topbar-back" :href="pageData.launchpadUrl">← Launchpad</a>
+      <h1 class="topbar-title">Council</h1>
+      <span class="topbar-spacer"></span>
+      <a class="topbar-action" v-if="threadViewUrl" :href="threadViewUrl">View full thread</a>
+    </header>
+    <main>
       <section class="card mb-lg">
-        <div class="page-header-bar">
-          <a class="button ghost" :href="pageData.launchpadUrl">Back to Launchpad</a>
-          <a class="button ghost" v-if="threadViewUrl" :href="threadViewUrl">View full thread</a>
-        </div>
         <h1 v-if="threadTaskTextDisplay && threadTaskTextDisplay.length <= 240">{{{{ threadTaskTextDisplay }}}}</h1>
         <details v-if="threadTaskTextDisplay && threadTaskTextDisplay.length > 240" class="task-collapsible" :open="threadTaskTextDisplay.length <= 600">
           <summary>{{{{ threadTaskTextDisplay.slice(0, 200) }}}}…</summary>
@@ -1127,8 +1101,8 @@ def render_live_council_page() -> str:
           </button>
         </div>
       </section>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
   <script type="module">

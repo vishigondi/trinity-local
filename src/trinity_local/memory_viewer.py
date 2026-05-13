@@ -180,25 +180,42 @@ def render_memory_viewer_html() -> str:
       color: var(--fg);
       line-height: 1.5;
     }}
-    .topbar {{
+    /* Shared topbar — same shape as live_council.html. Spec:
+       DESIGN.md → "Memory Viewer Guidance". Uses the .trinity-topbar
+       contract so a single CSS change tweaks both pages. */
+    .trinity-topbar {{
       display: flex;
       align-items: center;
       gap: 16px;
-      padding: 16px 32px;
+      padding: 14px 28px;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
-      background: white;
     }}
-    .topbar a.back {{
+    .trinity-topbar .topbar-back {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 500;
       color: var(--fg);
       text-decoration: none;
-      opacity: 0.7;
-      padding: 6px 12px;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: 999px;
+      background: var(--bg);
+      transition: background 0.12s, border-color 0.12s;
     }}
-    .topbar a.back:hover {{ opacity: 1; }}
-    .topbar h1 {{ font-size: 16px; margin: 0; font-weight: 600; }}
+    .trinity-topbar .topbar-back:hover {{
+      background: var(--surface-muted);
+      border-color: var(--meta);
+    }}
+    .trinity-topbar .topbar-title {{
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      color: var(--fg);
+    }}
+    .trinity-topbar .topbar-spacer {{ flex: 1; }}
     .layout {{
       display: grid;
       grid-template-columns: 240px 1fr;
@@ -493,9 +510,9 @@ def render_memory_viewer_html() -> str:
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <a class="back" href="../portal_pages/launchpad.html">← Launchpad</a>
-    <h1>Your memories</h1>
+  <header class="trinity-topbar">
+    <a class="topbar-back" href="../portal_pages/launchpad.html">← Launchpad</a>
+    <h1 class="topbar-title">Your memories</h1>
   </header>
   <div class="layout">
     <nav class="nav">

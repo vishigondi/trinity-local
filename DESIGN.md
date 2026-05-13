@@ -250,6 +250,31 @@ The shipped social artifact is the **`/me` lens card** — title + why-it-matter
 
 (Future surfaces — radar/battle/taste-profile pages — are deferred. The /me lens cards subsume the "shareable taste artifact" use case for now.)
 
+## Navigation pattern (sub-pages)
+
+The launchpad is the root and uses the hero pattern (eyebrow + H1 +
+lede + settings gear) — no topbar, no back arrow.
+
+Every other page is a sub-page and uses the shared `.trinity-topbar`:
+
+- 14 px / 28 px padding, surface background, 1 px bottom border
+- Pill-shaped `← Launchpad` back link on the left (`.topbar-back`)
+- Page title (16 px, semibold) immediately after the back link
+- `.topbar-spacer` to push secondary actions to the right
+- Optional `.topbar-action` pills on the right (e.g. "View full thread")
+
+CSS lives in `design_system.SHARED_CSS` so a single tweak applies to
+all sub-pages. Pages must:
+
+- Place the `<header class="trinity-topbar">` **outside** `<main>` so
+  the bar spans the viewport while content respects the 1080 px column
+- Use "← Launchpad" exactly — the arrow conveys the back-direction
+  without the verbose "Back to" prefix
+- Set the page title to a single noun ("Your memories", "Council",
+  "Council review") — no breadcrumbs, no dynamic titles
+
+Live council, council review, and memory viewer all conform.
+
 ## Memory Viewer Guidance
 
 The memory viewer (`~/.trinity/portal_pages/memory.html`) is the canonical

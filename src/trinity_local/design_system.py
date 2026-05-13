@@ -163,6 +163,60 @@ pre {
   }
 }
 
+/* Shared topbar — sub-pages all use this shape.
+   Launchpad is the root and uses the hero pattern instead (no topbar). */
+.trinity-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.trinity-topbar .topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-base);
+  transition: background 0.12s, border-color 0.12s;
+}
+.trinity-topbar .topbar-back:hover {
+  background: var(--surface-muted);
+  border-color: var(--text-muted);
+}
+.trinity-topbar .topbar-title {
+  font-family: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-primary);
+  margin: 0;
+}
+.trinity-topbar .topbar-spacer { flex: 1; }
+.trinity-topbar .topbar-action {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.trinity-topbar .topbar-action:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+@media (max-width: 768px) {
+  .trinity-topbar { padding: 12px 16px; gap: 10px; }
+  .trinity-topbar .topbar-title { font-size: 14px; }
+}
+
 /* Cards and surfaces */
 .card {
   background: var(--surface);

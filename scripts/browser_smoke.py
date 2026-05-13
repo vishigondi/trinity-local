@@ -333,9 +333,11 @@ def main() -> int:
             # Wait for the navigation in the same context as the click —
             # otherwise wait_for_load_state can return on the still-current
             # page before the link fires its navigation.
+            # Sub-pages now use the shared .trinity-topbar pattern with
+            # .topbar-back as the up-navigation control (label: "← Launchpad").
+            # Earlier pages used a.button.ghost with "Back to Launchpad".
             back_present = page.evaluate(
-                """() => !!Array.from(document.querySelectorAll('a.button.ghost'))
-                    .find(a => /Back to Launchpad/i.test(a.textContent))"""
+                """() => !!document.querySelector('.trinity-topbar a.topbar-back')"""
             )
             if not back_present:
                 print(f"[ ✗ ] Surface 6 live council back-trip: back btn missing")
@@ -344,10 +346,7 @@ def main() -> int:
                 try:
                     with page.expect_navigation(timeout=10000):
                         page.evaluate(
-                            """() => {
-                              Array.from(document.querySelectorAll('a.button.ghost'))
-                                .find(a => /Back to Launchpad/i.test(a.textContent))?.click();
-                            }"""
+                            """() => document.querySelector('.trinity-topbar a.topbar-back')?.click()"""
                         )
                     page.wait_for_timeout(500)
                     if "launchpad.html" in page.url:

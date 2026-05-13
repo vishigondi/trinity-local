@@ -47,7 +47,7 @@ class TestCouncilReviewMarkdown:
         assert "<h2>Best take</h2>" in html
         assert '<pre class="md-code-block"><code>print(&#x27;hello&#x27;)</code></pre>' in html
         # Page structure
-        assert "Back to Launchpad" in html
+        assert "← Launchpad" in html
         assert "Comparative Analysis" in html
         assert "Full Responses" in html
 
@@ -76,7 +76,7 @@ class TestCouncilReviewMarkdown:
         html = render_unified_council_page(bundle, outcome)
 
         assert "Click the answer you prefer." in html
-        assert "Back to Launchpad" in html
+        assert "← Launchpad" in html
         assert "confirm your preference in the floating bar" not in html
         assert "floating-actions" not in html
         assert "@click=\"chooseAnswer(" in html
@@ -117,7 +117,7 @@ class TestCouncilReviewMarkdown:
     def test_live_council_page_renders_stop_control(self, patch_trinity_home):
         html = render_live_council_page()
 
-        assert "Back to Launchpad" in html
+        assert "← Launchpad" in html
         assert "Stop council" in html
         assert "statusScriptBaseUrl" in html
         assert "window.addEventListener('pageshow'" in html
