@@ -821,7 +821,82 @@ def _format_relative_date(iso: str) -> str:
     return dt.strftime("%b %-d")
 
 
+def _task_to_topology_basin() -> dict[str, str]:
+    """Return {task_type: topology_basin_id} for picks with a centroid
+    match into topics.json above SIM_THRESHOLD=0.65.
+
+    Mirrors the JS helper `matchBasinsToPicks` in memory_viewer.py —
+    same logic, same threshold, same first-task-wins rule — so the
+    server-rendered launchpad chips agree with the client-rendered
+    Reader views. Returns {} on any error (cold install, missing
+    topics.json, malformed centroids) so the cards keep rendering.
+    """
+    try:
+        from .cortex import load_routing_patterns
+        from .state_paths import topics_path
+    except Exception:
+        return {}
+    try:
+        patterns = load_routing_patterns()
+    except Exception:
+        patterns = None
+    if not patterns:
+        return {}
+    try:
+        topics_p = topics_path()
+        if not topics_p.exists():
+            return {}
+        topics = json.loads(topics_p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    basins = topics.get("basins") or []
+    if not basins:
+        return {}
+    # Pre-compute per-basin norm + centroid once.
+    import math
+    basin_norms = []
+    for b in basins:
+        c = b.get("centroid") or []
+        s = sum(x * x for x in c)
+        if not s:
+            continue
+        basin_norms.append({"centroid": c, "norm": math.sqrt(s), "id": b.get("id")})
+    if not basin_norms:
+        return {}
+    SIM_THRESHOLD = 0.65
+    result: dict[str, str] = {}
+    claimed: set[str] = set()  # first task wins per basin (mirrors JS)
+    for task_type, pattern in patterns.items():
+        pc = getattr(pattern, "basin_centroid", None) or []
+        if not pc:
+            continue
+        pc_norm_sq = sum(x * x for x in pc)
+        if not pc_norm_sq:
+            continue
+        pc_norm = math.sqrt(pc_norm_sq)
+        best_sim = -1.0
+        best_id: str | None = None
+        for bn in basin_norms:
+            c = bn["centroid"]
+            if len(c) != len(pc):
+                continue
+            dot = sum(a * b for a, b in zip(pc, c))
+            sim = dot / (pc_norm * bn["norm"])
+            if sim > best_sim:
+                best_sim = sim
+                best_id = bn["id"]
+        if best_id and best_sim >= SIM_THRESHOLD and best_id not in claimed:
+            result[str(task_type)] = str(best_id)
+            claimed.add(best_id)
+    return result
+
+
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:
+    # Build the task→topology_basin map once for ALL cards in this
+    # render pass (not per-card — load_routing_patterns + topics.json
+    # parse would otherwise re-run N times).
+    task_to_basin = _task_to_topology_basin()
+
     def _card(item: dict[str, str | None]) -> str:
         thread_id = item.get("chain_root_id") or item.get("council_id")
         review_path = item.get("review_page_path")
@@ -849,19 +924,32 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
         xlinks = ""
         if task_type:
             task = _esc(str(task_type))
+            chip_style = (
+                "font-size: 11px; color: var(--text-secondary); text-decoration: none; "
+                "padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; "
+                "background: var(--surface);"
+            )
+            chips = [
+                f'<a href="../portal_pages/memory.html?file=picks.json&task={task}" '
+                f'class="council-xlink" style="{chip_style}">→ pick</a>',
+                f'<a href="../portal_pages/memory.html?file=routing.json&task={task}" '
+                f'class="council-xlink" style="{chip_style}">→ routing</a>',
+            ]
+            # Third chip: → topology, only when this task_type has a
+            # centroid match into topics.json (tick #34). Closes the
+            # launchpad → topology loop directly so the user doesn't
+            # have to bounce through picks first.
+            topo_basin = task_to_basin.get(str(task_type))
+            if topo_basin:
+                basin = _esc(topo_basin)
+                chips.append(
+                    f'<a href="../portal_pages/memory.html?file=topics.json&basin={basin}" '
+                    f'class="council-xlink" style="{chip_style}">→ topology</a>'
+                )
             xlinks = (
                 f'<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
-                f'<a href="../portal_pages/memory.html?file=picks.json&task={task}" '
-                f'class="council-xlink" '
-                f'style="font-size: 11px; color: var(--text-secondary); text-decoration: none; padding: 2px 8px; '
-                f'border: 1px solid var(--border); border-radius: 999px; background: var(--surface);">'
-                f'→ pick</a>'
-                f'<a href="../portal_pages/memory.html?file=routing.json&task={task}" '
-                f'class="council-xlink" '
-                f'style="font-size: 11px; color: var(--text-secondary); text-decoration: none; padding: 2px 8px; '
-                f'border: 1px solid var(--border); border-radius: 999px; background: var(--surface);">'
-                f'→ routing</a>'
-                f'</div>'
+                + "".join(chips)
+                + "</div>"
             )
         return f"""
         <div style="display: flex; flex-direction: column; gap: 8px;">

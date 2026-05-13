@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 25 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 26 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -72,6 +72,10 @@ Surfaces:
        a centroid-matched basin renders a small .routing-topology-chip
        next to the task name, completing the routing/picks/topology
        triangle of cross-links (tick #33).
+   25. Launchpad recent-card → topology chip: when the council's task_type
+       has a centroid match, the card grows a third → topology chip
+       alongside → pick and → routing, so the user can jump from a
+       council straight to its topology basin (tick #34).
 
 Exit codes:
     0 — all surfaces pass
@@ -600,13 +604,16 @@ def main() -> int:
             cards_state.get("count", 0) >= 1
             and all(s.get("title_ok") and s.get("meta_ok") and s.get("hrefHasThread") for s in sample)
         )
+        # tick #34: cards may carry 2 chips (→ pick, → routing) or 3
+        # (above + → topology when the task_type has a centroid match).
+        # Accept >=2 so Surface 10 doesn't fight Surface 25.
         xlinks_ok = any(
-            s.get("xlinkCount") == 2 and s.get("pickHrefOk") and s.get("routingHrefOk")
+            s.get("xlinkCount", 0) >= 2 and s.get("pickHrefOk") and s.get("routingHrefOk")
             for s in sample
         )
         if cards_ok and xlinks_ok:
             xlink_card = next(
-                (i for i, s in enumerate(sample) if s.get("xlinkCount") == 2),
+                (i for i, s in enumerate(sample) if s.get("xlinkCount", 0) >= 2),
                 None,
             )
             print(f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards with title/meta/thread_id; xlinks present on card {xlink_card}")
@@ -1484,6 +1491,45 @@ def main() -> int:
             reason = f"href={chip_state.get('href')!r}"
             print(f"[ ✗ ] Surface 24 routing→topology: {reason}")
             fails.append((24, "routing→topology chip", reason))
+
+        # ─── Surface 25: Launchpad recent-card → topology chip ───────────────
+        # On the launchpad, each recent-council card with a task_type
+        # that maps into topology should grow a third → topology chip
+        # alongside → pick / → routing. SKIPPED if zero cards have it
+        # (cold install or no consolidation yet).
+        page.goto(
+            f"{base_url}/portal_pages/launchpad.html",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(300)
+        topo_chip_state = page.evaluate(
+            """() => {
+              const xlinks = Array.from(document.querySelectorAll('.council-xlink'));
+              const topo = xlinks.filter(a => /→\\s*topology/.test(a.textContent || ''));
+              if (!topo.length) return {ok: true, skipped: true, reason: 'no cards have a → topology chip'};
+              const href = topo[0].getAttribute('href') || '';
+              const m = href.match(/[?&]basin=([^&]+)/);
+              return {
+                ok: !!m && href.includes('topics.json'),
+                total: topo.length,
+                href: href,
+                basin: m ? decodeURIComponent(m[1]) : null,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "25-recent-card-topology-chip.png"))
+        if topo_chip_state.get("skipped"):
+            print(f"[ - ] Surface 25 recent-card→topology: SKIPPED ({topo_chip_state['reason']})")
+        elif topo_chip_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 25 recent-card→topology: "
+                f"{topo_chip_state['total']} chip(s) · first → basin={topo_chip_state['basin']}"
+            )
+        else:
+            reason = f"href={topo_chip_state.get('href')!r}"
+            print(f"[ ✗ ] Surface 25 recent-card→topology: {reason}")
+            fails.append((25, "recent-card→topology chip", reason))
 
         browser.close()
 
