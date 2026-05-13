@@ -230,6 +230,26 @@ shapes that earned their rules by costing time:
     as #14 (regression guards must run to count) at a meta level:
     the guards must not be silenced by their neighbors.
 
+20. **Duplicated facts drift in the oldest surface.** Generalization
+    of #8 beyond numeric claims. Three concrete cases this session:
+    test count 791 stuck in claude.md status block while CHANGELOG
+    and the smoke output had moved (#57); the depth-score formula
+    in `commands/depth.py`'s module docstring + argparse `help=` said
+    `corpus_distance × log(1+inter_turn) × log(1+LID)` for two months
+    after tick #54 switched the composite to additive, while the same
+    file's print footer had the correct formula (#87); claude.md's
+    "### The six canonical MCP tools" section heading + "These are
+    the only public surface" intro stayed at 6 even though the same
+    file's status block and verified-status section both correctly
+    said 9 (#88). The rule: when a load-bearing fact (formula, count,
+    name, signature) lives in N≥3 places, the *oldest* surface drifts
+    behind because edits typically touch the recent/top surface. The
+    fix is either single-source-of-truth (compute the claim at render
+    time) or pin every duplicate in the same commit so future-me
+    notices on a single grep. Distinct from #8 (specifically numeric)
+    — this covers formulas, headings, type signatures, command-help
+    strings, anywhere prose carries a fact that another file owns.
+
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
