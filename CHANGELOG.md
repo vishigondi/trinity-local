@@ -3,6 +3,74 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 ship day — cross-memory navigation closed] — 2026-05-13 (later same day)
+
+After the forward-arc trilogy below, twelve more ticks closed the
+two remaining forward-arc gaps: action affordances on every Reader
+view, and a full bidirectional cross-link graph between the three
+data memories (picks, routing, topology) plus the lens.
+
+### Action affordances (ticks #26–29)
+
+Every view was read-only at the start of the day. Each Reader now
+ships an action chip on its primary unit:
+
+- **picks Reader** (`#26`): per-card `Mark wrong` chip copies
+  `trinity-local cortex-override --basin <id>`. Veto path from
+  view-side — was CLI-only via `mark_pick_wrong` MCP.
+- **viewer header** (`#27`): every memory header carries a
+  persistent `Rebuild` chip copying the rebuild CLI via
+  `suggestionFor(file)`. Always-on counterpart to the staleness
+  chip — the user can refresh a memory *before* staleness fires.
+- **topic-graph basin** (`#28`): basin detail panel grows
+  `Launch council on this topic` copying
+  `trinity-local council-launch --task "<headline>"` with
+  bash-safe quoting (4-meta escape: `\`, `"`, backtick, `$`).
+- **topic-graph rep** (`#29`): per-representative `Replay` chip
+  on every thread in the panel. stopPropagation prevents the
+  expand toggle from firing on chip click. `escapeBashArg`
+  helper extracted; the basin chip + rep chip share it.
+
+### Cross-memory link graph (ticks #30–36)
+
+Picks, routing, and topology were three silos. The bridge is
+centroid cosine similarity (768-d nomic vectors); both Python
+and JS sides use the same matcher with a shared
+`BASIN_SIM_THRESHOLD = 0.65` (extracted in `#35`).
+
+- **topology → picks** (`#30`): basin detail panel shows
+  `Routing rule: <task> →` when this basin has a pick.
+- **pick-basin styling** (`#31`): SVG nodes for pick-bearing
+  basins get a warm-brown ring + tooltip surfacing the routing
+  rule. Visual companion to the panel chip.
+- **picks → topology** (`#32`): pick card `View in topology →`
+  xlink. Topology view reads `?basin=` on load and calls
+  `showDetail + highlightNeighborhood` — same UX as a click.
+  `matchBasinsToPicks` + `loadCrossMemoryMaps` extracted as
+  shared helpers; both Reader views call them.
+- **routing → topology** (`#33`): routing-table row chip via
+  task_type → pick → centroid → basin. Reuses the shared map.
+- **launchpad recent-card → topology** (`#34`): third chip
+  alongside `→ pick` / `→ routing`. Python-side
+  `_task_to_topology_basin` mirrors the JS matcher exactly.
+- **launchpad cortex card → topology** (`#35`): row-level
+  chip when the rule's basin centroid maps to topology.
+- **launchpad lens card → basins** (`#36`): each paired lens
+  renders `basins_spanned[]` as deep-link chips. Closes the
+  "lens → source prompts" arc via the topology view.
+
+### Visual + drift consolidation (tick #37)
+
+Three launchpad chip surfaces (cortex card, lens card, recent-
+card row) had duplicated inline styles. Extracted shared
+`.cross-memory-chip` base + variant modifiers
+(`--label / --id / --inline / --pill`) in launchpad_template.py.
+Bumping the chip look now updates all three surfaces from one
+CSS rule.
+
+Browser smoke grew from 17 surfaces → 28 with one regression
+guard per shipped chip. Test suite from 657 → 714.
+
 ## [v1.0 ship day — forward-arc trilogy] — 2026-05-13
 
 Day 1 of the 3-day v1.0 ship window. Yesterday's CHANGELOG entry

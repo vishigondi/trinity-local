@@ -944,16 +944,17 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
         xlinks = ""
         if task_type:
             task = _esc(str(task_type))
-            chip_style = (
-                "font-size: 11px; color: var(--text-secondary); text-decoration: none; "
-                "padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; "
-                "background: var(--surface);"
-            )
+            # All three chips share the .cross-memory-chip base from
+            # launchpad_template.py — visual treatment lives in one
+            # place. --pill modifier gives the round/larger look the
+            # recent-card row uses (vs the inline label chip on the
+            # cortex card).
+            chip_classes = "council-xlink cross-memory-chip cross-memory-chip--label cross-memory-chip--pill"
             chips = [
                 f'<a href="../portal_pages/memory.html?file=picks.json&task={task}" '
-                f'class="council-xlink" style="{chip_style}">→ pick</a>',
+                f'class="{chip_classes}">→ pick</a>',
                 f'<a href="../portal_pages/memory.html?file=routing.json&task={task}" '
-                f'class="council-xlink" style="{chip_style}">→ routing</a>',
+                f'class="{chip_classes}">→ routing</a>',
             ]
             # Third chip: → topology, only when this task_type has a
             # centroid match into topics.json (tick #34). Closes the
@@ -964,7 +965,7 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
                 basin = _esc(topo_basin)
                 chips.append(
                     f'<a href="../portal_pages/memory.html?file=topics.json&basin={basin}" '
-                    f'class="council-xlink" style="{chip_style}">→ topology</a>'
+                    f'class="{chip_classes}">→ topology</a>'
                 )
             xlinks = (
                 f'<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'

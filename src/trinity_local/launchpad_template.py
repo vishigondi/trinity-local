@@ -144,6 +144,50 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       border: 1px solid rgba(37, 88, 71, 0.18);
     }}
 
+    /* Cross-memory chip — shared base for the small bordered pill links
+       that surface across the cortex card (→ topology), the lens card
+       (basin ids), and the recent council card (→ pick / → routing /
+       → topology). Three surfaces, one visual: bumping the look here
+       updates all three. Specific contexts add their overrides via the
+       modifier classes below. */
+    .cross-memory-chip {{
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 1px 6px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--surface);
+      vertical-align: middle;
+      white-space: nowrap;
+      transition: background 0.12s ease, color 0.12s ease;
+    }}
+    .cross-memory-chip:hover {{
+      color: var(--action);
+      background: rgba(37, 88, 71, 0.06);
+    }}
+    /* Label variant — uppercase short text like "→ topology". Used by
+       the cortex card and recent-card xlinks. */
+    .cross-memory-chip--label {{
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    /* Id variant — monospace short id like "b03". Used by lens basins. */
+    .cross-memory-chip--id {{
+      font-family: ui-monospace, monospace;
+    }}
+    /* Inline next to a row's primary anchor (cortex card basin link). */
+    .cross-memory-chip--inline {{
+      margin-left: 8px;
+    }}
+    /* Pill variant — slightly larger + rounder. Used by the recent
+       council card row of chips below the title. */
+    .cross-memory-chip--pill {{
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }}
+
     .suggestion-winner {{
       font-size: 12px;
       color: var(--text-muted);
@@ -960,8 +1004,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                      shape as the routing-table topology chip (tick #33). -->
                 <a v-if="r.topology_basin"
                    :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(r.topology_basin)"
-                   class="cortex-topology-chip"
-                   style="margin-left: 8px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); text-decoration: none; padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; vertical-align: middle; white-space: nowrap;"
+                   class="cortex-topology-chip cross-memory-chip cross-memory-chip--label cross-memory-chip--inline"
                    :title="'Open basin ' + r.topology_basin + ' in the topology graph'">
                   → topology
                 </a>
@@ -1127,10 +1170,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
                 <span class="meta" style="font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7;">Spans</span>
                 <a v-for="bid in p.basins_spanned" :key="'lb-' + idx + '-' + bid"
-                   class="lens-basin-chip"
+                   class="lens-basin-chip cross-memory-chip cross-memory-chip--id"
                    :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(bid)"
-                   :title="'Open basin ' + bid + ' in the topology graph'"
-                   style="font-size: 10px; font-family: ui-monospace, monospace; color: var(--text-secondary); text-decoration: none; padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface);">
+                   :title="'Open basin ' + bid + ' in the topology graph'">
                   {{{{ bid }}}}
                 </a>
               </span>
