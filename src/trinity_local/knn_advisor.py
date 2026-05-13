@@ -147,11 +147,17 @@ def advise(
     if not prompt or not prompt.strip():
         return None
 
-    # Check embeddings availability
+    # MLX-or-TF-IDF: `embeddings.embed()` falls back to TF-IDF on any MLX
+    # failure (network, missing model, no [mlx] extras). The previous
+    # `is_available()` gate refused to run when only TF-IDF was available,
+    # even though the downstream similarity math works on any cosine-
+    # comparable vectors. TF-IDF on the advisory corpus is a coarser but
+    # still useful signal; the downstream caller (knn_ranker) treats None
+    # vs KnnAdvice as feature-flag-style — paying for the gate cost
+    # only what it actually returns. Letting TF-IDF through gives every
+    # install the k-NN advisory layer instead of just `[mlx]`-equipped ones.
     try:
         from . import embeddings as emb
-        if not emb.is_available():
-            return None
     except ImportError:
         return None
 

@@ -134,10 +134,13 @@ class TestAdvise:
         assert advise("   ", "claude") is None
 
     def test_advise_returns_knn_advice(self):
-        """Non-empty prompt against valid corpus returns KnnAdvice."""
+        """Non-empty prompt against valid corpus returns KnnAdvice.
+
+        Was guarded by `if result is None: skip("Embeddings not available")`
+        which was dead defensive paper — `advise()` no longer requires MLX,
+        it runs on the TF-IDF fallback when MLX is missing.
+        """
         result = advise("Write a function to sort arrays", "claude", k=3)
-        if result is None:
-            pytest.skip("Embeddings not available")
         assert isinstance(result, KnnAdvice)
         assert result.neighbor_count == 3
         assert len(result.evidence) > 0
@@ -145,20 +148,14 @@ class TestAdvise:
     def test_should_council_flag(self):
         """When most neighbors are needs_council/bad_fit, should_council is True."""
         result = advise("Write a sorting algorithm", "claude", k=5)
-        if result is None:
-            pytest.skip("Embeddings not available")
         # Our corpus is mostly needs_council/bad_fit, so should_council should be True
         assert isinstance(result.should_council, bool)
 
     def test_top2_providers(self):
         result = advise("Deploy to production", "claude", k=5)
-        if result is None:
-            pytest.skip("Embeddings not available")
         assert isinstance(result.top2_providers, list)
         assert len(result.top2_providers) <= 2
 
     def test_evidence_includes_knn_line(self):
         result = advise("Research competitor analysis", "claude", k=3)
-        if result is None:
-            pytest.skip("Embeddings not available")
         assert any("k-NN" in e for e in result.evidence)
