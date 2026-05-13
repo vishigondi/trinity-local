@@ -138,6 +138,48 @@ class TestLaunchpadFlow:
         assert "signal_page" not in html
         assert "Open review and choose winner" not in html
 
+    def test_write_portal_html_cold_start_no_data(self, patch_trinity_home: Path, monkeypatch):
+        """First-run user — no councils, no memories, no telemetry config.
+        Existing test_write_portal_html_renders_primary_flow seeds a council
+        fixture, which means the cold-start path (literally every first-time
+        user's first paint) has never been exercised. This test fills that gap.
+
+        Per principle #2 (file:// is the substrate), the cold-start launchpad
+        must render without errors directly off `portal-html` on an empty home —
+        no templates referencing missing data, no Python exceptions on the
+        render path, no v-if guards left open.
+
+        Per principle #14, this test now also serves as a regression guard:
+        any future feature that assumes data exists will fail loud here.
+        """
+        # NB: no _write_council_fixture call — empty TRINITY_HOME.
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data.check_all_adapters",
+            lambda: [],
+        )
+
+        path = write_portal_html(title="Launchpad")
+
+        assert path.exists()
+        html = path.read_text(encoding="utf-8")
+        # Hero copy + brand tagline must render even with zero data — these
+        # are the FIRST thing a new user sees and they can't be data-gated.
+        assert "Dream your core memories" in html
+        # Petite-vue + Chart.js must load — the JS deps aren't data-conditional.
+        assert "petite-vue@0.4.1" in html
+        # Empty-state copy for the recent-councils card — exact string
+        # comes from build_recent_cards_html's fallback path.
+        assert "No councils yet. Launch one above to get started." in html
+        # Memory-health row must NOT render when nothing exists (per principle
+        # #15: silence is the all-good state — v-if guards on empty issues
+        # list). This guards against accidentally surfacing "stale" for files
+        # that don't even exist.
+        assert "memory-health-card" not in html or "0 issues" not in html
+        # No raw template tokens leaked from petite-vue not resolving — these
+        # are the classic "render-broke" signals.
+        assert "{{ undefined }}" not in html
+        assert "[object Object]" not in html
+
     def test_install_launchpad_shortcuts_writes_desktop_and_app_links(self, patch_trinity_home: Path, tmp_path: Path):
         _write_council_fixture(patch_trinity_home)
         launchpad_path = write_portal_html(title="Launchpad")
