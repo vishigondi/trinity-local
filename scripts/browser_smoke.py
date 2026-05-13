@@ -535,11 +535,18 @@ def main() -> int:
             timeout=3000,
         )
 
-        # ─── Surface 9: Multi-round thread render ────────────────────────────
+        # ─── Surface 9: Multi-round thread render + refinement directive ──────
         # The thread-per-page UX (commit 3c44bbd fixed a regression where
         # auto-chain iteration rounds got lost). Pick a known 3-round bundle
         # from disk and assert all three segments render with the expected
         # round numbers in order. Skips if no multi-round bundle is on disk.
+        # Extended (tick #56): also asserts the refinement directive ("↳ <text>")
+        # renders for rounds past 1. That bug (outcome.metadata.user_refinement
+        # captured but not hydrated into seg.refinementText in
+        # _loadOutcomeIntoSegment) made every refinement vanish on reload —
+        # observed on bundle_42f8cea9c9e705e5 with "Stop copy-pasting prompts.
+        # Own your context. Forge your core memories." The selector tracks
+        # .refinement-prompt structurally, not the user's exact text.
         thread_id = _find_multi_round_thread()
         if thread_id is None:
             print(f"[ - ] Surface 9 multi-round thread: SKIPPED (no 3+ round bundle on disk)")
@@ -561,20 +568,41 @@ def main() -> int:
                   const hasSynthesis = segments.map(seg =>
                     !!seg.querySelector('.synthesis-section .markdown-body')
                   );
-                  return {seg_count: segments.length, roundLabels, hasSynthesis};
+                  const refinementCount = segments.filter(seg => {
+                    const r = seg.querySelector('.refinement-prompt');
+                    return !!(r && r.textContent && r.textContent.trim().length > 1);
+                  }).length;
+                  return {seg_count: segments.length, roundLabels, hasSynthesis, refinementCount};
                 }"""
             )
             page.screenshot(path=str(SHOTS_DIR / "9-multi-round-thread.png"), full_page=True)
             rounds = thread_state.get("roundLabels", [])
             seg_count = thread_state.get("seg_count", 0)
             synth_ok = all(thread_state.get("hasSynthesis", []))
+            refinement_count = thread_state.get("refinementCount", 0)
             # Each segment must (a) exist, (b) carry its own round number,
             # (c) render its own chairman synthesis. Round numbers should be
-            # monotonic — first is 1, then 2, then 3.
-            if seg_count >= 3 and rounds[:3] == [1, 2, 3] and synth_ok:
-                print(f"[ ✓ ] Surface 9 multi-round thread: {seg_count} segments, rounds={rounds}, synthesis per round")
+            # monotonic — first is 1, then 2, then 3. Additionally, when
+            # the picker selected a refinement-bearing thread (preferred
+            # path), at least one segment must show a refinement directive
+            # ("↳ <text>"). The picker falls back to any 3+ thread when no
+            # refinement-bearing thread exists (legacy installs); in that
+            # case the refinement assertion is informational only.
+            picked_has_refinement = _thread_has_refinement(thread_id)
+            structural_ok = seg_count >= 3 and rounds[:3] == [1, 2, 3] and synth_ok
+            refinement_ok = (not picked_has_refinement) or refinement_count >= 1
+            if structural_ok and refinement_ok:
+                refinement_note = (
+                    f", refinement_count={refinement_count}"
+                    if picked_has_refinement
+                    else " (no-refinement thread; assertion skipped)"
+                )
+                print(f"[ ✓ ] Surface 9 multi-round thread: {seg_count} segments, rounds={rounds}, synthesis per round{refinement_note}")
             else:
-                reason = f"seg_count={seg_count} rounds={rounds} synth_per_round_ok={synth_ok}"
+                reason = (
+                    f"seg_count={seg_count} rounds={rounds} synth_per_round_ok={synth_ok} "
+                    f"refinement_count={refinement_count} (picked_has_refinement={picked_has_refinement})"
+                )
                 print(f"[ ✗ ] Surface 9 multi-round thread: {reason}")
                 fails.append((9, "multi-round thread render", reason))
 
@@ -1680,8 +1708,13 @@ def _find_multi_round_thread() -> str | None:
     """Pick a thread bundle on disk with 3+ segments, for Surface 9.
 
     Walks `~/.trinity/council_outcomes/_thread_*.js`, parses the embedded
-    JSON, returns the first chain_root_id whose segments[] has length >= 3.
-    Returns None if no such bundle exists — Surface 9 then skips.
+    JSON, returns the chain_root_id of the first qualifying thread.
+    Prefers threads where at least one segment's outcome carries
+    user_refinement (so the refinement-directive assertion in Surface 9
+    has something to assert against); falls back to any 3+ thread when
+    no refinement-bearing thread exists (e.g. legacy bundles predating
+    council-iterate). Returns None if no such bundle exists — Surface 9
+    then skips.
     """
     threads_dir = TRINITY_HOME / "council_outcomes"
     if not threads_dir.is_dir():
@@ -1690,9 +1723,8 @@ def _find_multi_round_thread() -> str | None:
     # File shape (one line):
     #   window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {};
     #   window.__TRINITY_COUNCIL_THREAD__["bundle_X"] = {<payload>};
-    # The first `{}` is the empty-object initializer; we need the assignment
-    # payload, which is the `{...}` after the indexed assignment.
     pattern = _re.compile(r'__TRINITY_COUNCIL_THREAD__\[[^\]]+\]\s*=\s*({.*})\s*;', _re.DOTALL)
+    fallback: str | None = None
     for path in sorted(threads_dir.glob("_thread_*.js")):
         try:
             text = path.read_text(encoding="utf-8")
@@ -1706,9 +1738,71 @@ def _find_multi_round_thread() -> str | None:
         except json.JSONDecodeError:
             continue
         segments = payload.get("segments") or []
-        if len(segments) >= 3:
-            return payload.get("chain_root_id") or None
-    return None
+        if len(segments) < 3:
+            continue
+        chain_root = payload.get("chain_root_id")
+        if not chain_root:
+            continue
+        if fallback is None:
+            fallback = chain_root
+        # Check whether any segment has user_refinement on its outcome —
+        # this is the regression target for tick #56 (the bug that lost
+        # refinement directives on reload).
+        has_refinement = False
+        for seg in segments:
+            cid = seg.get("council_id")
+            if not cid:
+                continue
+            outcome_path = threads_dir / f"{cid}.json"
+            if not outcome_path.is_file():
+                continue
+            try:
+                outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if (outcome.get("metadata") or {}).get("user_refinement"):
+                has_refinement = True
+                break
+        if has_refinement:
+            return chain_root
+    return fallback
+
+
+def _thread_has_refinement(chain_root_id: str) -> bool:
+    """True if any segment of this thread carries user_refinement in
+    its outcome.metadata. Used by Surface 9 to decide whether to
+    enforce the refinement-directive assertion."""
+    threads_dir = TRINITY_HOME / "council_outcomes"
+    thread_manifest = threads_dir / f"_thread_{chain_root_id}.js"
+    if not thread_manifest.is_file():
+        return False
+    import re as _re
+    pattern = _re.compile(r'__TRINITY_COUNCIL_THREAD__\[[^\]]+\]\s*=\s*({.*})\s*;', _re.DOTALL)
+    try:
+        text = thread_manifest.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = pattern.search(text)
+    if not m:
+        return False
+    try:
+        payload = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return False
+    for seg in payload.get("segments") or []:
+        cid = seg.get("council_id")
+        if not cid:
+            continue
+        outcome_path = threads_dir / f"{cid}.json"
+        if not outcome_path.is_file():
+            continue
+        try:
+            outcome = json.loads(outcome_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (outcome.get("metadata") or {}).get("user_refinement"):
+            return True
+    return False
 
 
 def _is_server_up(port: int) -> bool:
