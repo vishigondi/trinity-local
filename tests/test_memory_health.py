@@ -112,6 +112,92 @@ class TestTopicsThreadAwareSignal:
         assert not any(i["name"] == "topics.json" for i in issues)
 
 
+class TestPicksOverrideSignal:
+    """picks.json with rules where override_count > 0 → user-overrides issue."""
+
+    def test_override_count_zero_is_silent(self, isolated_home, monkeypatch):
+        # All rules unaltered by user — no override issue.
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._load_cortex_rules",
+            lambda: {
+                "rules": [
+                    {"basin_id": "b00", "override_count": 0, "audit_status": "unaudited"},
+                    {"basin_id": "b01", "override_count": 0, "audit_status": "unaudited"},
+                ]
+            },
+        )
+        _memory_health = _import_health()
+        issues = _memory_health()["issues"]
+        assert not any(i["name"] == "picks.json" and i["status"] == "user-overrides" for i in issues)
+
+    def test_override_count_positive_surfaces(self, isolated_home, monkeypatch):
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._load_cortex_rules",
+            lambda: {
+                "rules": [
+                    {"basin_id": "b00", "override_count": 2, "audit_status": "unaudited"},
+                    {"basin_id": "b01", "override_count": 1, "audit_status": "unaudited"},
+                    {"basin_id": "b02", "override_count": 0, "audit_status": "unaudited"},
+                ]
+            },
+        )
+        _memory_health = _import_health()
+        issues = _memory_health()["issues"]
+        override_issues = [
+            i for i in issues if i["name"] == "picks.json" and i["status"] == "user-overrides"
+        ]
+        assert len(override_issues) == 1
+        # The hint counts non-zero overrides — 2 of 3 rules above.
+        assert "2 pick(s)" in override_issues[0]["hint"]
+        # The action chip must point at the re-consolidate CLI.
+        assert override_issues[0]["command"] == "trinity-local consolidate"
+
+
+class TestPicksAuditSignal:
+    """picks.json with rules where audit_status == "disagreed" → audit issue."""
+
+    def test_audit_unaudited_is_silent(self, isolated_home, monkeypatch):
+        # Rules exist but no audit has run — no disagreement to surface.
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._load_cortex_rules",
+            lambda: {
+                "rules": [
+                    {"basin_id": "b00", "override_count": 0, "audit_status": "unaudited"},
+                ]
+            },
+        )
+        _memory_health = _import_health()
+        issues = _memory_health()["issues"]
+        assert not any(
+            i["name"] == "picks.json" and i["status"] == "audit-disagreed" for i in issues
+        )
+
+    def test_audit_disagreed_surfaces(self, isolated_home, monkeypatch):
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._load_cortex_rules",
+            lambda: {
+                "rules": [
+                    {"basin_id": "b00", "override_count": 0, "audit_status": "disagreed"},
+                    {"basin_id": "b01", "override_count": 0, "audit_status": "agreed"},
+                    {"basin_id": "b02", "override_count": 0, "audit_status": "disagreed"},
+                ]
+            },
+        )
+        _memory_health = _import_health()
+        issues = _memory_health()["issues"]
+        audit_issues = [
+            i for i in issues if i["name"] == "picks.json" and i["status"] == "audit-disagreed"
+        ]
+        assert len(audit_issues) == 1
+        assert "2 pick(s)" in audit_issues[0]["hint"]
+        # Audit issue is an INSPECT action, not a re-run — href, not command.
+        # Memory viewer is where the user reads the disagreement context.
+        assert audit_issues[0].get("href") and "picks.json" in audit_issues[0]["href"]
+        # No command on this issue — the surface intentionally drives the
+        # user to inspect rather than blindly re-consolidate.
+        assert not audit_issues[0].get("command")
+
+
 class TestGracefulDegradation:
     """Per "Analytics never crash" in claude.md — malformed data must
     not propagate exceptions out of _memory_health."""
