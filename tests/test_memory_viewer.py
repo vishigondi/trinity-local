@@ -220,8 +220,10 @@ class TestTopicToPickCrossLink:
     def test_malformed_picks_doesnt_crash_topology(self, isolated_home):
         # The try/except around JSON.parse is load-bearing — without it,
         # a corrupt picks.json would take down the topology view entirely.
+        # Logic now lives in loadCrossMemoryMaps (shared by both Readers).
         html = _render()
-        assert "JSON.parse(picksRaw)" in html, "picks parse step missing"
+        assert "function loadCrossMemoryMaps" in html, "shared cross-memory loader missing"
+        assert 'JSON.parse(raw)' in html, "picks parse step missing in shared loader"
         assert "catch (_)" in html, "missing graceful-degradation try/catch around picks parse"
 
 
@@ -261,6 +263,53 @@ class TestPickBasinNodeStyling:
         # having to click the node.
         assert "basinToPickTask.get(d.id)" in html, "tooltip doesn't read the pick map"
         assert "Routing rule:" in html, "tooltip text drift — missing routing-rule label"
+
+
+class TestPicksToTopologyCrossLink:
+    """Tick #32 — picks → topology cross-link. Completes the
+    bidirectional bridge tick #30 opened. Each pick card now renders
+    'View in topology →' targeting topics.html?basin=<id>, and the
+    topology view auto-opens the matching basin via the ?basin=
+    deep-link param."""
+
+    def test_shared_centroid_match_helper_extracted(self, isolated_home):
+        # The centroid match logic was duplicated potential — extracted
+        # into matchBasinsToPicks so both Reader directions can't drift.
+        html = _render()
+        assert "function matchBasinsToPicks" in html, (
+            "shared centroid-match helper missing — picks Reader + topology view "
+            "will compute the match independently and drift"
+        )
+        # Returns BOTH directions so each Reader can grab the one it needs.
+        assert "basinIdToTask" in html, "shared helper doesn't expose basinIdToTask"
+        assert "taskToBasinId" in html, "shared helper doesn't expose taskToBasinId"
+
+    def test_picks_reader_renders_topology_xlink(self, isolated_home):
+        html = _render()
+        # The xlink template targets topics.json with ?basin=<id>. If
+        # the URL contract changes, the deep-link handler in topology
+        # view stops opening the right basin.
+        assert "View in topology" in html, "topology xlink label missing"
+        assert 'memory.html?file=topics.json&basin=" + encodeURIComponent(topologyBasinId)' in html, (
+            "topology xlink template drifted from ?basin= deep-link contract"
+        )
+
+    def test_topology_view_handles_basin_deep_link(self, isolated_home):
+        html = _render()
+        # The handler must read ?basin from URL and call showDetail on
+        # the matching node. Without it, the picks Reader's xlink lands
+        # on a graph with no panel open — confusing UX.
+        assert 'params.get("basin")' in html, "topology view doesn't read ?basin= from URL"
+        assert "nodes.find(n => n.id === focusBasin)" in html, (
+            "topology view's basin deep-link doesn't lookup the matching node"
+        )
+        # The handler should also call highlightNeighborhood so the
+        # selected basin's local neighborhood pops out — same UX as a
+        # manual click on the node.
+        assert "highlightNeighborhood(match.id)" in html, (
+            "?basin= deep-link doesn't highlight neighborhood — selected "
+            "basin will be visually indistinguishable from siblings"
+        )
 
 
 class TestPicksReaderCrossLinks:

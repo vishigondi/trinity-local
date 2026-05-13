@@ -843,6 +843,71 @@ def render_memory_viewer_html() -> str:
       if (text !== undefined) e.textContent = text;
       return e;
     }}
+
+    // Centroid-match bridge between picks.json and topics.json. Returns
+    // {{ basinIdToTask, taskToBasinId }} — bidirectional Maps for the
+    // cross-memory links. Both Reader views (picks, topics) call this
+    // so the matching rules can't drift between the two directions.
+    //
+    // picks.basin_id is the task_type label, not the topology id, so
+    // the bridge is via cosine similarity on 768-d centroids (both
+    // sides embed via nomic-embed-v1.5). SIM_THRESHOLD=0.65 keeps
+    // wildly-different basins from getting linked.
+    function matchBasinsToPicks(basins, picksObj) {{
+      const basinIdToTask = new Map();
+      const taskToBasinId = new Map();
+      const SIM_THRESHOLD = 0.65;
+      if (!Array.isArray(basins) || !picksObj) return {{ basinIdToTask, taskToBasinId }};
+      // Pre-compute per-basin norms once so the per-pick loop is
+      // O(d) per (pick × basin) instead of O(d²).
+      const basinNorms = basins.map(b => {{
+        const c = b.centroid || [];
+        let s = 0;
+        for (let i = 0; i < c.length; i++) s += c[i] * c[i];
+        return {{ centroid: c, norm: Math.sqrt(s), id: b.id }};
+      }});
+      Object.keys(picksObj).forEach(taskType => {{
+        const pick = picksObj[taskType];
+        const pc = (pick && pick.basin_centroid) || null;
+        if (!pc || !pc.length) return;
+        let pcNorm = 0;
+        for (let i = 0; i < pc.length; i++) pcNorm += pc[i] * pc[i];
+        pcNorm = Math.sqrt(pcNorm);
+        if (!pcNorm) return;
+        let bestSim = -1, bestId = null;
+        for (const {{ centroid, norm, id }} of basinNorms) {{
+          if (!norm || centroid.length !== pc.length) continue;
+          let dot = 0;
+          for (let i = 0; i < pc.length; i++) dot += pc[i] * centroid[i];
+          const sim = dot / (pcNorm * norm);
+          if (sim > bestSim) {{ bestSim = sim; bestId = id; }}
+        }}
+        if (bestId && bestSim >= SIM_THRESHOLD) {{
+          // First task to claim a basin wins — if two picks tie,
+          // the later one would clobber. Stable order via Object.keys.
+          if (!basinIdToTask.has(bestId)) basinIdToTask.set(bestId, taskType);
+          taskToBasinId.set(taskType, bestId);
+        }}
+      }});
+      return {{ basinIdToTask, taskToBasinId }};
+    }}
+
+    // Convenience: load the picks payload + topics payload from the
+    // inlined memories and run the centroid match. Swallows parse
+    // errors so a malformed memory can't break either Reader view.
+    function loadCrossMemoryMaps() {{
+      let picksObj = null, topicsObj = null;
+      try {{
+        const raw = window.__TRINITY_MEMORIES__?.["picks.json"];
+        if (raw) picksObj = JSON.parse(raw);
+      }} catch (_) {{}}
+      try {{
+        const raw = window.__TRINITY_MEMORIES__?.["topics.json"];
+        if (raw) topicsObj = JSON.parse(raw);
+      }} catch (_) {{}}
+      const basins = topicsObj && Array.isArray(topicsObj.basins) ? topicsObj.basins : [];
+      return matchBasinsToPicks(basins, picksObj || {{}});
+    }}
     function renderHeader(file) {{
       const wrap = el("div", "content-header");
       // Title row: file name + persistent rebuild chip. The chip copies
@@ -1015,6 +1080,11 @@ def render_memory_viewer_html() -> str:
         target.appendChild(el("p", "meta", "No picks yet — run trinity-local consolidate."));
         return;
       }}
+      // Cross-memory bridge: picks → topology via the shared centroid
+      // match. taskToBasinId[task_type] = topology basin id (e.g. b00).
+      // Used to render the "View in topology →" xlink per pick card,
+      // completing the bidirectional bridge tick #30 opened.
+      const {{ taskToBasinId }} = loadCrossMemoryMaps();
       // Deep-link target: ?task=<basin_id> scrolls to + highlights the
       // matching card so cross-links from routing.json land usefully.
       // If the task isn't yet in picks (cortex hasn't consolidated this
@@ -1091,6 +1161,18 @@ def render_memory_viewer_html() -> str:
           "View routing scores →");
         xlink.href = "memory.html?file=routing.json&task=" + encodeURIComponent(basinId);
         actions.appendChild(xlink);
+        // Cross-memory link: jump to the topology basin this pick was
+        // extracted from. Centroid-matched (see loadCrossMemoryMaps).
+        // Only renders when a match cleared SIM_THRESHOLD — orphan picks
+        // (those whose source basin no longer exists in topics.json)
+        // get no chip rather than a broken link.
+        const topologyBasinId = taskToBasinId.get(basinId);
+        if (topologyBasinId) {{
+          const tlink = el("a", "pick-xlink", "View in topology →");
+          tlink.href = "memory.html?file=topics.json&basin=" + encodeURIComponent(topologyBasinId);
+          tlink.title = "Open basin " + topologyBasinId + " in the topology graph";
+          actions.appendChild(tlink);
+        }}
         // One-click veto: copies the cortex-override CLI into the
         // clipboard. file:// can't write JSON directly, so the action
         // is "copy → paste in terminal" — same mechanic the memory-
@@ -1216,60 +1298,11 @@ def render_memory_viewer_html() -> str:
         return;
       }}
 
-      // Cross-memory bridge: picks.json keys by task_type, and each pick
-      // carries .basin_centroid (768-d vector). Topology basins also
-      // carry .centroid. Both spaces are nomic-embed-v1.5 so cosine
-      // similarity is meaningful. For each pick, find the topology
-      // basin closest to its centroid (above a similarity threshold)
-      // and record `topology_basin_id → task_type`. showDetail uses
-      // this to surface "Routing rule: <task> →" on basins that have
-      // crystallized into routing rules.
-      //
-      // Why not just match `pick.basin_id` to `topology_basin.id`?
-      // The picks-side .basin_id is the task_type label, not the
-      // topology basin id — schema-naming inconsistency the renderer
-      // bridges here.
-      const basinToPickTask = new Map();
-      try {{
-        const picksRaw = window.__TRINITY_MEMORIES__?.["picks.json"];
-        if (picksRaw) {{
-          const parsedPicks = JSON.parse(picksRaw);
-          // Pre-compute per-basin norms once so the inner loop is
-          // O(d) per (pick × basin) instead of O(d²).
-          const basinNorms = basins.map(b => {{
-            const c = b.centroid || [];
-            let s = 0;
-            for (let i = 0; i < c.length; i++) s += c[i] * c[i];
-            return {{ centroid: c, norm: Math.sqrt(s), id: b.id }};
-          }});
-          const SIM_THRESHOLD = 0.65;  // empirical: 0.5 too lax, 0.8 too strict
-          Object.keys(parsedPicks).forEach(taskType => {{
-            const pick = parsedPicks[taskType];
-            const pc = (pick && pick.basin_centroid) || null;
-            if (!pc || !pc.length) return;
-            let pcNorm = 0;
-            for (let i = 0; i < pc.length; i++) pcNorm += pc[i] * pc[i];
-            pcNorm = Math.sqrt(pcNorm);
-            if (!pcNorm) return;
-            let bestSim = -1, bestId = null;
-            for (const {{ centroid, norm, id }} of basinNorms) {{
-              if (!norm || centroid.length !== pc.length) continue;
-              let dot = 0;
-              for (let i = 0; i < pc.length; i++) dot += pc[i] * centroid[i];
-              const sim = dot / (pcNorm * norm);
-              if (sim > bestSim) {{ bestSim = sim; bestId = id; }}
-            }}
-            if (bestId && bestSim >= SIM_THRESHOLD) {{
-              // First task to claim a basin wins — if two picks tie,
-              // the later one would clobber. Stable order via Object.keys.
-              if (!basinToPickTask.has(bestId)) basinToPickTask.set(bestId, taskType);
-            }}
-          }});
-        }}
-      }} catch (_) {{
-        // Malformed picks.json must not break the topology view —
-        // per "Analytics never crash" in claude.md.
-      }}
+      // Cross-memory bridge: picks ↔ topology via centroid cosine
+      // similarity (picks.basin_id is the task_type label, not the
+      // topology id — see matchBasinsToPicks above for details).
+      // Both directions in one shared helper so they can't drift.
+      const {{ basinIdToTask: basinToPickTask }} = loadCrossMemoryMaps();
 
       // Detail panel above the graph — populated on node click.
       const detail = el("div", "topics-graph-detail");
@@ -1495,6 +1528,20 @@ def render_memory_viewer_html() -> str:
         nodeSel.attr("cx", d => d.x).attr("cy", d => d.y);
         labelSel.attr("x", d => d.x).attr("y", d => d.y + radiusFor(d) + 14);
       }});
+
+      // Deep-link target: ?basin=<id> auto-opens the matching basin's
+      // detail panel + highlights its neighborhood. Used by the picks
+      // Reader's "View in topology →" xlink. If no basin matches the
+      // requested id, the page renders normally (no error banner —
+      // the missing-basin case is rare enough that warning is overkill).
+      const focusBasin = params.get("basin");
+      if (focusBasin) {{
+        const match = nodes.find(n => n.id === focusBasin);
+        if (match) {{
+          showDetail(match.basin);
+          highlightNeighborhood(match.id);
+        }}
+      }}
 
       // Bash-safe quoting for `--task "<text>"` clipboard payloads.
       // Used by both the basin-level and per-rep launch chips.

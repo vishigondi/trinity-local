@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 23 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 24 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -64,6 +64,10 @@ Surfaces:
    22. Pick-basin node styling: SVG circles for basins crystallized into
        routing rules get a .pick-basin class (warm-brown ring), so the
        user sees which basins matter at a glance (tick #31).
+   23. Picks → topology cross-link: each pick card with a centroid match
+       renders 'View in topology →' targeting topics.html?basin=<id>;
+       topology auto-opens the matching basin's detail panel + highlights
+       its neighborhood on load (tick #32).
 
 Exit codes:
     0 — all surfaces pass
@@ -1348,6 +1352,92 @@ def main() -> int:
                 reason = f"marked={node_state['marked']} tooltipRoutingRule={node_state.get('tooltipHasRoutingRule')}"
                 print(f"[ ✗ ] Surface 22 pick-basin styling: {reason}")
                 fails.append((22, "pick-basin styling", reason))
+
+        # ─── Surface 23: Picks → topology cross-link + ?basin= deep-link ─────
+        # Two halves of the bidirectional bridge:
+        #   (a) picks Reader renders a 'View in topology →' xlink per
+        #       pick with a centroid match
+        #   (b) topology view opens that basin's detail panel when
+        #       loaded with ?basin=<id>
+        # SKIPPED if picks Reader has zero topology xlinks (means the
+        # current install has no picks matched to topology basins —
+        # same shape as Surface 21/22 skip).
+        page.goto(
+            f"{base_url}/portal_pages/memory.html?file=picks.json",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(300)
+        xlink_info = page.evaluate(
+            """() => {
+              const links = Array.from(document.querySelectorAll('.pick-xlink')).filter(
+                a => /View in topology/i.test(a.textContent || '')
+              );
+              if (!links.length) return {ok: true, skipped: true, reason: 'no topology xlinks rendered (no picks match topology basins)'};
+              const href = links[0].getAttribute('href') || '';
+              const m = href.match(/[?&]basin=([^&]+)/);
+              return {
+                ok: !!m,
+                total: links.length,
+                href: href,
+                basin: m ? decodeURIComponent(m[1]) : null,
+              };
+            }"""
+        )
+        if xlink_info.get("skipped"):
+            print(f"[ - ] Surface 23 picks→topology: SKIPPED ({xlink_info['reason']})")
+        elif not xlink_info.get("ok"):
+            reason = f"href={xlink_info.get('href')!r} (no basin param)"
+            print(f"[ ✗ ] Surface 23 picks→topology: {reason}")
+            fails.append((23, "picks→topology xlink", reason))
+        else:
+            # Now follow the link and verify the topology view opens the
+            # matching basin's detail panel — closes the round trip.
+            target_basin = xlink_info["basin"]
+            page.goto(
+                f"{base_url}/portal_pages/memory.html?file=topics.json&basin={target_basin}",
+                wait_until="networkidle",
+                timeout=10000,
+            )
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(SHOTS_DIR / "23-picks-to-topology.png"))
+            panel_state = page.evaluate(
+                """() => {
+                  const detail = document.querySelector('.topics-graph-detail');
+                  const empty = detail && detail.querySelector('.empty');
+                  const basinSpan = detail && detail.querySelector('.basin-id');
+                  // Highlight check — at least one node should be at opacity 1
+                  // and at least one at <1 if highlightNeighborhood ran.
+                  const opacities = Array.from(document.querySelectorAll('.topics-graph-svg .node'))
+                    .map(n => Number(getComputedStyle(n).opacity) || 1);
+                  const dimmed = opacities.filter(o => o < 0.5).length;
+                  return {
+                    panel_open: !empty && !!basinSpan,
+                    panel_basin: basinSpan ? basinSpan.textContent : null,
+                    nodes_dimmed: dimmed,
+                  };
+                }"""
+            )
+            ok = (
+                panel_state.get("panel_open")
+                and panel_state.get("panel_basin") == target_basin
+                and panel_state.get("nodes_dimmed", 0) > 0
+            )
+            if ok:
+                print(
+                    f"[ ✓ ] Surface 23 picks→topology: {xlink_info['total']} xlink(s) · "
+                    f"?basin={target_basin} opened detail panel · "
+                    f"{panel_state['nodes_dimmed']} nodes dimmed via highlight"
+                )
+            else:
+                reason = (
+                    f"panel_open={panel_state.get('panel_open')} "
+                    f"panel_basin={panel_state.get('panel_basin')!r} "
+                    f"expected={target_basin!r} "
+                    f"nodes_dimmed={panel_state.get('nodes_dimmed')}"
+                )
+                print(f"[ ✗ ] Surface 23 picks→topology: {reason}")
+                fails.append((23, "picks→topology xlink", reason))
 
         browser.close()
 
