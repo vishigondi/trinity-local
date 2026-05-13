@@ -3,6 +3,115 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [Memory viewer + topic graph + nav harmonization] — 2026-05-12 (late)
+
+A second arc, driven by user-flagged UX gaps after the brand-pivot
+work shipped. Six commits worth that compound into one user-facing
+shift: every memory is now hand-inspectable, with topology that
+matches "what conversations I keep having" instead of "what isolated
+turns look like alone".
+
+### Memory viewer (new surface)
+
+- `~/.trinity/portal_pages/memory.html` — single-page viewer linked
+  from the launchpad's new "Your memories, raw" chip card. Six chips
+  (one per memory) → one viewer with a per-file Reader.
+- Markdown rendered via bundled `marked` + DOMParser (never
+  `innerHTML`); `picks.json` → cards with trust badges; `routing.json`
+  → task×provider table with best-cell highlighting; `topics.json` →
+  Obsidian-style force-directed graph (d3-force, ~80 KB across split
+  submodules — d3-selection, d3-dispatch, d3-timer, d3-quadtree,
+  d3-drag, d3-force).
+- Memory contents inlined at `portal-html` time into
+  `window.__TRINITY_MEMORIES__` (same pattern as the council thread
+  manifests) so the viewer works under `file://` from the desktop
+  shortcut — no `trinity-local serve` needed.
+
+### Topic graph + thread-aware topology
+
+- `basins.py` now clusters by THREAD (mean of per-turn embeddings
+  within a `transcript_id`), not per-turn. A 119-turn Iain M Banks
+  essay deep-dive contributes one point to basin-space, not 119
+  fragmented turns. Per-basin `Basin.thread_count` (distinct sessions)
+  alongside `size` (total turn count).
+- `Basin.representatives` is thread-shaped:
+  `{transcript_id, turn_count, headline, turns: [{id, snippet, turn_index}]}`.
+  Headline = single turn closest to BASIN centroid within this thread.
+- Graph labels now read the first 4 words of the top representative's
+  headline (`"my attorney is setting"`, `"Hello."`) instead of TF-IDF
+  vocabulary (`"get"`, `"give"`).
+- Click a basin node → detail panel renders 5 representative thread
+  cards. Each card has a "N turns" pill + chevron; click expands to
+  10-turn conversational sequence. Single-turn threads (Gemini
+  Takeout, the canonical natural fallback) get no expand affordance.
+- Plus: pan + scroll-wheel zoom (d3-zoom + d3-interpolate), native
+  `<title>` hover tooltip showing full representative.
+
+### Nav harmonization
+
+- New `.trinity-topbar` CSS in `design_system.SHARED_CSS`. Pill
+  `← Launchpad` back link + page title + optional secondary action.
+  One source of truth for all sub-page navigation.
+- Live council, council review, and memory viewer all share the
+  shape. Previously they had three different topbar conventions
+  (live council buried its back button inside a content card; memory
+  viewer had its own bespoke topbar).
+- Launchpad stays as-is — it's the root, hero pattern fits its
+  identity. DESIGN.md gets a new "Navigation pattern (sub-pages)"
+  section so future pages don't drift back to bespoke headers.
+
+### Real-data bugs caught
+
+- **basins.py `prompt_ids[:50]` truncation broke Stage 2/4 of the
+  lens pipeline** (`4abdb41`). `to_dict()` capped serialized
+  prompt_ids at 50 "for readable JSON", but `load_basins()`
+  round-trips the file back into Basin dataclasses. After save→load,
+  `basin_for_prompt(basins, prompt_id)` returned None for any prompt
+  beyond #50 — silently mis-tagging the bulk of every multi-prompt
+  basin. Drop the cap; topics.json is now a faithful serialization.
+- **memory viewer initially used indigo/violet** (`4abdb41`), which
+  DESIGN.md actually forbids ("Do not introduce purple or neon
+  accents"). Switched to the warm-paper palette (forest green +
+  warm brown) — identical to launchpad now.
+- **memory viewer required `trinity-local serve`** (`a598a88`).
+  First-shipped version used `fetch('../memories/...')` which modern
+  browsers block under `file://`. Inlined the contents the same way
+  the council thread manifests do.
+
+### Smoke + tests
+
+- Surface 14 (a + b) added: launchpad memory chips render with all
+  six names, click-through loads the viewer.
+- Surface 6 (live council back-trip) updated to use the new
+  `.trinity-topbar a.topbar-back` selector instead of text-matching
+  "Back to Launchpad".
+- Unit tests updated for `← Launchpad` text + thread-aware basin
+  fixture.
+- 14 surfaces, 658 tests, zero console errors on real `~/.trinity/`.
+
+### Doc consistency sweep
+
+Multi-pass audit (3 ticks of the `/loop 15m ...` cron) caught:
+
+- claude.md / product-spec.md / CONTRIBUTING.md stale stat numbers
+  (8-surface → 14-surface, 541/571/657 tests → 658).
+- Portal table in claude.md referenced `portal_*.py` modules that
+  had been renamed to `launchpad_*.py`.
+- frontend-architecture.md `portal_*.py` rows updated +
+  `memory_viewer.py` row added.
+- spec-v1.md `/me-build` ref + "6 MCP tools" claim → `lens-build`,
+  "9 MCP tools (v1.0 canonical 6 + v1.5 ask/get_picks/mark_pick_wrong)".
+- product-spec.md sweep: `me-build`/`me.md`/`~/.trinity/memory/` →
+  `lens-build`/`lens.md`/`~/.trinity/prompts/`.
+- `commands/me.py:94` printed `trinity-local me-build` instructions
+  while the actual subcommand was already renamed `lens-build` —
+  caught by the doc audit even though it's a code drift.
+
+Unused-imports sweep across 25+ files (pyflakes) — mostly stragglers
+from the morning's rename pass, plus two real bugs (undefined `Path`
+annotation in `embeddings/cache.py`, duplicate `research_dir()` in
+`state_paths.py`).
+
 ## [Validation-driven scale + signal-quality fixes] — 2026-05-12 (evening)
 
 Coherent arc of ~10 commits driven by running the actual product

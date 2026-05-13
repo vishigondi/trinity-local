@@ -27,6 +27,32 @@ def _count_files(directory, pattern="*.json"):
         return 0
 
 
+def _topics_summary(path) -> str:
+    """Compact summary appended to the topics.json status row:
+    "  · 20 basins · 18,184 turns across 12,041 threads".
+
+    Returns empty on any failure — status output never crashes because
+    of a malformed memory file (per claude.md "Analytics never crash").
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        basins = payload.get("basins") or []
+        if not basins:
+            return ""
+        total_turns = sum(int(b.get("size") or 0) for b in basins)
+        thread_counts = [int(b.get("thread_count") or 0) for b in basins]
+        if not any(thread_counts):
+            # Legacy per-turn topics.json — emit a hint to refresh.
+            return f"  · {len(basins)} basins · pre-thread-aware (run `trinity-local lens-build`)"
+        total_threads = sum(thread_counts)
+        return (
+            f"  · {len(basins)} basins · {total_turns:,} turns"
+            f" across {total_threads:,} threads"
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return ""
+
+
 def handle_status(args):
     # Adapters
     adapters = check_all_adapters()
@@ -122,7 +148,8 @@ def handle_status(args):
     ]:
         if path.exists():
             size = path.stat().st_size
-            print(f"    ✅ {label} {size:>8,} bytes")
+            extra = _topics_summary(path) if label.strip() == "topics.json" else ""
+            print(f"    ✅ {label} {size:>8,} bytes{extra}")
         else:
             print(f"    · {label} not built")
     core = core_path()
