@@ -62,8 +62,18 @@ worth contributing on:
 
 ## Priority 5 — Docs and tests
 
-Always welcome. Tests live in `tests/`. We aim for 400+ passing on every commit;
-`pytest -q` is the gate.
+Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
+green on every commit, and the gate currently runs ~800 tests in under 80s.
+
+**Writing tests:** scope all test state via fixtures. Specifically, never set
+`os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module
+top-level — pytest imports every test module during collection, before any
+test runs, so a module-level write leaks into the rest of the suite and can
+silently disable real-corpus checks downstream (see `claude.md` meta-principle
+#19 for the incident this rule came from). Use `monkeypatch.setenv` in an
+`autouse` fixture or call into the `patch_trinity_home` fixture in
+`tests/conftest.py`. `tests/test_no_module_level_env_mutation.py` enforces
+this with an AST scanner.
 
 ## Local development
 
@@ -71,7 +81,7 @@ Always welcome. Tests live in `tests/`. We aim for 400+ passing on every commit;
 git clone <repo>
 cd trinity-local
 ./setup.sh                          # bootstraps venv + config + Shortcut + launchpad
-.venv/bin/python -m pytest -q       # 650+ tests should pass
+.venv/bin/python -m pytest -q       # ~800 tests, ~80s; gate must stay green
 python scripts/browser_smoke.py     # 29-surface UI verification (Playwright)
 ```
 
