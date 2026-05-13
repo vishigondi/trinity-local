@@ -12,7 +12,7 @@ and caching. The watcher never calls the model twice for the same text.
 """
 from __future__ import annotations
 
-from .cache import get_cached, put_cached, clear_cache
+from .cache import get_cached, put_cached
 from .backend_tfidf import embed_tfidf, cosine_similarity
 
 # Try to load MLX backend
@@ -124,7 +124,7 @@ def similarity(text_a: str, text_b: str, *, dim: int = DEFAULT_DIM) -> float:
 def setup_model(*, force: bool = False) -> str:
     """Download the MLX model. Returns status message."""
     try:
-        from .backend_mlx import MlxEmbedder, download_model
+        from .backend_mlx import download_model
     except ImportError:
         return "MLX dependencies not installed. Run: pip install trinity-local[mlx]"
 

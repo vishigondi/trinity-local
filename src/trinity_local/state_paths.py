@@ -123,12 +123,6 @@ def embeddings_cache_path() -> Path:
     return cache_dir() / "embeddings.jsonl"
 
 
-def research_dir() -> Path:
-    path = state_dir() / "research"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 # --- Paths migrated from individual modules (Phase 0) ---
 
 

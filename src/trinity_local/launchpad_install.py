@@ -6,8 +6,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .state_paths import portal_pages_dir
-
 TRINITY_APP_NAME = "Trinity.app"
 LAUNCHPAD_ICON_RELATIVE_PATH = Path("assets") / "binary_code.png"
 LEGACY_LAUNCHPAD_LINK_NAMES = (

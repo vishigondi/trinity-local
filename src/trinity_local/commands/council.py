@@ -30,7 +30,7 @@ from ..council_status import (
     write_council_status,
 )
 from ..action_runtime import create_review_ready_action, notify_action, save_action
-from ..notifications import notify, open_path
+from ..notifications import open_path
 from ..refresh import refresh_launchpad
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
 from ..utils import stable_id

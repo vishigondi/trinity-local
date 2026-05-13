@@ -71,7 +71,6 @@ from .council_runtime import (
     create_council_outcome,
     create_launch_event,
     create_prompt_bundle,
-    load_council_outcome,
     load_prompt_bundle,
     parse_routing_label,
     parse_synthesis_sections,
@@ -1050,7 +1049,7 @@ def run_consensus_round(
         primary_provider = member_results[0].provider
         primary_config = config.providers.get(primary_provider)
         if primary_config is None or not primary_config.enabled:
-            raise ProviderError(f"No enabled chairman provider available.")
+            raise ProviderError("No enabled chairman provider available.")
 
     primary_model = _provider_model(primary_config, primary_model_override)
     synthesis_prompt = render_primary_council_prompt(new_bundle, member_results)

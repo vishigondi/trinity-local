@@ -23,7 +23,6 @@ remain importable for the launchpad but are not exposed via MCP.
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any
 
 from mcp.server import Server

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import sys
 import time
 
 
@@ -231,7 +230,6 @@ def handle_hard(args):
     from ..research.hard_mining import (
         mine_hard_via_embeddings,
         save_hard_examples,
-        hard_examples_dir,
     )
 
     sources = args.source or ["claude", "codex", "gemini", "cowork"]
@@ -273,7 +271,7 @@ def handle_hard(args):
 def handle_hardeval(args):
     from ..research.hard_mining import load_hard_examples
     from ..research.hard_eval import run_hard_eval, save_hard_eval
-    from ..research.embeddings import EmbeddingRecord, save_embeddings
+    from ..research.embeddings import EmbeddingRecord
     from .. import embeddings as emb
     import hashlib
 

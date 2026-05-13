@@ -3,7 +3,6 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
-from urllib.parse import quote
 
 from .adapters import check_all_adapters
 from .categories import (

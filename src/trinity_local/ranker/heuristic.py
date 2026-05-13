@@ -8,8 +8,6 @@ former standalone `prompt_shape.py`; same logic, one fewer top-level module.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
-from pathlib import Path
 
 from .base import Ranker
 from .types import RoutingContext, RoutingDecision

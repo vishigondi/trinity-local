@@ -10,12 +10,11 @@ current window and 5 in the baseline.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from .config import trinity_home
 from .state_paths import outcomes_log_path
 
 

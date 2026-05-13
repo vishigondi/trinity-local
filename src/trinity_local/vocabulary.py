@@ -26,10 +26,8 @@ vocabulary.md as one of the five plural core memories before synthesizing.
 """
 from __future__ import annotations
 
-import math
 import re
 from collections import defaultdict
-from pathlib import Path
 from typing import Iterable
 
 

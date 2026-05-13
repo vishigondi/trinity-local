@@ -10,7 +10,6 @@ from ..action_runtime import (
 )
 from ..council_runtime import load_prompt_bundle
 from ..task_runtime import load_task_record
-from ..shortcuts_integration import DEFAULT_SHORTCUT_NAME
 
 
 def register(subparsers):

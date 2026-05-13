@@ -25,7 +25,6 @@ fully populated routing table + lenses.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from types import SimpleNamespace
@@ -99,10 +98,7 @@ def _all_prompt_nodes_uncapped() -> list:
 
 def handle_dream(args):
     started = time.monotonic()
-    from ..cross_provider_pairs import (
-        cluster_to_synthesis_args,
-        find_cross_provider_clusters,
-    )
+    from ..cross_provider_pairs import find_cross_provider_clusters
 
     report = {
         "ok": True,

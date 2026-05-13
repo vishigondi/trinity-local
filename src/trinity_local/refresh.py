@@ -29,8 +29,6 @@ def _reap_zombie_tasks(stale_after_minutes: int = 60) -> int:
     import time
     from datetime import datetime, timezone
 
-    from .state_paths import state_dir
-
     # Use the canonical helper so the legacy `tasks/` → `todos/` rename
     # is handled transparently. Local var still named `tasks_dir` so the
     # rest of this function reads identically.

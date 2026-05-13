@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import sys
 
 from ..adapters import check_all_adapters
 

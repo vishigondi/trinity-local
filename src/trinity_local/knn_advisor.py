@@ -20,9 +20,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-from .config import trinity_home
 from .state_paths import research_dir
 
 

@@ -4,7 +4,6 @@ import html
 import json
 import re
 from pathlib import Path
-from urllib.parse import quote
 
 
 _ROUTING_JSON_FENCE_STRIP_RE = re.compile(
@@ -27,12 +26,7 @@ from .dispatch_registry import make_dispatch_action
 from .markdown_utils import render_markdown
 from .launchpad_runtime import launchpad_runtime_js
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-from .state_paths import (
-    council_outcomes_dir,
-    council_status_dir,
-    portal_pages_dir,
-    review_pages_dir,
-)
+from .state_paths import review_pages_dir
 
 
 def _esc(value: str | None) -> str:

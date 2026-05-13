@@ -30,8 +30,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .state_paths import state_dir
-
 
 # Sections the /me-build prompt promises the chairman will emit. If a council
 # response is missing one or more, treat it as injection-poisoned or chairman

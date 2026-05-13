@@ -361,7 +361,6 @@ class TestCouncilLaunchCommand:
         captured_status: dict[str, object] = {}
 
         monkeypatch.setattr("trinity_local.commands.council.load_config", lambda config: SimpleNamespace())
-        monkeypatch.setattr("trinity_local.commands.council.notify", lambda *args, **kwargs: None)
         monkeypatch.setattr(
             "trinity_local.commands.council.ensure_task_record",
             lambda **kwargs: SimpleNamespace(task_id="task_live", title="Live council", status="running"),

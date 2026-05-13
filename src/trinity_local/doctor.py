@@ -18,9 +18,7 @@ filesystem + subprocess version probes. <1s on a working install.
 
 from __future__ import annotations
 
-import json
 import shutil
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any

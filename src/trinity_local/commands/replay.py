@@ -16,11 +16,9 @@ No LLM calls outside the councils themselves (per the architectural commitment).
 from __future__ import annotations
 
 import json
-import statistics
 import sys
 import time
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 from ..config import load_config
