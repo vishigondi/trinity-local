@@ -734,11 +734,19 @@ def main() -> int:
                 // Suggestion buttons use @mousedown.prevent — dispatch that.
                 target.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}));
                 setTimeout(() => {
+                  // Tick #78: include() not startsWith() because applySuggestion
+                  // wraps the prompt with a "Prior conversation context —" prefix
+                  // when the suggestion carries thread history (preceding_assistant_text).
+                  // The invariant being tested is "clicked suggestion ends up in the
+                  // textarea somewhere," not "textarea starts with clicked text."
+                  // Substring presence catches a broken applySuggestion handler
+                  // without false-positive failing on the correct wrapper path.
+                  const value = textarea.value || '';
                   resolve({
                     ok: true,
                     targetHead: targetText.slice(0, 80),
-                    valueHead: (textarea.value || '').slice(0, 80),
-                    matches: targetText.length > 0 && (textarea.value || '').startsWith(targetText.slice(0, 40)),
+                    valueHead: value.slice(0, 80),
+                    matches: targetText.length > 0 && value.includes(targetText.slice(0, 40)),
                   });
                 }, 400);
               }, 400);

@@ -1982,15 +1982,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }}
         }},
         copyHealthCommand(issue) {{
-          // Wrap copyText + flash a transient confirmation chip. Same
-          // shape as the taste-share copy button (key + 2400ms reset).
+          // Build the per-issue flash key + delegate to copyText, which
+          // owns the setTimeout + reset since tick #76 made the helper
+          // accept (value, flashKey). The inline setTimeout that used
+          // to live here was a duplicate of #76's flash logic — third
+          // shape would have made principle #17 ("three inline shapes
+          // = missing helper") fire on something that's already a helper.
           if (!issue || !issue.command) return;
-          this.copyText(issue.command);
-          const key = 'health-' + issue.name + issue.status;
-          this.copiedKey = key;
-          setTimeout(() => {{
-            if (this.copiedKey === key) this.copiedKey = '';
-          }}, 2400);
+          this.copyText(issue.command, 'health-' + issue.name + issue.status);
         }},
         formatScore(score, unit) {{
           if (score === null || score === undefined) {{
