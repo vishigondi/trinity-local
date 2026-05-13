@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 27 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 28 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -80,6 +80,10 @@ Surfaces:
        basin_id has a centroid match grows a .cortex-topology-chip
        alongside the basin name (tick #35). Same matcher as Surfaces
        24 + 25 — three surfaces, one source of truth.
+   27. Lens card → basin chips: each paired lens on the launchpad
+       renders its basins_spanned[] as small .lens-basin-chip deep-links
+       to the topology view focused on that basin (tick #36). Closes the
+       forward-arc "lens card → source prompts" gap.
 
 Exit codes:
     0 — all surfaces pass
@@ -1571,6 +1575,39 @@ def main() -> int:
             reason = f"href={cortex_chip_state.get('href')!r}"
             print(f"[ ✗ ] Surface 26 cortex→topology: {reason}")
             fails.append((26, "cortex→topology chip", reason))
+
+        # ─── Surface 27: Lens card → topology basin chips ────────────────────
+        # Each paired lens carries basins_spanned[] (topology basins the
+        # tension lives across). The lens card now renders each id as a
+        # .lens-basin-chip deep-link to topics.html?basin=<id>. SKIPPED
+        # when no paired lens has basins_spanned (legacy data — early
+        # lens-build runs didn't populate the field).
+        chip_state = page.evaluate(
+            """() => {
+              const chips = Array.from(document.querySelectorAll('a.lens-basin-chip'));
+              if (!chips.length) return {ok: true, skipped: true, reason: 'no .lens-basin-chip on the page (legacy lenses?)'};
+              const href = chips[0].getAttribute('href') || '';
+              const m = href.match(/[?&]basin=([^&]+)/);
+              return {
+                ok: !!m && href.includes('topics.json'),
+                total: chips.length,
+                href: href,
+                basin: m ? decodeURIComponent(m[1]) : null,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "27-lens-basin-chips.png"))
+        if chip_state.get("skipped"):
+            print(f"[ - ] Surface 27 lens→basin: SKIPPED ({chip_state['reason']})")
+        elif chip_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 27 lens→basin: {chip_state['total']} chip(s) · "
+                f"first → basin={chip_state['basin']}"
+            )
+        else:
+            reason = f"href={chip_state.get('href')!r}"
+            print(f"[ ✗ ] Surface 27 lens→basin: {reason}")
+            fails.append((27, "lens→basin chips", reason))
 
         browser.close()
 

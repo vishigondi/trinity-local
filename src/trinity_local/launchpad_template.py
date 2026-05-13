@@ -1119,6 +1119,21 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <span class="taste-failure-line">pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b></span>
                 <span class="taste-failure-line">pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b></span>
               </span>
+              <!-- Spans-basins chips: each basin id deep-links to the
+                   topology view focused on that basin (tick #36). Closes
+                   the forward-arc gap "lens card → source prompts" by
+                   linking the tension to the basins it lives across. -->
+              <span class="lens-basins-row" v-if="p.basins_spanned && p.basins_spanned.length"
+                style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+                <span class="meta" style="font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7;">Spans</span>
+                <a v-for="bid in p.basins_spanned" :key="'lb-' + idx + '-' + bid"
+                   class="lens-basin-chip"
+                   :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(bid)"
+                   :title="'Open basin ' + bid + ' in the topology graph'"
+                   style="font-size: 10px; font-family: ui-monospace, monospace; color: var(--text-secondary); text-decoration: none; padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface);">
+                  {{{{ bid }}}}
+                </a>
+              </span>
             </li>
           </ol>
         </div>
