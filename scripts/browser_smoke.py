@@ -535,7 +535,7 @@ def main() -> int:
             timeout=3000,
         )
 
-        # ─── Surface 9: Multi-round thread render + refinement directive ──────
+        # ─── Surface 9: Multi-round thread + refinement + Quote chip ──────────
         # The thread-per-page UX (commit 3c44bbd fixed a regression where
         # auto-chain iteration rounds got lost). Pick a known 3-round bundle
         # from disk and assert all three segments render with the expected
@@ -547,6 +547,12 @@ def main() -> int:
         # observed on bundle_42f8cea9c9e705e5 with "Stop copy-pasting prompts.
         # Own your context. Forge your core memories." The selector tracks
         # .refinement-prompt structurally, not the user's exact text.
+        # Extended (tick #61): also asserts the Quote chip (tick #60) is
+        # present on completed member cards AND clicking it actually
+        # populates the refinement input. The behavior is the regression
+        # target — a future refactor that drops quoteMember() or breaks
+        # the click.stop binding would silently regress the cherry-pick
+        # workflow this surface protects.
         thread_id = _find_multi_round_thread()
         if thread_id is None:
             print(f"[ - ] Surface 9 multi-round thread: SKIPPED (no 3+ round bundle on disk)")
@@ -572,7 +578,31 @@ def main() -> int:
                     const r = seg.querySelector('.refinement-prompt');
                     return !!(r && r.textContent && r.textContent.trim().length > 1);
                   }).length;
-                  return {seg_count: segments.length, roundLabels, hasSynthesis, refinementCount};
+                  const quoteButtonCount = document.querySelectorAll('.quote-member-btn').length;
+                  return {seg_count: segments.length, roundLabels, hasSynthesis, refinementCount, quoteButtonCount};
+                }"""
+            )
+            # Behavior check: click the first Quote chip and confirm it
+            # populates the refinement input. Light wait for petite-vue
+            # to react before reading the input value. The chip uses
+            # @click.stop so this MUST NOT trigger the parent article's
+            # pick-winner click — if it does, the rate_council shortcut
+            # would fire and we'd see a selectedProvider mutation.
+            quote_behavior = page.evaluate(
+                """() => {
+                  const btn = document.querySelector('.quote-member-btn');
+                  const input = document.querySelector('.chain-refine-input');
+                  if (!btn || !input) return {clicked: false};
+                  const before = input.value || '';
+                  btn.click();
+                  return {clicked: true, before_len: before.length};
+                }"""
+            )
+            page.wait_for_timeout(200)
+            quote_after = page.evaluate(
+                """() => {
+                  const input = document.querySelector('.chain-refine-input');
+                  return {after_len: input ? (input.value || '').length : 0};
                 }"""
             )
             page.screenshot(path=str(SHOTS_DIR / "9-multi-round-thread.png"), full_page=True)
@@ -580,6 +610,11 @@ def main() -> int:
             seg_count = thread_state.get("seg_count", 0)
             synth_ok = all(thread_state.get("hasSynthesis", []))
             refinement_count = thread_state.get("refinementCount", 0)
+            quote_count = thread_state.get("quoteButtonCount", 0)
+            quote_click_ok = (
+                quote_behavior.get("clicked")
+                and quote_after.get("after_len", 0) > quote_behavior.get("before_len", 0)
+            )
             # Each segment must (a) exist, (b) carry its own round number,
             # (c) render its own chairman synthesis. Round numbers should be
             # monotonic — first is 1, then 2, then 3. Additionally, when
@@ -591,17 +626,24 @@ def main() -> int:
             picked_has_refinement = _thread_has_refinement(thread_id)
             structural_ok = seg_count >= 3 and rounds[:3] == [1, 2, 3] and synth_ok
             refinement_ok = (not picked_has_refinement) or refinement_count >= 1
-            if structural_ok and refinement_ok:
+            # Quote chip must be present on at least one completed member
+            # card AND clicking it must grow the refinement input. The
+            # button is gated on row.statusClass === 'done', so a
+            # completed thread (which is what Surface 9 picks) is
+            # guaranteed to have ≥1 candidate card with the chip.
+            quote_ok = quote_count >= 1 and quote_click_ok
+            if structural_ok and refinement_ok and quote_ok:
                 refinement_note = (
                     f", refinement_count={refinement_count}"
                     if picked_has_refinement
                     else " (no-refinement thread; assertion skipped)"
                 )
-                print(f"[ ✓ ] Surface 9 multi-round thread: {seg_count} segments, rounds={rounds}, synthesis per round{refinement_note}")
+                print(f"[ ✓ ] Surface 9 multi-round thread: {seg_count} segments, rounds={rounds}, synthesis per round{refinement_note}, quote_chips={quote_count} (click populates input)")
             else:
                 reason = (
                     f"seg_count={seg_count} rounds={rounds} synth_per_round_ok={synth_ok} "
-                    f"refinement_count={refinement_count} (picked_has_refinement={picked_has_refinement})"
+                    f"refinement_count={refinement_count} (picked_has_refinement={picked_has_refinement}) "
+                    f"quote_count={quote_count} quote_click_ok={quote_click_ok}"
                 )
                 print(f"[ ✗ ] Surface 9 multi-round thread: {reason}")
                 fails.append((9, "multi-round thread render", reason))
