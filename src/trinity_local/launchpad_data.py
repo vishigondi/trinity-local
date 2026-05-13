@@ -561,11 +561,47 @@ def build_page_data(
         # this (promise wins the H1 in idle state); kept exposed in case
         # other sections want a first-run greeting affordance.
         "recentCouncilsCount": len(recent_councils),
+        # Per-corpus verdict-capture stat. Lights the "Your training
+        # history" eyebrow with "N of M rated" so the gap is visible
+        # at a glance — the moat is this ledger, and an empty ledger
+        # is invisible without the count. See task #110 + tick #69.
+        "verdictStats": _verdict_stats(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
     }
+
+
+def _verdict_stats() -> dict:
+    """Walk every council outcome and return verdict-capture counts.
+
+    Trinity's whole moat thesis ("the personal ledger of cross-model
+    preferences") rests on the user rating councils — every verdict
+    feeds the personal_routing_table and the cortex picks. Tick #69
+    found the real-corpus rate at 3 of 19 outcomes (16%): 84% of
+    councils contribute zero supervision data. Surfacing the count
+    on the launchpad is the cheapest way to make the gap visible
+    without nagging the user mid-flow (task #110).
+
+    A council counts as "rated" when its outcome JSON carries
+    `metadata.user_verdict.user_winner`. Same field both the CLI
+    council-rate handler and the MCP record_outcome tool write to.
+    """
+    total = 0
+    rated = 0
+    for path in council_outcomes_dir().glob("council_*.json"):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        total += 1
+        metadata = raw.get("metadata") or {}
+        verdict = metadata.get("user_verdict") or {}
+        if isinstance(verdict, dict) and verdict.get("user_winner"):
+            rated += 1
+    rate = rated / total if total else 0.0
+    return {"total": total, "rated": rated, "rate": rate}
 
 
 def _core_status() -> dict:

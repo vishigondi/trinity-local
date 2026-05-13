@@ -1287,9 +1287,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card">
-        <div class="eyebrow">Your training history</div>
+        <div class="eyebrow">
+          Your training history
+          <span v-if="pageData.verdictStats && pageData.verdictStats.total > 0" class="meta" style="font-weight: 400; opacity: 0.7;">
+            · {{{{ pageData.verdictStats.rated }}}} of {{{{ pageData.verdictStats.total }}}} rated
+          </span>
+        </div>
         <h2>Every council you've taught the router</h2>
         <p class="meta">Reopen any thread to change your verdict. Every rating feeds your routing above — the moat is this ledger, not any one answer.</p>
+        <p class="meta" v-if="pageData.verdictStats && pageData.verdictStats.total >= 5 && pageData.verdictStats.rate < 0.5" style="color: var(--accent); margin-top: -4px;">
+          Only {{{{ Math.round(pageData.verdictStats.rate * 100) }}}}% of councils have your verdict. Pick a card below — the ledger learns from every click.
+        </p>
         <div class="grid grid-2" style="margin-top: 20px;">
           {recent_cards}
         </div>
