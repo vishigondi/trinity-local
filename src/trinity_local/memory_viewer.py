@@ -128,6 +128,14 @@ def render_memory_viewer_html() -> str:
     d3_quadtree_src = "https://cdn.jsdelivr.net/npm/d3-quadtree@3.0.1/dist/d3-quadtree.min.js"
     d3_drag_src = "https://cdn.jsdelivr.net/npm/d3-drag@3.0.0/dist/d3-drag.min.js"
     d3_force_src = "https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"
+    # d3-zoom — pan + scroll-wheel zoom on the topic graph. The viewer
+    # advertises "scroll to zoom" in the hint chip; without this module
+    # that was a lie.
+    d3_zoom_src = "https://cdn.jsdelivr.net/npm/d3-zoom@3.0.0/dist/d3-zoom.min.js"
+    # d3-interpolate is a transitive dep of d3-zoom (for the transform
+    # interpolation during programmatic zoom). Tiny (~5KB).
+    d3_interpolate_src = "https://cdn.jsdelivr.net/npm/d3-interpolate@3.0.1/dist/d3-interpolate.min.js"
+    d3_color_src = "https://cdn.jsdelivr.net/npm/d3-color@3.1.0/dist/d3-color.min.js"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -141,6 +149,9 @@ def render_memory_viewer_html() -> str:
   <script src="{d3_quadtree_src}"></script>
   <script src="{d3_drag_src}"></script>
   <script src="{d3_force_src}"></script>
+  <script src="{d3_color_src}"></script>
+  <script src="{d3_interpolate_src}"></script>
+  <script src="{d3_zoom_src}"></script>
   <style>
     /* Palette: matches DESIGN.md + design_system.py — warm paper bg,
        forest green primary action, warm brown accent for emphasis. */
@@ -781,11 +792,32 @@ def render_memory_viewer_html() -> str:
         return denom > 0 ? dot / denom : 0;
       }}
 
+      // Label = first 4 words of the top representative prompt — the
+      // closest-to-centroid prompt is the most semantically central thing
+      // the user actually asked, so its opening words tell you what this
+      // basin is *about*. Falls back to TF-IDF top_terms when representatives
+      // haven't been written yet (legacy topics.json files from before the
+      // representatives feature shipped — those clear on the next lens-build).
+      function labelFor(b) {{
+        const reps = Array.isArray(b.representatives) ? b.representatives : [];
+        if (reps.length && reps[0].snippet) {{
+          const words = reps[0].snippet.trim().split(/\\s+/).slice(0, 4).join(" ");
+          if (words) return words.length > 36 ? words.slice(0, 36) + "…" : words;
+        }}
+        return (b.top_terms && b.top_terms[0]) || b.id || "?";
+      }}
+      function tooltipFor(b) {{
+        // Hover tooltip = full top representative if we have one.
+        const reps = Array.isArray(b.representatives) ? b.representatives : [];
+        if (reps.length && reps[0].snippet) return reps[0].snippet;
+        return (b.top_terms || []).join(", ");
+      }}
       const nodes = basins.map((b, i) => ({{
         id: b.id || ("b" + i),
         basin: b,
         size: b.size || 0,
-        label: (b.top_terms && b.top_terms[0]) || b.id || "?",
+        label: labelFor(b),
+        tooltip: tooltipFor(b),
       }}));
       const sizeMax = nodes.reduce((m, n) => Math.max(m, n.size), 1);
       const sizeMin = nodes.reduce((m, n) => Math.min(m, n.size), sizeMax);
@@ -829,17 +861,28 @@ def render_memory_viewer_html() -> str:
         .force("collide", window.d3.forceCollide().radius(d => radiusFor(d) + 6).strength(0.9))
         .alpha(1).alphaDecay(0.025);
 
-      // Draw layers — links first (so they sit under nodes), then nodes,
-      // then labels. Use d3-selection for the data binding (saves writing
-      // enter/exit dance by hand).
+      // Pre-compute adjacency so click-highlight is O(1) per node.
+      const neighborsOf = new Map();
+      nodes.forEach(n => neighborsOf.set(n.id, new Set([n.id])));
+      edges.forEach(e => {{
+        const s = typeof e.source === "object" ? e.source.id : e.source;
+        const t = typeof e.target === "object" ? e.target.id : e.target;
+        neighborsOf.get(s)?.add(t);
+        neighborsOf.get(t)?.add(s);
+      }});
+
+      // d3-zoom group — everything else nests inside `viewport` so the
+      // zoom transform applies uniformly to links + nodes + labels.
       const d3svg = window.d3.select(svg);
-      const linkSel = d3svg.append("g")
+      const viewport = d3svg.append("g").attr("class", "viewport");
+
+      const linkSel = viewport.append("g")
         .selectAll("line")
         .data(edges)
         .join("line")
         .attr("class", d => d.strong ? "link strong" : "link");
 
-      const nodeSel = d3svg.append("g")
+      const nodeSel = viewport.append("g")
         .selectAll("circle")
         .data(nodes)
         .join("circle")
@@ -849,15 +892,23 @@ def render_memory_viewer_html() -> str:
           // Warm-brown → forest-green gradient by size for hierarchy.
           // Matches DESIGN.md palette: accent (#b57438) → primary (#255847).
           const t = Math.sqrt(d.size / sizeMax);
-          const hue = 28 + (155 - 28) * t;     // 28 (brown) → 155 (green)
+          const hue = 28 + (155 - 28) * t;
           const sat = 50 + 5 * t;
-          const light = 55 - 30 * t;            // bigger → darker
+          const light = 55 - 30 * t;
           return "hsl(" + hue + "," + sat + "%," + light + "%)";
         }})
-        .on("click", (event, d) => showDetail(d.basin));
+        .on("click", (event, d) => {{
+          event.stopPropagation();  // don't bubble to the svg background
+          showDetail(d.basin);
+          highlightNeighborhood(d.id);
+        }});
 
-      // Drag behavior — re-energizes the sim while dragging so the
-      // dragged node "pulls" its neighbors with it (Obsidian feel).
+      // Native SVG <title> for hover tooltip — first representative or
+      // fallback to TF-IDF top terms. Browser renders it natively, no JS.
+      nodeSel.append("title").text(d => d.tooltip);
+
+      // Drag re-energizes the sim so the dragged node "pulls" neighbors
+      // with it (Obsidian feel).
       nodeSel.call(window.d3.drag()
         .on("start", (event, d) => {{
           if (!event.active) sim.alphaTarget(0.3).restart();
@@ -869,13 +920,42 @@ def render_memory_viewer_html() -> str:
           d.fx = null; d.fy = null;
         }}));
 
-      const labelSel = d3svg.append("g")
+      const labelSel = viewport.append("g")
         .selectAll("text")
         .data(nodes)
         .join("text")
         .attr("class", "label")
         .attr("font-size", d => 11 + Math.sqrt(d.size / sizeMax) * 9)
         .text(d => d.label);
+
+      // Background click clears the highlight selection.
+      d3svg.on("click", () => clearHighlight());
+
+      // d3-zoom: scroll-wheel zoom + click-drag pan over the viewport.
+      // Scale clamped 0.5×–4× so the user can't lose the graph by
+      // zooming to a single pixel or so far out it vanishes.
+      if (window.d3.zoom) {{
+        const zoom = window.d3.zoom()
+          .scaleExtent([0.5, 4])
+          .on("zoom", (event) => viewport.attr("transform", event.transform));
+        d3svg.call(zoom);
+      }}
+
+      function highlightNeighborhood(centerId) {{
+        const neighbors = neighborsOf.get(centerId) || new Set([centerId]);
+        nodeSel.style("opacity", d => neighbors.has(d.id) ? 1 : 0.18);
+        labelSel.style("opacity", d => neighbors.has(d.id) ? 1 : 0.18);
+        linkSel.style("opacity", d => {{
+          const s = typeof d.source === "object" ? d.source.id : d.source;
+          const t = typeof d.target === "object" ? d.target.id : d.target;
+          return (s === centerId || t === centerId) ? 1 : 0.05;
+        }});
+      }}
+      function clearHighlight() {{
+        nodeSel.style("opacity", 1);
+        labelSel.style("opacity", 1);
+        linkSel.style("opacity", null);  // back to CSS-defined stroke alpha
+      }}
 
       sim.on("tick", () => {{
         linkSel

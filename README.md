@@ -46,9 +46,17 @@ can see. Each is a different kind of memory; each lives in `~/.trinity/memories/
 | `vocabulary.md` | how you use specific words | language memory |
 | `core.md` | one paragraph that subsumes them all | identity |
 
-The first five are the durable plural — your **core memories**. `core.md` (at
-`~/.trinity/core.md`) is the distilled singular — one paragraph that subsumes them all,
-read by the chairman first on every council.
+The first five are the durable plural — your **core memories**, written under
+`~/.trinity/memories/`. `core.md` (one level up at `~/.trinity/core.md`) is the
+distilled singular — one paragraph that subsumes them all, read by the chairman
+first on every council.
+
+Inspect any of the six at any time via the launchpad's "Your memories, raw" card,
+which links to a local viewer at `~/.trinity/portal_pages/memory.html`. Markdown
+renders with `marked`; `picks.json` and `routing.json` get schema-aware cards and
+tables; `topics.json` renders as an Obsidian-style force graph over centroid
+cosine similarity, with each basin's most-representative prompts on click. All
+inlined at `portal-html` time — works under `file://`, no server needed.
 
 ### One answer that knows you.
 
