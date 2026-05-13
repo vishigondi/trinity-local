@@ -18,6 +18,7 @@ filesystem + subprocess version probes. <1s on a working install.
 
 from __future__ import annotations
 
+import json
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -208,6 +209,67 @@ def _check_mcp_available() -> CheckResult:
         )
 
 
+def _check_feedback_consistency() -> CheckResult:
+    """Council feedback entries should point at outcomes that still exist.
+
+    Tick #69's data audit found 16 of 19 feedback entries in
+    `~/.trinity/council_feedback.jsonl` pointed at council_ids whose
+    outcome JSON had been deleted by older cleanup passes. The orphans
+    are read-only history — they're not corrupting anything, but they
+    DO skew downstream audits ("verdict capture rate is 16%!" was
+    partially the orphans' fault). Surfacing the orphan count here
+    makes the count reproducible and gives the user a hint when the
+    feedback log has accumulated cruft.
+
+    Soft check: passes either way (orphans are harmless), just reports
+    the count so doctor isn't lying about cleanliness.
+    """
+    from .council_feedback import council_feedback_path
+    from .state_paths import council_outcomes_dir
+    fb = council_feedback_path()
+    if not fb.exists():
+        return CheckResult(
+            name="feedback_consistency",
+            ok=True,
+            detail="no feedback log yet (fresh install)",
+        )
+    outcomes_dir = council_outcomes_dir()
+    existing_outcomes = {p.stem for p in outcomes_dir.glob("council_*.json")}
+    feedback_cids: set[str] = set()
+    try:
+        with fb.open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                cid = entry.get("council_id")
+                if cid:
+                    feedback_cids.add(cid)
+    except OSError as exc:
+        return CheckResult(
+            name="feedback_consistency",
+            ok=False,
+            detail=f"feedback log unreadable: {exc}",
+        )
+    orphans = feedback_cids - existing_outcomes
+    total = len(feedback_cids)
+    if not orphans:
+        return CheckResult(
+            name="feedback_consistency",
+            ok=True,
+            detail=f"all {total} feedback entries align with current outcomes",
+        )
+    return CheckResult(
+        name="feedback_consistency",
+        ok=True,  # orphans are harmless; just surface the count
+        detail=(
+            f"{len(orphans)} of {total} feedback entries reference outcomes "
+            f"that no longer exist (history from earlier cleanups; safe to ignore)"
+        ),
+    )
+
+
 def _check_shortcut_installed() -> CheckResult:
     """Macros Shortcut named "Trinity Dispatch" must be in the user's library.
 
@@ -324,6 +386,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_config())
     report.checks.append(_check_mcp_available())
     report.checks.append(_check_shortcut_installed())
+    report.checks.append(_check_feedback_consistency())
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))
     report.checks.append(_check_provider("gemini", "gemini"))

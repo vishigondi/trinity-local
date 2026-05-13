@@ -142,6 +142,62 @@ class TestDoctorReport:
         assert "https://example.com" in out
 
 
+class TestFeedbackConsistency:
+    """Tick #75 — surface orphaned council_feedback entries so audits
+    are reproducible. Soft check: ok stays True (orphans are harmless),
+    detail explains the count when non-zero. Reproduces tick #69's
+    "16 of 19 entries reference deleted outcomes" finding shape."""
+
+    def test_no_feedback_log_passes_silently(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        (tmp_path / "trinity").mkdir(parents=True, exist_ok=True)
+        from trinity_local.doctor import _check_feedback_consistency
+        result = _check_feedback_consistency()
+        assert result.ok is True
+        assert "fresh install" in result.detail.lower()
+
+    def test_aligned_feedback_passes_clean(self, tmp_path, monkeypatch):
+        """Every feedback entry matches an existing outcome → clean."""
+        import json as _json
+        home = tmp_path / "trinity"
+        outcomes = home / "council_outcomes"
+        outcomes.mkdir(parents=True, exist_ok=True)
+        (outcomes / "council_x.json").write_text("{}", encoding="utf-8")
+        (home / "council_feedback.jsonl").write_text(
+            _json.dumps({"council_id": "council_x", "provider": "claude"}) + "\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_feedback_consistency
+        result = _check_feedback_consistency()
+        assert result.ok is True
+        assert "no longer exist" not in result.detail
+
+    def test_orphaned_feedback_surfaced_but_still_ok(self, tmp_path, monkeypatch):
+        """Orphans are loud (detail names the count) but not failing
+        (ok=True, doctor stays green). This is the regression target —
+        if a future doctor refactor flipped this to ok=False, every
+        post-cleanup user would suddenly see a red ✗ for accumulated
+        history they can't safely undo."""
+        import json as _json
+        home = tmp_path / "trinity"
+        outcomes = home / "council_outcomes"
+        outcomes.mkdir(parents=True, exist_ok=True)
+        (outcomes / "council_alive.json").write_text("{}", encoding="utf-8")
+        lines = [
+            _json.dumps({"council_id": "council_alive", "provider": "c"}),
+            _json.dumps({"council_id": "council_deleted_1", "provider": "c"}),
+            _json.dumps({"council_id": "council_deleted_2", "provider": "g"}),
+        ]
+        (home / "council_feedback.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_feedback_consistency
+        result = _check_feedback_consistency()
+        assert result.ok is True
+        assert "2 of 3" in result.detail
+        assert "no longer exist" in result.detail
+
+
 class TestShortcutCheck:
     """Tick #72 — doctor surfaces the macOS Shortcut registration
     proactively. This was the silent-failure root cause behind the
