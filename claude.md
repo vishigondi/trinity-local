@@ -229,17 +229,22 @@ A few words do specific work; they get conflated otherwise:
 
 - **prompts** — what the user owns (raw, indexed in `~/.trinity/memory/` for now; will move to `~/.trinity/prompts/` per Tier 1 #1). Inputs to dream.
 - **dream** — the verb only Trinity has. Reads prompts, emits core memories (offline, your data).
-- **core memories** — the five durable memory types dream creates (plural):
+- **core memories** — the durable memory types dream creates (plural):
 
-  | memory | what's in it | brain analog |
-  |---|---|---|
-  | `lens.md` | tensions you'd reject vs accept | value memory |
-  | `picks.json` | your model picks per topic, with reasoning | procedural memory |
-  | `routing.json` | per-category provider track record (numbers) | empirical memory |
-  | `topics.json` | clusters of subjects you ask about | semantic memory |
-  | `vocabulary.md` | how you use specific words | language memory |
+  | memory | what's in it | brain analog | status |
+  |---|---|---|---|
+  | `lens.md` | tensions you'd reject vs accept | value memory | shipped |
+  | `picks.json` | your model picks per topic, with reasoning | procedural memory | shipped |
+  | `routing.json` | per-category provider track record (numbers) | empirical memory | shipped |
+  | `topics.json` | clusters of subjects you ask about | semantic memory | shipped |
+  | `vocabulary.md` | how you use specific words | language memory | shipped |
+  | `principles.md` | rules you'd extract from watching yourself work | meta-cognitive memory | v1.6 (task #109) |
 
-  All five live in `~/.trinity/memories/`.
+  The five shipped memories live in `~/.trinity/memories/`. Principles
+  reuses the same directory when it lands. Splits cleanly along
+  WHAT (lens) / HOW (picks, routing) / META (principles); first three
+  rows are WHAT-and-HOW combined, last row is the GPS that lifts the
+  hill-climbing out of any single basin's local maximum.
 
 - **core** — the singular distillation. `~/.trinity/core.md` is one paragraph that subsumes the five memories above — chairman reads it FIRST on every council, falls through to specific memory files only when it needs depth.
 - **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.

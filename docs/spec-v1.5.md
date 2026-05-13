@@ -468,6 +468,23 @@ HDBSCAN in one specific data shape (single connected curved manifold,
 not multimodal). Revisit only if calibration shows curved-single-manifold
 is a real failure class.
 
+**principles.md (the sixth core memory).** Trinity persists per-council
+`routing_lesson` strings on every outcome but never aggregates them.
+Cluster routing_lessons across `~/.trinity/council_outcomes/*.json`,
+prefer those where `user_winner != chairman pick` (the highest-signal
+"reverted commit" analog), filter to clusters whose source councils
+span ≥3 distinct prompt-basins (cross-domain recurrence is what
+distinguishes meta-principle from domain habit), and chairman-extract
+the unifying rule per qualifying cluster. Ship as `~/.trinity/memories/principles.md`
++ `mark_principle_wrong` MCP tool mirroring `mark_pick_wrong`. Brain
+analog: meta-cognitive memory ("rules I've extracted from watching
+myself work"). The 15 principles in `claude.md` are the ground-truth
+eval set — pipeline should rediscover most of them from this repo's
+own council+git history. Tracked as task #109. Same structural shape
+as the lens Stage 4 post-filter ("drop accepted pairs whose tension
+evidence sits in a single basin") — just at the cross-event level
+instead of cross-decision.
+
 ### Cortex (routing) vs Lens (evaluation) — two layers, same data
 
 This was implicit; making it explicit because the layers serve different
