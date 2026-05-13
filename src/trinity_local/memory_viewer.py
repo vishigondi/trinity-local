@@ -114,7 +114,20 @@ def render_memory_viewer_html() -> str:
     marked_src = "https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
     # wordcloud2.js (timdream) — standalone, ~31KB. Used by the topics.json
     # Reader view to render a basin cloud above the bar list.
-    wordcloud_src = "https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"
+    # d3 modules for the topics.json basin-relation graph. We pull only
+    # the pieces we need rather than the full ~250KB d3 bundle:
+    #   - d3-selection: DOM binding (.select, .selectAll, .data, .join)
+    #   - d3-drag: pointer drag for moving nodes
+    #   - d3-dispatch + d3-timer: event + animation loop (force needs these)
+    #   - d3-quadtree: spatial index used by forceCollide + forceManyBody
+    #   - d3-force: the simulation itself
+    # Total ~80KB — still under the full d3 (~250KB).
+    d3_select_src = "https://cdn.jsdelivr.net/npm/d3-selection@3.0.0/dist/d3-selection.min.js"
+    d3_dispatch_src = "https://cdn.jsdelivr.net/npm/d3-dispatch@3.0.1/dist/d3-dispatch.min.js"
+    d3_timer_src = "https://cdn.jsdelivr.net/npm/d3-timer@3.0.1/dist/d3-timer.min.js"
+    d3_quadtree_src = "https://cdn.jsdelivr.net/npm/d3-quadtree@3.0.1/dist/d3-quadtree.min.js"
+    d3_drag_src = "https://cdn.jsdelivr.net/npm/d3-drag@3.0.0/dist/d3-drag.min.js"
+    d3_force_src = "https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -122,7 +135,12 @@ def render_memory_viewer_html() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trinity · Memory viewer</title>
   <script src="{marked_src}"></script>
-  <script src="{wordcloud_src}"></script>
+  <script src="{d3_select_src}"></script>
+  <script src="{d3_dispatch_src}"></script>
+  <script src="{d3_timer_src}"></script>
+  <script src="{d3_quadtree_src}"></script>
+  <script src="{d3_drag_src}"></script>
+  <script src="{d3_force_src}"></script>
   <style>
     :root {{
       --bg: #fafaf7;
@@ -331,101 +349,72 @@ def render_memory_viewer_html() -> str:
     .routing-table th {{ background: var(--code-bg); font-weight: 600; text-align: left; }}
     .routing-table td.score {{ text-align: right; font-family: ui-monospace, monospace; }}
     .routing-table td.best {{ background: rgba(34, 197, 94, 0.08); font-weight: 600; }}
-    /* topics.json reader — distribution of prompts across basins. */
-    .topics-cloud-wrap {{
+    /* topics.json reader — basin-relation graph (Obsidian-style). */
+    .topics-graph-wrap {{
+      background: #14141a;
+      border-radius: 8px;
+      padding: 0;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }}
+    .topics-graph-svg {{
+      display: block;
+      width: 100%;
+      height: 520px;
+      background: radial-gradient(circle at center, #1a1a24 0%, #0e0e15 100%);
+      cursor: grab;
+    }}
+    .topics-graph-svg:active {{ cursor: grabbing; }}
+    .topics-graph-svg .link {{
+      stroke: rgba(139, 92, 246, 0.35);
+      stroke-width: 1px;
+    }}
+    .topics-graph-svg .link.strong {{
+      stroke: rgba(139, 92, 246, 0.75);
+      stroke-width: 2px;
+    }}
+    .topics-graph-svg .node {{
+      cursor: pointer;
+      stroke: rgba(255, 255, 255, 0.4);
+      stroke-width: 1.5px;
+    }}
+    .topics-graph-svg .node:hover {{ stroke: white; stroke-width: 2.5px; }}
+    .topics-graph-svg .label {{
+      fill: rgba(255, 255, 255, 0.92);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 600;
+      pointer-events: none;
+      text-anchor: middle;
+      paint-order: stroke fill;
+      stroke: rgba(0, 0, 0, 0.7);
+      stroke-width: 3px;
+      stroke-linejoin: round;
+    }}
+    .topics-graph-hint {{
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+    }}
+    .topics-graph-detail {{
       background: white;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: center;
-    }}
-    .topics-cloud-canvas {{
-      width: 100%;
-      max-width: 720px;
-      height: 320px;
-      display: block;
-    }}
-    .topics-cloud-fallback {{
-      color: var(--meta);
+      padding: 14px 18px;
+      margin-bottom: 12px;
       font-size: 13px;
-      padding: 20px;
-      text-align: center;
+      min-height: 64px;
     }}
-    .topics-summary {{
-      font-size: 13px;
-      color: var(--meta);
-      margin-bottom: 16px;
-    }}
-    .topics-summary strong {{ color: var(--fg); }}
-    .basin-row {{
-      display: grid;
-      grid-template-columns: 56px 1fr 80px;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.1s;
-      margin-bottom: 4px;
-    }}
-    .basin-row:hover {{ background: var(--code-bg); }}
-    .basin-id {{
+    .topics-graph-detail .empty {{ color: var(--meta); padding: 0; text-align: left; }}
+    .topics-graph-detail .basin-id {{
       font-family: ui-monospace, monospace;
-      font-size: 12px;
       color: var(--accent);
       font-weight: 600;
     }}
-    .basin-bar-wrap {{
-      position: relative;
-      height: 22px;
-      background: var(--code-bg);
-      border-radius: 4px;
-      overflow: hidden;
-    }}
-    .basin-bar-fill {{
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      background: linear-gradient(90deg, #6366f1, #8b5cf6);
-      border-radius: 4px;
-    }}
-    .basin-bar-label {{
-      position: absolute;
-      left: 10px;
-      top: 0;
-      bottom: 0;
-      right: 10px;
-      display: flex;
-      align-items: center;
-      font-size: 12px;
-      color: white;
-      font-weight: 600;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
-    }}
-    .basin-pct {{
-      font-family: ui-monospace, monospace;
-      font-size: 12px;
-      color: var(--meta);
-      text-align: right;
-    }}
-    .basin-detail {{
-      margin: 2px 0 12px 68px;
-      padding: 10px 14px;
-      background: var(--code-bg);
-      border-radius: 6px;
-      font-size: 12px;
-      color: var(--meta);
-      display: none;
-    }}
-    .basin-detail.open {{ display: block; }}
-    .basin-detail .row-label {{ color: var(--fg); font-weight: 500; }}
+    .topics-graph-detail .row-label {{ color: var(--meta); }}
     /* JSON syntax highlight (used for topics.json Raw view + others) */
     .json-body {{ font-family: ui-monospace, monospace; font-size: 12px; }}
     .json-key {{ color: #6366f1; }}
@@ -706,157 +695,186 @@ def render_memory_viewer_html() -> str:
 
     function renderTopicsReader(target, topics) {{
       // topics.json shape: {{basins: [{{id, size, top_terms, centroid, prompt_ids}}]}}
-      // The centroid is 768-d — never shown directly. We visualize size
-      // distribution across basins so users see what they ask about most.
+      // We visualize basins as a force-directed graph (Obsidian-style).
+      // Nodes = basins (size by basin.size), edges = centroid cosine
+      // similarity, force layout pulls related topics together so the
+      // user can SEE which subjects cluster vs. which sit alone.
       const basins = Array.isArray(topics.basins) ? topics.basins.slice() : [];
       if (basins.length === 0) {{
         target.appendChild(el("p", "meta", "No topics yet — run trinity-local lens-build to compute basins."));
         return;
       }}
 
-      const total = basins.reduce((s, b) => s + (typeof b.size === "number" ? b.size : 0), 0);
-      const maxSize = basins.reduce((m, b) => Math.max(m, b.size || 0), 1);
+      // Detail panel above the graph — populated on node click.
+      const detail = el("div", "topics-graph-detail");
+      const detailEmpty = el("div", "empty", "Click a basin to see its top terms and prompt count.");
+      detail.appendChild(detailEmpty);
+      target.appendChild(detail);
 
-      // Cloud first — visual punch. wordcloud2.js packs words on a canvas
-      // sized by weight; the bars below give exact numbers.
-      const cloudWrap = el("div", "topics-cloud-wrap");
-      const canvas = document.createElement("canvas");
-      canvas.className = "topics-cloud-canvas";
-      // Set explicit pixel dimensions — wordcloud2 uses these directly,
-      // not CSS dimensions. 1440×640 gives a 2:1 aspect at a comfortable
-      // resolution for high-DPI screens.
-      canvas.width = 1440;
-      canvas.height = 640;
-      cloudWrap.appendChild(canvas);
-      target.appendChild(cloudWrap);
+      // Graph container — dark canvas + SVG overlay for the force layout.
+      const graphWrap = el("div", "topics-graph-wrap");
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("class", "topics-graph-svg");
+      svg.setAttribute("viewBox", "0 0 1000 520");
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      graphWrap.appendChild(svg);
+      const hint = el("div", "topics-graph-hint", "Drag nodes · scroll to zoom · click for detail");
+      graphWrap.appendChild(hint);
+      target.appendChild(graphWrap);
 
-      // Words: each basin's top_terms[0] sized by basin.size.
-      // De-dupe in case two basins share a top term (rare but possible
-      // after a reseed — keep the larger).
-      const wordMap = new Map();
-      basins.forEach(b => {{
-        const word = (b.top_terms && b.top_terms[0]) || b.id;
-        if (!word) return;
-        const prev = wordMap.get(word) || 0;
-        if ((b.size || 0) > prev) wordMap.set(word, b.size || 0);
-      }});
-      const list = Array.from(wordMap.entries()); // [[word, weight], ...]
-
-      if (typeof window.WordCloud === "function" && list.length > 0) {{
-        // wordcloud2 raw weight → font px is linear. With basin sizes
-        // ranging 23 → 2990, linear scaling makes the smallest words
-        // invisible. Sqrt-scale so the small basins still read at ~14px
-        // while the largest hits ~160px. Tuned for the 1440×640 canvas.
-        const cloudMax = list.reduce((m, w) => Math.max(m, w[1]), 1);
-        const TARGET_MAX_PX = 160;
-        const TARGET_MIN_PX = 16;
-        // Build a derived list where each weight is the desired font-px;
-        // weightFactor stays 1 so wordcloud2 uses our values directly.
-        const scaledList = list.map(([word, raw]) => {{
-          const t = Math.sqrt(raw / cloudMax);  // sqrt — emphasis on smaller words
-          const px = TARGET_MIN_PX + (TARGET_MAX_PX - TARGET_MIN_PX) * t;
-          return [word, px];
-        }});
-        try {{
-          window.WordCloud(canvas, {{
-            list: scaledList,
-            gridSize: 8,
-            weightFactor: 1,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            fontWeight: 600,
-            color: function (word, weight) {{
-              // Indigo-violet gradient — bigger words darker for hierarchy.
-              const t = Math.min(1, weight / TARGET_MAX_PX);
-              const hue = 246 - 22 * t;
-              const sat = 65 + 10 * t;
-              const light = 58 - 26 * t;
-              return "hsl(" + hue + "," + sat + "%," + light + "%)";
-            }},
-            rotateRatio: 0.25,
-            rotationSteps: 2,
-            backgroundColor: "transparent",
-            shrinkToFit: true,
-            drawOutOfBound: false,
-          }});
-        }} catch (err) {{
-          cloudWrap.removeChild(canvas);
-          cloudWrap.appendChild(el("div", "topics-cloud-fallback",
-            "Cloud render failed (" + err.message + "). Showing bars below."));
-        }}
-      }} else {{
-        cloudWrap.removeChild(canvas);
-        cloudWrap.appendChild(el("div", "topics-cloud-fallback",
-          "Cloud library not loaded — showing bars below."));
+      if (!window.d3 || !window.d3.forceSimulation) {{
+        graphWrap.removeChild(svg);
+        graphWrap.appendChild(el("div", "topics-graph-hint",
+          "Graph library not loaded — try the Raw JSON view."));
+        return;
       }}
 
-      const summary = el("div", "topics-summary");
-      summary.appendChild(document.createTextNode(basins.length + " basins · "));
-      summary.appendChild(el("strong", null, total.toLocaleString() + " prompts"));
-      summary.appendChild(document.createTextNode(" clustered. Largest: "));
-      const largest = basins.reduce((a, b) => (a.size || 0) >= (b.size || 0) ? a : b);
-      summary.appendChild(el("strong", null,
-        (largest.top_terms && largest.top_terms[0]) || largest.id || "?"));
-      summary.appendChild(document.createTextNode(
-        " (" + (largest.size || 0).toLocaleString() + " prompts, " +
-        Math.round(100 * (largest.size || 0) / Math.max(total, 1)) + "%)."));
-      target.appendChild(summary);
+      const W = 1000, H = 520;
+      // Cosine similarity over the centroid embeddings. Centroids are
+      // 768-d (Nomic). 20 basins → 190 pairs → trivial.
+      function cosine(a, b) {{
+        if (!a || !b || a.length !== b.length) return 0;
+        let dot = 0, na = 0, nb = 0;
+        for (let i = 0; i < a.length; i++) {{
+          const x = a[i], y = b[i];
+          dot += x * y; na += x * x; nb += y * y;
+        }}
+        const denom = Math.sqrt(na) * Math.sqrt(nb);
+        return denom > 0 ? dot / denom : 0;
+      }}
 
-      // Sort descending by size — biggest topics first, since that's the
-      // "what dominates your asking" story.
-      basins.sort((a, b) => (b.size || 0) - (a.size || 0));
+      const nodes = basins.map((b, i) => ({{
+        id: b.id || ("b" + i),
+        basin: b,
+        size: b.size || 0,
+        label: (b.top_terms && b.top_terms[0]) || b.id || "?",
+      }}));
+      const sizeMax = nodes.reduce((m, n) => Math.max(m, n.size), 1);
+      const sizeMin = nodes.reduce((m, n) => Math.min(m, n.size), sizeMax);
+      // Node radius: sqrt-scale (so a basin 100x bigger is 10x wider, not 100x).
+      function radiusFor(n) {{
+        const t = Math.sqrt(Math.max(1, n.size) / sizeMax);
+        return 10 + 32 * t;
+      }}
 
-      basins.forEach(b => {{
-        const id = b.id || "?";
-        const size = b.size || 0;
-        const pct = total > 0 ? (100 * size / total) : 0;
-        const widthPct = (size / maxSize) * 100;
-        const label = (b.top_terms && b.top_terms[0]) || "(no top term)";
+      // Build edges: every pair with cosine > threshold. We tune the
+      // threshold so each node gets ~3-5 neighbors on average — that's
+      // the visual sweet spot. With 20 basins that means ~50 edges.
+      const allPairs = [];
+      for (let i = 0; i < basins.length; i++) {{
+        for (let j = i + 1; j < basins.length; j++) {{
+          const sim = cosine(basins[i].centroid, basins[j].centroid);
+          allPairs.push({{ source: i, target: j, sim }});
+        }}
+      }}
+      // Pick a similarity threshold so we keep the top ~3*n edges.
+      const targetEdgeCount = Math.min(allPairs.length, nodes.length * 3);
+      allPairs.sort((a, b) => b.sim - a.sim);
+      const edges = allPairs.slice(0, targetEdgeCount).map(p => ({{
+        source: nodes[p.source].id,
+        target: nodes[p.target].id,
+        sim: p.sim,
+        strong: p.sim > 0.6,
+      }}));
 
-        const row = el("div", "basin-row");
-        row.appendChild(el("span", "basin-id", id));
+      // d3-force simulation. Force config tuned for 20 nodes:
+      //   link distance proportional to (1 - sim) so similar basins sit close
+      //   charge repels nodes so labels don't overlap
+      //   center keeps the whole thing on canvas
+      //   collide prevents node overlap
+      const sim = window.d3.forceSimulation(nodes)
+        .force("link", window.d3.forceLink(edges).id(d => d.id)
+          .distance(d => 60 + (1 - d.sim) * 220)
+          .strength(d => 0.2 + d.sim * 0.6))
+        .force("charge", window.d3.forceManyBody().strength(-380))
+        .force("center", window.d3.forceCenter(W / 2, H / 2))
+        .force("collide", window.d3.forceCollide().radius(d => radiusFor(d) + 6).strength(0.9))
+        .alpha(1).alphaDecay(0.025);
 
-        const barWrap = el("div", "basin-bar-wrap");
-        const fill = el("div", "basin-bar-fill");
-        fill.style.width = widthPct + "%";
-        barWrap.appendChild(fill);
-        barWrap.appendChild(el("span", "basin-bar-label",
-          (b.top_terms || []).slice(0, 3).join(" · ") || label));
-        row.appendChild(barWrap);
+      // Draw layers — links first (so they sit under nodes), then nodes,
+      // then labels. Use d3-selection for the data binding (saves writing
+      // enter/exit dance by hand).
+      const d3svg = window.d3.select(svg);
+      const linkSel = d3svg.append("g")
+        .selectAll("line")
+        .data(edges)
+        .join("line")
+        .attr("class", d => d.strong ? "link strong" : "link");
 
-        row.appendChild(el("span", "basin-pct",
-          size.toLocaleString() + " · " + pct.toFixed(1) + "%"));
+      const nodeSel = d3svg.append("g")
+        .selectAll("circle")
+        .data(nodes)
+        .join("circle")
+        .attr("class", "node")
+        .attr("r", radiusFor)
+        .attr("fill", d => {{
+          // Indigo→violet gradient by size for hierarchy.
+          const t = Math.sqrt(d.size / sizeMax);
+          const hue = 246 - 22 * t;
+          const sat = 65 + 10 * t;
+          const light = 58 - 18 * t;
+          return "hsl(" + hue + "," + sat + "%," + light + "%)";
+        }})
+        .on("click", (event, d) => showDetail(d.basin));
 
-        const detail = el("div", "basin-detail");
-        // top_terms full list
+      // Drag behavior — re-energizes the sim while dragging so the
+      // dragged node "pulls" its neighbors with it (Obsidian feel).
+      nodeSel.call(window.d3.drag()
+        .on("start", (event, d) => {{
+          if (!event.active) sim.alphaTarget(0.3).restart();
+          d.fx = d.x; d.fy = d.y;
+        }})
+        .on("drag", (event, d) => {{ d.fx = event.x; d.fy = event.y; }})
+        .on("end", (event, d) => {{
+          if (!event.active) sim.alphaTarget(0);
+          d.fx = null; d.fy = null;
+        }}));
+
+      const labelSel = d3svg.append("g")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr("class", "label")
+        .attr("font-size", d => 11 + Math.sqrt(d.size / sizeMax) * 9)
+        .text(d => d.label);
+
+      sim.on("tick", () => {{
+        linkSel
+          .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+          .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+        nodeSel.attr("cx", d => d.x).attr("cy", d => d.y);
+        labelSel.attr("x", d => d.x).attr("y", d => d.y + radiusFor(d) + 14);
+      }});
+
+      function showDetail(b) {{
+        const total = nodes.reduce((s, n) => s + n.size, 0);
+        const pct = total > 0 ? (100 * (b.size || 0) / total) : 0;
+        clearChildren(detail);
+        const head = el("div");
+        head.appendChild(el("span", "basin-id", b.id || "?"));
+        head.appendChild(document.createTextNode(" · "));
+        head.appendChild(document.createTextNode(
+          (b.size || 0).toLocaleString() + " prompts (" + pct.toFixed(1) + "% of corpus)"));
+        detail.appendChild(head);
         if (Array.isArray(b.top_terms) && b.top_terms.length) {{
           const tline = el("div");
+          tline.style.marginTop = "6px";
           tline.appendChild(el("span", "row-label", "Top terms: "));
           tline.appendChild(document.createTextNode(b.top_terms.join(", ")));
           detail.appendChild(tline);
         }}
-        // prompt_ids count (we don't show the ids themselves — they're opaque)
         const idCount = Array.isArray(b.prompt_ids) ? b.prompt_ids.length : null;
-        if (idCount !== null) {{
-          const pline = el("div");
-          pline.appendChild(el("span", "row-label", "Assigned prompt IDs: "));
-          pline.appendChild(document.createTextNode(idCount.toLocaleString()));
-          if (idCount !== size) {{
-            pline.appendChild(document.createTextNode(
-              " (size " + size.toLocaleString() + " — drift means topology was recomputed; rerun lens-build)"));
-          }}
-          detail.appendChild(pline);
+        if (idCount !== null && idCount !== (b.size || 0)) {{
+          const note = el("div", "row-label");
+          note.style.marginTop = "4px";
+          note.style.fontSize = "12px";
+          note.appendChild(document.createTextNode(
+            "Note: prompt_ids carries " + idCount + " entries vs basin size " +
+            (b.size || 0) + " — rerun lens-build to refresh."));
+          detail.appendChild(note);
         }}
-        // centroid presence indicator (don't dump 768 floats)
-        const cline = el("div");
-        cline.appendChild(el("span", "row-label", "Centroid: "));
-        cline.appendChild(document.createTextNode(
-          Array.isArray(b.centroid) ? (b.centroid.length + "-d embedding (hidden)") : "(missing)"));
-        detail.appendChild(cline);
-
-        row.addEventListener("click", () => detail.classList.toggle("open"));
-        target.appendChild(row);
-        target.appendChild(detail);
-      }});
+      }}
     }}
 
     function highlightJson(text) {{
