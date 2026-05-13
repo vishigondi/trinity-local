@@ -31,10 +31,12 @@ can't build the layer above them. Someone outside the labs has to.
 ~/.codex/. ~/.gemini/. Three SQLite caches owned by three companies, none allowed to read
 each other. Trinity reads all three. Locally. No phone-home.
 
-**The council as engine (4/12).** When you don't know which model is best for a question,
-ask three of them in parallel. A local chairman synthesizes — *agreed claims, disagreed
-claims, why the disagreement matters.* You click the answer you trusted. That click is
-the only training signal Trinity ever takes.
+**The council as GPS (4/12).** A council is a navigation tool, not a voting booth. Run
+it **broad** — every model in parallel, chairman synthesizes the spread (agreed claims,
+disagreed claims, why the disagreement matters) — and you see the territory. Run it
+**deep** — chain mode, multi-round refinement where each round sees the prior — and
+you drill toward conviction. Same primitive, two zoom levels. You click the answer you
+trusted. That click is the only training signal Trinity ever takes.
 
 **The taste capture (5/12).** After ~10 councils, Trinity has built a personal map of
 which model wins YOUR kind of question. From my own ledger:

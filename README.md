@@ -24,6 +24,22 @@ questions you asked multiple providers separately, and turns each cross-provider
 into a synthetic council — bootstrapping your context from your own history before
 you run a single fresh council.
 
+### Councils are a GPS — broad when you need coverage, deep when you need conviction.
+
+You ask one question; Trinity hands you the right mode. **Broad councils** run every
+model you use in parallel — chairman synthesizes the spread, you see where the labs
+agree and where they fight. **Deep councils** run a chain — each round refines the
+previous round's answer, the chairman steers toward conviction instead of coverage.
+Same primitive, two zoom levels. You're never lost in the answer space because the
+mechanic moves with you.
+
+The same GPS shape applies inside your own data. Trinity ranks your past prompts by
+**depth score** — a pure-geometry signal over your transcript embeddings (centroid
+distance × inter-turn movement × intrinsic dimensionality) that picks out the threads
+where you actually thought, not the ones where you typed "more". Broad: see the
+topology of everything you've asked. Deep: surface the threads where you went
+somewhere.
+
 ### Own your context.
 
 Prompts are transient strings; *context* is the durable asset that shapes how every

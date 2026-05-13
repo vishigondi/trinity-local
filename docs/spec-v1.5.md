@@ -369,6 +369,87 @@ Components, all in `cortex._compute_basin_geometry`:
    extraction prompt receives them in this order so the flagship
    weights the head of the list more heavily.
 
+### Lens-build: depth-first, chairman-in-the-loop (Week 4-5 design)
+
+The v1.0 lens-build pipeline runs k-means once on per-thread mean
+centroids, then labels basins with TF-IDF top-terms. Two failure
+modes show up on real corpora:
+
+1. **Surface-keyword clustering.** A basin labeled "5 twists" pulled
+   in 158 turns spanning Instagram strategy, household art, and
+   "give me 5 of X" prompt continuations — clustered because of
+   shared shallow tokens, not shared topic.
+2. **TF-IDF labels are descriptive of the corpus, not of the user.**
+   Top-3 terms = "twists, plot, give" — stopword-adjacent, doesn't
+   tell the user *what* they were thinking about.
+
+v1.5's lens-build inverts this around two ideas — **depth ranking**
+(geometry-only) for what the chairman should see, and **chairman-in-
+the-clustering-loop** for how centroids drift toward coherence.
+
+**Council as GPS.** The architecture treats the chairman as a
+navigation tool with two modes — broad (one call, all basins,
+breadth) and deep (chain mode, one basin, conviction). Same
+primitive as the user-facing council mechanic, applied to the
+lens-build itself.
+
+#### Depth-rank: pre-clustering geometry
+
+`src/trinity_local/me/depth.py` (shipped ticks #50-51) computes a
+three-component per-thread depth score from raw embeddings, no
+LLM calls:
+
+| Component | Formula | Literature backing |
+|---|---|---|
+| **Corpus distance** | cosine(thread_centroid, corpus_centroid), equal-weight per thread | TAD-Bench novelty (arXiv:2501.11960) |
+| **Inter-turn distance** | mean cosine between consecutive turn embeddings | Stalling Index analog (arXiv:2601.09570) |
+| **LID via TwoNN** | per-thread MLE: `d_hat = N / Σ log(d2/d1)` | Facco et al. 2017 (Sci. Reports); NeurIPS 2023 — fluent human prose LID ≈ 9, AI text ≈ 7.5 |
+
+Composite: `depth_score = corpus_distance × log(1+inter_turn) × log(1+LID)`.
+Multiplicative — noise in any one component drags the score to 0;
+a thread is "deep" only when all three signals agree.
+
+This is what the chairman sees as input. The chairman never reads
+the noisy 80% of the corpus; it sees the top-K-by-depth threads
+of each candidate basin.
+
+#### k-LLMmeans: chairman steers the centroids
+
+Rather than label basins after k-means converges geometrically,
+the chairman is in the loop:
+
+```
+for iteration in 1..N (N = 2-3 in practice):
+    1. Assign each thread to nearest current centroid (pure geometry)
+    2. ONE batched chairman call: for each basin, summarize from
+       the top-K depth-ranked representatives → semantic label
+    3. Embed each label → that's the next iteration's centroid
+    4. Test convergence (mean centroid drift < threshold)
+```
+
+The chairman call is **one batched call per iteration**, not one
+per basin. With N=3 iterations + 1 final patterns/nuggets call,
+the entire dream pipeline fits in 4 chairman calls. The 5th is
+reserved as council-chain validation on the final-round labels
+(seat-vs-chairman dispute resolution on contested basins).
+
+Reference: ClusterLLM (EMNLP 2023, arXiv:2305.14871),
+k-LLMmeans (arXiv:2502.09667).
+
+#### Why this is the v1.5 path, not v2
+
+The pure-geometry lens-build (v1.0) hits a ceiling on noisy
+real-world corpora — the b11 basin failure is reproducible.
+Chairman-in-the-loop fixes it without needing a trained
+coordinator. Same architectural axis as `docs/spec-v2.md`'s
+sunset rationale: prompt engineering + context engineering
+in a flagship beats a 7B trained model on the dataset sizes
+v1.5 users will have.
+
+The 5-call budget per dream stays intact. The council mechanic
+stays the only place LLMs touch the data. Depth-rank stays
+pure-geometry, no chairman dependency.
+
 ### Deferred to v1.6
 
 **HDBSCAN sub-basin discovery.** v1.5 *flags* bimodality; the flagship
