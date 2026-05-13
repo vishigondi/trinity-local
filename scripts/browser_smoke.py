@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 19 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 20 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -49,6 +49,9 @@ Surfaces:
        .viewer-rebuild-chip that copies the rebuild CLI even when the file
        is fresh — closes the action-side for memories without a staleness
        signal (tick #27)
+   19. Topic-graph launch chip: clicking a basin node opens a detail panel
+       with a .topics-launch-chip that copies `trinity-local council-launch
+       --task "<headline>"` — the action-side of the topology view (tick #28)
 
 Exit codes:
     0 — all surfaces pass
@@ -1117,6 +1120,64 @@ def main() -> int:
             )
             print(f"[ ✗ ] Surface 18 rebuild chip: {reason}")
             fails.append((18, "rebuild chip", reason))
+
+        # ─── Surface 19: Topic-graph launch-council chip ─────────────────────
+        # The topic graph node detail panel now carries a .topics-launch-chip
+        # that copies a `trinity-local council-launch --task "<headline>"`
+        # command, using the closest-to-centroid representative as the seed.
+        # Gracefully SKIP if topics.json has no representatives (legacy
+        # schema or empty install) — the chip can't render without a seed.
+        page.goto(
+            f"{base_url}/portal_pages/memory.html?file=topics.json",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(400)  # wait for d3-force to attach nodes
+        launch_state = page.evaluate(
+            """() => new Promise(resolve => {
+              const nodes = document.querySelectorAll('.topics-graph-svg .node');
+              if (!nodes.length) { resolve({ok: true, skipped: true, reason: 'no topic-graph nodes (empty topics.json)'}); return; }
+              // Click the first node to open detail panel (d3-injected click).
+              const evt = new MouseEvent('click', {bubbles: true});
+              nodes[0].dispatchEvent(evt);
+              setTimeout(() => {
+                const chip = document.querySelector('.topics-launch-chip');
+                if (!chip) {
+                  // No chip — either basin has no representative or wiring broken.
+                  // Treat "no rep" as SKIPPED; anything else is a failure.
+                  const reps = document.querySelectorAll('.topics-graph-detail .topics-reps-list li');
+                  if (!reps.length) { resolve({ok: true, skipped: true, reason: 'first basin has no representatives'}); return; }
+                  resolve({ok: false, reason: 'detail panel has reps but no .topics-launch-chip'});
+                  return;
+                }
+                let copied = null;
+                const orig = navigator.clipboard?.writeText;
+                if (orig) navigator.clipboard.writeText = async (t) => { copied = t; return Promise.resolve(); };
+                chip.click();
+                setTimeout(() => {
+                  if (orig) navigator.clipboard.writeText = orig;
+                  resolve({
+                    ok: copied && copied.startsWith('trinity-local council-launch --task "'),
+                    copied: (copied || '').slice(0, 80),
+                    flashed: chip.textContent.includes('Copied'),
+                    basin: chip.dataset.basin,
+                  });
+                }, 200);
+              }, 200);
+            })"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "19-topic-launch-chip.png"))
+        if launch_state.get("skipped"):
+            print(f"[ - ] Surface 19 topic-launch: SKIPPED ({launch_state['reason']})")
+        elif launch_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 19 topic-launch: basin={launch_state['basin']!r} "
+                f"copied='{launch_state['copied']}...' (flash={launch_state['flashed']})"
+            )
+        else:
+            reason = launch_state.get("reason") or f"copied={launch_state.get('copied')!r}"
+            print(f"[ ✗ ] Surface 19 topic-launch: {reason}")
+            fails.append((19, "topic-launch chip", reason))
 
         browser.close()
 

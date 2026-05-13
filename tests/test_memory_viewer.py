@@ -103,6 +103,39 @@ class TestViewerRebuildChip:
         )
 
 
+class TestTopicLaunchChip:
+    """Tick #28 — launch-council chip on topic graph node detail panels.
+    Closes the topology action arc per the forward arc bullet 'click
+    a basin → launch a council on this topic'."""
+
+    def test_launch_chip_class_defined(self, isolated_home):
+        html = _render()
+        assert ".topics-launch-chip" in html, ".topics-launch-chip CSS missing"
+        assert '"topics-launch-chip"' in html, (
+            "showDetail doesn't construct a .topics-launch-chip button"
+        )
+
+    def test_launch_chip_uses_council_launch_cli(self, isolated_home):
+        html = _render()
+        # If the CLI is renamed (council-launch → run_council or similar),
+        # the chip silently copies a broken command.
+        assert "'trinity-local council-launch --task \"'" in html, (
+            "launch chip no longer copies trinity-local council-launch --task — template drift"
+        )
+
+    def test_launch_chip_escapes_shell_metas(self, isolated_home):
+        html = _render()
+        # The escape chain must handle backslash + dquote + backtick +
+        # dollar — anything less can break a bash paste with user
+        # prompts that contain code-fence or variable expansion.
+        # We check the regex literals are present in the rendered JS.
+        # Each replace produces JS source `/<x>/g` after Python escape.
+        assert ".replace(/\\\\/g," in html, "missing backslash escape"
+        assert '.replace(/"/g,' in html, "missing double-quote escape"
+        assert ".replace(/`/g," in html, "missing backtick escape"
+        assert ".replace(/\\$/g," in html, "missing dollar escape"
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the

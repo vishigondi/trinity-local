@@ -621,6 +621,28 @@ def render_memory_viewer_html() -> str:
       font-weight: 600;
     }}
     .topics-graph-detail .row-label {{ color: var(--meta); }}
+    /* Launch-council chip — turns the topology view into an action
+       surface. Sits below the representatives list; click copies a
+       `trinity-local council-launch --task "<headline>"` command using
+       the basin's closest-to-centroid representative as the seed prompt.
+       Forest-green to read as "go" / additive (versus the warning
+       border on .pick-veto). */
+    .topics-launch-chip {{
+      display: inline-block;
+      margin-top: 12px;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--fg);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }}
+    .topics-launch-chip:hover {{
+      background: rgba(37, 88, 71, 0.08);
+    }}
     .topics-reps-label {{
       color: var(--meta);
       font-size: 12px;
@@ -1446,6 +1468,38 @@ def render_memory_viewer_html() -> str:
           tline.appendChild(el("span", "row-label", "Top terms: "));
           tline.appendChild(document.createTextNode(b.top_terms.join(", ")));
           detail.appendChild(tline);
+        }}
+        // Launch-council action: derive a seed prompt from the basin's
+        // closest-to-centroid representative (.headline for thread-shape,
+        // .snippet for legacy), escape shell metacharacters, and copy
+        // `trinity-local council-launch --task "<seed>"`. Closes the
+        // topology action arc from the forward arc bullet "click a basin
+        // → launch a council on this topic".
+        const seedRep = Array.isArray(b.representatives) ? b.representatives[0] : null;
+        const seedText = seedRep ? (seedRep.headline || seedRep.snippet || "") : "";
+        if (seedText) {{
+          // Bash-safe quoting for the --task arg. Double-quote-wrap and
+          // backslash-escape the four metas (backslash, double-quote,
+          // backtick, dollar) so a paste into zsh/bash doesn't
+          // re-interpret them.
+          const escaped = seedText
+            .replace(/\\\\/g, "\\\\\\\\")
+            .replace(/"/g, '\\\\"')
+            .replace(/`/g, "\\\\`")
+            .replace(/\\$/g, "\\\\$");
+          const launchCmd = 'trinity-local council-launch --task "' + escaped + '"';
+          const chip = el("button", "topics-launch-chip", "Launch council on this topic");
+          chip.type = "button";
+          chip.title = "Copy: " + launchCmd;
+          chip.dataset.basin = b.id || "";
+          chip.addEventListener("click", () => {{
+            if (navigator.clipboard?.writeText) {{
+              navigator.clipboard.writeText(launchCmd).catch(() => null);
+            }}
+            chip.textContent = "✓ Copied";
+            setTimeout(() => {{ chip.textContent = "Launch council on this topic"; }}, 2200);
+          }});
+          detail.appendChild(chip);
         }}
         const idCount = Array.isArray(b.prompt_ids) ? b.prompt_ids.length : null;
         if (idCount !== null && idCount !== (b.size || 0)) {{
