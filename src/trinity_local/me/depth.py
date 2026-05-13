@@ -268,7 +268,17 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     # composite to rank by corpus_distance + inter_turn, which IS
     # signal even on short threads. The literature's TwoNN papers
     # all use n≥5 as the minimum for stable estimates.
-    LID_MIN_TURNS = 5
+    #
+    # Tick #86: env override for empirical tuning. `TRINITY_LID_MIN_TURNS=3`
+    # lets a power user widen the recall (include 3-4 turn threads,
+    # accept noisier top-of-list) without code change. Invalid values
+    # silently fall back to the default — better than crashing the
+    # whole depth pipeline on a typo.
+    import os as _os
+    try:
+        LID_MIN_TURNS = max(2, int(_os.environ.get("TRINITY_LID_MIN_TURNS", "5")))
+    except ValueError:
+        LID_MIN_TURNS = 5
     out: dict[str, float] = {}
     for tid in set(tids):
         s = sums.get(tid, 0.0)

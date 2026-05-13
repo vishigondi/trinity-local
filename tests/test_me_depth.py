@@ -295,6 +295,44 @@ class TestDepthScoreComposite:
         from trinity_local.me.depth import depth_score
         assert depth_score([]) == {}
 
+    def test_lid_min_turns_env_override(self, monkeypatch, isolated_home):
+        """Tick #86 — `TRINITY_LID_MIN_TURNS` env var lets a power
+        user tune the gate without code change. Valid integer ≥2 is
+        accepted; invalid values fall back to the 5-turn default.
+
+        The behavior check: with the env at 3, a 3-turn thread can
+        earn nonzero LID (whereas with default 5 it would be 0). The
+        env path matters more than the bare number — Trinity's "ship
+        a tight product" stance is "ship one default, let users tune
+        empirically" rather than committing to many code-paths."""
+        from trinity_local.me.depth import thread_lid
+        # 3 turns spread across the embedding space — enough for a
+        # TwoNN ratio to be defined, but below the default gate of 5.
+        nodes = [
+            _node("t3", "a", [1.0, 0.0, 0.0]),
+            _node("t3", "b", [0.0, 1.0, 0.0]),
+            _node("t3", "c", [0.0, 0.0, 1.0]),
+            # Need ≥3 distinct points for TwoNN's `if len(items) < 3`
+            # short-circuit — add a sentinel to keep the algorithm running.
+            _node("sentinel", "s", [0.5, 0.5, 0.0]),
+        ]
+        # Default gate: 3-turn thread → LID = 0
+        monkeypatch.delenv("TRINITY_LID_MIN_TURNS", raising=False)
+        out_default = thread_lid(nodes)
+        assert out_default.get("t3", 0.0) == 0.0
+        # Override to 3: same thread now earns nonzero LID
+        monkeypatch.setenv("TRINITY_LID_MIN_TURNS", "3")
+        out_loosened = thread_lid(nodes)
+        assert out_loosened.get("t3", 0.0) > 0.0
+        # Invalid value silently falls back to default — depth pipeline
+        # must NEVER crash on a malformed env (it's optional, after all).
+        monkeypatch.setenv("TRINITY_LID_MIN_TURNS", "not-a-number")
+        out_bad = thread_lid(nodes)
+        assert out_bad.get("t3", 0.0) == 0.0, (
+            "invalid env value should fall back to default — saw nonzero "
+            "LID for a 3-turn thread, meaning the int() raise wasn't caught"
+        )
+
     def test_lid_capped_against_runaway(self, isolated_home):
         """Real corpus produced LID values in the millions because the
         TwoNN MLE diverges for near-duplicate embedding pairs. Cap at
