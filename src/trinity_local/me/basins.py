@@ -68,6 +68,12 @@ class Basin:
     # NEW for thread-aware topology: how many distinct sessions (threads)
     # landed in this basin. `size` is the total turn count.
     thread_count: int = 0
+    # Chairman-labeled semantics (tick #49). Empty when lens-build was run
+    # before the labeler stage existed OR the chairman call failed. UI
+    # consumers prefer `label` when non-empty, fall back to top_terms.
+    label: str = ""
+    intent_type: str = ""    # e.g. automation / creative / learning / debugging / decision
+    language: str = ""       # ISO-639-1 code or "mixed" — chairman call, not unicode-block heuristic
 
     def to_dict(self) -> dict[str, Any]:
         # No truncation on prompt_ids. Earlier code capped at 50 "for readable
@@ -85,6 +91,9 @@ class Basin:
             "centroid": self.centroid,
             "prompt_ids": self.prompt_ids,
             "representatives": self.representatives,
+            "label": self.label,
+            "intent_type": self.intent_type,
+            "language": self.language,
         }
 
 

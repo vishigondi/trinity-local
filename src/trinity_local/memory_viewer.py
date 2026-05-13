@@ -1425,6 +1425,13 @@ def render_memory_viewer_html() -> str:
       // haven't been written yet (legacy topics.json files from before the
       // representatives feature shipped — those clear on the next lens-build).
       function labelFor(b) {{
+        // Tick #49: prefer chairman-derived semantic label when present.
+        // Falls through to the prior chain (representative headline →
+        // top_terms → basin id) for basins written before the labeler
+        // stage existed.
+        if (b.label) {{
+          return b.label.length > 36 ? b.label.slice(0, 36) + "…" : b.label;
+        }}
         // New thread shape: reps[0].headline. Legacy: reps[0].snippet.
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
         const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
@@ -1435,8 +1442,9 @@ def render_memory_viewer_html() -> str:
         return (b.top_terms && b.top_terms[0]) || b.id || "?";
       }}
       function tooltipFor(b) {{
-        // Hover tooltip = headline (or legacy snippet) of the top
-        // representative; fall back to top_terms.
+        // Hover tooltip prefers the chairman label (full, not truncated)
+        // when present. Legacy fallback chain unchanged.
+        if (b.label) return b.label;
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
         const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
         if (text) return text;

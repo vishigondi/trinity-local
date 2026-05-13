@@ -365,6 +365,54 @@ class TestRoutingToTopologyCrossLink:
         )
 
 
+class TestChairmanBasinLabelFallback:
+    """Tick #49 — viewer prefers `basin.label` (chairman-derived) over
+    representative-headline truncation over top_terms. Older topics.json
+    files written before the labeler stage have no .label and fall
+    through the chain. Guards the fallback ordering so a future
+    refactor can't silently change which signal wins."""
+
+    def test_labelFor_prefers_chairman_label(self, isolated_home):
+        html = _render()
+        # Branch order matters: label first, then reps[0], then top_terms.
+        assert "if (b.label)" in html, (
+            "labelFor must check b.label FIRST so chairman semantics win "
+            "over heuristic truncation of representative text"
+        )
+
+    def test_tooltipFor_prefers_chairman_label(self, isolated_home):
+        html = _render()
+        # Same guard for the SVG <title> tooltip.
+        assert "tooltipFor" in html, "tooltipFor helper missing"
+        # The label-first branch in tooltipFor is right above the legacy chain.
+        idx = html.find("function tooltipFor")
+        assert idx > 0
+        nearby = html[idx:idx + 400]
+        assert "b.label" in nearby, "tooltipFor doesn't read b.label"
+
+    def test_basin_dataclass_carries_label_fields(self, isolated_home):
+        """Round-trip: Basin → to_dict → JSON → load_basins → Basin
+        must preserve the chairman fields (label / intent_type / language)."""
+        from trinity_local.me.basins import Basin, save_basins, load_basins
+        b = Basin(
+            id="b00",
+            size=10,
+            top_terms=["one", "two"],
+            centroid=[0.1, 0.2],
+            prompt_ids=["p1"],
+            thread_count=3,
+            label="Brainstorming for short-form social media",
+            intent_type="creative",
+            language="en",
+        )
+        save_basins([b])
+        loaded = load_basins()
+        assert len(loaded) == 1
+        assert loaded[0].label == "Brainstorming for short-form social media"
+        assert loaded[0].intent_type == "creative"
+        assert loaded[0].language == "en"
+
+
 class TestStaleBasinBanner:
     """Tick #40 — ?basin=<id> deep-link gracefully handles a stale
     reference (basin no longer in topology, e.g. lens-build was
