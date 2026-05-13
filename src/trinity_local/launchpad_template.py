@@ -856,6 +856,32 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
+      <!-- Shortcut install banner — only renders when macOS + Shortcut
+           is missing. Silent on non-macOS dev/CI and on healthy installs.
+           Maps to pageData.shortcutStatus (tick #73). The user's
+           ratings, launches, and refinements ALL silently fail when
+           this Shortcut isn't registered — surfaced up front so the
+           user fixes it before clicking anything. -->
+      <section
+        class="card memory-health-card"
+        v-if="pageData.shortcutStatus && pageData.shortcutStatus.applicable && !pageData.shortcutStatus.ok"
+        style="border-left: 3px solid #8b1e1e; background: rgba(139, 30, 30, 0.04);"
+      >
+        <div class="eyebrow" style="color: #8b1e1e;">macOS Shortcut not installed</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Ratings, council launches, and refinements will silently fail to fire
+        </h2>
+        <p class="meta" style="margin-top: 8px;">
+          Trinity dispatches every "Preferred" click and "Launch council" through
+          the <code>{{{{ pageData.shortcutStatus.name || 'Trinity Dispatch' }}}}</code> macOS Shortcut.
+          Until it's registered in your Shortcuts library, the URL fires but lands nowhere —
+          your verdicts won't persist and your moat stays empty.
+        </p>
+        <p class="meta" style="margin-top: 8px;">
+          Fix: run <code>trinity-local shortcut-install</code> in your terminal.
+        </p>
+      </section>
+
       <!-- Memory health — only renders when something is stale. Silent
            on a fresh install. Maps directly to the four signals built
            into pageData.memoryHealth.issues. -->

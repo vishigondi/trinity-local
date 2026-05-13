@@ -566,11 +566,49 @@ def build_page_data(
         # at a glance — the moat is this ledger, and an empty ledger
         # is invisible without the count. See task #110 + tick #69.
         "verdictStats": _verdict_stats(),
+        # macOS Shortcut registration status (tick #73). When applicable
+        # and ok=False, the launchpad renders a top banner telling the
+        # user that ratings/launches/refinements will silently fail
+        # until they run `trinity-local shortcut-install`. Same shape
+        # as the doctor check (tick #72) but on the surface the user
+        # actually opens to do work.
+        "shortcutStatus": _shortcut_status(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
     }
+
+
+def _shortcut_status() -> dict:
+    """Check whether the macOS Shortcut Trinity dispatches through is
+    actually registered. Mirrors the doctor's check (tick #72) on the
+    launchpad surface — same silent-failure root cause as the verdict
+    rating UX (task #110), but every other fire-and-forget shortcut
+    also depends on this: launch_council, council_iterate, stop_council,
+    run_command, rate_council. Without the Shortcut, ALL of them go
+    nowhere and the UI lies about success.
+
+    Surfaces as a top-of-page banner only when the check actually fails
+    AND we're on macOS (the only platform where the Shortcut applies).
+    On non-macOS, returns {ok: True, applicable: False} so the banner
+    stays hidden and we don't show noise to dev/CI environments.
+    """
+    import sys
+    if sys.platform != "darwin":
+        return {"ok": True, "applicable": False}
+    try:
+        from .shortcut_setup import _shortcut_installed, DEFAULT_SHORTCUT_NAME
+        return {
+            "ok": _shortcut_installed(),
+            "applicable": True,
+            "name": DEFAULT_SHORTCUT_NAME,
+        }
+    except Exception:
+        # If we can't check (subprocess fails / shortcuts CLI missing),
+        # treat as "unknown" rather than silently broken. Hide the
+        # banner; user discovers via doctor.
+        return {"ok": True, "applicable": False}
 
 
 def _verdict_stats() -> dict:

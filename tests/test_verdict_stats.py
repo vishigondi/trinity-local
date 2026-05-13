@@ -95,3 +95,47 @@ class TestPageDataVerdictStats:
             recent_councils=[],
         )
         assert data["verdictStats"] == {"total": 0, "rated": 0, "rate": 0.0}
+
+
+class TestShortcutStatus:
+    """Tick #73 — launchpad surfaces the macOS Shortcut registration
+    status. Banner renders only when applicable AND missing; on Linux
+    or unknown-check states the banner stays hidden."""
+
+    def test_non_macos_returns_not_applicable(self, monkeypatch):
+        """On Linux/Windows, the Shortcut isn't applicable — the banner
+        must NOT show. Returns applicable=False so the v-if hides."""
+        monkeypatch.setattr("sys.platform", "linux")
+        from trinity_local.launchpad_data import _shortcut_status
+        result = _shortcut_status()
+        assert result == {"ok": True, "applicable": False}
+
+    def test_macos_shortcut_installed_returns_ok(self, monkeypatch):
+        monkeypatch.setattr("sys.platform", "darwin")
+        import trinity_local.shortcut_setup as setup
+        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_a, **_kw: True)
+        from trinity_local.launchpad_data import _shortcut_status
+        result = _shortcut_status()
+        assert result["ok"] is True
+        assert result["applicable"] is True
+
+    def test_macos_shortcut_missing_returns_not_ok(self, monkeypatch):
+        """The banner-triggering case — applicable AND not ok."""
+        monkeypatch.setattr("sys.platform", "darwin")
+        import trinity_local.shortcut_setup as setup
+        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_a, **_kw: False)
+        from trinity_local.launchpad_data import _shortcut_status
+        result = _shortcut_status()
+        assert result["ok"] is False
+        assert result["applicable"] is True
+        assert "name" in result  # banner uses the configured Shortcut name
+
+    def test_page_data_contains_shortcut_status(self, isolated_home, tmp_path):
+        from trinity_local.launchpad_data import build_page_data
+        data = build_page_data(
+            live_review_path=tmp_path / "live_council.html",
+            recent_councils=[],
+        )
+        assert "shortcutStatus" in data
+        assert "ok" in data["shortcutStatus"]
+        assert "applicable" in data["shortcutStatus"]
