@@ -379,6 +379,81 @@ def _check_core_distilled() -> CheckResult:
     )
 
 
+def _check_cortex_freshness() -> CheckResult:
+    """Soft check: are cortex picks current relative to recent councils?
+
+    `picks.json` carries `consolidated_at` per task_kind. If any council
+    outcome on disk is newer than the freshest `consolidated_at`, the
+    cortex layer's routing rules don't yet reflect the new training
+    data — `ask()` will route based on stale signal until the user
+    re-runs `consolidate`. Tick #96 noticed this concretely: real
+    corpus had 19 outcomes but picks.json was based on 2.
+
+    Soft check: ok stays True (stale picks aren't broken, just dated).
+    Detail surfaces the count so the user can decide whether to
+    re-consolidate. Pre-rated user (no record_outcome calls yet) gets
+    a different message than rated-but-stale.
+    """
+    from .state_paths import picks_path, council_outcomes_dir
+    picks = picks_path()
+    if not picks.exists():
+        return CheckResult(
+            name="cortex_freshness",
+            ok=True,
+            detail="picks.json not built yet — run `trinity-local consolidate` once you have ≥10 rated councils",
+        )
+    try:
+        picks_data = json.loads(picks.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return CheckResult(
+            name="cortex_freshness",
+            ok=True,
+            detail="picks.json unreadable — re-run `trinity-local consolidate`",
+        )
+    # Find the freshest consolidated_at across all task_kinds in picks.
+    consolidated_ats: list[str] = []
+    for entry in picks_data.values() if isinstance(picks_data, dict) else []:
+        if isinstance(entry, dict):
+            ts = entry.get("consolidated_at")
+            if isinstance(ts, str):
+                consolidated_ats.append(ts)
+    if not consolidated_ats:
+        return CheckResult(
+            name="cortex_freshness",
+            ok=True,
+            detail="picks.json has no task_kinds yet — re-run `trinity-local consolidate`",
+        )
+    freshest_picks = max(consolidated_ats)
+    # Find newer outcomes on disk.
+    outcomes = council_outcomes_dir()
+    newer = 0
+    total = 0
+    if outcomes.is_dir():
+        for path in outcomes.glob("council_*.json"):
+            try:
+                outcome = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            total += 1
+            created = outcome.get("created_at") or ""
+            if isinstance(created, str) and created > freshest_picks:
+                newer += 1
+    if newer == 0:
+        return CheckResult(
+            name="cortex_freshness",
+            ok=True,
+            detail=f"picks.json current ({total} outcomes, all consolidated)",
+        )
+    return CheckResult(
+        name="cortex_freshness",
+        ok=True,  # soft — not a failure, just outdated
+        detail=(
+            f"{newer} of {total} councils are newer than the last consolidate. "
+            f"Run `trinity-local consolidate` to refresh cortex routing rules."
+        ),
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Sequential checks — fast (<1s), no network, no chairman calls."""
     report = DoctorReport()
@@ -393,6 +468,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_prompts_seeded())
     report.checks.append(_check_lens_built())
     report.checks.append(_check_core_distilled())
+    report.checks.append(_check_cortex_freshness())
     return report
 
 

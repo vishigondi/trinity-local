@@ -198,6 +198,75 @@ class TestFeedbackConsistency:
         assert "no longer exist" in result.detail
 
 
+class TestCortexFreshnessCheck:
+    """Tick #96 — soft check: are cortex picks current relative to
+    recent councils? Stale picks mean `ask()` routes on outdated
+    signal. Soft (ok=True) because stale isn't broken; surfaces the
+    count so the user can decide whether to re-consolidate."""
+
+    def test_no_picks_yet_returns_helpful_message(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        (tmp_path / "trinity" / "memories").mkdir(parents=True, exist_ok=True)
+        from trinity_local.doctor import _check_cortex_freshness
+        result = _check_cortex_freshness()
+        assert result.ok is True
+        assert "not built yet" in result.detail
+        assert "consolidate" in result.detail.lower()
+
+    def test_picks_fresh_with_no_newer_outcomes(self, tmp_path, monkeypatch):
+        """Picks consolidated, no outcomes newer than freshest pick —
+        the all-current branch."""
+        import json as _json
+        home = tmp_path / "trinity"
+        (home / "memories").mkdir(parents=True, exist_ok=True)
+        (home / "council_outcomes").mkdir(parents=True, exist_ok=True)
+        picks = {
+            "council_synthesis": {
+                "consolidated_at": "2026-05-13T12:00:00+00:00",
+                "task_kinds": ["council_synthesis"],
+            }
+        }
+        (home / "memories" / "picks.json").write_text(_json.dumps(picks))
+        outcome = {
+            "council_run_id": "council_a",
+            "created_at": "2026-05-13T11:00:00+00:00",  # older than picks
+        }
+        (home / "council_outcomes" / "council_a.json").write_text(_json.dumps(outcome))
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_cortex_freshness
+        result = _check_cortex_freshness()
+        assert result.ok is True
+        assert "current" in result.detail
+
+    def test_picks_stale_when_newer_outcomes_exist(self, tmp_path, monkeypatch):
+        """The actual regression target — picks lag behind. ok=True
+        (soft), detail names the count + remediation."""
+        import json as _json
+        home = tmp_path / "trinity"
+        (home / "memories").mkdir(parents=True, exist_ok=True)
+        (home / "council_outcomes").mkdir(parents=True, exist_ok=True)
+        picks = {
+            "council_synthesis": {
+                "consolidated_at": "2026-05-12T00:00:00+00:00",
+                "task_kinds": ["council_synthesis"],
+            }
+        }
+        (home / "memories" / "picks.json").write_text(_json.dumps(picks))
+        # Two outcomes: one newer than picks, one older
+        for cid, when in [
+            ("council_new", "2026-05-13T12:00:00+00:00"),  # newer → triggers stale
+            ("council_old", "2026-05-11T00:00:00+00:00"),
+        ]:
+            outcome = {"council_run_id": cid, "created_at": when}
+            (home / "council_outcomes" / f"{cid}.json").write_text(_json.dumps(outcome))
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_cortex_freshness
+        result = _check_cortex_freshness()
+        assert result.ok is True  # soft — stale isn't broken
+        assert "1 of 2" in result.detail
+        assert "consolidate" in result.detail.lower()
+
+
 class TestShortcutCheck:
     """Tick #72 — doctor surfaces the macOS Shortcut registration
     proactively. This was the silent-failure root cause behind the
