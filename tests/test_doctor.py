@@ -198,6 +198,67 @@ class TestFeedbackConsistency:
         assert "no longer exist" in result.detail
 
 
+class TestVerdictRateCheck:
+    """Tick #97 — doctor surfaces the Pillar-4 verdict capture rate
+    directly. Reuses _verdict_stats() so the math stays single-source.
+    Soft (ok=True regardless); detail names the rate."""
+
+    def test_no_councils_yet_returns_early_message(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        (tmp_path / "trinity" / "council_outcomes").mkdir(parents=True)
+        from trinity_local.doctor import _check_verdict_rate
+        result = _check_verdict_rate()
+        assert result.ok is True
+        assert "no councils yet" in result.detail.lower()
+
+    def test_low_rate_above_threshold_nudges(self, tmp_path, monkeypatch):
+        """Real regression target: with 5+ councils and rate < 50%,
+        the detail must surface the percentage AND point at the
+        `unrated` CLI from tick #93 (cross-surface discoverability)."""
+        import json as _json
+        home = tmp_path / "trinity"
+        (home / "council_outcomes").mkdir(parents=True)
+        # 6 councils, 1 rated → 17% rate
+        for i in range(6):
+            metadata = {"task_text": f"q{i}"}
+            if i == 0:
+                metadata["user_verdict"] = {"user_winner": "claude"}
+            (home / "council_outcomes" / f"council_{i}.json").write_text(
+                _json.dumps({"council_run_id": f"council_{i}", "metadata": metadata})
+            )
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_verdict_rate
+        result = _check_verdict_rate()
+        assert result.ok is True
+        assert "1 of 6" in result.detail
+        assert "16%" in result.detail or "17%" in result.detail  # rounding edge
+        assert "trinity-local unrated" in result.detail
+
+    def test_high_rate_silent(self, tmp_path, monkeypatch):
+        """Rate ≥ 50% → quieter detail (no nudge), still ok=True.
+        The launchpad accent prompt and this check share the
+        same threshold so messaging stays consistent."""
+        import json as _json
+        home = tmp_path / "trinity"
+        (home / "council_outcomes").mkdir(parents=True)
+        # 5 councils, 4 rated → 80% rate
+        for i in range(5):
+            metadata = {"task_text": f"q{i}"}
+            if i < 4:
+                metadata["user_verdict"] = {"user_winner": "claude"}
+            (home / "council_outcomes" / f"council_{i}.json").write_text(
+                _json.dumps({"council_run_id": f"council_{i}", "metadata": metadata})
+            )
+        monkeypatch.setenv("TRINITY_HOME", str(home))
+        from trinity_local.doctor import _check_verdict_rate
+        result = _check_verdict_rate()
+        assert result.ok is True
+        assert "4 of 5" in result.detail
+        # No nudge to unrated CLI when rate is healthy
+        assert "trinity-local unrated" not in result.detail
+        assert "compounding" in result.detail.lower()
+
+
 class TestCortexFreshnessCheck:
     """Tick #96 — soft check: are cortex picks current relative to
     recent councils? Stale picks mean `ask()` routes on outdated

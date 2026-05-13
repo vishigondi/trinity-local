@@ -379,6 +379,66 @@ def _check_core_distilled() -> CheckResult:
     )
 
 
+def _check_verdict_rate() -> CheckResult:
+    """Soft check: what fraction of councils have a user verdict?
+
+    The most direct Pillar 4 signal — Trinity's moat thesis ("the
+    personal ledger of cross-model preferences") is empty without
+    user verdicts. Tick #69 found 16% on the dev install; ticks
+    #70/#93/#94 surfaced the gap on launchpad / CLI / per-card.
+    This adds the same number to `trinity-local doctor` so the
+    cold-install / launch-readiness path sees it too.
+
+    Soft check (ok=True regardless) — low capture is the user's
+    choice. The detail names the rate so they can decide whether
+    to widen the funnel. Reuses `_verdict_stats()` from
+    launchpad_data (single-source for the math).
+    """
+    try:
+        from .launchpad_data import _verdict_stats
+        stats = _verdict_stats()
+    except Exception as exc:
+        return CheckResult(
+            name="verdict_rate",
+            ok=True,
+            detail=f"could not compute verdict stats: {exc}",
+        )
+    total = int(stats.get("total", 0))
+    rated = int(stats.get("rated", 0))
+    rate = stats.get("rate", 0.0) or 0.0
+    if total == 0:
+        return CheckResult(
+            name="verdict_rate",
+            ok=True,
+            detail="no councils yet — run one to start the ledger",
+        )
+    # Same thresholds the launchpad accent prompt uses (tick #70):
+    # quiet below total<5; nudge between 5 and 50% rate; silent
+    # above 50% rate.
+    pct = round(rate * 100)
+    if total < 5:
+        return CheckResult(
+            name="verdict_rate",
+            ok=True,
+            detail=f"{rated} of {total} councils rated ({pct}%) — early days; widening the funnel matters more once you have ≥5",
+        )
+    if rate >= 0.5:
+        return CheckResult(
+            name="verdict_rate",
+            ok=True,
+            detail=f"{rated} of {total} councils rated ({pct}%) — ledger compounding",
+        )
+    return CheckResult(
+        name="verdict_rate",
+        ok=True,  # soft — under-rating is a choice, not broken
+        detail=(
+            f"{rated} of {total} councils rated ({pct}%). Trinity's moat is "
+            f"the ledger; widening the funnel matters. Try `trinity-local "
+            f"unrated` to see the backlog."
+        ),
+    )
+
+
 def _check_cortex_freshness() -> CheckResult:
     """Soft check: are cortex picks current relative to recent councils?
 
@@ -468,6 +528,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_prompts_seeded())
     report.checks.append(_check_lens_built())
     report.checks.append(_check_core_distilled())
+    report.checks.append(_check_verdict_rate())
     report.checks.append(_check_cortex_freshness())
     return report
 
