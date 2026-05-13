@@ -431,11 +431,15 @@ def find_cross_provider_pairs(
 
     Uses the shared embedding package for semantic matching.
     Returns list of (example_a, example_b, similarity_score).
+
+    Backend-agnostic: emb.similarity() falls back to TF-IDF cosine when
+    MLX isn't loaded. similarity_threshold is parameterized by the caller,
+    so they tune for whichever backend ships in their install. Was gated
+    on is_available() (MLX-only) until tick #67 audit-for-shape on the
+    knn_advisor fix (same shape, same problem).
     """
     try:
         from .. import embeddings as emb
-        if not emb.is_available():
-            return []
     except ImportError:
         return []
 

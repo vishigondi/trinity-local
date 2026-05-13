@@ -238,7 +238,13 @@ def _detect_provider_switch(
     if not prompt_key:
         return None, None
 
-    # Check if embeddings are available for stronger matching
+    # MLX gate is intentional here (unlike knn_advisor + hard_mining where
+    # tick #67 dropped the same shape). The 0.7 cosine-similarity threshold
+    # below is calibrated for MLX dense-embedding magnitudes; TF-IDF cosine
+    # for "very similar but-not-identical" text typically sits at 0.3–0.5,
+    # so reusing the threshold against TF-IDF vectors would basically never
+    # match. Word-overlap fallback below is a different coarse signal that
+    # works without semantic embeddings at all.
     try:
         from . import embeddings as emb
         use_embeddings = emb.is_available()
