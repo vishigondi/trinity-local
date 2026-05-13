@@ -233,57 +233,84 @@ shapes that earned their rules by costing time:
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
-commits:
+commits. **Updated 2026-05-13** after ticks #69–80 shipped most of the
+original three pillars and surfaced a fourth.
 
-**The substrate is stable; the next motion is action-from-view.** The
-last two months built the engine (council mechanic, MCP surface,
-cortex consolidation, lens pipeline). The last two weeks built the
-*inspectable* surface (memory viewer, topic graph, thread expansion,
-nav harmonization). The next two weeks should weave **actions** through
-that surface — currently every view is read-only:
+**Pillar 1 — Action-from-view.** Mostly shipped. The remaining bullet
+is the meaty one:
 
-- Click a basin → "launch a council on this topic" (not just "see it")
-- See a stale pick in `picks.json` → "regenerate this pick" inline
-- Cortex pick wrong (already `mark_pick_wrong` MCP but CLI-only) →
-  one-click veto from the picks Reader
-- See a rejected lens → "rebuild lens.md" link
-- Click a turn in an expanded thread → "open the source session"
-  or "replay this through the council"
+- ~~Click a basin → launch a council~~ ✓ Surface 19
+- ~~Cortex pick wrong → one-click veto from picks Reader~~ ✓ Surface 17
+- ~~See a rejected lens → "rebuild lens.md" link~~ ✓ Tick #76 chip
+- ~~Cortex/routing card → rebuild chip~~ ✓ Tick #77 chip
+- ~~Per-file rebuild on memory viewer~~ ✓ Surface 18
+- **Open**: click a turn in an expanded thread → "open the source
+  session" or "replay this through the council." Needs the turn UI
+  to carry source-prompt metadata and a `start_council` shortcut
+  call. Bigger than a single tick — split into "turn carries
+  source_id" + "replay button wired."
+- **Deferred**: per-pick regeneration. The current rebuild chips
+  fire the full `consolidate` / `lens-build` — granular per-pick
+  regeneration would need a different CLI surface.
 
-**Cross-memory navigation** is the second arc. Right now picks ↔
-routing ↔ topics ↔ lens are siloed JSON files even though they're
-load-bearing on each other:
+**Pillar 2 — Cross-memory navigation.** Largely shipped via Surfaces
+21–27 (topology↔picks centroid match, picks↔topology with `?basin=`,
+routing→topology chip triangle, launchpad cards → topology, lens →
+basins_spanned chips). The remaining gap is the topic graph
+distinguishing picks-having basins from noise basins visually —
+data is there (Surface 22 styles `.pick-basin` nodes), the visual
+contrast could be tighter.
 
-- `routing.json` mentions a winner basin → should link to that basin
-  in `topics.json`
-- `picks.json` evidence chip → should open the source council in
-  `review_pages/`
-- A lens card on the launchpad → should link to the prompts that
-  surfaced it
-- The topic graph → should show which basins have picks vs which are
-  noise (cross-ref `picks.json`)
+**Pillar 3 — Drift surfacing.** Shipped via Surface 15 (memory health
+card on launchpad) + Surface 16 (per-file health banner inside
+viewer) + memoryHealth.issues structured payload with one-click
+command chips.
 
-**Drift surfacing** is the third arc. The infrastructure is there
-(`is_core_stale`, override_count, audit_status) but nothing on the
-launchpad highlights it. The next surface improvement is "what's stale
-and what should I do about it" — a single dashboard row.
+**Pillar 4 (NEW after ticks #69–74) — Supervision-signal moat.** Tick
+#69's real-corpus census found 3 of 19 outcomes carry verdicts (16%
+capture rate). Trinity's moat thesis ("the personal ledger of
+cross-model preferences other labs can't see") rests on this signal;
+84% silent means the ledger is mostly empty. 5-stage defense-in-depth
+shipped:
+
+- Census (#69) — `~/.trinity/council_outcomes/*.json` walk surfaces
+  the real ratio
+- Visible (#70) — launchpad eyebrow "N of M rated" + accent prompt
+- Verify-after (#71) — 3s `loadOutcomeScript` re-fetch after click;
+  badge flips to "Save failed" when `user_verdict.user_winner` is
+  absent post-fire
+- Preempt-CLI (#72) — `doctor` flags missing macOS Shortcut
+- Preempt-UI (#73) — launchpad top-banner mirrors the doctor check
+
+**Open under Pillar 4**: the verdict rate stays low even on a healthy
+install if the user doesn't click. Possible next moves include a
+post-council "rate this answer" reminder, an MCP-side `record_outcome`
+prompt at session end, or in-Claude-Code surfaces that solicit the
+rating without requiring the user to open the launchpad.
 
 **What's NOT in the forward arc:**
 
-- More rename churn. The cleanup discipline ("treat renames as policy
-  until v1.0 ships") burned off the major drift this week. Future
-  drift is bounded by the smoke selectors + CHANGELOG entries.
+- More rename churn. The cleanup discipline burned off the major
+  drift; future drift is bounded by the smoke selectors + the AST
+  scanner from tick #64.
 - More architectural pivots. The trained-coordinator path is sunset;
   v1.5 spec is feature-complete; v2 reopens only if v1.5 hits a real
   ceiling on user data.
 - More launchpad surfaces. The launchpad is the home. New artifacts
-  (topic graph, picks reader, routing reader) go to sub-pages with
-  the `.trinity-topbar` shape, not as new launchpad cards.
+  go to sub-pages with the `.trinity-topbar` shape, not as new
+  launchpad cards.
+- `principles.md` pipeline (task #109). Data-gated — 19 council
+  outcomes is too sparse for k-means clustering in 768-d space, and
+  the verdict capture rate has to climb first. Revisit when N≥100 AND
+  verdict rate ≥50%.
 
-**The unblocking question for v1 ship:** when a user runs Trinity for
-the first time, does the loop from "first council" → "see my picks
-form" → "act on a stale pick" close inside a session? Currently the
-view side closes; the action side is half-built.
+**The unblocking question for v1 ship:** is the supervision-signal
+loop actually firing on real installs? The view side closes (user can
+see picks, rebuild memories, navigate cross-memory). The act side
+closes (rebuild chips, veto chips, launch chips). The remaining gate
+is the *learn* side — does the verdict from each council reach
+`user_verdict.user_winner`? The 5-stage arc made the failure mode
+loud; the next quarter's work is widening the rating funnel itself.
 
 ## Glossary (load-bearing terms)
 
