@@ -975,7 +975,12 @@ def render_memory_viewer_html() -> str:
       titleRow.style.gap = "6px";
       titleRow.appendChild(el("h2", null, file.name));
       const rebuildCmd = "trinity-local " + suggestionFor(file.name);
-      const rebuildChip = el("button", "viewer-rebuild-chip", "Rebuild");
+      // ↻ Rebuild — unified copy with launchpad lens-rebuild (tick #76)
+      // and cortex-rebuild (tick #77) chips. Tick #79 brought the
+      // memory viewer chip in line so the user sees the same affordance
+      // across surfaces. Principle #11: shared UI primitives stay
+      // consistent across pages.
+      const rebuildChip = el("button", "viewer-rebuild-chip", "↻ Rebuild");
       rebuildChip.type = "button";
       rebuildChip.title = "Copy: " + rebuildCmd;
       rebuildChip.dataset.file = file.name;
@@ -984,7 +989,7 @@ def render_memory_viewer_html() -> str:
           navigator.clipboard.writeText(rebuildCmd).catch(() => null);
         }}
         rebuildChip.textContent = "✓ Copied";
-        setTimeout(() => {{ rebuildChip.textContent = "Rebuild"; }}, 2200);
+        setTimeout(() => {{ rebuildChip.textContent = "↻ Rebuild"; }}, 2200);
       }});
       titleRow.appendChild(rebuildChip);
       wrap.appendChild(titleRow);

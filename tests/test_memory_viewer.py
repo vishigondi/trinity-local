@@ -72,6 +72,23 @@ class TestViewerRebuildChip:
             "renderHeader doesn't construct a .viewer-rebuild-chip button"
         )
 
+    def test_rebuild_chip_copy_matches_launchpad_chips(self, isolated_home):
+        """Tick #79 — the memory viewer rebuild chip must use the same
+        '↻ Rebuild' copy as the launchpad lens-rebuild (tick #76) and
+        cortex-rebuild (tick #77) chips. Principle #11: shared UI
+        primitives stay consistent across surfaces. Catches a regression
+        that would drift the memory viewer chip back to bare 'Rebuild'."""
+        html = _render()
+        # Initial label
+        assert '"↻ Rebuild"' in html, (
+            "viewer-rebuild-chip should use unified '↻ Rebuild' copy"
+        )
+        # Reset-after-flash label (also has to match)
+        assert "textContent = \"↻ Rebuild\"" in html, (
+            "the post-flash reset still uses bare 'Rebuild' — text drifts to "
+            "inconsistent on second click"
+        )
+
     def test_rebuild_command_template_uses_suggestion_helper(self, isolated_home):
         html = _render()
         # The chip text is built as "trinity-local " + suggestionFor(file.name).
