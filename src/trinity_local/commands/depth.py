@@ -93,20 +93,24 @@ def handle_depth_show(args):
         return
 
     print(f"  Depth-ranked threads ({len(rows)} of {len(composite)})")
-    print(f"  {'score':>8s}  {'corpus':>7s}  {'inter':>6s}  {'LID':>5s}  {'turns':>5s}  preview")
-    print(f"  {'-'*8}  {'-'*7}  {'-'*6}  {'-'*5}  {'-'*5}  {'-'*60}")
+    print(f"  {'score':>8s}  {'corpus':>9s}  {'inter':>6s}  {'LID':>5s}  {'turns':>5s}  preview")
+    print(f"  {'-'*8}  {'-'*9}  {'-'*6}  {'-'*5}  {'-'*5}  {'-'*60}")
     for row in rows:
         preview = row["first_turn"] or "(no first turn text)"
         if len(preview) > 60:
             preview = preview[:60] + "…"
+        # 6 decimal places on corpus_distance because unit-normalized
+        # embeddings on a sphere produce small absolute distances even
+        # when the rank order is meaningful; 4 places rounded to 0.0000.
         print(
             f"  {row['depth_score']:>8.4f}  "
-            f"{row['corpus_distance']:>7.4f}  "
+            f"{row['corpus_distance']:>9.6f}  "
             f"{row['inter_turn_distance']:>6.4f}  "
             f"{row['lid']:>5.2f}  "
             f"{row['turn_count']:>5d}  "
             f"{preview}"
         )
     print()
-    print("  score = corpus_distance × log(1 + inter_turn) × log(1 + LID)")
-    print("  Higher = thread sits further from corpus mean × moved through embedding space × sampled more axes.")
+    print("  score = 1.0*corpus_distance + 0.5*log(1+inter_turn) + 0.5*tanh(LID/10)")
+    print("  Higher = thread sits further from corpus mean, moved through embedding space, sampled more axes.")
+    print("  (additive composition so single-turn outliers still rank — fixed tick #54)")

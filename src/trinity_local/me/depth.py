@@ -235,6 +235,13 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     for i, tid in enumerate(tids):
         sums[tid] = sums.get(tid, 0.0) + float(log_r[i])
         counts[tid] = counts.get(tid, 0) + 1
+    # Cap LID at 50.0 (tick #54). The TwoNN MLE diverges when d1
+    # approaches d2 — near-duplicate-embedding pairs produce LID
+    # estimates in the millions (observed on real corpus: 1,048,576).
+    # Those values are noise, not signal. The literature's typical
+    # range for fluent human prose is ~9 (NeurIPS 2023); 50 keeps the
+    # high tail loosely informative without letting outliers dominate.
+    LID_CAP = 50.0
     out: dict[str, float] = {}
     for tid in set(tids):
         s = sums.get(tid, 0.0)
@@ -242,28 +249,52 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
         if n == 0 or s <= 0:
             out[tid] = 0.0
         else:
-            out[tid] = n / s
+            out[tid] = min(n / s, LID_CAP)
     return out
+
+
+# Weights for the depth_score composite. corpus_distance is the
+# literature's strongest single signal (TAD-Bench, scientific-doc
+# novelty), so it gets the dominant weight. inter_turn and LID are
+# bonuses that lift multi-turn / high-LID threads above ties on
+# corpus_distance alone. Tunable, but defaults are well-grounded:
+# corpus ∈ [0, 2], log(1+inter) ∈ [0, ~1.1], tanh(LID/10) ∈ [0, ~1]
+# — so the weighted sum sits in roughly [0, 3.5].
+_DEPTH_WEIGHT_CORPUS = 1.0
+_DEPTH_WEIGHT_INTER_TURN = 0.5
+_DEPTH_WEIGHT_LID = 0.5
 
 
 def depth_score(
     nodes: Iterable[PromptNode],
 ) -> dict[str, float]:
-    """Composite per-thread depth signal: centroid × log(1 + inter_turn) × log(1 + LID).
+    """Weighted-additive per-thread depth signal.
+
+    score = 1.0 * corpus_distance
+          + 0.5 * log(1 + inter_turn_distance)
+          + 0.5 * tanh(LID / 10)
 
     Each component is individually peer-reviewed for the role it plays:
       - corpus_distance: novelty (TAD-Bench)
       - inter_turn_distance: thread moved through semantic space
+        (Dialogue Telemetry's Stalling Index, inverted)
       - LID: thread sampled independent axes (TwoNN; NeurIPS 2023)
 
-    Multiplicative composition: noise in any one component drags the
-    score toward 0. A thread is only "deep" when all three signals
-    agree. log(1 + ...) on the two ratio-scale signals so a thread
-    with massive LID but middling centroid distance doesn't blow past
-    a more-balanced thread.
+    **Why additive, not multiplicative (changed tick #54):** the
+    multiplicative shape collapsed to 0 for single-turn threads
+    because log(1 + 0) = 0. On a real 4380-thread install most
+    threads were single-turn (claude.ai exports / gemini takeout
+    flatten to 1 turn each), so the depth ranking was useless. The
+    additive shape lets a single-turn outlier rank by corpus_distance
+    alone; the bonus terms lift multi-turn rich threads above ties
+    rather than gating the score.
 
-    Materializes all three component maps once; caller can pull each
-    via the dedicated function above when they need a single signal.
+    tanh(LID/10) replaces log(1 + LID) so noise from near-duplicate
+    embeddings (which the LID_CAP also bounds) can't dominate; tanh
+    saturates around 1.0 for LID ≥ 20.
+
+    Caller pulls components via the dedicated functions above if
+    they need a single signal in isolation.
     """
     nodes_list = list(nodes)  # We iterate three times
     corpus = thread_corpus_distance(nodes_list)
@@ -274,7 +305,11 @@ def depth_score(
         c = corpus.get(tid, 0.0)
         i = inter.get(tid, 0.0)
         l = lid.get(tid, 0.0)
-        out[tid] = c * math.log(1.0 + i) * math.log(1.0 + l)
+        out[tid] = (
+            _DEPTH_WEIGHT_CORPUS * c
+            + _DEPTH_WEIGHT_INTER_TURN * math.log(1.0 + i)
+            + _DEPTH_WEIGHT_LID * math.tanh(l / 10.0)
+        )
     return out
 
 

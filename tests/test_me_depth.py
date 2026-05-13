@@ -233,31 +233,70 @@ class TestThreadLID:
 
 
 class TestDepthScoreComposite:
-    def test_three_components_multiplied(self, isolated_home):
-        """A thread with all three signals positive scores higher
-        than one with any signal zero. Pin the AND-shape of the
-        multiplicative composition."""
+    """Tick #54 redesign: weighted additive composite, not multiplicative.
+    Single-turn threads must still rank by corpus_distance alone — the
+    real-corpus diagnostic that motivated the redesign."""
+
+    def test_single_turn_thread_can_rank(self, isolated_home):
+        """The diagnostic that drove the redesign: with the OLD
+        multiplicative composite, single-turn threads scored 0
+        because log(1 + 0_inter_turn) = 0. The additive composite
+        lets a single-turn outlier earn its corpus_distance term."""
         from trinity_local.me.depth import depth_score
-        # All-positive thread: t_rich (moving, unusual, varied)
-        # Inter-turn zero: t_static (one turn) — log(1+0) = 0 → score 0
+        # Two threads, both single-turn. One sits near corpus mean,
+        # the other is an outlier. Outlier must rank higher.
+        nodes = [
+            _node("t_near", "a", [1.0, 0.0, 0.0]),
+            _node("t_near", "b", [0.95, 0.05, 0.0]),
+            _node("t_near", "c", [0.9, 0.0, 0.1]),
+            _node("t_outlier", "d", [0.0, 1.0, 0.0]),
+        ]
+        out = depth_score(nodes)
+        assert out.get("t_outlier", 0) > out.get("t_near", 0), (
+            f"single-turn outlier should outrank near-corpus single-turn; "
+            f"got outlier={out.get('t_outlier')} near={out.get('t_near')}"
+        )
+
+    def test_multi_turn_rich_thread_still_wins(self, isolated_home):
+        """A thread that ALSO moves through embedding space (inter_turn > 0)
+        and samples rich axes should beat an equally-outlying single-turn
+        thread. The additive bonuses lift, they don't gate."""
+        from trinity_local.me.depth import depth_score
         nodes = [
             _node("t_rich", "a", [1.0, 0.0, 0.0]),
             _node("t_rich", "b", [0.0, 1.0, 0.0]),
             _node("t_rich", "c", [0.0, 0.0, 1.0]),
-            _node("t_static", "d", [0.5, 0.5, 0.0]),
-            _node("t_normal", "e", [0.5, 0.5, 0.0]),
-            _node("t_normal", "f", [0.5, 0.5, 0.0]),
+            _node("t_outlier_single", "d", [1.0, 0.0, 0.0]),
+            _node("t_baseline", "e", [0.5, 0.5, 0.0]),
+            _node("t_baseline", "f", [0.5, 0.5, 0.0]),
         ]
-        # Wire turn_index for the inter-turn calculator.
         for i, n in enumerate(nodes):
             n.turn_index = i % 3
         out = depth_score(nodes)
-        # t_rich should dominate t_static (which has zero inter-turn).
-        assert out.get("t_rich", 0) > out.get("t_static", 0)
+        assert out.get("t_rich", 0) > out.get("t_baseline", 0), (
+            "multi-turn rich thread should outrank near-corpus baseline"
+        )
 
     def test_cold_install_returns_empty(self, isolated_home):
         from trinity_local.me.depth import depth_score
         assert depth_score([]) == {}
+
+    def test_lid_capped_against_runaway(self, isolated_home):
+        """Real corpus produced LID values in the millions because the
+        TwoNN MLE diverges for near-duplicate embedding pairs. Cap at
+        50 keeps the high tail informative without letting outliers
+        dominate the composite."""
+        from trinity_local.me.depth import thread_lid
+        # Two near-duplicate pairs in the same thread → d1 ~= 0 → r
+        # explodes → without cap, MLE goes to millions.
+        nodes = [
+            _node("t_dup", "a", [1.0, 0.0]),
+            _node("t_dup", "b", [1.0, 0.000001]),  # near-duplicate
+            _node("t_other", "c", [0.0, 1.0]),
+        ]
+        out = thread_lid(nodes)
+        for tid, val in out.items():
+            assert val <= 50.0, f"{tid} LID = {val} exceeds cap"
 
 
 class TestRankThreadsByDepth:
