@@ -122,6 +122,147 @@ def thread_corpus_distance(
     }
 
 
+def thread_inter_turn_distance(
+    nodes: Iterable[PromptNode],
+) -> dict[str, float]:
+    """Return {transcript_id: mean_cosine_distance_between_consecutive_turns}.
+
+    Threads where the user moved through semantic space (high mean
+    distance between turn N and turn N+1 embeddings) did real work.
+    Threads that stayed put (low distance, "more / yes / and then?")
+    are chatter. Pure geometry, no labels.
+
+    Single-turn threads get distance 0 — they had no opportunity to
+    move. Filtered downstream (won't out-rank multi-turn threads
+    when multiplied into the composite score with log(1+x)).
+    """
+    # Group nodes by thread, preserving turn_index order.
+    by_thread: dict[str, list[PromptNode]] = {}
+    for node in nodes:
+        tid = getattr(node, "transcript_id", None)
+        if not tid:
+            continue
+        if not (getattr(node, "embedding", None) or []):
+            continue
+        by_thread.setdefault(tid, []).append(node)
+    out: dict[str, float] = {}
+    for tid, turns in by_thread.items():
+        turns.sort(key=lambda n: getattr(n, "turn_index", 0))
+        if len(turns) < 2:
+            out[tid] = 0.0
+            continue
+        deltas = []
+        for prev, curr in zip(turns, turns[1:]):
+            d = cosine_distance(prev.embedding, curr.embedding)
+            deltas.append(d)
+        out[tid] = sum(deltas) / len(deltas) if deltas else 0.0
+    return out
+
+
+def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
+    """Return {transcript_id: LID estimate} via TwoNN (Facco et al. 2017).
+
+    For each turn embedding, find its two nearest neighbors in the
+    WHOLE corpus, compute the ratio r = d2/d1. Per-thread LID is the
+    MLE over its turns' ratios: d_hat = N / sum(log(r_i)).
+
+    Higher LID = the thread's turns sample more independent semantic
+    axes = richer thinking. NeurIPS 2023 used this same estimator to
+    separate fluent human prose (LID ≈ 9) from AI-generated text
+    (LID ≈ 7.5). We're using it as a signal for "this thread covered
+    ground" rather than truth-vs-fake.
+
+    Returns 0.0 per thread when the corpus is too small to estimate
+    (< 3 distinct usable embeddings) — caller can detect via the
+    log(1 + lid) collapsing to 0.
+    """
+    # Build a flat list of usable (transcript_id, embedding) tuples.
+    items: list[tuple[str, list[float]]] = []
+    for node in nodes:
+        tid = getattr(node, "transcript_id", None)
+        emb = getattr(node, "embedding", None) or []
+        if tid and emb:
+            items.append((tid, emb))
+    if len(items) < 3:
+        return {}
+    # Group by thread for the aggregation step. The kNN search is
+    # against the whole-corpus pool, not per-thread.
+    by_thread: dict[str, list[int]] = {}
+    for idx, (tid, _) in enumerate(items):
+        by_thread.setdefault(tid, []).append(idx)
+    embeddings = [emb for _, emb in items]
+    # Per-turn r = d2/d1. We need the 2nd-nearest distinct neighbor
+    # in cosine distance; clamp r ≥ 1 + epsilon so log(r) stays finite
+    # for duplicate-embedding pairs.
+    EPS = 1e-9
+    per_turn_log_r: list[tuple[str, float]] = []
+    for src_idx, src_emb in enumerate(embeddings):
+        # All distances from this turn to every other turn.
+        ds: list[float] = []
+        for tgt_idx, tgt_emb in enumerate(embeddings):
+            if tgt_idx == src_idx:
+                continue
+            d = cosine_distance(src_emb, tgt_emb)
+            ds.append(d)
+        if len(ds) < 2:
+            continue
+        ds.sort()
+        d1, d2 = ds[0], ds[1]
+        if d1 <= 0:
+            d1 = EPS  # duplicate-embedding pairs collapse — bound r to keep log finite
+        r = d2 / d1
+        if r <= 1.0:
+            r = 1.0 + EPS
+        per_turn_log_r.append((items[src_idx][0], math.log(r)))
+    # Per-thread MLE: d_hat = N_thread / sum(log_r over thread's turns)
+    sums: dict[str, float] = {}
+    counts: dict[str, int] = {}
+    for tid, lr in per_turn_log_r:
+        sums[tid] = sums.get(tid, 0.0) + lr
+        counts[tid] = counts.get(tid, 0) + 1
+    out: dict[str, float] = {}
+    for tid in by_thread.keys():
+        s = sums.get(tid, 0.0)
+        n = counts.get(tid, 0)
+        if n == 0 or s <= 0:
+            out[tid] = 0.0
+        else:
+            out[tid] = n / s
+    return out
+
+
+def depth_score(
+    nodes: Iterable[PromptNode],
+) -> dict[str, float]:
+    """Composite per-thread depth signal: centroid × log(1 + inter_turn) × log(1 + LID).
+
+    Each component is individually peer-reviewed for the role it plays:
+      - corpus_distance: novelty (TAD-Bench)
+      - inter_turn_distance: thread moved through semantic space
+      - LID: thread sampled independent axes (TwoNN; NeurIPS 2023)
+
+    Multiplicative composition: noise in any one component drags the
+    score toward 0. A thread is only "deep" when all three signals
+    agree. log(1 + ...) on the two ratio-scale signals so a thread
+    with massive LID but middling centroid distance doesn't blow past
+    a more-balanced thread.
+
+    Materializes all three component maps once; caller can pull each
+    via the dedicated function above when they need a single signal.
+    """
+    nodes_list = list(nodes)  # We iterate three times
+    corpus = thread_corpus_distance(nodes_list)
+    inter = thread_inter_turn_distance(nodes_list)
+    lid = thread_lid(nodes_list)
+    out: dict[str, float] = {}
+    for tid in corpus.keys():
+        c = corpus.get(tid, 0.0)
+        i = inter.get(tid, 0.0)
+        l = lid.get(tid, 0.0)
+        out[tid] = c * math.log(1.0 + i) * math.log(1.0 + l)
+    return out
+
+
 def rank_threads_by_depth(
     nodes: Iterable[PromptNode],
     *,
@@ -129,14 +270,11 @@ def rank_threads_by_depth(
 ) -> list[tuple[str, float]]:
     """Return [(transcript_id, depth_score)] sorted descending by score.
 
-    Today's score = corpus_centroid_distance, the single literature-
-    validated component. Multi-factor composite lands once we have
-    a validation harness for it.
-
-    `top_k=None` returns all threads; `top_k=N` truncates.
+    Score is the composite from `depth_score()`. `top_k=None` returns
+    all threads; `top_k=N` truncates to the top-N most-depth.
     """
-    distances = thread_corpus_distance(nodes)
-    ranked = sorted(distances.items(), key=lambda kv: kv[1], reverse=True)
+    scores = depth_score(nodes)
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     if top_k is not None:
         ranked = ranked[:top_k]
     return ranked

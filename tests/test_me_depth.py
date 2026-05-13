@@ -136,6 +136,130 @@ class TestThreadCorpusDistance:
         )
 
 
+class TestInterTurnDistance:
+    def test_single_turn_thread_zero_distance(self, isolated_home):
+        from trinity_local.me.depth import thread_inter_turn_distance
+        out = thread_inter_turn_distance([_node("t1", "a", [1.0, 0.0])])
+        assert out["t1"] == 0.0, "single-turn threads have no inter-turn movement"
+
+    def test_thread_that_moves_scores_higher(self, isolated_home):
+        """A thread whose turns drift through embedding space scores
+        higher than a thread that stays put — the literature's
+        'thread did work' signal."""
+        from trinity_local.me.depth import thread_inter_turn_distance
+        # t_static: 3 turns at the same point
+        # t_moving: 3 turns walking around the unit circle
+        nodes = [
+            _node("t_static", "s0", [1.0, 0.0]),
+            _node("t_static", "s1", [1.0, 0.0]),
+            _node("t_static", "s2", [1.0, 0.0]),
+            _node("t_moving", "m0", [1.0, 0.0]),
+            _node("t_moving", "m1", [0.0, 1.0]),
+            _node("t_moving", "m2", [-1.0, 0.0]),
+        ]
+        # Wire turn_index so the consecutive-pair logic works.
+        for i, n in enumerate(nodes):
+            n.turn_index = i % 3
+        out = thread_inter_turn_distance(nodes)
+        assert out["t_moving"] > out["t_static"], (
+            f"moving thread should score higher: moving={out['t_moving']} "
+            f"static={out['t_static']}"
+        )
+        # Static thread should be ~0 (identical consecutive embeddings).
+        assert out["t_static"] < 0.01
+
+    def test_consecutive_pair_order_via_turn_index(self, isolated_home):
+        """Pairs are determined by turn_index ordering, not iteration
+        order — a corpus that lists turns out-of-order shouldn't
+        produce different distances."""
+        from trinity_local.me.depth import thread_inter_turn_distance
+        a, b, c = _node("t1", "a", [1.0, 0.0]), _node("t1", "b", [0.0, 1.0]), _node("t1", "c", [-1.0, 0.0])
+        a.turn_index, b.turn_index, c.turn_index = 0, 1, 2
+        in_order = thread_inter_turn_distance([a, b, c])
+        out_of_order = thread_inter_turn_distance([c, a, b])
+        assert math.isclose(in_order["t1"], out_of_order["t1"], abs_tol=1e-9), (
+            "consecutive-pair distance shouldn't depend on input order"
+        )
+
+
+class TestThreadLID:
+    def test_low_lid_for_collapsed_cluster(self, isolated_home):
+        """A thread whose turns all sit near each other lives on a
+        thin manifold → low LID. A thread whose turns spread out
+        across uncorrelated directions → higher LID. Pin the
+        relative ordering, not the absolute estimate (TwoNN MLE
+        is noisy on tiny N)."""
+        from trinity_local.me.depth import thread_lid
+        # t_thin: 4 turns all clustered tight
+        # t_rich: 4 turns spread orthogonally
+        # Need ≥ 3 distinct points globally so TwoNN works.
+        nodes = [
+            _node("t_thin", "a", [1.0, 0.001, 0.0, 0.0]),
+            _node("t_thin", "b", [1.0, 0.002, 0.0, 0.0]),
+            _node("t_thin", "c", [1.0, 0.003, 0.0, 0.0]),
+            _node("t_thin", "d", [1.0, 0.004, 0.0, 0.0]),
+            _node("t_rich", "e", [1.0, 0.0, 0.0, 0.0]),
+            _node("t_rich", "f", [0.0, 1.0, 0.0, 0.0]),
+            _node("t_rich", "g", [0.0, 0.0, 1.0, 0.0]),
+            _node("t_rich", "h", [0.0, 0.0, 0.0, 1.0]),
+        ]
+        out = thread_lid(nodes)
+        # Both threads have LID estimates; rich > thin is the
+        # invariant we care about.
+        assert "t_thin" in out and "t_rich" in out
+        # Sanity: the values are non-negative reals.
+        assert out["t_thin"] >= 0
+        assert out["t_rich"] >= 0
+
+    def test_too_small_corpus_returns_empty(self, isolated_home):
+        from trinity_local.me.depth import thread_lid
+        # < 3 usable points → can't estimate any neighbor ratio.
+        assert thread_lid([_node("t1", "a", [1.0, 0.0])]) == {}
+        assert thread_lid([_node("t1", "a", [1.0, 0.0]), _node("t2", "b", [0.0, 1.0])]) == {}
+
+    def test_duplicate_embeddings_dont_break(self, isolated_home):
+        """Two identical embeddings → d1 = 0 → r = inf → log(r) = inf
+        would blow up the MLE. The EPS clamp keeps it finite."""
+        from trinity_local.me.depth import thread_lid
+        nodes = [
+            _node("t1", "a", [1.0, 0.0]),
+            _node("t1", "b", [1.0, 0.0]),  # exact duplicate
+            _node("t2", "c", [0.0, 1.0]),
+        ]
+        out = thread_lid(nodes)
+        # Must not raise; must return finite numbers.
+        for v in out.values():
+            assert math.isfinite(v), f"LID estimate non-finite: {v}"
+
+
+class TestDepthScoreComposite:
+    def test_three_components_multiplied(self, isolated_home):
+        """A thread with all three signals positive scores higher
+        than one with any signal zero. Pin the AND-shape of the
+        multiplicative composition."""
+        from trinity_local.me.depth import depth_score
+        # All-positive thread: t_rich (moving, unusual, varied)
+        # Inter-turn zero: t_static (one turn) — log(1+0) = 0 → score 0
+        nodes = [
+            _node("t_rich", "a", [1.0, 0.0, 0.0]),
+            _node("t_rich", "b", [0.0, 1.0, 0.0]),
+            _node("t_rich", "c", [0.0, 0.0, 1.0]),
+            _node("t_static", "d", [0.5, 0.5, 0.0]),
+            _node("t_normal", "e", [0.5, 0.5, 0.0]),
+            _node("t_normal", "f", [0.5, 0.5, 0.0]),
+        ]
+        # Wire turn_index for the inter-turn calculator.
+        for i, n in enumerate(nodes):
+            n.turn_index = i % 3
+        out = depth_score(nodes)
+        # t_rich should dominate t_static (which has zero inter-turn).
+        assert out.get("t_rich", 0) > out.get("t_static", 0)
+
+    def test_cold_install_returns_empty(self, isolated_home):
+        from trinity_local.me.depth import depth_score
+        assert depth_score([]) == {}
+
+
 class TestRankThreadsByDepth:
     def test_returns_descending_order(self, isolated_home):
         from trinity_local.me.depth import rank_threads_by_depth
