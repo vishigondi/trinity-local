@@ -46,7 +46,13 @@ class TestVerdictStats:
     def test_empty_install_returns_zero(self, isolated_home):
         from trinity_local.launchpad_data import _verdict_stats
         stats = _verdict_stats()
-        assert stats == {"total": 0, "rated": 0, "rate": 0.0}
+        assert stats == {
+            "total": 0,
+            "rated": 0,
+            "rate": 0.0,
+            "threads_total": 0,
+            "threads_rated": 0,
+        }
 
     def test_counts_rated_vs_unrated(self, isolated_home):
         _write_outcome(isolated_home, "council_a", with_verdict=True)
@@ -57,6 +63,51 @@ class TestVerdictStats:
         assert stats["total"] == 3
         assert stats["rated"] == 1
         assert stats["rate"] == pytest.approx(1 / 3)
+        # Tick #98: thread-level fields. Each test outcome here gets a
+        # unique chain_root_id via bundle_id, so threads should equal
+        # outcomes when there are no multi-round chains.
+        assert stats["threads_total"] == 3
+        assert stats["threads_rated"] == 1
+
+    def test_multi_round_chain_counts_one_thread_per_chain(self, isolated_home):
+        """Real corpus shape: a chain refinement has multiple outcomes
+        but ONE chain_root_id. The thread-level count groups them, so
+        the launchpad eyebrow matches what the user sees in cards."""
+        import json as _json
+        # Three rounds of one chain, plus one standalone — 4 outcomes,
+        # 2 threads. One round of the chain is rated → thread is rated.
+        # Filenames must start with "council_" to match the glob in
+        # _verdict_stats (it's how Trinity distinguishes outcome files
+        # from manifest sidecars like `_thread_*.js`).
+        for i, with_verdict in enumerate([False, True, False]):
+            metadata = {
+                "chain_root_id": "bundle_chain1",
+                "task_text": f"round {i}",
+            }
+            if with_verdict:
+                metadata["user_verdict"] = {"user_winner": "claude"}
+            (isolated_home / "council_outcomes" / f"council_chain_round_{i}.json").write_text(
+                _json.dumps({
+                    "council_run_id": f"council_chain_round_{i}",
+                    "bundle_id": "bundle_chain1",
+                    "metadata": metadata,
+                })
+            )
+        # Standalone — unrated
+        (isolated_home / "council_outcomes" / "council_standalone.json").write_text(
+            _json.dumps({
+                "council_run_id": "council_standalone",
+                "bundle_id": "bundle_standalone",
+                "metadata": {"task_text": "standalone q"},
+            })
+        )
+        from trinity_local.launchpad_data import _verdict_stats
+        stats = _verdict_stats()
+        assert stats["total"] == 4
+        assert stats["rated"] == 1
+        # 2 distinct threads, 1 has any-rated → threads_rated = 1
+        assert stats["threads_total"] == 2
+        assert stats["threads_rated"] == 1
 
     def test_unparseable_outcomes_skipped_silently(self, isolated_home):
         """A corrupt JSON file in the outcomes dir must not break the
@@ -94,7 +145,13 @@ class TestPageDataVerdictStats:
             live_review_path=tmp_path / "live_council.html",
             recent_councils=[],
         )
-        assert data["verdictStats"] == {"total": 0, "rated": 0, "rate": 0.0}
+        assert data["verdictStats"] == {
+            "total": 0,
+            "rated": 0,
+            "rate": 0.0,
+            "threads_total": 0,
+            "threads_rated": 0,
+        }
 
 
 class TestShortcutStatus:

@@ -639,9 +639,19 @@ def _verdict_stats() -> dict:
     A council counts as "rated" when its outcome JSON carries
     `metadata.user_verdict.user_winner`. Same field both the CLI
     council-rate handler and the MCP record_outcome tool write to.
+
+    Tick #98 also returns thread-level counts (chain_root_id grouped):
+    `threads_total` and `threads_rated`. A multi-round chain has one
+    thread but N outcomes — the launchpad cards group by thread, so
+    the badge counts disagreed with the eyebrow until both shapes
+    were available. Surfaces both lets the eyebrow render the unit
+    that matches what the user is looking at.
     """
     total = 0
     rated = 0
+    # Per-thread aggregation alongside per-outcome counts.
+    threads_seen: set[str] = set()
+    threads_rated: set[str] = set()
     for path in council_outcomes_dir().glob("council_*.json"):
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
@@ -650,10 +660,27 @@ def _verdict_stats() -> dict:
         total += 1
         metadata = raw.get("metadata") or {}
         verdict = metadata.get("user_verdict") or {}
+        # Thread = chain_root_id, falling back to bundle_id then council_id
+        # (matches _load_recent_councils's grouping).
+        chain_root_id = (
+            metadata.get("chain_root_id")
+            or raw.get("bundle_id")
+            or raw.get("council_run_id")
+            or path.stem
+        )
+        threads_seen.add(chain_root_id)
         if isinstance(verdict, dict) and verdict.get("user_winner"):
             rated += 1
+            threads_rated.add(chain_root_id)
     rate = rated / total if total else 0.0
-    return {"total": total, "rated": rated, "rate": rate}
+    threads_total = len(threads_seen)
+    return {
+        "total": total,
+        "rated": rated,
+        "rate": rate,
+        "threads_total": threads_total,
+        "threads_rated": len(threads_rated),
+    }
 
 
 def _core_status() -> dict:

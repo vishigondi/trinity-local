@@ -1374,7 +1374,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section class="card">
         <div class="eyebrow">
           Your training history
-          <span v-if="pageData.verdictStats && pageData.verdictStats.total > 0" class="meta" style="font-weight: 400; opacity: 0.7;">
+          <!-- Tick #98: thread-level count when threads != outcomes
+               (multi-round chains). The cards below group by thread,
+               so showing "3 of 14 threads rated" matches what the user
+               sees. Title attribute carries the outcome-level number
+               so a power user can hover to see the underlying count.
+               Falls back to outcome-only when the two are equal. -->
+          <span v-if="pageData.verdictStats && pageData.verdictStats.threads_total > 0
+                       && pageData.verdictStats.threads_total !== pageData.verdictStats.total"
+                class="meta" style="font-weight: 400; opacity: 0.7;"
+                :title="'Per-outcome: ' + pageData.verdictStats.rated + ' of ' + pageData.verdictStats.total + ' rounds rated (multi-round chains count each round)'">
+            · {{{{ pageData.verdictStats.threads_rated }}}} of {{{{ pageData.verdictStats.threads_total }}}} threads rated
+          </span>
+          <span v-else-if="pageData.verdictStats && pageData.verdictStats.total > 0"
+                class="meta" style="font-weight: 400; opacity: 0.7;">
             · {{{{ pageData.verdictStats.rated }}}} of {{{{ pageData.verdictStats.total }}}} rated
           </span>
         </div>
