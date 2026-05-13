@@ -365,6 +365,47 @@ class TestRoutingToTopologyCrossLink:
         )
 
 
+class TestStaleBasinBanner:
+    """Tick #40 — ?basin=<id> deep-link gracefully handles a stale
+    reference (basin no longer in topology, e.g. lens-build was
+    re-run with different cluster count). Shows a warm-warning
+    banner with a rebuild chip; without this, the link landed
+    silently with no panel open and no feedback to the user."""
+
+    def test_stale_basin_branch_present(self, isolated_home):
+        html = _render()
+        # The else-branch of the focusBasin handler must surface a
+        # not-found banner. Guard the marker so a future refactor
+        # doesn't silently drop the user-feedback path.
+        assert 'not in the current topology' in html, (
+            "stale-basin banner copy missing — ?basin= mismatches will "
+            "land silently with no user feedback"
+        )
+        # The rebuild chip should copy the lens-build CLI when clicked.
+        assert "trinity-local lens-build" in html, (
+            "stale-basin banner doesn't surface the rebuild CLI chip"
+        )
+
+    def test_stale_basin_reuses_health_banner_classes(self, isolated_home):
+        # Reuses the .viewer-health-banner + .viewer-health-cmd classes
+        # so the stale notice looks identical to the picks Reader's
+        # "not yet" banner. Same shape, same color, same affordances —
+        # one CSS rule covers both surfaces.
+        html = _render()
+        # The handler constructs the banner using the same classes;
+        # if either constructor drifts, the stale notice would render
+        # unstyled.
+        idx_handler = html.find("not in the current topology")
+        assert idx_handler > 0, "stale-basin handler not present in JS"
+        # Find the nearest preceding viewer-health-banner construction —
+        # confirms the stale path uses the same DOM shape.
+        nearby = html[max(0, idx_handler - 800):idx_handler]
+        assert '"viewer-health-banner"' in nearby, (
+            "stale-basin banner not built with .viewer-health-banner class — "
+            "visual drift from the picks Reader's matching banner"
+        )
+
+
 class TestBasinHoverTitleHelper:
     """Tick #39 — JS-side basinHoverTitle helper mirrors the Python
     _topology_basin_labels + Vue basinHoverLabel. Renders 'Basin

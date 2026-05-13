@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 28 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 29 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -84,6 +84,11 @@ Surfaces:
        renders its basins_spanned[] as small .lens-basin-chip deep-links
        to the topology view focused on that basin (tick #36). Closes the
        forward-arc "lens card → source prompts" gap.
+   28. Stale-basin banner: when ?basin=<id> deep-links to a basin that
+       isn't in the current topology (lens-build re-ran with different
+       cluster ids), the topology view surfaces a "not found" banner
+       inside the detail panel + the lens-build copy chip — instead of
+       landing silently with no panel open (tick #40).
 
 Exit codes:
     0 — all surfaces pass
@@ -1617,6 +1622,45 @@ def main() -> int:
             reason = f"href={chip_state.get('href')!r}"
             print(f"[ ✗ ] Surface 27 lens→basin: {reason}")
             fails.append((27, "lens→basin chips", reason))
+
+        # ─── Surface 28: Stale-basin banner ──────────────────────────────────
+        # Navigate to topics.html with a fabricated basin id that won't
+        # exist in the current topology (a stale lens chip would land
+        # like this). The detail panel must surface a "not found"
+        # banner with a rebuild chip, NOT silently render the empty
+        # "click a basin" message.
+        stale_basin_id = "b__stale_unlikely_to_exist__zzz999"
+        page.goto(
+            f"{base_url}/portal_pages/memory.html?file=topics.json&basin={stale_basin_id}",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(400)
+        stale_state = page.evaluate(
+            """() => {
+              const banner = document.querySelector('.topics-graph-detail .viewer-health-banner');
+              if (!banner) return {ok: false, reason: 'no stale-basin banner rendered'};
+              const status = banner.querySelector('.viewer-health-status');
+              const cmd = banner.querySelector('.viewer-health-cmd');
+              const hint = banner.querySelector('.viewer-health-hint');
+              return {
+                ok: !!status && !!cmd && /not found/i.test(status.textContent || ''),
+                status: status?.textContent || null,
+                cmd_label: cmd?.textContent || null,
+                hint_excerpt: (hint?.textContent || '').slice(0, 80),
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "28-stale-basin-banner.png"))
+        if stale_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 28 stale-basin banner: "
+                f"status={stale_state['status']!r} cmd={stale_state['cmd_label']!r}"
+            )
+        else:
+            reason = stale_state.get("reason") or f"status={stale_state.get('status')!r}"
+            print(f"[ ✗ ] Surface 28 stale-basin banner: {reason}")
+            fails.append((28, "stale-basin banner", reason))
 
         browser.close()
 

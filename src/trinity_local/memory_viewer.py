@@ -1606,15 +1606,44 @@ def render_memory_viewer_html() -> str:
 
       // Deep-link target: ?basin=<id> auto-opens the matching basin's
       // detail panel + highlights its neighborhood. Used by the picks
-      // Reader's "View in topology →" xlink. If no basin matches the
-      // requested id, the page renders normally (no error banner —
-      // the missing-basin case is rare enough that warning is overkill).
+      // Reader's "View in topology →" xlink + the lens-card chips.
+      // Stale-basin case (tick #40): when the requested id doesn't
+      // match any node, surface a small "not yet" banner inside the
+      // detail panel — same warm-warning shape the picks Reader uses
+      // when ?task= points at an unconsolidated task. Lens cards
+      // reference basin ids from the lens-build run that produced
+      // them; if topology has since been rebuilt with different ids,
+      // the link lands but the user otherwise has no feedback.
       const focusBasin = params.get("basin");
       if (focusBasin) {{
         const match = nodes.find(n => n.id === focusBasin);
         if (match) {{
           showDetail(match.basin);
           highlightNeighborhood(match.id);
+        }} else {{
+          // Replace the "click a basin" empty-state with a stale notice.
+          clearChildren(detail);
+          const banner = el("div", "viewer-health-banner");
+          banner.appendChild(el("span", "viewer-health-status", "not found"));
+          const hint = el("span", "viewer-health-hint");
+          hint.textContent =
+            'Basin "' + focusBasin + '" not in the current topology — ' +
+            'this link may reference a stale lens-build. Rebuild via ' +
+            'trinity-local lens-build.';
+          banner.appendChild(hint);
+          const chip = el("button", "viewer-health-cmd");
+          chip.type = "button";
+          chip.textContent = "trinity-local lens-build";
+          chip.title = "Copy: trinity-local lens-build";
+          chip.addEventListener("click", () => {{
+            if (navigator.clipboard?.writeText) {{
+              navigator.clipboard.writeText("trinity-local lens-build").catch(() => null);
+            }}
+            chip.textContent = "✓ Copied";
+            setTimeout(() => {{ chip.textContent = "trinity-local lens-build"; }}, 2200);
+          }});
+          banner.appendChild(chip);
+          detail.appendChild(banner);
         }}
       }}
 
