@@ -154,6 +154,20 @@ shapes that earned their rules by costing time:
     coverage drifts behind feature volume and the gate stops
     catching real regressions — it just becomes wallpaper.
 
+15. **When you extend a regression guard, update its description in
+    the same commit.** Sub-rule of #14, earned its own bullet after
+    tick #22. Five smoke surfaces (3, 10, 13, 15, 16) had gained
+    real assertions across ticks but the docstring header still
+    described their pre-extension state. The fix is small; the
+    failure mode isn't — a future contributor reads "Surface 3:
+    >=1 row, columns readable" and thinks the cortex basin links
+    aren't covered, so they add a redundant check or, worse, drop
+    the existing one because it looks orphaned. Same shape applies
+    to docstrings on `_memory_health`, the design system COLORS
+    dict, etc. — every doc that's load-bearing for "what does this
+    function/gate actually do" needs to evolve with the code or it
+    becomes invisible armor.
+
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
