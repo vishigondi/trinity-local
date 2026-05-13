@@ -243,16 +243,30 @@ def main() -> int:
               // card which shares the .routing-table base class but has its
               // own first-cell shape (plain text, no .benchmark-category div).
               // We want the personal routing table specifically.
-              const rows = document.querySelectorAll('table.routing-table:not(.cortex-rules-table) tbody tr');
-              const first = rows[0];
+              const personalRows = Array.from(document.querySelectorAll('table.routing-table:not(.cortex-rules-table) tbody tr'));
+              const first = personalRows[0];
               const first_task = first?.querySelector('td:first-child .benchmark-category')?.textContent?.trim();
+              // Tick #20: personal routing rows now deep-link to the
+              // routing.json viewer with the row's task_type focused.
+              const personalLinkCount = personalRows.filter(r =>
+                r.querySelector('td:first-child a[href*="memory.html?file=routing.json&task="]')
+              ).length;
+              const personalFirstHref = first?.querySelector('td:first-child a')?.getAttribute('href') || null;
               // Tick #19: cortex basin_id is a deep-link to the picks viewer.
               // Pull the first basin link's href for assertion.
               const cortexLink = document.querySelector('.cortex-rules-table tbody tr td:first-child a');
               const cortexHref = cortexLink?.getAttribute('href') || null;
               const cortexLinkCount = document.querySelectorAll('.cortex-rules-table tbody tr td:first-child a').length;
               const cortexRowCount = document.querySelectorAll('.cortex-rules-table tbody tr').length;
-              return {row_count: rows.length, first_task, cortexHref, cortexLinkCount, cortexRowCount};
+              return {
+                row_count: personalRows.length,
+                first_task,
+                personalLinkCount,
+                personalFirstHref,
+                cortexHref,
+                cortexLinkCount,
+                cortexRowCount,
+              };
             }"""
         )
         # Cortex link is optional — installs without cortex consolidation
@@ -267,11 +281,29 @@ def main() -> int:
                 and "memory.html?file=picks.json&task=" in (routing_state.get("cortexHref") or "")
             )
         )
-        if routing_state.get("row_count", 0) >= 1 and routing_state.get("first_task") and cortex_links_ok:
+        # Tick #20: personal routing rows must each carry a deep-link
+        # to the routing.json viewer. Symmetric with the cortex check.
+        personal_rows = routing_state.get("row_count") or 0
+        personal_links_ok = (
+            personal_rows == 0
+            or (
+                routing_state.get("personalLinkCount") == personal_rows
+                and "memory.html?file=routing.json&task=" in (routing_state.get("personalFirstHref") or "")
+            )
+        )
+        if (
+            personal_rows >= 1
+            and routing_state.get("first_task")
+            and cortex_links_ok
+            and personal_links_ok
+        ):
             cortex_note = f" · cortex {cortex_rows} rows w/ basin links" if cortex_rows else ""
-            print(f"[ ✓ ] Surface 3 routing table: {routing_state['row_count']} rows (first: '{routing_state['first_task']}'){cortex_note}")
+            print(f"[ ✓ ] Surface 3 routing table: {personal_rows} rows (first: '{routing_state['first_task']}', all linked){cortex_note}")
         else:
-            reason = f"row_count={routing_state.get('row_count')} cortex_links_ok={cortex_links_ok} cortex_rows={cortex_rows}"
+            reason = (
+                f"row_count={personal_rows} personal_links_ok={personal_links_ok}"
+                f" cortex_links_ok={cortex_links_ok} cortex_rows={cortex_rows}"
+            )
             print(f"[ ✗ ] Surface 3 routing table: {reason}")
             fails.append((3, "routing table", reason))
 

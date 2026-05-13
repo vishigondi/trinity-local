@@ -1053,7 +1053,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <tbody>
             <tr v-for="(scores, taskType) in personalRoutingTable.by_task_type">
               <td>
-                <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
+                <!-- Cross-memory link mirroring the cortex card from tick
+                     #19. Personal routing table row → routing.json viewer
+                     focused on this task_type. Memory viewer shows the
+                     full provider × score matrix (this card only shows
+                     the user's own data; the viewer also surfaces the
+                     "↔ pick" xlink + computed_at timestamp). -->
+                <a :href="'../portal_pages/memory.html?file=routing.json&task=' + encodeURIComponent(taskType)"
+                   style="color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text-muted);"
+                   :title="'View ' + taskType + ' in routing.json viewer'">
+                  <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
+                </a>
               </td>
               <td><span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span></td>
               <td style="text-align: right;">
