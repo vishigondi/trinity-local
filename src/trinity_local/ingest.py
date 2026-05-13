@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -547,9 +548,18 @@ def iter_cowork_sessions(root: Path | None = None) -> Iterator[SessionRecord]:
 def _is_user_facing_prompt(message: SessionMessage) -> bool:
     if message.role != "user":
         return False
-    if not message.text or not message.text.strip():
+    text = (message.text or "").strip()
+    if not text:
         return False
     if message.extra.get("is_sidechain"):
+        return False
+    # Drop tool-scaffolding prompts that Trinity (or another agent harness)
+    # fired through the user's CLI: extractor calls, "You are ..." system
+    # prompts, etc. Captured transcripts label them role=user because the CLI
+    # sees them as the input, but they are not authored by the human and
+    # poison the autofill / replay / dream pipelines if indexed.
+    lowered = text.lstrip().lower()
+    if lowered.startswith(("you are ", "you will ")):
         return False
     return True
 
@@ -752,8 +762,6 @@ def parse_chatgpt_export(path: Path) -> Iterator[SessionRecord]:
             create_time = msg.get("create_time")
             timestamp = None
             if isinstance(create_time, (int, float)):
-                from datetime import datetime, timezone
-
                 timestamp = datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
             messages.append(SessionMessage(
                 role=role,
@@ -765,8 +773,6 @@ def parse_chatgpt_export(path: Path) -> Iterator[SessionRecord]:
 
         create_time = conv.get("create_time")
         update_time = conv.get("update_time")
-        from datetime import datetime, timezone
-
         started_at = (
             datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
             if isinstance(create_time, (int, float))

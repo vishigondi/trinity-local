@@ -19,7 +19,7 @@ for research/k-NN tooling that explicitly opts in.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .replay_value import (
@@ -30,7 +30,7 @@ from .replay_value import (
     theme_score,
 )
 from .schemas import PromptNode
-from .store import iter_prompt_nodes, iter_turn_windows
+from .store import iter_prompt_nodes
 
 
 @dataclass
@@ -172,6 +172,15 @@ def search_prompt_nodes(
     scored: list[tuple[PromptNode, float, float]] = []
 
     for node in nodes:
+        # Skip scaffolding prompts that leaked through pre-filter ingest
+        # (Trinity's extractor + other agent-harness "You are ..." calls
+        # get captured as role=user in CLI transcripts). Ingest now strips
+        # these going forward; this guards already-poisoned PromptNodes
+        # until the user re-seeds.
+        text_lower = (node.text or "").lstrip().lower()
+        if text_lower.startswith(("you are ", "you will ")):
+            continue
+
         substring = _substring_score(query_text, node.text) if has_query else 0.0
 
         # When a query is given, drop prompts that share zero query tokens —

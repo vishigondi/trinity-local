@@ -142,6 +142,46 @@ def main() -> int:
             print(f"[ ✗ ] Surface 1 launchpad: {reason}")
             fails.append((1, "launchpad cold-render", reason))
 
+        # ─── Surface 1b: autofill content quality ────────────────────────────
+        # Trinity's own extractor / lens-build prompts can leak into the
+        # user's CLI transcripts as role=user. We filter them at ingest +
+        # search, but a regression in either path silently floods the
+        # autofill with "You are extracting durable facts..." clones.
+        # See commit 71c3a83 (replay-history fix) and the launchpad fix
+        # that followed. Catch any new leak from the rendered DOM.
+        # councilSuggestions is loaded into pageData regardless of whether the
+        # suggestion panel is currently rendered (panel is v-if="showSuggestions",
+        # only shown on textarea focus). Pull it directly from the inline JSON
+        # so the check works without simulating user focus.
+        autofill = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              if (!script) return [];
+              try {
+                const data = JSON.parse(script.textContent || '{}');
+                return (data.councilSuggestions || []).slice(0, 15).map(
+                  s => (typeof s === 'string' ? s : (s.text || '')).trim()
+                );
+              } catch (_) { return []; }
+            }"""
+        )
+        leak_count = sum(
+            1 for t in autofill
+            if t.lower().startswith(("you are ", "you will "))
+        )
+        prefixes = [t[:200] for t in autofill if t]
+        dup_count = len(prefixes) - len(set(prefixes))
+        # Only fail on scaffolding leaks. Prefix duplicates can be legitimate
+        # template reuse (e.g. running the same floorplan-analysis template
+        # against the same target multiple times) — report for visibility but
+        # don't fail.
+        if leak_count == 0:
+            print(f"[ ✓ ] Surface 1b autofill: {len(autofill)} entries, no scaffolding leaks (dups={dup_count})")
+        else:
+            reason = f"leak={leak_count} (first: {autofill[0][:80] if autofill else 'empty'!r})"
+            print(f"[ ✗ ] Surface 1b autofill: {reason}")
+            fails.append((1, "autofill scaffolding leak", reason))
+
         # ─── Surface 2: Settings gear ────────────────────────────────────────
         gear_clicked = page.evaluate(
             """() => {
