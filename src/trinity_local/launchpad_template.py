@@ -954,6 +954,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   {{{{ r.basin_id.replace(/_/g, ' ') }}}}
                 </a>
                 <span v-else>{{{{ r.basin_id.replace(/_/g, ' ') }}}}</span>
+                <!-- → topology chip: only renders when the rule's basin
+                     centroid has a match into topics.json. Visually quiet
+                     so the primary basin_id link stays dominant. Same
+                     shape as the routing-table topology chip (tick #33). -->
+                <a v-if="r.topology_basin"
+                   :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(r.topology_basin)"
+                   class="cortex-topology-chip"
+                   style="margin-left: 8px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); text-decoration: none; padding: 1px 6px; border: 1px solid var(--border); border-radius: 3px; vertical-align: middle; white-space: nowrap;"
+                   :title="'Open basin ' + r.topology_basin + ' in the topology graph'">
+                  → topology
+                </a>
               </td>
               <td><span class="suggestion-chip">{{{{ formatProviderLabel(r.primary) }}}}</span></td>
               <td><span class="meta">{{{{ r.challenger ? formatProviderLabel(r.challenger) : '—' }}}}</span></td>

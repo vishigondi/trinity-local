@@ -101,6 +101,90 @@ class TestTaskToTopologyBasin:
         assert "second_task" not in result  # second was claimed-out
 
 
+class TestCortexCardTopologyAnnotation:
+    """Tick #35 — extend the cortex picks card on the launchpad with
+    a → topology link per rule when that rule's basin centroid matches
+    a topology basin. Annotation happens in _load_cortex_rules so the
+    Vue template just reads r.topology_basin."""
+
+    def test_topology_basin_attached_when_match(self, isolated_home, monkeypatch):
+        from trinity_local import launchpad_data
+        # Stub the centroid matcher so the test doesn't need to
+        # populate topics.json — we're testing the annotation, not
+        # the math (that's covered above).
+        monkeypatch.setattr(
+            launchpad_data,
+            "_task_to_topology_basin",
+            lambda: {"coding": "b07"},
+        )
+        # Stub load_routing_patterns so _load_cortex_rules has work
+        # to annotate without needing a fully-seeded cortex.
+        from trinity_local.cortex import RoutingPattern, RoutingRule, TrustScore, FailureModes
+        rule = RoutingRule(primary="claude", challenger="gemini", reason="test")
+        trust = TrustScore(value=0.7, components={"n_episodes": 1.0})
+        pattern = RoutingPattern(
+            basin_id="coding",
+            consolidated_at="2026-05-13T00:00:00",
+            n_episodes=5,
+            task_types=["coding"],
+            winner_distribution={"claude": 1.0},
+            routing_rule=rule,
+            trust_score=trust,
+            failure_modes=FailureModes(),
+            successful_prompts={},
+            decay={},
+            evidence=[],
+            basin_centroid=[0.99, 0.0, 0.0],
+        )
+        monkeypatch.setattr(
+            launchpad_data, "load_routing_patterns", lambda: {"coding": pattern}, raising=False
+        )
+        # Also monkeypatch the import inside _load_cortex_rules.
+        import trinity_local.cortex
+        monkeypatch.setattr(
+            trinity_local.cortex, "load_routing_patterns", lambda: {"coding": pattern}
+        )
+        from trinity_local.launchpad_data import _load_cortex_rules
+        payload = _load_cortex_rules()
+        assert payload is not None, "cortex rules payload is None"
+        assert payload["rules"], "no rules in payload"
+        coding_rule = next(r for r in payload["rules"] if r["basin_id"] == "coding")
+        assert coding_rule.get("topology_basin") == "b07", (
+            f"topology_basin not annotated; got {coding_rule.get('topology_basin')!r}"
+        )
+
+    def test_topology_basin_absent_when_no_match(self, isolated_home, monkeypatch):
+        from trinity_local import launchpad_data
+        monkeypatch.setattr(launchpad_data, "_task_to_topology_basin", lambda: {})
+        from trinity_local.cortex import RoutingPattern, RoutingRule, TrustScore, FailureModes
+        rule = RoutingRule(primary="claude", challenger=None, reason="x")
+        trust = TrustScore(value=0.5, components={})
+        pattern = RoutingPattern(
+            basin_id="unmatched",
+            consolidated_at="2026-05-13T00:00:00",
+            n_episodes=1,
+            task_types=["unmatched"],
+            winner_distribution={"claude": 1.0},
+            routing_rule=rule,
+            trust_score=trust,
+            failure_modes=FailureModes(),
+            successful_prompts={},
+            decay={},
+            evidence=[],
+            basin_centroid=[0.1, 0.1, 0.0],
+        )
+        import trinity_local.cortex
+        monkeypatch.setattr(
+            trinity_local.cortex, "load_routing_patterns", lambda: {"unmatched": pattern}
+        )
+        from trinity_local.launchpad_data import _load_cortex_rules
+        payload = _load_cortex_rules()
+        rule_row = payload["rules"][0]
+        assert "topology_basin" not in rule_row, (
+            f"topology_basin should be absent when no match; got {rule_row.get('topology_basin')!r}"
+        )
+
+
 class TestRecentCardTopologyChip:
     """The chip must render only when task_type → basin map has a match.
     Without a match, the recent card shows only → pick + → routing."""

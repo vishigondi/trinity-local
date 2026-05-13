@@ -44,6 +44,16 @@ COUNCIL_LOADING_MESSAGES = [
 ]
 
 
+# Centroid-similarity threshold for the picks↔topology bridge. A pick
+# is considered to map onto a topology basin only when their nomic
+# centroids share ≥ this cosine similarity. Empirical: 0.5 was too
+# lax (oranges mapped to apples), 0.8 too strict (real matches dropped).
+# Single source of truth — the JS helper in memory_viewer.py reads
+# this same value via render-time injection, so the launchpad-side
+# Python match and the in-viewer JS match can't drift.
+BASIN_SIM_THRESHOLD = 0.65
+
+
 def _esc(value: str | None) -> str:
     return html.escape(value or "")
 
@@ -733,6 +743,17 @@ def _load_cortex_rules() -> dict | None:
         })
     # Highest trust first — that's what the user wants to see at the top.
     rules.sort(key=lambda r: r["trust_score"], reverse=True)
+    # Annotate each rule with the topology basin it bridges to (centroid
+    # cosine ≥ BASIN_SIM_THRESHOLD). When present, the cortex card row
+    # renders a → topology chip so the user can jump from "the rule" to
+    # "the prompts the rule was extracted from" in one click. Reuses the
+    # same matching map as the recent-card chip + the routing-table chip
+    # so all three surfaces agree.
+    task_to_basin = _task_to_topology_basin()
+    for r in rules:
+        bid = task_to_basin.get(str(r["basin_id"]))
+        if bid:
+            r["topology_basin"] = bid
     return {
         "rules": rules,
         "total_basins": len(rules),
@@ -823,7 +844,7 @@ def _format_relative_date(iso: str) -> str:
 
 def _task_to_topology_basin() -> dict[str, str]:
     """Return {task_type: topology_basin_id} for picks with a centroid
-    match into topics.json above SIM_THRESHOLD=0.65.
+    match into topics.json above BASIN_SIM_THRESHOLD.
 
     Mirrors the JS helper `matchBasinsToPicks` in memory_viewer.py —
     same logic, same threshold, same first-task-wins rule — so the
@@ -863,7 +884,6 @@ def _task_to_topology_basin() -> dict[str, str]:
         basin_norms.append({"centroid": c, "norm": math.sqrt(s), "id": b.get("id")})
     if not basin_norms:
         return {}
-    SIM_THRESHOLD = 0.65
     result: dict[str, str] = {}
     claimed: set[str] = set()  # first task wins per basin (mirrors JS)
     for task_type, pattern in patterns.items():
@@ -885,7 +905,7 @@ def _task_to_topology_basin() -> dict[str, str]:
             if sim > best_sim:
                 best_sim = sim
                 best_id = bn["id"]
-        if best_id and best_sim >= SIM_THRESHOLD and best_id not in claimed:
+        if best_id and best_sim >= BASIN_SIM_THRESHOLD and best_id not in claimed:
             result[str(task_type)] = str(best_id)
             claimed.add(best_id)
     return result

@@ -209,6 +209,23 @@ class TestTopicToPickCrossLink:
             "argmax basin regardless of how unrelated they are"
         )
 
+    def test_threshold_single_sourced_from_python(self, isolated_home):
+        """Tick #35 — JS-side SIM_THRESHOLD must match the Python-side
+        BASIN_SIM_THRESHOLD that the launchpad chip renderer uses. If
+        the two drift, the launchpad and the viewer will disagree on
+        whether a task has a topology match."""
+        import re
+        from trinity_local.launchpad_data import BASIN_SIM_THRESHOLD
+        html = _render()
+        m = re.search(r"const SIM_THRESHOLD = ([0-9.]+)\s*;", html)
+        assert m, "SIM_THRESHOLD assignment not found in rendered JS"
+        injected = float(m.group(1))
+        assert injected == BASIN_SIM_THRESHOLD, (
+            f"JS SIM_THRESHOLD={injected} drifted from Python "
+            f"BASIN_SIM_THRESHOLD={BASIN_SIM_THRESHOLD} — they MUST "
+            f"agree or launchpad/viewer chips will mis-link"
+        )
+
     def test_xlink_targets_picks_reader_with_task_param(self, isolated_home):
         html = _render()
         # Link must go to picks.json viewer with the ?task= deep-link

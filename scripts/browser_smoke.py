@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 26 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 27 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -76,6 +76,10 @@ Surfaces:
        has a centroid match, the card grows a third → topology chip
        alongside → pick and → routing, so the user can jump from a
        council straight to its topology basin (tick #34).
+   26. Cortex picks card → topology chip: each cortex rule row whose
+       basin_id has a centroid match grows a .cortex-topology-chip
+       alongside the basin name (tick #35). Same matcher as Surfaces
+       24 + 25 — three surfaces, one source of truth.
 
 Exit codes:
     0 — all surfaces pass
@@ -291,10 +295,14 @@ def main() -> int:
               ).length;
               const personalFirstHref = first?.querySelector('td:first-child a')?.getAttribute('href') || null;
               // Tick #19: cortex basin_id is a deep-link to the picks viewer.
-              // Pull the first basin link's href for assertion.
-              const cortexLink = document.querySelector('.cortex-rules-table tbody tr td:first-child a');
+              // Pull the first basin link's href for assertion. Count only
+              // the basin link per row (not the optional .cortex-topology-chip
+              // anchor added in tick #35).
+              const cortexLink = document.querySelector('.cortex-rules-table tbody tr td:first-child a:not(.cortex-topology-chip)');
               const cortexHref = cortexLink?.getAttribute('href') || null;
-              const cortexLinkCount = document.querySelectorAll('.cortex-rules-table tbody tr td:first-child a').length;
+              const cortexLinkCount = Array.from(document.querySelectorAll('.cortex-rules-table tbody tr'))
+                .filter(r => r.querySelector('td:first-child a:not(.cortex-topology-chip)'))
+                .length;
               const cortexRowCount = document.querySelectorAll('.cortex-rules-table tbody tr').length;
               return {
                 row_count: personalRows.length,
@@ -1530,6 +1538,39 @@ def main() -> int:
             reason = f"href={topo_chip_state.get('href')!r}"
             print(f"[ ✗ ] Surface 25 recent-card→topology: {reason}")
             fails.append((25, "recent-card→topology chip", reason))
+
+        # ─── Surface 26: Cortex picks card → topology chip ───────────────────
+        # The cortex picks table on the launchpad annotates each row with
+        # a → topology chip when the rule's basin_id maps to a topology
+        # basin (same matcher as Surfaces 24 + 25). SKIPPED when no
+        # cortex rule matches a topology basin (cold install or no
+        # consolidation). The launchpad is already loaded from Surface 25.
+        cortex_chip_state = page.evaluate(
+            """() => {
+              const chips = Array.from(document.querySelectorAll('a.cortex-topology-chip'));
+              if (!chips.length) return {ok: true, skipped: true, reason: 'no cortex rows have a → topology chip'};
+              const href = chips[0].getAttribute('href') || '';
+              const m = href.match(/[?&]basin=([^&]+)/);
+              return {
+                ok: !!m && href.includes('topics.json'),
+                total: chips.length,
+                href: href,
+                basin: m ? decodeURIComponent(m[1]) : null,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "26-cortex-topology-chip.png"))
+        if cortex_chip_state.get("skipped"):
+            print(f"[ - ] Surface 26 cortex→topology: SKIPPED ({cortex_chip_state['reason']})")
+        elif cortex_chip_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 26 cortex→topology: "
+                f"{cortex_chip_state['total']} chip(s) · first → basin={cortex_chip_state['basin']}"
+            )
+        else:
+            reason = f"href={cortex_chip_state.get('href')!r}"
+            print(f"[ ✗ ] Surface 26 cortex→topology: {reason}")
+            fails.append((26, "cortex→topology chip", reason))
 
         browser.close()
 

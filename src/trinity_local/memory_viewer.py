@@ -137,6 +137,12 @@ def render_memory_viewer_html() -> str:
         # has unrelated issues — degrade silently to no banners.
         health_data = None
         health_payload = "{}"
+    # Single source of truth for the centroid-similarity threshold used
+    # by both the Python-side _task_to_topology_basin (server-rendered
+    # launchpad chip) and the JS-side matchBasinsToPicks (client-side
+    # in the viewer). Injected here so the two halves can't disagree.
+    from .launchpad_data import BASIN_SIM_THRESHOLD
+    basin_sim_threshold = BASIN_SIM_THRESHOLD
     # Pass the same health dict to the nav renderer so each chip can
     # show a dot when its file has issues. One source of truth across
     # the nav + per-file banner + launchpad row.
@@ -872,12 +878,13 @@ def render_memory_viewer_html() -> str:
     //
     // picks.basin_id is the task_type label, not the topology id, so
     // the bridge is via cosine similarity on 768-d centroids (both
-    // sides embed via nomic-embed-v1.5). SIM_THRESHOLD=0.65 keeps
-    // wildly-different basins from getting linked.
+    // sides embed via nomic-embed-v1.5). SIM_THRESHOLD value comes
+    // from the Python BASIN_SIM_THRESHOLD constant via render-time
+    // injection — single source of truth across both halves.
     function matchBasinsToPicks(basins, picksObj) {{
       const basinIdToTask = new Map();
       const taskToBasinId = new Map();
-      const SIM_THRESHOLD = 0.65;
+      const SIM_THRESHOLD = {basin_sim_threshold};
       if (!Array.isArray(basins) || !picksObj) return {{ basinIdToTask, taskToBasinId }};
       // Pre-compute per-basin norms once so the per-pick loop is
       // O(d) per (pick × basin) instead of O(d²).
