@@ -88,6 +88,73 @@ class TestIterMergeRecords:
         assert rows[1]["chosen"] == "gemini"
 
 
+class TestCortexOverrideRow:
+    """Tick #45 — cortex_override row type. Every veto via
+    `trinity-local cortex-override --basin X` OR the MCP
+    `mark_pick_wrong` tool appends one row. Pin the schema +
+    that both call-sites write the same shape."""
+
+    def test_cli_handler_appends_cortex_override_row(self, isolated_home, monkeypatch):
+        # Fixture a routing patterns file the CLI handler will mutate.
+        import json
+        cortex_dir = isolated_home / "memories"
+        cortex_dir.mkdir(parents=True, exist_ok=True)
+        # Use the same minimal pattern shape as the picks-Reader tests.
+        from tests.test_launchpad_topology_chip import _minimal_pattern_payload
+        (cortex_dir / "picks.json").write_text(
+            json.dumps({"coding": _minimal_pattern_payload("coding", centroid=[1.0, 0.0])}),
+            encoding="utf-8",
+        )
+        # Call the handler with argparse-style args.
+        from trinity_local.commands.cortex import handle_cortex_override
+        class Args:
+            basin = "coding"
+            reset = False
+            reason = "feels noisy"
+        rc = handle_cortex_override(Args())
+        assert rc == 0, "CLI handler returned non-zero"
+        # Merge row should have landed.
+        from trinity_local.merges import iter_merge_records
+        rows = [r for r in iter_merge_records() if r["type"] == "cortex_override"]
+        assert len(rows) == 1, f"expected 1 cortex_override row, got {len(rows)}"
+        row = rows[0]
+        assert row["basin_id"] == "coding"
+        assert row["action"] == "incremented"
+        assert row["prior_count"] == 0
+        assert row["new_count"] == 1
+        assert row["reason"] == "feels noisy"
+        assert "ts" in row
+
+    def test_reset_action_records_distinct_row(self, isolated_home, monkeypatch):
+        import json
+        cortex_dir = isolated_home / "memories"
+        cortex_dir.mkdir(parents=True, exist_ok=True)
+        from tests.test_launchpad_topology_chip import _minimal_pattern_payload
+        # Pre-seed override_count=3 so reset has work to do.
+        pattern_payload = _minimal_pattern_payload("coding", centroid=[1.0, 0.0])
+        pattern_payload["override_count"] = 3
+        (cortex_dir / "picks.json").write_text(
+            json.dumps({"coding": pattern_payload}),
+            encoding="utf-8",
+        )
+        from trinity_local.commands.cortex import handle_cortex_override
+        class Args:
+            basin = "coding"
+            reset = True
+            reason = None
+        rc = handle_cortex_override(Args())
+        assert rc == 0
+        from trinity_local.merges import iter_merge_records
+        rows = [r for r in iter_merge_records() if r["type"] == "cortex_override"]
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["action"] == "reset"
+        # Reset records the prior count + the new zeroed count so the
+        # delta is fully recoverable from the log.
+        assert row["prior_count"] == 3, f"prior_count drift: {row['prior_count']}"
+        assert row["new_count"] == 0
+
+
 class TestCouncilWinnerSchema:
     """Pin the schema for the council_winner row type so future
     consumers (direction-of-preference vector, lens-build collapse)

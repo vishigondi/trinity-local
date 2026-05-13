@@ -102,6 +102,23 @@ def handle_cortex_override(args):
         action = "incremented"
     save_routing_patterns(patterns)
 
+    # Append a cortex_override row to the merge log (tick #45). Same
+    # additive side-channel as the council_winner row from tick #44 —
+    # try/except-wrapped so a log-write failure can't break the CLI.
+    try:
+        from ..merges import record_merge
+        record_merge({
+            "type": "cortex_override",
+            "basin_id": args.basin,
+            "action": action,
+            "prior_count": prior,
+            "new_count": pattern.override_count,
+            "raw_trust": round(pattern.trust_score.value, 3),
+            "reason": args.reason,
+        })
+    except Exception:
+        pass
+
     print(json.dumps({
         "ok": True,
         "basin_id": args.basin,

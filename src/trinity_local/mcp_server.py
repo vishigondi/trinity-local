@@ -549,13 +549,31 @@ async def _mark_pick_wrong(args: dict) -> list[Any]:
 
     pattern = patterns[basin_id]
     prior = pattern.override_count
+    action = "reset" if reset else "incremented"
     pattern.override_count = 0 if reset else prior + 1
     save_routing_patterns(patterns)
+
+    # Append a cortex_override row to merges.jsonl (tick #45). Same
+    # schema the CLI handler writes — single source of truth on the
+    # merge log so MCP and CLI verdicts feed one corpus.
+    try:
+        from .merges import record_merge
+        record_merge({
+            "type": "cortex_override",
+            "basin_id": basin_id,
+            "action": action,
+            "prior_count": prior,
+            "new_count": pattern.override_count,
+            "raw_trust": round(pattern.trust_score.value, 3),
+            "reason": reason,
+        })
+    except Exception:
+        pass
 
     return [_text({
         "ok": True,
         "basin_id": basin_id,
-        "action": "reset" if reset else "incremented",
+        "action": action,
         "override_count": pattern.override_count,
         "raw_trust": round(pattern.trust_score.value, 3),
         "effective_trust": round(effective_trust(pattern), 3),
