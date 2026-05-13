@@ -28,9 +28,9 @@ import json
 def register(subparsers):
     sp = subparsers.add_parser(
         "depth-show",
-        help="Show top-N threads by depth score (corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10))",
+        help="Show top-N most-surprising conversations from your prompt history (depth score: corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10))",
     )
-    sp.add_argument("--top", type=int, default=10, help="Number of threads to show (default 10)")
+    sp.add_argument("--top", type=int, default=10, help="Number of conversations to show (default 10)")
     sp.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
     sp.set_defaults(handler=handle_depth_show)
 
@@ -100,7 +100,11 @@ def handle_depth_show(args):
         }, indent=2))
         return
 
-    print(f"  Depth-ranked threads ({len(rows)} of {len(composite)})")
+    # "Conversations" not "threads" — the word "thread" is overloaded in
+    # Trinity (council refinement chains vs prompt-history transcripts).
+    # depth_score operates on transcript_id grouping from imported
+    # transcripts, so "conversations" is the user-facing accurate noun.
+    print(f"  Top {len(rows)} most-surprising conversations from your prompt history ({len(composite)} scored)")
     print(f"  {'score':>8s}  {'corpus':>9s}  {'inter':>6s}  {'LID':>5s}  {'turns':>5s}  preview")
     print(f"  {'-'*8}  {'-'*9}  {'-'*6}  {'-'*5}  {'-'*5}  {'-'*60}")
     for row in rows:
@@ -120,6 +124,6 @@ def handle_depth_show(args):
         )
     print()
     print("  score = 1.0*corpus_distance + 0.5*log(1+inter_turn) + 0.5*tanh(LID/10)")
-    print("  Higher = thread sits further from corpus mean, moved through embedding space, sampled more axes.")
+    print("  Higher = conversation sits further from corpus mean, moved through embedding space, sampled more axes.")
     print("  Additive composition so single-turn outliers still rank (tick #54).")
-    print("  LID gated to threads with ≥5 turns by default (tick #84) — set TRINITY_LID_MIN_TURNS=N to override.")
+    print("  LID gated to conversations with ≥5 turns by default (tick #84) — set TRINITY_LID_MIN_TURNS=N to override.")
