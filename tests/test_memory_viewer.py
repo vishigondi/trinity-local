@@ -57,6 +57,52 @@ class TestPickVetoChip:
         assert '"pick-actions"' in html, "renderPicksReader doesn't create the .pick-actions row"
 
 
+class TestViewerRebuildChip:
+    """Tick #27 — persistent rebuild chip in viewer header. Always-on
+    counterpart to the staleness chip — fires per-file even when
+    _memory_health() reports no issues. The CSS class + per-file
+    CLI mapping are template strings that drift silently if
+    suggestionFor() is edited without updating the chip wiring."""
+
+    def test_rebuild_chip_class_defined(self, isolated_home):
+        html = _render()
+        # Both CSS rule and JS construction must reference the class.
+        assert ".viewer-rebuild-chip" in html, ".viewer-rebuild-chip CSS missing"
+        assert '"viewer-rebuild-chip"' in html, (
+            "renderHeader doesn't construct a .viewer-rebuild-chip button"
+        )
+
+    def test_rebuild_command_template_uses_suggestion_helper(self, isolated_home):
+        html = _render()
+        # The chip text is built as "trinity-local " + suggestionFor(file.name).
+        # We verify the prefix template AND the helper exists with the
+        # expected per-file mapping (one assertion per memory keeps the
+        # guard granular).
+        assert '"trinity-local " + suggestionFor(file.name)' in html, (
+            "rebuild chip no longer threads suggestionFor() — per-file mapping broken"
+        )
+        # suggestionFor itself must keep the canonical CLI names. If a
+        # CLI is renamed, both this guard and Surface 18 catch it.
+        for marker in (
+            '"lens.md" || name === "topics.json") return "lens-build"',
+            '"picks.json") return "consolidate"',
+            '"core.md") return "distill"',
+        ):
+            assert marker in html, f"suggestionFor mapping drifted: {marker}"
+
+    def test_chip_lives_in_header(self, isolated_home):
+        html = _render()
+        # Sanity check the chip is wired inside renderHeader (so it shows
+        # for every file), not inside a single Reader. If it slips into
+        # one Reader, the markdown views (lens.md, core.md) lose it.
+        header_idx = html.find("function renderHeader(file)")
+        chip_idx = html.find('"viewer-rebuild-chip"')
+        assert header_idx > 0 and chip_idx > header_idx, (
+            "viewer-rebuild-chip is not constructed inside renderHeader — "
+            "markdown views won't render it"
+        )
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 18 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 19 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -45,6 +45,10 @@ Surfaces:
    17. Pick-veto chip: each pick card carries a .pick-veto button that copies
        `trinity-local cortex-override --basin <id>` to the clipboard — the
        action-side of cross-memory navigation per the forward arc (tick #26)
+   18. Rebuild chip: every memory viewer header carries a persistent
+       .viewer-rebuild-chip that copies the rebuild CLI even when the file
+       is fresh — closes the action-side for memories without a staleness
+       signal (tick #27)
 
 Exit codes:
     0 — all surfaces pass
@@ -1058,6 +1062,61 @@ def main() -> int:
             reason = veto_state.get("reason") or f"copied={veto_state.get('copied')!r}"
             print(f"[ ✗ ] Surface 17 pick-veto: {reason}")
             fails.append((17, "pick-veto chip", reason))
+
+        # ─── Surface 18: Persistent rebuild chip in viewer header ────────────
+        # Every memory's header carries a .viewer-rebuild-chip that copies
+        # the corresponding trinity-local subcommand. This is the always-on
+        # action affordance (vs the staleness chip which only fires when
+        # _memory_health flags an issue). Walk three memories with distinct
+        # rebuild CLIs to verify the per-file mapping isn't broken.
+        rebuild_targets = [
+            ("lens.md", "trinity-local lens-build"),
+            ("picks.json", "trinity-local consolidate"),
+            ("core.md", "trinity-local distill"),
+        ]
+        rebuild_results = []
+        for file_name, expected_cmd in rebuild_targets:
+            page.goto(
+                f"{base_url}/portal_pages/memory.html?file={file_name}",
+                wait_until="networkidle",
+                timeout=10000,
+            )
+            page.wait_for_timeout(200)
+            r = page.evaluate(
+                """(expected) => new Promise(resolve => {
+                  const chip = document.querySelector('.viewer-rebuild-chip');
+                  if (!chip) { resolve({ok: false, reason: 'no .viewer-rebuild-chip in header'}); return; }
+                  let copied = null;
+                  const orig = navigator.clipboard?.writeText;
+                  if (orig) navigator.clipboard.writeText = async (t) => { copied = t; return Promise.resolve(); };
+                  chip.click();
+                  setTimeout(() => {
+                    if (orig) navigator.clipboard.writeText = orig;
+                    resolve({
+                      ok: copied === expected,
+                      copied: copied,
+                      expected: expected,
+                      file: chip.dataset.file,
+                      flashed: chip.textContent.includes('Copied'),
+                    });
+                  }, 200);
+                })""",
+                expected_cmd,
+            )
+            rebuild_results.append((file_name, r))
+        page.screenshot(path=str(SHOTS_DIR / "18-rebuild-chip.png"))
+        all_ok = all(r.get("ok") for _, r in rebuild_results)
+        if all_ok:
+            note = " · ".join(f"{f}→ok" for f, _ in rebuild_results)
+            print(f"[ ✓ ] Surface 18 rebuild chip: {note} (all 3 memories)")
+        else:
+            failures = [(f, r) for f, r in rebuild_results if not r.get("ok")]
+            reason = "; ".join(
+                f"{f}: copied={r.get('copied')!r} expected={r.get('expected')!r} ({r.get('reason') or 'mismatch'})"
+                for f, r in failures
+            )
+            print(f"[ ✗ ] Surface 18 rebuild chip: {reason}")
+            fails.append((18, "rebuild chip", reason))
 
         browser.close()
 

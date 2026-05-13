@@ -369,6 +369,28 @@ def render_memory_viewer_html() -> str:
     .viewer-health-cmd:hover {{
       background: var(--surface-muted);
     }}
+    /* Persistent rebuild chip — distinct intent from .viewer-health-cmd
+       (which fires on staleness). This chip is always present so the
+       user can rebuild a memory before staleness signals it (e.g.,
+       after a milestone session adds new prompts the lens should see).
+       Warm-brown accent reads as "additive" rather than the warning
+       border on .pick-veto. */
+    .viewer-rebuild-chip {{
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--accent);
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 3px 9px;
+      margin-left: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      vertical-align: middle;
+    }}
+    .viewer-rebuild-chip:hover {{
+      background: rgba(181, 116, 56, 0.08);
+    }}
     pre.body {{
       font-family: ui-monospace, "SF Mono", Monaco, monospace;
       font-size: 13px;
@@ -752,7 +774,29 @@ def render_memory_viewer_html() -> str:
     }}
     function renderHeader(file) {{
       const wrap = el("div", "content-header");
-      wrap.appendChild(el("h2", null, file.name));
+      // Title row: file name + persistent rebuild chip. The chip copies
+      // the relevant CLI to the clipboard — works under file:// without
+      // a server, same mechanic as the veto chip + memory-health chip.
+      const titleRow = el("div");
+      titleRow.style.display = "flex";
+      titleRow.style.alignItems = "center";
+      titleRow.style.flexWrap = "wrap";
+      titleRow.style.gap = "6px";
+      titleRow.appendChild(el("h2", null, file.name));
+      const rebuildCmd = "trinity-local " + suggestionFor(file.name);
+      const rebuildChip = el("button", "viewer-rebuild-chip", "Rebuild");
+      rebuildChip.type = "button";
+      rebuildChip.title = "Copy: " + rebuildCmd;
+      rebuildChip.dataset.file = file.name;
+      rebuildChip.addEventListener("click", () => {{
+        if (navigator.clipboard?.writeText) {{
+          navigator.clipboard.writeText(rebuildCmd).catch(() => null);
+        }}
+        rebuildChip.textContent = "✓ Copied";
+        setTimeout(() => {{ rebuildChip.textContent = "Rebuild"; }}, 2200);
+      }});
+      titleRow.appendChild(rebuildChip);
+      wrap.appendChild(titleRow);
       wrap.appendChild(el("p", "meta", file.brain + " · " + file.tagline));
       // Per-file health banner: filter the inlined health payload to
       // issues that mention this file by name. The launchpad surfaces
