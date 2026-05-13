@@ -141,9 +141,12 @@ exec /usr/bin/open "file://$HOME/.trinity/portal_pages/launchpad.html"
 def write_launchpad_wrapper(python_executable: str | None = None) -> Path:
     """Write the trinity-launchpad wrapper script to ~/.trinity/bin/.
 
-    The desktop icon calls this wrapper instead of opening the cached HTML
-    directly, so every click refreshes content from the current template
-    (~1s regen vs always-stale clicks).
+    The wrapper just shells to `/usr/bin/open` on the cached HTML —
+    no Python boot, no regen on click. Freshness is maintained by
+    `refresh_launchpad()` calls wired into every state-mutation path
+    (council save, watch cycle, telemetry toggle), so the file on disk
+    is already current by the time the user clicks the desktop icon.
+    See `_render_launchpad_wrapper` for the rationale.
     """
     exec_path = python_executable or sys.executable
     if not _validate_python_executable(exec_path):
