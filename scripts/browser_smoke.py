@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 8 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 18 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -42,6 +42,9 @@ Surfaces:
        inline with click-to-copy command chips that capture clipboard correctly
    16. Per-file health banner: same signal travels into the memory viewer when a stale
        file is opened, with chip mirroring Surface 15 + nav-dot indicator (tick #18)
+   17. Pick-veto chip: each pick card carries a .pick-veto button that copies
+       `trinity-local cortex-override --basin <id>` to the clipboard — the
+       action-side of cross-memory navigation per the forward arc (tick #26)
 
 Exit codes:
     0 — all surfaces pass
@@ -1009,6 +1012,52 @@ def main() -> int:
             reason = f"stale_target={stale_target} banner={banner_check} healthy_target={healthy_target} healthy_present={healthy_present}"
             print(f"[ ✗ ] Surface 16 per-file health banner: {reason}")
             fails.append((16, "per-file health banner", reason))
+
+        # ─── Surface 17: Pick-veto chip in picks Reader ──────────────────────
+        # The forward arc called out "Cortex pick wrong → one-click veto from
+        # the picks Reader" as the action-side of cross-memory navigation.
+        # Each pick card now carries a .pick-veto chip that copies
+        # `trinity-local cortex-override --basin <id>` to the clipboard.
+        # This guard tolerates the legacy-data state where picks.json hasn't
+        # been consolidated yet (no rules → chip not rendered → SKIPPED).
+        page.goto(f"{base_url}/portal_pages/memory.html?file=picks.json", wait_until="networkidle", timeout=10000)
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SHOTS_DIR / "17-pick-veto.png"))
+
+        veto_state = page.evaluate(
+            """() => new Promise(resolve => {
+              const cards = document.querySelectorAll('.pick-card');
+              if (!cards.length) { resolve({ok: true, skipped: true, reason: 'no picks consolidated yet'}); return; }
+              const veto = document.querySelector('.pick-veto');
+              if (!veto) { resolve({ok: false, reason: 'pick cards present but no .pick-veto chip'}); return; }
+              const basin = veto.dataset.basin;
+              let copied = null;
+              const orig = navigator.clipboard?.writeText;
+              if (orig) navigator.clipboard.writeText = async (t) => { copied = t; return Promise.resolve(); };
+              veto.click();
+              setTimeout(() => {
+                if (orig) navigator.clipboard.writeText = orig;
+                resolve({
+                  ok: copied && copied.startsWith('trinity-local cortex-override --basin '),
+                  card_count: cards.length,
+                  basin: basin,
+                  copied: copied,
+                  flashed: veto.textContent.includes('Copied'),
+                });
+              }, 250);
+            })"""
+        )
+        if veto_state.get("skipped"):
+            print(f"[ - ] Surface 17 pick-veto: SKIPPED ({veto_state['reason']})")
+        elif veto_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 17 pick-veto: {veto_state['card_count']} card(s), "
+                f"copied='{veto_state['copied']}' (flash={veto_state['flashed']})"
+            )
+        else:
+            reason = veto_state.get("reason") or f"copied={veto_state.get('copied')!r}"
+            print(f"[ ✗ ] Surface 17 pick-veto: {reason}")
+            fails.append((17, "pick-veto chip", reason))
 
         browser.close()
 

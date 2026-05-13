@@ -491,9 +491,15 @@ def render_memory_viewer_html() -> str:
     tr.routing-row-focused td {{
       background: rgba(181, 116, 56, 0.10);
     }}
+    .pick-actions {{
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }}
     .pick-xlink {{
       display: inline-block;
-      margin-top: 12px;
       font-size: 12px;
       color: var(--accent);
       text-decoration: none;
@@ -503,6 +509,24 @@ def render_memory_viewer_html() -> str:
     }}
     .pick-xlink:hover {{
       background: var(--surface-muted);
+    }}
+    /* One-click veto chip — same shape as viewer-health-cmd but with
+       warm-warning border + label so the destructive intent reads at
+       a glance. Click copies the cortex-override CLI; the user pastes
+       in a terminal to halve effective trust on this rule. */
+    .pick-veto {{
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--warning);
+      background: var(--bg);
+      border: 1px solid var(--warning);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }}
+    .pick-veto:hover {{
+      background: rgba(178, 106, 31, 0.08);
     }}
     .pick-card-focused {{
       box-shadow: 0 0 0 2px var(--accent);
@@ -941,6 +965,9 @@ def render_memory_viewer_html() -> str:
           fwrap.appendChild(ul);
           card.appendChild(fwrap);
         }}
+        // Action row holds the cross-memory link + the one-click veto.
+        // Both are inline so the user reads "evidence | action" left-to-right.
+        const actions = el("div", "pick-actions");
         // Cross-memory link: jump to this task's row in routing.json.
         // routing.json + picks.json both key by task_type/basin_id, so
         // any pick has a 1:1 link to its provider scores. Closes the
@@ -948,7 +975,28 @@ def render_memory_viewer_html() -> str:
         const xlink = el("a", "pick-xlink",
           "View routing scores →");
         xlink.href = "memory.html?file=routing.json&task=" + encodeURIComponent(basinId);
-        card.appendChild(xlink);
+        actions.appendChild(xlink);
+        // One-click veto: copies the cortex-override CLI into the
+        // clipboard. file:// can't write JSON directly, so the action
+        // is "copy → paste in terminal" — same mechanic the memory-
+        // health chip uses. The forward-arc bullet "Cortex pick wrong
+        // → one-click veto from the picks Reader" was previously
+        // CLI-only; this closes the loop from view-side.
+        const vetoCmd = "trinity-local cortex-override --basin " + basinId;
+        const veto = el("button", "pick-veto", "Mark wrong");
+        veto.type = "button";
+        veto.title = "Copy: " + vetoCmd;
+        veto.dataset.basin = basinId;
+        veto.addEventListener("click", () => {{
+          if (navigator.clipboard?.writeText) {{
+            navigator.clipboard.writeText(vetoCmd).catch(() => null);
+          }}
+          const original = veto.textContent;
+          veto.textContent = "✓ Copied";
+          setTimeout(() => {{ veto.textContent = original; }}, 2200);
+        }});
+        actions.appendChild(veto);
+        card.appendChild(actions);
         target.appendChild(card);
       }});
 
