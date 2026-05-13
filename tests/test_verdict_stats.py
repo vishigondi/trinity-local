@@ -139,3 +139,19 @@ class TestShortcutStatus:
         assert "shortcutStatus" in data
         assert "ok" in data["shortcutStatus"]
         assert "applicable" in data["shortcutStatus"]
+
+    def test_launchpad_html_contains_banner_template(self, isolated_home):
+        """Per meta-principle #14: every shipped feature gets a smoke
+        regression guard within one tick. The banner only renders at
+        runtime when pageData.shortcutStatus.applicable && !ok — but
+        the template DOM exists in source regardless of runtime state.
+        Catches a future refactor that drops the banner element."""
+        from trinity_local.launchpad_page import render_launchpad_html
+        html = render_launchpad_html()
+        # The v-if guard that gates banner visibility
+        assert "pageData.shortcutStatus" in html
+        assert "shortcutStatus.applicable" in html
+        # The remediation copy points users at the right CLI command
+        assert "trinity-local shortcut-install" in html
+        # The marketing-load-bearing phrase that explains the cost
+        assert "moat stays empty" in html
