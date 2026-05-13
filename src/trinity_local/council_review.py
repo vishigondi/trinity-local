@@ -820,6 +820,27 @@ def render_live_council_page() -> str:
       border-color: rgba(139, 30, 30, 0.2);
     }}
 
+    .quote-member-btn {{
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--divider);
+      color: var(--text-secondary);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1.4;
+    }}
+    .quote-member-btn:hover {{
+      background: var(--surface-subtle);
+      color: var(--text-primary);
+    }}
+    .quote-member-btn:focus-visible {{
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }}
+
     .provider-status-detail {{
       color: var(--text-secondary);
       line-height: 1.4;
@@ -1059,6 +1080,13 @@ def render_live_council_page() -> str:
                 <div class="provider-status-name">{{{{ row.label }}}}</div>
                 <div class="provider-status-badge" :class="row.statusClass" v-if="row.statusClass !== 'done'">{{{{ row.statusLabel }}}}</div>
                 <div class="provider-status-badge done" v-if="seg.selectedProvider === row.provider">Preferred</div>
+                <button
+                  type="button"
+                  class="quote-member-btn"
+                  v-if="row.statusClass === 'done' && (row.responseText || row.responseHtml)"
+                  @click.stop="quoteMember(row.provider, row)"
+                  title="Quote this answer into the refinement input below"
+                >Quote ↓</button>
               </div>
               <div class="provider-status-response markdown-body" v-if="row.responseHtml" v-html="row.responseHtml"></div>
               <pre class="provider-status-response" v-else-if="row.responseText">{{{{ row.responseText }}}}</pre>
@@ -1376,6 +1404,35 @@ def render_live_council_page() -> str:
           }};
           this._fireShortcut(buildShortcutUrl(payload));
           this._patchSegment(seg.key, {{ selectedProvider: provider }});
+        }},
+        quoteMember(provider, row) {{
+          // Append a quoted fragment of this member's response into the
+          // shared refinement input. The user's hand-rolled flow on
+          // bundle_42f8cea9c9e705e5 was: see Gemini's "Own your context",
+          // see Claude's response, type a merged directive freehand.
+          // This shortcut lets multi-quote stack — each click adds one
+          // attribution block, the user types the merge instruction on
+          // top. Chairman still runs the synthesis; only the input UX
+          // changes. Quote is capped at 300 chars so the textarea stays
+          // legible; the user can edit the truncation if they want more.
+          const text = (row && (row.responseText || (row.responseHtml || '').replace(/<[^>]+>/g, ''))) || '';
+          if (!text.trim()) return;
+          const QUOTE_CAP = 300;
+          const trimmed = text.trim().length > QUOTE_CAP
+            ? text.trim().slice(0, QUOTE_CAP).trimEnd() + '…'
+            : text.trim();
+          const block = '> [' + formatProviderLabel(provider) + ']: ' + trimmed + '\\n';
+          // Preserve any existing user-typed directive; append the
+          // quote with a blank-line separator if there's prior content.
+          this.refinePrompt = (this.refinePrompt && this.refinePrompt.trim())
+            ? this.refinePrompt.replace(/\\s+$/, '') + '\\n\\n' + block
+            : block;
+          // Drop focus on the refine input so the user lands ready to
+          // type their merge directive.
+          this.$nextTick && this.$nextTick(() => {{
+            const input = document.querySelector('.chain-refine-input');
+            if (input) input.focus();
+          }});
         }},
         init() {{
           if (params.threadId) {{
