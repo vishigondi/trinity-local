@@ -235,7 +235,6 @@ def _minimal_page_data_with_lens(*, basins_spanned: list[str]) -> dict:
         "ratingsHistory": {"labels": [], "datasets": []},
         "personalRoutingEmptyState": {},
         "modelLineup": [],
-        "scoreboard": {},
         "providerNames": {},
         "providerLabels": {},
     }

@@ -66,7 +66,7 @@
 | 13 | Fix dispatch wrapper portability | ✅ done | `dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang. |
 | 14 | Operator surfaces (cache-stats, watch errors) | ✅ done | `commands/cache.py` with `cache-stats`/`cache-clear`; `commands/status.py` reads `watch_errors.jsonl`. |
 | 15 | Deprecate old council-html path | ✅ done | The `council-html` CLI subcommand was retired entirely; `council_runner.write_unified_council_page()` is the single page writer now and runs after every council. `render_review_html` / `write_review_html` deleted from `council_review.py`. Public surface for sharing council pages is `council-share`. |
-| 16 | Legacy module cleanup | ✅ done | `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` deleted. `scoreboard` moved to `commands/status.py`. |
+| 16 | Legacy module cleanup | ✅ done | `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` deleted. `scoreboard` CLI was moved to `commands/status.py` then removed entirely post-v1.5 — see §8.10. |
 | 17 | Vendor static lib prep | ❌ not started | (Implemented as Phase 6) |
 
 **Phase 0 is complete.** All 17 items done. See Phase 1+ for distribution work.
@@ -1054,7 +1054,8 @@ Use GPT first, Claude as challenger.
 | Cut | `council_progress.py` shim | Update imports to `council_status.py` directly |
 | Cut | `cost_tracker.py` standalone JSONL | Cost lives inside `CouncilOutcome.routing_label.cost_by_provider` |
 | Cut | `drift.py` | Wired but no destination for alerts |
-| Keep | `global_benchmarks.py`, `scoreboard.py`, `telemetry.py` | Bootstrap prior + Elo computation; user wants these |
+| Keep | `global_benchmarks.py`, `telemetry.py` | Bootstrap prior; user wants these |
+| Cut | `scoreboard.py` | Removed post-v1.5 — `compute_personal_routing_table()` reads `council_outcomes/*.json` directly; the old success/failure scoreboard has no writers and the `scoreboard.json` file is never populated. CLI `scoreboard` subcommand removed alongside. |
 | Keep | `knn_analytics.py` | It's the advisory→outcome signal log — feeds the routing graph |
 
 **Estimated reduction:** ~2,500 lines, ~10 files removed, no spine functionality lost.

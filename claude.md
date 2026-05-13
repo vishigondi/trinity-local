@@ -413,7 +413,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/watch.py` | `watch-once`, `watch-loop`, `ingest-recent` |
 | `commands/review.py` | `review` |
 | `commands/adapters.py` | `adapters` |
-| `commands/status.py` | `status`, `scoreboard` |
+| `commands/status.py` | `status` |
 | `commands/cache.py` | `cache-stats`, `cache-clear` |
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
@@ -520,8 +520,6 @@ Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
 │   ├── hard_examples/              # Mined hard examples
 │   └── replay_examples/
 ├── outcomes.jsonl                  # Per-session outcome records (drift)
-├── scoreboard.json                 # Aggregate provider scores (Elo)
-├── runs.jsonl                      # Individual run traces
 ├── council_runs.jsonl              # Council outcome log
 └── launch_events.jsonl             # Launch/handoff events
 ```

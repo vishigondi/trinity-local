@@ -6,7 +6,6 @@ import json
 from ..adapters import check_all_adapters
 from ..action_runtime import list_actions
 from ..drift import check_drift
-from ..scoreboard import load_scoreboard
 from ..state_paths import state_dir, tasks_dir, analytics_dir
 
 
@@ -14,9 +13,6 @@ def register(subparsers):
     parser = subparsers.add_parser("status", help="Show Trinity system status summary")
     parser.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
     parser.set_defaults(handler=handle_status)
-
-    scoreboard_parser = subparsers.add_parser("scoreboard", help="Print aggregate provider scores")
-    scoreboard_parser.set_defaults(handler=handle_scoreboard)
 
 
 def _count_files(directory, pattern="*.json"):
@@ -208,5 +204,3 @@ def _watch_error_summary() -> tuple[int, str | None]:
     return count, last_ts
 
 
-def handle_scoreboard(args):
-    print(json.dumps(load_scoreboard(), indent=2, sort_keys=True))
