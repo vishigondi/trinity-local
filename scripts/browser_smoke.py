@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 22 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 23 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -61,6 +61,9 @@ Surfaces:
        a routing rule (picks.json carries .basin_id pointing back at the
        topology), the basin detail panel shows a .topics-pick-xlink that
        deep-links to picks.html?file=picks.json&task=<task_type> (tick #30).
+   22. Pick-basin node styling: SVG circles for basins crystallized into
+       routing rules get a .pick-basin class (warm-brown ring), so the
+       user sees which basins matter at a glance (tick #31).
 
 Exit codes:
     0 — all surfaces pass
@@ -1298,6 +1301,53 @@ def main() -> int:
             reason = f"href={link_state.get('href')!r}"
             print(f"[ ✗ ] Surface 21 topic→pick: {reason}")
             fails.append((21, "topic→pick xlink", reason))
+
+        # ─── Surface 22: Pick-basin SVG node styling ─────────────────────────
+        # Visual companion to Surface 21 — basins with picks should have
+        # class="node pick-basin" so they read at a glance. SKIPPED if no
+        # basin in the current topology was matched to a pick (same path
+        # Surface 21 takes when there are no picks). The topology view is
+        # already loaded from Surface 21.
+        node_state = page.evaluate(
+            """() => {
+              const all = document.querySelectorAll('.topics-graph-svg .node');
+              const marked = document.querySelectorAll('.topics-graph-svg .node.pick-basin');
+              // Also inspect the title element on a pick-basin node — it
+              // must surface the routing-rule label for passive discovery.
+              let tooltipOk = null;
+              if (marked.length) {
+                const t = marked[0].querySelector('title');
+                tooltipOk = t && /Routing rule:/.test(t.textContent || '');
+              }
+              return {
+                total: all.length,
+                marked: marked.length,
+                tooltipHasRoutingRule: tooltipOk,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "22-pick-basin-style.png"))
+        if node_state.get("total", 0) == 0:
+            print(f"[ - ] Surface 22 pick-basin styling: SKIPPED (no graph nodes)")
+        elif node_state.get("marked", 0) == 0:
+            # Topology has nodes but none mapped to picks — same shape as
+            # Surface 21's no-pick skip.
+            print(
+                f"[ - ] Surface 22 pick-basin styling: SKIPPED "
+                f"(0/{node_state['total']} nodes matched to picks)"
+            )
+        else:
+            ok = node_state["marked"] > 0 and node_state.get("tooltipHasRoutingRule") is True
+            if ok:
+                print(
+                    f"[ ✓ ] Surface 22 pick-basin styling: "
+                    f"{node_state['marked']}/{node_state['total']} nodes carry .pick-basin · "
+                    f"tooltip surfaces routing rule"
+                )
+            else:
+                reason = f"marked={node_state['marked']} tooltipRoutingRule={node_state.get('tooltipHasRoutingRule')}"
+                print(f"[ ✗ ] Surface 22 pick-basin styling: {reason}")
+                fails.append((22, "pick-basin styling", reason))
 
         browser.close()
 

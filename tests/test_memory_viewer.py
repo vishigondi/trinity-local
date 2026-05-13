@@ -225,6 +225,44 @@ class TestTopicToPickCrossLink:
         assert "catch (_)" in html, "missing graceful-degradation try/catch around picks parse"
 
 
+class TestPickBasinNodeStyling:
+    """Tick #31 — visual marker on topology basin nodes that have
+    crystallized into routing rules. Complements the in-panel chip
+    from tick #30 so the user sees the routing-rule basins at a
+    glance without having to click each node."""
+
+    def test_pick_basin_class_defined(self, isolated_home):
+        html = _render()
+        # CSS rule with both .node.pick-basin and a hover variant — the
+        # styling must layer on top of the existing .node base so the
+        # circle fill (hsl gradient) still reads.
+        assert ".topics-graph-svg .node.pick-basin" in html, (
+            "pick-basin CSS rule missing — pick-bearing nodes won't visually differ"
+        )
+        assert ".topics-graph-svg .node.pick-basin:hover" in html, (
+            "pick-basin :hover variant missing — hover state will fall back to base"
+        )
+
+    def test_node_class_keyed_on_pick_map(self, isolated_home):
+        html = _render()
+        # The node-class lookup must read from basinToPickTask (the
+        # centroid-matched map built tick #30) — if it reads from
+        # any other source (e.g. matching basin.id to pick-key
+        # directly) the visual encoding will silently mis-mark nodes.
+        assert "basinToPickTask.has(d.id)" in html, (
+            "node class lookup doesn't query basinToPickTask — visual marker "
+            "will drift from the in-panel chip"
+        )
+
+    def test_tooltip_surfaces_routing_rule(self, isolated_home):
+        html = _render()
+        # The native SVG <title> tooltip should surface the routing rule
+        # on hover for pick-bearing basins — passive discovery without
+        # having to click the node.
+        assert "basinToPickTask.get(d.id)" in html, "tooltip doesn't read the pick map"
+        assert "Routing rule:" in html, "tooltip text drift — missing routing-rule label"
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the

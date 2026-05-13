@@ -586,6 +586,18 @@ def render_memory_viewer_html() -> str:
       stroke-width: 1.5px;
     }}
     .topics-graph-svg .node:hover {{ stroke: white; stroke-width: 2.5px; }}
+    /* Basins crystallized into routing rules get a warm-brown outer
+       ring — same color family as the pick-xlink in the detail panel,
+       so the visual encoding reads consistently. At-a-glance the user
+       sees which basins matter vs which are noise. */
+    .topics-graph-svg .node.pick-basin {{
+      stroke: rgba(181, 116, 56, 0.95);
+      stroke-width: 2.5px;
+    }}
+    .topics-graph-svg .node.pick-basin:hover {{
+      stroke: rgba(181, 116, 56, 1);
+      stroke-width: 3.5px;
+    }}
     .topics-graph-svg .label {{
       fill: rgba(255, 255, 255, 0.92);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -1396,7 +1408,11 @@ def render_memory_viewer_html() -> str:
         .selectAll("circle")
         .data(nodes)
         .join("circle")
-        .attr("class", "node")
+        // Mark basins that have crystallized into routing rules — the
+        // warm-brown ring (.node.pick-basin) is the visual companion
+        // to the "Routing rule: <task> →" chip in the detail panel
+        // shipped tick #30.
+        .attr("class", d => basinToPickTask.has(d.id) ? "node pick-basin" : "node")
         .attr("r", radiusFor)
         .attr("fill", d => {{
           // Warm-brown → forest-green gradient by size for hierarchy.
@@ -1415,7 +1431,12 @@ def render_memory_viewer_html() -> str:
 
       // Native SVG <title> for hover tooltip — first representative or
       // fallback to TF-IDF top terms. Browser renders it natively, no JS.
-      nodeSel.append("title").text(d => d.tooltip);
+      // Pick-bearing basins also surface their routing rule in the
+      // tooltip so the user can identify them without clicking.
+      nodeSel.append("title").text(d => {{
+        const pickTask = basinToPickTask.get(d.id);
+        return pickTask ? (d.tooltip + "\\n— Routing rule: " + pickTask) : d.tooltip;
+      }});
 
       // Drag re-energizes the sim so the dragged node "pulls" neighbors
       // with it (Obsidian feel).
