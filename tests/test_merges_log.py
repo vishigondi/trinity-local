@@ -283,6 +283,41 @@ class TestMergesShowCLI:
         assert "path" in payload, "JSON output should include the merge log path"
 
 
+class TestPageDataMergeLog:
+    """Tick #48 — page_data exposes the merge summary so launchpad
+    Vue surfaces (and any other downstream consumer of build_page_data)
+    can render "Trinity has captured N tacit-record acts" without
+    re-walking the log."""
+
+    def test_page_data_contains_merge_log(self, isolated_home, tmp_path):
+        from trinity_local.launchpad_data import build_page_data
+        from trinity_local.merges import record_merge
+        record_merge({"type": "council_winner", "chosen": "claude"})
+        record_merge({"type": "cortex_override", "basin_id": "coding"})
+        data = build_page_data(
+            live_review_path=tmp_path / "live_council.html",
+            recent_councils=[],
+        )
+        assert "mergeLog" in data, "page_data missing mergeLog key"
+        assert data["mergeLog"]["total"] == 2
+        assert data["mergeLog"]["by_type"]["council_winner"] == 1
+        assert data["mergeLog"]["by_type"]["cortex_override"] == 1
+
+    def test_cold_install_returns_zero_filled_summary(self, isolated_home, tmp_path):
+        # Even with no merges yet, the key must exist with the standard
+        # shape — frontend templates with v-if don't have to guard for
+        # the missing case.
+        from trinity_local.launchpad_data import build_page_data
+        data = build_page_data(
+            live_review_path=tmp_path / "live_council.html",
+            recent_councils=[],
+        )
+        merge_log = data["mergeLog"]
+        assert merge_log["total"] == 0
+        assert merge_log["by_type"] == {}
+        assert merge_log["by_signal_type"] == {}
+
+
 class TestCouncilWinnerSchema:
     """Pin the schema for the council_winner row type so future
     consumers (direction-of-preference vector, lens-build collapse)

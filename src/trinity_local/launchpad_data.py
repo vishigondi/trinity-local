@@ -540,6 +540,11 @@ def build_page_data(
         "personalRoutingTable": personal_routing,
         "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
+        # Merge corpus summary (tick #48) — small counts dict so future
+        # launchpad surfaces can show "Trinity has captured N tacit-
+        # record acts" without re-walking the log. Computed-view-on-
+        # demand same as personal_routing_table — no separate state file.
+        "mergeLog": _safe_merge_summary(),
         # Map basin_id → "top_term1 · top_term2 · top_term3" — used by
         # the launchpad chip tooltips that deep-link into topology so
         # the user sees what a basin is *about* without having to click.
@@ -911,6 +916,23 @@ def _topology_basin_labels() -> dict[str, str]:
             # the topology view's label style.
             out[str(bid)] = " · ".join(str(t) for t in terms[:3])
     return out
+
+
+def _safe_merge_summary() -> dict:
+    """Return summarize_merges() output, falling back to a zero-filled
+    dict if the import fails (cold install / circular dep). Keeps
+    page_data shape stable across cold + warm installs."""
+    try:
+        from .merges import summarize_merges
+        return summarize_merges()
+    except Exception:
+        return {
+            "total": 0,
+            "by_type": {},
+            "by_signal_type": {},
+            "first_ts": None,
+            "last_ts": None,
+        }
 
 
 def _task_to_topology_basin() -> dict[str, str]:
