@@ -263,16 +263,16 @@ def compute_basins(
     # path fast, so embeddings sit on the older seeded prompts BELOW
     # the cap.
     nodes: list = []
-    skipped_nan = 0
+    skipped_unusable = 0
     for node in iter_prompt_nodes(limit=None):
         emb = getattr(node, "embedding", None)
-        if not emb:
-            continue
-        # Skip embeddings with non-finite values — bad embed batches
-        # poison k-means via NaN-propagating centroids. Shared with
-        # me/depth, me_builder, cross_provider_pairs, vocabulary.
+        # is_finite_embedding rejects None, [], NaN, and Inf in one
+        # call. Counter name is "unusable" rather than "nan" because
+        # the rejection class is broader than NaN alone — but the
+        # NaN case is the load-bearing one that poisons k-means
+        # centroids via column-wise matmul propagation.
         if not is_finite_embedding(emb):
-            skipped_nan += 1
+            skipped_unusable += 1
             continue
         nodes.append(node)
 

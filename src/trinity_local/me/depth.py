@@ -41,9 +41,10 @@ def thread_centroids(nodes: Iterable[PromptNode]) -> dict[str, list[float]]:
     sums: dict[str, list[float]] = {}
     counts: dict[str, int] = {}
     for node in nodes:
-        emb = getattr(node, "embedding", None) or []
-        if not emb:
-            continue
+        emb = getattr(node, "embedding", None)
+        # is_finite_embedding returns False for None, [], and any
+        # non-finite component — one check covers all three rejection
+        # reasons (was two checks before tick #59 simplification).
         if not is_finite_embedding(emb):
             continue
         tid = getattr(node, "transcript_id", None)
@@ -152,9 +153,7 @@ def thread_inter_turn_distance(
         tid = getattr(node, "transcript_id", None)
         if not tid:
             continue
-        emb = getattr(node, "embedding", None) or []
-        if not emb:
-            continue
+        emb = getattr(node, "embedding", None)
         if not is_finite_embedding(emb):
             continue
         by_thread.setdefault(tid, []).append(node)
@@ -200,10 +199,8 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     items: list[tuple[str, list[float]]] = []
     for node in nodes:
         tid = getattr(node, "transcript_id", None)
-        emb = getattr(node, "embedding", None) or []
-        if not (tid and emb):
-            continue
-        if not is_finite_embedding(emb):
+        emb = getattr(node, "embedding", None)
+        if not (tid and is_finite_embedding(emb)):
             continue
         items.append((tid, emb))
     if len(items) < 3:
