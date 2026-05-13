@@ -1005,7 +1005,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <a v-if="r.topology_basin"
                    :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(r.topology_basin)"
                    class="cortex-topology-chip cross-memory-chip cross-memory-chip--label cross-memory-chip--inline"
-                   :title="'Open basin ' + r.topology_basin + ' in the topology graph'">
+                   :title="basinHoverLabel(r.topology_basin)">
                   → topology
                 </a>
               </td>
@@ -1172,7 +1172,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <a v-for="bid in p.basins_spanned" :key="'lb-' + idx + '-' + bid"
                    class="lens-basin-chip cross-memory-chip cross-memory-chip--id"
                    :href="'../portal_pages/memory.html?file=topics.json&basin=' + encodeURIComponent(bid)"
-                   :title="'Open basin ' + bid + ' in the topology graph'">
+                   :title="basinHoverLabel(bid)">
                   {{{{ bid }}}}
                 </a>
               </span>
@@ -1568,6 +1568,18 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         personalRoutingTable: pageData.personalRoutingTable || null,
         cortexRules: pageData.cortexRules || null,
         tasteLenses: pageData.tasteLenses || null,
+        // Tooltip lookup for cross-memory chips that deep-link to
+        // topology basins. {{basin_id: "top_term1 · top_term2 · ..."}}
+        // Resolved server-side from topics.json (tick #38). Empty
+        // when no consolidation; chips fall back to "Open basin <id>".
+        topologyBasinLabels: pageData.topologyBasinLabels || {{}},
+        // Used by .lens-basin-chip + .cortex-topology-chip tooltips.
+        basinHoverLabel(bid) {{
+          if (!bid) return '';
+          const terms = this.topologyBasinLabels[bid];
+          if (terms) return 'Basin ' + bid + ' — ' + terms;
+          return 'Open basin ' + bid + ' in the topology graph';
+        }},
         formatProviderLabel,
         copiedKey: '',
         debugMode: new URLSearchParams(location.search).has('debug'),

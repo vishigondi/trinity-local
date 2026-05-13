@@ -83,6 +83,80 @@ class TestCrossMemoryChipSharedClass:
         )
 
 
+class TestTopologyBasinLabels:
+    """Tick #38 — server-side topics.json → basin label map for chip
+    tooltips. Replaces opaque 'b03' hover text with the basin's top
+    TF-IDF terms so the user knows what a basin contains before
+    they click. Empty {} when topics.json missing/malformed."""
+
+    def test_cold_install_returns_empty(self, isolated_home):
+        from trinity_local.launchpad_data import _topology_basin_labels
+        # No topics.json → empty map (must not raise).
+        assert _topology_basin_labels() == {}
+
+    def test_labels_extracted_per_basin(self, isolated_home):
+        import json
+        (isolated_home / "memories" / "topics.json").write_text(
+            json.dumps({
+                "basins": [
+                    {"id": "b00", "top_terms": ["forecast", "signal", "indicator", "lagging"]},
+                    {"id": "b01", "top_terms": ["code", "refactor"]},
+                ]
+            }),
+            encoding="utf-8",
+        )
+        from trinity_local.launchpad_data import _topology_basin_labels
+        labels = _topology_basin_labels()
+        # Top-3 terms joined with the same separator the topology graph uses.
+        assert labels["b00"] == "forecast · signal · indicator", (
+            f"b00 label drifted from top-3 contract: {labels.get('b00')!r}"
+        )
+        assert labels["b01"] == "code · refactor", "b01 label missing or wrong"
+
+    def test_basin_with_no_terms_is_omitted(self, isolated_home):
+        import json
+        (isolated_home / "memories" / "topics.json").write_text(
+            json.dumps({"basins": [
+                {"id": "b00", "top_terms": ["forecast"]},
+                {"id": "b01", "top_terms": []},  # no terms → no label
+                {"id": "b02"},  # missing top_terms field entirely
+            ]}),
+            encoding="utf-8",
+        )
+        from trinity_local.launchpad_data import _topology_basin_labels
+        labels = _topology_basin_labels()
+        assert "b00" in labels
+        assert "b01" not in labels, "basin with empty top_terms shouldn't get a label"
+        assert "b02" not in labels, "basin without top_terms field shouldn't get a label"
+
+    def test_malformed_topics_doesnt_crash(self, isolated_home):
+        (isolated_home / "memories" / "topics.json").write_text(
+            "{not valid json", encoding="utf-8"
+        )
+        from trinity_local.launchpad_data import _topology_basin_labels
+        # Must return empty, not raise — the launchpad render must not
+        # die when a memory file is mid-write or hand-edited.
+        assert _topology_basin_labels() == {}
+
+    def test_basinHoverLabel_threads_through_page_data(self, isolated_home):
+        """The Vue method basinHoverLabel reads from
+        pageData.topologyBasinLabels. Guard the data-key contract
+        between Python and Vue."""
+        from trinity_local.launchpad_template import render_launchpad_html
+        page_data = _minimal_page_data_with_lens(basins_spanned=["b03"])
+        page_data["topologyBasinLabels"] = {"b03": "forecast · signal"}
+        html = render_launchpad_html(page_data=page_data, recent_cards="")
+        # The method definition must reference the data field by that
+        # exact name.
+        assert "topologyBasinLabels: pageData.topologyBasinLabels" in html, (
+            "pageData.topologyBasinLabels not threaded into Vue data"
+        )
+        assert "basinHoverLabel(bid)" in html, "lens chip doesn't call basinHoverLabel"
+        assert "basinHoverLabel(r.topology_basin)" in html, (
+            "cortex chip doesn't call basinHoverLabel"
+        )
+
+
 class TestLensBasinChipTemplate:
     """The Vue template must render basins_spanned as deep-link chips
     when present. v-if guards the row so lenses without basins_spanned

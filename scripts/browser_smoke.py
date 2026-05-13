@@ -1588,11 +1588,16 @@ def main() -> int:
               if (!chips.length) return {ok: true, skipped: true, reason: 'no .lens-basin-chip on the page (legacy lenses?)'};
               const href = chips[0].getAttribute('href') || '';
               const m = href.match(/[?&]basin=([^&]+)/);
+              // tick #38: tooltip should surface basin top-terms when
+              // topics.json carries them. Falls back to "Open basin <id>".
+              const tooltip = chips[0].getAttribute('title') || '';
               return {
                 ok: !!m && href.includes('topics.json'),
                 total: chips.length,
                 href: href,
                 basin: m ? decodeURIComponent(m[1]) : null,
+                tooltip: tooltip,
+                tooltip_has_terms: /Basin .* — /.test(tooltip),
               };
             }"""
         )
@@ -1600,9 +1605,13 @@ def main() -> int:
         if chip_state.get("skipped"):
             print(f"[ - ] Surface 27 lens→basin: SKIPPED ({chip_state['reason']})")
         elif chip_state.get("ok"):
+            tooltip_note = (
+                " · tooltip has top-terms" if chip_state.get("tooltip_has_terms")
+                else " · tooltip is fallback (basin label map empty)"
+            )
             print(
                 f"[ ✓ ] Surface 27 lens→basin: {chip_state['total']} chip(s) · "
-                f"first → basin={chip_state['basin']}"
+                f"first → basin={chip_state['basin']}{tooltip_note}"
             )
         else:
             reason = f"href={chip_state.get('href')!r}"

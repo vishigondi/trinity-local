@@ -540,6 +540,12 @@ def build_page_data(
         "personalRoutingTable": personal_routing,
         "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
+        # Map basin_id → "top_term1 · top_term2 · top_term3" — used by
+        # the launchpad chip tooltips that deep-link into topology so
+        # the user sees what a basin is *about* without having to click.
+        # Resolved at page-build time from topics.json; empty {} when
+        # no consolidation has run.
+        "topologyBasinLabels": _topology_basin_labels(),
         "coreStatus": _core_status(),
         # Aggregate "what's stale, what should I do" — only surfaces when
         # one of the four signals (core staleness / picks overrides /
@@ -840,6 +846,39 @@ def _format_relative_date(iso: str) -> str:
         d = int(delta // 86400)
         return "Yesterday" if d == 1 else f"{d} days ago"
     return dt.strftime("%b %-d")
+
+
+def _topology_basin_labels() -> dict[str, str]:
+    """Return {basin_id: "term1 · term2 · term3"} from topics.json.
+
+    Used by launchpad chips that deep-link to topology basins — the
+    basin id "b03" alone is opaque, so the hover tooltip surfaces the
+    basin's top TF-IDF terms. Same data the topology graph node label
+    already shows, just made available to the launchpad's Vue chips.
+
+    Returns {} when topics.json is missing or unparseable so chips
+    keep working with their fallback "Open basin <id>" tooltip.
+    """
+    try:
+        from .state_paths import topics_path
+        topics_p = topics_path()
+        if not topics_p.exists():
+            return {}
+        topics = json.loads(topics_p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[str, str] = {}
+    for b in topics.get("basins") or []:
+        bid = b.get("id")
+        if not bid:
+            continue
+        terms = b.get("top_terms") or []
+        if terms:
+            # Top-3 is enough for a hover tooltip; the full list lives
+            # in the basin detail panel. Plain " · " separator matches
+            # the topology view's label style.
+            out[str(bid)] = " · ".join(str(t) for t in terms[:3])
+    return out
 
 
 def _task_to_topology_basin() -> dict[str, str]:
