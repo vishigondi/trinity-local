@@ -1098,14 +1098,55 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card" v-if="!tasteLenses">
         <div class="eyebrow">Your taste, distilled</div>
-        <h2>Run me-build to extract your pair-wise taste lenses</h2>
+        <h2>Run lens-build to extract your pair-wise taste lenses</h2>
         <p class="meta">
-          The chairman reads your prompt history and surfaces a /me document with
+          The chairman reads your prompt history and surfaces a lens document with
           implicit rejections (model-said vs. you-substituted), vocabulary you
           repeat, and abstract lenses your interactions encode. Each card is
           shareable — paste a single lens to socials without exposing the prompts.
         </p>
-        <pre class="md-code-block"><code>trinity-local me-build</code></pre>
+        <pre class="md-code-block"><code>trinity-local lens-build</code></pre>
+      </section>
+
+      <section class="card">
+        <div class="eyebrow">Your memories, raw</div>
+        <h2>Inspect what dream wrote about you</h2>
+        <p class="meta">
+          Six files Trinity stores under <code>~/.trinity/memories/</code> (plus <code>core.md</code>).
+          The chairman reads these on every council; you can hand-edit any of them.
+        </p>
+        <div class="memory-links" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 16px;">
+          <a class="memory-chip" href="../portal_pages/memory.html?file=lens.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">lens.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">value memory</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=picks.json"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">picks.json</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">procedural memory</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=routing.json"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">routing.json</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">empirical memory</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=topics.json"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">topics.json</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">semantic memory</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=vocabulary.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">vocabulary.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">language memory</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=core.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent, #6366f1); font-size: 13px;">core.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">identity (distilled)</span>
+          </a>
+        </div>
       </section>
 
       <section class="card">

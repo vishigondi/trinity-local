@@ -6,6 +6,7 @@ from .council_review import write_live_council_page
 from .launchpad_data import _load_recent_councils, build_page_data, build_recent_cards_html
 from .launchpad_install import install_launchpad_shortcuts, write_launchpad_app
 from .launchpad_template import render_launchpad_html as _render_template
+from .memory_viewer import write_memory_viewer
 from .state_paths import portal_pages_dir
 
 __all__ = [
@@ -34,4 +35,8 @@ def render_launchpad_html(*, title: str = "Trinity · Own your memories") -> str
 def write_portal_html(*, title: str = "Trinity · Own your memories") -> Path:
     path = portal_pages_dir() / "launchpad.html"
     path.write_text(render_launchpad_html(title=title), encoding="utf-8")
+    # The memory viewer is a static page rendered from a hardcoded
+    # allowlist — no per-render data, but write it here so a fresh
+    # install / portal-html run produces both pages.
+    write_memory_viewer()
     return path

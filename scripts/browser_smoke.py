@@ -34,6 +34,7 @@ Surfaces:
    11. Autofill apply: clicking a suggestion fills the textarea
    12. Settings toggle binding: each :checked reflects underlying telemetry state
    13. Lens card render: paired-lenses block populates when tasteLenses exists
+   14. Memory viewer + launchpad link: chip links → memory.html loads + renders file
 
 Exit codes:
     0 — all surfaces pass
@@ -647,6 +648,58 @@ def main() -> int:
             reason = f"neither lens card nor empty-state CTA: {lens_state}"
             print(f"[ ✗ ] Surface 13 lens card: {reason}")
             fails.append((13, "lens card render", reason))
+
+        # ─── Surface 14: Memory viewer + launchpad chip link ─────────────────
+        # The launchpad's "Your memories, raw" card should expose chip links
+        # to the generic memory viewer (memory.html?file=<name>). This
+        # asserts (a) chips exist for each of the six memories, (b) clicking
+        # one navigates to memory.html and the viewer renders the file body.
+        chips_state = page.evaluate(
+            """() => {
+              const chips = Array.from(document.querySelectorAll('a.memory-chip'));
+              return {
+                count: chips.length,
+                names: chips.map(a => a.querySelector('code')?.textContent?.trim()).filter(Boolean),
+                first_href: chips[0]?.getAttribute('href'),
+              };
+            }"""
+        )
+        expected_names = {"lens.md", "picks.json", "routing.json", "topics.json", "vocabulary.md", "core.md"}
+        actual_names = set(chips_state.get("names") or [])
+        if chips_state.get("count", 0) >= 6 and expected_names.issubset(actual_names):
+            print(f"[ ✓ ] Surface 14a memory chips: {chips_state['count']} links present (all 6 memories)")
+        else:
+            reason = f"count={chips_state.get('count')} names={sorted(actual_names)}"
+            print(f"[ ✗ ] Surface 14a memory chips: {reason}")
+            fails.append((14, "memory viewer chips", reason))
+
+        # Click the first chip (lens.md) and verify the viewer renders body.
+        try:
+            with page.expect_navigation(timeout=8000):
+                page.evaluate("""() => document.querySelector('a.memory-chip')?.click()""")
+            page.wait_for_timeout(800)  # let fetch + DOM render settle
+            viewer_state = page.evaluate(
+                """() => ({
+                  url: window.location.href,
+                  title: document.querySelector('.content-header h2')?.textContent,
+                  bodyLen: (document.querySelector('pre.body')?.textContent || '').length,
+                  activeNav: document.querySelector('.memory-nav-link.active')?.dataset.file,
+                  navCount: document.querySelectorAll('.memory-nav-link').length,
+                })"""
+            )
+            page.screenshot(path=str(SHOTS_DIR / "14-memory-viewer.png"), full_page=True)
+            on_viewer = "memory.html" in viewer_state.get("url", "")
+            has_body = (viewer_state.get("bodyLen") or 0) > 50  # any real memory has more than 50 chars
+            empty_ok = viewer_state.get("bodyLen") == 0 and viewer_state.get("title")  # empty-state is also OK
+            if on_viewer and viewer_state.get("navCount") == 6 and (has_body or empty_ok):
+                print(f"[ ✓ ] Surface 14b memory viewer: '{viewer_state['title']}' rendered ({viewer_state['bodyLen']} chars, active={viewer_state['activeNav']})")
+            else:
+                reason = f"viewer_state={viewer_state}"
+                print(f"[ ✗ ] Surface 14b memory viewer: {reason}")
+                fails.append((14, "memory viewer load", reason))
+        except Exception as exc:
+            print(f"[ ✗ ] Surface 14b memory viewer: navigation failed ({exc})")
+            fails.append((14, "memory viewer load", str(exc)[:120]))
 
         browser.close()
 
