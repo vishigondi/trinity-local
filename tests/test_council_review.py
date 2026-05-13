@@ -134,6 +134,13 @@ class TestCouncilReviewMarkdown:
         assert "segments: []" in html
         assert "loadThreadScript" in html
         assert "_thread_" in html
+        # Refinement directive is surfaced in the eyebrow row for any round
+        # that has one. Source: outcome.metadata.user_refinement → rs.metadata.
+        # Regression guard for bundle_42f8cea9c9e705e5 ("Stop copy-pasting
+        # prompts. Own your context. Forge your core memories.") which had
+        # its refinement directive vanish from the rendered thread.
+        assert "seg.refinementText" in html
+        assert "rs.metadata?.user_refinement" in html
 
         path = write_live_council_page()
         assert path.name == "live_council.html"

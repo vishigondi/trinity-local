@@ -1463,10 +1463,23 @@ def render_live_council_page() -> str:
               outcome?.selected_provider ||
               null
             );
+            // user_refinement is the directive the user typed to launch
+            // this round (council-iterate / launchpad refinement input).
+            // Source: outcome.metadata.user_refinement (written by
+            // council_runner when chaining). The eyebrow row renders it
+            // as "↳ <text>" so the user's contribution to the chain is
+            // visible on reload — without this, every round past 1
+            // looked like it had no human input.
+            const refinementText = (
+              rs.metadata?.user_refinement ||
+              current.refinementText ||
+              ''
+            );
             const next = Object.assign({{}}, current, {{
               runState: rs,
               taskText: rs.taskText || current.taskText,
               councilId: rs.metadata?.council_id || councilId,
+              refinementText,
               busy: false,
               failed: false,
               canceled: false,
