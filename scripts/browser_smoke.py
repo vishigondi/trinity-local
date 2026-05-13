@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 20 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 21 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -52,6 +52,11 @@ Surfaces:
    19. Topic-graph launch chip: clicking a basin node opens a detail panel
        with a .topics-launch-chip that copies `trinity-local council-launch
        --task "<headline>"` — the action-side of the topology view (tick #28)
+   20. Per-rep replay chip: every representative thread in the basin detail
+       panel carries a .topics-rep-replay that copies the same command with
+       that rep's headline as the seed — lets the user replay any thread,
+       not just the closest-to-centroid one (tick #29). Verifies
+       stopPropagation so the chip doesn't toggle the expand state.
 
 Exit codes:
     0 — all surfaces pass
@@ -1178,6 +1183,61 @@ def main() -> int:
             reason = launch_state.get("reason") or f"copied={launch_state.get('copied')!r}"
             print(f"[ ✗ ] Surface 19 topic-launch: {reason}")
             fails.append((19, "topic-launch chip", reason))
+
+        # ─── Surface 20: Per-representative replay chip + stopPropagation ────
+        # The basin detail panel renders one .topics-rep-replay per
+        # representative thread, sitting in the rep's headRow. Clicking
+        # must (a) copy a council-launch command derived from THIS rep's
+        # headline (not the basin's first rep — that's what Surface 19
+        # checks) and (b) NOT toggle the surrounding expand state.
+        # The basin detail panel is still open from Surface 19's click.
+        rep_state = page.evaluate(
+            """() => new Promise(resolve => {
+              const chips = document.querySelectorAll('.topics-rep-replay');
+              if (!chips.length) { resolve({ok: true, skipped: true, reason: 'no .topics-rep-replay chips (basin has no reps)'}); return; }
+              // Prefer a chip on a multi-turn (expandable) rep so we can
+              // also assert stopPropagation doesn't toggle the expand.
+              let target = null;
+              for (const c of chips) {
+                if (c.closest('.topics-rep.expandable')) { target = c; break; }
+              }
+              const isExpandable = !!target;
+              if (!target) target = chips[0];
+              const li = target.closest('.topics-rep');
+              const wasOpen = li ? li.classList.contains('open') : false;
+              let copied = null;
+              const orig = navigator.clipboard?.writeText;
+              if (orig) navigator.clipboard.writeText = async (t) => { copied = t; return Promise.resolve(); };
+              target.click();
+              setTimeout(() => {
+                if (orig) navigator.clipboard.writeText = orig;
+                const stillSameExpand = li ? (li.classList.contains('open') === wasOpen) : true;
+                resolve({
+                  ok: copied && copied.startsWith('trinity-local council-launch --task "') && stillSameExpand,
+                  copied: (copied || '').slice(0, 90),
+                  flashed: target.textContent.includes('Copied'),
+                  total_chips: chips.length,
+                  is_expandable: isExpandable,
+                  expand_unchanged: stillSameExpand,
+                });
+              }, 200);
+            })"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "20-rep-replay-chip.png"))
+        if rep_state.get("skipped"):
+            print(f"[ - ] Surface 20 rep-replay: SKIPPED ({rep_state['reason']})")
+        elif rep_state.get("ok"):
+            note = (
+                f"{rep_state['total_chips']} chip(s) · "
+                f"copied='{rep_state['copied']}...' · "
+                f"flash={rep_state['flashed']} · "
+                f"expandable={rep_state['is_expandable']}, expand-unchanged={rep_state['expand_unchanged']}"
+            )
+            print(f"[ ✓ ] Surface 20 rep-replay: {note}")
+        else:
+            reason = f"copied={rep_state.get('copied')!r} expand_unchanged={rep_state.get('expand_unchanged')}"
+            print(f"[ ✗ ] Surface 20 rep-replay: {reason}")
+            fails.append((20, "rep-replay chip", reason))
 
         browser.close()
 

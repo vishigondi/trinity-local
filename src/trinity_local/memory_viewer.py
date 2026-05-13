@@ -696,6 +696,25 @@ def render_memory_viewer_html() -> str:
       width: 12px;
       text-align: center;
     }}
+    /* Per-rep replay chip — finer-grained than the basin-level launch
+       chip. Lets the user replay any specific representative thread
+       (not just the closest-to-centroid one the basin chip uses). */
+    .topics-rep-replay {{
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1px solid var(--fg);
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      opacity: 0.7;
+    }}
+    .topics-rep-replay:hover {{
+      background: rgba(37, 88, 71, 0.08);
+      opacity: 1;
+    }}
     .topics-rep-turns {{
       list-style: none;
       padding: 0;
@@ -1383,15 +1402,47 @@ def render_memory_viewer_html() -> str:
         labelSel.attr("x", d => d.x).attr("y", d => d.y + radiusFor(d) + 14);
       }});
 
+      // Bash-safe quoting for `--task "<text>"` clipboard payloads.
+      // Used by both the basin-level and per-rep launch chips.
+      function escapeBashArg(s) {{
+        return (s || "")
+          .replace(/\\\\/g, "\\\\\\\\")
+          .replace(/"/g, '\\\\"')
+          .replace(/`/g, "\\\\`")
+          .replace(/\\$/g, "\\\\$");
+      }}
+
       function renderThreadRep(rep) {{
         // One representative thread = a clickable card.
         // - Headline = single turn closest to basin centroid
         // - Click to expand: shows all turns in conversational order
         // - Single-turn threads (Gemini Takeout) get no expand affordance
+        // - Per-rep replay chip closes the action arc on the turn level
+        //   (forward-arc bullet "click a turn in an expanded thread →
+        //   replay this through the council"). The chip uses the rep's
+        //   headline as the seed; click.stopPropagation prevents the
+        //   surrounding li from toggling expand on chip click.
         const li = el("li", "topics-rep topics-rep-thread");
         const turnCount = Number(rep.turn_count || (rep.turns && rep.turns.length) || 1);
         const headRow = el("div", "topics-rep-head");
         headRow.appendChild(el("span", "topics-rep-headline", rep.headline || "(no headline)"));
+        const replaySeed = rep.headline || (rep.turns && rep.turns[0] && rep.turns[0].snippet) || "";
+        if (replaySeed) {{
+          const replayCmd = 'trinity-local council-launch --task "' + escapeBashArg(replaySeed) + '"';
+          const replay = el("button", "topics-rep-replay", "Replay");
+          replay.type = "button";
+          replay.title = "Copy: " + replayCmd;
+          replay.dataset.transcriptId = rep.transcript_id || "";
+          replay.addEventListener("click", (event) => {{
+            event.stopPropagation();
+            if (navigator.clipboard?.writeText) {{
+              navigator.clipboard.writeText(replayCmd).catch(() => null);
+            }}
+            replay.textContent = "✓ Copied";
+            setTimeout(() => {{ replay.textContent = "Replay"; }}, 2200);
+          }});
+          headRow.appendChild(replay);
+        }}
         if (turnCount > 1) {{
           const chev = el("span", "topics-rep-chev", "▸");
           const meta = el("span", "topics-rep-meta",
@@ -1478,16 +1529,9 @@ def render_memory_viewer_html() -> str:
         const seedRep = Array.isArray(b.representatives) ? b.representatives[0] : null;
         const seedText = seedRep ? (seedRep.headline || seedRep.snippet || "") : "";
         if (seedText) {{
-          // Bash-safe quoting for the --task arg. Double-quote-wrap and
-          // backslash-escape the four metas (backslash, double-quote,
-          // backtick, dollar) so a paste into zsh/bash doesn't
-          // re-interpret them.
-          const escaped = seedText
-            .replace(/\\\\/g, "\\\\\\\\")
-            .replace(/"/g, '\\\\"')
-            .replace(/`/g, "\\\\`")
-            .replace(/\\$/g, "\\\\$");
-          const launchCmd = 'trinity-local council-launch --task "' + escaped + '"';
+          // Bash-safe quoting handled by escapeBashArg (shared with the
+          // per-rep replay chip in renderThreadRep).
+          const launchCmd = 'trinity-local council-launch --task "' + escapeBashArg(seedText) + '"';
           const chip = el("button", "topics-launch-chip", "Launch council on this topic");
           chip.type = "button";
           chip.title = "Copy: " + launchCmd;

@@ -136,6 +136,45 @@ class TestTopicLaunchChip:
         assert ".replace(/\\$/g," in html, "missing dollar escape"
 
 
+class TestRepReplayChip:
+    """Tick #29 — per-representative replay chip. Finer-grained than the
+    basin-level launch chip (uses any rep's headline as the seed, not
+    just the closest-to-centroid). The escape logic is now shared via
+    escapeBashArg — DRY guard ensures the basin chip and rep chip stay
+    in sync as the escape rules evolve."""
+
+    def test_replay_chip_class_defined(self, isolated_home):
+        html = _render()
+        assert ".topics-rep-replay" in html, ".topics-rep-replay CSS missing"
+        assert '"topics-rep-replay"' in html, (
+            "renderThreadRep doesn't construct a .topics-rep-replay button"
+        )
+
+    def test_replay_chip_stops_propagation(self, isolated_home):
+        html = _render()
+        # Without stopPropagation, clicking the chip would also toggle the
+        # surrounding li's expand state — bad UX, especially on multi-turn
+        # threads. Guard the wiring.
+        assert "event.stopPropagation()" in html, (
+            "rep replay chip click handler missing stopPropagation — "
+            "expand toggle will fire when the user only meant to copy"
+        )
+
+    def test_replay_chip_uses_shared_escape_helper(self, isolated_home):
+        html = _render()
+        # The basin chip + rep chip both wrap the seed in escapeBashArg
+        # so they share one source of truth for shell metacharacter
+        # escaping. If a refactor breaks this, the chips can drift on
+        # whether `$` gets escaped or not — silently breaking one path.
+        assert "function escapeBashArg" in html, "shared escapeBashArg helper missing"
+        assert "escapeBashArg(seedText)" in html, (
+            "basin-level launch chip no longer threads escapeBashArg — DRY broken"
+        )
+        assert "escapeBashArg(replaySeed)" in html, (
+            "per-rep replay chip no longer threads escapeBashArg"
+        )
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the
