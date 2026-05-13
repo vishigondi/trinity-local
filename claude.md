@@ -36,6 +36,165 @@ v1 SHIPS: councils + chairman synth + `dream` cold-start + cortex extraction + l
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own CLI subscriptions (Claude Code, Codex, Gemini CLI, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both cost basis and privacy.
 5. **HF Hub offline by default.** `main()` pins `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` via `setdefault` at startup. The embedding model is pulled once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`; after that Trinity loads from `~/.cache/huggingface/hub/` and never contacts the Hub during normal operation. Privacy + reliability invariant — no surprise outbound calls from the running system, no telemetry to upstream model hosts, MCP child processes inherit the env so the guarantee propagates through every spawn.
 
+## Patterns extracted from the fixes (meta-principles)
+
+236 commits since April, 82 of them on 2026-05-12 alone. The recurring
+shapes that earned their rules by costing time:
+
+1. **Lossless serialization round-trips.** If `to_dict()` writes,
+   `from_dict()` must return the same dataclass. `basins.py:68` capped
+   `prompt_ids` at 50 entries "for readable JSON" — `load_basins()`
+   round-tripped through that JSON, then `basin_for_prompt()`
+   silently returned `None` for any prompt beyond #50, breaking the
+   bulk of every multi-prompt basin. Truncation "for display" belongs
+   in the renderer, not the serializer.
+
+2. **File:// is the substrate.** Trinity opens via the macOS desktop
+   shortcut at `file:///…/launchpad.html`. New static pages can't
+   `fetch()` because modern browsers block file:// XHR. Inline data
+   at `portal-html` time the way `live_council.html` does its thread
+   manifests (`window.__TRINITY_COUNCIL_THREAD__`). Memory viewer's
+   first cut required `trinity-local serve`; second cut inlined.
+
+3. **Filter at the boundary, not the consumer.** Trinity's own
+   dispatch prompts ("You are extracting durable facts…") get
+   captured into the user's CLI transcripts as role=user, then
+   re-ingested as if the user typed them. The only correct filter
+   point is `_is_user_facing_prompt` in `ingest.py`. Filtering at the
+   launchpad autofill consumer was whack-a-mole — replay-history hit
+   the same poisoned data; vocabulary distillation did too.
+
+4. **When you fix a bug, audit for its shape.** Vocabulary
+   distillation hit a 5000-node cap because `iter_prompt_nodes()`
+   defaults to capped. Audit found 5 more callers with the same
+   bug — basins.compute_basins, bootstrap_pairs, replay,
+   incremental_ingest, me/turn_pairs. Bug shapes repeat; grep for
+   the pattern, not just the symptom.
+
+5. **Real-data validation is the substantive test.** Unit tests
+   catch regressions of known bugs. Running `trinity-local <command>`
+   on 46k prompts catches scale/shape bugs that synthetic ≤10-vector
+   fixtures hide: vocabulary OOM at 19 GB, cross_provider_pairs
+   running 106 minutes on pure-Python cosine, basins NaN poisoning,
+   doctor reading pre-rename paths, replay-history dup-flooding, the
+   basins prompt_ids round-trip. Synthetic data passes; production
+   shape doesn't.
+
+6. **Test fixtures must mirror production shape.** A test that gave
+   30 fixture nodes the same `transcript_id="t"` collapsed under
+   thread-aware basin clustering (correct behavior — one thread →
+   one cluster). Fixture had to vary `transcript_id` to exercise the
+   k-means path. If the synthetic shape isn't the production shape,
+   the test silently passes broken code.
+
+7. **Clean renames before shipping.** Trinity hasn't shipped yet, so
+   `memory/` → `prompts/`, `me-build` → `lens-build`, `portal_*.py`
+   → `launchpad_*.py`, `task_kind` → `task_type` all happened
+   without deprecation aliases. Aliases accumulate maintenance debt
+   that compounds; once shipped, you pay them forever. "We haven't
+   shipped anything yet, so no need to worry about deprecation. Just
+   do it cleanly without any cruft." Treat that as policy until v1.0
+   ships.
+
+8. **Numeric claims in long-form docs drift.** "8-surface smoke",
+   "541 tests", "571 tests", "657 tests" all appeared in
+   claude.md/product-spec.md/CONTRIBUTING.md after the actual counts
+   had moved. Either don't put numbers in prose docs, or treat them
+   as canonical-source-of-truth-managed (CHANGELOG entries are
+   timestamped + okay to be stale; status-block claims are not).
+
+9. **Show user content, not statistical summaries.** TF-IDF top
+   terms ("get / give / like") surface vocabulary — not intent.
+   When a cluster's label needs to convey "what this is about",
+   prefer the actual closest-to-centroid prompt over aggregated
+   tokens. Same principle: representatives over `top_terms` in the
+   memory viewer, prompts in the autofill over "you-might-also-like"
+   summaries.
+
+10. **Cluster at the unit users think in.** Multi-turn conversations
+    are threads, not turns. K-means on per-turn embeddings fragments
+    "draft a tweet → make it shorter → add a CTA" across three
+    basins. K-means on thread-mean centroids puts it in one. The
+    user's mental model is the conversation; the topology has to
+    track that.
+
+11. **Shared UI primitives live in `design_system.py`.** Three
+    sub-pages (memory viewer, live council, council review) all
+    grew bespoke `.page-header-bar` / `.topbar` CSS independently.
+    Drift accumulated invisibly until a user flagged the
+    inconsistency. New rule: when DESIGN.md describes a UI contract,
+    the CSS for that contract lives once in `SHARED_CSS`. Pages
+    reference, don't re-type.
+
+12. **Smoke selectors are structural, not text-based.** Surface 6
+    used `a.button.ghost` + "Back to Launchpad" text-match — broke
+    when the topbar pattern changed the text to "← Launchpad".
+    Switched to `.trinity-topbar a.topbar-back`. Selectors that
+    track structure survive normal copy edits; text-matching
+    selectors couple the regression guard to UX copy.
+
+13. **Design system is a contract, not a suggestion.** DESIGN.md
+    explicitly forbids "purple or neon accents". Memory viewer's
+    first cut shipped `#6366f1` indigo + `#8b5cf6` violet anyway,
+    because nothing enforced the palette. New rule: when adding a
+    new surface, the palette has to come from `design_system.COLORS`,
+    not from "what looks good right now".
+
+## Forward arc
+
+What the commit volume + theme distribution suggests for the next 50–100
+commits:
+
+**The substrate is stable; the next motion is action-from-view.** The
+last two months built the engine (council mechanic, MCP surface,
+cortex consolidation, lens pipeline). The last two weeks built the
+*inspectable* surface (memory viewer, topic graph, thread expansion,
+nav harmonization). The next two weeks should weave **actions** through
+that surface — currently every view is read-only:
+
+- Click a basin → "launch a council on this topic" (not just "see it")
+- See a stale pick in `picks.json` → "regenerate this pick" inline
+- Cortex pick wrong (already `mark_pick_wrong` MCP but CLI-only) →
+  one-click veto from the picks Reader
+- See a rejected lens → "rebuild lens.md" link
+- Click a turn in an expanded thread → "open the source session"
+  or "replay this through the council"
+
+**Cross-memory navigation** is the second arc. Right now picks ↔
+routing ↔ topics ↔ lens are siloed JSON files even though they're
+load-bearing on each other:
+
+- `routing.json` mentions a winner basin → should link to that basin
+  in `topics.json`
+- `picks.json` evidence chip → should open the source council in
+  `review_pages/`
+- A lens card on the launchpad → should link to the prompts that
+  surfaced it
+- The topic graph → should show which basins have picks vs which are
+  noise (cross-ref `picks.json`)
+
+**Drift surfacing** is the third arc. The infrastructure is there
+(`is_core_stale`, override_count, audit_status) but nothing on the
+launchpad highlights it. The next surface improvement is "what's stale
+and what should I do about it" — a single dashboard row.
+
+**What's NOT in the forward arc:**
+
+- More rename churn. The cleanup discipline ("treat renames as policy
+  until v1.0 ships") burned off the major drift this week. Future
+  drift is bounded by the smoke selectors + CHANGELOG entries.
+- More architectural pivots. The trained-coordinator path is sunset;
+  v1.5 spec is feature-complete; v2 reopens only if v1.5 hits a real
+  ceiling on user data.
+- More launchpad surfaces. The launchpad is the home. New artifacts
+  (topic graph, picks reader, routing reader) go to sub-pages with
+  the `.trinity-topbar` shape, not as new launchpad cards.
+
+**The unblocking question for v1 ship:** when a user runs Trinity for
+the first time, does the loop from "first council" → "see my picks
+form" → "act on a stale pick" close inside a session? Currently the
+view side closes; the action side is half-built.
+
 ## Glossary (load-bearing terms)
 
 A few words do specific work; they get conflated otherwise:
