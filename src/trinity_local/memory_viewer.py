@@ -643,6 +643,24 @@ def render_memory_viewer_html() -> str:
     .topics-launch-chip:hover {{
       background: rgba(37, 88, 71, 0.08);
     }}
+    /* Cross-memory pick link in the basin detail panel — surfaces
+       when a basin has been consolidated into a routing rule. Same
+       shape as .pick-xlink (used in the routing Reader). Reading
+       left-to-right: routing rule lives, click to see it. */
+    .topics-pick-xlink {{
+      display: inline-block;
+      margin-top: 10px;
+      margin-right: 10px;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }}
+    .topics-pick-xlink:hover {{
+      background: var(--surface-muted);
+    }}
     .topics-reps-label {{
       color: var(--meta);
       font-size: 12px;
@@ -1186,6 +1204,61 @@ def render_memory_viewer_html() -> str:
         return;
       }}
 
+      // Cross-memory bridge: picks.json keys by task_type, and each pick
+      // carries .basin_centroid (768-d vector). Topology basins also
+      // carry .centroid. Both spaces are nomic-embed-v1.5 so cosine
+      // similarity is meaningful. For each pick, find the topology
+      // basin closest to its centroid (above a similarity threshold)
+      // and record `topology_basin_id → task_type`. showDetail uses
+      // this to surface "Routing rule: <task> →" on basins that have
+      // crystallized into routing rules.
+      //
+      // Why not just match `pick.basin_id` to `topology_basin.id`?
+      // The picks-side .basin_id is the task_type label, not the
+      // topology basin id — schema-naming inconsistency the renderer
+      // bridges here.
+      const basinToPickTask = new Map();
+      try {{
+        const picksRaw = window.__TRINITY_MEMORIES__?.["picks.json"];
+        if (picksRaw) {{
+          const parsedPicks = JSON.parse(picksRaw);
+          // Pre-compute per-basin norms once so the inner loop is
+          // O(d) per (pick × basin) instead of O(d²).
+          const basinNorms = basins.map(b => {{
+            const c = b.centroid || [];
+            let s = 0;
+            for (let i = 0; i < c.length; i++) s += c[i] * c[i];
+            return {{ centroid: c, norm: Math.sqrt(s), id: b.id }};
+          }});
+          const SIM_THRESHOLD = 0.65;  // empirical: 0.5 too lax, 0.8 too strict
+          Object.keys(parsedPicks).forEach(taskType => {{
+            const pick = parsedPicks[taskType];
+            const pc = (pick && pick.basin_centroid) || null;
+            if (!pc || !pc.length) return;
+            let pcNorm = 0;
+            for (let i = 0; i < pc.length; i++) pcNorm += pc[i] * pc[i];
+            pcNorm = Math.sqrt(pcNorm);
+            if (!pcNorm) return;
+            let bestSim = -1, bestId = null;
+            for (const {{ centroid, norm, id }} of basinNorms) {{
+              if (!norm || centroid.length !== pc.length) continue;
+              let dot = 0;
+              for (let i = 0; i < pc.length; i++) dot += pc[i] * centroid[i];
+              const sim = dot / (pcNorm * norm);
+              if (sim > bestSim) {{ bestSim = sim; bestId = id; }}
+            }}
+            if (bestId && bestSim >= SIM_THRESHOLD) {{
+              // First task to claim a basin wins — if two picks tie,
+              // the later one would clobber. Stable order via Object.keys.
+              if (!basinToPickTask.has(bestId)) basinToPickTask.set(bestId, taskType);
+            }}
+          }});
+        }}
+      }} catch (_) {{
+        // Malformed picks.json must not break the topology view —
+        // per "Analytics never crash" in claude.md.
+      }}
+
       // Detail panel above the graph — populated on node click.
       const detail = el("div", "topics-graph-detail");
       const detailEmpty = el("div", "empty", "Click a basin to see its top terms and prompt count.");
@@ -1526,6 +1599,17 @@ def render_memory_viewer_html() -> str:
         // `trinity-local council-launch --task "<seed>"`. Closes the
         // topology action arc from the forward arc bullet "click a basin
         // → launch a council on this topic".
+        // Cross-memory pick link: if this basin has been consolidated
+        // into a routing rule, link straight to its picks.json entry.
+        // basinToPickTask is precomputed once in renderTopicsReader.
+        const pickTask = basinToPickTask.get(b.id);
+        if (pickTask) {{
+          const xlink = el("a", "topics-pick-xlink");
+          xlink.href = "memory.html?file=picks.json&task=" + encodeURIComponent(pickTask);
+          xlink.textContent = "Routing rule: " + pickTask + " →";
+          xlink.title = "Open this basin's pick in the picks Reader";
+          detail.appendChild(xlink);
+        }}
         const seedRep = Array.isArray(b.representatives) ? b.representatives[0] : null;
         const seedText = seedRep ? (seedRep.headline || seedRep.snippet || "") : "";
         if (seedText) {{

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 21 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 22 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -57,6 +57,10 @@ Surfaces:
        that rep's headline as the seed — lets the user replay any thread,
        not just the closest-to-centroid one (tick #29). Verifies
        stopPropagation so the chip doesn't toggle the expand state.
+   21. Topology → picks cross-link: if a basin has been consolidated into
+       a routing rule (picks.json carries .basin_id pointing back at the
+       topology), the basin detail panel shows a .topics-pick-xlink that
+       deep-links to picks.html?file=picks.json&task=<task_type> (tick #30).
 
 Exit codes:
     0 — all surfaces pass
@@ -1238,6 +1242,62 @@ def main() -> int:
             reason = f"copied={rep_state.get('copied')!r} expand_unchanged={rep_state.get('expand_unchanged')}"
             print(f"[ ✗ ] Surface 20 rep-replay: {reason}")
             fails.append((20, "rep-replay chip", reason))
+
+        # ─── Surface 21: Topology → picks cross-link ─────────────────────────
+        # The basin detail panel renders a .topics-pick-xlink ONLY when
+        # this basin has been consolidated into a routing rule (picks
+        # carries a .basin_id pointing back). If no basin in the current
+        # topology has a corresponding pick, SKIP rather than fail — same
+        # legacy-data tolerance pattern as surfaces 17/19/20.
+        # Open topics.json fresh so we can scan all basins for one that
+        # has a pick link (the basin Surface 19 clicked may not).
+        page.goto(
+            f"{base_url}/portal_pages/memory.html?file=topics.json",
+            wait_until="networkidle",
+            timeout=10000,
+        )
+        page.wait_for_timeout(400)
+        link_state = page.evaluate(
+            """() => new Promise(resolve => {
+              const nodes = Array.from(document.querySelectorAll('.topics-graph-svg .node'));
+              if (!nodes.length) { resolve({ok: true, skipped: true, reason: 'no graph nodes'}); return; }
+              // Walk basins one-by-one looking for the first that surfaces
+              // a .topics-pick-xlink on click. If none do, treat as SKIPPED
+              // (this install hasn't consolidated any basin into picks).
+              const tryClick = (i) => {
+                if (i >= nodes.length) { resolve({ok: true, skipped: true, reason: 'no basin has a pick xlink'}); return; }
+                nodes[i].dispatchEvent(new MouseEvent('click', {bubbles: true}));
+                setTimeout(() => {
+                  const xlink = document.querySelector('.topics-pick-xlink');
+                  if (xlink) {
+                    const href = xlink.getAttribute('href') || '';
+                    resolve({
+                      ok: href.startsWith('memory.html?file=picks.json&task='),
+                      href: href,
+                      label: xlink.textContent,
+                      basin_index: i,
+                      total_basins: nodes.length,
+                    });
+                  } else {
+                    tryClick(i + 1);
+                  }
+                }, 150);
+              };
+              tryClick(0);
+            })"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "21-topic-pick-xlink.png"))
+        if link_state.get("skipped"):
+            print(f"[ - ] Surface 21 topic→pick: SKIPPED ({link_state['reason']})")
+        elif link_state.get("ok"):
+            print(
+                f"[ ✓ ] Surface 21 topic→pick: basin #{link_state['basin_index']}/{link_state['total_basins']} "
+                f"links to '{link_state['href']}' (label: '{link_state['label']}')"
+            )
+        else:
+            reason = f"href={link_state.get('href')!r}"
+            print(f"[ ✗ ] Surface 21 topic→pick: {reason}")
+            fails.append((21, "topic→pick xlink", reason))
 
         browser.close()
 

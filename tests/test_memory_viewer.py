@@ -175,6 +175,56 @@ class TestRepReplayChip:
         )
 
 
+class TestTopicToPickCrossLink:
+    """Tick #30 — topology → picks cross-link. picks.json `.basin_id` is
+    actually the task_type label (schema-naming quirk), so this bridge
+    matches via cosine similarity between `pick.basin_centroid` and each
+    topology basin's `centroid`. Closes the forward-arc cross-memory
+    navigation gap 'see a basin, jump to its pick'."""
+
+    def test_pick_xlink_class_defined(self, isolated_home):
+        html = _render()
+        assert ".topics-pick-xlink" in html, ".topics-pick-xlink CSS missing"
+        assert '"topics-pick-xlink"' in html, (
+            "showDetail doesn't construct a .topics-pick-xlink anchor"
+        )
+
+    def test_reverse_map_uses_centroid_cosine(self, isolated_home):
+        html = _render()
+        # The bridge MUST match by centroid, not by pick.basin_id —
+        # picks.basin_id is the task_type label, not the topology id.
+        # If a future refactor drops centroid matching, picks will
+        # orphan from topology again.
+        assert "basinToPickTask" in html, "basin→pick map missing"
+        assert "pick.basin_centroid" in html, (
+            "reverse map no longer reads pick.basin_centroid — centroid "
+            "matching is the only way to bridge picks → topology since "
+            "pick.basin_id is the task_type label not the topology id"
+        )
+        # Threshold is a magic number — guard that some threshold is
+        # being applied (without it the closest basin wins even when
+        # similarity is near zero, producing nonsense links).
+        assert "SIM_THRESHOLD" in html, (
+            "no similarity threshold gate — every pick will link to its "
+            "argmax basin regardless of how unrelated they are"
+        )
+
+    def test_xlink_targets_picks_reader_with_task_param(self, isolated_home):
+        html = _render()
+        # Link must go to picks.json viewer with the ?task= deep-link
+        # so the picks Reader scrolls to + highlights the right card.
+        assert 'memory.html?file=picks.json&task=" + encodeURIComponent(pickTask)' in html, (
+            "topic→pick xlink doesn't target the picks Reader's ?task= deep-link"
+        )
+
+    def test_malformed_picks_doesnt_crash_topology(self, isolated_home):
+        # The try/except around JSON.parse is load-bearing — without it,
+        # a corrupt picks.json would take down the topology view entirely.
+        html = _render()
+        assert "JSON.parse(picksRaw)" in html, "picks parse step missing"
+        assert "catch (_)" in html, "missing graceful-degradation try/catch around picks parse"
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the
