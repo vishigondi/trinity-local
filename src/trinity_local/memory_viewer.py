@@ -841,7 +841,33 @@ def render_memory_viewer_html() -> str:
       }}
       // Deep-link target: ?task=<basin_id> scrolls to + highlights the
       // matching card so cross-links from routing.json land usefully.
+      // If the task isn't yet in picks (cortex hasn't consolidated this
+      // basin), surface a small "not yet" banner — same warm-warning
+      // shape as the per-file health banner — so the user understands
+      // the link landed but the data isn't there.
       const focusTask = params.get("task");
+      if (focusTask && !basins.includes(focusTask)) {{
+        const banner = el("div", "viewer-health-banner");
+        banner.appendChild(el("span", "viewer-health-status", "not yet"));
+        const hint = el("span", "viewer-health-hint");
+        hint.textContent =
+          'No pick for "' + focusTask + '" yet — this task hasn\\'t been ' +
+          'consolidated. Run trinity-local consolidate to add it.';
+        banner.appendChild(hint);
+        const chip = el("button", "viewer-health-cmd");
+        chip.type = "button";
+        chip.textContent = "trinity-local consolidate";
+        chip.title = "Copy: trinity-local consolidate";
+        chip.addEventListener("click", () => {{
+          if (navigator.clipboard?.writeText) {{
+            navigator.clipboard.writeText("trinity-local consolidate").catch(() => null);
+          }}
+          chip.textContent = "✓ Copied";
+          setTimeout(() => {{ chip.textContent = "trinity-local consolidate"; }}, 2200);
+        }});
+        banner.appendChild(chip);
+        target.appendChild(banner);
+      }}
       basins.forEach(basinId => {{
         const p = picks[basinId];
         const card = el("div", "pick-card");
@@ -921,7 +947,20 @@ def render_memory_viewer_html() -> str:
 
       // Deep-link target: ?task=<task_type> scrolls to + highlights
       // the matching row so a click from picks.json lands usefully.
+      // If the task isn't in routing yet (no councils with this
+      // task_type have been rated), surface the same "not yet" banner
+      // shape as the picks reader.
       const focusTask = params.get("task");
+      if (focusTask && !taskTypes.includes(focusTask)) {{
+        const banner = el("div", "viewer-health-banner");
+        banner.appendChild(el("span", "viewer-health-status", "not yet"));
+        const hint = el("span", "viewer-health-hint");
+        hint.textContent =
+          'No routing data for "' + focusTask + '" yet — no rated councils ' +
+          'for this task. Rate a council outcome to start the table.';
+        banner.appendChild(hint);
+        target.appendChild(banner);
+      }}
 
       const tbody = el("tbody");
       taskTypes.forEach(t => {{

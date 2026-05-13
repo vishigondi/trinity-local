@@ -113,9 +113,18 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 "root_title": None,
                 "latest_winner": None,
                 "latest_created_at": "",
+                # task_type pulled from the latest round's routing_label.
+                # Used to render cross-links from each recent card to the
+                # matching picks.json / routing.json viewer entries.
+                "task_type": None,
             },
         )
         thread["segment_count"] += 1
+        # Keep the latest task_type — if a chain mid-rounds shifts type
+        # (rare), the most recent round's label is most relevant.
+        routing_label = raw.get("routing_label") or {}
+        if isinstance(routing_label, dict) and routing_label.get("task_type"):
+            thread["task_type"] = routing_label["task_type"]
         # Earliest round = round_number 1 (or smallest round_number) carries
         # the original prompt for the title.
         if round_number == 1 or thread["root_bundle_id"] is None:
@@ -144,6 +153,7 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 "winner_provider": thread["latest_winner"],
                 "created_at": thread["latest_created_at"],
                 "segment_count": thread["segment_count"],
+                "task_type": thread.get("task_type"),
                 "review_page_path": str(
                     (review_pages_dir() / "live_council.html").resolve()
                 ),
@@ -830,8 +840,31 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
             if seg_count > 1
             else ""
         )
+        # Cross-memory chips: when this council's chairman tagged a
+        # task_type, render two ghost links that jump to picks.json
+        # and routing.json for that same task. Sits OUTSIDE the main
+        # card anchor so clicking a chip doesn't also trigger the
+        # full-card navigation to the live council page.
+        task_type = item.get("task_type")
+        xlinks = ""
+        if task_type:
+            task = _esc(str(task_type))
+            xlinks = (
+                f'<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
+                f'<a href="../portal_pages/memory.html?file=picks.json&task={task}" '
+                f'class="council-xlink" '
+                f'style="font-size: 11px; color: var(--text-secondary); text-decoration: none; padding: 2px 8px; '
+                f'border: 1px solid var(--border); border-radius: 999px; background: var(--surface);">'
+                f'→ pick</a>'
+                f'<a href="../portal_pages/memory.html?file=routing.json&task={task}" '
+                f'class="council-xlink" '
+                f'style="font-size: 11px; color: var(--text-secondary); text-decoration: none; padding: 2px 8px; '
+                f'border: 1px solid var(--border); border-radius: 999px; background: var(--surface);">'
+                f'→ routing</a>'
+                f'</div>'
+            )
         return f"""
-        <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
           <a href="{href}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
             <article class="card council-card">
               <div class="eyebrow">Thread</div>
@@ -839,6 +872,7 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
               <p class="meta">{_esc(winner)} · {_esc(created_at)}{rounds_badge}</p>
             </article>
           </a>
+          {xlinks}
         </div>
         """
 
