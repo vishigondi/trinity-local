@@ -104,7 +104,12 @@ def iter_prompt_nodes(*, limit: object = _UNSET) -> Iterator[PromptNode]:
         # `limit=None` explicitly means "no cap"; an int means "cap to that".
         effective_limit = limit  # type: ignore[assignment]
 
-    signature = (mtime, size, effective_limit if effective_limit is not None else -1)
+    # `path` is in the signature so monkeypatched TRINITY_HOME in tests
+    # invalidates the cache automatically — without this the cache holds
+    # the previous test's tmp-dir nodes and downstream tests see stale
+    # data (caught real-corpus depth tests skipping silently in the full
+    # suite while passing in isolation).
+    signature = (str(path), mtime, size, effective_limit if effective_limit is not None else -1)
 
     if _PROMPT_NODE_CACHE is not None and _PROMPT_NODE_CACHE_KEY == signature:
         yield from _PROMPT_NODE_CACHE

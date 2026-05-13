@@ -8,10 +8,6 @@ from unittest import mock
 
 import pytest
 
-# Use isolated TRINITY_HOME for all tests
-_test_home = tempfile.mkdtemp(prefix="trinity-test-knn-")
-os.environ["TRINITY_HOME"] = _test_home
-
 from trinity_local.knn_advisor import (
     KnnAdvice,
     _CorpusEntry,
@@ -19,6 +15,21 @@ from trinity_local.knn_advisor import (
     advise,
     corpus_size,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_trinity_home(monkeypatch, tmp_path):
+    """Isolate TRINITY_HOME per-test.
+
+    Was a module-level `os.environ["TRINITY_HOME"] = ...` which leaked the
+    test path into every subsequent test in the suite. The real-corpus
+    depth tests started silently skipping because `iter_prompt_nodes`
+    resolved to the polluted tmp path, returning 0 embedded nodes —
+    invisible armor with hours of debugging cost (tick #63).
+    Per meta-principle #3 (filter at the boundary): scope test state via
+    fixtures, not via module-level mutation.
+    """
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
 
 
 def _make_hard_example(

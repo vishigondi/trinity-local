@@ -7,9 +7,6 @@ import tempfile
 
 import pytest
 
-_test_home = tempfile.mkdtemp(prefix="trinity-test-analytics-")
-os.environ["TRINITY_HOME"] = _test_home
-
 from trinity_local.knn_analytics import (
     AdvisoryEvent,
     AdvisoryReport,
@@ -19,6 +16,18 @@ from trinity_local.knn_analytics import (
     mark_suggestion_outcome,
     save_report,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_trinity_home(monkeypatch, tmp_path):
+    """Isolate TRINITY_HOME per-test.
+
+    Was a module-level `os.environ["TRINITY_HOME"] = ...` which leaked the
+    test path into every subsequent test. Caught by tick #63 when the
+    real-corpus depth tests were silently skipping in the full suite
+    while passing in isolation.
+    """
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
 
 
 def _make_event(**overrides) -> AdvisoryEvent:
