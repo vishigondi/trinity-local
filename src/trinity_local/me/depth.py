@@ -25,17 +25,36 @@ from typing import Iterable
 from ..memory.schemas import PromptNode
 
 
+def _embedding_is_finite(emb: list[float]) -> bool:
+    """Cheap NaN/Inf filter — embedded by older models or interrupted
+    embed batches can produce non-finite components that poison every
+    downstream centroid computation. Mirrors the filter `me/basins.py`
+    applies before clustering."""
+    for v in emb:
+        if v != v or v == float("inf") or v == float("-inf"):
+            return False
+    return True
+
+
 def thread_centroids(nodes: Iterable[PromptNode]) -> dict[str, list[float]]:
     """Return {transcript_id: mean_embedding} across all turns in each thread.
 
-    Skips threads whose embeddings are missing or zero-norm. Empty
-    dict when no usable nodes — caller can short-circuit.
+    Skips threads whose embeddings are missing, zero-norm, or contain
+    NaN/Inf. Empty dict when no usable nodes.
+
+    NaN filter is load-bearing: real corpora include gemini_takeout
+    threads whose embeddings have non-finite components (cause: stale
+    embed batches from an earlier embedder generation). Without the
+    filter, those poison the corpus centroid and every distance
+    downstream comes back as NaN.
     """
     sums: dict[str, list[float]] = {}
     counts: dict[str, int] = {}
     for node in nodes:
         emb = getattr(node, "embedding", None) or []
         if not emb:
+            continue
+        if not _embedding_is_finite(emb):
             continue
         tid = getattr(node, "transcript_id", None)
         if not tid:
@@ -136,13 +155,17 @@ def thread_inter_turn_distance(
     move. Filtered downstream (won't out-rank multi-turn threads
     when multiplied into the composite score with log(1+x)).
     """
-    # Group nodes by thread, preserving turn_index order.
+    # Group nodes by thread, preserving turn_index order. Filter
+    # NaN/Inf embeddings to keep cosine_distance from emitting NaN.
     by_thread: dict[str, list[PromptNode]] = {}
     for node in nodes:
         tid = getattr(node, "transcript_id", None)
         if not tid:
             continue
-        if not (getattr(node, "embedding", None) or []):
+        emb = getattr(node, "embedding", None) or []
+        if not emb:
+            continue
+        if not _embedding_is_finite(emb):
             continue
         by_thread.setdefault(tid, []).append(node)
     out: dict[str, float] = {}
@@ -181,12 +204,18 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     Python-call cost and timed out on real corpora.
     """
     # Build a flat list of usable (transcript_id, embedding) tuples.
+    # NaN/Inf filter is load-bearing: a single non-finite row poisons
+    # the whole cosine similarity matrix via the matmul, propagating
+    # NaN across every other thread's LID estimate downstream.
     items: list[tuple[str, list[float]]] = []
     for node in nodes:
         tid = getattr(node, "transcript_id", None)
         emb = getattr(node, "embedding", None) or []
-        if tid and emb:
-            items.append((tid, emb))
+        if not (tid and emb):
+            continue
+        if not _embedding_is_finite(emb):
+            continue
+        items.append((tid, emb))
     if len(items) < 3:
         return {}
     try:

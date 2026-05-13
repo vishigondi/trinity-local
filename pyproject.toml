@@ -45,6 +45,11 @@ mlx = [
     "torch>=2.0",
 ]
 
+[tool.pytest.ini_options]
+markers = [
+    "real_corpus: runs against the real ~/.trinity install; skipped when none present",
+]
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
