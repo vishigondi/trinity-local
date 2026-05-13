@@ -140,6 +140,20 @@ shapes that earned their rules by costing time:
     new surface, the palette has to come from `design_system.COLORS`,
     not from "what looks good right now".
 
+14. **Every shipped feature gets a smoke regression guard within
+    one tick.** Observed across four consecutive feature ticks:
+    tick #8 health row → wired in-tick; tick #13 per-file banner →
+    tick #14 Surface 16; tick #15 cross-memory chips → tick #16
+    Surface 10 extension. The smoke suite grows in lockstep with
+    shipped surfaces — when a feature lands today, tomorrow's run
+    catches it if it breaks. The selector is structural (per
+    principle #12); the assertion tolerates legacy-data variants
+    (Surface 13's lens empty-state, Surface 10's xlink-less legacy
+    councils) by treating the *consistent* invariant as the gate,
+    not a fixed expectation. Without this discipline, smoke
+    coverage drifts behind feature volume and the gate stops
+    catching real regressions — it just becomes wallpaper.
+
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
