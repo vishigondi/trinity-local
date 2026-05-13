@@ -468,22 +468,38 @@ HDBSCAN in one specific data shape (single connected curved manifold,
 not multimodal). Revisit only if calibration shows curved-single-manifold
 is a real failure class.
 
-**principles.md (the sixth core memory).** Trinity persists per-council
-`routing_lesson` strings on every outcome but never aggregates them.
-Cluster routing_lessons across `~/.trinity/council_outcomes/*.json`,
-prefer those where `user_winner != chairman pick` (the highest-signal
-"reverted commit" analog), filter to clusters whose source councils
-span ≥3 distinct prompt-basins (cross-domain recurrence is what
-distinguishes meta-principle from domain habit), and chairman-extract
-the unifying rule per qualifying cluster. Ship as `~/.trinity/memories/principles.md`
-+ `mark_principle_wrong` MCP tool mirroring `mark_pick_wrong`. Brain
-analog: meta-cognitive memory ("rules I've extracted from watching
-myself work"). The 15 principles in `claude.md` are the ground-truth
-eval set — pipeline should rediscover most of them from this repo's
-own council+git history. Tracked as task #109. Same structural shape
-as the lens Stage 4 post-filter ("drop accepted pairs whose tension
-evidence sits in a single basin") — just at the cross-event level
-instead of cross-decision.
+**principles.md (the sixth core memory) — on hold, data-gated.** The
+original pipeline plan: cluster per-council `routing_lesson` strings,
+prefer councils where `user_winner != chairman pick` (the "reverted
+commit" analog), require ≥3 distinct basins per cluster (cross-domain
+recurrence as the meta-principle signal). Tick #69's data audit found
+the pipeline is premature:
+
+- 19 total councils in the corpus; 19 have routing_lesson.
+- 3 have ANY user verdict; 0 have an override.
+- The routing_lessons are routing-shaped ("For copywriting_polish,
+  prefer codex…"), not engineering-principle-shaped. They map to
+  per-task provider preferences already captured in
+  `personal_routing_table` — they aren't the kind of meta-principle
+  the 15 in `claude.md` are ("filter at the boundary," "audit for
+  shape").
+
+Gates for revisiting:
+1. **Verdict capture rate ≥ 50%** (currently 16%). Trinity's moat
+   thesis rests on this signal — at 16%, 84% of councils contribute
+   zero supervision data. Task #110 is the investigation.
+2. **N ≥ 100 councils** with routing_lessons before any k-means
+   clustering in 768-d embedding space is meaningful.
+3. **A different signal source** may be more appropriate for
+   meta-principles than routing_lesson. Candidates: git commit
+   pair history (commit + fix-commit), explicit chairman invocations
+   with a "principle-extraction" prompt instead of "routing rule,"
+   or session transcripts where the user named the pattern
+   ("audit for shape," "we keep hitting this").
+
+Same structural shape as the lens Stage 4 post-filter remains the
+right pattern when the data arrives — just at the cross-event
+level instead of cross-decision. Tracked as task #109.
 
 ### Cortex (routing) vs Lens (evaluation) — two layers, same data
 

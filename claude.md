@@ -300,7 +300,7 @@ A few words do specific work; they get conflated otherwise:
   | `routing.json` | per-category provider track record (numbers) | empirical memory | shipped |
   | `topics.json` | clusters of subjects you ask about | semantic memory | shipped |
   | `vocabulary.md` | how you use specific words | language memory | shipped |
-  | `principles.md` | rules you'd extract from watching yourself work | meta-cognitive memory | v1.6 (task #109) |
+  | `principles.md` | rules you'd extract from watching yourself work | meta-cognitive memory | on hold, data-gated (task #109) |
 
   The five shipped memories live in `~/.trinity/memories/`. Principles
   reuses the same directory when it lands. Splits cleanly along
