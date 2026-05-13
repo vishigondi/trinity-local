@@ -521,6 +521,10 @@ def build_page_data(
         "cortexRules": _load_cortex_rules(),
         "tasteLenses": _load_taste_lenses(),
         "coreStatus": _core_status(),
+        # Aggregate "what's stale, what should I do" — only surfaces when
+        # one of the four signals (core staleness / picks overrides /
+        # audit disagreement / pre-thread-aware topology) fires.
+        "memoryHealth": _memory_health(),
         # Just the count — actual cards are server-rendered into the body
         # via build_recent_cards_html. The hero h1 no longer branches on
         # this (promise wins the H1 in idle state); kept exposed in case
@@ -569,6 +573,88 @@ def _core_status() -> dict:
         except OSError:
             continue
     return {"state": "fresh"}
+
+
+def _memory_health() -> dict:
+    """Aggregate the four staleness signals the launchpad surfaces:
+      - core.md staleness (vs the five plural memories) via _core_status
+      - picks override_count > 0 (user-marked rules to demote)
+      - picks audit_status == "disagreed" (chairman-audit caught drift)
+      - topics.json prompt_ids round-trip integrity (legacy pre-thread-aware)
+
+    Returns:
+      {
+        "issues": [{name, status, hint}, ...],   # only non-fresh items
+        "ok_count": int,                         # memories with no issue
+        "total_count": int,                      # all signals inspected
+      }
+
+    The launchpad renders the issues row only when issues is non-empty.
+    Fresh state → silent → user isn't told "all good!" every launch.
+    """
+    issues: list[dict[str, str]] = []
+    total = 4
+    # 1. core.md freshness
+    core = _core_status()
+    state = core.get("state")
+    if state == "stale":
+        issues.append({
+            "name": "core.md",
+            "status": "stale",
+            "hint": f"`{core.get('stale_source', 'a source memory')}` is newer — run `trinity-local distill`",
+        })
+    elif state == "missing":
+        issues.append({
+            "name": "core.md",
+            "status": "missing",
+            "hint": "Run `trinity-local distill` to compile the singular core memory",
+        })
+
+    # 2 + 3. picks.json override + audit signals (cortex layer)
+    try:
+        picks_payload = _load_cortex_rules()
+        if picks_payload:
+            rules = picks_payload.get("rules") or []
+            overridden = [r for r in rules if r.get("override_count", 0) > 0]
+            disagreed = [r for r in rules if r.get("audit_status") == "disagreed"]
+            if overridden:
+                issues.append({
+                    "name": "picks.json",
+                    "status": "user-overrides",
+                    "hint": f"{len(overridden)} pick(s) marked wrong — re-run `trinity-local consolidate` to refresh",
+                })
+            if disagreed:
+                issues.append({
+                    "name": "picks.json",
+                    "status": "audit-disagreed",
+                    "hint": f"chairman-audit disagreed on {len(disagreed)} pick(s) — inspect via memory.html?file=picks.json",
+                })
+    except Exception:
+        pass  # picks introspection must never break launchpad rendering
+
+    # 4. topics.json — legacy per-turn schema doesn't carry thread_count.
+    #    Surfacing as a one-time upgrade prompt; clears on next lens-build.
+    try:
+        from .state_paths import topics_path
+        topics_p = topics_path()
+        if topics_p.exists():
+            payload = json.loads(topics_p.read_text(encoding="utf-8"))
+            basins = payload.get("basins") or []
+            has_thread_aware = any(b.get("thread_count", 0) for b in basins)
+            if basins and not has_thread_aware:
+                issues.append({
+                    "name": "topics.json",
+                    "status": "pre-thread-aware",
+                    "hint": "Topology was computed per-turn (older schema) — run `trinity-local lens-build` for thread-aware clustering",
+                })
+    except Exception:
+        pass
+
+    return {
+        "issues": issues,
+        "ok_count": max(0, total - len(issues)),
+        "total_count": total,
+    }
 
 
 def _load_cortex_rules() -> dict | None:

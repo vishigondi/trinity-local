@@ -35,6 +35,7 @@ Surfaces:
    12. Settings toggle binding: each :checked reflects underlying telemetry state
    13. Lens card render: paired-lenses block populates when tasteLenses exists
    14. Memory viewer + launchpad link: chip links → memory.html loads + renders file
+   15. Memory-health row: drift signals (core stale / picks audit / topology) surface inline
 
 Exit codes:
     0 — all surfaces pass
@@ -711,6 +712,57 @@ def main() -> int:
         except Exception as exc:
             print(f"[ ✗ ] Surface 14b memory viewer: navigation failed ({exc})")
             fails.append((14, "memory viewer load", str(exc)[:120]))
+
+        # ─── Surface 15: Memory-health row ───────────────────────────────────
+        # The launchpad surfaces a "what's stale, what should I do" row
+        # built from four signals (core.md staleness, picks override_count,
+        # picks audit_status, pre-thread-aware topology). The card renders
+        # only when issues exist — a silent absence on a fresh install is
+        # ALSO valid. The check: page-data carries memoryHealth, and the
+        # rendered DOM matches the data (no issues → no card; issues → card
+        # with N items + valid action hints).
+        if "launchpad.html" not in page.url:
+            page.goto(f"{base_url}/portal_pages/launchpad.html", wait_until="networkidle", timeout=10000)
+            page.wait_for_timeout(800)
+        health_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const mh = data.memoryHealth || {};
+              const issues = mh.issues || [];
+              const cardEl = document.querySelector('.memory-health-card');
+              const renderedItems = document.querySelectorAll('.memory-health-card li').length;
+              return {
+                issue_count: issues.length,
+                ok_count: mh.ok_count,
+                total_count: mh.total_count,
+                card_rendered: !!cardEl,
+                rendered_item_count: renderedItems,
+                first_hint: issues[0]?.hint || null,
+                first_name: issues[0]?.name || null,
+              };
+            }"""
+        )
+        ic = health_state.get("issue_count") or 0
+        card = health_state.get("card_rendered")
+        rendered_n = health_state.get("rendered_item_count") or 0
+        # Consistency: if issues > 0, card must render with N items; if 0,
+        # card must NOT render (v-if guards the silent-fresh state).
+        if ic == 0 and not card:
+            print(f"[ ✓ ] Surface 15 memory-health: silent (all 4 signals fresh)")
+        elif ic > 0 and card and rendered_n == ic:
+            hint_ok = bool(health_state.get("first_hint"))
+            name_ok = bool(health_state.get("first_name"))
+            if hint_ok and name_ok:
+                print(f"[ ✓ ] Surface 15 memory-health: {ic} issue(s) rendered ({health_state['ok_count']}/{health_state['total_count']} healthy) — first: {health_state['first_name']}")
+            else:
+                reason = f"first issue missing hint/name: {health_state}"
+                print(f"[ ✗ ] Surface 15 memory-health: {reason}")
+                fails.append((15, "memory-health row", reason))
+        else:
+            reason = f"issue_count={ic} card_rendered={card} rendered_item_count={rendered_n} — data/DOM mismatch"
+            print(f"[ ✗ ] Surface 15 memory-health: {reason}")
+            fails.append((15, "memory-health row", reason))
 
         browser.close()
 

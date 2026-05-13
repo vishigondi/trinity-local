@@ -812,6 +812,27 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
+      <!-- Memory health — only renders when something is stale. Silent
+           on a fresh install. Maps directly to the four signals built
+           into pageData.memoryHealth.issues. -->
+      <section class="card memory-health-card" v-if="memoryHealth && memoryHealth.issues && memoryHealth.issues.length">
+        <div class="eyebrow">Memory health</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          {{{{ memoryHealth.issues.length }}}} memor{{{{ memoryHealth.issues.length === 1 ? 'y' : 'ies' }}}} need{{{{ memoryHealth.issues.length === 1 ? 's' : '' }}}} attention
+          <span class="meta" style="font-weight: 400; font-size: 13px; margin-left: 8px;">·
+            {{{{ memoryHealth.ok_count }}}} of {{{{ memoryHealth.total_count }}}} healthy
+          </span>
+        </h2>
+        <ul class="memory-health-list" style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px;">
+          <li v-for="issue in memoryHealth.issues" :key="issue.name + issue.status"
+              style="display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 6px 6px 0; font-size: 13px;">
+            <code style="font-size: 12px; color: var(--accent, #b57438); white-space: nowrap;">{{{{ issue.name }}}}</code>
+            <span class="meta" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7;">{{{{ issue.status }}}}</span>
+            <span style="color: var(--text-primary, #1f1a17); flex: 1;">{{{{ issue.hint }}}}</span>
+          </li>
+        </ul>
+      </section>
+
       <section class="launch-grid">
         <article class="card">
           <div class="eyebrow">Council</div>
@@ -1423,6 +1444,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           polishAutoIterate: !!pageData.telemetry?.settings?.polish_auto_iterate,
         }},
         coreStatus: pageData.coreStatus || {{ state: 'empty' }},
+        memoryHealth: pageData.memoryHealth || {{ issues: [], ok_count: 0, total_count: 0 }},
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
