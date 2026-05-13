@@ -993,7 +993,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card" v-if="cortexRules && cortexRules.rules.length">
-        <div class="eyebrow">What Trinity has learned about you</div>
+        <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
+          <span>What Trinity has learned about you</span>
+          <!-- Rebuild chip — same shape as the lens-rebuild chip from
+               tick #76 (forward-arc action-from-view). Re-running
+               consolidate is what makes new councils produce new rules;
+               without an in-page affordance the user had to remember
+               the command or scroll to the explanatory paragraph
+               below. -->
+          <button type="button"
+                  @click.stop="copyText('trinity-local consolidate', 'cortex-rebuild')"
+                  title="Copy: trinity-local consolidate"
+                  style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-secondary, #6e6058); background: transparent; border: 1px solid var(--border, #d7ccb9); border-radius: 999px; padding: 2px 10px; cursor: pointer; white-space: nowrap; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.9;">
+            <span v-if="copiedKey === 'cortex-rebuild'">✓ Copied</span>
+            <span v-else>↻ Rebuild</span>
+          </button>
+        </div>
         <h2>Routing patterns extracted from your councils</h2>
         <p class="meta">
           The cortex layer reads {{{{ cortexRules.total_basins }}}} basin{{{{ cortexRules.total_basins === 1 ? '' : 's' }}}} of council outcomes and extracts one routing rule per kind of question. Trust score is computed from sample size, agreement consistency, recency, and basin diversity — it gates when the rule drives `ask` instead of the kNN fallback.

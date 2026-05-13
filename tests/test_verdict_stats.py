@@ -171,3 +171,13 @@ class TestShortcutStatus:
         # The flash-on-copy text — pinning the rebuild action's
         # confirmation cycle (same 2400ms reset as copyHealthCommand)
         assert "copiedKey === 'lens-rebuild'" in html
+
+    def test_launchpad_html_contains_cortex_rebuild_chip(self, isolated_home):
+        """Tick #77 — cortex/routing card gets the same in-page rebuild
+        chip as the lens card. consolidate is the command that turns
+        new council outcomes into routing patterns; without an in-page
+        affordance the user had to remember it. Same pattern as #76."""
+        from trinity_local.launchpad_page import render_launchpad_html
+        html = render_launchpad_html()
+        assert "copyText('trinity-local consolidate', 'cortex-rebuild')" in html
+        assert "copiedKey === 'cortex-rebuild'" in html
