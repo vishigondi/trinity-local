@@ -388,6 +388,35 @@ def render_memory_viewer_html() -> str:
     .routing-table th {{ background: var(--code-bg); font-weight: 600; text-align: left; }}
     .routing-table td.score {{ text-align: right; font-family: ui-monospace, monospace; }}
     .routing-table td.best {{ background: rgba(34, 197, 94, 0.08); font-weight: 600; }}
+    /* Cross-memory deep-links (picks ↔ routing) */
+    .routing-task-link {{
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dotted var(--accent);
+    }}
+    .routing-task-link:hover {{
+      border-bottom-style: solid;
+    }}
+    tr.routing-row-focused td {{
+      background: rgba(181, 116, 56, 0.10);
+    }}
+    .pick-xlink {{
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }}
+    .pick-xlink:hover {{
+      background: var(--surface-muted);
+    }}
+    .pick-card-focused {{
+      box-shadow: 0 0 0 2px var(--accent);
+      background: rgba(181, 116, 56, 0.04);
+    }}
     /* topics.json reader — basin-relation graph (Obsidian-style). */
     .topics-graph-wrap {{
       background: #1a1715;       /* ink-on-paper inverse — same hue family as --fg */
@@ -722,9 +751,14 @@ def render_memory_viewer_html() -> str:
         target.appendChild(el("p", "meta", "No picks yet — run trinity-local consolidate."));
         return;
       }}
+      // Deep-link target: ?task=<basin_id> scrolls to + highlights the
+      // matching card so cross-links from routing.json land usefully.
+      const focusTask = params.get("task");
       basins.forEach(basinId => {{
         const p = picks[basinId];
         const card = el("div", "pick-card");
+        card.dataset.task = basinId;
+        if (focusTask === basinId) card.classList.add("pick-card-focused");
         const head = el("div", "pick-head");
         head.appendChild(el("span", "pick-basin", basinId));
         const rule = p.routing_rule || {{}};
@@ -756,8 +790,22 @@ def render_memory_viewer_html() -> str:
           fwrap.appendChild(ul);
           card.appendChild(fwrap);
         }}
+        // Cross-memory link: jump to this task's row in routing.json.
+        // routing.json + picks.json both key by task_type/basin_id, so
+        // any pick has a 1:1 link to its provider scores. Closes the
+        // loop "see the pick → see the evidence the pick was built on".
+        const xlink = el("a", "pick-xlink",
+          "View routing scores →");
+        xlink.href = "memory.html?file=routing.json&task=" + encodeURIComponent(basinId);
+        card.appendChild(xlink);
         target.appendChild(card);
       }});
+
+      // Scroll focused card into view after the DOM settles.
+      if (focusTask) {{
+        const focused = target.querySelector(".pick-card-focused");
+        if (focused) setTimeout(() => focused.scrollIntoView({{block: "center", behavior: "smooth"}}), 100);
+      }}
     }}
 
     function renderRoutingReader(target, routing) {{
@@ -783,10 +831,24 @@ def render_memory_viewer_html() -> str:
       thead.appendChild(hr);
       tbl.appendChild(thead);
 
+      // Deep-link target: ?task=<task_type> scrolls to + highlights
+      // the matching row so a click from picks.json lands usefully.
+      const focusTask = params.get("task");
+
       const tbody = el("tbody");
       taskTypes.forEach(t => {{
         const tr = el("tr");
-        tr.appendChild(el("td", null, t));
+        tr.dataset.task = t;
+        if (focusTask === t) tr.classList.add("routing-row-focused");
+        // Task name as a link → picks.json card for the same task.
+        // picks.json + routing.json share the basin_id/task_type key,
+        // so this cross-link closes the "see the score → see the
+        // rule that produced it" loop.
+        const taskTd = el("td");
+        const taskLink = el("a", "routing-task-link", t);
+        taskLink.href = "memory.html?file=picks.json&task=" + encodeURIComponent(t);
+        taskTd.appendChild(taskLink);
+        tr.appendChild(taskTd);
         const row = by[t] || {{}};
         provList.forEach(p => {{
           const cell = row[p];
@@ -807,6 +869,11 @@ def render_memory_viewer_html() -> str:
       target.appendChild(tbl);
       if (routing.computed_at) {{
         target.appendChild(el("p", "meta", "Computed " + routing.computed_at));
+      }}
+      // Scroll focused row into view.
+      if (focusTask) {{
+        const focused = target.querySelector(".routing-row-focused");
+        if (focused) setTimeout(() => focused.scrollIntoView({{block: "center", behavior: "smooth"}}), 100);
       }}
     }}
 
