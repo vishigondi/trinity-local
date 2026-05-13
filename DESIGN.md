@@ -13,11 +13,19 @@ These surfaces share one visual language so the product feels cohesive even thou
 
 ## Frontend Stack Contract
 
-Trinity’s frontend stack is:
+Trinity's frontend stack is:
 
 - **static HTML** for structure and artifact durability
 - **`petite-vue`** for interactive islands
 - **`Chart.js`** for radar, Elo, and report visuals
+- **`marked`** for markdown rendering on the memory viewer
+- **`d3-force` (split modules)** for the topics graph (`d3-selection`,
+  `d3-dispatch`, `d3-timer`, `d3-quadtree`, `d3-drag`, `d3-force`
+  — ~80 KB total, not the full ~250 KB d3 bundle)
+
+All JS is loaded from `cdn.jsdelivr.net` / `unpkg.com`, no NPM bundling.
+Memory content is inlined at render time (`portal-html`); pages never
+`fetch()` at runtime so they work under `file://`.
 
 Design choices should assume:
 
@@ -241,6 +249,42 @@ The shipped social artifact is the **`/me` lens card** — title + why-it-matter
 - Cards should read clearly in a crop; supporting copy is short.
 
 (Future surfaces — radar/battle/taste-profile pages — are deferred. The /me lens cards subsume the "shareable taste artifact" use case for now.)
+
+## Memory Viewer Guidance
+
+The memory viewer (`~/.trinity/portal_pages/memory.html`) is the canonical
+hand-inspection surface for the six core memories. Conventions:
+
+- **Two-column shell**: 240 px nav of memory chips on the left, content
+  on the right. Active memory tinted with `rgba(37, 88, 71, 0.10)`
+  (low-alpha primary green) — never use a saturated background.
+- **Page palette**: identical to the launchpad. Warm paper bg
+  (`#f5efe3`), forest-green primary (`#255847`), warm-brown accent
+  (`#b57438`). No indigo, no violet, no tailwind-blue.
+- **Per-memory header**: filename in monospace + warm-brown accent,
+  one-line brain-analog + tagline below. Reads like a document header,
+  not a dashboard card.
+- **Reader / Raw toggle** for JSON memories. Reader is schema-aware
+  (cards for picks, table for routing, force graph for topics);
+  Raw is pretty-printed syntax-highlighted JSON. Default to Reader.
+- **Topic graph** is the one place dark canvas is allowed —
+  `#221c18 → #14110f` radial gradient, matching `--fg` ink hue but
+  inverted. Node fill uses the brown→green gradient by basin size
+  (small = warm brown, large = forest green). Edge stroke is
+  warm-brown at low alpha; strong-similarity edges promote to higher
+  alpha, never to a new color.
+- **Representatives, not labels**: when surfacing what a basin/cluster
+  contains, prefer the actual prompts (centroid-nearest) over
+  TF-IDF top terms. Top terms are vocabulary surfacing; the prompts
+  are intent.
+- **Pre-rendered HTML, no fetch**: like the council pages, the viewer
+  inlines memory content at `portal-html` time into a
+  `window.__TRINITY_MEMORIES__` global. Works under `file://`, no
+  `trinity-local serve` required.
+- **DOMParser, not innerHTML**: rendered markdown (via the bundled
+  `marked`) flows through `DOMParser` → adopted nodes. Never
+  innerHTML the live tree — even for trusted content. Strips
+  `<script>/<style>/<iframe>/<object>/<embed>` as defense-in-depth.
 
 ## Responsive Behavior
 

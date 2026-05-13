@@ -80,6 +80,21 @@ class TestBasins:
         assert basin_for_prompt([b1, b2], "p3") == "b01"
         assert basin_for_prompt([b1, b2], "missing") is None
 
+    def test_basin_serialization_keeps_full_prompt_ids(self):
+        """Regression: basins.py used to truncate prompt_ids to 50 entries
+        in to_dict() "for readable JSON". After load_basins() round-trips
+        through that JSON, basin_for_prompt() returned None for any prompt
+        beyond the first 50 — silently breaking Stage 2/4 of the lens
+        pipeline. Keep the full list so round-trips are lossless."""
+        from trinity_local.me.basins import Basin
+        ids = [f"p{i:04d}" for i in range(80)]  # > 50, the old cap
+        basin = Basin(id="b00", size=80, top_terms=[], centroid=[0.0], prompt_ids=ids)
+        payload = basin.to_dict()
+        assert payload["prompt_ids"] == ids, (
+            f"to_dict truncated prompt_ids ({len(payload['prompt_ids'])} of {len(ids)}); "
+            "this breaks basin_for_prompt() lookup after load_basins() round-trip"
+        )
+
 
 class TestDecisionParser:
     def test_valence_enum_includes_correction_and_cost(self):

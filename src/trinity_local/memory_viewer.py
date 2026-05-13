@@ -142,13 +142,24 @@ def render_memory_viewer_html() -> str:
   <script src="{d3_drag_src}"></script>
   <script src="{d3_force_src}"></script>
   <style>
+    /* Palette: matches DESIGN.md + design_system.py — warm paper bg,
+       forest green primary action, warm brown accent for emphasis. */
     :root {{
-      --bg: #fafaf7;
-      --fg: #222;
-      --meta: #666;
-      --accent: #6366f1;
-      --border: #e5e5e0;
-      --code-bg: #f4f4ee;
+      --bg: #f5efe3;
+      --bg-wash: #ece4d6;
+      --surface: #fbf8f2;
+      --surface-muted: #f1eadf;
+      --fg: #1f1a17;
+      --meta: #86796d;
+      --primary: #255847;       /* forest green */
+      --primary-hover: #1d4638;
+      --primary-text: #f7f3ea;
+      --accent: #b57438;        /* warm brown */
+      --border: #d7ccb9;
+      --code-bg: #f1eadf;
+      --success: #2d6a4f;
+      --warning: #b26a1f;
+      --danger: #a33c2f;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -205,7 +216,7 @@ def render_memory_viewer_html() -> str:
       transition: background 0.1s;
     }}
     .memory-nav-link:hover {{ background: var(--code-bg); }}
-    .memory-nav-link.active {{ background: rgba(99, 102, 241, 0.08); }}
+    .memory-nav-link.active {{ background: rgba(37, 88, 71, 0.10); }}
     .memory-name {{
       display: block;
       font-family: ui-monospace, "SF Mono", Monaco, monospace;
@@ -351,27 +362,28 @@ def render_memory_viewer_html() -> str:
     .routing-table td.best {{ background: rgba(34, 197, 94, 0.08); font-weight: 600; }}
     /* topics.json reader — basin-relation graph (Obsidian-style). */
     .topics-graph-wrap {{
-      background: #14141a;
+      background: #1a1715;       /* ink-on-paper inverse — same hue family as --fg */
       border-radius: 8px;
       padding: 0;
       margin-bottom: 16px;
       position: relative;
       overflow: hidden;
+      border: 1px solid var(--border);
     }}
     .topics-graph-svg {{
       display: block;
       width: 100%;
       height: 520px;
-      background: radial-gradient(circle at center, #1a1a24 0%, #0e0e15 100%);
+      background: radial-gradient(circle at center, #221c18 0%, #14110f 100%);
       cursor: grab;
     }}
     .topics-graph-svg:active {{ cursor: grabbing; }}
     .topics-graph-svg .link {{
-      stroke: rgba(139, 92, 246, 0.35);
+      stroke: rgba(181, 116, 56, 0.35);   /* warm-brown, low opacity */
       stroke-width: 1px;
     }}
     .topics-graph-svg .link.strong {{
-      stroke: rgba(139, 92, 246, 0.75);
+      stroke: rgba(181, 116, 56, 0.75);
       stroke-width: 2px;
     }}
     .topics-graph-svg .node {{
@@ -415,9 +427,34 @@ def render_memory_viewer_html() -> str:
       font-weight: 600;
     }}
     .topics-graph-detail .row-label {{ color: var(--meta); }}
+    .topics-reps-label {{
+      color: var(--meta);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }}
+    .topics-reps-list {{
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }}
+    .topics-rep {{
+      background: var(--code-bg);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--fg);
+      border-left: 3px solid var(--accent);
+      line-height: 1.5;
+    }}
     /* JSON syntax highlight (used for topics.json Raw view + others) */
     .json-body {{ font-family: ui-monospace, monospace; font-size: 12px; }}
-    .json-key {{ color: #6366f1; }}
+    .json-key {{ color: #255847; }}
     .json-str {{ color: #166534; }}
     .json-num {{ color: #b45309; }}
     .json-bool {{ color: #be185d; }}
@@ -809,11 +846,12 @@ def render_memory_viewer_html() -> str:
         .attr("class", "node")
         .attr("r", radiusFor)
         .attr("fill", d => {{
-          // Indigo→violet gradient by size for hierarchy.
+          // Warm-brown → forest-green gradient by size for hierarchy.
+          // Matches DESIGN.md palette: accent (#b57438) → primary (#255847).
           const t = Math.sqrt(d.size / sizeMax);
-          const hue = 246 - 22 * t;
-          const sat = 65 + 10 * t;
-          const light = 58 - 18 * t;
+          const hue = 28 + (155 - 28) * t;     // 28 (brown) → 155 (green)
+          const sat = 50 + 5 * t;
+          const light = 55 - 30 * t;            // bigger → darker
           return "hsl(" + hue + "," + sat + "%," + light + "%)";
         }})
         .on("click", (event, d) => showDetail(d.basin));
@@ -857,21 +895,38 @@ def render_memory_viewer_html() -> str:
         head.appendChild(document.createTextNode(
           (b.size || 0).toLocaleString() + " prompts (" + pct.toFixed(1) + "% of corpus)"));
         detail.appendChild(head);
+        // Representatives — the top-K prompts closest to centroid.
+        // This is the headline drill-down: TF-IDF top_terms surface
+        // vocabulary, but representatives surface what the user was
+        // actually asking. Surface them first so users see real prompts.
+        if (Array.isArray(b.representatives) && b.representatives.length) {{
+          detail.appendChild(el("div", "topics-reps-label",
+            "Most-representative prompts (closest to centroid)"));
+          const ul = el("ul", "topics-reps-list");
+          b.representatives.forEach(rep => {{
+            const li = el("li", "topics-rep", rep.snippet || rep.id || "");
+            ul.appendChild(li);
+          }});
+          detail.appendChild(ul);
+        }}
         if (Array.isArray(b.top_terms) && b.top_terms.length) {{
           const tline = el("div");
-          tline.style.marginTop = "6px";
+          tline.style.marginTop = "10px";
           tline.appendChild(el("span", "row-label", "Top terms: "));
           tline.appendChild(document.createTextNode(b.top_terms.join(", ")));
           detail.appendChild(tline);
         }}
         const idCount = Array.isArray(b.prompt_ids) ? b.prompt_ids.length : null;
         if (idCount !== null && idCount !== (b.size || 0)) {{
+          // Pre-2026-05-12 topics.json files were written with prompt_ids
+          // truncated to 50. New writes carry the full list. If they
+          // diverge, the user has a stale on-disk topics.json — surface it.
           const note = el("div", "row-label");
           note.style.marginTop = "4px";
           note.style.fontSize = "12px";
           note.appendChild(document.createTextNode(
-            "Note: prompt_ids carries " + idCount + " entries vs basin size " +
-            (b.size || 0) + " — rerun lens-build to refresh."));
+            "Stale topology: prompt_ids carries " + idCount + " entries vs basin size " +
+            (b.size || 0) + ". Re-run trinity-local lens-build to refresh."));
           detail.appendChild(note);
         }}
       }}

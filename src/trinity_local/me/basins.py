@@ -58,14 +58,27 @@ class Basin:
     top_terms: list[str]
     centroid: list[float]
     prompt_ids: list[str] = field(default_factory=list)
+    # Top-K prompts closest to the basin centroid — the most semantically
+    # representative members. Stored as (prompt_id, snippet) tuples for
+    # the launchpad/memory-viewer drill-down. TF-IDF top_terms tell you
+    # the vocabulary; representatives tell you what the user actually asked.
+    representatives: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        # No truncation on prompt_ids. Earlier code capped at 50 "for readable
+        # JSON" — but `load_basins()` round-trips the file back into Basin
+        # dataclasses, and `basin_for_prompt(basins, id)` checks membership
+        # against the loaded list. With a 50-id cap, any prompt beyond the
+        # first 50 in a basin was silently mis-tagged as "no basin" after
+        # the round-trip, breaking Stage 2/4 of the lens pipeline. Keeping
+        # the full list keeps topics.json a faithful serialization.
         return {
             "id": self.id,
             "size": self.size,
             "top_terms": self.top_terms,
             "centroid": self.centroid,
-            "prompt_ids": self.prompt_ids[:50],  # cap for readable JSON
+            "prompt_ids": self.prompt_ids,
+            "representatives": self.representatives,
         }
 
 
@@ -211,18 +224,36 @@ def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Ba
     labels, centroids = _kmeans(matrix, k=min(k, len(nodes)), seed=seed)
 
     basins: list[Basin] = []
+    REPRESENTATIVE_K = 5         # top-K representative prompts per basin
+    REPRESENTATIVE_MAX_CHARS = 280  # tweet-length snippet so the JSON stays compact
     for cluster_idx in range(len(centroids)):
         member_indices = [i for i, lbl in enumerate(labels) if lbl == cluster_idx]
         if not member_indices:
             continue
         cluster_texts = [texts[i] for i in member_indices]
         top_terms = _top_terms_for_cluster(cluster_texts, texts)
+        # Most-representative prompts: smallest L2 distance from centroid.
+        # These tell the user what the basin is actually about — TF-IDF
+        # top_terms surface vocabulary but the prompts surface intent.
+        centroid_vec = centroids[cluster_idx]
+        member_distances = [
+            (i, float(np.linalg.norm(matrix[i] - centroid_vec)))
+            for i in member_indices
+        ]
+        member_distances.sort(key=lambda pair: pair[1])
+        reps: list[dict[str, str]] = []
+        for i, dist in member_distances[:REPRESENTATIVE_K]:
+            snippet = (texts[i] or "").strip()
+            if len(snippet) > REPRESENTATIVE_MAX_CHARS:
+                snippet = snippet[:REPRESENTATIVE_MAX_CHARS].rstrip() + "…"
+            reps.append({"id": nodes[i].id, "snippet": snippet})
         basins.append(Basin(
             id=f"b{cluster_idx:02d}",
             size=len(member_indices),
             top_terms=top_terms,
             centroid=centroids[cluster_idx].tolist(),
             prompt_ids=[nodes[i].id for i in member_indices],
+            representatives=reps,
         ))
     basins.sort(key=lambda b: -b.size)
     # Rename ids in size order so b00 is always the largest.

@@ -71,8 +71,8 @@ Always welcome. Tests live in `tests/`. We aim for 400+ passing on every commit;
 git clone <repo>
 cd trinity-local
 ./setup.sh                          # bootstraps venv + config + Shortcut + launchpad
-.venv/bin/python -m pytest -q       # 400+ tests should pass
-python scripts/browser_smoke.py     # 8-surface UI verification
+.venv/bin/python -m pytest -q       # 650+ tests should pass
+python scripts/browser_smoke.py     # 14-surface UI verification (Playwright)
 ```
 
 The browser smoke requires `playwright` + `chromium`:
