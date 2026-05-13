@@ -338,3 +338,91 @@ class TestDreamPipelineCrossProviderClusters:
             f"{len(bad)} cluster(s) had non-finite coherence — NaN slipped "
             f"the write-boundary gate. First 3: {bad[:3]}"
         )
+
+
+@pytest.mark.real_corpus
+class TestVocabularyDistillationOnRealCorpus:
+    """Direct-agents-like-me invariants on the vocabulary pipeline.
+
+    `find_homonyms` is the third matmul-shaped pipeline (alongside
+    `me/depth.thread_lid` and `cross_provider_pairs`). Same NaN-
+    propagation failure mode shape — a single non-finite vector
+    in the per-token context list could poison the silhouette score.
+    Real-corpus check on the actual >100k embedded tokens proves the
+    `is_finite_embedding` filter at the boundary is doing its job
+    on the path users care about.
+    """
+
+    def test_homonym_scores_are_finite(self):
+        """No NaN/Inf in any homonym bimodality score.
+
+        Same shape as the depth-signal and cross-provider tests:
+        verifies tick #58's sanitize-at-write discipline propagates
+        through to the silhouette stage. Limited to first 2000
+        embedded nodes — the homonym scan is per-token contexts,
+        which fans out fast on the real corpus.
+        """
+        path = _real_topics_path()
+        if not path.exists():
+            pytest.skip("no real corpus")
+        try:
+            from trinity_local.memory.store import iter_prompt_nodes
+            from trinity_local.vocabulary import (
+                _gather_token_contexts, find_homonyms,
+            )
+        except Exception as exc:
+            pytest.skip(f"vocabulary module unavailable: {exc}")
+        embedded = [
+            n for n in iter_prompt_nodes(limit=None)
+            if getattr(n, "embedding", None)
+        ][:2000]
+        if len(embedded) < 50:
+            pytest.skip(f"only {len(embedded)} embedded nodes")
+        contexts = _gather_token_contexts(embedded, min_freq=3)
+        if not contexts:
+            pytest.skip("no tokens meet min_freq=3 on first 2000 nodes")
+        results = find_homonyms(contexts, top_n=10)
+        if not results:
+            pytest.skip("no homonym candidates")
+        bad = [(tok, score) for tok, score, _ in results
+               if not math.isfinite(score)]
+        assert not bad, (
+            f"{len(bad)} homonym scores are non-finite: {bad[:3]}. "
+            f"NaN slipped past the per-token-context filter."
+        )
+
+    def test_homonym_scores_in_unit_range(self):
+        """Bimodality silhouette is bounded [0, 1] by construction
+        (the helper clips negative silhouette to 0 and caps at 1).
+        Real-corpus check catches a future change to the scoring
+        function that breaks the bound."""
+        path = _real_topics_path()
+        if not path.exists():
+            pytest.skip("no real corpus")
+        try:
+            from trinity_local.memory.store import iter_prompt_nodes
+            from trinity_local.vocabulary import (
+                _gather_token_contexts, find_homonyms,
+            )
+        except Exception as exc:
+            pytest.skip(f"vocabulary module unavailable: {exc}")
+        embedded = [
+            n for n in iter_prompt_nodes(limit=None)
+            if getattr(n, "embedding", None)
+        ][:2000]
+        if len(embedded) < 50:
+            pytest.skip(f"only {len(embedded)} embedded nodes")
+        contexts = _gather_token_contexts(embedded, min_freq=3)
+        if not contexts:
+            pytest.skip("no tokens meet min_freq=3")
+        results = find_homonyms(contexts, top_n=10)
+        if not results:
+            pytest.skip("no homonym candidates")
+        violations = [
+            (tok, score) for tok, score, _ in results
+            if not (0.0 <= score <= 1.0)
+        ]
+        assert not violations, (
+            f"{len(violations)} homonym scores outside [0, 1]: "
+            f"{violations[:3]}. _two_means_split_variance broke its bound."
+        )
