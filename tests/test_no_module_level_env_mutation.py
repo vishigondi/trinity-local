@@ -10,10 +10,19 @@ unknown stretch of session history; meta-principle #14 calls this
 "invisible armor."
 
 This guard scans every `tests/test_*.py` file with the `ast` module
-and fails if any module-level statement mutates `os.environ` or
-`sys.path`. Mutations inside functions / fixtures / classes are fine —
-those are scoped. Reading `os.environ[...]` is also fine — only
-assignments / deletes / .update / .setdefault calls trip the gate.
+and fails if any module-level statement mutates process-global state.
+Mutations inside functions / fixtures / classes are fine — those are
+scoped. Reading `os.environ[...]` is also fine — only assignments /
+deletes / .update / .setdefault calls trip the gate.
+
+Tick #92 extended the dangerous-call set to cover the broader
+category that creates the same shape of bug: `logging.basicConfig`,
+`random.seed`, `os.chdir`, `sys.setrecursionlimit`,
+`socket.setdefaulttimeout`, `warnings.filterwarnings`,
+`warnings.simplefilter`. None are in the codebase today; the
+scanner exists to keep them OUT before they ship. Per principle #4
+(audit for shape) at the lint level — same audit-the-shape pattern
+that fixed the NaN-filter consolidation, applied to test hygiene.
 """
 from __future__ import annotations
 
@@ -78,6 +87,30 @@ def _module_level_mutations(tree: ast.Module) -> list[str]:
                 findings.append(
                     f"line {node.lineno}: module-level sys.path.{func.attr}(...)"
                 )
+            # Tick #92: broader category of process-global mutations
+            # that cause the same shape of bug as tick #63. None of
+            # these are in the codebase today; the scanner exists to
+            # keep them OUT preemptively. Pattern: module.attr(...)
+            # call that affects ALL subsequent tests in the suite.
+            DANGEROUS_GLOBAL_CALLS = {
+                ("logging", "basicConfig"),   # sets root logger config process-wide
+                ("random", "seed"),           # seeds global random for the whole suite
+                ("os", "chdir"),              # changes cwd for all subprocess calls
+                ("sys", "setrecursionlimit"), # bumps a limit other tests rely on
+                ("socket", "setdefaulttimeout"),  # affects every socket downstream
+                ("warnings", "filterwarnings"),   # changes warning visibility globally
+                ("warnings", "simplefilter"),
+            }
+            if (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+            ):
+                mod_attr = (func.value.id, func.attr)
+                if mod_attr in DANGEROUS_GLOBAL_CALLS:
+                    findings.append(
+                        f"line {node.lineno}: module-level {func.value.id}.{func.attr}(...) "
+                        f"— process-global, affects every later test"
+                    )
         # Top-level delete: del os.environ["X"]
         if isinstance(node, ast.Delete):
             for target in node.targets:
