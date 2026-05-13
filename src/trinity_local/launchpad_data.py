@@ -592,22 +592,35 @@ def _memory_health() -> dict:
     The launchpad renders the issues row only when issues is non-empty.
     Fresh state → silent → user isn't told "all good!" every launch.
     """
-    issues: list[dict[str, str]] = []
+    # Each issue carries:
+    #   name    — which memory file
+    #   status  — short status badge
+    #   hint    — prose hint (no embedded command — pure context)
+    #   command — the CLI command the user should run, broken out so the
+    #             launchpad can render a click-to-copy chip. None when
+    #             the action is "navigate somewhere" rather than "run a CLI".
+    #   href    — optional in-app navigation target (e.g. memory.html link)
+    issues: list[dict[str, str | None]] = []
     total = 4
     # 1. core.md freshness
     core = _core_status()
     state = core.get("state")
     if state == "stale":
+        src = core.get("stale_source", "a source memory")
         issues.append({
             "name": "core.md",
             "status": "stale",
-            "hint": f"`{core.get('stale_source', 'a source memory')}` is newer — run `trinity-local distill`",
+            "hint": f"{src} is newer than the distillation.",
+            "command": "trinity-local distill",
+            "href": None,
         })
     elif state == "missing":
         issues.append({
             "name": "core.md",
             "status": "missing",
-            "hint": "Run `trinity-local distill` to compile the singular core memory",
+            "hint": "The singular core memory has not been compiled.",
+            "command": "trinity-local distill",
+            "href": None,
         })
 
     # 2 + 3. picks.json override + audit signals (cortex layer)
@@ -621,13 +634,17 @@ def _memory_health() -> dict:
                 issues.append({
                     "name": "picks.json",
                     "status": "user-overrides",
-                    "hint": f"{len(overridden)} pick(s) marked wrong — re-run `trinity-local consolidate` to refresh",
+                    "hint": f"{len(overridden)} pick(s) marked wrong; re-consolidate to refresh.",
+                    "command": "trinity-local consolidate",
+                    "href": None,
                 })
             if disagreed:
                 issues.append({
                     "name": "picks.json",
                     "status": "audit-disagreed",
-                    "hint": f"chairman-audit disagreed on {len(disagreed)} pick(s) — inspect via memory.html?file=picks.json",
+                    "hint": f"chairman-audit disagreed on {len(disagreed)} pick(s).",
+                    "command": None,
+                    "href": "../portal_pages/memory.html?file=picks.json",
                 })
     except Exception:
         pass  # picks introspection must never break launchpad rendering
@@ -645,7 +662,9 @@ def _memory_health() -> dict:
                 issues.append({
                     "name": "topics.json",
                     "status": "pre-thread-aware",
-                    "hint": "Topology was computed per-turn (older schema) — run `trinity-local lens-build` for thread-aware clustering",
+                    "hint": "Topology was computed per-turn (older schema).",
+                    "command": "trinity-local lens-build",
+                    "href": None,
                 })
     except Exception:
         pass

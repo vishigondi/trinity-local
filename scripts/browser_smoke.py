@@ -753,10 +753,32 @@ def main() -> int:
         elif ic > 0 and card and rendered_n == ic:
             hint_ok = bool(health_state.get("first_hint"))
             name_ok = bool(health_state.get("first_name"))
-            if hint_ok and name_ok:
-                print(f"[ ✓ ] Surface 15 memory-health: {ic} issue(s) rendered ({health_state['ok_count']}/{health_state['total_count']} healthy) — first: {health_state['first_name']}")
+            # Action-from-view: when an issue carries a `command`, the
+            # rendered row must include a click-to-copy chip. Validate by
+            # intercepting clipboard.writeText, clicking the chip, and
+            # confirming the captured value matches issue.command.
+            copy_state = page.evaluate(
+                """() => new Promise(resolve => {
+                  const btn = document.querySelector('.memory-health-card button');
+                  if (!btn) { resolve({skipped: true, reason: 'no chip (issue may be href-only)'}); return; }
+                  const expected = btn.textContent.trim();
+                  let captured = null;
+                  const orig = navigator.clipboard?.writeText;
+                  if (orig) navigator.clipboard.writeText = async (t) => { captured = t; return Promise.resolve(); };
+                  btn.click();
+                  setTimeout(() => {
+                    const after = btn.textContent.trim();
+                    if (orig) navigator.clipboard.writeText = orig;
+                    resolve({expected, captured, after, matches: captured === expected, flipped: after.startsWith('✓')});
+                  }, 200);
+                })"""
+            )
+            chip_ok = copy_state.get("skipped") or (copy_state.get("matches") and copy_state.get("flipped"))
+            if hint_ok and name_ok and chip_ok:
+                chip_note = " (action chip works)" if not copy_state.get("skipped") else " (no action chip — href-only issue)"
+                print(f"[ ✓ ] Surface 15 memory-health: {ic} issue(s) rendered ({health_state['ok_count']}/{health_state['total_count']} healthy) — first: {health_state['first_name']}{chip_note}")
             else:
-                reason = f"first issue missing hint/name: {health_state}"
+                reason = f"first issue missing hint/name/chip: hint={hint_ok} name={name_ok} chip_state={copy_state}"
                 print(f"[ ✗ ] Surface 15 memory-health: {reason}")
                 fails.append((15, "memory-health row", reason))
         else:

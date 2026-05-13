@@ -825,10 +825,28 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </h2>
         <ul class="memory-health-list" style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px;">
           <li v-for="issue in memoryHealth.issues" :key="issue.name + issue.status"
-              style="display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 6px 6px 0; font-size: 13px;">
+              style="display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 6px 6px 0; font-size: 13px; flex-wrap: wrap;">
             <code style="font-size: 12px; color: var(--accent, #b57438); white-space: nowrap;">{{{{ issue.name }}}}</code>
             <span class="meta" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7;">{{{{ issue.status }}}}</span>
-            <span style="color: var(--text-primary, #1f1a17); flex: 1;">{{{{ issue.hint }}}}</span>
+            <span style="color: var(--text-primary, #1f1a17); flex: 1; min-width: 200px;">{{{{ issue.hint }}}}</span>
+            <!-- click-to-copy command chip — wraps the existing copyText
+                 helper so the user can paste-and-run with one click
+                 instead of highlight-copy-paste. Per the action-from-view
+                 forward arc: the viewer surfaces drift; the chip closes
+                 the loop. -->
+            <button v-if="issue.command"
+                    type="button"
+                    @click="copyHealthCommand(issue)"
+                    :title="'Copy: ' + issue.command"
+                    style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-primary, #1f1a17); background: var(--bg-base, #f5efe3); border: 1px solid var(--border, #d7ccb9); border-radius: 4px; padding: 4px 10px; cursor: pointer; white-space: nowrap;">
+              <span v-if="copiedKey === 'health-' + issue.name + issue.status">✓ Copied</span>
+              <span v-else>{{{{ issue.command }}}}</span>
+            </button>
+            <a v-if="issue.href"
+               :href="issue.href"
+               style="font-size: 12px; color: var(--accent, #b57438); text-decoration: none; padding: 4px 10px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; white-space: nowrap;">
+              Inspect →
+            </a>
           </li>
         </ul>
       </section>
@@ -1777,6 +1795,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             return;
           }}
           window.prompt('Copy this command:', value);
+        }},
+        copyHealthCommand(issue) {{
+          // Wrap copyText + flash a transient confirmation chip. Same
+          // shape as the taste-share copy button (key + 2400ms reset).
+          if (!issue || !issue.command) return;
+          this.copyText(issue.command);
+          const key = 'health-' + issue.name + issue.status;
+          this.copiedKey = key;
+          setTimeout(() => {{
+            if (this.copiedKey === key) this.copiedKey = '';
+          }}, 2400);
         }},
         formatScore(score, unit) {{
           if (score === null || score === undefined) {{
