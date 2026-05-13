@@ -1172,7 +1172,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card taste-card" v-if="tasteLenses">
-        <div class="eyebrow">Your taste, distilled</div>
+        <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
+          <span>Your taste, distilled</span>
+          <!-- Rebuild chip — closes the forward-arc gap "See a rejected
+               lens → rebuild lens.md link" (tick #76). Click copies the
+               command so the user can paste-and-run instead of typing
+               from memory. Only renders when lens already exists; the
+               empty-state card below still shows the bare command. -->
+          <button v-if="tasteLenses"
+                  type="button"
+                  @click.stop="copyText('trinity-local lens-build', 'lens-rebuild')"
+                  title="Copy: trinity-local lens-build"
+                  style="font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-secondary, #6e6058); background: transparent; border: 1px solid var(--border, #d7ccb9); border-radius: 999px; padding: 2px 10px; cursor: pointer; white-space: nowrap; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.9;">
+            <span v-if="copiedKey === 'lens-rebuild'">✓ Copied</span>
+            <span v-else>↻ Rebuild</span>
+          </button>
+        </div>
         <h2>The patterns in how you think</h2>
         <p class="meta">
           Trinity surfaced the tensions your decisions encode (lenses) and
@@ -1930,15 +1945,26 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }});
           return rows;
         }},
-        copyText(value) {{
+        copyText(value, flashKey) {{
           if (!value) {{
             return;
           }}
           if (navigator.clipboard?.writeText) {{
             navigator.clipboard.writeText(value).catch(() => null);
-            return;
+          }} else {{
+            window.prompt('Copy this command:', value);
           }}
-          window.prompt('Copy this command:', value);
+          // Optional flash-feedback: caller passes a string key that
+          // template v-if expressions can compare against `copiedKey`
+          // to show "✓ Copied" briefly. Resets after 2400ms — matches
+          // copyHealthCommand's existing cadence so transient chips
+          // animate consistently across the launchpad.
+          if (flashKey) {{
+            this.copiedKey = flashKey;
+            setTimeout(() => {{
+              if (this.copiedKey === flashKey) this.copiedKey = '';
+            }}, 2400);
+          }}
         }},
         copyHealthCommand(issue) {{
           // Wrap copyText + flash a transient confirmation chip. Same

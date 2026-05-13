@@ -155,3 +155,19 @@ class TestShortcutStatus:
         assert "trinity-local shortcut-install" in html
         # The marketing-load-bearing phrase that explains the cost
         assert "moat stays empty" in html
+
+    def test_launchpad_html_contains_lens_rebuild_chip(self, isolated_home):
+        """Tick #76 — lens card gets a rebuild chip when lens exists.
+        Closes the forward-arc gap "See a rejected lens → rebuild
+        lens.md link." Same shape as Surface 18's rebuild chips for
+        picks/core in the memory viewer."""
+        from trinity_local.launchpad_page import render_launchpad_html
+        html = render_launchpad_html()
+        # The chip-firing handler + flash key
+        assert "copyText('trinity-local lens-build', 'lens-rebuild')" in html
+        # The v-if guard so the chip stays hidden in the empty-state
+        # (where the bare command is shown in a code block instead)
+        assert "v-if=\"tasteLenses\"" in html
+        # The flash-on-copy text — pinning the rebuild action's
+        # confirmation cycle (same 2400ms reset as copyHealthCommand)
+        assert "copiedKey === 'lens-rebuild'" in html
