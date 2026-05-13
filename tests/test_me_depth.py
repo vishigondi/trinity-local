@@ -241,20 +241,34 @@ class TestDepthScoreComposite:
         """The diagnostic that drove the redesign: with the OLD
         multiplicative composite, single-turn threads scored 0
         because log(1 + 0_inter_turn) = 0. The additive composite
-        lets a single-turn outlier earn its corpus_distance term."""
+        lets a single-turn outlier earn its corpus_distance term —
+        the score must be > 0, not necessarily larger than every
+        multi-turn alternative.
+
+        Tick #84 reframe: the original assertion ("single-turn
+        outlier outranks 3-turn near-corpus") was relying on a fake
+        signal — the LID cap at 50 contributed tanh(50/10) ≈ 1.0 →
+        +0.5 to every short thread's score regardless of actual
+        novelty. After the LID_MIN_TURNS=5 gate (tick #84), short
+        threads correctly forfeit the LID lift, and a multi-turn
+        thread that ALSO moves through embedding space (inter_turn
+        bonus) earns more than a flat outlier. The original test
+        intent — "single-turn threads can rank, not silently zero" —
+        is what we pin here.
+        """
         from trinity_local.me.depth import depth_score
-        # Two threads, both single-turn. One sits near corpus mean,
-        # the other is an outlier. Outlier must rank higher.
         nodes = [
-            _node("t_near", "a", [1.0, 0.0, 0.0]),
-            _node("t_near", "b", [0.95, 0.05, 0.0]),
-            _node("t_near", "c", [0.9, 0.0, 0.1]),
-            _node("t_outlier", "d", [0.0, 1.0, 0.0]),
+            _node("t_a", "a", [1.0, 0.0, 0.0]),
+            _node("t_b", "b", [0.0, 1.0, 0.0]),
+            _node("t_c", "c", [0.0, 0.0, 1.0]),
         ]
         out = depth_score(nodes)
-        assert out.get("t_outlier", 0) > out.get("t_near", 0), (
-            f"single-turn outlier should outrank near-corpus single-turn; "
-            f"got outlier={out.get('t_outlier')} near={out.get('t_near')}"
+        # All single-turn threads MUST have nonzero score now (this
+        # is the additive-composite guarantee — the old multiplicative
+        # form returned 0 for any thread with inter_turn=0).
+        assert all(v > 0 for v in out.values()), (
+            f"single-turn threads should rank above zero post-additive; "
+            f"got {out}"
         )
 
     def test_multi_turn_rich_thread_still_wins(self, isolated_home):

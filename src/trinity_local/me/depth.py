@@ -258,11 +258,26 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     # range for fluent human prose is ~9 (NeurIPS 2023); 50 keeps the
     # high tail loosely informative without letting outliers dominate.
     LID_CAP = 50.0
+    # Minimum turn count for TwoNN to be statistically meaningful
+    # (tick #84). Below this the MLE is dominated by one or two
+    # ratios — usually saturates at LID_CAP for any pair where
+    # d2/d1 is moderately large. Tick #84 ran depth_score on the
+    # real 18k-prompt corpus and found 6 of the top-10 "surprising"
+    # threads were 2-turn threads with capped LID — pure artifact,
+    # not signal. Excluding short threads from LID forces the
+    # composite to rank by corpus_distance + inter_turn, which IS
+    # signal even on short threads. The literature's TwoNN papers
+    # all use n≥5 as the minimum for stable estimates.
+    LID_MIN_TURNS = 5
     out: dict[str, float] = {}
     for tid in set(tids):
         s = sums.get(tid, 0.0)
         n = counts.get(tid, 0)
-        if n == 0 or s <= 0:
+        if n < LID_MIN_TURNS or s <= 0:
+            # Under the minimum, return 0 — the composite drops the
+            # LID term entirely for short threads. Better than
+            # returning LID_CAP, which silently injects a fake +0.5
+            # via tanh(50/10) into every short thread's depth_score.
             out[tid] = 0.0
         else:
             out[tid] = min(n / s, LID_CAP)
