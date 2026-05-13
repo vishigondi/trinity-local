@@ -249,6 +249,39 @@ class TestTopicsBasinsCache:
             f"cache did not invalidate on mtime bump; got {second[0]['id']}"
         )
 
+    def test_cache_keyed_on_path_not_just_mtime(self, tmp_path, monkeypatch):
+        """Tick #43 — bug fix: cache key was just mtime, so two
+        isolated_home dirs with same second-level mtime could leak
+        cached basins across each other. Now keyed on (path, mtime)
+        so different homes get different cache slots."""
+        import json, os
+        import trinity_local.launchpad_data as lpd
+        lpd._TOPICS_BASINS_CACHE = None
+
+        home_a = tmp_path / "home_a"
+        home_b = tmp_path / "home_b"
+        (home_a / "memories").mkdir(parents=True)
+        (home_b / "memories").mkdir(parents=True)
+
+        topics_a = home_a / "memories" / "topics.json"
+        topics_b = home_b / "memories" / "topics.json"
+        topics_a.write_text(json.dumps({"basins": [{"id": "from_A"}]}), encoding="utf-8")
+        topics_b.write_text(json.dumps({"basins": [{"id": "from_B"}]}), encoding="utf-8")
+        # Force identical mtimes so only the path differentiates the cache.
+        shared_time = topics_a.stat().st_mtime
+        os.utime(topics_b, (shared_time, shared_time))
+
+        monkeypatch.setenv("TRINITY_HOME", str(home_a))
+        first = lpd._load_topics_basins()
+        assert first[0]["id"] == "from_A"
+
+        monkeypatch.setenv("TRINITY_HOME", str(home_b))
+        second = lpd._load_topics_basins()
+        assert second[0]["id"] == "from_B", (
+            f"cache leaked across homes; got {second[0]['id']!r} "
+            "(should be 'from_B' since we switched TRINITY_HOME)"
+        )
+
     def test_missing_file_clears_stale_cache(self, isolated_home):
         import json
         topics_p = isolated_home / "memories" / "topics.json"

@@ -848,16 +848,17 @@ def _format_relative_date(iso: str) -> str:
     return dt.strftime("%b %-d")
 
 
-# In-process cache for topics.json — invalidated on file mtime change.
+# In-process cache for topics.json — invalidated on (path, mtime) change.
 # A single launchpad render calls into the helpers below 4× (cortex card,
 # recent-card builder, both topology-helper consumers); without this we
-# parse the file 4×. Mtime-keyed so a manual edit / fresh lens-build
-# write triggers a re-parse on the next call without restart.
-_TOPICS_BASINS_CACHE: tuple[float, list[dict]] | None = None
+# parse the file 4×. (path, mtime) key — not mtime alone — so test
+# fixtures in different isolated_home dirs that happen to share the
+# same second-level mtime don't leak cached basins across each other.
+_TOPICS_BASINS_CACHE: tuple[str, float, list[dict]] | None = None
 
 
 def _load_topics_basins() -> list[dict]:
-    """Read topics.json once per file-version; return basin list.
+    """Read topics.json once per (path, file-version); return basin list.
 
     Both `_topology_basin_labels` and `_task_to_topology_basin` need
     the same parsed payload — sharing keeps a single launchpad render
@@ -871,14 +872,19 @@ def _load_topics_basins() -> list[dict]:
         if not topics_p.exists():
             _TOPICS_BASINS_CACHE = None
             return []
+        path_key = str(topics_p)
         mtime = topics_p.stat().st_mtime
-        if _TOPICS_BASINS_CACHE and _TOPICS_BASINS_CACHE[0] == mtime:
-            return _TOPICS_BASINS_CACHE[1]
+        if (
+            _TOPICS_BASINS_CACHE
+            and _TOPICS_BASINS_CACHE[0] == path_key
+            and _TOPICS_BASINS_CACHE[1] == mtime
+        ):
+            return _TOPICS_BASINS_CACHE[2]
         topics = json.loads(topics_p.read_text(encoding="utf-8"))
     except Exception:
         return []
     basins = topics.get("basins") or []
-    _TOPICS_BASINS_CACHE = (mtime, basins)
+    _TOPICS_BASINS_CACHE = (path_key, mtime, basins)
     return basins
 
 
