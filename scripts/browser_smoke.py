@@ -875,9 +875,14 @@ def main() -> int:
             banner_check = page.evaluate(
                 """() => new Promise(resolve => {
                   const banner = document.querySelector('.viewer-health-banner');
-                  if (!banner) { resolve({present: false}); return; }
+                  // Tick #18: nav chip for the same file should also carry
+                  // a stale-dot indicator. Collect alongside banner state.
+                  const navStale = Array.from(document.querySelectorAll('.memory-nav-link-stale'))
+                    .map(a => a.dataset.file);
+                  const navDots = document.querySelectorAll('.memory-nav-dot').length;
+                  if (!banner) { resolve({present: false, navStale, navDots}); return; }
                   const chip = document.querySelector('.viewer-health-cmd');
-                  if (!chip) { resolve({present: true, chip: false}); return; }
+                  if (!chip) { resolve({present: true, chip: false, navStale, navDots}); return; }
                   const expected = chip.textContent.trim();
                   let captured = null;
                   const orig = navigator.clipboard?.writeText;
@@ -893,9 +898,18 @@ def main() -> int:
                       captured,
                       matches: captured === expected,
                       flipped: after.startsWith('✓'),
+                      navStale,
+                      navDots,
                     });
                   }, 200);
                 })"""
+            )
+            # Tick #18: stale-dot indicator on the matching nav chip
+            # should match the banner state. Nav dot count > 0 AND the
+            # current file's chip is flagged stale.
+            nav_stale_ok = (
+                stale_target in (banner_check.get("navStale") or [])
+                and (banner_check.get("navDots") or 0) > 0
             )
             stale_ok = (
                 banner_check.get("present")
@@ -903,6 +917,7 @@ def main() -> int:
                     not banner_check.get("chip")  # banner without command (href-only) still valid
                     or (banner_check.get("matches") and banner_check.get("flipped"))
                 )
+                and nav_stale_ok
             )
         else:
             stale_ok = True
@@ -926,7 +941,8 @@ def main() -> int:
             note = []
             if stale_target:
                 if banner_check.get("chip"):
-                    note.append(f"stale={stale_target} (chip works)")
+                    nav_n = banner_check.get("navDots") or 0
+                    note.append(f"stale={stale_target} (chip works · {nav_n} nav dot{'s' if nav_n != 1 else ''})")
                 else:
                     note.append(f"stale={stale_target} (href-only)")
             else:

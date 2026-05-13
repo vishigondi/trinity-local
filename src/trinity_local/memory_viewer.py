@@ -77,17 +77,34 @@ def _read_memory_contents() -> dict[str, str | None]:
     return contents
 
 
-def _render_nav_links() -> str:
-    """Server-rendered nav. Server-controlled values, escaped via html.escape."""
+def _render_nav_links(health: dict | None = None) -> str:
+    """Server-rendered nav. Server-controlled values, escaped via html.escape.
+
+    When `health` carries issues, each affected file's chip gets a
+    small warning dot — the same signal the launchpad memory-health
+    row + per-file banner already surface, hoisted up to the nav so
+    the user sees which files need attention BEFORE clicking through.
+    """
     import html as _html
+
+    # Index issues by file name so each chip's lookup is O(1).
+    stale_files: set[str] = set()
+    if health and isinstance(health, dict):
+        for issue in health.get("issues") or []:
+            name = issue.get("name") if isinstance(issue, dict) else None
+            if name:
+                stale_files.add(name)
 
     parts = []
     for f in ALLOWED_FILES:
+        is_stale = f["name"] in stale_files
+        stale_class = " memory-nav-link-stale" if is_stale else ""
+        dot = '<span class="memory-nav-dot" aria-label="needs attention" title="needs attention"></span>' if is_stale else ""
         parts.append(
-            '<a class="memory-nav-link" '
+            f'<a class="memory-nav-link{stale_class}" '
             f'href="memory.html?file={_html.escape(f["name"])}" '
             f'data-file="{_html.escape(f["name"])}">'
-            f'<span class="memory-name">{_html.escape(f["name"])}</span>'
+            f'<span class="memory-name">{_html.escape(f["name"])}{dot}</span>'
             f'<span class="memory-brain">{_html.escape(f["brain"])}</span>'
             '</a>'
         )
@@ -113,12 +130,17 @@ def render_memory_viewer_html() -> str:
     # linked you to it.
     try:
         from .launchpad_data import _memory_health
-        health_payload = _json.dumps(_memory_health(), ensure_ascii=True)
+        health_data = _memory_health()
+        health_payload = _json.dumps(health_data, ensure_ascii=True)
     except Exception:
         # Memory viewer must not crash when the launchpad data layer
         # has unrelated issues — degrade silently to no banners.
+        health_data = None
         health_payload = "{}"
-    nav_links = _render_nav_links()
+    # Pass the same health dict to the nav renderer so each chip can
+    # show a dot when its file has issues. One source of truth across
+    # the nav + per-file banner + launchpad row.
+    nav_links = _render_nav_links(health_data)
     # Bundled JS deps — same pattern as launchpad_template.py
     # (petite-vue + Chart.js from CDN). `marked` is the standard markdown
     # renderer; ~30KB gzipped. Kills the dual-renderer problem (we already
@@ -258,6 +280,21 @@ def render_memory_viewer_html() -> str:
     }}
     .memory-nav-link:hover {{ background: var(--code-bg); }}
     .memory-nav-link.active {{ background: rgba(37, 88, 71, 0.10); }}
+    /* Stale-file dot indicator. Tiny warning-color circle next to the
+       filename — same signal as the launchpad memory-health row and
+       the per-file banner. The user spots which files need attention
+       before clicking. */
+    .memory-nav-dot {{
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--warning);
+      margin-left: 6px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }}
     .memory-name {{
       display: block;
       font-family: ui-monospace, "SF Mono", Monaco, monospace;
