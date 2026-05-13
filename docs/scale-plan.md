@@ -53,16 +53,16 @@
 |---|------|--------|-------|
 | 1 | Embedding dim fix | ✅ done | `embed_tfidf(text, dim=dim)` confirmed in `embeddings/__init__.py` |
 | 2 | Unify council run-state | ✅ done | `council_status.py` + `runner_pid`/`runner_pgid` in run-state; `os.setpgrp()` in `council_runner.py`; stop handler reads both old `metadata` and new top-level keys. |
-| 3 | Remove browser-owned product state | ✅ done | `ACTIVE_OPERATION_KEY` gone from portal_page.py. Only telemetry-dedupe localStorage remains (allowed per plan). |
-| 4 | Split portal_page.py | ✅ done | 1,790 lines → `portal_page.py` (35), `portal_data.py` (348), `portal_template.py` (1260), `portal_install.py` (163), `portal_runtime.py` (37) |
-| 5 | Share polling runtime JS | ✅ done | `portal_runtime.py` with `portal_runtime_js()` — both launchpad and live council page inject the same `buildShortcutUrl` + `loadStatusScript` (with `!token` guard fixed on launchpad). |
+| 3 | Remove browser-owned product state | ✅ done | `ACTIVE_OPERATION_KEY` removed during portal_page split. Only telemetry-dedupe localStorage remains (allowed per plan). |
+| 4 | Split portal_page.py | ✅ done | 1,790 lines → `launchpad_page.py` (35), `launchpad_data.py` (348), `launchpad_template.py` (1260), `launchpad_install.py` (163), `launchpad_runtime.py` (37). Renamed `portal_*` → `launchpad_*` per Tier 2 #4. |
+| 5 | Share polling runtime JS | ✅ done | `launchpad_runtime.py` with `launchpad_runtime_js()` — both launchpad and live council page inject the same `buildShortcutUrl` + `loadStatusScript` (with `!token` guard fixed on launchpad). |
 | 6 | Centralize Launchpad refresh | ✅ done | All callers use `refresh_launchpad()` via `refresh.py`. |
 | 7 | Standardize subprocess execution | ✅ done | `run_with_runtime_env()` in `runtime_env.py` (the planned `subprocess_utils.py` split didn't materialize — both helpers fit in one module). Wired into `providers.py`, `adapters.py`. |
 | 8 | Centralize runtime env | ✅ done | `runtime_env.py` with `build_runtime_env()`, `runtime_path_prefix()`, `run_with_runtime_env()`. Used by `providers.py`, `adapters.py`, `dispatch_runner.py`, `shortcut_setup.py`. |
 | 9 | Complete state path migration | ✅ done | All duplicate `*_dir()` functions removed from `council_runtime.py`, `review.py`, `shortcut_setup.py`, `research/embeddings.py`, `research/hard_eval.py`, `research/ranking.py`. All use `state_paths.*` imports. |
 | 10 | Harden council parsing | ✅ done | `tests/test_council_runtime.py` added with regression cases |
 | 11 | Normalize config loading | ✅ done | `load_config(required=False)` for read-only commands; only provider-requiring commands call with `required=True`. |
-| 12 | Deduplicate task-kind classification | ✅ done | `task_kinds.py` with `guess_task_kind()`. `watch_runtime.py` and `research/replay.py` both import from it. |
+| 12 | Deduplicate task-type classification | ✅ done | `task_types.py` with `guess_task_type()`. `watch_runtime.py` and `research/replay.py` both import from it. (Renamed from `task_kinds.py` per Tier 1 #3, 2026-05-12.) |
 | 13 | Fix dispatch wrapper portability | ✅ done | `dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang. |
 | 14 | Operator surfaces (cache-stats, watch errors) | ✅ done | `commands/cache.py` with `cache-stats`/`cache-clear`; `commands/status.py` reads `watch_errors.jsonl`. |
 | 15 | Deprecate old council-html path | ✅ done | The `council-html` CLI subcommand was retired entirely; `council_runner.write_unified_council_page()` is the single page writer now and runs after every council. `render_review_html` / `write_review_html` deleted from `council_review.py`. Public surface for sharing council pages is `council-share`. |
@@ -209,13 +209,19 @@ Decide one rule and apply it consistently:
 
 Annotate which commands require config at registration time so the behavior is explicit.
 
-## 12. Deduplicate task-kind classification
+## 12. Deduplicate task-type classification
 
-`_guess_task_kind()` exists in two places:
-- `watch_runtime.py:167` — takes `(text, provider)`, more complete
-- `research/replay.py:81` — comment says "mirrors watch_runtime" but has drifted (missing provider param, different keyword sets)
+> **Done (2026-05-12).** Moved into `task_types.py` as `guess_task_type()`.
+> Both `watch_runtime.py` and `research/replay.py` import from it; the
+> drifted duplicate in `research/replay.py` was removed. Renamed from
+> `task_kind` → `task_type` per Tier 1 #3 to disambiguate from
+> `category` (the coarser LMArena-aligned grouping).
 
-Move to `utils.py` or `task_classification.py`. Only after deduplication should embedding-based classification be considered.
+Historical context: `_guess_task_kind()` had drifted across two call sites
+with different keyword sets — `watch_runtime.py` took `(text, provider)`
+and was more complete; `research/replay.py` was missing the provider
+parameter. Embedding-based classification was deferred until after the
+heuristic was canonical (still deferred — heuristic ships in v1).
 
 ## 13. Fix dispatch wrapper portability
 
@@ -595,8 +601,8 @@ On `portal-html` generation, check if `last_update_check` in telemetry settings 
 | `src/trinity_local/portal_runtime.py` | **New** — shared client JS runtime (polling, stop, completion) |
 | `src/trinity_local/council_runtime.py` | Harden `parse_synthesis_sections` and `parse_peer_review_sections`; remove duplicate path helpers |
 | `src/trinity_local/config.py` | Soft-fail for read-only commands; add explicit per-command annotation |
-| `src/trinity_local/utils.py` | Move `_guess_task_kind()` here (or new `task_classification.py`) |
-| `src/trinity_local/research/replay.py` | Remove duplicate `_guess_task_kind()` |
+| `src/trinity_local/task_types.py` | ✅ done — single `guess_task_type()` (renamed from `task_kind` per Tier 1 #3). |
+| `src/trinity_local/research/replay.py` | ✅ done — drifted duplicate removed; imports from `task_types`. |
 | `src/trinity_local/shortcut_setup.py` | Runtime venv detection in wrapper body, not shebang |
 | `src/trinity_local/commands/status.py` | Add watch-loop error count + last error |
 | `src/trinity_local/commands/cache.py` | **New** — `cache-stats`, `cache-clear` subcommands |
@@ -637,7 +643,7 @@ Phase 0 — Refactor / Stability   (must land first)
 ├─ 8.  Complete state_paths.py migration
 ├─ 9.  Harden council parsing
 ├─ 10. Normalize config loading
-├─ 11. Deduplicate _guess_task_kind()
+├─ 11. Deduplicate guess_task_type() (task_kind → task_type rename, Tier 1 #3)
 ├─ 12. Fix dispatch wrapper portability
 ├─ 13. Operator surfaces (status errors, cache-stats, cache-clear)
 ├─ 14. Deprecate old council-html path
