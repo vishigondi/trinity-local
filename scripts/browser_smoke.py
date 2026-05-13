@@ -21,6 +21,7 @@ Prereqs (installed once):
 
 Surfaces:
     1. Launchpad cold-render: Ratings chart bars rendered
+   1b. Autofill content quality: no scaffolding leaks in councilSuggestions
     2. Settings gear: modal opens, sharing + auto-chain toggles present
     3. Personal routing table: >=1 row, columns readable
     4. Lenses Copy-for-sharing: clipboard write fires with non-empty text
@@ -28,9 +29,14 @@ Surfaces:
     6. Live council: Back to Launchpad returns home; winner persists on reload
     7. Launch Council button: present + clickable (full e2e gated on macOS Shortcut)
     8. Telemetry guard: no example.invalid console errors
+    9. Multi-round thread render: 3 chain segments visible with round numbers
+   10. Recent council card content: title + winner + rounds badge per card
+   11. Autofill apply: clicking a suggestion fills the textarea
+   12. Settings toggle binding: each :checked reflects underlying telemetry state
+   13. Lens card render: paired-lenses block populates when tasteLenses exists
 
 Exit codes:
-    0 — all 8 surfaces pass
+    0 — all surfaces pass
     1 — at least one surface failed
     2 — setup error (server, regen, etc.)
     3 — playwright not installed
@@ -405,19 +411,290 @@ def main() -> int:
         )
         page.wait_for_timeout(400)
         page.screenshot(path=str(SHOTS_DIR / "8-settings-endpoint-guard.png"))
+        # Close the modal cleanly before subsequent surfaces interact with
+        # the launchpad — petite-vue mounts it over the whole viewport and
+        # eats clicks if left open.
+        page.evaluate(
+            """() => {
+              const buttons = Array.from(document.querySelectorAll('.settings-modal button'));
+              const x = buttons.find(b => b.textContent.trim() === '×');
+              if (x) x.click();
+            }"""
+        )
+        page.wait_for_function(
+            "() => !document.querySelector('.settings-modal')",
+            timeout=3000,
+        )
+
+        # ─── Surface 9: Multi-round thread render ────────────────────────────
+        # The thread-per-page UX (commit 3c44bbd fixed a regression where
+        # auto-chain iteration rounds got lost). Pick a known 3-round bundle
+        # from disk and assert all three segments render with the expected
+        # round numbers in order. Skips if no multi-round bundle is on disk.
+        thread_id = _find_multi_round_thread()
+        if thread_id is None:
+            print(f"[ - ] Surface 9 multi-round thread: SKIPPED (no 3+ round bundle on disk)")
+        else:
+            page.goto(
+                f"{base_url}/review_pages/live_council.html?thread_id={thread_id}",
+                wait_until="networkidle",
+                timeout=15000,
+            )
+            page.wait_for_timeout(1500)  # petite-vue hydration
+            thread_state = page.evaluate(
+                """() => {
+                  const segments = Array.from(document.querySelectorAll('.chain-segment'));
+                  const roundLabels = segments.map(seg => {
+                    const eyebrow = seg.querySelector('.eyebrow');
+                    const m = eyebrow?.textContent?.match(/Round\\s+(\\d+)/);
+                    return m ? parseInt(m[1], 10) : null;
+                  });
+                  const hasSynthesis = segments.map(seg =>
+                    !!seg.querySelector('.synthesis-section .markdown-body')
+                  );
+                  return {seg_count: segments.length, roundLabels, hasSynthesis};
+                }"""
+            )
+            page.screenshot(path=str(SHOTS_DIR / "9-multi-round-thread.png"), full_page=True)
+            rounds = thread_state.get("roundLabels", [])
+            seg_count = thread_state.get("seg_count", 0)
+            synth_ok = all(thread_state.get("hasSynthesis", []))
+            # Each segment must (a) exist, (b) carry its own round number,
+            # (c) render its own chairman synthesis. Round numbers should be
+            # monotonic — first is 1, then 2, then 3.
+            if seg_count >= 3 and rounds[:3] == [1, 2, 3] and synth_ok:
+                print(f"[ ✓ ] Surface 9 multi-round thread: {seg_count} segments, rounds={rounds}, synthesis per round")
+            else:
+                reason = f"seg_count={seg_count} rounds={rounds} synth_per_round_ok={synth_ok}"
+                print(f"[ ✗ ] Surface 9 multi-round thread: {reason}")
+                fails.append((9, "multi-round thread render", reason))
+
+            # Bounce back to the launchpad for the next surfaces.
+            page.goto(f"{base_url}/portal_pages/launchpad.html", wait_until="networkidle", timeout=10000)
+            page.wait_for_timeout(800)
+
+        # ─── Surface 10: Recent council card content ─────────────────────────
+        # Surface 5 confirms cards click through; this confirms each card
+        # actually carries the title + meta block ("winner · date · N rounds")
+        # — a missing winner/date is a recent regression signal (e.g. the
+        # personal_routing_table rewire shipped a card with empty meta).
+        cards_state = page.evaluate(
+            """() => {
+              const cards = Array.from(document.querySelectorAll('a.council-card-link'));
+              const sample = cards.slice(0, 3).map(a => {
+                const title = a.querySelector('.council-title')?.textContent?.trim();
+                const meta = a.querySelector('.meta')?.textContent?.trim();
+                const hrefHasThread = (a.getAttribute('href') || '').includes('thread_id=');
+                return {title_ok: !!title && title.length > 0, meta_ok: !!meta && meta.length > 0, hrefHasThread};
+              });
+              return {count: cards.length, sample};
+            }"""
+        )
+        sample = cards_state.get("sample", [])
+        cards_ok = (
+            cards_state.get("count", 0) >= 1
+            and all(s.get("title_ok") and s.get("meta_ok") and s.get("hrefHasThread") for s in sample)
+        )
+        if cards_ok:
+            print(f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards, first 3 have title + meta + thread_id href")
+        else:
+            reason = f"count={cards_state.get('count')} sample={sample}"
+            print(f"[ ✗ ] Surface 10 recent cards: {reason}")
+            fails.append((10, "recent card content", reason))
+
+        # ─── Surface 11: Autofill suggestion click → textarea fills ──────────
+        # Surface 1b validates the suggestion DATA. This validates the
+        # APPLY path: focus the textarea, pick the first non-empty
+        # suggestion, click it, verify the textarea now contains that text.
+        # Catches regressions in @mousedown handling / applySuggestion().
+        apply_state = page.evaluate(
+            """() => new Promise(resolve => {
+              const textarea = document.querySelector('textarea');
+              if (!textarea) { resolve({ok: false, reason: 'no textarea'}); return; }
+              // Focus opens the panel (v-if="showSuggestions")
+              textarea.focus();
+              setTimeout(() => {
+                const items = Array.from(document.querySelectorAll('.suggestion-item'));
+                if (items.length === 0) { resolve({ok: false, reason: 'no suggestion items rendered after focus'}); return; }
+                const target = items[0];
+                const targetText = target.querySelector('.suggestion-text')?.textContent?.trim() || '';
+                // Suggestion buttons use @mousedown.prevent — dispatch that.
+                target.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}));
+                setTimeout(() => {
+                  resolve({
+                    ok: true,
+                    targetHead: targetText.slice(0, 80),
+                    valueHead: (textarea.value || '').slice(0, 80),
+                    matches: targetText.length > 0 && (textarea.value || '').startsWith(targetText.slice(0, 40)),
+                  });
+                }, 400);
+              }, 400);
+            })"""
+        )
+        if apply_state.get("ok") and apply_state.get("matches"):
+            print(f"[ ✓ ] Surface 11 autofill apply: textarea filled from suggestion ('{apply_state['valueHead']}...')")
+        else:
+            reason = apply_state.get("reason") or f"target={apply_state.get('targetHead')!r} value={apply_state.get('valueHead')!r}"
+            print(f"[ ✗ ] Surface 11 autofill apply: {reason}")
+            fails.append((11, "autofill apply", reason))
+
+        # Clear textarea + blur so it doesn't intercept later surfaces.
+        page.evaluate(
+            """() => {
+              const t = document.querySelector('textarea');
+              if (t) { t.value = ''; t.dispatchEvent(new Event('input', {bubbles: true})); t.blur(); }
+            }"""
+        )
+        page.wait_for_timeout(300)
+
+        # ─── Surface 12: Settings toggle binding ─────────────────────────────
+        # Surface 2 confirms toggles are present. This confirms each toggle's
+        # `:checked` binding actually reflects the underlying telemetry state
+        # in page-data — catches a regression where the binding is wired to
+        # the wrong reactive key or a stale closure.
+        #
+        # NOTE: we don't simulate a click. Real toggles call
+        # `triggerSettingsAction` which fires `scheduleLaunchpadReload(1400)`
+        # — the page navigates mid-test, destroying any pending evaluate.
+        # The full mutation path is covered by unit tests + end-to-end
+        # `trinity-local telemetry-{enable,disable}` calls; here we just
+        # verify the rendered DOM matches the bound state.
+        page.evaluate(
+            """() => {
+              const gear = Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === '⚙');
+              gear?.click();
+            }"""
+        )
+        page.wait_for_selector(".settings-modal input[type='checkbox']", state="attached", timeout=2000)
+        toggle_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const tel = data.telemetry || {};
+              const toggles = Array.from(document.querySelectorAll('.settings-modal input[type="checkbox"]'));
+              // Expected order matches the template: Sharing, Auto-chain, Polish-auto.
+              const expected = [
+                ['enabled', tel.enabled],
+                ['autoChainEnabled', tel.autoChainEnabled],
+                ['polishAutoIterate', tel.polishAutoIterate],
+              ];
+              const rows = toggles.slice(0, 3).map((t, i) => ({
+                key: expected[i][0],
+                expected: !!expected[i][1],
+                actual: t.checked,
+                matches: t.checked === !!expected[i][1],
+              }));
+              return {toggle_count: toggles.length, rows};
+            }"""
+        )
+        rows = toggle_state.get("rows", [])
+        bindings_ok = (
+            toggle_state.get("toggle_count", 0) >= 3
+            and len(rows) == 3
+            and all(r.get("matches") for r in rows)
+        )
+        if bindings_ok:
+            summary = ", ".join(f"{r['key']}={r['actual']}" for r in rows)
+            print(f"[ ✓ ] Surface 12 toggle bindings: all 3 match page-data ({summary})")
+        else:
+            reason = f"count={toggle_state.get('toggle_count')} rows={rows}"
+            print(f"[ ✗ ] Surface 12 toggle bindings: {reason}")
+            fails.append((12, "settings toggle binding", reason))
+
+        # Close modal cleanly before next surface.
+        page.evaluate(
+            """() => {
+              const buttons = Array.from(document.querySelectorAll('.settings-modal button'));
+              const x = buttons.find(b => b.textContent.trim() === '×');
+              if (x) x.click();
+            }"""
+        )
+        page.wait_for_function(
+            "() => !document.querySelector('.settings-modal')",
+            timeout=3000,
+        )
+
+        # ─── Surface 13: Lens card render ────────────────────────────────────
+        # The taste-card is v-if="tasteLenses" — if lens-build hasn't run
+        # we get an empty-state card instead. Either is valid; assert
+        # whichever path the data takes is structurally complete.
+        lens_state = page.evaluate(
+            """() => {
+              const tasteCard = document.querySelector('section.taste-card');
+              if (tasteCard) {
+                const paired = tasteCard.querySelectorAll('.taste-block .taste-list li').length;
+                const vocab = tasteCard.querySelectorAll('.taste-vocab-chip').length;
+                const shareBtn = !!Array.from(tasteCard.querySelectorAll('button')).find(b => /copy/i.test(b.textContent));
+                return {variant: 'lenses', paired_count: paired, vocab_count: vocab, has_share_btn: shareBtn};
+              }
+              // Empty-state — the section right below the routing card carrying the lens-build CTA.
+              const emptyHeading = Array.from(document.querySelectorAll('h2'))
+                .find(h => /lens|taste|me-build|lens-build/i.test(h.textContent));
+              return {variant: 'empty-state', has_cta: !!emptyHeading};
+            }"""
+        )
+        if lens_state.get("variant") == "lenses":
+            ok = lens_state.get("paired_count", 0) >= 1 and lens_state.get("has_share_btn")
+            if ok:
+                print(f"[ ✓ ] Surface 13 lens card: {lens_state['paired_count']} lens items + share button rendered")
+            else:
+                reason = f"lens card present but incomplete: {lens_state}"
+                print(f"[ ✗ ] Surface 13 lens card: {reason}")
+                fails.append((13, "lens card render", reason))
+        elif lens_state.get("variant") == "empty-state" and lens_state.get("has_cta"):
+            print(f"[ ✓ ] Surface 13 lens card: empty-state CTA shown (lens-build not run on this install)")
+        else:
+            reason = f"neither lens card nor empty-state CTA: {lens_state}"
+            print(f"[ ✗ ] Surface 13 lens card: {reason}")
+            fails.append((13, "lens card render", reason))
 
         browser.close()
 
     print()
     print("─" * 60)
     if not fails:
-        print(f"✓ All 8 surfaces pass. Screenshots in {SHOTS_DIR.relative_to(REPO_ROOT)}/")
+        print(f"✓ All surfaces pass. Screenshots in {SHOTS_DIR.relative_to(REPO_ROOT)}/")
         return 0
     else:
-        print(f"✗ {len(fails)}/8 surfaces failed:")
+        print(f"✗ {len(fails)} surface(s) failed:")
         for n, name, reason in fails:
             print(f"    Surface {n} ({name}): {reason[:120]}")
         return 1
+
+
+def _find_multi_round_thread() -> str | None:
+    """Pick a thread bundle on disk with 3+ segments, for Surface 9.
+
+    Walks `~/.trinity/council_outcomes/_thread_*.js`, parses the embedded
+    JSON, returns the first chain_root_id whose segments[] has length >= 3.
+    Returns None if no such bundle exists — Surface 9 then skips.
+    """
+    threads_dir = TRINITY_HOME / "council_outcomes"
+    if not threads_dir.is_dir():
+        return None
+    import re as _re
+    # File shape (one line):
+    #   window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {};
+    #   window.__TRINITY_COUNCIL_THREAD__["bundle_X"] = {<payload>};
+    # The first `{}` is the empty-object initializer; we need the assignment
+    # payload, which is the `{...}` after the indexed assignment.
+    pattern = _re.compile(r'__TRINITY_COUNCIL_THREAD__\[[^\]]+\]\s*=\s*({.*})\s*;', _re.DOTALL)
+    for path in sorted(threads_dir.glob("_thread_*.js")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        m = pattern.search(text)
+        if not m:
+            continue
+        try:
+            payload = json.loads(m.group(1))
+        except json.JSONDecodeError:
+            continue
+        segments = payload.get("segments") or []
+        if len(segments) >= 3:
+            return payload.get("chain_root_id") or None
+    return None
 
 
 def _is_server_up(port: int) -> bool:
