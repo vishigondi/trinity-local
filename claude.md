@@ -435,9 +435,13 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |
 | Research | `research/` package | Offline research pipeline (replay, hard mining, ranking eval) — not on the live product path |
 
-### The six canonical MCP tools (`mcp_server.py`)
+### The nine MCP tools (`mcp_server.py`)
 
-These are the only public surface. Lifecycle order:
+The full public surface is **9 tools** — 6 canonical (v1.0) + 3 v1.5
+additions. The canonical 6 are the lifecycle order; the v1.5 trio
+sits adjacent to the v1.0 supervision loop.
+
+**v1.0 canonical six (lifecycle order):**
 
 1. **`route(task, harness, available_models, budget, latency)`** → `{mode, primary, challenger, confidence, reason, fallback}`. No model calls — heuristic + k-NN + chairman picker. Cheap, called before the harness picks a model.
 
@@ -450,6 +454,14 @@ These are the only public surface. Lifecycle order:
 5. **`get_persona()`** → returns `~/.trinity/memories/lens.md`. The chairman already loads this internally, but exposing it lets *any* harness (Claude Code, Codex, Gemini CLI) pull the persona once at session start and tailor responses without an MCP round trip per call.
 
 6. **`get_council_status(council_run_id)`** → in-protocol polling for async councils. Returns status (running/completed/failed/canceled), per-member progress, synthesis state, and outcome summary (winner, agreed/disagreed claims, routing_lesson) when complete. Required for harnesses without filesystem access; also the only way to detect a stuck member without watching `~/.trinity/portal_pages/status/`.
+
+**v1.5 trio:**
+
+7. **`ask(task, harness, available_models, budget)`** → cheap single-call default routing. The 90% case: harness has a question, wants one model's answer with a chairman-blessed verdict, doesn't need a full council. Pulls from cortex picks first (high-trust rule → use directly), falls back to k-NN advisory, finally to heuristic.
+
+8. **`get_picks(task_type)`** → agent-facing introspection into extracted picks. Returns the cortex rule for the given task_type (provider, reasoning, trust score, source councils). Lets a harness ask "which model would Trinity pick for THIS kind of question and why" without firing route().
+
+9. **`mark_pick_wrong(task_type)`** → user-veto on an extracted pick. Halves effective trust per click, persists across consolidations. Same shape as the launchpad's pick-veto chip (Surface 17) but from the agent side.
 
 Internal helpers (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) remain importable for the launchpad but are NOT exposed via MCP.
 
