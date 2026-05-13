@@ -19,8 +19,8 @@ at v1.0 launch — v1.5 is the technical proof that the architecture works.
 
 ## The locked positioning
 
-**Hero:** *Stop copy-pasting your prompts between chatbots.*
-**Sub:** *Own your prompts. Dream creates the memory.*
+**Hero:** *Stop copy-pasting prompts. Own your context. Dream your core memories.*
+**Sub:** *One question. Every model you use. One answer that knows you.*
 
 **One-sentence pitch:** *Anthropic just shipped Dreaming. Trinity does it across Claude,
 ChatGPT, and Gemini — and the memory dream creates lives in your folder, not theirs.*

@@ -204,9 +204,10 @@ Then, in order:
   If v1.5 hits a real quality ceiling on user data, the training path reopens. Not
   until then.
 
-There's a bigger thesis behind all of it. *Own your prompts now, because the next
+There's a bigger thesis behind all of it. *Own your context now, because the next
 thing you'll need to own is your agent.* The labs are migrating from "the model I rent"
-to "the agent that acts for me." Your prompts — what you've already asked, what you've
+to "the agent that acts for me." Your context — what you've already asked, the lens
+your taste encodes, the routing your verdicts taught — 
 trusted, what you've rejected — are the raw asset. Dream is the verb that turns them into
 the agent's memory: cortex rules, taste lens, routing brain.
 

@@ -5,9 +5,9 @@
 > for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
 > **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
-> lens, and the personal routing table. The pitch users land on is *"Stop copy-pasting your
-> prompts between chatbots. Own your prompts. Dream creates the memory."* — the
-> cross-provider memory layer the labs can't build.
+> lens, and the personal routing table. The pitch users land on is *"Stop copy-pasting
+> prompts. Own your context. Dream your core memories. One question. Every model you use.
+> One answer that knows you."* — the cross-provider memory layer the labs can't build.
 >
 > **v1.5 is the routing product** that makes the full "SOTA + your taste + your subs +
 > saves cost" pitch literally true. It's MCP-primary, adds the cortex consolidation layer,
@@ -34,13 +34,13 @@ Anthropic just ship this?*
 
 ## The brand
 
-**Hero:** *Stop copy-pasting your prompts between chatbots.*
-**Sub:** *Own your prompts. Dream creates the memory.*
+**Hero:** *Stop copy-pasting prompts. Own your context. Dream your core memories.*
+**Sub:** *One question. Every model you use. One answer that knows you.*
 
 The brand axis splits cleanly into three load-bearing words:
-- **prompts** — what you own (raw, today scattered across three browser tabs)
-- **dream** — the verb only Trinity has (synthesizes prompts → memory, offline, your data)
-- **memory** — what dream creates (picks + the lens + the personal routing table, all under `~/.trinity/memories/`; see the five-plural-plus-core mapping in claude.md)
+- **prompts** — what you own (raw, today scattered across browser tabs)
+- **dream** — the verb only Trinity has (synthesizes prompts → core memories, offline, your data)
+- **core memories** — what dream creates (the five plural files + `core.md`, all under `~/.trinity/memories/`; see the five-plural-plus-core mapping in claude.md)
 
 Three concrete pains underneath, each with a direct Trinity answer:
 
@@ -219,7 +219,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 7. **"Cross-provider switches prevented" metric is dropped.** Unmeasurable without telemetry the privacy posture forbids. Replaced with locally-observable metrics.
 
-8. **"30-second first council" claim is dropped from public copy.** Realistic is 30–90s including parallel API responses. Public claim: *"three answers in under a minute."* Under-promise + over-deliver.
+8. **"30-second first council" claim is dropped from public copy.** Realistic is 30–90s including parallel API responses. Public claim: *"one answer in under a minute."* Matches the sub-line ("One question. Every model you use. One answer that knows you.") — the council synthesizes a single answer; "three answers" would contradict the one-→-many-→-one mechanic.
 
 9. **API keys not in `trinity.toml`.** Keychain or env vars only. `trinity.toml` (v1.1) carries preferences + thresholds + persona templates.
 
