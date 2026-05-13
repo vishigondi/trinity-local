@@ -210,6 +210,79 @@ class TestInThreadOverwriteRow:
         )
 
 
+class TestSummarizeMerges:
+    """Tick #47 — first concrete consumer of the merge corpus.
+    summarize_merges() walks the log and returns counts per type
+    + per-signal-type subset for in_thread_overwrite. Demonstrates
+    the compute-view-on-demand pattern: no separate aggregation
+    file, no cron — read on call."""
+
+    def test_empty_log_returns_zero(self, isolated_home):
+        from trinity_local.merges import summarize_merges
+        summary = summarize_merges()
+        assert summary["total"] == 0
+        assert summary["by_type"] == {}
+        assert summary["by_signal_type"] == {}
+        assert summary["first_ts"] is None
+        assert summary["last_ts"] is None
+
+    def test_counts_by_type(self, isolated_home):
+        from trinity_local.merges import record_merge, summarize_merges
+        record_merge({"type": "council_winner", "chosen": "claude"})
+        record_merge({"type": "council_winner", "chosen": "gemini"})
+        record_merge({"type": "cortex_override", "basin_id": "coding"})
+        summary = summarize_merges()
+        assert summary["total"] == 3
+        assert summary["by_type"]["council_winner"] == 2
+        assert summary["by_type"]["cortex_override"] == 1
+
+    def test_in_thread_overwrite_breaks_down_by_signal_type(self, isolated_home):
+        from trinity_local.merges import record_merge, summarize_merges
+        record_merge({"type": "in_thread_overwrite", "signal_type": "COMPRESSION", "signal_id": "a"})
+        record_merge({"type": "in_thread_overwrite", "signal_type": "COMPRESSION", "signal_id": "b"})
+        record_merge({"type": "in_thread_overwrite", "signal_type": "REDIRECT", "signal_id": "c"})
+        record_merge({"type": "council_winner", "chosen": "claude"})  # different type
+        summary = summarize_merges()
+        # Top-level type count: 3 overwrites + 1 winner = 4
+        assert summary["by_type"]["in_thread_overwrite"] == 3
+        assert summary["by_type"]["council_winner"] == 1
+        # Signal-type breakdown applies ONLY to in_thread_overwrite rows.
+        assert summary["by_signal_type"]["COMPRESSION"] == 2
+        assert summary["by_signal_type"]["REDIRECT"] == 1
+        # The council_winner row didn't pollute the signal-type bucket.
+        assert sum(summary["by_signal_type"].values()) == 3
+
+    def test_first_and_last_ts(self, isolated_home):
+        from trinity_local.merges import record_merge, summarize_merges
+        record_merge({"type": "council_winner", "ts": "2026-05-13T10:00:00"})
+        record_merge({"type": "council_winner", "ts": "2026-05-13T09:00:00"})
+        record_merge({"type": "council_winner", "ts": "2026-05-13T11:00:00"})
+        summary = summarize_merges()
+        # ISO-8601 sorts lexically; min/max give the real bounds.
+        assert summary["first_ts"] == "2026-05-13T09:00:00"
+        assert summary["last_ts"] == "2026-05-13T11:00:00"
+
+
+class TestMergesShowCLI:
+    """CLI handler wraps summarize_merges + prints either JSON or
+    a human-readable table. Smoke the JSON path so a downstream
+    `trinity-local merges-show --json | jq` recipe doesn't break."""
+
+    def test_cli_json_output(self, isolated_home, capsys):
+        from trinity_local.merges import record_merge
+        from trinity_local.commands.merges import handle_merges_show
+        record_merge({"type": "council_winner", "chosen": "claude"})
+
+        class Args:
+            as_json = True
+        handle_merges_show(Args())
+        out = capsys.readouterr().out
+        payload = json.loads(out)
+        assert payload["total"] == 1
+        assert payload["by_type"]["council_winner"] == 1
+        assert "path" in payload, "JSON output should include the merge log path"
+
+
 class TestCouncilWinnerSchema:
     """Pin the schema for the council_winner row type so future
     consumers (direction-of-preference vector, lens-build collapse)

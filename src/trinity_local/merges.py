@@ -68,3 +68,46 @@ def iter_merge_records() -> Iterator[dict]:
             yield json.loads(line)
         except json.JSONDecodeError:
             continue
+
+
+def summarize_merges() -> dict:
+    """Return a compact view over the merge log: counts per type
+    and (for the polymorphic in_thread_overwrite type) per
+    signal_type subset. First concrete consumer demonstrating the
+    compute-view-on-demand pattern — same shape as
+    compute_personal_routing_table walking council_outcomes/*.json.
+
+    Output:
+      {
+        "total": int,
+        "by_type": {"council_winner": int, ...},
+        "by_signal_type": {"REFRAME": int, "COMPRESSION": int, ...},
+        "first_ts": iso | None,
+        "last_ts": iso | None,
+      }
+    """
+    by_type: dict[str, int] = {}
+    by_signal_type: dict[str, int] = {}
+    first_ts: str | None = None
+    last_ts: str | None = None
+    total = 0
+    for row in iter_merge_records():
+        total += 1
+        rtype = row.get("type") or "(untyped)"
+        by_type[rtype] = by_type.get(rtype, 0) + 1
+        if rtype == "in_thread_overwrite":
+            sig = row.get("signal_type") or "(unknown)"
+            by_signal_type[sig] = by_signal_type.get(sig, 0) + 1
+        ts = row.get("ts")
+        if isinstance(ts, str) and ts:
+            if first_ts is None or ts < first_ts:
+                first_ts = ts
+            if last_ts is None or ts > last_ts:
+                last_ts = ts
+    return {
+        "total": total,
+        "by_type": by_type,
+        "by_signal_type": by_signal_type,
+        "first_ts": first_ts,
+        "last_ts": last_ts,
+    }

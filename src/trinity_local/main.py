@@ -42,6 +42,7 @@ CORE_COMMAND_MODULES = (
     "ingest",
     "me",
     "me_card",
+    "merges",
     "metric",
     "portal",
     "replay",
