@@ -365,6 +365,46 @@ class TestRoutingToTopologyCrossLink:
         )
 
 
+class TestBasinHoverTitleHelper:
+    """Tick #39 — JS-side basinHoverTitle helper mirrors the Python
+    _topology_basin_labels + Vue basinHoverLabel. Renders 'Basin
+    <id> — <terms>' when topics.json carries top_terms, otherwise
+    falls back to 'Open basin <id> in the topology graph'. Used by
+    the picks→topology xlink (tick #32) and routing→topology chip
+    (tick #33) so all four launchpad/viewer chips agree on hover."""
+
+    def test_helper_function_defined(self, isolated_home):
+        html = _render()
+        assert "function basinHoverTitle" in html, (
+            "basinHoverTitle helper missing — viewer chips will fall back "
+            "to opaque 'Open basin <id>' tooltips"
+        )
+
+    def test_basinLabels_attached_to_cross_memory_maps(self, isolated_home):
+        html = _render()
+        # loadCrossMemoryMaps must expose basinLabels alongside the
+        # task↔basin maps so both Reader views get a consistent
+        # source of truth.
+        assert "maps.basinLabels = basinLabels" in html, (
+            "loadCrossMemoryMaps doesn't attach basinLabels — viewer "
+            "chips can't access the basin → top-terms map"
+        )
+
+    def test_picks_xlink_uses_basinHoverTitle(self, isolated_home):
+        html = _render()
+        assert "basinHoverTitle(topologyBasinId, basinLabels)" in html, (
+            "picks card 'View in topology →' xlink no longer threads "
+            "basinHoverTitle — hover text reverts to opaque"
+        )
+
+    def test_routing_chip_uses_basinHoverTitle(self, isolated_home):
+        html = _render()
+        assert "basinHoverTitle(topoBasinId, routingBasinLabels)" in html, (
+            "routing-table → topology chip no longer threads "
+            "basinHoverTitle"
+        )
+
+
 class TestPicksReaderCrossLinks:
     """Picks Reader → routing Reader cross-link (tick #10/16 shipped this).
     Guards the click-through path that closes 'see the pick → see the

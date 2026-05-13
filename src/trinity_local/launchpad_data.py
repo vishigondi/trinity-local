@@ -955,6 +955,11 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
     # render pass (not per-card — load_routing_patterns + topics.json
     # parse would otherwise re-run N times).
     task_to_basin = _task_to_topology_basin()
+    # Same shape: basin labels for the → topology chip's hover tooltip.
+    # Mirrors the viewer-side basinHoverTitle so launchpad + viewer
+    # chips have matching hover text. Empty dict on cold install →
+    # tooltip falls back to "Open basin <id>".
+    basin_labels = _topology_basin_labels()
 
     def _card(item: dict[str, str | None]) -> str:
         thread_id = item.get("chain_root_id") or item.get("council_id")
@@ -1002,9 +1007,17 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
             topo_basin = task_to_basin.get(str(task_type))
             if topo_basin:
                 basin = _esc(topo_basin)
+                # Tooltip surfaces basin top-terms when available so
+                # the user knows what the basin contains without
+                # clicking (tick #39).
+                terms = basin_labels.get(topo_basin)
+                tooltip = (
+                    f"Basin {topo_basin} — {terms}" if terms
+                    else f"Open basin {topo_basin} in the topology graph"
+                )
                 chips.append(
                     f'<a href="../portal_pages/memory.html?file=topics.json&basin={basin}" '
-                    f'class="{chip_classes}">→ topology</a>'
+                    f'class="{chip_classes}" title="{_esc(tooltip)}">→ topology</a>'
                 )
             xlinks = (
                 f'<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'

@@ -934,7 +934,34 @@ def render_memory_viewer_html() -> str:
         if (raw) topicsObj = JSON.parse(raw);
       }} catch (_) {{}}
       const basins = topicsObj && Array.isArray(topicsObj.basins) ? topicsObj.basins : [];
-      return matchBasinsToPicks(basins, picksObj || {{}});
+      const maps = matchBasinsToPicks(basins, picksObj || {{}});
+      // Tick #39: also expose basin → top-3-terms labels for tooltip
+      // text on the cross-memory chips that target topology basins.
+      // Same data the launchpad reads server-side; mirrored here so
+      // viewer-side chips don't show opaque "b03" hovers.
+      const basinLabels = new Map();
+      for (const b of basins) {{
+        const bid = b && b.id;
+        const terms = (b && b.top_terms) || [];
+        if (bid && terms.length) {{
+          basinLabels.set(String(bid), terms.slice(0, 3).join(" · "));
+        }}
+      }}
+      maps.basinLabels = basinLabels;
+      return maps;
+    }}
+
+    // Tooltip helper for cross-memory chips that deep-link into the
+    // topology view. Surfaces the basin's top-3 terms when available;
+    // falls back to a generic "Open basin <id>" when the label map is
+    // empty (cold install, no lens-build). Mirrors the Vue method
+    // basinHoverLabel in launchpad_template — same wording so the
+    // viewer + launchpad agree on hover text.
+    function basinHoverTitle(basinId, labels) {{
+      if (!basinId) return "";
+      const terms = labels && labels.get && labels.get(String(basinId));
+      if (terms) return "Basin " + basinId + " — " + terms;
+      return "Open basin " + basinId + " in the topology graph";
     }}
     function renderHeader(file) {{
       const wrap = el("div", "content-header");
@@ -1111,8 +1138,9 @@ def render_memory_viewer_html() -> str:
       // Cross-memory bridge: picks → topology via the shared centroid
       // match. taskToBasinId[task_type] = topology basin id (e.g. b00).
       // Used to render the "View in topology →" xlink per pick card,
-      // completing the bidirectional bridge tick #30 opened.
-      const {{ taskToBasinId }} = loadCrossMemoryMaps();
+      // completing the bidirectional bridge tick #30 opened. basinLabels
+      // (tick #39) feeds richer hover text on the topology chip.
+      const {{ taskToBasinId, basinLabels }} = loadCrossMemoryMaps();
       // Deep-link target: ?task=<basin_id> scrolls to + highlights the
       // matching card so cross-links from routing.json land usefully.
       // If the task isn't yet in picks (cortex hasn't consolidated this
@@ -1198,7 +1226,7 @@ def render_memory_viewer_html() -> str:
         if (topologyBasinId) {{
           const tlink = el("a", "pick-xlink", "View in topology →");
           tlink.href = "memory.html?file=topics.json&basin=" + encodeURIComponent(topologyBasinId);
-          tlink.title = "Open basin " + topologyBasinId + " in the topology graph";
+          tlink.title = basinHoverTitle(topologyBasinId, basinLabels);
           actions.appendChild(tlink);
         }}
         // One-click veto: copies the cortex-override CLI into the
@@ -1278,7 +1306,7 @@ def render_memory_viewer_html() -> str:
       // → topology is a two-hop chain: routing task → pick → centroid →
       // topology basin. Reuse the shared taskToBasinId map (tick #32)
       // so the matching rule can't drift from the picks/topology side.
-      const {{ taskToBasinId: routingTaskToBasinId }} = loadCrossMemoryMaps();
+      const {{ taskToBasinId: routingTaskToBasinId, basinLabels: routingBasinLabels }} = loadCrossMemoryMaps();
 
       const tbody = el("tbody");
       taskTypes.forEach(t => {{
@@ -1301,7 +1329,7 @@ def render_memory_viewer_html() -> str:
         if (topoBasinId) {{
           const topoLink = el("a", "routing-topology-chip", "topology");
           topoLink.href = "memory.html?file=topics.json&basin=" + encodeURIComponent(topoBasinId);
-          topoLink.title = "Open basin " + topoBasinId + " in the topology graph";
+          topoLink.title = basinHoverTitle(topoBasinId, routingBasinLabels);
           taskTd.appendChild(topoLink);
         }}
         tr.appendChild(taskTd);

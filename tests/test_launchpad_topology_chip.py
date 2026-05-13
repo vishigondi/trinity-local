@@ -185,6 +185,65 @@ class TestCortexCardTopologyAnnotation:
         )
 
 
+class TestRecentCardTopologyTooltip:
+    """Tick #39 — recent-card → topology chip tooltip now surfaces
+    basin top-terms when topics.json carries them. Cold-install
+    fallback is 'Open basin <id> in the topology graph'."""
+
+    def test_tooltip_carries_top_terms_when_labels_available(self, isolated_home, monkeypatch):
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._task_to_topology_basin",
+            lambda: {"coding": "b07"},
+        )
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._topology_basin_labels",
+            lambda: {"b07": "refactor · function · type"},
+        )
+        from trinity_local.launchpad_data import build_recent_cards_html
+        cards = [{
+            "council_id": "c001",
+            "chain_root_id": "t001",
+            "review_page_path": "c001.html",
+            "title": "Refactor X?",
+            "winner_provider": "claude",
+            "created_at": "2026-05-13T10:00:00",
+            "segment_count": 1,
+            "task_type": "coding",
+        }]
+        html = build_recent_cards_html(cards)
+        # Tooltip should carry the top-terms text. The exact prefix
+        # matches the Vue + JS helpers so the wording is consistent
+        # across launchpad + viewer.
+        assert 'title="Basin b07 — refactor · function · type"' in html, (
+            "recent-card → topology chip tooltip missing basin top-terms"
+        )
+
+    def test_tooltip_falls_back_when_labels_empty(self, isolated_home, monkeypatch):
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._task_to_topology_basin",
+            lambda: {"coding": "b07"},
+        )
+        monkeypatch.setattr(
+            "trinity_local.launchpad_data._topology_basin_labels",
+            lambda: {},  # no labels → fallback path
+        )
+        from trinity_local.launchpad_data import build_recent_cards_html
+        cards = [{
+            "council_id": "c001",
+            "chain_root_id": "t001",
+            "review_page_path": "c001.html",
+            "title": "Refactor X?",
+            "winner_provider": "claude",
+            "created_at": "2026-05-13T10:00:00",
+            "segment_count": 1,
+            "task_type": "coding",
+        }]
+        html = build_recent_cards_html(cards)
+        assert 'title="Open basin b07 in the topology graph"' in html, (
+            "fallback tooltip path broken — cold install will render no title"
+        )
+
+
 class TestRecentCardTopologyChip:
     """The chip must render only when task_type → basin map has a match.
     Without a match, the recent card shows only → pick + → routing."""
