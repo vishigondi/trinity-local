@@ -59,7 +59,20 @@ def get_cached(text: str, *, dim: int = 768) -> list[float] | None:
 
 
 def put_cached(text: str, vector: list[float], *, dim: int = 768) -> None:
-    """Store a vector in the cache."""
+    """Store a vector in the cache.
+
+    Silently refuses non-finite vectors (NaN/Inf components). The cache
+    is the embedding persistence boundary — once a bad vector is cached
+    it sticks, gets re-served on every cache hit, and poisons every
+    downstream cosine matmul. Meta-principle #3: filter at the boundary,
+    not at every consumer. Callers receive None as the same signal as
+    "not cached" so the caller code path is unchanged.
+    """
+    # Late import — `embeddings/__init__.py` imports cache at module load,
+    # so a top-level import here would be circular.
+    from . import is_finite_embedding
+    if not is_finite_embedding(vector):
+        return
     index = _load_index()
     key = _text_key(text, dim)
     if key in index:

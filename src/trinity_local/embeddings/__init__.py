@@ -85,6 +85,12 @@ def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
     MLX may fail at runtime (network issues, model not cached, permission errors).
     Any failure falls back gracefully to TF-IDF, ensuring offline availability.
 
+    Non-finite vectors (NaN/Inf) are replaced with TF-IDF for the same
+    text before being cached or returned. MLX can occasionally emit
+    non-finite components under memory pressure or quantization edge
+    cases; the sanitization gate at this boundary means downstream
+    matmuls (basins k-means, depth_score cosine, etc.) never see them.
+
     If the caller pre-prepended a Nomic task prefix (search_query:, search_document:,
     clustering:, classification:), it is preserved. Otherwise the MLX backend
     auto-prepends search_document: for backwards compatibility.
@@ -103,7 +109,7 @@ def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
             # Fall back to TF-IDF
             vector = None
 
-    if vector is None:
+    if vector is None or not is_finite_embedding(vector):
         vector = embed_tfidf(text, dim=dim)
 
     put_cached(text, vector, dim=dim)
@@ -135,6 +141,15 @@ def embed_batch(texts: list[str], *, dim: int = DEFAULT_DIM, batch_size: int = 6
 
     if new_vectors is None:
         new_vectors = [embed_tfidf(t, dim=dim) for t in uncached_texts]
+    else:
+        # Replace any non-finite vectors with TF-IDF fallback for that
+        # specific text. MLX can emit NaN/Inf under memory pressure or
+        # quantization edge cases; sanitizing here means downstream
+        # matmuls (basins, depth, vocabulary, cross_provider) never see
+        # them. Meta-principle #3: filter at the boundary.
+        for i, vec in enumerate(new_vectors):
+            if not is_finite_embedding(vec):
+                new_vectors[i] = embed_tfidf(uncached_texts[i], dim=dim)
 
     # Stitch results back in order + write to cache
     for idx, vec in zip(uncached_indices, new_vectors):

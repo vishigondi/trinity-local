@@ -173,3 +173,74 @@ class TestIsFiniteEmbedding:
         from trinity_local.embeddings import is_finite_embedding
         assert not is_finite_embedding([1.0, float("inf"), 0.5])
         assert not is_finite_embedding([1.0, float("-inf"), 0.5])
+
+
+class TestWriteBoundaryNaNGate:
+    """Per meta-principle #3 (filter at the boundary, not the consumer):
+    non-finite vectors must never enter the cache and must never be
+    returned by embed()/embed_batch(). MLX has been observed emitting
+    NaN under memory pressure or quantization edges — without these
+    gates a single bad vector poisons every downstream cosine matmul,
+    and the cache makes the poisoning permanent across runs."""
+
+    def test_put_cached_refuses_nan(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        bad = [1.0, float("nan"), 0.5] + [0.0] * 765
+        cache_mod.put_cached("nan-text", bad, dim=768)
+        assert cache_mod.get_cached("nan-text", dim=768) is None
+
+    def test_put_cached_refuses_inf(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        bad = [1.0, float("inf"), 0.5] + [0.0] * 765
+        cache_mod.put_cached("inf-text", bad, dim=768)
+        assert cache_mod.get_cached("inf-text", dim=768) is None
+
+    def test_put_cached_accepts_finite(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        good = [0.1] * 768
+        cache_mod.put_cached("good-text", good, dim=768)
+        assert cache_mod.get_cached("good-text", dim=768) == good
+
+    def test_embed_sanitizes_nan_from_backend(self, tmp_path, monkeypatch):
+        """When the MLX backend produces a non-finite vector, embed()
+        falls back to TF-IDF instead of returning the poison."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        from trinity_local import embeddings
+
+        class _BadBackend:
+            def embed(self, text, *, dim=768):
+                return [1.0, float("nan"), 0.5] + [0.0] * (dim - 3)
+
+        monkeypatch.setattr(embeddings, "_mlx_backend", _BadBackend())
+        vec = embeddings.embed("sanitize me", dim=768)
+        assert len(vec) == 768
+        assert all(v == v for v in vec)  # no NaN
+        assert all(v not in (float("inf"), float("-inf")) for v in vec)
+
+    def test_embed_batch_sanitizes_nan_from_backend(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import trinity_local.embeddings.cache as cache_mod
+        cache_mod._index = None
+        from trinity_local import embeddings
+
+        class _BadBackend:
+            def embed_batch(self, texts, *, dim=768, batch_size=64):
+                # One bad, one good. Test that the bad index is replaced
+                # via TF-IDF while the good one passes through.
+                good = [0.1] * dim
+                bad = [1.0, float("nan"), 0.5] + [0.0] * (dim - 3)
+                return [bad if i == 0 else good for i in range(len(texts))]
+
+        monkeypatch.setattr(embeddings, "_mlx_backend", _BadBackend())
+        out = embeddings.embed_batch(["nan-text", "ok-text"], dim=768)
+        assert len(out) == 2
+        assert all(v == v for v in out[0])  # NaN replaced with TF-IDF
+        assert all(v == v for v in out[1])
