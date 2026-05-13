@@ -24,10 +24,29 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional, Sequence
 
 from ..memory.store import iter_prompt_nodes
 from ..state_paths import state_dir
+
+
+# k-LLMmeans hook contract (tick #52). The relabel hook receives, per
+# basin, the basin id + size + a list of the K depth-ranked
+# representative thread prompts (verbatim, not summaries). It returns
+# a list of replacement centroid vectors, one per basin in the same
+# order. The vectors should be the same dimensionality as the input
+# embeddings — production callers will embed a chairman-produced
+# label and pass the embedding.
+#
+# When hook is None or iterations=1, compute_basins behaves exactly
+# as before (single k-means pass). The interface is dependency-free
+# so tests can pass a deterministic Python callable + production
+# can wire the actual chairman via lens-build's existing provider
+# plumbing.
+KLLMmeansHook = Callable[
+    [list[dict[str, Any]]],   # one dict per current basin
+    list[Sequence[float]],     # replacement centroids, same order
+]
 
 
 _DEFAULT_K = 20
@@ -196,7 +215,13 @@ def _top_terms_for_cluster(texts: list[str], all_texts: list[str], top_n: int = 
     return [w for w, _ in scored[:top_n]]
 
 
-def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Basin]:
+def compute_basins(
+    *,
+    k: int = _DEFAULT_K,
+    seed: int = _DEFAULT_SEED,
+    iterations: int = 1,
+    relabel_hook: Optional[KLLMmeansHook] = None,
+) -> list[Basin]:
     """Cluster threads (sessions) into k basins.
 
     Each thread's centroid is the mean embedding of its turns. We cluster
@@ -209,6 +234,23 @@ def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Ba
 
     Skips nodes without embeddings. Returns basins sorted by total turn
     count descending so b00 is the most prevalent.
+
+    **k-LLMmeans iteration (tick #52):** when `iterations > 1` AND
+    `relabel_hook` is provided, the function loops:
+      1. Run k-means / assign threads to nearest centroid
+      2. Build minimal basin summaries (id, size, top-3 representative
+         verbatim prompts)
+      3. Call relabel_hook → get replacement centroid per basin (in
+         production these are embeddings of chairman-produced labels)
+      4. Re-assign each thread to nearest replacement centroid
+      5. Repeat until iterations exhausted
+
+    Reference: ClusterLLM (EMNLP 2023, arXiv:2305.14871) +
+    k-LLMmeans (arXiv:2502.09667). The chairman steers centroid
+    drift toward semantic coherence — fixes the b11-style failure
+    where surface keywords pull semantically distant threads into
+    one basin. With iterations=1 (default) or no hook, behaviour
+    is identical to vanilla k-means.
     """
     try:
         import numpy as np
@@ -256,6 +298,73 @@ def compute_basins(*, k: int = _DEFAULT_K, seed: int = _DEFAULT_SEED) -> list[Ba
     REPRESENTATIVE_K = 5
     REPRESENTATIVE_MAX_CHARS = 280
     TURNS_PER_REP = 10  # cap turns rendered per representative thread
+
+    # k-LLMmeans refinement loop. Each iteration: the hook receives
+    # the current basin's top-3 representative thread prompts, returns
+    # a replacement centroid (typically the embedding of a chairman-
+    # produced semantic label). Threads re-assign to nearest new
+    # centroid. The geometry settles toward labels-as-anchors instead
+    # of pure-geometric-mean centroids. Stop early if hook returns
+    # the wrong number of centroids (defensive — defective hook can't
+    # corrupt the basin output).
+    if relabel_hook is not None and iterations > 1:
+        for _ in range(iterations - 1):
+            # Build the hook input: per-basin summary the hook can
+            # reason over. K reps = 3 here (the hook should keep its
+            # chairman prompts tight); not the same K as the final
+            # render's REPRESENTATIVE_K.
+            HOOK_REPS_K = 3
+            payload: list[dict[str, Any]] = []
+            for cluster_idx in range(len(basin_centroids)):
+                cluster_thread_indices = [
+                    ti for ti, lbl in enumerate(labels) if lbl == cluster_idx
+                ]
+                if not cluster_thread_indices:
+                    payload.append({"basin_id": f"b{cluster_idx:02d}", "size": 0, "reps": []})
+                    continue
+                centroid_vec = basin_centroids[cluster_idx]
+                # Closest threads to current centroid → most-representative.
+                sorted_by_distance = sorted(
+                    cluster_thread_indices,
+                    key=lambda ti: float(np.linalg.norm(thread_centroids[ti] - centroid_vec)),
+                )
+                reps_for_hook: list[str] = []
+                for ti in sorted_by_distance[:HOOK_REPS_K]:
+                    turn_idx_in_nodes = threads[thread_ids[ti]]
+                    # Use the first turn (or single turn) as the rep prompt.
+                    if turn_idx_in_nodes:
+                        text = (nodes[turn_idx_in_nodes[0]].text or "").strip()
+                        if text:
+                            reps_for_hook.append(text[:280])
+                payload.append({
+                    "basin_id": f"b{cluster_idx:02d}",
+                    "size": sum(len(threads[thread_ids[ti]]) for ti in cluster_thread_indices),
+                    "reps": reps_for_hook,
+                })
+            try:
+                new_centroids = relabel_hook(payload)
+            except Exception:
+                # Hook failure must not corrupt the clustering — fall
+                # back to current centroids and break the loop.
+                break
+            # Defensive shape check: hook must return one centroid per
+            # input basin, same dimensionality. If anything's off,
+            # break + keep the prior iteration's centroids.
+            if not isinstance(new_centroids, (list, tuple)) or len(new_centroids) != len(basin_centroids):
+                break
+            try:
+                new_arr = np.array(new_centroids, dtype=np.float32)
+            except Exception:
+                break
+            if new_arr.shape != basin_centroids.shape:
+                break
+            basin_centroids = new_arr
+            # Re-assign every thread to nearest replacement centroid.
+            # Plain euclidean since embeddings are nomic-normalized.
+            distances = np.linalg.norm(
+                thread_centroids[:, None, :] - basin_centroids[None, :, :], axis=2,
+            )
+            labels = distances.argmin(axis=1).tolist()
 
     basins: list[Basin] = []
     for cluster_idx in range(len(basin_centroids)):
