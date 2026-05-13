@@ -208,6 +208,41 @@ def _check_mcp_available() -> CheckResult:
         )
 
 
+def _check_shortcut_installed() -> CheckResult:
+    """Macros Shortcut named "Trinity Dispatch" must be in the user's library.
+
+    This was the silent-failure root cause behind tick #69's 3-of-19
+    (16%) verdict-capture rate: every "Preferred" click in the launchpad
+    fires a `shortcut://` URL that goes nowhere when the Shortcut isn't
+    installed, and the UI lied about success until tick #71's verify
+    path landed. The doctor now surfaces this preemptively so cold
+    installs never reach the rating step blind.
+    """
+    try:
+        from .shortcut_setup import _shortcut_installed, DEFAULT_SHORTCUT_NAME
+    except Exception as exc:
+        return CheckResult(
+            name="shortcut_installed",
+            ok=False,
+            detail=f"could not import shortcut_setup: {exc}",
+        )
+    if _shortcut_installed():
+        return CheckResult(
+            name="shortcut_installed",
+            ok=True,
+            detail=f"'{DEFAULT_SHORTCUT_NAME}' Shortcut is registered",
+        )
+    return CheckResult(
+        name="shortcut_installed",
+        ok=False,
+        detail=(
+            f"'{DEFAULT_SHORTCUT_NAME}' Shortcut missing — launchpad ratings, "
+            f"council launches, and refinements will silently fail to fire"
+        ),
+        fix="trinity-local shortcut-install   # adds the macOS Shortcut",
+    )
+
+
 def _check_prompts_seeded() -> CheckResult:
     """Soft check: do we have any prompt history? Doctor passes either way
     (a fresh install is legitimately empty), but surfaces a hint.
@@ -288,6 +323,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_trinity_home())
     report.checks.append(_check_config())
     report.checks.append(_check_mcp_available())
+    report.checks.append(_check_shortcut_installed())
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))
     report.checks.append(_check_provider("gemini", "gemini"))

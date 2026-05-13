@@ -140,3 +140,41 @@ class TestDoctorReport:
         assert "✗" in out
         assert "→ fix:" in out
         assert "https://example.com" in out
+
+
+class TestShortcutCheck:
+    """Tick #72 — doctor surfaces the macOS Shortcut registration
+    proactively. This was the silent-failure root cause behind the
+    16% verdict-capture rate (tick #69 census)."""
+
+    def test_check_uses_shortcut_setup_helper(self, monkeypatch):
+        """The check delegates to shortcut_setup._shortcut_installed.
+        Stubbing the helper drives the check's ok/fix paths
+        deterministically."""
+        import trinity_local.shortcut_setup as setup
+        from trinity_local.doctor import _check_shortcut_installed
+
+        # OK branch
+        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_args, **_kw: True)
+        result = _check_shortcut_installed()
+        assert result.ok is True
+        assert "registered" in result.detail.lower()
+
+        # Failure branch — must surface the fix command so users know
+        # what to do without reading the source.
+        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_args, **_kw: False)
+        result = _check_shortcut_installed()
+        assert result.ok is False
+        assert "silently fail" in result.detail.lower()
+        assert result.fix is not None
+        assert "shortcut-install" in result.fix
+
+    def test_run_doctor_includes_shortcut_check(self, tmp_path, monkeypatch):
+        """The shortcut check is wired into run_doctor()'s check list —
+        without this, the cold-install user runs doctor, sees all-green,
+        opens the launchpad, and their first verdict click goes nowhere."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        from trinity_local.doctor import run_doctor
+        report = run_doctor()
+        names = {c.name for c in report.checks}
+        assert "shortcut_installed" in names
