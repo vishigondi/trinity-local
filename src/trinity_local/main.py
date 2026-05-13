@@ -36,6 +36,7 @@ CORE_COMMAND_MODULES = (
     "cortex",
     "council",
     "council_last",
+    "depth",
     "distill",
     "doctor",
     "dream",

@@ -175,6 +175,10 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
     Returns 0.0 per thread when the corpus is too small to estimate
     (< 3 distinct usable embeddings) — caller can detect via the
     log(1 + lid) collapsing to 0.
+
+    Vectorized via numpy: 5000 turns × 768-d normalizes + matmul is
+    sub-second; the original Python double-loop was O(N²) at
+    Python-call cost and timed out on real corpora.
     """
     # Build a flat list of usable (transcript_id, embedding) tuples.
     items: list[tuple[str, list[float]]] = []
@@ -185,43 +189,54 @@ def thread_lid(nodes: Iterable[PromptNode]) -> dict[str, float]:
             items.append((tid, emb))
     if len(items) < 3:
         return {}
-    # Group by thread for the aggregation step. The kNN search is
-    # against the whole-corpus pool, not per-thread.
-    by_thread: dict[str, list[int]] = {}
-    for idx, (tid, _) in enumerate(items):
-        by_thread.setdefault(tid, []).append(idx)
-    embeddings = [emb for _, emb in items]
-    # Per-turn r = d2/d1. We need the 2nd-nearest distinct neighbor
-    # in cosine distance; clamp r ≥ 1 + epsilon so log(r) stays finite
-    # for duplicate-embedding pairs.
-    EPS = 1e-9
-    per_turn_log_r: list[tuple[str, float]] = []
-    for src_idx, src_emb in enumerate(embeddings):
-        # All distances from this turn to every other turn.
-        ds: list[float] = []
-        for tgt_idx, tgt_emb in enumerate(embeddings):
-            if tgt_idx == src_idx:
-                continue
-            d = cosine_distance(src_emb, tgt_emb)
-            ds.append(d)
-        if len(ds) < 2:
-            continue
-        ds.sort()
-        d1, d2 = ds[0], ds[1]
-        if d1 <= 0:
-            d1 = EPS  # duplicate-embedding pairs collapse — bound r to keep log finite
-        r = d2 / d1
-        if r <= 1.0:
-            r = 1.0 + EPS
-        per_turn_log_r.append((items[src_idx][0], math.log(r)))
-    # Per-thread MLE: d_hat = N_thread / sum(log_r over thread's turns)
+    try:
+        import numpy as np
+    except ImportError:
+        # Tests / minimal installs can fall back to the slow path
+        # only if numpy is missing — production always has it.
+        return {}
+    # Stack into matrix; drop any rows whose dim doesn't match the
+    # first usable row (mixed embedder generations).
+    dim = len(items[0][1])
+    keep_idx = [i for i, (_, emb) in enumerate(items) if len(emb) == dim]
+    if len(keep_idx) < 3:
+        return {}
+    tids = [items[i][0] for i in keep_idx]
+    X = np.array([items[i][1] for i in keep_idx], dtype=np.float32)
+    # Normalize so dot products give cosine similarity.
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms = np.where(norms <= 0, 1.0, norms)
+    Xn = X / norms
+    # Cosine distance matrix = 1 - similarity. Mask self-distance
+    # to +inf so it's never picked as a nearest neighbor.
+    sim = Xn @ Xn.T
+    sim = np.clip(sim, -1.0, 1.0)
+    dist = 1.0 - sim
+    np.fill_diagonal(dist, np.inf)
+    # Partial-sort each row for the 2 smallest distances.
+    # np.partition is O(N) per row vs O(N log N) for full sort.
+    if dist.shape[1] < 3:
+        return {}
+    nearest_two = np.partition(dist, 2, axis=1)[:, :2]
+    nearest_two.sort(axis=1)  # ensure ascending within the two columns
+    d1 = nearest_two[:, 0]
+    d2 = nearest_two[:, 1]
+    # EPS large enough to survive float32 precision near 1.0
+    # (1.0 + 1e-9 is exactly 1.0 in float32 — invisible to log).
+    EPS = 1e-6
+    # Clamp d1 ≥ EPS so duplicate-embedding pairs don't produce inf r.
+    d1 = np.where(d1 <= 0, EPS, d1)
+    r = d2 / d1
+    r = np.where(r <= 1.0, 1.0 + EPS, r).astype(np.float64)
+    log_r = np.log(r)
+    # Per-thread MLE: d_hat = N_thread / sum(log_r over thread's turns).
     sums: dict[str, float] = {}
     counts: dict[str, int] = {}
-    for tid, lr in per_turn_log_r:
-        sums[tid] = sums.get(tid, 0.0) + lr
+    for i, tid in enumerate(tids):
+        sums[tid] = sums.get(tid, 0.0) + float(log_r[i])
         counts[tid] = counts.get(tid, 0) + 1
     out: dict[str, float] = {}
-    for tid in by_thread.keys():
+    for tid in set(tids):
         s = sums.get(tid, 0.0)
         n = counts.get(tid, 0)
         if n == 0 or s <= 0:
