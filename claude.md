@@ -399,6 +399,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
 | `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
 | `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/lens-build follow-up) |
+| `commands/depth.py` | `depth-show` (top-N threads by depth-score composite: corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10); LID gated to N≥5 turns by default, `TRINITY_LID_MIN_TURNS` env tunes) |
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |

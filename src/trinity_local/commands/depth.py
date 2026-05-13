@@ -1,16 +1,24 @@
 """Handler for `depth-show` — surface the top depth-ranked threads.
 
-Inspector for the pure-geometry depth signal from src/trinity_local/me/depth.py
-(corpus_distance × log(1+inter_turn) × log(1+LID)). Lets the user
-look at which threads the geometry thinks are deep before the
-chairman steers clustering in tick #53+. Same shape as
-`merges-show` — compute-view-on-demand, no separate state file.
+Inspector for the pure-geometry depth signal from src/trinity_local/me/depth.py:
+
+    score = 1.0 * corpus_distance
+          + 0.5 * log(1 + inter_turn_distance)
+          + 0.5 * tanh(LID / 10)
+
+Additive composition (changed tick #54 — the original multiplicative
+shape collapsed for single-turn threads since log(1+0)=0). LID is
+gated at N≥5 turns by default (tick #84) so short threads don't
+saturate via TwoNN's LID_CAP; override with `TRINITY_LID_MIN_TURNS`.
+
+Lets the user look at which threads the geometry thinks are deep.
+Compute-view-on-demand, no separate state file.
 
 The user-facing test: do the top-ranked threads actually look like
-deep thought, or is the geometric signal noisy on real data? If
-real-corpus validation says yes, the depth-rank → chairman-in-the-
-loop path is grounded; if it says no, we adjust the composite
-before wasting chairman calls on noise.
+deep thought? Tick #84's data audit found that pre-gate the top-10
+was dominated by 2-turn chore prompts with capped LID. Post-gate,
+the same corpus surfaces multi-turn substantial conversations.
+Re-run after a fresh `seed-from-taste-terminal` to verify.
 """
 from __future__ import annotations
 
@@ -20,7 +28,7 @@ import json
 def register(subparsers):
     sp = subparsers.add_parser(
         "depth-show",
-        help="Show top-N threads by depth score (geometric: corpus distance × inter-turn × LID)",
+        help="Show top-N threads by depth score (corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10))",
     )
     sp.add_argument("--top", type=int, default=10, help="Number of threads to show (default 10)")
     sp.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
@@ -113,4 +121,5 @@ def handle_depth_show(args):
     print()
     print("  score = 1.0*corpus_distance + 0.5*log(1+inter_turn) + 0.5*tanh(LID/10)")
     print("  Higher = thread sits further from corpus mean, moved through embedding space, sampled more axes.")
-    print("  (additive composition so single-turn outliers still rank — fixed tick #54)")
+    print("  Additive composition so single-turn outliers still rank (tick #54).")
+    print("  LID gated to threads with ≥5 turns by default (tick #84) — set TRINITY_LID_MIN_TURNS=N to override.")
