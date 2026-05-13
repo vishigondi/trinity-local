@@ -168,6 +168,50 @@ shapes that earned their rules by costing time:
     function/gate actually do" needs to evolve with the code or it
     becomes invisible armor.
 
+16. **In numerical pipelines, one bad value is worse than zero.** A
+    single non-finite row in a cosine similarity matrix propagates
+    NaN through every column-wise inner product downstream — the bad
+    row corrupts every *other* thread's distance, not just its own.
+    Tick #55 hit this exact shape (`thread_lid` poisoned downstream
+    `depth_score` for ~40 unrelated `gemini_takeout` transcripts via
+    one stale-embedding row). The fix is two-layer: gate at the write
+    boundary (cache + `embed`/`embed_batch` sanitize) so the bad
+    value can't enter the pipeline, AND keep consumer-side filters
+    as defense in depth because the cost-on-leak is catastrophic.
+    Generalizes beyond embeddings: any numpy/matmul-shaped pipeline
+    (Elo updates, attention layers, normalization passes) has this
+    same one-poisons-many failure mode. Filter at the boundary; the
+    cache is the boundary's permanent half.
+
+17. **Three inline shapes of the same check means a missing helper.**
+    Tick #56 found the NaN filter inlined three different ways —
+    `_embedding_is_finite()` in `me/depth.py`, inline
+    `any(v != v or v == inf …)` in `me/basins.py`,
+    `_valid_embedding()` (bundled with a dim check) in `me_builder.py`.
+    Two more consumers (`cross_provider_pairs`, `vocabulary`) had
+    forgotten the check entirely. When the same logical operation
+    is implemented inline in ≥3 places with subtle differences, that
+    drift is a bug magnet: principle #4 ("audit for shape") only
+    finds bugs that have already manifested. Promote to a function
+    at threshold N=3 so the audit-for-shape future-you has one name
+    to grep. Distinct from premature abstraction — the function
+    already exists, it's just inlined N times.
+
+18. **Embedding similarity isn't structural similarity.** Trinity's
+    embedder (nomic-768d) measures *topic-near*. Two fixes with the
+    same shape (basins.py prompt_ids cap → silent membership lookup
+    failure; vocabulary 5000-node cap → corpus truncation) live in
+    completely different parts of embedding space because they talk
+    about different domains. Meta-principles — and any other
+    "structurally similar despite topic-different" signal — need a
+    second pass: extract a label per item via chairman/rule-
+    extraction, embed *those*, then cluster across topic-different
+    basins. The principles.md pipeline (task #109) is the concrete
+    artifact; the lens Stage 4 post-filter ("drop pairs whose
+    tension evidence sits in a single basin") is the same shape at
+    a different level. When asked to find "patterns that recur,"
+    don't reach for the embedder — reach for a label extractor first.
+
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
