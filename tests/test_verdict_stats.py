@@ -182,6 +182,22 @@ class TestShortcutStatus:
         assert "copyText('trinity-local consolidate', 'cortex-rebuild')" in html
         assert "copiedKey === 'cortex-rebuild'" in html
 
+    def test_provider_install_button_has_flash_feedback(self, isolated_home):
+        """Tick #82 — provider install ⧉ button gets ✓ flash feedback
+        when clicked. Same shape as the rebuild chips: copyText now
+        accepts (value, flashKey), and the button content swaps based
+        on `copiedKey === '<key>'`. Catches a regression that drops
+        the flash key — the button would still copy but the user
+        would have no idea the click registered."""
+        from trinity_local.launchpad_page import render_launchpad_html
+        html = render_launchpad_html()
+        # The flashKey arg distinguishes per-provider clicks; key shape
+        # must be 'install-' + provider name so simultaneous installs
+        # don't share a flash key.
+        assert "copyText(provider.installCommand, 'install-' + provider.provider)" in html
+        # The conditional render that drives the icon swap
+        assert "copiedKey === 'install-' + provider.provider" in html
+
     def test_rebuild_chips_use_shared_css_class(self, isolated_home):
         """Tick #80 — both launchpad rebuild chips share the
         `.lp-rebuild-chip` CSS class instead of duplicating ~200-char

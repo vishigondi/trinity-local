@@ -866,11 +866,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <button
                   type="button"
                   class="icon-action"
-                  @click="copyText(provider.installCommand)"
+                  @click="copyText(provider.installCommand, 'install-' + provider.provider)"
                   title="Copy install command"
                   aria-label="Copy install command"
                 >
-                  ⧉
+                  <!-- Tick #82: pass a flash key so the icon swaps to ✓
+                       on click. Same shape as the rebuild chips (#76,
+                       #77, #79) — gives the user confirmation the copy
+                       actually landed. Without this the button stays
+                       ⧉ forever and the click feels unobservable. -->
+                  <span v-if="copiedKey === 'install-' + provider.provider">✓</span>
+                  <span v-else>⧉</span>
                 </button>
               </div>
             </div>
