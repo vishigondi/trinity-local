@@ -12,7 +12,6 @@ from .training_schema import (
     RawSessionRef,
     SessionFeatures,
     ToolSummary,
-    TranscriptWindow,
 )
 
 
@@ -260,29 +259,3 @@ def extract_session_features(session: SessionRecord) -> SessionFeatures:
     )
 
 
-def make_transcript_window(features: SessionFeatures, *, task_kind_hint: str | None = None, role_hint: str | None = None) -> TranscriptWindow:
-    return TranscriptWindow(
-        session_id=features.session_id,
-        provider=features.provider,
-        source_path=features.raw.source_path,
-        started_at=features.started_at,
-        ended_at=features.ended_at,
-        cwd=features.cwd,
-        project_hint=features.project_hint,
-        first_user_text=features.first_user_text,
-        planner_text=features.planner_text,
-        final_text=features.final_text,
-        task_kind_hint=task_kind_hint,
-        role_hint=role_hint,
-        model=features.model,
-        tools=features.tools,
-        outcome=features.outcome,
-        extra={
-            "slash_commands": features.slash_commands,
-            "mcp_servers": features.mcp_servers,
-            "did_edit_files": features.did_edit_files,
-            "did_run_shell": features.did_run_shell,
-            "did_use_web": features.did_use_web,
-            "did_use_mcp": features.did_use_mcp,
-        },
-    )

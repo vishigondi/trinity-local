@@ -323,10 +323,6 @@ def cortex_routing_patterns_path() -> Path:
     return picks_path()
 
 
-def cortex_model_checkpoints_path() -> Path:
-    return cortex_dir() / "model_checkpoints.json"
-
-
 def prompt_nodes_path() -> Path:
     return memory_dir() / "prompt_nodes.jsonl"
 

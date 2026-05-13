@@ -134,13 +134,6 @@ def iter_prompt_nodes(*, limit: object = _UNSET) -> Iterator[PromptNode]:
     yield from nodes
 
 
-def invalidate_prompt_node_cache() -> None:
-    """Clear the in-process cache (used after batch upserts complete)."""
-    global _PROMPT_NODE_CACHE, _PROMPT_NODE_CACHE_KEY
-    _PROMPT_NODE_CACHE = None
-    _PROMPT_NODE_CACHE_KEY = None
-
-
 def iter_turn_windows() -> Iterator[TurnWindow]:
     for record in _iter_jsonl_latest_by_id(turn_windows_path()):
         try:
