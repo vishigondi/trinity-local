@@ -165,7 +165,11 @@ async def handle_list_tools() -> list[Tool]:
                 "it, Trinity is just a switchboard. "
                 "If the user abandoned the council without picking a winner (e.g. a member "
                 "hung or the user lost interest), pass `accepted=false` and omit `user_winner`. "
-                "Abandonment is a valid signal."
+                "Abandonment is a valid signal. "
+                "TRIGGER: when a prior `run_council` or `get_council_status` response carries "
+                "a `rate_action` field, the council is awaiting the user's verdict. Surface "
+                "the rating prompt to the user immediately, then call this tool with their "
+                "answer — that's how Trinity's personal routing table actually learns."
             ),
             inputSchema={
                 "type": "object",
@@ -956,6 +960,7 @@ async def _run_council(args: dict) -> list[Any]:
 
         if completed_status is not None:
             outcome_summary = None
+            rate_action: dict | None = None
             outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
             if outcome_path.exists():
                 try:
@@ -971,10 +976,13 @@ async def _run_council(args: dict) -> list[Any]:
                         "routing_lesson": getattr(label, "routing_lesson", "") if label else "",
                         "user_likely_values": list(getattr(label, "user_likely_values", []) or []) if label else [],
                     }
+                    rate_action = _build_rate_action(outcome)
                 except Exception:
                     outcome_summary = None
             response["status"] = completed_status.get("status")
             response["outcome"] = outcome_summary
+            if rate_action is not None:
+                response["rate_action"] = rate_action
         else:
             response["status"] = "running"
             response["timed_out_after_seconds"] = wait_seconds
@@ -1163,6 +1171,50 @@ async def _get_persona(args: dict) -> list[Any]:
     })]
 
 
+def _build_rate_action(outcome) -> dict | None:
+    """Pillar 4 funnel widener: when a council completes, the harness's MCP
+    response is the one place the agent always reads. Embedding a structured
+    "ask the user to rate this" hint there is the cheapest mechanism that
+    closes the supervision loop without forcing the user to the launchpad.
+
+    Returns the action hint when the outcome is completed-but-unrated; None
+    otherwise (already rated, or missing the metadata we'd write to). The
+    agent reads the hint and surfaces the rating prompt inline — Claude
+    Code / Codex CLI / Gemini CLI all expose tool-result text to the model,
+    so a `rate_action` field becomes part of the next turn's context.
+
+    Tested empirically: real corpus had 3 of 19 councils rated (16%) after
+    every passive surface (eyebrow badge, doctor check, top banner) shipped.
+    The funnel needs an *active* nudge at the moment of decision, not a
+    passive surface the user has to seek out. This is that nudge.
+    """
+    if outcome is None:
+        return None
+    metadata = getattr(outcome, "metadata", None) or {}
+    existing_verdict = (metadata.get("user_verdict") or {}).get("user_winner")
+    if existing_verdict:
+        return None  # already rated — don't nag
+    chairman_pick = getattr(outcome, "winner_provider", None) or getattr(outcome, "primary_provider", None)
+    council_run_id = getattr(outcome, "council_run_id", None)
+    if not council_run_id:
+        return None
+    pick_clause = f"The chairman picked `{chairman_pick}` — confirm or override." if chairman_pick else "Ask which member the user prefers."
+    return {
+        "needs_rating": True,
+        "council_run_id": council_run_id,
+        "chairman_pick": chairman_pick,
+        "instruction": (
+            f"This council awaits the user's verdict. {pick_clause} "
+            f"Then call `record_outcome` with `council_run_id={council_run_id!r}` "
+            f"and `user_winner=<their pick>`. If the user skips, call "
+            f"`record_outcome(council_run_id={council_run_id!r}, accepted=False)` so "
+            f"Trinity records the abandonment instead of leaving the council unlabeled. "
+            f"Trinity's personal routing table only learns from rated councils — "
+            f"unrated outcomes are zero supervision signal."
+        ),
+    }
+
+
 def _lookup_council_status(council_run_id: str) -> dict | None:
     """Find the live status file for a council, regardless of which token
     keyed it. Status files live at portal_pages/status/council_status_<token>.json
@@ -1199,6 +1251,7 @@ async def _get_council_status(args: dict) -> list[Any]:
     status_payload: dict | None = _lookup_council_status(council_run_id)
 
     outcome_summary: dict | None = None
+    rate_action: dict | None = None
     outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
     if outcome_path.exists():
         try:
@@ -1215,6 +1268,7 @@ async def _get_council_status(args: dict) -> list[Any]:
                 "user_likely_values": list(getattr(label, "user_likely_values", []) or []) if label else [],
                 "member_count": len(outcome.member_results),
             }
+            rate_action = _build_rate_action(outcome)
         except Exception:
             outcome_summary = None
 
@@ -1238,7 +1292,7 @@ async def _get_council_status(args: dict) -> list[Any]:
             for provider, info in members.items()
         }
 
-    return [_text({
+    status_response: dict = {
         "council_run_id": council_run_id,
         "status": (status_payload or {}).get("status") or ("completed" if outcome_summary else "unknown"),
         "task_text": (status_payload or {}).get("task_text"),
@@ -1246,7 +1300,10 @@ async def _get_council_status(args: dict) -> list[Any]:
         "synthesis_status": ((status_payload or {}).get("synthesis") or {}).get("status"),
         "review_path": (status_payload or {}).get("review_path"),
         "outcome": outcome_summary,
-    })]
+    }
+    if rate_action is not None:
+        status_response["rate_action"] = rate_action
+    return [_text(status_response)]
 
 
 async def run_stdio_server():

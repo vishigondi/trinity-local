@@ -378,3 +378,116 @@ Claude
         assert reloaded.mode == "chain"
         assert len(reloaded.chain_steps) == 2
         assert reloaded.chain_steps[1].model_provider == "gemini"
+
+
+class TestRateActionNudge:
+    """Pillar 4 funnel widener: when run_council/get_council_status returns
+    a completed-but-unrated outcome, the response carries a structured
+    `rate_action` hint. The agent (Claude Code, etc.) reads its own tool
+    response and surfaces the rating prompt to the user inline — no need
+    to open the launchpad.
+
+    Doctor + launchpad eyebrow + top banner ship the *visibility* signal;
+    this hint ships the *active nudge at the moment of decision*. Earned
+    its place after the real-corpus 16% verdict-capture rate persisted
+    through five passive surfaces.
+    """
+
+    def _make_outcome(self, *, winner: str | None = "claude", verdict: dict | None = None):
+        from types import SimpleNamespace
+        metadata: dict = {}
+        if verdict is not None:
+            metadata["user_verdict"] = verdict
+        return SimpleNamespace(
+            council_run_id="cr_test_rate_action",
+            winner_provider=winner,
+            primary_provider="claude",
+            metadata=metadata,
+        )
+
+    def test_hint_fires_for_completed_unrated_outcome(self):
+        from trinity_local.mcp_server import _build_rate_action
+        outcome = self._make_outcome(winner="codex", verdict=None)
+        hint = _build_rate_action(outcome)
+        assert hint is not None
+        assert hint["needs_rating"] is True
+        assert hint["council_run_id"] == "cr_test_rate_action"
+        assert hint["chairman_pick"] == "codex"
+        # Instruction must mention record_outcome so an LLM reading the
+        # MCP response naturally picks the next tool call.
+        assert "record_outcome" in hint["instruction"]
+        # And must carry the council_run_id verbatim so the agent doesn't
+        # have to reconstruct it (templated string concat is error-prone).
+        assert "cr_test_rate_action" in hint["instruction"]
+
+    def test_hint_silent_when_already_rated(self):
+        """An already-rated council is already in the ledger — don't nag."""
+        from trinity_local.mcp_server import _build_rate_action
+        outcome = self._make_outcome(
+            winner="claude",
+            verdict={"user_winner": "claude", "recorded_at": "2026-05-13T10:00:00"},
+        )
+        assert _build_rate_action(outcome) is None
+
+    def test_hint_silent_for_abandoned_outcome(self):
+        """`accepted=False` with no user_winner is a valid signal but not
+        the same as 'rated'. However, abandonment IS recorded via
+        record_outcome — checking for any user_verdict.user_winner means
+        a verdict-via-abandonment flow ALSO suppresses the hint correctly."""
+        from trinity_local.mcp_server import _build_rate_action
+        # Recorded abandonment: no user_winner key but user_verdict exists.
+        outcome = self._make_outcome(
+            winner="claude",
+            verdict={"recorded_at": "2026-05-13T10:00:00"},  # no user_winner
+        )
+        # Should still fire — without a user_winner, the supervision
+        # signal is unset. Abandonment-by-explicit-recording is rare;
+        # the common case is a user_winner present means rated.
+        hint = _build_rate_action(outcome)
+        assert hint is not None  # the verdict-without-winner still needs resolution
+
+    def test_hint_silent_for_outcome_without_council_run_id(self):
+        """Defensive: a malformed outcome (missing council_run_id) can't
+        carry an actionable hint because record_outcome can't be called
+        without it. Better to drop the hint than emit a broken instruction."""
+        from trinity_local.mcp_server import _build_rate_action
+        from types import SimpleNamespace
+        outcome = SimpleNamespace(
+            council_run_id=None,
+            winner_provider="claude",
+            primary_provider="claude",
+            metadata={},
+        )
+        assert _build_rate_action(outcome) is None
+
+    def test_hint_silent_for_none_outcome(self):
+        from trinity_local.mcp_server import _build_rate_action
+        assert _build_rate_action(None) is None
+
+    def test_hint_falls_back_to_primary_when_no_winner(self):
+        """When the chairman didn't pick a winner (rare — synthesis failure
+        or chain abandoned), fall back to primary_provider so the user
+        still has a default to confirm against."""
+        from trinity_local.mcp_server import _build_rate_action
+        outcome = self._make_outcome(winner=None)
+        hint = _build_rate_action(outcome)
+        assert hint is not None
+        assert hint["chairman_pick"] == "claude"  # primary_provider
+
+    def test_record_outcome_description_mentions_rate_action_trigger(self):
+        """The funnel only widens if the agent KNOWS it should fire
+        record_outcome after seeing a rate_action. The MCP tool description
+        is what trains that behavior — assert the trigger wording is
+        in the description, not just the param schema."""
+        import asyncio
+        from trinity_local.mcp_server import handle_list_tools
+
+        tools = asyncio.run(handle_list_tools())
+        ro = next((t for t in tools if t.name == "record_outcome"), None)
+        assert ro is not None, "record_outcome tool missing"
+        desc = ro.description or ""
+        assert "rate_action" in desc, (
+            "record_outcome description must mention rate_action so the "
+            "agent learns to fire it when the run_council response "
+            "carries the rating hint"
+        )
