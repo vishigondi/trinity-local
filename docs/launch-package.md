@@ -145,6 +145,41 @@ all point at the same architectural claim.
 5. **Product Hunt assets prepped** — me-card PNG + launchpad screenshot + 60-second
    demo video.
 
+**T-0 engineering sequence (run in order before any tweet ships):**
+
+  ```bash
+  # 1. Final verification — all guards green on current main
+  cd ~/projects/trinity-local
+  pytest -q                                  # 1063 tests
+  pytest tests/test_doc_count_consistency.py # 16 doc-consistency guards
+  bash scripts/smoke_install.sh local        # cold-install + 11 MCP tools
+
+  # 2. Flip the GitHub repo to public
+  gh repo edit vishigondi/trinity-local --visibility public --accept-visibility-change-consequences
+  # → every github.com/vishigondi/trinity-local URL in launch copy goes 200
+
+  # 3. Tag v1.0.0
+  git tag -a v1.0.0 -m "Trinity Local v1.0 — ships May 13–15, 2026"
+  git push origin v1.0.0
+
+  # 4. Build + publish to PyPI (needs ~/.pypirc with TestPyPI + PyPI creds)
+  python -m build       # produces dist/trinity_local-1.0.0-py3-none-any.whl
+  python -m twine check dist/*
+  python -m twine upload --repository testpypi dist/*    # smoke first
+  pip install --index-url https://test.pypi.org/simple/ --no-deps trinity-local==1.0.0  # verify TestPyPI
+  python -m twine upload dist/*                          # real PyPI
+  # → `pip install trinity-local` goes 200 everywhere
+
+  # 5. Verify the live state
+  curl -sf -o /dev/null -w "%{http_code}\n" https://pypi.org/pypi/trinity-local/json   # → 200
+  curl -sf -o /dev/null -w "%{http_code}\n" https://github.com/vishigondi/trinity-local # → 200
+  curl -sf -o /dev/null -w "%{http_code}\n" https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/council_outcome.schema.json # → 200
+
+  # 6. Generate the launchpad screenshot with FRESH eval numbers
+  trinity-local portal-html
+  trinity-local stats --share  # produces the leaderboard form for tweets
+  ```
+
 **T-0 day (launch — May 13–15):**
 6. **HN Show HN post goes live** — title and first comment per `docs/launch.md` (now
    updated with Dreaming hook).
