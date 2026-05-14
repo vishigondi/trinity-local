@@ -1285,6 +1285,45 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Rate-limit-saves: the Day-1 launch metric (docs/launch-package.md).
+           "Trinity routed N work-units around rate limits in the last
+           N days" is the case-study anchor for the post-Dreaming
+           positioning. Surfaces only when there's data — saves are a
+           side effect of using Trinity, not an action the user takes.
+           Empty until first save fires; once present, this is the
+           number the launch copy will quote. -->
+      <section class="card rate-limit-saves-card"
+               v-if="pageData.rateLimitSaves && pageData.rateLimitSaves.has_data"
+               style="border-left: 3px solid #2d8a3e; background: rgba(45, 138, 62, 0.04);">
+        <div class="eyebrow" style="color: #2d8a3e;">Rate-limit saves · last {{{{ pageData.rateLimitSaves.window_days }}}}d</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Work continued when Claude hit its limit
+          <span style="float: right; font-variant-numeric: tabular-nums; color: #2d8a3e;">
+            {{{{ pageData.rateLimitSaves.total_saves }}}}×
+          </span>
+        </h2>
+        <p class="meta" style="margin-top: 4px;">
+          {{{{ pageData.rateLimitSaves.total_saves }}}} of
+          {{{{ pageData.rateLimitSaves.total_calls }}}} ask calls were routed around a
+          rate-limited primary
+          ({{{{ (pageData.rateLimitSaves.save_rate * 100).toFixed(1) }}}}% save rate)
+        </p>
+        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
+          <li v-for="row in pageData.rateLimitSaves.by_failure_kind" :key="row.kind"
+              style="display: grid; grid-template-columns: 140px 60px 1fr; gap: 8px; align-items: center;">
+            <span>{{{{ row.kind }}}}</span>
+            <span class="meta">{{{{ row.count }}}}</span>
+            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.rateLimitSaves.total_saves * 100) + '%; background: #2d8a3e; border-radius: 3px;'"></span>
+            </span>
+          </li>
+        </ul>
+        <p class="meta" style="margin-top: 12px;">
+          The Day-1 case-study number. Run <code>trinity-local metric rate-limit-saves</code>
+          for the JSON, or watch this card grow as you use Trinity through real rate-limit hits.
+        </p>
+      </section>
+
       <section class="card eval-summary-card" v-if="pageData.evalSummary && !pageData.evalSummary.has_results">
         <div class="eyebrow">Personalized benchmark</div>
         <h2 style="margin-top: 4px; font-size: 18px;">

@@ -561,3 +561,130 @@ class TestEvalSummary:
         src = Path(__file__).resolve().parents[1] / "src/trinity_local/launchpad_data.py"
         text = src.read_text(encoding="utf-8")
         assert "\"evalSummary\":" in text or "'evalSummary':" in text
+
+
+class TestRateLimitSaves:
+    """Launchpad-side surface of the rate-limit-saves metric.
+
+    docs/launch-package.md names this as THE Day-1 number for the
+    launch case study. Helper reads dispatch_outcomes.jsonl, returns
+    the same shape the CLI metric command does so the launchpad and
+    `trinity-local metric rate-limit-saves` can't disagree.
+    """
+
+    def _write_outcomes(self, home: Path, entries: list[dict]):
+        analytics = home / "analytics"
+        analytics.mkdir(parents=True, exist_ok=True)
+        path = analytics / "dispatch_outcomes.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+        return path
+
+    def test_empty_when_no_analytics_file(self, isolated_home):
+        from trinity_local.launchpad_data import _rate_limit_saves
+        result = _rate_limit_saves()
+        assert result["has_data"] is False
+        assert result["total_saves"] == 0
+        assert result["save_rate"] == 0.0
+
+    def test_empty_when_no_saves_but_calls_exist(self, isolated_home):
+        """If there are dispatch_outcomes but none are saves (all
+        primary-succeeded), don't flip has_data — the card should stay
+        silent until there's a number worth bragging about."""
+        from trinity_local.launchpad_data import _rate_limit_saves
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        self._write_outcomes(isolated_home, [
+            {"at": now, "primary": "claude", "rate_limit_save": False},
+            {"at": now, "primary": "claude", "rate_limit_save": False},
+        ])
+        result = _rate_limit_saves()
+        assert result["has_data"] is False
+        assert result["total_calls"] == 2  # still surfaced for diagnostic
+
+    def test_populated_state_shape_matches_cli_metric(self, isolated_home):
+        """The launchpad number and `trinity-local metric rate-limit-saves`
+        must agree — if they drift, the launch claim and the user's
+        verification command will tell different stories.
+
+        Three entries: 2 saves + 1 plain call; primary=claude on
+        all saves; failure_kind=rate_limited on one, auth_failed on
+        the other.
+        """
+        from trinity_local.launchpad_data import _rate_limit_saves
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        self._write_outcomes(isolated_home, [
+            {"at": now, "primary": "claude", "rate_limit_save": True,
+             "failure_kind": "rate_limited"},
+            {"at": now, "primary": "claude", "rate_limit_save": True,
+             "failure_kind": "auth_failed"},
+            {"at": now, "primary": "claude", "rate_limit_save": False},
+        ])
+        result = _rate_limit_saves()
+        assert result["has_data"] is True
+        assert result["total_saves"] == 2
+        assert result["total_calls"] == 3
+        assert abs(result["save_rate"] - 0.667) < 0.01
+        # Sorted desc by count, stable.
+        kind_names = [r["kind"] for r in result["by_failure_kind"]]
+        assert sorted(kind_names) == ["auth_failed", "rate_limited"]
+        # by_primary_provider names a real provider (matches `primary`
+        # field in ask.py, not `primary_provider`). The bug shape is:
+        # if this helper reads the wrong field, by_primary becomes all
+        # "unknown" and the launch claim "Claude routed around X times"
+        # can't be supported.
+        assert result["by_primary_provider"][0]["provider"] == "claude"
+
+    def test_respects_30_day_window(self, isolated_home):
+        """Old saves outside the 30-day window aren't counted —
+        prevents stale data from inflating the launch claim."""
+        from trinity_local.launchpad_data import _rate_limit_saves
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        old = (now - timedelta(days=45)).isoformat()
+        fresh = now.isoformat()
+        self._write_outcomes(isolated_home, [
+            {"at": old, "primary": "claude", "rate_limit_save": True,
+             "failure_kind": "rate_limited"},
+            {"at": fresh, "primary": "claude", "rate_limit_save": True,
+             "failure_kind": "rate_limited"},
+        ])
+        result = _rate_limit_saves()
+        # 1 fresh save, 1 fresh call (window filters both)
+        assert result["total_saves"] == 1
+
+    def test_malformed_lines_skipped_without_crashing(self, isolated_home):
+        """Analytics never crash — a corrupt jsonl line shouldn't
+        take down the whole launchpad."""
+        from trinity_local.launchpad_data import _rate_limit_saves
+        from datetime import datetime, timezone
+        analytics = isolated_home / "analytics"
+        analytics.mkdir(parents=True, exist_ok=True)
+        path = analytics / "dispatch_outcomes.jsonl"
+        path.write_text(
+            'not json\n'
+            + json.dumps({
+                "at": datetime.now(timezone.utc).isoformat(),
+                "primary": "claude",
+                "rate_limit_save": True,
+                "failure_kind": "rate_limited",
+            }) + "\n"
+            + '\n'  # empty line
+            + '{broken: json,}\n',
+            encoding="utf-8",
+        )
+        result = _rate_limit_saves()
+        # The one valid line counts; the rest are silently dropped.
+        assert result["has_data"] is True
+        assert result["total_saves"] == 1
+
+    def test_rateLimitSaves_wired_into_build_page_data(self):
+        """Source-level wiring check (same shape as other launchpad
+        fields). Build_page_data must return the rateLimitSaves key
+        or the launchpad surface silently disappears."""
+        from pathlib import Path
+        src = Path(__file__).resolve().parents[1] / "src/trinity_local/launchpad_data.py"
+        text = src.read_text(encoding="utf-8")
+        assert "\"rateLimitSaves\":" in text or "'rateLimitSaves':" in text

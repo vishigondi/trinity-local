@@ -1915,6 +1915,69 @@ def main() -> int:
                 print(f"[ ✗ ] Surface 30 eval summary: {reason}")
                 fails.append((30, "eval summary card", reason))
 
+        # ─── Surface 32: Rate-limit-saves card (Day-1 launch metric) ──────────
+        # docs/launch-package.md names rate-limit-saves as THE Day-1 number
+        # for the launch case study. The card surfaces it on the launchpad
+        # so the user sees the count without running the CLI.
+        # Card is conditional: renders ONLY when `pageData.rateLimitSaves
+        # .has_data === true` — empty state is silent (saves are a side
+        # effect, not a user action). Two valid outcomes:
+        #   has_data=true  → card present, headline carries the count
+        #   has_data=false → card absent (silent, expected on fresh installs)
+        rate_limit_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const saves = data.rateLimitSaves || {};
+              const eyebrows = Array.from(document.querySelectorAll('.eyebrow'));
+              const eyebrow = eyebrows.find(el => /Rate-limit saves/i.test(el.textContent || ''));
+              const card = eyebrow ? eyebrow.closest('section.card') : null;
+              const headline = card ? card.querySelector('h2') : null;
+              return {
+                has_data: !!saves.has_data,
+                total_saves: saves.total_saves || 0,
+                save_rate: saves.save_rate || 0,
+                card_rendered: !!card,
+                headline: headline ? headline.textContent.replace(/\\s+/g, ' ').trim().slice(0, 120) : null,
+              };
+            }"""
+        )
+        if rate_limit_state.get("has_data"):
+            # When data exists, the card MUST render. Headline must
+            # show the total_saves count (the load-bearing number).
+            if not rate_limit_state.get("card_rendered"):
+                reason = (
+                    f"has_data=true but rate-limit-saves card not rendered "
+                    f"(launch's Day-1 metric is missing from the launchpad)"
+                )
+                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
+                fails.append((32, "rate-limit saves card", reason))
+            elif str(rate_limit_state["total_saves"]) not in (rate_limit_state.get("headline") or ""):
+                reason = (
+                    f"card rendered but headline lacks total_saves "
+                    f"{rate_limit_state['total_saves']}: headline={rate_limit_state.get('headline')!r}"
+                )
+                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
+                fails.append((32, "rate-limit saves card", reason))
+            else:
+                print(
+                    f"[ ✓ ] Surface 32 rate-limit saves: populated · "
+                    f"saves={rate_limit_state['total_saves']} rate={rate_limit_state['save_rate']:.3f}"
+                )
+        else:
+            # Empty branch: card MUST be absent. A render-on-empty would
+            # add launchpad noise to fresh installs where the user has
+            # nothing to brag about yet.
+            if rate_limit_state.get("card_rendered"):
+                reason = (
+                    f"card rendered with has_data=false "
+                    f"(empty state should be silent — saves are a side effect)"
+                )
+                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
+                fails.append((32, "rate-limit saves card", reason))
+            else:
+                print("[ ✓ ] Surface 32 rate-limit saves: empty state silent (no saves yet)")
+
         browser.close()
 
     print()
