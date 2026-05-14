@@ -1279,6 +1279,39 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span style="text-align: right;">{{{{ axis.mean.toFixed(2) }}}}</span>
           </li>
         </ul>
+        <!-- Cross-provider comparison: when Trinity has benchmark data
+             for ≥2 providers, surface the leaderboard side-by-side.
+             A journalist screenshotting the launchpad sees the wedge
+             ("Trinity scores models against YOUR rejections") only when
+             multiple providers are visible. Single-target renders just
+             the per-axis bars above; multi-target adds this leaderboard. -->
+        <div v-if="pageData.evalSummary.comparison && pageData.evalSummary.comparison.length >= 2"
+             style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);">
+          <div class="eyebrow" style="font-size: 11px;">Cross-provider leaderboard · YOUR corpus</div>
+          <ul style="list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums;">
+            <li v-for="(row, i) in pageData.evalSummary.comparison" :key="row.target"
+                style="display: grid; grid-template-columns: 24px 80px 50px 1fr 70px 70px; gap: 8px; align-items: center; font-size: 13px;">
+              <span class="meta" style="text-align: right;">{{{{ i + 1 }}}}.</span>
+              <span style="font-weight: 600;">{{{{ row.target }}}}</span>
+              <span class="meta">n={{{{ row.items_completed }}}}</span>
+              <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
+                <span v-if="row.aggregate_score !== null"
+                      :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.aggregate_score * 100) + '%; background: #2d8a3e; border-radius: 3px;'"></span>
+              </span>
+              <span style="text-align: right;">
+                <span v-if="row.aggregate_score !== null">{{{{ row.aggregate_score.toFixed(3) }}}}</span>
+                <span v-else class="meta">—</span>
+              </span>
+              <span class="meta" style="text-align: right;" v-if="row.judge">judge: {{{{ row.judge }}}}</span>
+              <span class="meta" style="text-align: right;" v-else></span>
+            </li>
+          </ul>
+          <p class="meta" style="margin-top: 8px; font-size: 12px;">
+            Each row is the most-recent <code>eval-run</code> per target. Judges
+            are rotated (a model never grades itself). The strongest score on
+            YOUR rejections wins, not the global leaderboard.
+          </p>
+        </div>
         <p class="meta" style="margin-top: 12px;">
           <code>trinity-local eval-show</code> renders the same with top/bottom samples.
           Re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.

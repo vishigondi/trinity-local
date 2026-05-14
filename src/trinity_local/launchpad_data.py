@@ -734,6 +734,49 @@ def _eval_summary() -> dict:
         key=lambda a: a["mean"],
         reverse=True,
     )
+    # Multi-target comparison view. When Trinity has results for ≥2
+    # providers, the launchpad shows a comparison table — not just
+    # the most recent run. A journalist screenshotting the launchpad
+    # should see the wedge ("Trinity scores models against YOUR
+    # rejections"), which only lands when multiple providers are
+    # visible side-by-side.
+    #
+    # For each unique target_provider, take the MOST RECENT result
+    # (mtime descending). Sort the row order by aggregate score
+    # descending so the strongest model is first — that's the natural
+    # marketing voice ("here's the leaderboard on YOUR corpus").
+    by_target: dict[str, dict] = {}
+    for path in candidates:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        target = data.get("target_provider")
+        if not target or target in by_target:
+            continue  # keep the most recent (we walked mtime-desc)
+        # Judge provider is stored per-item (each item names its
+        # judge). Take the first item's judge as the run's judge —
+        # the harness uses one judge per run, so any item works.
+        items = data.get("items") or []
+        judge = None
+        for item in items:
+            if isinstance(item, dict) and item.get("judge_provider"):
+                judge = item["judge_provider"]
+                break
+        by_target[target] = {
+            "target": target,
+            "model": data.get("target_model"),
+            "aggregate_score": data.get("aggregate_score"),
+            "items_completed": data.get("items_completed", 0),
+            "judge": judge,
+            "ran_at": data.get("completed_at") or data.get("started_at"),
+        }
+    comparison = sorted(
+        by_target.values(),
+        key=lambda r: r.get("aggregate_score") or -1.0,
+        reverse=True,
+    )
+
     return {
         "has_results": True,
         "target": payload.get("target_provider"),
@@ -747,6 +790,12 @@ def _eval_summary() -> dict:
         "ran_at": payload.get("completed_at") or payload.get("started_at"),
         "result_path": str(latest.relative_to(state_dir())),
         "eval_set_available": eval_set_available,
+        # Multi-target comparison: list of {target, model,
+        # aggregate_score, items_completed, judge, ran_at}, sorted
+        # by aggregate desc. Always at least 1 entry (the latest run).
+        # Template uses this when len(comparison) >= 2 to render a
+        # leaderboard view alongside the per-axis bars.
+        "comparison": comparison,
     }
 
 

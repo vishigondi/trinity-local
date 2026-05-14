@@ -207,7 +207,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 8. **`lens-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/lens.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page + cherry-pick chips.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing. Refinement directive ("↳ <text>") surfaces in the eyebrow row for any round carrying `outcome.metadata.user_refinement`. Each completed member card carries a `Quote ↓` chip that appends `> [Provider]: <text>` to the refinement input — multi-quote stacks, the user types the merge directive on top; chairman still does synthesis, only the input UX changes. Solves the hand-rolled cherry-pick flow observed on `bundle_42f8cea9c9e705e5` (Gemini's "Own your context" merged with Claude's response).
 10. **v1.5 cortex layer (Week 2 shipped, refined post-launch).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json`. Each pattern carries a **structured geometric prior** of the basin: geometric median (Weiszfeld iteration, robust under L1), coherence score, manifold dim, bimodality flag (excess kurtosis on first-PC, requires N≥10), and typicality-ordered outcomes. The flagship extraction prompt is *prepended* with a one-paragraph shape description so the LLM does rule-extraction on structure instead of geometry-in-language. `trust_score` has 5 components (n_episodes / consistency / recency / diversity / coherence; weighted geometric mean) — coherence catches "confident rule on noisy basin." Wires into `ask` query hot-path in Week 3 after human calibration gate.
-11. **Test suite: 1055 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib) with direct property-based regression tests in `test_cortex_geometry.py` covering Weiszfeld L1-outlier robustness, mean-cosine identity/antipodal, participation-ratio dimensionality, and excess-kurtosis bimodality thresholds. `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 32-surface browser smoke gate green (includes the memory viewer surfaces 14a/14b — chip-link presence + click-through render — the memory-health drift-surfacing row at Surface 15, the per-file health banner that travels into the viewer at Surface 16, the picks-Reader one-click veto chip at Surface 17, the persistent rebuild chip in viewer headers at Surface 18, the topic-graph launch-council chip at Surface 19, the per-representative replay chip at Surface 20, the topology→picks centroid-matched cross-link at Surface 21, the pick-basin SVG node styling at Surface 22, the picks→topology cross-link with ?basin= deep-link handling at Surface 23, the routing→topology chip that completes the routing/picks/topology cross-link triangle at Surface 24, the launchpad recent-card → topology chip at Surface 25, the cortex picks card → topology chip at Surface 26, the lens card → basins_spanned chips at Surface 27, and the stale-basin banner for `?basin=` mismatches at Surface 28).
+11. **Test suite: 1059 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib) with direct property-based regression tests in `test_cortex_geometry.py` covering Weiszfeld L1-outlier robustness, mean-cosine identity/antipodal, participation-ratio dimensionality, and excess-kurtosis bimodality thresholds. `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 32-surface browser smoke gate green (includes the memory viewer surfaces 14a/14b — chip-link presence + click-through render — the memory-health drift-surfacing row at Surface 15, the per-file health banner that travels into the viewer at Surface 16, the picks-Reader one-click veto chip at Surface 17, the persistent rebuild chip in viewer headers at Surface 18, the topic-graph launch-council chip at Surface 19, the per-representative replay chip at Surface 20, the topology→picks centroid-matched cross-link at Surface 21, the pick-basin SVG node styling at Surface 22, the picks→topology cross-link with ?basin= deep-link handling at Surface 23, the routing→topology chip that completes the routing/picks/topology cross-link triangle at Surface 24, the launchpad recent-card → topology chip at Surface 25, the cortex picks card → topology chip at Surface 26, the lens card → basins_spanned chips at Surface 27, and the stale-basin banner for `?basin=` mismatches at Surface 28).
 
 ---
 
@@ -253,10 +253,13 @@ Why this order:
 
 ### Distribution
 
-1. **GitHub repo** — `pip install -e .` from source.
-2. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
-3. **Word of mouth** — the multi-CLI power-user community is small and tight.
-4. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."
+1. **Desktop-app launch for non-coders** — `Trinity.app` is the visible product
+   surface after setup: double-click, ask, review, rate. The CLI remains the
+   engine, not the required daily launch gesture.
+2. **GitHub repo** — `pip install -e .` from source.
+3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
+4. **Word of mouth** — the multi-CLI power-user community is small and tight.
+5. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."
 
 ### Launch arc (v1.0 → v1.1): distribution beats elegance
 
@@ -289,6 +292,10 @@ Five workstreams that compound during the consumer-AI land-grab phase
    today has lifetime value once subscriptions tighten. Legitimate
    FOMO because it's true.
 
+Distribution correction (2026-05-14): for non-coders, Trinity must feel like a
+desktop app, not a terminal tool. Mobile should start as a review-link companion:
+open the web review page, rate the winner, and feed the same ledger.
+
 The cron loop should prefer ticks that advance one of these workstreams
 over internal refactoring during the launch phase.
 
@@ -311,7 +318,11 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 2. **Append-only logs for history.** JSONL files for runs, launches, and council outcomes. Never rewrite history.
 3. **Static HTML for UI.** The launchpad is regenerated from file state. No React. No build step. No WebSocket. Open in any browser.
 4. **Filesystem is the index.** Computed views (e.g., the personal routing table) walk canonical directories on demand and cache by mtime. No durable secondary state files for derived data.
-5. **CLI for power users.** Every operation is a `trinity-local <subcommand>`. The launchpad has minimal in-page settings (telemetry sharing toggle, anonymous-id reset, ingest controls, auto-chain enable/disable) — no full configuration app.
+5. **CLI for power users.** Every operation is a `trinity-local <subcommand>`.
+   The desktop app invokes the same commands for non-coders; it does not fork a
+   separate product core. The launchpad has minimal in-page settings (telemetry
+   sharing toggle, anonymous-id reset, ingest controls, auto-chain
+   enable/disable) — no full configuration app.
 6. **Minimal dependencies.** Python stdlib + numpy. Optional `[mlx]` extras for embedding writes during seed and embedding-MMR sampling during `lens-build`.
 
 ---

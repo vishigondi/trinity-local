@@ -539,6 +539,54 @@ class TestEvalSummary:
         assert s["aggregate_score"] == pytest.approx(0.80)
         assert s["total_runs"] == 2
 
+    def test_comparison_field_present_with_single_run(self, isolated_home):
+        """Even single-run installs get a `comparison` list — len 1.
+        Template uses `comparison.length >= 2` to decide whether to
+        render the leaderboard, so single-run installs render only
+        the per-axis bars (correct UX)."""
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.70, mtime=1000)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert "comparison" in s
+        assert len(s["comparison"]) == 1
+        assert s["comparison"][0]["target"] == "gemini"
+        assert s["comparison"][0]["aggregate_score"] == pytest.approx(0.70)
+
+    def test_comparison_lists_all_unique_targets_sorted_by_score(self, isolated_home):
+        """Three-provider snapshot (the launch-arc #116 deliverable):
+        comparison field surfaces all three targets, sorted by
+        aggregate_score desc. This is the leaderboard a journalist
+        screenshotting the launchpad sees — the wedge only lands when
+        multiple providers are visible side-by-side."""
+        self._seed_run_result(isolated_home, target="codex", aggregate=0.80, mtime=1000)
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.83, mtime=2000)
+        self._seed_run_result(isolated_home, target="claude", aggregate=1.00, mtime=3000)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert len(s["comparison"]) == 3
+        # Sorted by aggregate score descending (leaderboard order):
+        scores = [row["aggregate_score"] for row in s["comparison"]]
+        assert scores == [1.00, 0.83, 0.80]
+        targets = [row["target"] for row in s["comparison"]]
+        assert targets == ["claude", "gemini", "codex"]
+
+    def test_comparison_dedupes_to_most_recent_per_target(self, isolated_home):
+        """Multiple runs of the same target (re-runs after model
+        version bumps) should produce one row per target — the most
+        recent. Otherwise the leaderboard repeats targets and the
+        rank order becomes meaningless."""
+        # Two gemini runs, second is newer + higher score
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.50, mtime=1000)
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.83, mtime=2000)
+        # One claude run between them
+        self._seed_run_result(isolated_home, target="claude", aggregate=0.90, mtime=1500)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert len(s["comparison"]) == 2  # two unique targets
+        # Gemini's most-recent score (0.83), NOT the older 0.50
+        gemini_row = next(r for r in s["comparison"] if r["target"] == "gemini")
+        assert gemini_row["aggregate_score"] == pytest.approx(0.83)
+
     def test_malformed_result_falls_back_to_empty_state(self, isolated_home):
         """Per Analytics-never-crash: a corrupted result JSON must not
         bring down the launchpad. Returns empty_state with the
