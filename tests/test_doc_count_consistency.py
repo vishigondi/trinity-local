@@ -585,6 +585,69 @@ class TestReadmeHeroInstallCommand:
         )
 
 
+class TestDroppedTermsAreNotReintroduced:
+    """Task #94 dropped "verifier" as Trinity's own terminology in
+    favor of "chairman synthesizer" / "Synthesis JSON" — the chairman
+    SYNTHESIZES, not verifies. The rename's marketing rationale: the
+    chairman writes a structured verdict (the synthesis), it doesn't
+    just check a precondition. "Synthesis" carries the productive
+    framing; "verifier" carries the gatekeeper framing.
+
+    T-1 catch: README:346 still said "The chairman model is the
+    verifier" — a single line that survived the rename pass. Subtle
+    enough that readers wouldn't flag it as a bug; loud enough that
+    a future HN comment-thread on the docs would call it out.
+
+    The guard scans launch-facing prose (README, launch.md,
+    launch-package.md, MCP_REGISTRY_SUBMISSIONS) for "verifier"
+    used in Trinity's own voice. EXCLUDED: research-context
+    references (LLM-Blender's "generator-verifier asymmetry," etc.)
+    are legitimate citations in product-spec.md but shouldn't appear
+    in user-facing launch copy. product-spec.md is not in the scan
+    set because it's the architecture deep-dive doc, not launch
+    prose — research framings belong there.
+
+    Word-boundary regex catches "verifier" as a standalone token but
+    allows compound terms ("verification" is fine; "verifier-style"
+    in a hypothetical compound noun is flagged — likely intentional).
+    """
+
+    DROPPED_TERMS = {
+        # term → human-readable rationale for the rename
+        "verifier": (
+            "task #94 dropped 'verifier' in Trinity's own voice; "
+            "use 'chairman synthesizer' or 'Synthesis JSON'"
+        ),
+    }
+
+    def test_no_dropped_terms_in_launch_copy(self):
+        launch_docs = [
+            REPO / "README.md",
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "docs" / "MCP_REGISTRY_SUBMISSIONS.md",
+        ]
+        leaks: list[tuple[str, int, str, str]] = []
+        for path in launch_docs:
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                for term, rationale in self.DROPPED_TERMS.items():
+                    # Word-boundary match — "verifier" matches but
+                    # "verification" / "verifies" don't.
+                    if re.search(rf"\b{term}\b", line):
+                        leaks.append((path.name, lineno, term, rationale))
+                        break
+        assert not leaks, (
+            f"Launch-facing docs reintroduced terminology Trinity "
+            f"deliberately dropped: {leaks}. Each rename had a "
+            f"marketing rationale — reverting to the old term in "
+            f"launch copy silently undoes the brand-pivot work."
+        )
+
+
 class TestSchemaIdsResolveToReachableUrls:
     """Schema canonical-URL guard. The PREFERENCE_CORPUS_SPEC publishes
     three JSON Schema files (council_outcome, eval_set, rejection_

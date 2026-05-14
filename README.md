@@ -343,7 +343,7 @@ trinity-local doctor               # health check; surfaces the next-step demo c
 
 ## Architecture (one paragraph)
 
-The chairman model is the verifier, emitting structured Routing JSON over every council.
+The chairman model synthesizes member outputs, emitting structured Routing JSON over every council.
 Members run in parallel (or in `chain` mode for sequential refinement). The personal routing
 table is computed on demand from `~/.trinity/council_outcomes/*.json` — no separate state
 file. The `/me` lens-discovery pipeline (4 stages: basins → decisions → pair-mining →
