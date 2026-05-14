@@ -169,7 +169,11 @@ async def handle_list_tools() -> list[Tool]:
                 "TRIGGER: when a prior `run_council` or `get_council_status` response carries "
                 "a `rate_action` field, the council is awaiting the user's verdict. Surface "
                 "the rating prompt to the user immediately, then call this tool with their "
-                "answer — that's how Trinity's personal routing table actually learns."
+                "answer — that's how Trinity's personal routing table actually learns. "
+                "SECONDARY TRIGGER: when `ask` or `route` responses carry a `pending_ratings` "
+                "field, there are older unrated councils piling up. Pick ONE at a natural pause "
+                "in the conversation, ask the user, and call record_outcome — even one rating "
+                "per pause widens the personal-data funnel that other labs structurally can't see."
             ),
             inputSchema={
                 "type": "object",
@@ -554,7 +558,11 @@ async def _ask(args: dict) -> list[Any]:
     except Exception as exc:
         return [ErrorData(code=502, message=f"dispatch_failed: {type(exc).__name__}: {exc}")]
 
-    return [_text(result.to_dict())]
+    payload = result.to_dict()
+    pending = _pending_ratings_hint()
+    if pending is not None:
+        payload["pending_ratings"] = pending
+    return [_text(payload)]
 
 
 async def _get_picks(args: dict) -> list[Any]:
@@ -769,6 +777,9 @@ async def _route(args: dict) -> list[Any]:
         # changing default behavior.
         "auto_iterate_recommended": polish,
     }
+    pending = _pending_ratings_hint()
+    if pending is not None:
+        payload["pending_ratings"] = pending
     return [_text(payload)]
 
 
@@ -1286,6 +1297,120 @@ def _build_rate_action(outcome) -> dict | None:
             f"unrated outcomes are zero supervision signal."
         ),
     }
+
+
+_PENDING_HINT_CACHE: dict[str, Any] = {"key": None, "value": None}
+
+
+def _pending_ratings_hint(max_age_hours: float = 168.0, limit: int = 3) -> dict | None:
+    """Pillar 4 funnel widener (round 2). The first round shipped:
+       (1) census  (2) eyebrow  (3) verify-after  (4) doctor  (5) banner
+       (6) per-council rate_action in run_council / get_council_status
+
+    Real-corpus rate after all six: 16% (3 of 19 outcomes rated).
+
+    The remaining gap is structural: rate_action only fires when the
+    agent either waits inline on a council OR polls get_council_status
+    for one specific id. Most councils complete async; the user moves
+    on; the agent never re-polls; the nudge never reaches the agent.
+
+    This widener: every `ask` and `route` call piggybacks a small list
+    of recent unrated councils. The agent reads it the way it reads
+    rate_action — but now ANY MCP touchpoint is a rating moment, not
+    just the council's own response. Multiplicative, not additive.
+
+    Returns:
+        {"pending_count": N, "councils": [...], "instruction": "..."}
+        when at least one unrated council exists within max_age_hours.
+        None otherwise (the field is omitted from the response — silent
+        when there's nothing pending).
+    """
+    import time
+    from .state_paths import council_outcomes_dir
+
+    now = time.time()
+    outcomes_dir = council_outcomes_dir()
+    if not outcomes_dir.exists():
+        return None
+
+    # 30s in-process cache. Scanning 19 files is cheap, but `ask` / `route`
+    # fire on every MCP turn — this avoids the same 11 disk reads at the
+    # rate of every user keystroke in Claude Code.
+    cache_key = (outcomes_dir.stat().st_mtime, max_age_hours, limit)
+    if _PENDING_HINT_CACHE["key"] == cache_key:
+        return _PENDING_HINT_CACHE["value"]
+
+    cutoff = now - max_age_hours * 3600
+    candidates: list[tuple[float, dict]] = []
+    for path in outcomes_dir.glob("council_*.json"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        if stat.st_mtime < cutoff:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        metadata = data.get("metadata") or {}
+        verdict = (metadata.get("user_verdict") or {})
+        if verdict.get("user_winner"):
+            continue
+        # Skip explicitly abandoned councils — the user has already told
+        # us "no winner here." Re-prompting them is the same kind of
+        # nag we're trying to avoid with the rated-skip above.
+        if verdict.get("abandoned"):
+            continue
+        candidates.append((stat.st_mtime, data))
+
+    if not candidates:
+        _PENDING_HINT_CACHE["key"] = cache_key
+        _PENDING_HINT_CACHE["value"] = None
+        return None
+
+    candidates.sort(key=lambda kv: kv[0], reverse=True)
+    top = candidates[:limit]
+
+    councils = []
+    for mtime, data in top:
+        age_hours = (now - mtime) / 3600
+        if age_hours < 1:
+            ago = f"{int(age_hours * 60)}m ago"
+        elif age_hours < 24:
+            ago = f"{int(age_hours)}h ago"
+        else:
+            ago = f"{int(age_hours / 24)}d ago"
+        routing = data.get("routing_label") or {}
+        metadata = data.get("metadata") or {}
+        task_text = data.get("task_text") or metadata.get("task_text") or ""
+        councils.append({
+            "council_run_id": data.get("council_run_id"),
+            "task_preview": task_text[:120],
+            "chairman_pick": routing.get("winner") or data.get("winner_provider") or data.get("primary_provider"),
+            "ago": ago,
+        })
+
+    result = {
+        "pending_count": len(candidates),
+        "shown": len(councils),
+        "councils": councils,
+        "instruction": (
+            f"{len(candidates)} recent councils are awaiting the user's "
+            f"verdict. Trinity's personal routing table only learns from "
+            f"rated outcomes — unrated councils are zero supervision signal. "
+            f"At a natural pause in this conversation, ask the user to rate "
+            f"one (or skip): \"Which model won on the '<task_preview>' "
+            f"question — claude/codex/gemini? Or skip?\" Then call "
+            f"`record_outcome(council_run_id=..., user_winner=...)`, or "
+            f"`record_outcome(council_run_id=..., accepted=False)` on skip. "
+            f"Don't surface ALL of them — pick the most recent or most "
+            f"relevant. Surfacing none is worse than surfacing one."
+        ),
+    }
+    _PENDING_HINT_CACHE["key"] = cache_key
+    _PENDING_HINT_CACHE["value"] = result
+    return result
 
 
 def _lookup_council_status(council_run_id: str) -> dict | None:

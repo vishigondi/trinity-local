@@ -499,3 +499,189 @@ class TestRateActionNudge:
             "agent learns to fire it when the run_council response "
             "carries the rating hint"
         )
+
+
+class TestPendingRatingsHint:
+    """Pillar 4 funnel widener (round 2). rate_action only fires when the
+    agent is interacting with one specific council; pending_ratings rides
+    EVERY ask/route response so any MCP touchpoint becomes a rating
+    opportunity. The real-corpus evidence: 16% rate persisted through 6
+    surfaces because none of them re-prompts the user when they're NOT
+    looking at a council. This widener does."""
+
+    def _make_outcome_file(self, dir_path, council_run_id, task_text, *,
+                          rated_winner=None, abandoned=False, mtime_offset_hours=0):
+        """Write a minimal outcome JSON the hint can read."""
+        import json
+        import time
+        verdict: dict = {}
+        if rated_winner:
+            verdict["user_winner"] = rated_winner
+        if abandoned:
+            verdict["abandoned"] = True
+        data = {
+            "council_run_id": council_run_id,
+            "winner_provider": "claude",
+            "primary_provider": "claude",
+            "metadata": {
+                "task_text": task_text,
+                **({"user_verdict": verdict} if verdict else {}),
+            },
+            "routing_label": {"winner": "claude"},
+        }
+        path = dir_path / f"{council_run_id}.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        if mtime_offset_hours:
+            ts = time.time() - mtime_offset_hours * 3600
+            import os
+            os.utime(path, (ts, ts))
+        return path
+
+    def test_hint_returns_top_n_unrated_within_window(self, tmp_path, monkeypatch):
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        # 4 unrated recent councils → only top 3 shown but count is 4.
+        for i in range(4):
+            self._make_outcome_file(outcomes_dir, f"council_unrated_{i}",
+                                    f"task number {i}", mtime_offset_hours=i)
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        hint = mcp_server._pending_ratings_hint()
+        assert hint is not None
+        assert hint["pending_count"] == 4
+        assert hint["shown"] == 3
+        assert all("task number" in c["task_preview"] for c in hint["councils"])
+        # Sorted newest-first: index 0 (offset 0h) is the most recent.
+        assert hint["councils"][0]["council_run_id"] == "council_unrated_0"
+
+    def test_hint_excludes_rated_councils(self, tmp_path, monkeypatch):
+        """Already-rated councils should NEVER appear — that's the user's
+        signal that they don't want to be nagged about it again."""
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        self._make_outcome_file(outcomes_dir, "council_rated", "rated task",
+                                rated_winner="claude")
+        self._make_outcome_file(outcomes_dir, "council_unrated", "open task")
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        hint = mcp_server._pending_ratings_hint()
+        assert hint is not None
+        assert hint["pending_count"] == 1
+        assert hint["councils"][0]["council_run_id"] == "council_unrated"
+
+    def test_hint_excludes_abandoned_councils(self, tmp_path, monkeypatch):
+        """An explicit abandonment IS recorded supervision signal (the user
+        said 'none of these worked'). Re-prompting them is the same nag
+        we avoid with rated councils."""
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        self._make_outcome_file(outcomes_dir, "council_aban", "abandoned task",
+                                abandoned=True)
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        assert mcp_server._pending_ratings_hint() is None
+
+    def test_hint_respects_age_window(self, tmp_path, monkeypatch):
+        """A council from 8 days ago is no longer a rating opportunity —
+        the user's memory of it is too cold to give a useful verdict."""
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        self._make_outcome_file(outcomes_dir, "council_stale", "stale task",
+                                mtime_offset_hours=8 * 24)
+        self._make_outcome_file(outcomes_dir, "council_fresh", "fresh task")
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        hint = mcp_server._pending_ratings_hint(max_age_hours=168.0)
+        assert hint is not None
+        assert hint["pending_count"] == 1
+        assert hint["councils"][0]["council_run_id"] == "council_fresh"
+
+    def test_hint_returns_none_when_no_outcomes_dir(self, tmp_path, monkeypatch):
+        """A fresh install has no council_outcomes/. Don't crash; return
+        None so the response just omits the field cleanly."""
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes_missing"  # not created
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        assert mcp_server._pending_ratings_hint() is None
+
+    def test_hint_returns_none_when_dir_empty(self, tmp_path, monkeypatch):
+        """Empty dir = no pending = silent. Don't ship an empty list with
+        a generic instruction — that's noise without signal."""
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+        assert mcp_server._pending_ratings_hint() is None
+
+    def test_route_response_carries_pending_ratings_when_pending(self, tmp_path, monkeypatch):
+        """The actual entry point: agent calls route(), gets back routing
+        decision + pending_ratings inline. This is THE widener — every
+        route call is now a rating opportunity."""
+        import asyncio
+        import json
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        self._make_outcome_file(outcomes_dir, "council_pending", "open task")
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+
+        result = asyncio.run(mcp_server._route({"task": "test task"}))
+        payload = json.loads(result[0]["text"])
+        assert "pending_ratings" in payload, (
+            "route() must surface pending_ratings so agents see unrated "
+            "councils on every routing decision — that's the widener"
+        )
+        assert payload["pending_ratings"]["pending_count"] == 1
+
+    def test_route_response_omits_pending_ratings_when_empty(self, tmp_path, monkeypatch):
+        """Silent when there's nothing to surface — agents shouldn't have
+        to handle empty lists in tool responses."""
+        import asyncio
+        import json
+        from trinity_local import mcp_server
+        outcomes_dir = tmp_path / "council_outcomes"
+        outcomes_dir.mkdir()
+        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
+                            {"key": None, "value": None})
+        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
+                            lambda: outcomes_dir)
+
+        result = asyncio.run(mcp_server._route({"task": "test task"}))
+        payload = json.loads(result[0]["text"])
+        assert "pending_ratings" not in payload
+
+    def test_record_outcome_description_mentions_pending_ratings_trigger(self):
+        """Agent must learn that pending_ratings is a SECONDARY trigger
+        (lower urgency than rate_action — pick ONE per pause, not all)."""
+        import asyncio
+        from trinity_local.mcp_server import handle_list_tools
+
+        tools = asyncio.run(handle_list_tools())
+        ro = next((t for t in tools if t.name == "record_outcome"), None)
+        assert ro is not None
+        desc = ro.description or ""
+        assert "pending_ratings" in desc, (
+            "record_outcome description must mention pending_ratings as "
+            "a trigger so the agent surfaces it at natural pauses"
+        )
