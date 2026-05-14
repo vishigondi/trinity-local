@@ -393,6 +393,95 @@ class TestGithubUrlOwnerConsistency:
         )
 
 
+class TestCliCommandsReferencedExistInCli:
+    """Stale-subcommand guard. Every `trinity-local <subcmd>` mentioned
+    in launch-facing copy must resolve to a real subcommand in the CLI.
+
+    Caught the missing-subcommand class at T-1 by accident — `me-build`
+    was renamed to `lens-build` per task #91, but a scan for "subcommands
+    in launch docs that aren't in the CLI" found `me-build` references
+    in CHANGELOG (legitimate: historical rename documentation). The
+    launch-facing surfaces (README/launch.md/MCP_REGISTRY) were already
+    clean. Promoting to a guard so the next rename doesn't slip through.
+
+    The guard:
+      - Loads the real subcommand list from `trinity-local --help`
+      - Scans launch-facing docs (NOT CHANGELOG — that's commit history
+        and legitimately mentions renamed commands)
+      - For each `trinity-local <kebab-cmd>` pattern in those docs,
+        asserts the subcommand is registered
+
+    CHANGELOG is excluded because its job is to document the
+    PRE-rename state for migration context. Treating CHANGELOG
+    references as live would force rename-time edits to a file
+    that's meant to be append-only history.
+    """
+
+    @staticmethod
+    def _real_subcommands() -> set[str]:
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["trinity-local", "--help"],
+                capture_output=True, text=True, check=False,
+            )
+        except FileNotFoundError:
+            # CLI not on PATH (CI env without venv activation) — return
+            # empty set and let the test skip via early-return.
+            return set()
+        if result.returncode != 0:
+            return set()
+        # The argparse help output shows the subparser choices inside
+        # `{cmd1,cmd2,...}`. Pull the first occurrence (the
+        # top-level subparser).
+        m = re.search(r"\{([a-z][^}]+)\}", result.stdout)
+        if not m:
+            return set()
+        return {c.strip() for c in m.group(1).split(",") if c.strip()}
+
+    def test_subcommands_in_launch_docs_resolve(self):
+        real = self._real_subcommands()
+        if not real:
+            return  # CLI not on PATH in this env — skip gracefully
+        launch_docs = [
+            REPO / "README.md",
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "docs" / "MCP_REGISTRY_SUBMISSIONS.md",
+            # CHANGELOG.md deliberately excluded — historical context.
+        ]
+        # Pattern: `trinity-local <kebab-cmd>` where <kebab-cmd> is
+        # all lowercase + hyphens. Excludes connecting words.
+        cmd_re = re.compile(r"trinity-local\s+([a-z][a-z-]+[a-z])")
+        # Common false positives — natural-language continuations of the
+        # phrase, NOT subcommands. Add here if a real prose pattern
+        # is otherwise mis-flagged.
+        not_subcommands = {
+            "and", "will", "is", "has", "on", "the", "now", "to",
+            "from", "into", "after", "before", "as", "for", "with",
+        }
+        ghosts: list[tuple[str, int, str]] = []
+        for path in launch_docs:
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                for m in cmd_re.finditer(line):
+                    cmd = m.group(1)
+                    if cmd in not_subcommands or cmd in real:
+                        continue
+                    ghosts.append((path.name, lineno, cmd))
+        assert not ghosts, (
+            f"Launch-facing docs reference subcommands that the CLI "
+            f"doesn't have: {ghosts}. Likely a rename without doc "
+            f"update (task #91 shape — me-build → lens-build, etc). "
+            f"Either update the doc to the new name, or add the "
+            f"subcommand back if removal was unintentional. Live "
+            f"subcommands: {sorted(real)[:10]}... (+{len(real)-10} more)"
+        )
+
+
 class TestReadmeHeroInstallCommand:
     """README-hero install-command guard. Narrow scope: ONLY the
     README hero section (first 25 lines) — the most-visible install
