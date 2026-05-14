@@ -297,6 +297,41 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["council_run_id"],
             },
         ),
+        Tool(
+            name="handoff",
+            description=(
+                "Cross-provider conversation continuity. Pulls the user's most-recent "
+                "(user, assistant) turns from Trinity's cross-provider prompt index, "
+                "packages them as 'continuing this thread' context, and dispatches to a "
+                "DIFFERENT provider. The target picks up exactly where the prior model "
+                "left off — no re-context, no copy-paste. "
+                "USE WHEN: the user says things like 'try this in Gemini', 'what would "
+                "GPT say about this', or you (the agent) think a different model would "
+                "add value the current one can't (e.g. Gemini's Google data, Codex's "
+                "code review depth, Claude's writing). "
+                "The wedge is structural: only Trinity has the cross-provider index, "
+                "so only Trinity can do this. Anthropic can't read OpenAI's transcripts."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target_provider": {
+                        "type": "string",
+                        "description": "Which provider to hand off to (e.g. 'claude', 'codex', 'gemini').",
+                    },
+                    "continuation": {
+                        "type": "string",
+                        "description": "Optional new question to ask the target model. If omitted, the target just continues the prior thread.",
+                    },
+                    "num_turns": {
+                        "type": "integer",
+                        "default": 3,
+                        "description": "How many prior (user, assistant) pairs to package as context.",
+                    },
+                },
+                "required": ["target_provider"],
+            },
+        ),
     ]
 
 
@@ -322,6 +357,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _get_persona(arguments)
         if name == "get_council_status":
             return await _get_council_status(arguments)
+        if name == "handoff":
+            return await _handoff(arguments)
         return [ErrorData(code=404, message=f"Tool not found: {name}")]
     except Exception as exc:
         return [ErrorData(code=500, message=f"{type(exc).__name__}: {exc}")]
@@ -1304,6 +1341,43 @@ async def _get_council_status(args: dict) -> list[Any]:
     if rate_action is not None:
         status_response["rate_action"] = rate_action
     return [_text(status_response)]
+
+
+async def _handoff(args: dict) -> list[Any]:
+    """Cross-provider conversation continuity. Wraps handoff.run_handoff
+    so the agent calling it from inside Claude Code / Codex / Gemini CLI
+    gets a structured tool result it can surface to the user.
+
+    The wedge: only Trinity has the cross-provider prompt index. No
+    provider can do this on their own — Anthropic can't read OpenAI's
+    transcripts. The MCP-tool surface lets the agent suggest the
+    handoff inline ("Want to see what Gemini would do with this same
+    context?") rather than forcing the user to switch terminals.
+    """
+    from .config import load_config
+    from .handoff import run_handoff
+
+    target_provider = args.get("target_provider")
+    if not target_provider:
+        return [_text({"ok": False, "error": "target_provider is required"})]
+    continuation = args.get("continuation")
+    num_turns = int(args.get("num_turns", 3))
+
+    try:
+        config = load_config(required=True)
+    except Exception as exc:
+        return [_text({"ok": False, "error": f"config not loadable: {exc}"})]
+    provider_configs = {p.name: p for p in config.providers if p.enabled}
+
+    result = run_handoff(
+        target_provider,
+        provider_configs,
+        continuation=continuation,
+        num_turns=num_turns,
+    )
+    payload = result.to_dict()
+    payload["ok"] = result.error is None
+    return [_text(payload)]
 
 
 async def run_stdio_server():

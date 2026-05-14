@@ -40,10 +40,14 @@ class TestToolList:
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule;
         # spec-v1.5 Week 5).
+        # Launch-arc adds (tick #119): `handoff` (cross-provider
+        # conversation continuity — the killer-hook mechanism for the
+        # 60-second demo).
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council", "record_outcome",
             "search_prompts", "get_persona", "get_council_status",
+            "handoff",
         }, f"unexpected tool list: {names}"
 
     def test_old_tools_dropped_from_public_surface(self):

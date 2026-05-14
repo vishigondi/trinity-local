@@ -135,12 +135,24 @@ class TestMcpToolNameConsistency:
         # Pattern: `<tool_name>(` — the open-paren is what makes it
         # a tool definition vs a generic identifier.
         claude = CLAUDE_MD.read_text(encoding="utf-8")
-        # Narrow to the "nine MCP tools" section so we don't pick up
-        # parenthesized identifiers elsewhere in the file.
-        section_start = claude.find("### The nine MCP tools")
+        # Narrow to the MCP tools section so we don't pick up
+        # parenthesized identifiers elsewhere in the file. Heading
+        # uses the word-form of the current tool count (nine, ten, ...);
+        # search for whichever variant is live so the test doesn't
+        # need editing every time a tool is added.
+        section_start = -1
+        for variant in (
+            "### The ten MCP tools",
+            "### The nine MCP tools",
+        ):
+            idx = claude.find(variant)
+            if idx > 0:
+                section_start = idx
+                break
         assert section_start > 0, (
-            "claude.md '### The nine MCP tools' section not found — "
-            "principle #20 anchor moved, fix the test or restore the heading"
+            "claude.md MCP-tools section not found — looked for "
+            "'### The ten MCP tools' or '### The nine MCP tools'. "
+            "Principle #20 anchor moved, fix the test or restore the heading"
         )
         # Find the next ### heading or end-of-file
         next_section = claude.find("\n### ", section_start + 5)
