@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 30 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 31 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -95,6 +95,10 @@ Surfaces:
        agrees with whether the banner renders, and when rendered the
        command interpolates the picked target. Data/DOM mismatch in
        either direction = v-if guard regression.
+   30. Personalized benchmark (eval summary) card: launchpad surface for
+       the eval harness (#122/#116). Card is always present — empty
+       state with CTA when no eval-run results exist, populated with
+       per-axis bars + target headline when results are on disk.
 
 Exit codes:
     0 — all surfaces pass
@@ -1842,6 +1846,74 @@ def main() -> int:
             )
             print(f"[ ✗ ] Surface 29 handoff nudge: {reason}")
             fails.append((29, "handoff nudge banner", reason))
+
+        # ─── Surface 30: Personalized benchmark (eval summary) card ──────────
+        # The launchpad-side surface for the eval harness (#122 / #116).
+        # Card is ALWAYS rendered (empty state OR populated). When no
+        # eval results exist on disk, the card shows the CTA — flavored
+        # depending on whether the user has built an eval set yet:
+        #   no set     → "trinity-local eval-build" + "trinity-local eval-run --target gemini"
+        #   set exists → "trinity-local eval-run --target gemini"
+        # When results exist, the card shows the per-axis breakdown with
+        # tabular-numeric bars.
+        eval_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const summary = data.evalSummary || {};
+              // Find the card via its eyebrow text — same anchor approach
+              // as Surface 29 to stay robust against CSS-class refactors.
+              const eyebrows = Array.from(document.querySelectorAll('.eyebrow'));
+              const eyebrow = eyebrows.find(el => /Personalized benchmark/i.test(el.textContent || ''));
+              const card = eyebrow ? eyebrow.closest('section.card') : null;
+              const headline = card ? card.querySelector('h2') : null;
+              const codes = card ? Array.from(card.querySelectorAll('code')).map(c => c.textContent) : [];
+              return {
+                has_results: !!summary.has_results,
+                eval_set_available: !!summary.eval_set_available,
+                target: summary.target || null,
+                axes_count: (summary.axes || []).length,
+                card_rendered: !!card,
+                headline: headline ? headline.textContent.replace(/\\s+/g, ' ').trim().slice(0, 80) : null,
+                cta_commands: codes,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "30-eval-summary.png"))
+        if not eval_state.get("card_rendered"):
+            reason = "eval summary card missing — empty-state SHOULD still render to surface the CTA"
+            print(f"[ ✗ ] Surface 30 eval summary: {reason}")
+            fails.append((30, "eval summary card", reason))
+        elif eval_state.get("has_results"):
+            # Populated branch: axes rendered + target visible in headline
+            target = eval_state.get("target")
+            target_ok = target and target in (eval_state.get("headline") or "")
+            axes_ok = eval_state.get("axes_count", 0) > 0
+            if target_ok and axes_ok:
+                print(
+                    f"[ ✓ ] Surface 30 eval summary: populated · target={target!r} "
+                    f"axes={eval_state['axes_count']}"
+                )
+            else:
+                reason = f"populated but target_ok={target_ok} axes_ok={axes_ok}"
+                print(f"[ ✗ ] Surface 30 eval summary: {reason}")
+                fails.append((30, "eval summary card", reason))
+        else:
+            # Empty-state branch: CTA must include the right next command.
+            cta_text = " ".join(eval_state.get("cta_commands") or [])
+            expected_cmd = "eval-run --target" if eval_state.get("eval_set_available") else "eval-build"
+            if expected_cmd in cta_text:
+                print(
+                    f"[ ✓ ] Surface 30 eval summary: empty state · "
+                    f"eval_set_available={eval_state['eval_set_available']} CTA correct"
+                )
+            else:
+                reason = (
+                    f"empty state CTA missing expected command {expected_cmd!r}: "
+                    f"got {cta_text!r}"
+                )
+                print(f"[ ✗ ] Surface 30 eval summary: {reason}")
+                fails.append((30, "eval summary card", reason))
 
         browser.close()
 

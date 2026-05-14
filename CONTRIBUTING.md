@@ -127,7 +127,7 @@ git clone <repo>
 cd trinity-local
 ./setup.sh                          # bootstraps venv + config + Shortcut + launchpad
 .venv/bin/python -m pytest -q       # ~950 tests, ~80s; gate must stay green
-python scripts/browser_smoke.py     # 30-surface UI verification (Playwright)
+python scripts/browser_smoke.py     # 31-surface UI verification (Playwright)
 ```
 
 The browser smoke requires `playwright` + `chromium`:

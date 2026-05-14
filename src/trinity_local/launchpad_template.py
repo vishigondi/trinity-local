@@ -1242,6 +1242,70 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <pre class="md-code-block"><code>trinity-local replay-history --limit 20</code></pre>
       </section>
 
+      <!-- Empirical benchmark — most-recent eval-run result rendered
+           inline. When no runs have completed yet, renders an empty
+           state with the right CTA depending on whether the eval set
+           has been built. Surfaces the personalized-benchmark axis
+           (workstream #116) where the user already lives, so the
+           output of `trinity-local eval-run` isn't buried in JSON.
+           Tick post-Surface 29 / task #122 / #116. -->
+      <section class="card eval-summary-card" v-if="pageData.evalSummary && pageData.evalSummary.has_results">
+        <div class="eyebrow">Personalized benchmark</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          {{{{ pageData.evalSummary.target }}}}
+          <span v-if="pageData.evalSummary.model" class="meta" style="font-weight: normal;">
+            ({{{{ pageData.evalSummary.model }}}})
+          </span>
+          <span style="float: right; font-variant-numeric: tabular-nums;">
+            <span v-if="pageData.evalSummary.aggregate_score !== null">
+              {{{{ pageData.evalSummary.aggregate_score.toFixed(2) }}}}
+            </span>
+            <span v-else class="meta">— /1.00</span>
+          </span>
+        </h2>
+        <p class="meta" style="margin-top: 4px;">
+          scored against {{{{ pageData.evalSummary.items_completed }}}} of
+          {{{{ pageData.evalSummary.items_total }}}} items from your rejection signal
+          <span v-if="pageData.evalSummary.total_runs > 1"> · {{{{ pageData.evalSummary.total_runs }}}} runs on disk</span>
+        </p>
+        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums;">
+          <li v-for="axis in pageData.evalSummary.axes" :key="axis.name"
+              style="display: grid; grid-template-columns: 110px 50px 1fr 80px; gap: 8px; align-items: center; font-size: 13px;">
+            <span>{{{{ axis.name }}}}</span>
+            <span class="meta">n={{{{ axis.count }}}}</span>
+            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (axis.mean * 100) + '%; background: #3b6bd6; border-radius: 3px;'"></span>
+            </span>
+            <span style="text-align: right;">{{{{ axis.mean.toFixed(2) }}}}</span>
+          </li>
+        </ul>
+        <p class="meta" style="margin-top: 12px;">
+          <code>trinity-local eval-show</code> renders the same with top/bottom samples.
+          Re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.
+        </p>
+      </section>
+
+      <section class="card eval-summary-card" v-if="pageData.evalSummary && !pageData.evalSummary.has_results">
+        <div class="eyebrow">Personalized benchmark</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Score any model against YOUR rejection signal
+        </h2>
+        <p class="meta" v-if="pageData.evalSummary.eval_set_available">
+          You've built an eval set from your rejections. Run it against a candidate provider
+          to see per-axis scores (REFRAME / COMPRESSION / REDIRECT / SHARPENING) and find out
+          which model handles YOUR kind of question.
+        </p>
+        <p class="meta" v-else>
+          Trinity can mine an eval set from your prompt rejections — 4 rejection-type axes
+          per item, scored by a judge model against your <code>lens.md</code>. The result is
+          a personal benchmark no provider can build themselves (they can't see cross-provider
+          rejection signal).
+        </p>
+        <pre class="md-code-block" v-if="pageData.evalSummary.eval_set_available"><code>trinity-local eval-run --target gemini</code></pre>
+        <pre class="md-code-block" v-else><code>trinity-local eval-build
+trinity-local eval-run --target gemini</code></pre>
+      </section>
+
       <section class="card taste-card" v-if="tasteLenses">
         <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
           <span>Your taste, distilled</span>

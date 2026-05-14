@@ -595,6 +595,11 @@ def build_page_data(
         # and the banner surfaces the command. Silent when the
         # demo wouldn't work yet.
         "handoffNudge": _handoff_nudge(),
+        # Empirical benchmark summary — most-recent eval-run result
+        # surfaced on the launchpad so the user sees their personal
+        # benchmark numbers without cat'ing JSON. Empty state (CTA)
+        # when no runs have completed yet.
+        "evalSummary": _eval_summary(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
@@ -646,6 +651,95 @@ def _handoff_nudge() -> dict:
         "applicable": prompt_count > 0,
         "target": target,
         "source_count": prompt_count,
+    }
+
+
+def _eval_summary() -> dict:
+    """Surface the most-recent eval-run result on the launchpad.
+
+    Reads ~/.trinity/evals/results/eval_*__model_*.json. Returns:
+      - {has_results: False, ...empty_state_fields}  when no runs yet
+      - {has_results: True, target, model, aggregate_score, axes[],
+         total_runs, items_completed, items_total, eval_id, ran_at,
+         result_path}  when at least one run completed
+
+    Empty state still carries the CTA fields (eval_set_available)
+    so the template can render the "you built an eval set, run it
+    against gemini" call to action without losing data.
+
+    Per "Analytics never crash": any failure returns the safe
+    empty-state shape rather than raising — the launchpad must not
+    fall over because an eval result file is malformed.
+    """
+    from .state_paths import state_dir
+    empty = {
+        "has_results": False,
+        "target": None,
+        "model": None,
+        "aggregate_score": None,
+        "axes": [],
+        "total_runs": 0,
+        "items_completed": 0,
+        "items_total": 0,
+        "eval_id": None,
+        "ran_at": None,
+        "result_path": None,
+        # Whether the user has built an eval set — drives whether the
+        # empty state CTA points at `eval-build` or `eval-run`.
+        "eval_set_available": False,
+    }
+    evals_dir = state_dir() / "evals"
+    if not evals_dir.is_dir():
+        return empty
+    eval_set_available = any(evals_dir.glob("eval_*.json"))
+    results_dir = evals_dir / "results"
+    if not results_dir.is_dir():
+        empty["eval_set_available"] = eval_set_available
+        return empty
+    candidates = sorted(
+        results_dir.glob("eval_*__model_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        empty["eval_set_available"] = eval_set_available
+        return empty
+    latest = candidates[0]
+    try:
+        payload = json.loads(latest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        empty["eval_set_available"] = eval_set_available
+        return empty
+    # Build the per-axis array for the template, sorted desc by mean.
+    by_type = payload.get("by_rejection_type") or {}
+    axes = sorted(
+        [
+            {
+                "name": axis,
+                "count": stats.get("count", 0),
+                "mean": stats.get("mean_score", 0.0),
+                "min": stats.get("min_score", 0.0),
+                "max": stats.get("max_score", 0.0),
+            }
+            for axis, stats in by_type.items()
+            if isinstance(stats, dict)
+        ],
+        key=lambda a: a["mean"],
+        reverse=True,
+    )
+    return {
+        "has_results": True,
+        "target": payload.get("target_provider"),
+        "model": payload.get("target_model"),
+        "aggregate_score": payload.get("aggregate_score"),
+        "axes": axes,
+        "total_runs": len(candidates),
+        "items_completed": payload.get("items_completed", 0),
+        "items_total": payload.get("items_total", 0),
+        "eval_id": payload.get("eval_id"),
+        "ran_at": payload.get("completed_at") or payload.get("started_at"),
+        "result_path": str(latest.relative_to(state_dir())),
+        "eval_set_available": eval_set_available,
     }
 
 

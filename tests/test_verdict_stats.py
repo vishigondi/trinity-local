@@ -457,3 +457,107 @@ class TestHandoffNudge:
             "build_page_data lost the handoffNudge key — the launchpad "
             "banner has nothing to read from."
         )
+
+
+class TestEvalSummary:
+    """Launchpad-side surface of the eval harness output (post-Surface 29)."""
+
+    def _seed_run_result(self, home: Path, target="gemini", aggregate=0.65, mtime=None):
+        evals = home / "evals"
+        results = evals / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "eval_id": "eval_aaaaaaaaaaaa",
+            "target_provider": target,
+            "target_model": f"{target}-mock",
+            "started_at": "2026-05-14T15:00:00",
+            "completed_at": "2026-05-14T15:01:00",
+            "items_total": 2,
+            "items_completed": 2,
+            "items_failed": 0,
+            "items": [],
+            "aggregate_score": aggregate,
+            "by_rejection_type": {
+                "REFRAME": {"count": 1, "mean_score": 0.4, "min_score": 0.4, "max_score": 0.4},
+                "COMPRESSION": {"count": 1, "mean_score": 0.9, "min_score": 0.9, "max_score": 0.9},
+            },
+        }
+        import json
+        path = results / f"eval_{payload['eval_id']}__model_{target}__20260514150000.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        if mtime is not None:
+            import os
+            os.utime(path, (mtime, mtime))
+        return path
+
+    def _seed_eval_set(self, home: Path):
+        evals = home / "evals"
+        evals.mkdir(parents=True, exist_ok=True)
+        path = evals / "eval_aaaaaaaaaaaa.json"
+        path.write_text('{"eval_id": "eval_aaaaaaaaaaaa", "items": []}', encoding="utf-8")
+        return path
+
+    def test_empty_state_when_no_evals_dir(self, isolated_home):
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert s["has_results"] is False
+        assert s["eval_set_available"] is False
+        assert s["axes"] == []
+
+    def test_empty_state_eval_set_available_flag(self, isolated_home):
+        """User built an eval set but never ran it — empty state should
+        flip the eval_set_available flag so the CTA points at
+        `eval-run`, not `eval-build`."""
+        self._seed_eval_set(isolated_home)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert s["has_results"] is False
+        assert s["eval_set_available"] is True
+
+    def test_populated_when_run_exists(self, isolated_home):
+        self._seed_eval_set(isolated_home)
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.67)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert s["has_results"] is True
+        assert s["target"] == "gemini"
+        assert s["model"] == "gemini-mock"
+        assert s["aggregate_score"] == pytest.approx(0.67)
+        # Per-axis array sorted by mean descending (COMPRESSION 0.9 > REFRAME 0.4)
+        assert s["axes"][0]["name"] == "COMPRESSION"
+        assert s["axes"][1]["name"] == "REFRAME"
+        assert s["total_runs"] == 1
+
+    def test_most_recent_wins_when_multiple_runs(self, isolated_home):
+        """Multiple eval-run invocations leave multiple result files;
+        the latest by mtime should win the launchpad slot."""
+        self._seed_run_result(isolated_home, target="gemini", aggregate=0.50, mtime=1000)
+        self._seed_run_result(isolated_home, target="claude", aggregate=0.80, mtime=2000)
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert s["target"] == "claude"  # newest
+        assert s["aggregate_score"] == pytest.approx(0.80)
+        assert s["total_runs"] == 2
+
+    def test_malformed_result_falls_back_to_empty_state(self, isolated_home):
+        """Per Analytics-never-crash: a corrupted result JSON must not
+        bring down the launchpad. Returns empty_state with the
+        eval_set_available flag still correct."""
+        self._seed_eval_set(isolated_home)
+        results = isolated_home / "evals" / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        (results / "eval_aaaaaaaaaaaa__model_gemini__bogus.json").write_text(
+            "{not valid json", encoding="utf-8",
+        )
+        from trinity_local.launchpad_data import _eval_summary
+        s = _eval_summary()
+        assert s["has_results"] is False
+        assert s["eval_set_available"] is True  # flag still surfaced
+
+    def test_evalSummary_wired_into_build_page_data(self):
+        """Source-level wiring check — build_page_data references the
+        evalSummary key. Refactor-by-removal would fail this loudly."""
+        from pathlib import Path
+        src = Path(__file__).resolve().parents[1] / "src/trinity_local/launchpad_data.py"
+        text = src.read_text(encoding="utf-8")
+        assert "\"evalSummary\":" in text or "'evalSummary':" in text
