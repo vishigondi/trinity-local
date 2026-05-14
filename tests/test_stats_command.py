@@ -322,3 +322,102 @@ class TestStatsShareTemplate:
         share_actions = [a for a in stats_parser._actions if a.dest == "share"]
         assert share_actions, "stats lacks the --share flag"
         assert share_actions[0].const is True  # store_true
+
+    def test_share_renders_leaderboard_when_3_targets(self, isolated_home, capsys):
+        """The 3-provider snapshot (launch-arc #116 v1 deliverable):
+        when targets list has ≥2 entries, the benchmark anchor
+        renders a LEADERBOARD with rank + score + judge — strictly
+        stronger marketing than the single-point ('Model X scored
+        Y') form. Locks in the leaderboard shape so a future change
+        doesn't silently revert to single-point.
+        """
+        from trinity_local.commands.stats import handle_stats
+        # Seed three target result files
+        results = isolated_home / "evals" / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        for tgt, score, judge in [
+            ("claude", 1.00, "gemini"),
+            ("gemini", 0.83, "claude"),
+            ("codex", 0.80, "claude"),
+        ]:
+            (results / f"eval_abc__model_{tgt}__20260514.json").write_text(
+                json.dumps({
+                    "eval_id": "eval_abc",
+                    "target_provider": tgt,
+                    "target_model": f"{tgt}-mock",
+                    "aggregate_score": score,
+                    "items_completed": 5,
+                    "items": [{"item_id": "i1", "judge_provider": judge}],
+                }),
+                encoding="utf-8",
+            )
+
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # The leaderboard header form is distinct from single-point
+        assert "leaderboard" in out.lower()
+        # All three providers named in the ranked output
+        for tgt in ("Claude", "Gemini", "Codex"):
+            assert tgt in out
+        # Judge attribution visible (the "no self-grading" proof)
+        assert "judged by gemini" in out
+        assert "judged by claude" in out
+        # Wedge phrase still ships
+        flat = " ".join(out.split())
+        assert "Judges rotated so no model grades itself" in flat
+
+    def test_share_falls_back_to_single_point_with_one_target(self, isolated_home, capsys):
+        """One target = the old single-point form. Leaderboard would
+        be a degenerate 'leaderboard of 1' which reads weak. The
+        existing single-point form ('Model X scored Y') is correct
+        UX for that state."""
+        from trinity_local.commands.stats import handle_stats
+        results = isolated_home / "evals" / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        (results / "eval_abc__model_gemini__20260514.json").write_text(
+            json.dumps({
+                "eval_id": "eval_abc",
+                "target_provider": "gemini",
+                "target_model": "gemini-mock",
+                "aggregate_score": 0.75,
+                "items_completed": 3,
+                "items": [{"item_id": "i1", "judge_provider": "claude"}],
+            }),
+            encoding="utf-8",
+        )
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Single-point form (the old anchor)
+        assert "Gemini scored 0.75" in out
+        # Should NOT use the leaderboard form for a single target
+        assert "leaderboard" not in out.lower()
+
+    def test_targets_field_in_json_output(self, isolated_home, capsys):
+        """The JSON report carries `targets` (leaderboard data) so
+        callers can drive their own post-template (Twitter, HN, blog)
+        from a single JSON read."""
+        from trinity_local.commands.stats import handle_stats
+        results = isolated_home / "evals" / "results"
+        results.mkdir(parents=True, exist_ok=True)
+        for tgt, score in [("claude", 1.0), ("gemini", 0.83), ("codex", 0.8)]:
+            (results / f"eval_abc__model_{tgt}__20260514.json").write_text(
+                json.dumps({
+                    "eval_id": "eval_abc",
+                    "target_provider": tgt,
+                    "aggregate_score": score,
+                    "items_completed": 5,
+                    "items": [{"item_id": "i1", "judge_provider": "claude"}],
+                }),
+                encoding="utf-8",
+            )
+        rc = handle_stats(_make_args(as_json=True))
+        assert rc == 0
+        out = json.loads(capsys.readouterr().out)
+        targets = out["evals"]["targets"]
+        assert len(targets) == 3
+        # Sorted by aggregate desc
+        assert targets[0]["target"] == "claude"
+        assert targets[0]["aggregate_score"] == 1.0
+        assert targets[-1]["target"] == "codex"

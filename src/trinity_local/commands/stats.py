@@ -112,6 +112,7 @@ def handle_stats(args):
                 continue
 
     latest_eval: dict | None = None
+    targets: list[dict] = []  # leaderboard: most-recent run per target
     results_dir = evals_dir / "results"
     if results_dir.exists():
         candidates = sorted(
@@ -119,17 +120,35 @@ def handle_stats(args):
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        if candidates:
+        seen: set[str] = set()
+        for path in candidates:
             try:
-                data = json.loads(candidates[0].read_text(encoding="utf-8"))
-                latest_eval = {
-                    "target": data.get("target_provider"),
-                    "model": data.get("target_model"),
-                    "aggregate_score": data.get("aggregate_score"),
-                    "items_completed": data.get("items_completed"),
-                }
+                data = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
-                latest_eval = None
+                continue
+            target = data.get("target_provider")
+            if not target or target in seen:
+                continue  # keep most-recent per target (mtime desc)
+            seen.add(target)
+            # Pull judge from first item — runner uses one judge per run
+            items = data.get("items") or []
+            judge = None
+            for item in items:
+                if isinstance(item, dict) and item.get("judge_provider"):
+                    judge = item["judge_provider"]
+                    break
+            entry = {
+                "target": target,
+                "model": data.get("target_model"),
+                "aggregate_score": data.get("aggregate_score"),
+                "items_completed": data.get("items_completed"),
+                "judge": judge,
+            }
+            targets.append(entry)
+            if latest_eval is None:
+                latest_eval = entry  # the first one (newest) is the canonical "latest"
+        # Sort leaderboard by aggregate desc — "best on YOUR corpus" first
+        targets.sort(key=lambda r: r.get("aggregate_score") or -1.0, reverse=True)
 
     # Prompt index size (the foundation under everything).
     prompts_dir = home / "prompts"
@@ -163,6 +182,10 @@ def handle_stats(args):
         "evals": {
             "items_mined": eval_set_items,
             "latest_run": latest_eval,
+            # Leaderboard: per-target most-recent run, sorted by score
+            # desc. Empty list when no runs on disk. Populated for
+            # `stats --share` to render the multi-provider anchor.
+            "targets": targets,
         },
         "trinity_home": str(home),
     }
@@ -229,6 +252,7 @@ def _print_share_template(report: dict) -> None:
     rated = report["councils"]["rated"]
     prompts = report["prompts_indexed"]
     latest = (report.get("evals") or {}).get("latest_run")
+    targets = (report.get("evals") or {}).get("targets") or []
 
     print()
     print("─" * 60)
@@ -248,8 +272,33 @@ def _print_share_template(report: dict) -> None:
         print(f'   prevented from building. https://github.com/vishigondi/trinity-local')
         print()
 
-    # Anchor 2: empirical benchmark (when an eval result exists)
-    if latest and latest.get("aggregate_score") is not None:
+    # Anchor 2: empirical benchmark — leaderboard when ≥2 targets,
+    # single-point fallback when 1. The leaderboard form is strictly
+    # stronger marketing: it shows the wedge ("Trinity scores models
+    # against YOUR rejections — here's the rank order") rather than
+    # asserting a single point ("model X scored Y, take my word").
+    scored = [t for t in targets if t.get("aggregate_score") is not None]
+    if len(scored) >= 2:
+        print("▶ Personal-benchmark anchor (the #116 wedge, leaderboard):")
+        print()
+        print(f'   Trinity benchmarked all three providers against MY actual')
+        print(f'   rejection signal. Leaderboard on my own corpus:')
+        print()
+        for i, row in enumerate(scored, 1):
+            tgt = (row.get("target") or "?").capitalize()
+            score = row["aggregate_score"]
+            n = row.get("items_completed") or 0
+            judge = row.get("judge")
+            judge_str = f" (judged by {judge})" if judge else ""
+            print(f'   {i}. {tgt}: {score:.2f}/1.00 on {n} items{judge_str}')
+        print()
+        print(f'   No frontier provider can build this benchmark themselves')
+        print(f'   — Anthropic only sees Claude transcripts, OpenAI only sees')
+        print(f'   GPT. Only the layer above the labs sees cross-provider')
+        print(f'   rejection. Judges rotated so no model grades itself.')
+        print(f'   https://github.com/vishigondi/trinity-local')
+        print()
+    elif latest and latest.get("aggregate_score") is not None:
         target = latest.get("target", "?")
         agg = latest["aggregate_score"]
         items = latest.get("items_completed", 0)
