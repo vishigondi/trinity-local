@@ -584,6 +584,63 @@ class TestReadmeHeroInstallCommand:
             f"'(After v1.0 ship: pip install trinity-local)'."
         )
 
+    def test_launch_demo_script_install_commands_work_today(self):
+        """The 60-second demo scripts in docs/launch.md (lines starting
+        with `0:00–0:08  CLI: ...`) are RECORDING INSTRUCTIONS — the
+        user types these commands during the T-1 recording session,
+        before the launch's PyPI publish has happened. A bare
+        `pip install trinity-local` at the install timecode means the
+        recorder hits the 404 on camera.
+
+        Caught at T-1: both demo variants (handoff PRIMARY at line ~239
+        and council ALTERNATE at line ~266) used the bare form. Fixed
+        with the git+https URL form + an explicit RECORDING NOTE
+        explaining that the published video can show either form since
+        they're identical from the viewer's POV.
+
+        The published TWEET copy (line ~76 in the 'Install (10/12)'
+        beat) is correctly left as the bare form — that text ships
+        AFTER PyPI publish, so the canonical form is right there.
+        Distinction: 'demo recording timecode' (typed pre-PyPI) vs
+        'tweet body' (read post-PyPI).
+        """
+        launch_md = REPO / "docs" / "launch.md"
+        try:
+            text = launch_md.read_text(encoding="utf-8")
+        except OSError:
+            return
+        # Find every `0:NN-0:NN  CLI: <something>` recording-timecode
+        # line. The timecode pattern is the anchor.
+        timecode_re = re.compile(r"^\s*\d:\d\d.\d:\d\d\s+CLI:\s*(.+)$", re.MULTILINE)
+        leaks: list[str] = []
+        for m in timecode_re.finditer(text):
+            cmd = m.group(1)
+            if not self.NAKED_PIP_INSTALL.search(cmd):
+                continue
+            # The git+https form passes; bare form fails. Allow any
+            # caveat marker in the same line OR within 5 lines below
+            # (the "RECORDING NOTE" pattern this guard accepts).
+            line_start = m.start()
+            window_lo = max(0, text.rfind("\n", 0, line_start) - 1)
+            # Window: this line + next 5 lines after the match
+            window_hi = m.end()
+            for _ in range(5):
+                nxt = text.find("\n", window_hi + 1)
+                if nxt < 0:
+                    break
+                window_hi = nxt
+            window = text[window_lo:window_hi].lower()
+            if any(marker in window for marker in self.CAVEAT_MARKERS):
+                continue
+            leaks.append(cmd.strip()[:80])
+        assert not leaks, (
+            f"Demo-recording timecodes in docs/launch.md use naked "
+            f"`pip install trinity-local` (PyPI 404s when the recorder "
+            f"types this on camera at T-1): {leaks}. Use the git+https "
+            f"form OR add a 'RECORDING NOTE: post-ship pip install ...' "
+            f"caveat within 5 lines so the recorder can use either."
+        )
+
     def test_founder_essay_install_command_works_today(self):
         """The founder essay ships to the personal blog at T-7
         (per launch-package). Readers of the essay see install

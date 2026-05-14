@@ -236,8 +236,10 @@ it (no provider can read competitors' transcripts). This is the demo
 that lands in the README hero block.
 
 ```
-0:00–0:08  CLI: pip install trinity-local && trinity-local install-mcp
+0:00–0:08  CLI: pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
+           (RECORDING NOTE: use git+https form pre-PyPI; post-publish the
+            canonical `pip install trinity-local` is identical from the viewer's POV)
 0:08–0:25  Open Claude Code. Ask a substantive multi-turn question
            ("explain this codebase's architecture and what I'd refactor first").
            Claude answers across 2-3 turns. Don't rush — let the conversation
@@ -263,8 +265,10 @@ the deeper "supervision signal" pitch. The council demo's strength is the
 Routing JSON ledger, which the handoff demo doesn't show.
 
 ```
-0:00–0:08  CLI: pip install trinity-local && trinity-local install-mcp
+0:00–0:08  CLI: pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
+           (RECORDING NOTE: use git+https form pre-PyPI; post-publish the
+            canonical `pip install trinity-local` is identical from the viewer's POV)
 0:08–0:15  CLI: trinity-local doctor   (green checks scroll)
 0:15–0:23  Switch to Claude Code. Type /trinity. Show first-council prompt.
 0:23–0:38  Type real question (eg "Should I use SQLite or DuckDB for 50M-row analytics?")
