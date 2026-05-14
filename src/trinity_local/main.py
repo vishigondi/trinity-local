@@ -40,6 +40,7 @@ CORE_COMMAND_MODULES = (
     "distill",
     "doctor",
     "dream",
+    "eval",
     "handoff",
     "ingest",
     "me",
