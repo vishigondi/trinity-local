@@ -192,6 +192,99 @@ disk. #117/#118 (schema + narrative) closed earlier. The launch
 package's "one metric we need to track from day 1" is now visible
 on the launchpad.
 
+### Day-2 evening — drift-class catch (6 launch-credibility bugs)
+
+After the metric-defense ticks landed, the day's remaining work turned
+into a systematic shape-search: for every claim in launch-facing
+copy, verify it survives a reader actually clicking through. Caught
+six distinct launch-credibility drifts, each one minutes-to-hours
+from public eyes. Same shape: launch copy makes a claim; private
+state of truth doesn't match.
+
+1. **Cited council 404s** (`f354aa8`). docs/launch.md cited two
+   specific councils as proof artifacts ("outcome is in the repo:
+   council_<id>.json"). Both files lived only in ~/.trinity/
+   council_outcomes/ (gitignored). HN readers clicking the
+   recursive-demo tweet link would have hit a 404 on the EXACT
+   promise the launch makes ("open-source the trail").
+   Fix: new docs/launch_councils/ directory (not gitignored),
+   2 councils + JS companions copied in, launch.md paths updated
+   to docs/launch_councils/council_*.json.
+   Guard: TestCitedCouncilArtifactsExistInRepo.
+
+2. **Unfilled placeholders** (`4f4a422`). docs/launch.md line 90:
+   "Trinity Local v1 ships open-source [date]. github.com/<repo>"
+   — both literal `[date]` and `<repo>` placeholder slots. Same
+   pattern at line 222 ("Repo: <github.com/...>"). Would have
+   shipped as visible lorem-ipsum in the published tweet thread.
+   Fix: filled with "this week (May 13–15, 2026)" +
+   "github.com/vishigondi/trinity-local."
+   Guard: TestLaunchCopyHasNoPlaceholders scans for `[date]`,
+   `[handle]`, `<github.com/...>`, `<repo>`, `TODO: fill/add/write`
+   shapes; excludes code-fence contents (CLI examples legitimately
+   use `<provider>`).
+
+3. **Dict iterated as list × 3 places** (`e1d712e`). The first
+   real-corpus eval-run caught
+   `for p in config.providers if p.enabled` — `config.providers`
+   is `dict[str, ProviderConfig]`, so iterating yields KEYS
+   (strings) and `p.enabled` blows up. Audit found the same shape
+   in eval.py:233, handoff.py:54, mcp_server.py:1531. All three
+   fixed; AST guard added via `inspect.getsource` on the three
+   handlers so the shape can't quietly recur.
+
+4. **Install-smoke MCP tool list stale** (`90c498d`). The cold-
+   install gate (scripts/smoke_install.sh) hardcoded the expected
+   MCP tool set at 9 — but today's `get_eval_summary` and `handoff`
+   bring the canonical to 11. Fresh `pip install` → build wheel →
+   run smoke → assertion FAILED. Anyone running the published
+   cold-install path tomorrow would have hit a red gate for tools
+   that ARE present, the gate just didn't know to expect them.
+   Fix: expanded canonical to 11; switched `missing or extra` to
+   `missing` only so new tools don't break the gate.
+   Guard: TestInstallSmokeTracksMcpTools parses canonical sets
+   from BOTH smoke_install.sh and tests/test_mcp_tools.py, asserts
+   symmetric equality.
+
+5. **README wrong GitHub owner + PyPI 404** (`09ebbb9`). README's
+   quickstart `git clone https://github.com/openclaw/trinity-local`
+   — the actual remote (per `git remote get-url origin`) is
+   `vishigondi`. launch.md/launch-package/MCP_REGISTRY all
+   already used the right owner; only README had drifted. Also
+   verified PyPI 404s on `trinity-local` at T-1, so the second
+   command (`pip install trinity-local`) also fails.
+   Fix: reordered quickstart so clone+setup.sh leads (works today),
+   pip path uses `git+https://github.com/vishigondi/trinity-local`
+   form. Caveat language ("Post-ship: pip install trinity-local")
+   sets expectation for after PyPI publish.
+   Guard: TestGithubUrlOwnerConsistency reads `git remote get-url`
+   for canonical owner, asserts every reference in launch-facing
+   docs matches.
+
+6. **README hero install command** (`7998ffc`). Same PyPI-404
+   shape, but on the README HERO (line 8 — most-visible command
+   in the entire repo). `pip install trinity-local && trinity-
+   local install-mcp` as the literal first install affordance
+   would have produced "Could not find a version" as the user's
+   FIRST experience tomorrow.
+   Fix: hero uses git+https form with explicit "Post-ship" caveat.
+   Guard: TestReadmeHeroInstallCommand scans ONLY the README's
+   first 25 lines for naked `pip install trinity-local`; allows
+   when the surrounding window mentions a caveat marker.
+
+**Doc-consistency guards: 3 → 8 across the day.** Each one earned
+by a real drift caught at T-1, not prophylactic. Test count:
+1031 → 1048 (+17).
+
+**The accumulating discipline:** every load-bearing launch claim
+now has a regression guard against the same shape going forward.
+"Cited council exists," "no unfilled placeholders," "smoke and
+unit tests agree on canonical tools," "github URL owner matches
+git remote," "naked pip install doesn't appear in README hero
+pre-PyPI." Tomorrow's launch artifacts (tweet thread, HN post,
+README quickstart, cited councils) now resolve correctly when
+readers verify them. The same shape can't quietly return.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
