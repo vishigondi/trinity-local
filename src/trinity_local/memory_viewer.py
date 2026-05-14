@@ -123,11 +123,12 @@ def render_memory_viewer_html() -> str:
     files_json = _json.dumps(ALLOWED_FILES, ensure_ascii=True)
     memories_payload = _json.dumps(_read_memory_contents(), ensure_ascii=True)
     # Inline the same memory-health payload the launchpad surfaces so
-    # the viewer can carry the "audit-disagreed" / "stale" / "user-
-    # overrides" warning forward when the user clicks through to inspect.
-    # Same shape as launchpad_data._memory_health(). Resolved at render
-    # time so the warning travels with the file, not with the page that
-    # linked you to it.
+    # the viewer can carry the staleness signals forward when the user
+    # clicks through to inspect. Same shape as launchpad_data._memory_health()
+    # — 5 signals as of tick #106 (core staleness, picks override_count,
+    # picks audit-disagreed, pre-thread-aware topology, picks cortex-stale).
+    # Resolved at render time so the warning travels with the file, not
+    # with the page that linked you to it.
     try:
         from .launchpad_data import _memory_health
         health_data = _memory_health()

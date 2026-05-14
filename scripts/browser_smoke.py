@@ -38,8 +38,9 @@ Surfaces:
    13. Lens card render: paired-lenses block populates when tasteLenses exists,
        includes "View full lens →" cross-link to memory viewer (tick #12)
    14. Memory viewer + launchpad link: chip links → memory.html loads + renders file
-   15. Memory-health row: drift signals (core stale / picks audit / topology) surface
-       inline with click-to-copy command chips that capture clipboard correctly
+   15. Memory-health row: 5 drift signals (core stale / picks overrides /
+       picks audit / topology / cortex-stale-vs-new-outcomes per tick #106)
+       surface inline with click-to-copy command chips that capture clipboard correctly
    16. Per-file health banner: same signal travels into the memory viewer when a stale
        file is opened, with chip mirroring Surface 15 + nav-dot indicator (tick #18)
    17. Pick-veto chip: each pick card carries a .pick-veto button that copies
@@ -979,12 +980,14 @@ def main() -> int:
 
         # ─── Surface 15: Memory-health row ───────────────────────────────────
         # The launchpad surfaces a "what's stale, what should I do" row
-        # built from four signals (core.md staleness, picks override_count,
-        # picks audit_status, pre-thread-aware topology). The card renders
-        # only when issues exist — a silent absence on a fresh install is
-        # ALSO valid. The check: page-data carries memoryHealth, and the
-        # rendered DOM matches the data (no issues → no card; issues → card
-        # with N items + valid action hints).
+        # built from five signals (core.md staleness; picks override_count;
+        # picks audit_status disagreed; pre-thread-aware topology;
+        # picks.json cortex-stale — councils newer than last consolidate,
+        # added tick #106). The card renders only when issues exist — a
+        # silent absence on a fresh install is ALSO valid. The check:
+        # page-data carries memoryHealth, and the rendered DOM matches
+        # the data (no issues → no card; issues → card with N items +
+        # valid action hints + click-to-copy chip that fires `command`).
         if "launchpad.html" not in page.url:
             page.goto(f"{base_url}/portal_pages/launchpad.html", wait_until="networkidle", timeout=10000)
             page.wait_for_timeout(800)
@@ -1013,7 +1016,7 @@ def main() -> int:
         # Consistency: if issues > 0, card must render with N items; if 0,
         # card must NOT render (v-if guards the silent-fresh state).
         if ic == 0 and not card:
-            print(f"[ ✓ ] Surface 15 memory-health: silent (all 4 signals fresh)")
+            print("[ ✓ ] Surface 15 memory-health: silent (all 5 signals fresh)")
         elif ic > 0 and card and rendered_n == ic:
             hint_ok = bool(health_state.get("first_hint"))
             name_ok = bool(health_state.get("first_name"))
