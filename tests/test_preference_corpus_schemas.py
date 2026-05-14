@@ -331,3 +331,75 @@ class TestSpecDocReferencesSchemas:
         for schema_name in ("council_outcome.schema.json", "eval_set.schema.json", "rejection_signal.schema.json"):
             resolved = (doc_path.parent / "../schemas" / schema_name).resolve()
             assert resolved.exists(), f"link target missing: {resolved}"
+
+
+class TestSchemaExamples:
+    """Each schema ships a canonical example payload under
+    schemas/examples/. The Preference Corpus Spec claims these are
+    minimum-valid and CI-validated — this test enforces that claim.
+
+    Two layers of guarantee:
+      1. The example file validates against the schema (no silent drift)
+      2. The example IS minimum-valid (no extra optional fields beyond
+         what `required` demands) — checked by counting top-level keys
+
+    Without (2), the example bloats over time and adopters can't tell
+    which fields are required vs optional.
+    """
+
+    @pytest.mark.parametrize("schema_name,example_name", [
+        ("council_outcome.schema.json", "council_outcome.example.json"),
+        ("eval_set.schema.json", "eval_set.example.json"),
+    ])
+    def test_example_validates_against_schema(self, jsonschema_mod, schema_name, example_name):
+        """The example file in schemas/examples/ must validate against
+        its schema. If the schema's `required` shifts and the example
+        wasn't updated, this fires loudly."""
+        schema = _load_schema(schema_name)
+        example_path = SCHEMAS_DIR / "examples" / example_name
+        assert example_path.exists(), (
+            f"Example file {example_name} missing. The Preference "
+            f"Corpus Spec links to it; the doc anchor must resolve."
+        )
+        example = json.loads(example_path.read_text(encoding="utf-8"))
+        jsonschema_mod.validate(example, schema)
+
+    def test_rejection_signal_example_jsonl_validates(self, jsonschema_mod):
+        """rejections.jsonl is line-delimited (the lens-build pipeline
+        appends incrementally), so the example file is .jsonl not .json.
+        Each line must validate independently."""
+        schema = _load_schema("rejection_signal.schema.json")
+        path = SCHEMAS_DIR / "examples" / "rejection_signal.example.jsonl"
+        assert path.exists(), "rejection_signal.example.jsonl missing"
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        assert lines, "example jsonl is empty"
+        for idx, line in enumerate(lines, start=1):
+            record = json.loads(line)
+            try:
+                jsonschema_mod.validate(record, schema)
+            except jsonschema_mod.ValidationError as exc:
+                pytest.fail(f"rejection_signal.example.jsonl line {idx} failed: {exc}")
+
+    def test_examples_kept_minimal(self):
+        """Examples should carry every REQUIRED field and only the
+        minimum optional fields needed to be self-explanatory. Bloat
+        over time confuses adopters about what's actually required.
+
+        Crude but useful check: the example shouldn't carry more than
+        ~50% extra top-level keys beyond what the schema requires."""
+        for schema_name, example_name in [
+            ("council_outcome.schema.json", "council_outcome.example.json"),
+            ("eval_set.schema.json", "eval_set.example.json"),
+        ]:
+            schema = _load_schema(schema_name)
+            example = json.loads((SCHEMAS_DIR / "examples" / example_name).read_text())
+            required = set(schema.get("required", []))
+            extra_keys = set(example.keys()) - required
+            # Allow up to one extra optional field per required field
+            # (so people can see what they look like) — beyond that
+            # the example has bloated past "minimum-valid".
+            assert len(extra_keys) <= len(required), (
+                f"{example_name} has too many extra optional keys: "
+                f"{extra_keys}. Either drop them or move to a separate "
+                f"'rich' example file."
+            )

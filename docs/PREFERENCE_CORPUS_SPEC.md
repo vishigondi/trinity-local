@@ -45,6 +45,90 @@ These are the categories the chairman labels with; an alternative tool can use t
 - **Not a model-routing format.** Trinity has internal schemas (picks.json, routing.json) for that — keeping them out of v1 so the surface area is small and the interop story is sharp.
 - **Not a backwards-compatibility commitment beyond v1.** v2 may rename fields once the spec has been pressure-tested by other adopters; for now it's locked while Trinity is the only consumer.
 
+## Example payloads
+
+Each canonical example below is a minimum-valid payload for its schema
+— it carries every required field and none of the optional ones. The
+example files live under [`schemas/examples/`](../schemas/examples/)
+and the spec's CI validates each against its schema, so these stay
+in sync with the JSON Schema files themselves.
+
+The fastest sanity check after pulling the spec into your tool:
+
+```python
+import json, jsonschema
+schema = json.load(open("schemas/council_outcome.schema.json"))
+example = json.load(open("schemas/examples/council_outcome.example.json"))
+jsonschema.validate(example, schema)  # raises ValidationError if drift
+```
+
+### `council_outcome.example.json`
+
+```json
+{
+  "council_run_id": "council_a1b2c3d4e5f60718",
+  "bundle_id": "bundle_demo",
+  "created_at": "2026-05-14T12:00:00Z",
+  "primary_provider": "claude",
+  "member_results": [
+    {"provider": "claude", "output_text": "answer A"},
+    {"provider": "gemini", "output_text": "answer B"}
+  ],
+  "synthesis_output": "Both answers converge on X. Claude's framing is sharper.",
+  "routing_label": {
+    "task_type": "explanation",
+    "winner": "claude",
+    "agreed_claims": ["Both note that X follows from Y."],
+    "disagreed_claims": [
+      {
+        "claim": "Whether to mention edge case Z",
+        "why_matters": "Z applies to half the user's actual use cases",
+        "providers": ["claude"]
+      }
+    ]
+  }
+}
+```
+
+### `eval_set.example.json`
+
+```json
+{
+  "eval_id": "eval_a1b2c3d4e5f6",
+  "built_at": "2026-05-14T12:00:00Z",
+  "source": "rejections",
+  "stats": {
+    "items": 1,
+    "by_rejection_type": {"COMPRESSION": 1},
+    "by_basin": {"b00": 1}
+  },
+  "items": [
+    {
+      "eval_item_id": "ei_a1b2c3d4e5f6",
+      "prompt": "Explain X concisely.",
+      "rejection_type": "COMPRESSION",
+      "rejected_response": "A long lecture about X with five subsections.",
+      "user_substitute": "tldr",
+      "rubric_signal": "user wanted shorter",
+      "basin_id": "b00",
+      "source": "rejections",
+      "source_id": "r_001",
+      "prompt_id": "pn_42",
+      "provider_of_rejected_response": "claude"
+    }
+  ]
+}
+```
+
+### `rejection_signal.example.jsonl`
+
+One record per line — `rejections.jsonl` is line-delimited because
+the lens-build pipeline appends incrementally.
+
+```jsonl
+{"id": "r_001", "type": "COMPRESSION", "model_quote": "A long lecture about X with five subsections.", "user_substitute": "tldr", "why_signal": "user explicitly asked for shorter", "prompt_id": "pn_42", "basin": "b00", "next_user_turn": ""}
+```
+
 ## Adopting this in your tool
 
 1. Validate writes against the schemas (`pip install jsonschema`; load the schema; `jsonschema.validate(your_dict, schema)`).
