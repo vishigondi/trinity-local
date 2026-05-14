@@ -373,6 +373,43 @@ launch-day-public-eyes-time. The audit trail is the launch's
 literal — every drift caught, every fix referenced, every guard
 explainable to a curious reader.
 
+### Day-2 close — second eval target on disk (#116 cross-provider)
+
+After the drift-finding pass saturated, pivoted to substantive
+launch-arc work: ran a 5-item codex eval-run against the corpus
+eval set, judged by claude. Result on disk at
+`~/.trinity/evals/results/eval_eval_d32567a386b9__model_codex__
+20260514T220454.json`.
+
+  codex aggregate: 0.800 (vs rejected_responses)
+  REDIRECT  n=1  mean=0.900
+  REFRAME   n=4  mean=0.775  (min 0.40 max 0.90)
+
+Combined with the morning's gemini result, Trinity now has the
+**first real cross-provider benchmark snapshot** on the user's
+own corpus:
+
+  gemini = 0.833 (3 items, judge=claude)
+  codex  = 0.800 (5 items, judge=claude)
+
+Both judged by claude — cross-provider, no self-bias. The launch-
+arc #116 headline shape upgrades from "Model X scored Y.YY on YOUR
+kind of question" (single-point) to a comparison table (multi-point).
+A journalist can now verify the claim "Trinity scores models against
+my actual rejections" by running `trinity-local eval-show` and
+seeing two targets ranked.
+
+The launchpad Surface 30 picks up the codex result (most recent by
+mtime). The `stats` command's "Latest eval result" surfaces
+`codex = 0.800 (5 items)`. Both gemini and codex result files
+remain on disk — `eval-show --target gemini` and `eval-show
+--target codex` produce per-target views.
+
+Wall time: 174s/item average for codex (range 19s–380s). Full
+44-item × 3-target benchmark would take ~6 hours — schedule
+overnight before the next v1.x milestone for the publishable
+comparison table.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
