@@ -104,7 +104,7 @@ Brains don't kNN over raw episodes. They consolidate. Trinity should too.
 ```
 TIER 1 — Hippocampus (episodic, fast write, slow recall)
 ├── ~/.trinity/prompts/prompt_nodes.jsonl       v1 — individual user prompts
-├── ~/.trinity/memory/turn_windows.jsonl       v1 — with surrounding context
+├── ~/.trinity/prompts/turn_windows.jsonl       v1 — with surrounding context
 └── ~/.trinity/council_outcomes/*.json         v1 — individual council decisions
 
 TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
@@ -600,7 +600,7 @@ to all tool calls.
 
 **Week 1 — MCP `ask` + hippocampus kNN** (working memory deferred to v1.6)
 - `mcp__trinity-local__ask(query)` end-to-end (no cortex yet — kNN only)
-- kNN retrieval over existing 28k embeddings → dispatch best provider
+- kNN retrieval over existing prompt-node embeddings (~50k on real corpus 2026-05-13; grows over time) → dispatch best provider
 - Fast-path bypass when retrieval confidence > 0.9 (skip Conductor)
 - Heuristic transcript-success labeler (so routing works pre-councils)
 - Token-budget enforcement (max 500 tokens for `ask` returns)

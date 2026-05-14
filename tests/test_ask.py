@@ -1,7 +1,7 @@
 """Tests for the v1.5 `ask` orchestration.
 
 Hits are fabricated as SearchResult instances so we don't depend on a populated
-~/.trinity/memory/ in the test environment. The production path uses
+~/.trinity/prompts/ in the test environment. The production path uses
 `memory.search_prompt_nodes` which we patch at module level.
 """
 from __future__ import annotations

@@ -207,7 +207,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 1. **`~/.trinity/` not `~/trinity/`.** Hidden-dir is the macOS convention; visible folders get accidentally moved, iCloud-synced, deleted by Mac cleanup tools.
 
-2. **numpy not FAISS.** Numpy matmul gets ~5ms on 28k vectors; FAISS adds a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
+2. **numpy not FAISS.** Numpy matmul gets ~5ms on a 49k-vector corpus (measured 2026-05-13; was ~28k when the call was first made, scaled linearly with no observable falloff). FAISS would add a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
 3. **9 MCP tools shipped (6 canonical + 3 v1.5 additions).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 ships 6: `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`.
 
