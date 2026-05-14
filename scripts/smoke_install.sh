@@ -117,23 +117,34 @@ print('✓ Trinity-internal checks pass (provider CLIs absent in smoke env, expe
     # spec-v1.5 Week 5 gate: the MCP path must actually work post-install.
     # install-mcp only writes config files; doctor only checks the env. A
     # missing dep in the wheel would slip past both. Verify the MCP server
-    # module imports AND list_tools returns the 9 expected names.
+    # module imports AND list_tools returns the v1.0 canonical 6 + v1.5
+    # trio + launch-arc pair (currently 11 tools total).
+    #
+    # The expected set is checked as SUPERSET — new tools added without a
+    # smoke gate update no longer fail the cold-install run, but if any
+    # of the canonical 11 silently DISAPPEAR (refactor drop, dep break,
+    # circular-import surface change), the gate fails loudly. Matches the
+    # test_mcp_tools.py guard's intent: the canonical list is load-bearing,
+    # additions are not.
     if ! "$SMOKE_DIR/venv/bin/python" -c '
 import asyncio, sys
 from trinity_local.mcp_server import handle_list_tools
 tools = asyncio.run(handle_list_tools())
 names = {t.name for t in tools}
-expected = {
-    "ask", "get_picks", "mark_pick_wrong",
+canonical = {
+    # v1.0 lifecycle six
     "route", "run_council", "record_outcome",
     "search_prompts", "get_persona", "get_council_status",
+    # v1.5 trio
+    "ask", "get_picks", "mark_pick_wrong",
+    # launch-arc pair (handoff + benchmark surface)
+    "handoff", "get_eval_summary",
 }
-missing = expected - names
-extra = names - expected
-if missing or extra:
-    print(f"FAIL: MCP tool list mismatch (missing={missing}, extra={extra})", file=sys.stderr)
+missing = canonical - names
+if missing:
+    print(f"FAIL: MCP tool list missing canonical tools: {missing}", file=sys.stderr)
     sys.exit(1)
-print(f"  ✓ MCP exposes {len(names)} tools: {sorted(names)}")
+print(f"  ✓ MCP exposes {len(names)} tools (all {len(canonical)} canonical present): {sorted(names)}")
 '; then
         echo "FAIL: MCP server import or tool list check failed" >&2
         exit 1
