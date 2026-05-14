@@ -1181,7 +1181,7 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
                     f'class="{chip_classes}" title="{_esc(tooltip)}">→ topology</a>'
                 )
             xlinks = (
-                f'<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
+                '<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
                 + "".join(chips)
                 + "</div>"
             )

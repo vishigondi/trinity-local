@@ -239,9 +239,16 @@ Two tiers in v1.5. The third tier (`plan_and_execute`) is **deferred to v1.6**
 ship date and dilute the launch narrative. Cortex is the v1.5 headline.
 
 ```
-mcp__trinity-local__ask(query, thread_id?)
+mcp__trinity-local__ask(query)
   → { answer, routed_to, trust_score, latency_ms, cortex_rule_applied?,
        lens_score?, escalate_hint? }
+
+  Note: the original Week 1 spec proposed `thread_id?` as a working-memory
+  carrier. The parameter is **NOT shipped in v1.5** — it was advertised in
+  the MCP schema during Weeks 1-4 but the handler discarded it. Removed
+  in v1.5 cleanup; will return in v1.6 alongside the `plan_and_execute`
+  tool when working memory actually has consumers (see "Deferred to v1.6"
+  + "Working memory" sections below).
 
   Cost: ~$0.01–0.05, <2s typical
   Use when: you want a quick consult from whichever model is best for THIS
@@ -591,14 +598,17 @@ to all tool calls.
 
 ## 5-week ship plan (target: June 3, 2026)
 
-**Week 1 — MCP `ask` + hippocampus kNN + working memory**
-- `mcp__trinity-local__ask(query, thread_id?)` end-to-end (no cortex yet — kNN only)
+**Week 1 — MCP `ask` + hippocampus kNN** (working memory deferred to v1.6)
+- `mcp__trinity-local__ask(query)` end-to-end (no cortex yet — kNN only)
 - kNN retrieval over existing 28k embeddings → dispatch best provider
 - Fast-path bypass when retrieval confidence > 0.9 (skip Conductor)
 - Heuristic transcript-success labeler (so routing works pre-councils)
 - Token-budget enforcement (max 500 tokens for `ask` returns)
 - Tool descriptions teach Claude when to use ask vs compare
-- `thread_id` working memory across MCP calls
+- ~~`thread_id` working memory across MCP calls~~ → **deferred to v1.6**.
+  Lived in the MCP schema as a no-op through Weeks 1-4; removed in
+  cleanup. Returns alongside `plan_and_execute` when there's a real
+  consumer.
 
 **Week 2 — Cortex consolidation (offline only)**
 - `trinity-local consolidate` CLI command + flagship-call extraction

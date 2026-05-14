@@ -19,7 +19,6 @@ copy-paste the next command directly.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from ..state_paths import council_outcomes_dir, prompt_bundles_dir
 

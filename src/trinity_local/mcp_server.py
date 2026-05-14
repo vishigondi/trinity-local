@@ -88,10 +88,6 @@ async def handle_list_tools() -> list[Tool]:
                         "items": {"type": "string"},
                         "description": "Provider names allowed to route to (default: all enabled in config)",
                     },
-                    "thread_id": {
-                        "type": "string",
-                        "description": "Optional. Carries context across related calls (working memory).",
-                    },
                     "top_k": {"type": "integer", "default": 5, "description": "How many past prompts to retrieve for the vote"},
                 },
                 "required": ["query"],
@@ -470,8 +466,6 @@ async def _ask(args: dict) -> list[Any]:
         available = _full_provider_pool()
 
     top_k = int(args.get("top_k", 5))
-    # thread_id is accepted but not yet used in week-1 — wired in week-2.
-    _thread_id = args.get("thread_id")
 
     try:
         result = run_ask(

@@ -156,7 +156,7 @@ def handle_status(args):
         marker = "⚠️ stale" if stale else "✅ fresh"
         print(f"    {marker} core.md       {core.stat().st_size:>8,} bytes — chairman reads this first")
     else:
-        print(f"    · core.md       not distilled — run `trinity-local distill`")
+        print("    · core.md       not distilled — run `trinity-local distill`")
     print()
 
     # Drift

@@ -7,8 +7,6 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from ..runtime_env import project_venv_root
-
 
 def register(subparsers):
     imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, and Codex CLI")
@@ -21,15 +19,6 @@ def register(subparsers):
 
 
 def handle_install_mcp(args):
-    venv_root = project_venv_root()
-    trinity_bin = venv_root / "bin" / "trinity-local"
-
-    if not trinity_bin.exists():
-        # Fallback if not installed as script
-        trinity_bin_str = f"{sys.executable} -m trinity_local.main"
-    else:
-        trinity_bin_str = str(trinity_bin)
-
     mcp_config = {
         "mcpServers": {
             "trinity-local": {

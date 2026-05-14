@@ -182,7 +182,6 @@ def _flush_chunk(staged: list[dict], existing_ids: set[str], dim: int, batch_siz
     for s in staged:
         if s["already_indexed"]:
             continue
-        session = s["session"]
         keepers = s["keepers"]
         is_multi_turn = s["is_multi_turn"]
 

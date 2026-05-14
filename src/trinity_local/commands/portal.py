@@ -77,7 +77,7 @@ def handle_serve(args):
     url = f"http://127.0.0.1:{args.port}/portal_pages/launchpad.html"
     print(f"Trinity is serving {home} at http://127.0.0.1:{args.port}")
     print(f"Launchpad: {url}")
-    print(f"Press Ctrl-C to stop.")
+    print("Press Ctrl-C to stop.")
     if args.open_browser:
         webbrowser.open(url)
     try:
