@@ -43,11 +43,15 @@ class TestToolList:
         # Launch-arc adds (tick #119): `handoff` (cross-provider
         # conversation continuity — the killer-hook mechanism for the
         # 60-second demo).
+        # Launch-arc adds (post-#119): `get_eval_summary` (read the
+        # latest eval-run benchmark — third entry point for the
+        # empirical-benchmark surface alongside the CLI eval-show and
+        # the launchpad Personalized Benchmark card).
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council", "record_outcome",
             "search_prompts", "get_persona", "get_council_status",
-            "handoff",
+            "handoff", "get_eval_summary",
         }, f"unexpected tool list: {names}"
 
     def test_old_tools_dropped_from_public_surface(self):

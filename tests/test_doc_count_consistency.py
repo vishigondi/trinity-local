@@ -142,6 +142,7 @@ class TestMcpToolNameConsistency:
         # need editing every time a tool is added.
         section_start = -1
         for variant in (
+            "### The eleven MCP tools",
             "### The ten MCP tools",
             "### The nine MCP tools",
         ):
@@ -151,7 +152,7 @@ class TestMcpToolNameConsistency:
                 break
         assert section_start > 0, (
             "claude.md MCP-tools section not found — looked for "
-            "'### The ten MCP tools' or '### The nine MCP tools'. "
+            "'### The eleven/ten/nine MCP tools'. "
             "Principle #20 anchor moved, fix the test or restore the heading"
         )
         # Find the next ### heading or end-of-file

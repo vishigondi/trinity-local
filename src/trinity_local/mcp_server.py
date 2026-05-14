@@ -332,6 +332,40 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["target_provider"],
             },
         ),
+        Tool(
+            name="get_eval_summary",
+            description=(
+                "Return the latest empirical-benchmark result from Trinity's "
+                "corpus-based eval harness. Each item in the eval set is "
+                "(prompt, rejection_type, rejected_response) mined from the "
+                "user's transcripts — REFRAME / COMPRESSION / REDIRECT / "
+                "SHARPENING. `eval-run --target <provider>` scores a candidate "
+                "model against those rejections; this tool surfaces the "
+                "aggregate + per-axis scores without re-running. "
+                "USE WHEN: the user asks 'which model is best for me at X', "
+                "'how does <provider> compare', or you (the agent) want to "
+                "ground a routing recommendation in empirical data instead of "
+                "global priors. "
+                "Returns either populated stats (target, model, aggregate_score, "
+                "per-axis mean/min/max) or an empty-state shape with a CTA "
+                "command — same shape the launchpad's Personalized Benchmark "
+                "card renders. Filter to a specific target or eval_id; "
+                "default returns the most-recent result file regardless."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "description": "Optional. Filter to runs against this provider (e.g. 'gemini').",
+                    },
+                    "eval_id": {
+                        "type": "string",
+                        "description": "Optional. Filter to a specific eval set's runs.",
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -359,6 +393,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _get_council_status(arguments)
         if name == "handoff":
             return await _handoff(arguments)
+        if name == "get_eval_summary":
+            return await _get_eval_summary(arguments)
         return [ErrorData(code=404, message=f"Tool not found: {name}")]
     except Exception as exc:
         return [ErrorData(code=500, message=f"{type(exc).__name__}: {exc}")]
@@ -1393,3 +1429,99 @@ async def run_stdio_server():
             write_stream,
             server.create_initialization_options(),
         )
+
+
+async def _get_eval_summary(args: dict) -> list[Any]:
+    """Surface the latest empirical-benchmark result to the agent.
+
+    Mirrors the launchpad's Personalized Benchmark card and `eval-show`
+    CLI — same data source (~/.trinity/evals/results/), same shape. The
+    agent can ask 'how does gemini benchmark on this user's prompts?'
+    inline without spawning a subprocess.
+
+    With `target` and/or `eval_id` filters, narrows to a specific run.
+    Without filters, returns the most-recent result file.
+
+    Empty-state shape (no runs yet) carries an `empty_state` field
+    with the right CTA command so the agent can suggest the next step
+    rather than just saying "no results."
+    """
+    from .evals.builder import results_dir, evals_dir
+    from .evals.runner import load_run_result
+
+    target = args.get("target")
+    requested_eval_id = args.get("eval_id")
+
+    # Empty: no results dir at all.
+    rd = results_dir()
+    if not rd.is_dir():
+        eval_set_present = any(evals_dir().glob("eval_*.json")) if evals_dir().is_dir() else False
+        return [_text({
+            "ok": True,
+            "has_results": False,
+            "eval_set_available": eval_set_present,
+            "empty_state": {
+                "message": "No eval-run results on disk.",
+                "next_command": (
+                    "trinity-local eval-run --target gemini"
+                    if eval_set_present
+                    else "trinity-local eval-build && trinity-local eval-run --target gemini"
+                ),
+            },
+        })]
+
+    all_candidates = list(rd.glob("eval_*__model_*.json"))
+    candidates = list(all_candidates)
+    if target:
+        candidates = [p for p in candidates if f"__model_{target}__" in p.name]
+    if requested_eval_id:
+        candidates = [p for p in candidates if p.name.startswith(f"eval_{requested_eval_id}__")]
+    if not candidates:
+        eval_set_present = any(evals_dir().glob("eval_*.json")) if evals_dir().is_dir() else False
+        had_filter = bool(target or requested_eval_id)
+        if had_filter and all_candidates:
+            msg = "No eval-run results match the filter."
+            if target:
+                msg += f" target={target!r}"
+            if requested_eval_id:
+                msg += f" eval_id={requested_eval_id!r}"
+            next_cmd = "trinity-local eval-run --target <provider>"
+        else:
+            msg = "No eval-run results on disk."
+            next_cmd = (
+                "trinity-local eval-run --target gemini"
+                if eval_set_present
+                else "trinity-local eval-build && trinity-local eval-run --target gemini"
+            )
+        return [_text({
+            "ok": True,
+            "has_results": False,
+            "eval_set_available": eval_set_present,
+            "empty_state": {
+                "message": msg,
+                "next_command": next_cmd,
+            },
+        })]
+
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    latest = candidates[0]
+    result = load_run_result(latest)
+    if result is None:
+        return [_text({"ok": False, "error": f"result at {latest} unreadable"})]
+
+    return [_text({
+        "ok": True,
+        "has_results": True,
+        "eval_id": result.eval_id,
+        "target_provider": result.target_provider,
+        "target_model": result.target_model,
+        "aggregate_score": result.aggregate_score,
+        "by_rejection_type": result.by_rejection_type,
+        "items_total": result.items_total,
+        "items_completed": result.items_completed,
+        "items_failed": result.items_failed,
+        "started_at": result.started_at,
+        "completed_at": result.completed_at,
+        "result_path": str(latest),
+        "total_runs_on_disk": len(candidates),
+    })]
