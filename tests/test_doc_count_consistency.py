@@ -515,6 +515,43 @@ class TestReadmeHeroInstallCommand:
         "until v1.0",
     )
 
+    def test_skill_install_commands_work_today(self):
+        """The bundled `/trinity` skill is the install path for users
+        who hit Claude Code without seeing the README first. Its
+        install commands (pipx/pip --user/venv) must work today too
+        — same PyPI-404 shape as the README hero, different surface.
+
+        Caught at T-1: the skill's three install attempts all named
+        `trinity-local` (PyPI 404). Anyone typing `/trinity` in a
+        fresh Claude Code session would have hit
+        "ERROR: No matching distribution found for trinity-local"
+        before any of Trinity's actual functionality could load.
+        """
+        skill = REPO / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md"
+        try:
+            text = skill.read_text(encoding="utf-8")
+        except OSError:
+            return
+        leaks: list[str] = []
+        for line_idx, line in enumerate(text.splitlines(), 1):
+            # Skip caveat-bearing lines (Post-ship: ..., etc.) AND
+            # the allowed-tools frontmatter (wildcard, not a literal
+            # install). Code-fence semantics don't apply here since
+            # the skill body IS the install commands.
+            if line.startswith("allowed-tools:"):
+                continue
+            if any(marker in line.lower() for marker in self.CAVEAT_MARKERS):
+                continue
+            if not self.NAKED_PIP_INSTALL.search(line):
+                continue
+            leaks.append(f"line {line_idx}: {line.strip()[:80]}")
+        assert not leaks, (
+            f"Bundled /trinity SKILL.md has naked `pip install "
+            f"trinity-local` commands (PyPI 404s pre-launch): "
+            f"{leaks}. Update to `git+https://github.com/vishigondi/"
+            f"trinity-local` or add an explicit caveat phrase nearby."
+        )
+
     def test_readme_hero_install_works_today(self):
         readme = REPO / "README.md"
         try:
