@@ -1,6 +1,6 @@
 """CLI handlers for the corpus-based eval harness (task #122).
 
-Three subcommands:
+Four subcommands:
 
   trinity-local eval-build [--limit N] [--source rejections] [--json]
     Build an eval set from the user's rejections.jsonl + prompt index.
@@ -16,6 +16,12 @@ Three subcommands:
     each response against the rejected_response using <judge>. Persists
     results to ~/.trinity/evals/results/. THIS IS the empirical
     benchmark — score model X against the user's actual rejections.
+
+  trinity-local eval-show [--target <provider>] [--eval-id ID]
+                          [--limit-samples N]
+    Inspect a past run result (default: most-recent). Renders aggregate
+    score + per-rejection-axis bars + top/bottom sample items.
+    Re-inspect without re-running; diff results across model releases.
 """
 from __future__ import annotations
 
@@ -82,6 +88,28 @@ def register(subparsers):
     )
     run_p.set_defaults(handler=handle_eval_run)
 
+    show_p = subparsers.add_parser(
+        "eval-show",
+        help="Inspect the latest eval run result for a target provider (task #122)",
+    )
+    show_p.add_argument(
+        "--target", default=None,
+        help="Filter to runs against this provider. Defaults to the latest run regardless of target.",
+    )
+    show_p.add_argument(
+        "--eval-id", default=None,
+        help="Filter to a specific eval_id. Useful when comparing the same eval across multiple targets.",
+    )
+    show_p.add_argument(
+        "--limit-samples", type=int, default=3,
+        help="How many per-item samples to render (default 3). Set to 0 to skip.",
+    )
+    show_p.add_argument(
+        "--json", dest="as_json", action="store_true",
+        help="Output the full run result as JSON.",
+    )
+    show_p.set_defaults(handler=handle_eval_show)
+
 
 def handle_eval_build(args):
     from ..evals.builder import build_eval_set, save_eval_set
@@ -118,7 +146,8 @@ def handle_eval_build(args):
         for basin, count in list(by_basin.items())[:8]:
             print(f"    {basin:<8} {count}")
     print(f"\n  → {path}")
-    print(f"\n  Next: `trinity-local eval --target <provider>` ships in a follow-up tick.")
+    print(f"\n  Next: `trinity-local eval-run --target <provider>` to score a model against this set,"
+          f"\n        then `trinity-local eval-show` to inspect results.")
 
 
 def handle_eval_stats(args):
@@ -251,3 +280,106 @@ def handle_eval_run(args):
                 print(f"    {axis:<12} n={stats['count']:>3}  mean={stats['mean_score']:.3f}  "
                       f"(min {stats['min_score']:.2f} max {stats['max_score']:.2f})")
     print(f"\n  → {path}")
+
+
+def _latest_result_path(target: str | None, eval_id: str | None):
+    """Find the most-recent result file under ~/.trinity/evals/results/,
+    optionally filtered by target and/or eval_id. Returns None if none.
+
+    Filename shape (from runner.result_path()):
+      eval_<eval_id>__model_<target>__<ts>.json
+    """
+    from ..evals.builder import results_dir
+
+    candidates = list(results_dir().glob("eval_*__model_*.json"))
+    if not candidates:
+        return None
+    if target:
+        candidates = [p for p in candidates if f"__model_{target}__" in p.name]
+    if eval_id:
+        candidates = [p for p in candidates if p.name.startswith(f"eval_{eval_id}__")]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
+def handle_eval_show(args):
+    from ..evals.runner import load_run_result
+
+    path = _latest_result_path(args.target, args.eval_id)
+    if path is None:
+        msg = "No eval results found on disk."
+        if args.target or args.eval_id:
+            msg += " Filters: "
+            if args.target:
+                msg += f"target={args.target!r} "
+            if args.eval_id:
+                msg += f"eval_id={args.eval_id!r}"
+            msg += " — try without filters or run `trinity-local eval-run --target <provider>` first."
+        else:
+            msg += " Run `trinity-local eval-run --target <provider>` to produce one."
+        print(f"  {msg}")
+        raise SystemExit(1)
+
+    result = load_run_result(path)
+    if result is None:
+        print(f"✗ result at {path} unreadable")
+        raise SystemExit(2)
+
+    if args.as_json:
+        print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    # Header: which eval, which model, when
+    print(f"  {result.eval_id}  →  {result.target_provider}"
+          f"{f' ({result.target_model})' if result.target_model else ''}")
+    print(f"  ran {result.started_at} → {result.completed_at}")
+    print(f"  {result.items_completed}/{result.items_total} dispatched"
+          f"{f', {result.items_failed} failed' if result.items_failed else ''}")
+
+    if result.aggregate_score is not None:
+        print()
+        print(f"  Aggregate score: {result.aggregate_score:.3f}  "
+              f"(vs the rejected_responses the original prompts elicited)")
+        if result.by_rejection_type:
+            print(f"\n  By rejection axis:")
+            for axis, stats in sorted(result.by_rejection_type.items()):
+                # Visual bar — 25-char max width, scaled by mean_score
+                width = int(round(stats["mean_score"] * 25))
+                bar = "█" * width + "·" * (25 - width)
+                print(f"    {axis:<12} n={stats['count']:>3}  "
+                      f"mean={stats['mean_score']:.3f}  [{bar}]  "
+                      f"min {stats['min_score']:.2f} max {stats['max_score']:.2f}")
+    else:
+        print(f"\n  (No aggregate score — run completed without --no-score, or scoring failed.)")
+
+    if args.limit_samples > 0 and result.items:
+        # Show a few items with the strongest signal: extremes are
+        # informative — the top + bottom score tell the user where the
+        # model wins and where it loses on their corpus.
+        scored = [it for it in result.items if it.score is not None]
+        if scored:
+            scored.sort(key=lambda it: it.score or 0.0, reverse=True)
+            best = scored[:args.limit_samples]
+            worst = scored[-args.limit_samples:] if len(scored) > args.limit_samples else []
+            print(f"\n  Top {len(best)} scored items:")
+            for it in best:
+                _print_sample_line(it)
+            if worst:
+                print(f"\n  Bottom {len(worst)} scored items:")
+                for it in worst:
+                    _print_sample_line(it)
+        else:
+            print(f"\n  (No scored items to sample.)")
+
+    print(f"\n  → {path}")
+
+
+def _print_sample_line(item):
+    """Render a single scored item compactly. Used by eval-show sample list."""
+    score = f"{item.score:.2f}" if item.score is not None else "—  "
+    prompt_preview = (item.prompt or "")[:70].replace("\n", " ")
+    if len(item.prompt or "") > 70:
+        prompt_preview += "…"
+    print(f"    [{item.rejection_type:<11}] {score}  {prompt_preview}")

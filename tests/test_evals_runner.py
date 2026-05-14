@@ -345,3 +345,128 @@ class TestEvalRunCLI:
         # Required --target flag
         action = next((a for a in choices["eval-run"]._actions if a.dest == "target"), None)
         assert action is not None and action.required
+
+
+class TestEvalShowCLI:
+    """The eval-show subcommand renders a past run result without
+    requiring re-dispatch. Tests use a fake result file rather than
+    running a real dispatch."""
+
+    def _seed_result(self, home: Path, *, eval_id="eval_aaaaaaaaaaaa",
+                     target="gemini", aggregate=0.65, mtime=None):
+        """Drop a synthetic run result into evals/results/."""
+        from trinity_local.evals.runner import EvalItemRun, EvalRunResult, save_run_result
+        items = [
+            EvalItemRun(
+                eval_item_id="ei_top", rejection_type="COMPRESSION",
+                prompt="explain succinctly", rejected_response="long lecture",
+                user_substitute="tldr", rubric_signal="too long",
+                basin_id="b00", target_response="short answer",
+                target_error=None, elapsed_seconds=0.1,
+                score=0.9, score_reason="concise", judge_provider="claude",
+            ),
+            EvalItemRun(
+                eval_item_id="ei_bot", rejection_type="REFRAME",
+                prompt="strategic question", rejected_response="tech answer",
+                user_substitute="strategic answer", rubric_signal="missed frame",
+                basin_id="b01", target_response="wrong frame again",
+                target_error=None, elapsed_seconds=0.1,
+                score=0.4, score_reason="still missed", judge_provider="claude",
+            ),
+        ]
+        run = EvalRunResult(
+            eval_id=eval_id,
+            target_provider=target,
+            target_model=f"{target}-mock",
+            started_at="2026-05-14T15:00:00",
+            completed_at="2026-05-14T15:01:00",
+            items_total=2, items_completed=2, items_failed=0,
+            items=items,
+            aggregate_score=aggregate,
+            by_rejection_type={
+                "COMPRESSION": {"count": 1, "mean_score": 0.9, "min_score": 0.9, "max_score": 0.9},
+                "REFRAME": {"count": 1, "mean_score": 0.4, "min_score": 0.4, "max_score": 0.4},
+            },
+        )
+        path = save_run_result(run)
+        if mtime is not None:
+            import os
+            os.utime(path, (mtime, mtime))
+        return path
+
+    def test_show_finds_most_recent_when_no_filter(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        from types import SimpleNamespace
+        # Two runs, second one newer
+        self._seed_result(home, target="gemini", aggregate=0.65, mtime=1000)
+        self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0, as_json=False)
+        handle_eval_show(args)
+        out = capsys.readouterr().out
+        # Most-recent picked: target=claude, aggregate=0.80
+        assert "claude" in out
+        assert "0.800" in out
+
+    def test_show_target_filter_picks_correct_run(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        from types import SimpleNamespace
+        self._seed_result(home, target="gemini", aggregate=0.55, mtime=1000)
+        self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
+        # Newest is claude, but we filter to gemini
+        args = SimpleNamespace(target="gemini", eval_id=None, limit_samples=0, as_json=False)
+        handle_eval_show(args)
+        out = capsys.readouterr().out
+        assert "gemini" in out
+        assert "0.550" in out
+
+    def test_show_empty_state_with_actionable_hint(self, home, capsys):
+        """No results → exit 1 with the runner command in the message."""
+        from trinity_local.commands.eval import handle_eval_show
+        from types import SimpleNamespace
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0, as_json=False)
+        with pytest.raises(SystemExit) as exc:
+            handle_eval_show(args)
+        out = capsys.readouterr().out
+        assert exc.value.code == 1
+        assert "eval-run" in out
+
+    def test_show_filtered_empty_state_explains_filter(self, home, capsys):
+        """Filtering to a non-existent target should explain WHY no
+        results — otherwise user thinks the data is missing entirely."""
+        from trinity_local.commands.eval import handle_eval_show
+        from types import SimpleNamespace
+        self._seed_result(home, target="gemini")
+        args = SimpleNamespace(target="ollama", eval_id=None, limit_samples=0, as_json=False)
+        with pytest.raises(SystemExit):
+            handle_eval_show(args)
+        out = capsys.readouterr().out
+        assert "ollama" in out
+        assert "try without filters" in out.lower() or "Filters" in out
+
+    def test_show_renders_per_axis_breakdown_and_samples(self, home, capsys):
+        """The rendered output should include the aggregate score, the
+        per-rejection-axis breakdown (the marketing-legible artifact),
+        and sample items when --limit-samples > 0."""
+        from trinity_local.commands.eval import handle_eval_show
+        from types import SimpleNamespace
+        self._seed_result(home, target="gemini")
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=2, as_json=False)
+        handle_eval_show(args)
+        out = capsys.readouterr().out
+        # Aggregate line
+        assert "Aggregate score" in out
+        # Per-axis breakdown — both rejection types should appear
+        assert "COMPRESSION" in out
+        assert "REFRAME" in out
+        # Top/bottom sample sections
+        assert "Top" in out or "Bottom" in out
+        # The best item (0.90) should appear
+        assert "0.90" in out
+
+    def test_show_subcommand_registered(self):
+        import argparse
+        from trinity_local import main as main_module
+        parser = main_module.build_parser()
+        sub_actions = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+        choices = sub_actions[0].choices
+        assert "eval-show" in choices
