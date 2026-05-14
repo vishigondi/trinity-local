@@ -201,3 +201,124 @@ class TestStatsCommand:
         assert rc == 0
         out = json.loads(capsys.readouterr().out)
         assert out["evals"]["items_mined"] == 0
+
+
+class TestStatsShareTemplate:
+    """The --share flag prints copy-pasteable Twitter/HN templates.
+    This is the launch-package T-1 'thread drafted' surface — when
+    the user's about to write a launch post, they type one command
+    and get pre-populated text with their actual numbers. The
+    friction-removal that turns 'I have numbers' into 'I have a
+    tweet ready to post.'"""
+
+    def test_share_renders_all_three_anchors_when_data_present(
+        self, isolated_home, capsys
+    ):
+        from datetime import datetime, timezone
+        from trinity_local.commands.stats import handle_stats
+
+        # Seed all three anchors: rate-limit saves, eval result,
+        # councils + prompts.
+        now = datetime.now(timezone.utc).isoformat()
+        _seed_dispatch(isolated_home, [
+            {"ts": now, "primary": "claude", "rate_limit_save": True}
+            for _ in range(50)
+        ])
+        _seed_council(isolated_home, "council_a", rated=True)
+        _seed_eval_set(isolated_home, n_items=10)
+        _seed_eval_result(isolated_home, target="gemini", score=0.81)
+        _seed_prompts(isolated_home, n=2500)
+
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+
+        # All three anchors named
+        assert "Rate-limit-saves anchor" in out
+        assert "Personal-benchmark anchor" in out
+        assert "Corpus-size anchor" in out
+
+        # Each anchor carries the right number from the actual report
+        # (so the share-text and the source CLI can't disagree — that
+        # would be a credibility hit when someone runs `stats` to
+        # verify a posted claim).
+        assert "50" in out  # rate-limit saves count
+        assert "0.81" in out  # eval aggregate score
+        assert "2,500" in out  # corpus size
+
+        # Wedge phrases that must stay one-voice across surfaces.
+        # Normalize whitespace because the templates wrap at column
+        # boundaries — a multi-word phrase can cross a newline.
+        flat = " ".join(out.split())
+        assert "commercially prevented from building" in flat
+        assert "the layer above the labs" in flat
+
+    def test_share_omits_benchmark_anchor_when_no_eval_result(
+        self, isolated_home, capsys
+    ):
+        """Don't print a benchmark anchor with a missing/null score —
+        users would tweet '? scored None/1.00 on my question' and
+        that's worse than skipping the variant entirely."""
+        from datetime import datetime, timezone
+        from trinity_local.commands.stats import handle_stats
+
+        _seed_dispatch(isolated_home, [
+            {"ts": datetime.now(timezone.utc).isoformat(),
+             "primary": "claude", "rate_limit_save": True},
+        ])
+        _seed_prompts(isolated_home, n=100)
+
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+
+        # Rate-limit + corpus anchors present
+        assert "Rate-limit-saves anchor" in out
+        assert "Corpus-size anchor" in out
+        # Benchmark anchor absent
+        assert "Personal-benchmark anchor" not in out
+
+    def test_share_omits_rate_limit_anchor_when_no_saves(
+        self, isolated_home, capsys
+    ):
+        """Fresh install: don't tweet 'Trinity routed 0 work-units'
+        — that's an anti-marketing claim. Skip variant cleanly."""
+        from trinity_local.commands.stats import handle_stats
+        _seed_prompts(isolated_home, n=10)
+
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Rate-limit-saves anchor" not in out
+        # But corpus anchor still prints (always shippable)
+        assert "Corpus-size anchor" in out
+
+    def test_share_silent_on_completely_empty_install(
+        self, isolated_home, capsys
+    ):
+        """When NOTHING is accumulated yet, the share command should
+        produce the header but no anchor variants — there's literally
+        nothing to brag about. Output should still be clean (not
+        crashy) so onboarding scripts can fire it blindly."""
+        from trinity_local.commands.stats import handle_stats
+        rc = handle_stats(_make_args(share=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Header still prints (signals the command ran)
+        assert "share-ready templates" in out
+        # But no anchors at all
+        assert "anchor" not in out.replace("share-ready", "")
+
+    def test_share_subcommand_flag_registered(self):
+        """argparse wires up --share. Without this, the flag silently
+        falls through to as_json branch logic."""
+        import argparse
+        from trinity_local import main as main_module
+        parser = main_module.build_parser()
+        sub_actions = [a for a in parser._actions
+                       if isinstance(a, argparse._SubParsersAction)]
+        choices = sub_actions[0].choices
+        stats_parser = choices["stats"]
+        share_actions = [a for a in stats_parser._actions if a.dest == "share"]
+        assert share_actions, "stats lacks the --share flag"
+        assert share_actions[0].const is True  # store_true

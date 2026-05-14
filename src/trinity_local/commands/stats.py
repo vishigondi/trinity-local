@@ -30,6 +30,15 @@ def register(subparsers):
     )
     sp.add_argument("--json", dest="as_json", action="store_true",
                     help="Output as JSON (for piping into tweets/scripts).")
+    sp.add_argument(
+        "--share",
+        action="store_true",
+        help=(
+            "Print a Twitter/HN-ready post template populated with your "
+            "actual numbers. The launch-package's T-1 'thread drafted' "
+            "step in one command."
+        ),
+    )
     sp.set_defaults(handler=handle_stats)
 
 
@@ -162,6 +171,10 @@ def handle_stats(args):
         print(json.dumps(report, indent=2))
         return 0
 
+    if getattr(args, "share", False):
+        _print_share_template(report)
+        return 0
+
     # Marketing-voice human-readable output.
     print()
     print("  Trinity — what's accumulated in your corpus")
@@ -186,3 +199,82 @@ def handle_stats(args):
     print(f"  State: {home}")
     print()
     return 0
+
+
+def _print_share_template(report: dict) -> None:
+    """Render copy-pasteable Twitter/HN templates populated with the
+    user's actual numbers. The launch-package's T-1 "thread drafted"
+    step in one command — the friction-removal that turns "I have
+    numbers" into "I have a tweet ready to post."
+
+    Three variants printed:
+      1. The rate-limit-saves anchor (the Day-1 case-study number)
+      2. The empirical-benchmark anchor (when an eval result exists)
+      3. The corpus-size anchor (always shippable as the founder DM)
+
+    Each is structurally non-refutable (only Trinity can produce
+    these numbers because only Trinity sees cross-provider signal).
+    The verbiage matches the wedge phrases used everywhere else:
+    "structurally," "the layer above the labs," etc. — so the
+    launch voice stays one-voice across surfaces.
+
+    Discarded variants kept short. The user picks the one that
+    fits their audience; this is a starter kit, not a final draft.
+    """
+    saves = report["rate_limit_saves"]["total"]
+    of_calls = report["rate_limit_saves"]["of_calls"]
+    save_rate_pct = report["rate_limit_saves"]["save_rate"] * 100
+    window = report["window_days"]
+    councils = report["councils"]["total"]
+    rated = report["councils"]["rated"]
+    prompts = report["prompts_indexed"]
+    latest = (report.get("evals") or {}).get("latest_run")
+
+    print()
+    print("─" * 60)
+    print("  Trinity stats — share-ready templates")
+    print("─" * 60)
+    print()
+
+    # Anchor 1: rate-limit-saves (the Day-1 number)
+    if saves > 0:
+        print("▶ Rate-limit-saves anchor (post-Dreaming wedge):")
+        print()
+        print(f'   Trinity routed {saves} work-units around Claude rate')
+        print(f'   limits in the last {window} days — {save_rate_pct:.1f}% of my')
+        print(f'   ask calls would have been retries or abandoned without it.')
+        print()
+        print(f'   The cross-provider memory layer the labs are commercially')
+        print(f'   prevented from building. https://github.com/vishigondi/trinity-local')
+        print()
+
+    # Anchor 2: empirical benchmark (when an eval result exists)
+    if latest and latest.get("aggregate_score") is not None:
+        target = latest.get("target", "?")
+        agg = latest["aggregate_score"]
+        items = latest.get("items_completed", 0)
+        print("▶ Personal-benchmark anchor (the #116 wedge):")
+        print()
+        print(f'   {target.capitalize()} scored {agg:.2f}/1.00 on MY kind of')
+        print(f'   question — {items} items mined from my actual rejection')
+        print(f'   signal across Claude / GPT / Gemini transcripts.')
+        print()
+        print(f'   No frontier provider can build this benchmark themselves')
+        print(f'   — Anthropic only sees Claude transcripts, OpenAI only sees')
+        print(f'   GPT. Only the layer above the labs sees cross-provider')
+        print(f'   rejection. https://github.com/vishigondi/trinity-local')
+        print()
+
+    # Anchor 3: corpus size (always shippable)
+    if prompts > 0:
+        print("▶ Corpus-size anchor (the moat narrative):")
+        print()
+        print(f'   {prompts:,} prompts indexed across Claude / GPT / Gemini')
+        print(f'   transcripts. {councils} councils run, {rated} rated.')
+        print(f'   Every council outcome and verdict lives in ~/.trinity/')
+        print(f'   on infrastructure I own. The labs can\'t see this ledger;')
+        print(f'   I can. https://github.com/vishigondi/trinity-local')
+        print()
+
+    print("  To verify any number: `trinity-local stats` (JSON: --json)")
+    print()
