@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .council_feedback import latest_feedback_by_council
-from .state_paths import analytics_dir, council_outcomes_dir, telemetry_settings_dir
+from .state_paths import council_outcomes_dir, telemetry_settings_dir
 from .utils import now_iso
 
 
@@ -53,11 +53,6 @@ class TelemetrySettings:
 
 def telemetry_settings_path() -> Path:
     return telemetry_settings_dir() / "telemetry.json"
-
-
-def telemetry_events_path() -> Path:
-    path = analytics_dir() / "telemetry_events.jsonl"
-    return path
 
 
 def _default_endpoint() -> str | None:
@@ -121,11 +116,6 @@ def reset_share_install_id() -> TelemetrySettings:
     settings.last_elo_upload_at = None
     save_telemetry_settings(settings)
     return settings
-
-
-def append_telemetry_event(event: dict[str, Any]) -> None:
-    with telemetry_events_path().open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event) + "\n")
 
 
 def _iter_council_payloads() -> list[dict[str, Any]]:

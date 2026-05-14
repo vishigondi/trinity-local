@@ -380,18 +380,3 @@ def save_rejections(signals: list[RejectionSignal]) -> Path:
     return path
 
 
-def load_rejections() -> list[RejectionSignal]:
-    path = rejections_path()
-    if not path.exists():
-        return []
-    out: list[RejectionSignal] = []
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-            out.append(RejectionSignal(**obj))
-        except (json.JSONDecodeError, TypeError):
-            continue
-    return out

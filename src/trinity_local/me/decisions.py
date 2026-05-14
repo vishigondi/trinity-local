@@ -213,18 +213,3 @@ def save_decisions(decisions: list[Decision]) -> Path:
     return path
 
 
-def load_decisions() -> list[Decision]:
-    path = decisions_path()
-    if not path.exists():
-        return []
-    decisions: list[Decision] = []
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-            decisions.append(Decision(**obj))
-        except (json.JSONDecodeError, TypeError):
-            continue
-    return decisions

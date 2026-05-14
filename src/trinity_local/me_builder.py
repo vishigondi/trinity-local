@@ -564,16 +564,6 @@ def build_me_via_lens_pipeline(
     }
 
 
-def write_me() -> Path:
-    """Compose /me and write it to ~/.trinity/me.md. Returns the path.
-
-    Compatibility shim — older callers expect a Path-only return. Use
-    `build_me_via_council()` for richer output (sampled-turn count, chairman).
-    """
-    path, _summary = build_me_via_council()
-    return path
-
-
 def load_me() -> str:
     """Read the persisted /me document, or empty string if not built yet."""
     path = me_path()

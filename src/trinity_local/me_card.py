@@ -12,7 +12,6 @@ download). No HTTP, no headless browser — pure Pillow.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from .me.pair_mining import load_lenses, load_orderings
@@ -261,10 +260,3 @@ def render_me_card(data: CardLensData) -> bytes:
     return buf.getvalue()
 
 
-def write_me_card(out_path: Path) -> Path:
-    """Convenience wrapper: collect data + render + write PNG to disk."""
-    data = collect_card_data()
-    png_bytes = render_me_card(data)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(png_bytes)
-    return out_path

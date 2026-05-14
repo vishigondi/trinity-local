@@ -168,31 +168,6 @@ def save_review(review: ReviewResult) -> Path:
     return path
 
 
-def load_review(review_id: str) -> ReviewResult | None:
-    """Load a review result by ID."""
-    path = reviews_dir() / f"{review_id}.json"
-    if not path.exists():
-        return None
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-    return ReviewResult(
-        review_id=raw.get("review_id", ""),
-        task_id=raw.get("task_id", ""),
-        original_provider=raw.get("original_provider", ""),
-        reviewer_provider=raw.get("reviewer_provider", ""),
-        reviewer_model=raw.get("reviewer_model"),
-        verdict=raw.get("verdict"),
-        issues=raw.get("issues", []),
-        suggestions=raw.get("suggestions", []),
-        raw_text=raw.get("raw_text", ""),
-        cost_estimate_usd=raw.get("cost_estimate_usd", 0.0),
-        elapsed_seconds=raw.get("elapsed_seconds", 0.0),
-        reviewed_at=raw.get("reviewed_at", ""),
-    )
-
-
 def render_review_html(review: ReviewResult) -> Path:
     """Render a review result as static HTML."""
     head = render_html_head(f"Trinity — Review: {review.task_id[:20]}")
