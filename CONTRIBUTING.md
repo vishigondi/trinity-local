@@ -52,8 +52,11 @@ context in claude.md "Launch arc" section):
 
 - **#114 MCP-dropdown distribution** — submit Trinity to the curated
   MCP server registries for Claude Desktop, Codex CLI, Cursor, Cline,
-  Continue. Each registry's contribution flow is its own task; being
-  in the dropdown beats being technically perfect.
+  Continue. The ready-to-paste submission packets (tailored pitch per
+  registry, required artifacts, failure-mode checklist) live in
+  [`docs/MCP_REGISTRY_SUBMISSIONS.md`](docs/MCP_REGISTRY_SUBMISSIONS.md).
+  Each registry's contribution flow is its own task; being in the
+  dropdown beats being technically perfect.
 - **#120 60-second handoff demo recording** — capture the killer
   demo on video, embed in README + HN/Twitter launch posts. Mechanism
   shipped at `trinity-local handoff <provider>` and the MCP `handoff`
