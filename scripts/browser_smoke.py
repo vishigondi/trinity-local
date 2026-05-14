@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 29 testable surfaces via headless playwright,
+Drives Trinity's launchpad through 30 testable surfaces via headless playwright,
 asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
 non-zero if any surface fails.
 
@@ -90,6 +90,11 @@ Surfaces:
        cluster ids), the topology view surfaces a "not found" banner
        inside the detail panel + the lens-build copy chip — instead of
        landing silently with no panel open (tick #40).
+   29. Handoff demo nudge banner: post-#115 launchpad-side mirror of
+       the doctor 'try this next' hint. Asserts that pageData.handoffNudge.applicable
+       agrees with whether the banner renders, and when rendered the
+       command interpolates the picked target. Data/DOM mismatch in
+       either direction = v-if guard regression.
 
 Exit codes:
     0 — all surfaces pass
@@ -1777,6 +1782,66 @@ def main() -> int:
             reason = stale_state.get("reason") or f"status={stale_state.get('status')!r}"
             print(f"[ ✗ ] Surface 28 stale-basin banner: {reason}")
             fails.append((28, "stale-basin banner", reason))
+
+        # ─── Surface 29: Handoff demo nudge banner ────────────────────────────
+        # The launchpad-side mirror of the doctor 'try this next' hint
+        # (post-#115 tick). pageData.handoffNudge.applicable gates whether
+        # the banner renders. When ≥2 CLI-class providers are enabled AND
+        # ≥1 prompt is indexed, the banner surfaces the demo command with
+        # a non-claude target. When the conditions aren't met, the banner
+        # is silent — both behaviors are valid; the check is that data
+        # and DOM agree (no orphan render, no silent omission).
+        if "launchpad.html" not in page.url:
+            page.goto(f"{base_url}/portal_pages/launchpad.html", wait_until="networkidle", timeout=10000)
+            page.wait_for_timeout(600)
+        nudge_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const nudge = data.handoffNudge || {};
+              // Find the banner: it carries the eyebrow text 'Try the 60-second demo'
+              const eyebrows = Array.from(document.querySelectorAll('.eyebrow'));
+              const eyebrow = eyebrows.find(el => /Try the 60-second demo/i.test(el.textContent || ''));
+              const banner = eyebrow ? eyebrow.closest('section.card') : null;
+              const code = banner ? banner.querySelector('code') : null;
+              return {
+                data_applicable: !!nudge.applicable,
+                data_target: nudge.target || null,
+                data_source_count: nudge.source_count || 0,
+                banner_rendered: !!banner,
+                command_text: code ? code.textContent.trim() : null,
+              };
+            }"""
+        )
+        page.screenshot(path=str(SHOTS_DIR / "29-handoff-nudge.png"))
+        applicable = nudge_state.get("data_applicable")
+        rendered = nudge_state.get("banner_rendered")
+        # Data/DOM agreement is the load-bearing invariant — both true
+        # or both false. A drift (data says yes, banner missing) means
+        # the v-if guard regressed; the opposite means a stale banner
+        # got left in the template.
+        if applicable and rendered:
+            target = nudge_state.get("data_target")
+            cmd = nudge_state.get("command_text") or ""
+            target_in_cmd = target and target in cmd
+            if not target_in_cmd:
+                reason = f"banner rendered but target {target!r} missing from command {cmd!r}"
+                print(f"[ ✗ ] Surface 29 handoff nudge: {reason}")
+                fails.append((29, "handoff nudge banner", reason))
+            else:
+                print(
+                    f"[ ✓ ] Surface 29 handoff nudge: target={target!r} "
+                    f"sources={nudge_state['data_source_count']} command rendered"
+                )
+        elif not applicable and not rendered:
+            print(f"[ ✓ ] Surface 29 handoff nudge: silent (conditions not met)")
+        else:
+            reason = (
+                f"data/DOM mismatch: applicable={applicable} rendered={rendered} "
+                f"— v-if guard regressed in one direction"
+            )
+            print(f"[ ✗ ] Surface 29 handoff nudge: {reason}")
+            fails.append((29, "handoff nudge banner", reason))
 
         browser.close()
 
