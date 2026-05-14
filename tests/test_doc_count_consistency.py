@@ -584,6 +584,40 @@ class TestReadmeHeroInstallCommand:
             f"'(After v1.0 ship: pip install trinity-local)'."
         )
 
+    def test_founder_essay_install_command_works_today(self):
+        """The founder essay ships to the personal blog at T-7
+        (per launch-package). Readers of the essay see install
+        commands and copy-paste them — same shape as the README
+        hero, different surface. Caught a `pip install trinity-local`
+        near the close of the essay at T-1 — the essay's most-quoted
+        line ("Three commands. Free forever.") sits right next to
+        a command that would 404 on a fresh user."""
+        essay = REPO / "docs" / "founder-essay-draft.md"
+        try:
+            lines = essay.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return  # essay absent — guard is a no-op
+        leaks: list[tuple[int, str]] = []
+        for idx, line in enumerate(lines, 1):
+            if not self.NAKED_PIP_INSTALL.search(line):
+                continue
+            # Allow caveat-bearing windows (a 5-line window each side
+            # — essay prose has longer paragraphs than the README hero).
+            window_lo = max(0, idx - 5)
+            window_hi = min(len(lines), idx + 5)
+            window = " ".join(lines[window_lo:window_hi]).lower()
+            if any(marker in window for marker in self.CAVEAT_MARKERS):
+                continue
+            leaks.append((idx, line.strip()[:80]))
+        assert not leaks, (
+            f"docs/founder-essay-draft.md has naked `pip install "
+            f"trinity-local` (PyPI 404s pre-launch): {leaks}. The "
+            f"essay ships to the personal blog at T-7 — readers "
+            f"copy-pasting hit the 404 as the install instruction's "
+            f"first command. Use the git+https form or wrap with a "
+            f"'Post-ship:' caveat."
+        )
+
 
 class TestDroppedTermsAreNotReintroduced:
     """Task #94 dropped "verifier" as Trinity's own terminology in

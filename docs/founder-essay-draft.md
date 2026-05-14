@@ -226,8 +226,9 @@ built from them belongs to you, not to the lab whose runtime hosted the consolid
 But you don't need to buy the bigger thesis to use the v1 thing. v1 is one CLI. Three
 labs. One ledger. Your taste.
 
-`pip install trinity-local && trinity-local install-mcp`. Then `/trinity` in Claude
-Code. Three commands. Free forever.
+`pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp`.
+Then `/trinity` in Claude Code. Three commands. Free forever. (Post-ship: `pip install
+trinity-local` — same package, faster, after PyPI publish lands.)
 
 The repo is open-source MIT on GitHub. The folder is yours. The taste is yours. The
 AI you trained should outlive the provider.
