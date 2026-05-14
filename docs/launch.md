@@ -87,8 +87,9 @@ preferences you've expressed — are the raw asset. Dream synthesizes them into 
 rules, taste lens, routing brain. The labs can't build this because they can't see across
 each other. Trinity is the only layer above them that can.
 
-**CTA (12/12).** Trinity Local v1 ships open-source [date]. github.com/<repo>. If you
-build with two or more model providers, run one council. Tell me what you learned.
+**CTA (12/12).** Trinity Local v1 ships open-source this week (May 13–15, 2026).
+github.com/vishigondi/trinity-local. If you build with two or more model providers,
+run one council. Tell me what you learned.
 
 ---
 
@@ -218,7 +219,7 @@ Backup titles (use if the Dreaming hook decays):
 > thinking that ships"* vs *"elegant theory left in the doc"* — each pole with its named
 > failure mode.
 >
-> Open-source. MIT. Repo: <github.com/...>. Three commands to first council:
+> Open-source. MIT. Repo: github.com/vishigondi/trinity-local. Three commands to first council:
 >
 >     pip install trinity-local
 >     trinity-local install-mcp

@@ -242,3 +242,81 @@ class TestCitedCouncilArtifactsExistInRepo:
             f"docs/launch_councils/, OR remove the cite from the "
             f"launch copy."
         )
+
+
+class TestLaunchCopyHasNoPlaceholders:
+    """T-1 lorem-ipsum guard. The launch surface accumulates `[date]`,
+    `<github.com/...>`, `<repo>`, `[handle]`, `[name]`, and similar
+    placeholder strings during drafting. When the user hits publish,
+    those slots get filled in by hand — but it's easy to miss one,
+    and shipping `Trinity Local v1 ships open-source [date]` as the
+    literal tweet text is an unprofessional first-impression hit at
+    the moment the launch most needs polish.
+
+    Caught two unfilled placeholders at T-1 (the kick-off run): the
+    CTA tweet 12/12 and the embedded HN post both had `<github.com/...>`
+    and `[date]` literally in the prose. Filled in to the canonical
+    values (this-week + the actual repo URL). The guard now scans
+    launch-facing markdown for the placeholder shapes and fails if
+    any survive into the published artifact.
+
+    Excluded patterns (legitimate placeholders, not lorem ipsum):
+      - `<...>` inside code fences (parameter syntax in CLI examples)
+      - `[...]` inside markdown link text like `[Claude Code]` (real
+        references, not unfilled slots)
+    """
+
+    PLACEHOLDER_PATTERNS = [
+        # Literal "[date]" / "[handle]" / "[name]" style draft slots
+        r"\[date\]",
+        r"\[handle\]",
+        r"\[name\]",
+        r"\[your\s+\w+\]",  # "[your handle]", "[your name]"
+        # Repo-URL placeholders. Specific shapes to avoid false-
+        # positive on legitimate angle-bracket usage in CLI signatures.
+        r"<github\.com/\.\.\.>",
+        r"<github\.com/<\w+>>",
+        r"github\.com/<repo>",
+        r"<repo-url>",
+        # Generic TODO markers in published copy
+        r"\bTODO:?\s+(fill|add|write|update)",
+    ]
+
+    def test_launch_docs_have_no_unfilled_placeholders(self):
+        launch_docs = [
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "README.md",
+        ]
+        leaks: list[tuple[str, str, int]] = []
+        for path in launch_docs:
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            in_code_fence = False
+            for lineno, line in enumerate(lines, 1):
+                # Track fenced code blocks — placeholders inside code
+                # fences are CLI examples (e.g. `<provider>`), not
+                # lorem-ipsum in published prose.
+                stripped = line.strip()
+                if stripped.startswith("```"):
+                    in_code_fence = not in_code_fence
+                    continue
+                if in_code_fence:
+                    continue
+                # Also skip indented code blocks (4+ space leading)
+                # — same reason. Common in launch.md's quoted tweets
+                # with embedded CLI commands.
+                if line.startswith("    "):
+                    continue
+                for pattern in self.PLACEHOLDER_PATTERNS:
+                    if re.search(pattern, line):
+                        leaks.append((path.name, pattern, lineno))
+                        break
+        assert not leaks, (
+            f"Unfilled placeholders in launch-facing markdown: "
+            f"{leaks}. These will ship as literal '[date]' / "
+            f"'<github.com/...>' in the published artifact. Fill "
+            f"each one with the canonical value, or remove the slot."
+        )
