@@ -585,6 +585,73 @@ class TestReadmeHeroInstallCommand:
         )
 
 
+class TestPyprojectMatchesLaunchVersion:
+    """Version + description parity. Launch copy says "Trinity Local
+    v1 ships open-source this week" but pyproject.toml had version =
+    "0.1.0" at T-1. `pip show trinity-local` after install would
+    have surfaced 0.1.0, contradicting the "v1" launch framing — an
+    HN commenter spotting that discrepancy is the kind of thing
+    that gets quoted out of context ("they said v1 but it says
+    0.1.0?"). Description was also stale ("MLX and CLI agents on
+    macOS" — pre-pivot copy).
+
+    The guard:
+      - Asserts the major version is 1.x (matches "v1 ships..." claim).
+      - Asserts the description doesn't contain old-pitch wording
+        ("MLX-style", "TRINITY-style coordinator") that pre-dates
+        the brand pivot. The description shows up in pip show + on
+        PyPI metadata — it's the package's elevator pitch.
+
+    When v2 lands, bump the major-version assertion. When the
+    description changes for v2 positioning, update the stale-pitch
+    blocklist.
+    """
+
+    def test_pyproject_version_is_v1(self):
+        pyproject = REPO / "pyproject.toml"
+        try:
+            text = pyproject.read_text(encoding="utf-8")
+        except OSError:
+            return
+        m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        assert m, "pyproject.toml lost its version field"
+        version = m.group(1)
+        major = version.split(".", 1)[0]
+        assert major == "1", (
+            f"pyproject.toml version is {version!r} but launch copy "
+            f"says 'Trinity Local v1 ships...'. `pip show trinity-local` "
+            f"after install would surface this mismatch. Update either "
+            f"the version (to 1.x) or the launch claim (to '{major}.x ships')."
+        )
+
+    def test_pyproject_description_uses_current_brand(self):
+        pyproject = REPO / "pyproject.toml"
+        try:
+            text = pyproject.read_text(encoding="utf-8")
+        except OSError:
+            return
+        m = re.search(r'^description\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        assert m, "pyproject.toml lost its description field"
+        desc = m.group(1)
+        # Pre-brand-pivot phrases that should NOT appear post-pivot.
+        # The pivot (#89) replaced "MLX and CLI agents on macOS" framing
+        # with the prompts/dream/core-memories axis. Description shows
+        # up in PyPI search and `pip show` — public-facing elevator pitch.
+        stale_phrases = [
+            "TRINITY-style coordinator",
+            "MLX and CLI agents",
+            "for MLX",  # variants
+        ]
+        leaks = [p for p in stale_phrases if p.lower() in desc.lower()]
+        assert not leaks, (
+            f"pyproject.toml description carries pre-brand-pivot "
+            f"wording {leaks}: {desc!r}. The description ships to "
+            f"PyPI as the package's elevator pitch. Update to the "
+            f"current brand voice (cross-provider memory / councils / "
+            f"handoff / Claude+GPT+Gemini)."
+        )
+
+
 class TestLaunchCopyHasNoPlaceholders:
     """T-1 lorem-ipsum guard. The launch surface accumulates `[date]`,
     `<github.com/...>`, `<repo>`, `[handle]`, `[name]`, and similar

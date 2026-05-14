@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trinity-local"
-version = "0.1.0"
-description = "Local TRINITY-style coordinator for MLX and CLI agents on macOS."
+version = "1.0.0"
+description = "Cross-provider memory layer for Claude, GPT, and Gemini — local-first councils, handoff, and personal benchmarks. Rides on your existing subscriptions."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
