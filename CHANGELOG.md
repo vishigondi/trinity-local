@@ -100,6 +100,98 @@ locked in while we're still the only consumer.
 Test count: 903 → 943 (+40). Both doc-consistency guards green
 through the day. Cron loop `8ecb80a7` running every 15 min.
 
+### Day-2 afternoon — handoff demo + Day-1 metric defense
+
+Six more ticks shipped after the morning batch above. Theme: every
+shipped surface in the launch-arc gets defended end-to-end (prompt
+side + pre-flight side + visible surface side) so the demo recording
+tomorrow is deterministic, the launch-package "one metric" is
+visible, and pillar-4 verdict-capture has its 7th defense.
+
+**MCP `get_eval_summary` (11th MCP tool).** Third entry point for
+the empirical-benchmark surface, alongside CLI `eval-show` and the
+launchpad Surface 30 card. Agent-callable from inside Claude Code:
+when a user asks "which model is best for X" or "how does gemini
+compare", the agent gets per-axis scores from the user's actual
+rejection signal instead of guessing. Three empty-state paths
+(no evals dir / no runs / filter mismatch) each return a different
+CTA. +7 tests, MCP surface 10 → 11.
+
+**`pending_ratings` MCP funnel widener.** Verdict-capture rate was
+stuck at 16% (3 of 19) through six shipped surfaces because
+`rate_action` only fires when the agent re-polls a specific
+council and most councils complete async — the agent never
+re-polls. New `_pending_ratings_hint()` rides every `ask` and
+`route` response with a structured "here are 3 unrated councils
+within the last 7 days" hint. The seventh Pillar-4 surface and the
+first ACTIVE widener at the workflow level (others were per-council
+or passive visibility). 30s in-process cache so the helper doesn't
+re-scan disk on every keystroke. +9 tests.
+
+**First real eval-run on user's corpus + 3-place AST bug.**
+`trinity-local eval-run --target gemini --judge claude --limit 3`
+ran end-to-end against the user's actual rejection signal: gemini
+scored **0.833 aggregate** (REDIRECT 0.900, REFRAME 0.800). The
+empirical version of the launch-arc #116 marketing headline shape:
+"Model X scored Y.YY on YOUR kind of question." First invocation
+caught a real shape bug — `for p in config.providers if p.enabled`
+iterates dict KEYS (strings), `p.enabled` blows up. Same shape in
+`commands/eval.py`, `commands/handoff.py`, `mcp_server._handoff`.
+All three fixed; AST guard via `inspect.getsource` promoted so the
+shape can't quietly recur. +1 regression guard.
+
+**Handoff capability hints (#121 prompt enablement).** The cross-
+provider handoff was packaging context but not actively priming the
+receiving model to bring capability the prior model didn't have.
+New `_CAPABILITY_HINTS` dict per target: gemini → "if you have
+Google Workspace tools (Gmail/Drive/Calendar) or web search, USE
+THEM"; claude → "if you have MCP/filesystem/code-exec, USE THEM";
+codex → "if you have shell/local code, USE THEM." Soft-form ("if
+you have") avoids hallucinating tool calls when google-workspace
+MCP isn't wired. Hint lands BEFORE the prior log (pinned by test)
+so the model reads tool-use frame before context. The
+differentiator phrase "bringing capability the prior model
+structurally couldn't" is the same wedge sentence baked into every
+marketing surface — one voice across the launch. +5 tests.
+
+**Doctor `handoff_ready` composite check (#115/#120 pre-flight).**
+Per-provider checks (claude/codex/gemini) pass individually but the
+demo PATH fails on three real shapes none of them catches: <2
+enabled providers, empty `following_assistant_text` in recent
+prompts, single-provider history. New check flags each with
+specific fix hints. Real-corpus result on the v1.0 author's install
+(day 2 of ship window): *"recent prompts only span 1 provider
+(claude) — handoff works but the demo loses the cross-provider
+beat. Have a quick conversation in a second provider, then
+re-run."* Surfaced a real gap the recording-day surprise would
+otherwise have hit. +6 tests.
+
+**Launchpad rate-limit-saves card (Day-1 launch metric visible).**
+`docs/launch-package.md` names rate-limit-saves as THE Day-1 number
+for the case study post. The plumbing has been live for weeks
+(`ask.py` writes `dispatch_outcomes.jsonl`, `trinity-local metric
+rate-limit-saves` reads it) but the number was CLI-only — invisible
+to users opening the launchpad. New card on the launchpad surfaces
+the count + save rate + by-failure-kind breakdown. Real corpus on
+v1.0 author's install: **164 saves over 30 days, 18.1% save rate**.
+First helper used the wrong field name (`primary_provider` vs
+`primary`) which would have grouped everything as "unknown" — CLI
+parity test now pins this so the launchpad number and the CLI
+metric can't drift. Surface 32 smoke regression guard added in the
+same tick (principle #14). +6 tests.
+
+Test count (day 2 close): 943 → **1031 (+88)**. Smoke surfaces:
+31 → 32. MCP tool surface: 9 → 11 (`get_eval_summary`, `handoff`).
+All 5 doc-consistency guards green throughout the day.
+
+**Launch-arc accumulation today:** every workstream has at least
+one shipped artifact except #114 (outreach gated) and #120
+(recording gated). #115/#119/#121 (handoff demo) defended end-to-
+end. #116/#122 (corpus evals) has the first empirical result on
+disk. #117/#118 (schema + narrative) closed earlier. The launch
+package's "one metric we need to track from day 1" is now visible
+on the launchpad.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
