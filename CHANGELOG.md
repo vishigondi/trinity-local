@@ -285,6 +285,94 @@ pre-PyPI." Tomorrow's launch artifacts (tweet thread, HN post,
 README quickstart, cited councils) now resolve correctly when
 readers verify them. The same shape can't quietly return.
 
+### Day-2 late — five more drift catches (deeper surfaces)
+
+After the first 6 drift catches landed, kept the audit going.
+Found five more, each on a surface the earlier passes hadn't
+included. Pattern: each new catch needs deeper scanning because
+the obvious surfaces have already been swept.
+
+7. **Stale subcommand references** (`3ed3a60`). A scanner for
+   "`trinity-local <subcmd>` in launch docs that the CLI doesn't
+   have" caught `me-build` (renamed to `lens-build` per task #91).
+   The references were in CHANGELOG (legitimate: documents the
+   rename) — launch-facing docs were already clean. But the next
+   rename WILL drift the same way. Added
+   `TestCliCommandsReferencedExistInCli` to lock in the discipline.
+
+8. **Bundled /trinity skill PyPI 404 + stale tool count**
+   (`17adeb3`). The skill is the install path for users hitting
+   Claude Code without seeing the README first — same shape as the
+   README hero (`7998ffc`), different surface. Three install
+   commands all named `trinity-local` (PyPI 404). Also claimed "9
+   tools" — actually 11. Fixed: git+https form, post-ship caveat,
+   updated tool count + descriptions for handoff +
+   get_eval_summary. The repo's `.claude/skills/trinity/SKILL.md`
+   mirror caught the drift via an existing parity test
+   (`test_local_repo_skill_matches_packaged_skill`).
+
+9. **pyproject version + description drift** (`41ef1b7`). Two
+   stale surfaces in pyproject.toml that show in
+   `pip show trinity-local`:
+   - `version = "0.1.0"` but launch tweet 12/12 says "Trinity Local
+     v1 ships..." → bumped to 1.0.0.
+   - `description` was the pre-brand-pivot "Local TRINITY-style
+     coordinator for MLX and CLI agents on macOS" → rewritten to
+     the current brand voice (cross-provider memory / councils /
+     handoff / Claude+GPT+Gemini). Both fields ship to PyPI metadata
+     + appear in `pip show` — the package's public elevator pitch.
+   `TestPyprojectMatchesLaunchVersion`: asserts major version is 1.x
+   AND the description doesn't carry pre-pivot phrases.
+
+10. **Schema $id vanity domain → github raw URL** (`e64408d`).
+    The three JSON Schema files (council_outcome, eval_set,
+    rejection_signal) used `$id` = trinity-local.dev URLs. Verified
+    at T-1 that the domain doesn't resolve (no DNS). JSON Schema
+    `$id` is the canonical resolver URL — Aider/Cline/Continue
+    maintainers fetching the schema by $id (per spec) hit
+    connection-refused. Repointed to
+    `raw.githubusercontent.com/vishigondi/trinity-local/main/...`
+    — strictly better dependency since repo-public-flip is already
+    in the launch sequence (no DNS/hosting needed). Saved
+    `launch_sequence_public_flip.md` to memory documenting that
+    BOTH GitHub repo + PyPI are external T-0 gates.
+
+11. **"Verifier" reintroduced in README** (`c8ed0cf`). Task #94
+    dropped "verifier" as Trinity's own terminology (the chairman
+    SYNTHESIZES, not verifies — productive framing, not gatekeeper).
+    One residual line at README:346 survived the rename pass. Subtle
+    enough that readers wouldn't auto-flag; loud enough that an HN
+    comment-thread would call out the inconsistency. Added
+    `TestDroppedTermsAreNotReintroduced` — extensible blocklist
+    that future renames can append to.
+
+12. **Founder essay install command** (`ec5bada`). Same PyPI-404
+    shape as the README hero and the skill, but in the essay's most
+    quotable paragraph ("Three commands. Free forever."). Per
+    launch-package T-7 sequence, the essay ships to the personal
+    blog SEVEN days before launch — readers see the install command
+    days before the launch tweet thread goes live. Putting "Three
+    commands. Free forever." next to a 404 would become screenshot
+    ammunition. Fixed; guard extended to scan
+    `docs/founder-essay-draft.md` with a 5-line caveat-window
+    allowance (essay prose has longer paragraphs than README hero).
+
+**Doc-consistency guards: 8 → 15 across the day's evening + late
+sessions.** Test count: 1048 → 1055 (+7). MCP tool surface: 11.
+Wheel version: 1.0.0. Smoke surfaces: 32. Schema $ids resolve to
+real files (and become public URLs the moment the repo flips).
+Bundled /trinity skill + README hero + founder essay all use the
+git+https form (becomes canonical `pip install trinity-local`
+post-PyPI-publish).
+
+**Today's drift-class total: 11 real catches + 15 guards.** Each
+shape ships with both a fix and a regression guard so the next
+iteration of the same drift fails at test-time, not
+launch-day-public-eyes-time. The audit trail is the launch's
+"open-source the trail, not just the destination" promise made
+literal — every drift caught, every fix referenced, every guard
+explainable to a curious reader.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
