@@ -13,7 +13,7 @@
 > previous draft, replaced because the noun **core memories** is what dream actually
 > produces; **dream your core memories** makes that explicit).
 >
-> Prior council ratification: `council_4f34cd1181d5bd08` (Codex won, high, ledger-first
+> Prior council ratification: [`council_4f34cd1181d5bd08`](launch_councils/council_4f34cd1181d5bd08.json) (Codex won, high, ledger-first
 > reordering). Subsequent user spec elevated the brand from ledger-mechanic to memory-
 > sovereignty; thread updated to lead with the structural argument, not the mechanic.
 
@@ -70,8 +70,8 @@ moves with you.
 
 **The recursive demo (9/12).** I ran Trinity's launch council against its own readiness.
 It exposed the failure mode, named the deterministic test, drove the commit. The full
-outcome is in the repo: `council_d55953003bb29f9d.json`. Open-source the trail, not
-just the code.
+outcome is in the repo: [`docs/launch_councils/council_d55953003bb29f9d.json`](launch_councils/council_d55953003bb29f9d.json).
+Open-source the trail, not just the code.
 
 **Install (10/12).** `pip install trinity-local && trinity-local install-mcp` — drops a
 `/trinity` skill into Claude Code globally. From a fresh terminal OR from inside Claude

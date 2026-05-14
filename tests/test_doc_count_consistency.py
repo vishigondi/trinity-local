@@ -178,3 +178,67 @@ class TestMcpToolNameConsistency:
             f"mcp_server.py defines MCP tools that claude.md doesn't list: "
             f"{sorted(unlisted)}. Add to the '### The nine MCP tools' section."
         )
+
+
+class TestCitedCouncilArtifactsExistInRepo:
+    """Launch-artifact integrity guard. docs/launch.md and the README
+    cite specific council_<hex>.json files as proof artifacts ("the
+    outcome is in the repo"). If those files only live in ~/.trinity/
+    and not under state/council_outcomes/, HN readers and journalists
+    clicking through to verify hit a 404 — the proof claim doesn't
+    survive contact with the launch audience.
+
+    This guard scans launch-facing markdown for `council_<hex>` refs
+    and asserts each cited council exists in state/council_outcomes/.
+    Caught one real drift at T-1: council_d55953003bb29f9d was
+    referenced in launch.md but not copied into the repo. Without
+    the guard, future launch-copy edits citing new councils could
+    drift the same way and only surface when a reader clicks.
+    """
+
+    def test_council_refs_in_launch_docs_exist_in_repo(self):
+        launch_docs = [
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "README.md",
+        ]
+        # Launch-cited councils live under docs/launch_councils/ — a
+        # non-gitignored public directory (state/ is reserved for
+        # personal state and is .gitignore'd). Anyone copying a
+        # council outcome here is signaling "this is published and
+        # the launch copy may link to it."
+        repo_council_dir = REPO / "docs" / "launch_councils"
+        # Whitelist: councils mentioned for historical context (e.g.
+        # spec-ratifying councils in claude.md) that aren't load-
+        # bearing for the launch-facing surfaces. claude.md is NOT
+        # in the scan list — it's the agent-context file, not the
+        # public-facing launch artifact set. Reference councils in
+        # claude.md that don't exist in-repo are fine because
+        # claude.md isn't what HN readers click.
+        cited_ids: set[str] = set()
+        for path in launch_docs:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            # Match the canonical `council_<16-hex>` pattern; ignore
+            # references to fake/template IDs in code-fence examples.
+            for hit in re.findall(r"council_([0-9a-f]{16})", text):
+                cited_ids.add(hit)
+        if not cited_ids:
+            # Surfaces no cited councils — guard is a no-op (still
+            # catches a future addition because cited_ids will fill).
+            return
+        missing: list[str] = []
+        for council_id in sorted(cited_ids):
+            json_path = repo_council_dir / f"council_{council_id}.json"
+            if not json_path.exists():
+                missing.append(council_id)
+        assert not missing, (
+            f"launch.md/README/launch-package cites council_<id> files "
+            f"that aren't in docs/launch_councils/: {missing}. HN "
+            f"readers clicking to verify the claim hit a 404. Either "
+            f"copy ~/.trinity/council_outcomes/council_<id>.json into "
+            f"docs/launch_councils/, OR remove the cite from the "
+            f"launch copy."
+        )
