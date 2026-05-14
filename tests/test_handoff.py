@@ -116,6 +116,71 @@ class TestBuildHandoffPrompt:
         # Distinct providers, preserving first-appearance order.
         assert sources == ["claude", "codex"]
 
+    def test_gemini_target_gets_google_workspace_capability_hint(self):
+        """Launch-arc #121 — Gemini-Google handoff. When the target is
+        gemini, the prompt actively names Google Workspace tools so
+        gemini's MCP-wired Gmail/Drive/Calendar lights up when the
+        continuation question would benefit. Without this, gemini
+        often answers from its own internal knowledge and the demo's
+        "wait, it read my actual emails" moment never fires."""
+        from trinity_local.handoff import build_handoff_prompt
+        nodes = [_make_node(text="codebase question", provider="claude",
+                            following="here is what claude said")]
+        prompt, _ = build_handoff_prompt(
+            nodes,
+            continuation="what about recent emails on this?",
+            target_provider="gemini",
+        )
+        # Soft-form hint (must say "if you have" so users without
+        # google-workspace MCP wired don't get hallucinated tool calls):
+        assert "Google Workspace" in prompt
+        assert "Gmail" in prompt and "Calendar" in prompt
+        # The differentiator framing — "capability not just opinion" —
+        # is what makes the demo land. Don't drop it.
+        assert "capability" in prompt.lower()
+
+    def test_claude_target_gets_filesystem_capability_hint(self):
+        """When handing off TO claude (e.g., from gemini back), claude's
+        MCP-wired filesystem/code-exec tools are the differentiator."""
+        from trinity_local.handoff import build_handoff_prompt
+        nodes = [_make_node(text="email question", provider="gemini",
+                            following="gemini said")]
+        prompt, _ = build_handoff_prompt(nodes, target_provider="claude")
+        assert "filesystem" in prompt.lower() or "MCP" in prompt
+        assert "capability" in prompt.lower()
+
+    def test_no_capability_hint_when_target_provider_omitted(self):
+        """Backwards-compat: callers that don't pass target_provider get
+        the original neutral prompt. The capability hint is opt-in
+        because Trinity doesn't always know the target at prompt-build
+        time (some tests build the prompt without a target)."""
+        from trinity_local.handoff import build_handoff_prompt
+        nodes = [_make_node(text="q", provider="claude", following="r")]
+        prompt, _ = build_handoff_prompt(nodes)
+        # No capability framing leaks in when target is unknown
+        assert "Google Workspace" not in prompt
+        assert "filesystem" not in prompt.lower()
+
+    def test_unknown_target_provider_no_hint(self):
+        """An unknown provider name (e.g., user added a new provider
+        Trinity doesn't have a hint for) gets the neutral prompt. Don't
+        hallucinate capabilities for unknown targets."""
+        from trinity_local.handoff import build_handoff_prompt
+        nodes = [_make_node(text="q", provider="claude", following="r")]
+        prompt, _ = build_handoff_prompt(nodes, target_provider="grok-7")
+        assert "Google Workspace" not in prompt
+        assert "filesystem" not in prompt.lower()
+
+    def test_capability_hint_precedes_prior_log(self):
+        """The hint must land BEFORE the prior conversation log so the
+        receiving model reads "use your tools" first, then the context.
+        If it landed after the log, the model's already started
+        synthesizing without the tool-use frame."""
+        from trinity_local.handoff import build_handoff_prompt
+        nodes = [_make_node(text="prior", provider="claude", following="resp")]
+        prompt, _ = build_handoff_prompt(nodes, target_provider="gemini")
+        assert prompt.index("Google Workspace") < prompt.index("Prior conversation log")
+
 
 class TestRunHandoff:
     """The integration shape: pull context, dispatch, return result."""

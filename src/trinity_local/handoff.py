@@ -92,10 +92,48 @@ def _select_recent_turns(num_turns: int) -> list[PromptNode]:
     return usable[:num_turns]
 
 
+# Per-target capability hints: nudge the receiving model to USE the
+# integrations it commonly has, since the prior model in the
+# conversation almost certainly didn't. The continuity wedge is
+# strongest when the new model demonstrably brings capability the
+# old one structurally couldn't — Gemini reading Gmail that Claude
+# can't see is "wait, how did it know that" magic.
+#
+# Hints are deliberately soft ("if you have"): Trinity doesn't know
+# the target's actual installed tools — that depends on the user's
+# harness config. A hard "use Gmail" would be a hallucination prompt
+# for users who haven't wired google-workspace MCP yet. The soft form
+# triggers tool use when available without inventing it otherwise.
+_CAPABILITY_HINTS: dict[str, str] = {
+    "gemini": (
+        "If you have access to Google Workspace tools (Gmail, Drive, "
+        "Calendar) or web search, USE THEM when they'd enrich your "
+        "answer with data the prior model couldn't see. The prior "
+        "model was a different AI and couldn't read the user's "
+        "emails, files, or calendar — you can. That's the entire "
+        "point of this handoff: bringing capability to the "
+        "conversation, not just another opinion."
+    ),
+    "claude": (
+        "If you have access to filesystem tools, code execution, or "
+        "MCP integrations the prior model didn't have, USE THEM. "
+        "The point of this handoff isn't another opinion — it's "
+        "bringing capability the prior model structurally couldn't."
+    ),
+    "codex": (
+        "If you have access to local code, shell, or filesystem "
+        "tools the prior model didn't have, USE THEM. The point "
+        "of this handoff isn't another opinion — it's bringing "
+        "capability the prior model structurally couldn't."
+    ),
+}
+
+
 def build_handoff_prompt(
     nodes: Iterable[PromptNode],
     *,
     continuation: str | None = None,
+    target_provider: str | None = None,
 ) -> tuple[str, list[str]]:
     """Render prior conversation as a "continuing-this-thread" prompt
     for the target model. Returns (prompt_text, source_providers).
@@ -104,14 +142,25 @@ def build_handoff_prompt(
     a conversation that another AI started" — without that frame the
     model often re-introduces itself and breaks the demo's illusion of
     continuity.
+
+    When `target_provider` is supplied, appends a per-provider
+    capability hint that nudges the receiving model to use the
+    integrations it commonly has but the prior model didn't. This is
+    what makes the cross-provider hero demo (#115/#121) deterministic:
+    gemini sees "use Google Workspace if available" and pulls Gmail/
+    Calendar into the answer, demonstrating capability not just
+    perspective.
     """
+    capability_hint = _CAPABILITY_HINTS.get((target_provider or "").lower(), "")
     chunks: list[str] = [
         "You are continuing a conversation the user was having with "
         "another AI model. Pick up exactly where the prior model left "
         "off — don't re-introduce yourself, don't recap, just respond "
-        "as if you'd been in the conversation from the start.\n\n"
-        "--- Prior conversation log ---\n",
+        "as if you'd been in the conversation from the start.\n\n",
     ]
+    if capability_hint:
+        chunks.append(f"{capability_hint}\n\n")
+    chunks.append("--- Prior conversation log ---\n")
     source_providers: list[str] = []
     # nodes come in most-recent-first order; flip to chronological for
     # the receiving model.
@@ -185,7 +234,11 @@ def run_handoff(
                 "or wait for incremental ingest to pick up new transcripts."
             ),
         )
-    prompt, source_providers = build_handoff_prompt(nodes, continuation=continuation)
+    prompt, source_providers = build_handoff_prompt(
+        nodes,
+        continuation=continuation,
+        target_provider=target_provider,
+    )
     provider = make_provider(config)
     cwd = cwd or Path.cwd()
     result: ProviderResult = provider.run(prompt, cwd=cwd)
