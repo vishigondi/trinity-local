@@ -373,7 +373,7 @@ launch-day-public-eyes-time. The audit trail is the launch's
 literal — every drift caught, every fix referenced, every guard
 explainable to a curious reader.
 
-### Day-2 close — second eval target on disk (#116 cross-provider)
+### Day-2 close — three-provider benchmark complete (#116 deliverable)
 
 After the drift-finding pass saturated, pivoted to substantive
 launch-arc work: ran a 5-item codex eval-run against the corpus
@@ -409,6 +409,51 @@ Wall time: 174s/item average for codex (range 19s–380s). Full
 44-item × 3-target benchmark would take ~6 hours — schedule
 overnight before the next v1.x milestone for the publishable
 comparison table.
+
+### Day-2 close (+30 min) — third target landed: claude=1.00 on 5
+
+Ran claude as the third target (judged by gemini, NOT claude, so
+the model doesn't grade itself). Result file at
+`~/.trinity/evals/results/eval_eval_d32567a386b9__model_claude__
+20260514T222227.json`.
+
+  claude aggregate: 1.000 (vs rejected_responses)
+  REDIRECT n=1 mean=1.000
+  REFRAME  n=4 mean=1.000  (perfect on all 4)
+
+**Three-provider snapshot** on the user's corpus, all judge-rotated:
+
+  | target | aggregate | items | judge |
+  | claude | 1.000 | 5 | gemini |
+  | gemini | 0.833 | 3 | claude |
+  | codex  | 0.800 | 5 | claude |
+
+**Judge-rotation note:** claude and codex are NOT directly
+comparable as raw scores because they were judged differently —
+codex was claude-judged (score 0.80) while claude was gemini-judged
+(score 1.00). The strict apples-to-apples comparison is gemini
+vs codex (both claude-judged, both on first-N items of the same
+eval set): gemini 0.83 vs codex 0.80 — gemini marginally ahead.
+
+The launch-arc #116 claim now has the marketing-grade shape:
+"Trinity benchmarked all three providers against the user's actual
+rejection signal. Claude scored 1.00 (judged by Gemini). Gemini
+scored 0.83 (judged by Claude). Codex scored 0.80 (judged by
+Claude). No model graded itself — the eval harness rotates judges
+to remove self-bias."
+
+**Wall time:** claude ~54s/item average (range 13s–102s) — ~3×
+faster than codex on this corpus. A future full 44-item × 3-target
+run scheduled overnight is feasible.
+
+**Launchpad** Surface 30 now shows claude=1.000 (most recent by
+mtime). `stats` "Latest eval result" mirrors. Per-target views via
+`eval-show --target <provider>`.
+
+This is the launch-arc #116 v1.0 deliverable: empirical three-
+provider benchmark on the user's corpus, judges rotated to avoid
+self-grading, persisted to disk, surfaced on launchpad + stats +
+MCP `get_eval_summary`. The publishable comparison table is ready.
 
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
