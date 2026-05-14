@@ -722,11 +722,14 @@ def _core_status() -> dict:
 
 
 def _memory_health() -> dict:
-    """Aggregate the four staleness signals the launchpad surfaces:
+    """Aggregate the five staleness signals the launchpad surfaces:
       - core.md staleness (vs the five plural memories) via _core_status
       - picks override_count > 0 (user-marked rules to demote)
       - picks audit_status == "disagreed" (chairman-audit caught drift)
       - topics.json prompt_ids round-trip integrity (legacy pre-thread-aware)
+      - picks.json cortex freshness: councils newer than last consolidate
+        (Pillar 3 drift surfacing — `ask` routes on stale rules until
+        re-consolidate; doctor.py `_check_cortex_freshness` mirrors this)
 
     Returns:
       {
@@ -747,7 +750,7 @@ def _memory_health() -> dict:
     #             the action is "navigate somewhere" rather than "run a CLI".
     #   href    — optional in-app navigation target (e.g. memory.html link)
     issues: list[dict[str, str | None]] = []
-    total = 4
+    total = 5
     # 1. core.md freshness
     core = _core_status()
     state = core.get("state")
@@ -814,6 +817,47 @@ def _memory_health() -> dict:
                 })
     except Exception:
         pass
+
+    # 5. picks.json cortex freshness — councils newer than the last
+    #    consolidate mean `ask` is routing on stale rules. Doctor's
+    #    _check_cortex_freshness reports the same shape from the CLI
+    #    side; this is the launchpad-facing surface so the user sees it
+    #    without having to run `doctor`. Pillar 3 (drift surfacing)
+    #    + Pillar 4 (supervision-signal moat — stale picks waste the
+    #    verdict signal that just came in).
+    try:
+        from .state_paths import picks_path, council_outcomes_dir
+        picks_p = picks_path()
+        if picks_p.exists():
+            picks_data = json.loads(picks_p.read_text(encoding="utf-8"))
+            consolidated_ats: list[str] = []
+            for entry in picks_data.values() if isinstance(picks_data, dict) else []:
+                if isinstance(entry, dict):
+                    ts = entry.get("consolidated_at")
+                    if isinstance(ts, str):
+                        consolidated_ats.append(ts)
+            if consolidated_ats:
+                freshest = max(consolidated_ats)
+                outcomes_p = council_outcomes_dir()
+                newer = 0
+                for path in outcomes_p.glob("council_*.json") if outcomes_p.is_dir() else []:
+                    try:
+                        outcome = json.loads(path.read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        continue
+                    created = outcome.get("created_at") or ""
+                    if isinstance(created, str) and created > freshest:
+                        newer += 1
+                if newer > 0:
+                    issues.append({
+                        "name": "picks.json",
+                        "status": "cortex-stale",
+                        "hint": f"{newer} council(s) newer than the last consolidate — `ask` routes on stale rules.",
+                        "command": "trinity-local consolidate",
+                        "href": None,
+                    })
+    except Exception:
+        pass  # cortex freshness check must never break launchpad
 
     return {
         "issues": issues,
