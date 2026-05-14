@@ -533,6 +533,44 @@ def run_doctor() -> DoctorReport:
     return report
 
 
+def _next_step_hint(report: DoctorReport) -> str | None:
+    """Return a single 'try this next' line based on what's healthy.
+
+    Pillar 4 + #115 first-run-wow: after a green doctor run, the user
+    doesn't know what to DO next. The handoff demo is the 60-second
+    wedge — surfacing it here closes the "I installed it, now what?"
+    gap that #115 was originally about.
+
+    Tiered by what's actually possible given the state we just checked:
+      - <2 providers green: handoff has nothing to hand off TO; skip
+      - ≥2 providers green, no prompts: suggest seeding first
+      - ≥2 providers green AND prompts indexed: handoff demo
+    """
+    provider_checks = [c for c in report.checks if c.name.startswith("provider:")]
+    green_providers = [c for c in provider_checks if c.ok]
+    if len(green_providers) < 2:
+        return None
+    # Pick a target that ISN'T the user's default — the demo lands
+    # when the SECOND model picks up the FIRST's context. If claude
+    # is green, suggest handing off TO gemini (or codex if no gemini).
+    others = [c.name.split(":", 1)[1] for c in green_providers if c.name != "provider:claude"]
+    target = others[0] if others else green_providers[1].name.split(":", 1)[1]
+
+    prompts_check = next((c for c in report.checks if c.name == "prompts_seeded"), None)
+    if prompts_check is None or not prompts_check.ok:
+        return (
+            "Try this next: seed your prompt index with "
+            "`trinity-local seed-from-taste-terminal`, then run "
+            f"`trinity-local handoff {target}` to see the 60-second "
+            "cross-provider continuity demo."
+        )
+    return (
+        "Try this next: have a conversation in Claude Code, then run "
+        f"`trinity-local handoff {target}` — {target} will pick up exactly "
+        "where Claude left off. The 60-second wedge demo."
+    )
+
+
 def format_human(report: DoctorReport) -> str:
     """Pretty-print the report for the CLI."""
     lines: list[str] = []
@@ -548,4 +586,8 @@ def format_human(report: DoctorReport) -> str:
         lines.append("Ready for your first council. Some optional checks failed (see above).")
     else:
         lines.append("Trinity is NOT ready. Fix the ✗ items above, then re-run `trinity-local doctor`.")
+    hint = _next_step_hint(report)
+    if hint:
+        lines.append("")
+        lines.append(hint)
     return "\n".join(lines)

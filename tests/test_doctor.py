@@ -364,3 +364,115 @@ class TestShortcutCheck:
         report = run_doctor()
         names = {c.name for c in report.checks}
         assert "shortcut_installed" in names
+
+
+class TestNextStepHint:
+    """The handoff-demo nudge in `trinity-local doctor` output (task #115).
+
+    After a green doctor run the user otherwise sees "Trinity is ready"
+    with no idea what to do next. Surfacing the handoff demo right
+    there closes the "I installed it, now what?" gap that #115 is
+    about. These tests pin the tiered behavior so a future refactor
+    doesn't silently drop the hint.
+    """
+
+    def _make_report(self, *, providers_green=2, prompts_ok=True):
+        from trinity_local.doctor import DoctorReport, CheckResult
+
+        checks = []
+        names = ["claude", "codex", "gemini"]
+        for i, name in enumerate(names):
+            checks.append(CheckResult(
+                name=f"provider:{name}",
+                ok=(i < providers_green),
+                detail=f"{name} {'installed' if i < providers_green else 'missing'}",
+            ))
+        checks.append(CheckResult(
+            name="prompts_seeded",
+            ok=prompts_ok,
+            detail=("ok" if prompts_ok else "no prompts"),
+        ))
+        return DoctorReport(checks=checks)
+
+    def test_hint_silent_with_only_one_provider(self):
+        """Handoff needs at least two providers — one to start the
+        conversation, one to continue it. With only one green, there's
+        nothing to recommend."""
+        from trinity_local.doctor import _next_step_hint
+        report = self._make_report(providers_green=1)
+        assert _next_step_hint(report) is None
+
+    def test_hint_recommends_seed_when_no_prompts(self):
+        """≥2 providers but no prompt index → the demo doesn't work
+        yet (handoff has no recent turns to package). Recommend the
+        seed-first path."""
+        from trinity_local.doctor import _next_step_hint
+        report = self._make_report(providers_green=2, prompts_ok=False)
+        hint = _next_step_hint(report)
+        assert hint is not None
+        assert "seed-from-taste-terminal" in hint
+        assert "handoff" in hint
+
+    def test_hint_recommends_handoff_when_ready(self):
+        """≥2 providers AND prompts indexed → demo is ready. Suggest
+        the conversation-then-handoff flow."""
+        from trinity_local.doctor import _next_step_hint
+        report = self._make_report(providers_green=3, prompts_ok=True)
+        hint = _next_step_hint(report)
+        assert hint is not None
+        assert "handoff" in hint
+        assert "Claude Code" in hint
+        # The 60-second wedge framing — keeps the marketing voice
+        # consistent across surfaces.
+        assert "60-second" in hint or "wedge" in hint
+
+    def test_hint_picks_non_claude_target(self):
+        """When recommending a handoff target, prefer something that
+        isn't Claude — the demo lands because the SECOND model picks
+        up the FIRST's context. Suggesting `handoff claude` defeats
+        the point if the user's default IS Claude."""
+        from trinity_local.doctor import _next_step_hint
+        report = self._make_report(providers_green=3, prompts_ok=True)
+        hint = _next_step_hint(report)
+        # Either codex or gemini, but never claude
+        assert "handoff codex" in hint or "handoff gemini" in hint
+        assert "handoff claude" not in hint
+
+    def test_hint_target_name_used_consistently(self):
+        """The target named in the command and the target named in the
+        narrative example must match — otherwise the copy reads
+        'handoff codex — Gemini will pick up...' which is just sloppy."""
+        from trinity_local.doctor import _next_step_hint
+        report = self._make_report(providers_green=3, prompts_ok=True)
+        hint = _next_step_hint(report)
+        # Find which target was named in the command, verify the same
+        # name appears as the "will pick up" subject.
+        import re
+        m = re.search(r"handoff (\w+)`", hint)
+        assert m, f"hint missing handoff command: {hint}"
+        target = m.group(1)
+        assert f"{target} will pick up" in hint, (
+            f"target/example mismatch in hint: command says handoff "
+            f"{target}, but the narrative example doesn't match. "
+            f"Hint: {hint}"
+        )
+
+    def test_format_human_includes_hint_on_success(self):
+        """End-to-end: format_human should append the hint after the
+        'Trinity is ready' line when conditions are met."""
+        from trinity_local.doctor import format_human
+        report = self._make_report(providers_green=3, prompts_ok=True)
+        # All_ok requires ALL checks to be ok; the made report has
+        # both providers and prompts green, which is enough for the
+        # hint regardless of all_ok status.
+        text = format_human(report)
+        assert "Try this next" in text
+        assert "handoff" in text
+
+    def test_format_human_omits_hint_with_no_providers(self):
+        """Don't show a 'try this' nudge when the user can't actually
+        try it — that just adds noise to a fail-state report."""
+        from trinity_local.doctor import format_human
+        report = self._make_report(providers_green=0)
+        text = format_human(report)
+        assert "Try this next" not in text
