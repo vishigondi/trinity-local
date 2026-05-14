@@ -739,6 +739,56 @@ class TestDroppedTermsAreNotReintroduced:
         )
 
 
+class TestLaunchpadScreenshotFreshness:
+    """The README + launch-package reference `docs/launchpad_example.png`
+    as the canonical launchpad screenshot. Anyone clicking through from
+    the README hero section to see what Trinity looks like reads from
+    THIS file. If it's stale, the launchpad they see doesn't match the
+    launchpad they'd get after install.
+
+    T-1 catch: the screenshot was 6 days old. Since then Trinity added
+    Surface 30 (3-provider leaderboard), Surface 32 (rate-limit-saves
+    card), and several launch-arc surfaces. The stale screenshot would
+    have shown a meaningfully thinner launchpad than the one a fresh
+    install produces — false advertising for the launch-arc work.
+
+    Guard: assert the screenshot isn't grossly older than the source-
+    tree files that drive what the launchpad renders. If
+    launchpad_template.py or launchpad_data.py was edited more recently
+    than the screenshot, the screenshot is likely stale. Threshold is
+    generous (3 days) to avoid forcing re-render on every UI tweak —
+    only catches true drift, not normal edit churn.
+    """
+
+    def test_launchpad_example_not_grossly_stale(self):
+        screenshot = REPO / "docs" / "launchpad_example.png"
+        if not screenshot.exists():
+            return  # not yet generated — guard is a no-op
+        source_drivers = [
+            REPO / "src" / "trinity_local" / "launchpad_template.py",
+            REPO / "src" / "trinity_local" / "launchpad_data.py",
+        ]
+        screenshot_mtime = screenshot.stat().st_mtime
+        STALE_THRESHOLD_DAYS = 3
+        stale_drivers: list[tuple[str, float]] = []
+        for path in source_drivers:
+            if not path.exists():
+                continue
+            src_mtime = path.stat().st_mtime
+            age_days = (src_mtime - screenshot_mtime) / 86400
+            if age_days > STALE_THRESHOLD_DAYS:
+                stale_drivers.append((path.name, age_days))
+        assert not stale_drivers, (
+            f"docs/launchpad_example.png is grossly stale relative to "
+            f"the launchpad source files: {stale_drivers}. The README + "
+            f"launch-package link to this screenshot as the canonical "
+            f"'what Trinity looks like.' Regenerate via "
+            f"`trinity-local portal-html && trinity-local serve & "
+            f"python scripts/browser_smoke.py && cp docs/smoke/1-"
+            f"launchpad.png docs/launchpad_example.png`."
+        )
+
+
 class TestSchemaIdsResolveToReachableUrls:
     """Schema canonical-URL guard. The PREFERENCE_CORPUS_SPEC publishes
     three JSON Schema files (council_outcome, eval_set, rejection_
