@@ -800,11 +800,16 @@ def _rate_limit_saves() -> dict:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            # Filter by window. dispatch_outcomes entries carry an
-            # `at` ISO timestamp; tolerate missing/malformed by
-            # including (the metric is biased toward "is something
-            # happening" and a missing ts is still a data point).
-            ts_str = entry.get("at")
+            # Filter by window. dispatch_outcomes entries carry a
+            # `ts` ISO timestamp (matches what ask.py writes — NOT
+            # `at`; an earlier version read the wrong key and the
+            # 30-day window was silent dead code, so EVERY entry on
+            # disk passed through. The CLI metric reader is the source
+            # of truth for the field name). Tolerate missing/malformed
+            # by including the entry — the metric is biased toward
+            # "is something happening" and a missing ts is still a
+            # data point.
+            ts_str = entry.get("ts")
             if ts_str:
                 try:
                     ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))

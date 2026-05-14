@@ -53,6 +53,7 @@ CORE_COMMAND_MODULES = (
     "review",
     "seed",
     "shortcuts",
+    "stats",
     "status",
     "tasks",
     "telemetry",

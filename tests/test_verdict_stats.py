@@ -596,8 +596,8 @@ class TestRateLimitSaves:
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
         self._write_outcomes(isolated_home, [
-            {"at": now, "primary": "claude", "rate_limit_save": False},
-            {"at": now, "primary": "claude", "rate_limit_save": False},
+            {"ts": now, "primary": "claude", "rate_limit_save": False},
+            {"ts": now, "primary": "claude", "rate_limit_save": False},
         ])
         result = _rate_limit_saves()
         assert result["has_data"] is False
@@ -616,11 +616,11 @@ class TestRateLimitSaves:
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc).isoformat()
         self._write_outcomes(isolated_home, [
-            {"at": now, "primary": "claude", "rate_limit_save": True,
+            {"ts": now, "primary": "claude", "rate_limit_save": True,
              "failure_kind": "rate_limited"},
-            {"at": now, "primary": "claude", "rate_limit_save": True,
+            {"ts": now, "primary": "claude", "rate_limit_save": True,
              "failure_kind": "auth_failed"},
-            {"at": now, "primary": "claude", "rate_limit_save": False},
+            {"ts": now, "primary": "claude", "rate_limit_save": False},
         ])
         result = _rate_limit_saves()
         assert result["has_data"] is True
@@ -646,9 +646,9 @@ class TestRateLimitSaves:
         old = (now - timedelta(days=45)).isoformat()
         fresh = now.isoformat()
         self._write_outcomes(isolated_home, [
-            {"at": old, "primary": "claude", "rate_limit_save": True,
+            {"ts": old, "primary": "claude", "rate_limit_save": True,
              "failure_kind": "rate_limited"},
-            {"at": fresh, "primary": "claude", "rate_limit_save": True,
+            {"ts": fresh, "primary": "claude", "rate_limit_save": True,
              "failure_kind": "rate_limited"},
         ])
         result = _rate_limit_saves()
@@ -666,7 +666,7 @@ class TestRateLimitSaves:
         path.write_text(
             'not json\n'
             + json.dumps({
-                "at": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(timezone.utc).isoformat(),
                 "primary": "claude",
                 "rate_limit_save": True,
                 "failure_kind": "rate_limited",
@@ -688,3 +688,41 @@ class TestRateLimitSaves:
         src = Path(__file__).resolve().parents[1] / "src/trinity_local/launchpad_data.py"
         text = src.read_text(encoding="utf-8")
         assert "\"rateLimitSaves\":" in text or "'rateLimitSaves':" in text
+
+    def test_timestamp_field_matches_ask_writer(self, isolated_home):
+        """Regression guard for the silent dead-code bug caught at
+        T-1 day. ask.py writes `ts` as the timestamp field. An earlier
+        version of `_rate_limit_saves` read `entry.get("at")` —
+        which silently returned None for every real entry, falling
+        through the try/except, and the 30-day window filter NEVER
+        APPLIED. Tests passed because the test fixtures used `at`
+        too, and real-corpus output matched the CLI metric for an
+        unrelated reason (entries weren't stale enough to differ).
+
+        This test writes an entry using ONLY the production field
+        name (`ts`), with a timestamp OUTSIDE the window, and asserts
+        the entry is excluded. If a future refactor reverts to `at`
+        or any other key, the entry will sneak through the filter
+        and `total_calls` will be wrong.
+        """
+        from trinity_local.launchpad_data import _rate_limit_saves
+        from datetime import datetime, timedelta, timezone
+        far_past = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat()
+        self._write_outcomes(isolated_home, [
+            # Production-shape entry: only `ts`, no `at`. Far outside
+            # the 30-day window. If the helper reads a different key,
+            # this slips through and total_calls > 0.
+            {"ts": far_past, "primary": "claude", "rate_limit_save": True,
+             "failure_kind": "rate_limited"},
+        ])
+        result = _rate_limit_saves()
+        assert result["has_data"] is False, (
+            "Entry with `ts` 400 days old was counted — the window "
+            "filter isn't applying. Check that _rate_limit_saves "
+            "reads the same timestamp field that ask.py writes (`ts`)."
+        )
+        assert result["total_calls"] == 0, (
+            "Expected zero calls in the 30d window; got "
+            f"{result['total_calls']}. The launchpad number and the "
+            "CLI metric have drifted on field naming."
+        )
