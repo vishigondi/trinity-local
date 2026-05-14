@@ -51,7 +51,7 @@ def handle_handoff(args):
     from ..config import load_config
 
     config = load_config(getattr(args, "config", None), required=True)
-    provider_configs = {p.name: p for p in config.providers if p.enabled}
+    provider_configs = {name: p for name, p in config.providers.items() if p.enabled}
     result = run_handoff(
         args.provider,
         provider_configs,

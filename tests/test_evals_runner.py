@@ -346,6 +346,37 @@ class TestEvalRunCLI:
         action = next((a for a in choices["eval-run"]._actions if a.dest == "target"), None)
         assert action is not None and action.required
 
+    def test_handler_iterates_providers_as_dict(self):
+        """Regression guard for `for p in config.providers if p.enabled` —
+        config.providers is `dict[str, ProviderConfig]`, so iterating
+        directly yields the keys (strings) and `p.enabled` blows up with
+        AttributeError. Caught only by a real-corpus eval-run on day 2
+        of the ship window — the unit tests passed because the handler
+        was never invoked end-to-end with a real Config.
+
+        Principle #4 (audit for shape): the same bug existed in 2 more
+        places (handoff.py, mcp_server.py). Promote the assertion to a
+        per-handler regression so the shape can't quietly come back.
+        """
+        import inspect
+        from trinity_local.commands import eval as eval_cmd
+        from trinity_local.commands import handoff as handoff_cmd
+        from trinity_local import mcp_server
+
+        # The bad shape is `for p in config.providers` followed by
+        # `p.enabled` or `p.name` — that only works for a list. Promote
+        # to dict-safe by iterating `.items()` or `.values()`.
+        for source in (
+            inspect.getsource(eval_cmd.handle_eval_run),
+            inspect.getsource(handoff_cmd.handle_handoff),
+            inspect.getsource(mcp_server._handoff),
+        ):
+            assert "for p in config.providers if" not in source, (
+                "config.providers is dict[str, ProviderConfig]; iterating "
+                "directly yields KEYS (strings), not provider configs. "
+                "Use config.providers.items() or .values()."
+            )
+
 
 class TestEvalShowCLI:
     """The eval-show subcommand renders a past run result without

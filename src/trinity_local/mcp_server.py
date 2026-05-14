@@ -1528,7 +1528,7 @@ async def _handoff(args: dict) -> list[Any]:
         config = load_config(required=True)
     except Exception as exc:
         return [_text({"ok": False, "error": f"config not loadable: {exc}"})]
-    provider_configs = {p.name: p for p in config.providers if p.enabled}
+    provider_configs = {name: p for name, p in config.providers.items() if p.enabled}
 
     result = run_handoff(
         target_provider,

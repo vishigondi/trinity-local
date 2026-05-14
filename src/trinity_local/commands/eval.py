@@ -230,7 +230,7 @@ def handle_eval_run(args):
         raise SystemExit(2)
 
     config = load_config(getattr(args, "config", None), required=True)
-    provider_configs = {p.name: p for p in config.providers if p.enabled}
+    provider_configs = {name: p for name, p in config.providers.items() if p.enabled}
     if args.target not in provider_configs:
         print(f"✗ target provider {args.target!r} not enabled. Available: {sorted(provider_configs)}")
         raise SystemExit(2)
