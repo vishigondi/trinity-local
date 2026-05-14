@@ -317,6 +317,82 @@ class TestInstallSmokeTracksMcpTools:
         )
 
 
+class TestGithubUrlOwnerConsistency:
+    """Single-owner guard. Launch-facing docs and the install scripts
+    reference `github.com/<owner>/trinity-local` as the canonical
+    install URL. The owner field is load-bearing for the
+    `git clone` command and the `pip install git+https://...` install
+    path — a wrong owner segment produces a 404, and that lands as
+    the user's FIRST experience after they copy the README command.
+
+    Caught at T-1: README's quickstart used `github.com/openclaw/...`
+    while launch.md, launch-package.md, and MCP_REGISTRY_SUBMISSIONS
+    used `github.com/vishigondi/...` (the actual remote). The clone
+    command in README would have 404'd for every reader copy-pasting
+    it tomorrow morning.
+
+    This guard scans launch-facing docs for any `github.com/.../
+    trinity-local` reference and asserts the owner segment matches
+    the canonical one — read from this repo's actual `git remote -v`
+    output so the guard tracks reality without needing a hardcoded
+    constant in two places (which would just create new drift).
+    """
+
+    def _canonical_owner(self) -> str | None:
+        """Parse the remote URL for the owner. Returns None if no
+        remote configured (e.g., on a fresh clone without push perms).
+        """
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(REPO), "remote", "get-url", "origin"],
+                capture_output=True, text=True, check=False,
+            )
+        except FileNotFoundError:
+            return None
+        if result.returncode != 0:
+            return None
+        url = result.stdout.strip()
+        m = re.search(r"github\.com[:/]([^/]+)/trinity-local", url)
+        return m.group(1) if m else None
+
+    def test_no_wrong_owner_in_launch_docs(self):
+        canonical = self._canonical_owner()
+        if canonical is None:
+            # Can't determine canonical without a remote — skip rather
+            # than fail in CI environments without git config.
+            return
+        scan_paths = [
+            REPO / "README.md",
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "docs" / "MCP_REGISTRY_SUBMISSIONS.md",
+        ]
+        wrong: list[tuple[str, int, str]] = []
+        for path in scan_paths:
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                # Match any github.com/<owner>/trinity-local reference.
+                # Allow http(s):// prefix, raw github.com, or backtick-
+                # wrapped forms — all surface the same owner string.
+                for m in re.finditer(
+                    r"github\.com[:/]([\w.-]+)/trinity-local", line
+                ):
+                    owner = m.group(1)
+                    if owner != canonical:
+                        wrong.append((path.name, lineno, owner))
+        assert not wrong, (
+            f"Wrong GitHub owner in launch-facing docs (canonical = "
+            f"{canonical!r} from `git remote get-url origin`):\n"
+            f"  {wrong}\n"
+            f"Users copying these URLs hit a 404. Fix to {canonical}/"
+            f"trinity-local in every cited location."
+        )
+
+
 class TestLaunchCopyHasNoPlaceholders:
     """T-1 lorem-ipsum guard. The launch surface accumulates `[date]`,
     `<github.com/...>`, `<repo>`, `[handle]`, `[name]`, and similar

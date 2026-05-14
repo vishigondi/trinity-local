@@ -174,17 +174,18 @@ are missing.
 ## Quickstart (3 paths)
 
 ```bash
-# Fastest: pip + install-mcp (assumes Python 3.10+ already)
-pip install trinity-local
+# Fastest today: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Desktop launchpad icon
+git clone https://github.com/vishigondi/trinity-local && cd trinity-local
+./setup.sh                          # one script handles Python check + everything else
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
 trinity-local doctor                # verify providers + auth before your first council
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
 trinity-local lens-build            # surface your taste lenses (after a few councils)
 trinity-local me-card               # render your strongest lens as a 1200×630 PNG to share
 
-# Or: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Desktop launchpad icon
-git clone https://github.com/openclaw/trinity-local && cd trinity-local
-./setup.sh                          # one script handles Python check + everything else
+# Or via pip (PyPI publish lands at v1.0 ship; until then use the git+https form):
+pip install git+https://github.com/vishigondi/trinity-local
+# Post-ship: `pip install trinity-local` — same package, faster.
 
 # Or, from inside Claude Code (after either of the two above):
 /trinity                            # the bundled skill re-runs install + first-council
