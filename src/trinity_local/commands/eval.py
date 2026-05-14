@@ -1,21 +1,21 @@
 """CLI handlers for the corpus-based eval harness (task #122).
 
-MVP ships two subcommands:
+Three subcommands:
 
   trinity-local eval-build [--limit N] [--source rejections] [--json]
     Build an eval set from the user's rejections.jsonl + prompt index.
     Persists to ~/.trinity/evals/<eval_id>.json. Returns stats.
 
-  trinity-local eval-stats
+  trinity-local eval-stats [--eval-id ID]
     Inspect the LATEST eval set on disk. Shows item count + rejection-
-    type distribution + basin distribution so the user can see what
-    their personal eval set looks like before running it.
+    type distribution + basin distribution + sample items.
 
-The runner (`trinity-local eval --target <provider>`) ships in a
-follow-up tick. With just the builder + stats, the user already gets
-the first marketing-ready artifact for launch-arc workstream #116:
-"here's what we'd benchmark Model X against — YOUR actual rejections,
-not someone's synthetic suite."
+  trinity-local eval-run --target <provider> [--judge <provider>]
+                         [--eval-id ID] [--limit N] [--no-score]
+    Dispatch the eval set's prompts to <target> provider, then score
+    each response against the rejected_response using <judge>. Persists
+    results to ~/.trinity/evals/results/. THIS IS the empirical
+    benchmark — score model X against the user's actual rejections.
 """
 from __future__ import annotations
 
@@ -51,6 +51,36 @@ def register(subparsers):
         help="Specific eval_id to inspect. Defaults to the most-recent eval set.",
     )
     stats_p.set_defaults(handler=handle_eval_stats)
+
+    run_p = subparsers.add_parser(
+        "eval-run",
+        help="Dispatch the eval set against a target provider and score the results (task #122 / #116)",
+    )
+    run_p.add_argument(
+        "--target", required=True,
+        help="Provider to benchmark (claude / codex / gemini / ...).",
+    )
+    run_p.add_argument(
+        "--judge", default=None,
+        help="Provider that grades responses against the rejection axis. Defaults to a different provider than --target so the model isn't grading itself.",
+    )
+    run_p.add_argument(
+        "--eval-id", default=None,
+        help="Eval set to run. Defaults to the most-recent eval set on disk.",
+    )
+    run_p.add_argument(
+        "--limit", type=int, default=None,
+        help="Cap the dispatched items to first N (default: all). Useful for smoke tests before a full run.",
+    )
+    run_p.add_argument(
+        "--no-score", dest="skip_score", action="store_true",
+        help="Skip the scorer step. Useful when you want to inspect raw responses before paying the judge dispatch cost.",
+    )
+    run_p.add_argument(
+        "--json", dest="as_json", action="store_true",
+        help="Output the full result as JSON.",
+    )
+    run_p.set_defaults(handler=handle_eval_run)
 
 
 def handle_eval_build(args):
@@ -140,3 +170,84 @@ def handle_eval_stats(args):
             print(f"\n    [{item.rejection_type:<11}] {preview}")
             quote = item.rejected_response[:120].replace("\n", " ")
             print(f"       rejected: {quote}{'…' if len(item.rejected_response) > 120 else ''}")
+
+
+def _default_judge_provider(target: str, configs: dict) -> str | None:
+    """Pick a judge that isn't the model being scored. Falls back to
+    target if no alternative is enabled (bias-trap warning surfaced
+    in the CLI output)."""
+    candidates = [name for name in configs if name != target and configs[name].enabled]
+    return candidates[0] if candidates else None
+
+
+def handle_eval_run(args):
+    from ..config import load_config
+    from ..evals.builder import evals_dir, load_eval_set
+    from ..evals.runner import run_eval, save_run_result
+    from ..evals.scorer import score_run
+
+    eval_id = args.eval_id
+    if eval_id is None:
+        candidates = sorted(evals_dir().glob("eval_*.json"),
+                            key=lambda p: p.stat().st_mtime, reverse=True)
+        if not candidates:
+            print("  No eval sets on disk. Run `trinity-local eval-build` first.")
+            raise SystemExit(2)
+        eval_id = candidates[0].stem
+
+    eval_set = load_eval_set(eval_id)
+    if eval_set is None:
+        print(f"✗ eval set {eval_id} not found")
+        raise SystemExit(2)
+
+    config = load_config(getattr(args, "config", None), required=True)
+    provider_configs = {p.name: p for p in config.providers if p.enabled}
+    if args.target not in provider_configs:
+        print(f"✗ target provider {args.target!r} not enabled. Available: {sorted(provider_configs)}")
+        raise SystemExit(2)
+
+    def _progress(idx, total, item_run):
+        pad_axis = item_run.rejection_type.ljust(11)
+        status = "✗" if item_run.target_error else "→"
+        print(f"  [{idx}/{total}] {status} {pad_axis} {item_run.elapsed_seconds:5.1f}s")
+
+    print(f"Running eval {eval_id} against {args.target}...")
+    run_result = run_eval(
+        eval_set,
+        args.target,
+        provider_configs,
+        limit=args.limit,
+        progress_callback=_progress,
+    )
+
+    if not args.skip_score:
+        judge = args.judge or _default_judge_provider(args.target, provider_configs)
+        if judge is None:
+            print("✗ no judge provider available (need a second enabled provider, or pass --judge).")
+            raise SystemExit(2)
+        if judge == args.target:
+            print(f"⚠  judge ({judge}) is the same as target ({args.target}) — bias-trap warning.")
+        from ..state_paths import state_dir
+        lens_md = state_dir() / "memories" / "lens.md"
+        lens_text = lens_md.read_text(encoding="utf-8") if lens_md.exists() else ""
+        print(f"Scoring with judge={judge}...")
+        score_run(run_result, lens_text, judge, provider_configs,
+                  progress_callback=lambda i, t, _: print(f"  judged {i}/{t}"))
+
+    path = save_run_result(run_result)
+
+    if args.as_json:
+        print(json.dumps(run_result.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print(f"  Eval run complete: {run_result.items_completed}/{run_result.items_total} dispatched, "
+          f"{run_result.items_failed} failed")
+    if run_result.aggregate_score is not None:
+        print(f"  Aggregate score:  {run_result.aggregate_score:.3f}  ({args.target} vs rejected_responses)")
+        if run_result.by_rejection_type:
+            print(f"  By rejection axis:")
+            for axis, stats in sorted(run_result.by_rejection_type.items()):
+                print(f"    {axis:<12} n={stats['count']:>3}  mean={stats['mean_score']:.3f}  "
+                      f"(min {stats['min_score']:.2f} max {stats['max_score']:.2f})")
+    print(f"\n  → {path}")
