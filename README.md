@@ -226,6 +226,8 @@ the file, future `install-mcp` runs leave it alone.
 | Output | **Structured Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
 | Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
 | Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
+| Cross-provider continuity | **`handoff` — mid-conversation, switch models, context survives** | n/a | n/a | n/a | n/a |
+| Personal benchmarks | **`eval-run` scores any model against YOUR actual rejections** | Synthetic prompts | Static fixtures | n/a | n/a |
 | Shareable artifact | **`/me` lens PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |
 
 If you want "which model is best in general," LMArena. If you want "which model handles **this
@@ -289,6 +291,10 @@ commit you see here.
 
 ## How to use it inside Claude Code
 
+The MCP surface ships 10 tools — three of them are the load-bearing user-facing ones:
+
+**Run a council** (multi-model deliberation):
+
 ```
 mcp__trinity-local__run_council(
   task="Compare three database options for a 50M-row analytics workload: Postgres, SQLite, DuckDB",
@@ -296,15 +302,43 @@ mcp__trinity-local__run_council(
 )
 ```
 
-Or via the CLI:
+After the council finishes, the user clicks the answer they preferred. That click feeds
+`record_outcome` and Trinity's chairman gets smarter at picking *the right model for this
+flavor of question* next time. Completed-but-unrated councils carry a `rate_action` hint
+in the MCP response so the agent surfaces the rating prompt inline — no launchpad detour.
+
+**Hand off mid-conversation** (the 60-second demo wedge):
+
+```
+mcp__trinity-local__handoff(target_provider="gemini")
+```
+
+Pulls the user's recent (user, assistant) turns from the cross-provider prompt index,
+packages them as "continuing this thread", dispatches to a different provider. Gemini
+picks up exactly where Claude left off. Structurally non-refutable: only Trinity has
+the cross-provider index, so no other tool can do this.
+
+**Score any model against your actual taste** (empirical benchmarks):
+
+```bash
+trinity-local eval-build                       # build eval set from your rejections
+trinity-local eval-run --target gemini         # dispatch + score via judge
+```
+
+Trinity mines (prompt, rejected_response, rejection_type) triples from your transcripts
+— REFRAME / COMPRESSION / REDIRECT / SHARPENING. `eval-run` scores any candidate model
+against THOSE empirical rejections, using your `lens.md` as the judge rubric. The
+output is "Model X scored 0.73 on YOUR COMPRESSION-prone prompts, 0.91 on REDIRECT" —
+a per-axis benchmark no provider can build themselves (they can't see cross-provider
+rejection signal).
+
+Or via the CLI directly:
 
 ```bash
 trinity-local council-launch --task "..." --members claude gemini codex
+trinity-local handoff gemini       # mid-conversation continuity
+trinity-local doctor               # health check; surfaces the next-step demo command
 ```
-
-After the council finishes, the user clicks the answer they preferred. That click feeds
-`record_outcome` and Trinity's chairman gets smarter at picking *the right model for this
-flavor of question* next time.
 
 ## Architecture (one paragraph)
 
@@ -314,7 +348,14 @@ table is computed on demand from `~/.trinity/council_outcomes/*.json` — no sep
 file. The `/me` lens-discovery pipeline (4 stages: basins → decisions → pair-mining →
 basin post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair gap
 extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal behavioral
-evidence into decision extraction.
+evidence into decision extraction. The `handoff` mechanism (`trinity-local handoff <provider>`
+or `mcp__trinity-local__handoff`) reuses the cross-provider prompt index to package recent
+(user, assistant) turns as "continue this thread" context for a different provider — no
+re-context required. The `evals/` package consumes mined rejections + lens.md to produce
+replayable per-rejection-type benchmarks (`eval-build` / `eval-run`). All artifact shapes
+are JSON-Schema-validated and documented in
+[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md) — adoptable by other
+tools (Aider / Cline / Continue) under CC0 to interop with Trinity's preference corpus.
 
 For full architecture: [`claude.md`](claude.md) (agent context) and
 [`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
