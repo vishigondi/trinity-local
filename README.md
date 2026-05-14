@@ -9,7 +9,8 @@ pip install git+https://github.com/vishigondi/trinity-local && trinity-local ins
 ```
 
 One pain, one promise, one install command. The structure below cashes out each beat of
-the tagline. (PyPI publish lands at v1.0 ship — after that, `pip install trinity-local`.)
+the tagline. (Either install form works after v1.0 ship; before publish, only the
+git+https form does. `pip install trinity-local` is the canonical post-ship command.)
 
 ### The 60-second demo
 
@@ -171,12 +172,13 @@ Plus the provider CLIs you want in the council: `claude`, `codex`, and/or `gemin
 each authenticated to your subscription. `trinity-local doctor` will tell you which
 are missing.
 
-## Quickstart (3 paths)
+## Quickstart (desktop first)
 
 ```bash
-# Fastest today: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Desktop launchpad icon
+# Fastest today: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Trinity.app
 git clone https://github.com/vishigondi/trinity-local && cd trinity-local
 ./setup.sh                          # one script handles Python check + everything else
+trinity-local install-app           # repairs/regenerates Trinity.app later if needed
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
 trinity-local doctor                # verify providers + auth before your first council
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
@@ -190,6 +192,10 @@ pip install git+https://github.com/vishigondi/trinity-local
 # Or, from inside Claude Code (after either of the two above):
 /trinity                            # the bundled skill re-runs install + first-council
 ```
+
+For non-coders, the intended daily launch is `Trinity.app`: double-click it from
+Applications or Desktop, type a task, and review/rate the result in the app's
+local pages. The CLI stays complete for power users and automation.
 
 `trinity-local doctor` checks each provider CLI is installed + authenticated, the MCP server
 dependency is present, and your Trinity directory is writable — surfaces a one-line fix for
@@ -387,6 +393,7 @@ For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 | Command | What it does |
 |---|---|
 | `trinity-local doctor` | Pre-flight checks; surfaces a fix line per ✗ |
+| `trinity-local install-app` | Install or repair the Trinity desktop launcher |
 | `trinity-local council-launch --task "..."` | Run a council from the terminal |
 | `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
