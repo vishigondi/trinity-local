@@ -596,6 +596,81 @@ recent failures). Decays after ~30 min idle.
 Already half-built via the council thread manifests in v1; v1.5 generalizes
 to all tool calls.
 
+### Personalized evals from corpus history (the empirical benchmark)
+
+Synthetic benchmarks are the standard surface providers compete on:
+HumanEval, MMLU, MT-Bench, etc. They share a property nobody admits:
+they're picked by the benchmark author, not the user. Trinity owns a
+different surface — the user's own prompt corpus + rejection signal —
+which is structurally asymmetric in our favor.
+
+**The asymmetry:** No frontier provider can build personalized eval
+suites from cross-provider rejection signal. Anthropic only sees
+Claude transcripts; OpenAI only sees GPT transcripts. Trinity sees
+all three plus the rejections of each provider's past output by the
+same user. The eval set is the user's empirical taste, not anyone's
+synthetic guess at it.
+
+**Inputs (already on disk for any seeded install):**
+
+- `~/.trinity/me/rejections.jsonl` — (prompt, assistant_response,
+  rejection_type ∈ {REFRAME, COMPRESSION, REDIRECT, SHARPENING})
+  mined by `me/turn_pairs.py`. Each entry is empirical proof the
+  user rejected a specific response shape on a specific prompt.
+- `~/.trinity/prompts/prompt_nodes.jsonl` — full cross-provider
+  index with nomic-768d embeddings; the basin clustering in
+  `topics.json` provides per-task-type slicing.
+- `~/.trinity/memories/lens.md` — the JUDGE rubric. Paired tensions
+  encode what this user privileges vs. sacrifices.
+- `bootstrap_pairs.py` already extracts cross-provider pairs (same
+  prompt, multiple providers) — each pair is N candidate responses
+  to one prompt where the user implicitly preferred *something*.
+
+**Mechanism:**
+
+```
+trinity-local eval --target gemini [--baseline claude] [--limit 50]
+                   [--rejection-types REFRAME,COMPRESSION,...]
+                   [--basin <basin_id>]
+```
+
+1. Builds an eval set: `~/.trinity/evals/eval_<hash>.json` with
+   schema `{prompt, rejection_type, rejected_response, rubric_axes,
+   basin_id, source ∈ ("rejections", "cross_provider_pair")}`.
+2. Dispatches each prompt to the target provider via existing
+   `dispatch_runner.py`.
+3. Scores each (prompt, target_response, rejected_response) tuple
+   via a chairman-judge call conditioned on `lens.md`. The chairman
+   says: "given this user's lens, is the target response better than
+   the rejected one? Score 0-1 on each `rubric_axis`."
+4. Aggregates per basin × rejection_type into
+   `~/.trinity/evals/results/eval_<hash>__model_<provider>__<ts>.json`.
+   Replayable when a new model ships.
+
+**Output (the marketing surface):**
+
+The headline becomes "model X scored 0.73 on this user's
+COMPRESSION-prone coding prompts, 0.91 on REDIRECT-prone writing
+prompts" — empirical, defensible, and impossible for any single
+provider to refute. Same harness produces routing signal
+(`compute_personal_routing_table()`) AND launch-arc benchmark
+content (workstream #116). The two surfaces share a mechanism
+instead of being two unrelated efforts.
+
+**Why this lives in v1.5:** the inputs already exist (44 rejections
+mined on real corpus; 49k+ prompt nodes; lens.md built). What's
+missing is the eval harness + the scoring loop + the serialization
+contract. New CLI command + new MCP tool surface. ~one-week
+implementation. Compounds with #111-113 (matryoshka shape-sim feeds
+into basin-aware eval slicing) and #119 (handoff mechanism reuses
+the same dispatch_runner the eval harness needs).
+
+**Future hub angle:** the eval-set JSON (without raw prompt text,
+just `rejection_type` + `rubric_axes` shape) is shareable. A
+community-aggregated "Trinity Bench" emerges naturally if even a
+small fraction of users opt-in to publishing their eval shape.
+Anonymous taste topology that no provider can collect themselves.
+
 ## 5-week ship plan (target: June 3, 2026)
 
 **Week 1 — MCP `ask` + hippocampus kNN** (working memory deferred to v1.6)

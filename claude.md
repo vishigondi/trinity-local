@@ -386,12 +386,19 @@ go looking. Five workstreams, ordered by leverage:
    #120 (demo recording), #121 (Gemini-Google branch). See
    memory/killer_hook_cross_provider_continuity.md.
 
-3. **Cross-provider benchmarks** (task #116). Publish Trinity vs.
-   Opus on design tasks, vs. GPT-5 on coding, vs. Gemini on
-   long-context. Even modest wins make benchmarks that providers
-   can't refute — they can't run cross-provider councils themselves.
-   This is the only marketing surface that's *structurally*
-   asymmetric in Trinity's favor.
+3. **Cross-provider benchmarks** (task #116, methodology by #122).
+   Publish Trinity vs. Opus on design, vs. GPT-5 on coding, vs.
+   Gemini on long-context. NEW METHODOLOGY 2026-05-14: instead of
+   picking synthetic benchmark prompts, use the corpus-based eval
+   harness (#122) to score each provider against the user's
+   *actual* prompts + rejection signal. The marketing headline
+   becomes "Model X scored 0.73 on YOUR kind of question" —
+   empirical, personal, and structurally non-refutable because
+   only Trinity has cross-provider rejection signal. No provider
+   can build the equivalent eval suite (Anthropic only sees Claude
+   transcripts; OpenAI only sees GPT; etc.). The harness produces
+   routing signal AND benchmark content from one mechanism. See
+   docs/spec-v1.5.md "Personalized evals from corpus history".
 
 4. **Standardize `~/.trinity/`** (task #117). If Aider, Cline,
    Continue adopt the same preference-corpus schema, Trinity becomes
