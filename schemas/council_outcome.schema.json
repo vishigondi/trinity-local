@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trinity-local.dev/schemas/v1/council_outcome.schema.json",
+  "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/council_outcome.schema.json",
   "title": "Council Outcome",
   "description": "One council run: the user's task, the providers it dispatched to, what each said, the chairman's structured synthesis, and the user verdict (if recorded). Lives at ~/.trinity/council_outcomes/<council_run_id>.json. The canonical store for cross-provider preference signal — everything downstream (personal_routing_table, picks.json, lens.md) is computed from this.",
   "type": "object",

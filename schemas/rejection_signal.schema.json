@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trinity-local.dev/schemas/v1/rejection_signal.schema.json",
+  "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/rejection_signal.schema.json",
   "title": "Rejection Signal (turn-pair gap)",
   "description": "One classified rejection mined from a (assistant_text, user_next_turn) pair. Written by `trinity-local lens-build` (Stage 0 turn-pair gap extraction). Lives one-per-line in ~/.trinity/me/rejections.jsonl. The empirical proof the user rejected a specific response shape — load-bearing for the eval-set builder (#122) and the inversion-test pipeline (#113).",
   "type": "object",

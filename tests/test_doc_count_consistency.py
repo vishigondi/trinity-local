@@ -585,6 +585,80 @@ class TestReadmeHeroInstallCommand:
         )
 
 
+class TestSchemaIdsResolveToReachableUrls:
+    """Schema canonical-URL guard. The PREFERENCE_CORPUS_SPEC publishes
+    three JSON Schema files (council_outcome, eval_set, rejection_
+    signal) as a CC0 standard for other tools (Aider/Cline/Continue)
+    to adopt. JSON Schema `$id` is the canonical resolver URL —
+    consumers fetch the schema by $id to validate. If $id is a 404,
+    the standardization workstream (#117) ships broken.
+
+    T-1 catch: schemas had `$id` set to `https://trinity-local.dev/
+    schemas/v1/...` but `trinity-local.dev` doesn't resolve (no DNS
+    record). Any tool fetching by $id would get a connection refused.
+
+    Fixed at T-1: switched to the GitHub raw URL form, which:
+      - resolves today (the repo is public)
+      - is the canonical "this is the source of truth" URL for any
+        schema fetched from the trinity-local repo
+      - no domain registration needed; tools fetch by https from
+        GitHub's CDN
+
+    Guard: every `$id` in schemas/ must use a URL that resolves to
+    a file actually in the repo (the path component matches an
+    existing schema file). Blocks future drift back to a vanity
+    domain that isn't registered.
+    """
+
+    def test_schema_ids_use_github_raw_url_and_resolve_to_real_files(self):
+        import json
+        schemas_dir = REPO / "schemas"
+        if not schemas_dir.exists():
+            return
+        leaks: list[tuple[str, str]] = []
+        for path in schemas_dir.glob("*.schema.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                leaks.append((path.name, f"unparseable: {exc}"))
+                continue
+            schema_id = data.get("$id", "")
+            if not schema_id:
+                leaks.append((path.name, "missing $id"))
+                continue
+            # Pre-launch policy: $id must be a github.com/raw form, NOT
+            # a vanity domain (which would need separate DNS + hosting).
+            # Once trinity-local.dev is registered post-launch, the
+            # vanity form can re-enter — update this guard at the same
+            # commit so the policy is explicit.
+            if "trinity-local.dev" in schema_id:
+                leaks.append((path.name, f"uses unregistered vanity domain: {schema_id}"))
+                continue
+            if "raw.githubusercontent.com" not in schema_id:
+                leaks.append((path.name, f"$id not on github raw: {schema_id}"))
+                continue
+            # The URL's path component must point at a file in schemas/
+            # — same drift shape as the cited-council 404s but for
+            # external-resolver URLs.
+            # Pattern: raw.githubusercontent.com/<owner>/<repo>/<ref>/schemas/<file>
+            m = re.search(r"/schemas/([\w.-]+\.schema\.json)$", schema_id)
+            if not m:
+                leaks.append((path.name, f"$id has no /schemas/<name> tail: {schema_id}"))
+                continue
+            referenced_file = schemas_dir / m.group(1)
+            if not referenced_file.exists():
+                leaks.append((path.name, f"$id references nonexistent file: {m.group(1)}"))
+        assert not leaks, (
+            f"Schema $id field issues: {leaks}. JSON Schema $id is the "
+            f"canonical resolver URL — consumers (Aider, Cline, etc.) "
+            f"fetch the schema by $id to validate. A 404 here breaks "
+            f"the #117 standardization workstream. Use "
+            f"https://raw.githubusercontent.com/vishigondi/trinity-local/main/"
+            f"schemas/<name>.schema.json — works today, no domain "
+            f"registration needed."
+        )
+
+
 class TestPyprojectMatchesLaunchVersion:
     """Version + description parity. Launch copy says "Trinity Local
     v1 ships open-source this week" but pyproject.toml had version =

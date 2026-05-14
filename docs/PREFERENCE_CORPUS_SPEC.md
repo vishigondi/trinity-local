@@ -24,7 +24,7 @@ If three tools adopt this, the format becomes a category boundary instead of one
 | `~/.trinity/me/rejections.jsonl` | [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json) | Labeled (prompt, response, rejection_type) triples mined from turn-pair gaps. |
 | `~/.trinity/evals/eval_<hash>.json` | [`eval_set.schema.json`](../schemas/eval_set.schema.json) | Personalized eval suite assembled from rejections + cross-provider pairs. |
 
-The schemas use JSON Schema Draft 2020-12. Each `$id` is `https://trinity-local.dev/schemas/v1/<name>.schema.json`. v1 is structural — backward-compatible additions don't bump the version, removals would.
+The schemas use JSON Schema Draft 2020-12. Each `$id` is `https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/<name>.schema.json` — fetchable today from any tool that follows JSON Schema `$id`-resolution. v1 is structural; backward-compatible additions don't bump the version, removals would.
 
 ## The four implicit-rejection signal types
 
