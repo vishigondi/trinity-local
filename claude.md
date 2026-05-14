@@ -22,7 +22,7 @@ Three load-bearing pains underneath, each with a direct Trinity answer:
 
 v1 SHIPS: councils + chairman synth + `dream` cold-start + cortex extraction + lens building. What's NOT in the v1 headline: agent loops (v1.5/v1.6), taste marketplaces (future). "Own your memories" (the old standalone tagline) and "Forge your memory" (the council's round-3 wording, made without knowing `dream` is the feature name) are retired — the live tagline has Dream as the active verb because that's literally what the system does offline.
 
-**Status (2026-05-13, day 1 of the 3-day ship window):** v1.0 ships May 13–15 — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand axis: **prompts** (yours) → **dream** (verb) → **core memories** (synthesized). Hero: *"Stop copy-pasting prompts. Own your context. Dream your core memories."* Sub: *"One question. Every model you use. One answer that knows you."* Three pains: copy-paste / siloed thinking / over-engineering — answered by ask-three / dream-synthesizes / lens-routes-around-weakness. Folder schema locked at `SCHEMA_VERSION = 1`. 29-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 903 tests passing. Memory viewer (`~/.trinity/portal_pages/memory.html`) ships with the launchpad and renders each of the six memories: markdown via `marked`, picks/routing as schema-aware Reader views, topics as an Obsidian-style force-directed graph (d3-force) over centroid cosine similarity. **basins.py clusters by thread (transcript_id mean centroid)** — a multi-turn conversation contributes one point to k-means instead of fragmenting across N basins; per-basin `representatives` carry the full turn list per representative thread, viewer renders click-to-expand. All sub-pages (memory viewer, live council, council review) share the `.trinity-topbar` nav pattern (pill `← Launchpad`, page title, optional secondary action) defined in `design_system.SHARED_CSS`. **v1.5 cortex Weeks 1–5 shipped end-to-end** (see [`CHANGELOG.md`](CHANGELOG.md) 2026-05-12 entry for the full list): 9 MCP tools (canonical 6 + `ask` + `get_picks` + `mark_pick_wrong`); cortex consolidation with **structured geometric prior** (geometric median centroid via Weiszfeld iteration, 6-component `trust_score` with the 6th being mean-cosine-to-median coherence, manifold-dim + bimodality flag fed to the extraction prompt so the flagship does rule-extraction-on-structure not geometry-in-language); **chairman-audit-mode** (`consolidate --audit` runs an independent second flagship to catch drift; loud-fails on stderr); **override mechanism** (CLI `cortex-override` + MCP `mark_pick_wrong`; halves effective trust per click; persists across consolidations); **sigmoid-blended chairman picker** (smooth cold-start→personalization, no hard cut at n=1); **user-verdict-weighted personal routing table** (record_outcome signal flows into aggregation at 0.7 weight); **tool-triggered incremental ingest** (`ask`/`search_prompts` scan new transcripts within 1s, no manual seed re-run); **HF Hub offline default** (`main()` pins `HF_HUB_OFFLINE=1` so Trinity never makes outbound Hub calls at runtime); launchpad surfaces: personalization-% column, Health column (audit / bimodal / override badges with hover-titles), evidence-chip links to source councils. `cortex.py` split: math helpers extracted to `cortex_geometry.py` (304 LOC, dependency-free). Loop Constitution substrate removed pre-launch (was 1,396 lines of v2-trajectory code; the mechanic will be rebuilt leaner inside v1.6's `plan_and_execute`). **Next trajectory = v1.5** (target ship June 3, 2026): the MCP-primary two-tier tool surface is feature-complete; remaining work is calibration data + the v1.6 follow-ons noted in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) "Open questions" (Ollama-vs-MLX preference, cortex-vs-lens cross-check). The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
+**Status (2026-05-14, day 2 of the 3-day ship window):** v1.0 ships May 13–15 — see [`docs/spec-v1.md`](docs/spec-v1.md). Brand axis: **prompts** (yours) → **dream** (verb) → **core memories** (synthesized). Hero: *"Stop copy-pasting prompts. Own your context. Dream your core memories."* Sub: *"One question. Every model you use. One answer that knows you."* Three pains: copy-paste / siloed thinking / over-engineering — answered by ask-three / dream-synthesizes / lens-routes-around-weakness. Folder schema locked at `SCHEMA_VERSION = 1`. 29-surface browser smoke gate passing (`python scripts/browser_smoke.py`). 903 tests passing. Memory viewer (`~/.trinity/portal_pages/memory.html`) ships with the launchpad and renders each of the six memories: markdown via `marked`, picks/routing as schema-aware Reader views, topics as an Obsidian-style force-directed graph (d3-force) over centroid cosine similarity. **basins.py clusters by thread (transcript_id mean centroid)** — a multi-turn conversation contributes one point to k-means instead of fragmenting across N basins; per-basin `representatives` carry the full turn list per representative thread, viewer renders click-to-expand. All sub-pages (memory viewer, live council, council review) share the `.trinity-topbar` nav pattern (pill `← Launchpad`, page title, optional secondary action) defined in `design_system.SHARED_CSS`. **v1.5 cortex Weeks 1–5 shipped end-to-end** (see [`CHANGELOG.md`](CHANGELOG.md) 2026-05-12 entry for the full list): 9 MCP tools (canonical 6 + `ask` + `get_picks` + `mark_pick_wrong`); cortex consolidation with **structured geometric prior** (geometric median centroid via Weiszfeld iteration, 6-component `trust_score` with the 6th being mean-cosine-to-median coherence, manifold-dim + bimodality flag fed to the extraction prompt so the flagship does rule-extraction-on-structure not geometry-in-language); **chairman-audit-mode** (`consolidate --audit` runs an independent second flagship to catch drift; loud-fails on stderr); **override mechanism** (CLI `cortex-override` + MCP `mark_pick_wrong`; halves effective trust per click; persists across consolidations); **sigmoid-blended chairman picker** (smooth cold-start→personalization, no hard cut at n=1); **user-verdict-weighted personal routing table** (record_outcome signal flows into aggregation at 0.7 weight); **tool-triggered incremental ingest** (`ask`/`search_prompts` scan new transcripts within 1s, no manual seed re-run); **HF Hub offline default** (`main()` pins `HF_HUB_OFFLINE=1` so Trinity never makes outbound Hub calls at runtime); launchpad surfaces: personalization-% column, Health column (audit / bimodal / override badges with hover-titles), evidence-chip links to source councils. `cortex.py` split: math helpers extracted to `cortex_geometry.py` (304 LOC, dependency-free). Loop Constitution substrate removed pre-launch (was 1,396 lines of v2-trajectory code; the mechanic will be rebuilt leaner inside v1.6's `plan_and_execute`). **Next trajectory = v1.5** (target ship June 3, 2026): the MCP-primary two-tier tool surface is feature-complete; remaining work is calibration data + the v1.6 follow-ons noted in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) "Open questions" (Ollama-vs-MLX preference, cortex-vs-lens cross-check). The Sakana TRINITY paper (arXiv:2512.04388) validates the architectural trajectory but their 3B vs 7B ablation shows the value is in prompt-engineering quality not routing decision — so v1.5 uses a flagship model with cortex context instead of a trained 7B. The trained-coordinator path in [`docs/spec-v2.md`](docs/spec-v2.md) is **sunset** as of 2026-05-11; reopens only if v1.5 hits a quality ceiling on real user data.
 
 **The wedge is structural, not technical.** The three labs are commercially prevented from helping you use a competitor. Someone outside the labs has to ship the layer above them. That's the only sentence the marketing site has to land.
 
@@ -341,8 +341,59 @@ loop actually firing on real installs? The view side closes (user can
 see picks, rebuild memories, navigate cross-memory). The act side
 closes (rebuild chips, veto chips, launch chips). The remaining gate
 is the *learn* side — does the verdict from each council reach
-`user_verdict.user_winner`? The 5-stage arc made the failure mode
-loud; the next quarter's work is widening the rating funnel itself.
+`user_verdict.user_winner`? The 6-stage arc (#106 active-nudge being
+the latest) made the failure mode loud and built the active prompt;
+measuring uplift is the next month's work.
+
+## Launch arc (v1.0 → v1.1) — distribution beats elegance
+
+Setting alongside the Forward Arc above, but on a different axis: that
+arc is about what the app *does internally*. This one is about how the
+app *reaches users*. During the consumer-AI land-grab phase, the
+dominant pressure is being in the right dropdowns at the moment users
+go looking. Five workstreams, ordered by leverage:
+
+1. **MCP-dropdown distribution** (task #114). Get Trinity into the
+   curated MCP server lists for Claude Desktop, Codex CLI (whose MCP
+   support landed earlier this year), Cursor, Cline, Continue. Each
+   registry is its own submission. Being in the dropdown beats being
+   technically perfect. `install-mcp` already wires the three CLI
+   harnesses; the missing surface is *discoverability* — users who
+   don't know Trinity exists never run `install-mcp`.
+
+2. **First-run wow** (task #115). The 90-second onboarding has to
+   produce a moment where the user sees the council give a
+   noticeably better answer than their default. Without that moment,
+   no second use, no corpus accumulation, no compounding. Optimize
+   one demo path obsessively. Current path: `pip install` →
+   `install-mcp` → first MCP `run_council` from inside Claude Code.
+   The "wow" must land in the synthesis output the agent surfaces to
+   the user.
+
+3. **Cross-provider benchmarks** (task #116). Publish Trinity vs.
+   Opus on design tasks, vs. GPT-5 on coding, vs. Gemini on
+   long-context. Even modest wins make benchmarks that providers
+   can't refute — they can't run cross-provider councils themselves.
+   This is the only marketing surface that's *structurally*
+   asymmetric in Trinity's favor.
+
+4. **Standardize `~/.trinity/`** (task #117). If Aider, Cline,
+   Continue adopt the same preference-corpus schema, Trinity becomes
+   a standard, not a product. Standards have ~10× the longevity of
+   products. Push a JSON Schema for `council_outcomes/*.json` +
+   `memories/*` into the open while we have first-mover authority.
+
+5. **Subsidy-window narrative** (task #118). Tell users explicitly:
+   "Programmatic credits are subsidized right now. Build your
+   preference corpus while it's cheap; the corpus has lifetime
+   value once subscriptions tighten." Legitimate FOMO motivator
+   because it's true. Threads through launch copy, README hero, and
+   the onboarding ribbon.
+
+**Priority filter for the cron loop:** when picking the next tick,
+prefer one that advances workstreams 1–5 over one that doesn't.
+Internal cleanup is OK only when it's a hard blocker for one of
+these. Tasks #114–118 break out one per workstream.
 
 ## Glossary (load-bearing terms)
 

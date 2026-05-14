@@ -258,6 +258,34 @@ Why this order:
 3. **Word of mouth** — the multi-CLI power-user community is small and tight.
 4. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."
 
+### Launch arc (v1.0 → v1.1): distribution beats elegance
+
+Five workstreams that compound during the consumer-AI land-grab phase
+(see tasks #114–118):
+
+1. **MCP-dropdown distribution** — submit Trinity to the curated MCP
+   server registries for Claude Desktop, Codex CLI, Cursor, Cline,
+   Continue. Being in the dropdown beats being technically perfect.
+2. **First-run wow** — the 90-second onboarding must produce a moment
+   where the user sees the council give a noticeably better answer
+   than their default model. Without that, no second use.
+3. **Cross-provider benchmarks** — publish Trinity vs. Opus on design,
+   vs. GPT-5 on coding, vs. Gemini on long-context. Even modest wins
+   are structurally non-refutable; only Trinity can run cross-provider
+   councils, so only Trinity can publish the comparison.
+4. **Schema standardization** — if Aider, Cline, Continue adopt the
+   same `~/.trinity/` preference-corpus schema, Trinity becomes a
+   standard not a product. Standards outlive products ~10×. Publish
+   a JSON Schema for `council_outcomes/*.json` + `memories/*` while
+   we have first-mover authority over what the format looks like.
+5. **Subsidy-window narrative** — tell users explicitly: programmatic
+   credits are subsidized right now; the preference corpus they build
+   today has lifetime value once subscriptions tighten. Legitimate
+   FOMO because it's true.
+
+The cron loop should prefer ticks that advance one of these workstreams
+over internal refactoring during the launch phase.
+
 ### Telemetry model
 
 Public benchmarking should use an **opt-in summary-sharing model**, not raw transcript upload:
