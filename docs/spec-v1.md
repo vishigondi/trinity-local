@@ -209,7 +209,7 @@ Launch day = May 13–15 per the multiple councils that ratified the conditional
 
 2. **numpy not FAISS.** Numpy matmul gets ~5ms on a 49k-vector corpus (measured 2026-05-13; was ~28k when the call was first made, scaled linearly with no observable falloff). FAISS would add a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
-3. **9 MCP tools shipped (6 canonical + 3 v1.5 additions).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 ships 6: `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`.
+3. **10 MCP tools shipped (6 canonical + 3 v1.5 additions + 1 launch-arc).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 ships 6: `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. Launch-arc tick #119 adds `handoff` (cross-provider conversation continuity — the killer-hook mechanism for the 60-second demo; powers tasks #115/#120/#121).
 
 4. **`me-card` is the social object, not the radar chart.** Radar charts are commoditized; the me-card paired-tension PNG is unique to Trinity and renders the lens-discovery output as a shareable artifact. Radar stays as a secondary asset.
 

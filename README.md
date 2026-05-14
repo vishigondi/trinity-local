@@ -122,6 +122,19 @@ procurement concern; Trinity is the architectural response.
 
 **Waitlist:** [trinity.local/teams](https://trinity.local/teams) — or email teams@openclaw.dev.
 
+## For tool builders: the Preference Corpus Spec
+
+`~/.trinity/` ships an opinionated, JSON-Schema-validated format for the
+state a cross-provider tool produces: council outcomes, labeled
+rejections, personalized eval sets. See
+[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md) for
+the contract; schemas live under [`schemas/`](schemas/) and are CC0.
+
+If Aider, Cline, Continue, or your own MCP server adopts this format,
+preferences stay portable — the corpus you build today survives the
+next tool you try tomorrow. Standards outlive products ~10×; first-mover
+authority over the shape only holds while one tool ships in it.
+
 ## Privacy is the wedge
 
 - **Your prompts and the models' answers never leave your machine.** No exceptions, no opt-in

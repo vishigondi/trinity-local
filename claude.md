@@ -507,6 +507,8 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/lens-build follow-up) |
 | `commands/depth.py` | `depth-show` (top-N threads by depth-score composite: corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10); LID gated to N≥5 turns by default, `TRINITY_LID_MIN_TURNS` env tunes) |
 | `commands/unrated.py` | `unrated` (list councils without user verdict; Pillar 4 funnel-widening — gives the user their rating backlog one-line-per-council with chairman pick + copy-paste rate command) |
+| `commands/handoff.py` | `handoff <provider>` (cross-provider conversation continuity — task #119, launch-arc workstream #2; pulls recent turns from `~/.trinity/prompts/` index, dispatches to target provider with "continue this thread" frame; mirror of `mcp__trinity-local__handoff`) |
+| `commands/eval.py` | `eval-build` / `eval-stats` (corpus-based eval-set harness — task #122 MVP; builds personalized eval suite from `me/rejections.jsonl` + prompt index, persists to `~/.trinity/evals/<eval_id>.json`. Runner + scorer ship in follow-up ticks.) |
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |

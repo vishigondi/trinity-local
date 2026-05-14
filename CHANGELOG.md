@@ -3,6 +3,103 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.0 ship window — day 2 launch-arc workstreams] — 2026-05-14
+
+Three launch-arc workstream ticks shipped: the killer-hook handoff
+mechanism, the corpus-based eval harness MVP, and the Preference
+Corpus Spec v1.
+
+### Cross-provider handoff (tick #119) — the killer hook
+
+`trinity-local handoff <provider>` CLI + `mcp__trinity-local__handoff`
+MCP tool. Pulls the user's most-recent (user, assistant) turns from
+the cross-provider prompt index, packages them as "continuing this
+thread" context, dispatches to a different provider. The target picks
+up exactly where the prior model left off — no re-context, no
+copy-paste. Structurally non-refutable: only Trinity has the cross-
+provider index, so only Trinity can do continuity. The mechanism
+behind the 60-second hero demo (#115 / #120). MCP surface now ships
+10 tools (was 9). 12 new tests covering prompt-building + dispatch +
+MCP surface. Hard-unblocks #115/#120/#121.
+
+### Corpus-based eval harness — MVP (tick #122)
+
+New `evals/` package. `trinity-local eval-build` reads
+`~/.trinity/me/rejections.jsonl` + the prompt index, produces a
+personalized eval set at `~/.trinity/evals/eval_<hash>.json`. Each
+item is a (prompt, rejection_type, rejected_response, user_substitute,
+rubric_signal, basin_id) tuple any candidate model can be scored
+against. `trinity-local eval-stats` renders the rejection-type
+distribution + basin distribution + sample items. Content-addressed
+eval_id → idempotent reruns; results diff across model releases.
+
+Real-corpus build (2026-05-14): 44 items extracted from 44 mined
+rejections — REFRAME 45.5% / COMPRESSION 25.0% / REDIRECT 22.7% /
+SHARPENING 6.8%. The signature itself is informative: a user with
+this distribution should benchmark candidate models primarily on
+"did the model match my framing." 13 new tests covering schema +
+stats + idempotence + cli registration. Runner + scorer ship in a
+follow-up tick.
+
+The wedge: no frontier provider can build personalized eval suites
+from cross-provider rejection signal. Anthropic only sees Claude
+transcripts; Trinity sees all three plus the user's empirical
+rejections of every provider's past output. Unblocks #116 (cross-
+provider benchmarks) — the methodology becomes "score the user's
+actual rejections" not "pick synthetic prompts."
+
+### Preference Corpus Spec v1 (tick #117) — schema standardization
+
+`docs/PREFERENCE_CORPUS_SPEC.md` + three JSON Schema files under
+`schemas/`:
+
+- `council_outcome.schema.json` — one multi-model run + chairman
+  synthesis + user verdict. Canonical supervision-signal shape.
+- `eval_set.schema.json` — personalized eval suite format
+  (matches #122 MVP).
+- `rejection_signal.schema.json` — labeled (prompt, response,
+  rejection_type) triples from turn-pair gap extraction.
+
+JSON Schema Draft 2020-12, CC0 license. The spec doc covers the four
+implicit-rejection signal types (REFRAME / COMPRESSION / REDIRECT /
+SHARPENING), what the format is and isn't, and how Aider / Cline /
+Continue / custom MCP servers can adopt.
+
+15 new tests across three layers: schema self-validation
+(Draft 2020-12 meta-check), synthetic round-trip (build via Trinity
+writer → validate against schema), and real-corpus sampling (load
+actual `~/.trinity/council_outcomes/*`, validate against schema).
+The real-corpus layer immediately caught 4 schema-vs-reality
+mismatches in the first iteration — `mode` enum was too tight,
+`differences` had to allow arrays not just strings, `confidence`
+allows both numeric and categorical, `provider_scores` allows both
+flat-score and nested-rubric shapes. Schema fixed; published
+contract now reflects what writers actually produce.
+
+Workstream #117 completed. First-mover authority over the schema
+locked in while we're still the only consumer.
+
+### Other 2026-05-14 changes
+
+- Reframed launch-arc workstream #2 (first-run wow): the demo is
+  cross-provider continuity, NOT council depth. Updated claude.md
+  Launch arc section, docs/product-spec.md, README hero with the
+  60-second demo block. Continuity is the A-grade hook (one answer
+  that knew the prior context); council comparisons are B-grade
+  (user has to evaluate three answers).
+- Pillar 4 stage 6: `rate_action` field on MCP `run_council` /
+  `get_council_status` responses when an outcome is completed-but-
+  unrated. Agent reads its own tool result, surfaces the rating
+  prompt to the user inline — no launchpad detour. 7 new tests.
+- New tasks #114-118 (launch arc workstreams) + #119-121 (handoff
+  mechanism / demo recording / Gemini-Google branch) + #122
+  (eval harness) + #111-113 (matryoshka shape-similarity for
+  principle extraction).
+- Status block bumped to day 2 of 3-day ship window.
+
+Test count: 903 → 943 (+40). Both doc-consistency guards green
+through the day. Cron loop `8ecb80a7` running every 15 min.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
