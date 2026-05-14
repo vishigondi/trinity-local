@@ -44,7 +44,37 @@ Known polish items captured in `docs/spec-v1.md` "Tier 4 deferred" + `docs/spec-
 - Empty-state copy for "Scored 0–100 from 0 replay councils" reads oddly
 - Recent-council titles can be very dev-y; cards could highlight chairman conclusion text instead
 
-## Priority 4 — v1.6 + v2 trajectory work
+## Priority 4 — Launch arc (post-2026-05-14 ship window)
+
+Distribution + marketing work that compounds during the consumer-AI
+land-grab phase. Five workstreams (`#114-118` in the task list, full
+context in claude.md "Launch arc" section):
+
+- **#114 MCP-dropdown distribution** — submit Trinity to the curated
+  MCP server registries for Claude Desktop, Codex CLI, Cursor, Cline,
+  Continue. Each registry's contribution flow is its own task; being
+  in the dropdown beats being technically perfect.
+- **#120 60-second handoff demo recording** — capture the killer
+  demo on video, embed in README + HN/Twitter launch posts. Mechanism
+  shipped at `trinity-local handoff <provider>` and the MCP `handoff`
+  tool (task #119, done).
+- **#121 Gemini-Google handoff branch** — verify Gemini CLI's Google
+  data integration surfaces correctly through `dispatch_runner` when
+  Trinity hands off mid-conversation. Lights up Gmail / Drive /
+  Calendar context Claude can't see.
+- **#116 Cross-provider benchmark publication** — use the eval
+  harness (`trinity-local eval-run --target <provider>`, task #122)
+  to score each provider against the user's actual rejection signal,
+  publish the per-axis deltas. Empirical, defensible, structurally
+  non-refutable.
+- **#118 Subsidy-window narrative** — weave "build the corpus while
+  credits are cheap" through README hero + onboarding ribbon.
+- **Adopting the Preference Corpus Spec** — `docs/PREFERENCE_CORPUS_SPEC.md`
+  + `schemas/*.schema.json`. CC0. Outreach to Aider / Cline / Continue
+  maintainers welcome; PRs against the schemas for translation tables
+  also welcome.
+
+## Priority 5 — v1.6 + v2 trajectory work
 
 Active spec lives in `docs/spec-v1.5.md` (next ship target June 3, 2026); the
 trained-coordinator v2 path in `docs/spec-v2.md` is sunset. Concrete items
@@ -53,6 +83,18 @@ worth contributing on:
 - **`plan_and_execute` MCP tool** (v1.6) — multi-step orchestration with
   flagship Conductor + recursive verification. The mechanic was prototyped in
   the now-removed `src/trinity_local/loop/` substrate; rebuild it leaner.
+- **Matryoshka shape-similarity over basins** (task #111) — nomic-embed
+  is MRL-trained; slice the 768d embeddings at 64d to compute
+  abstraction-level similarity that survives topic drift. Feeds the
+  principles.md pipeline (#109).
+- **Disagreement-axis mining** (task #112) — the chairman's
+  `disagreed_claims` are the residual signal. Cluster them across
+  councils at low Matryoshka fidelity → candidate conditioning
+  variables → principle candidates without needing N≥100 verdicts.
+- **Inversion test in lens pipeline** (task #113) — for each lens,
+  test whether the inverted pole has corpus evidence. If yes, surface
+  the conditioning variable that gates when each pole applies (the
+  principle IS the variable; the inversion is the diagnostic).
 - **Basin classifier centroid-matching upgrade** — currently the cortex layer
   keys on `task_type` (chairman label). Switch to embedding-similarity vs.
   the lens-pipeline basin centroids for top-3 soft membership.
@@ -60,10 +102,10 @@ worth contributing on:
   opt-in. Wire full MLX dispatch (the `mlx_lm` Python path) as a peer to
   OllamaProvider.
 
-## Priority 5 — Docs and tests
+## Priority 6 — Docs and tests
 
 Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
-green on every commit, and the gate currently runs ~800 tests in under 80s.
+green on every commit, and the gate currently runs ~950 tests in under 80s.
 
 **Writing tests:** scope all test state via fixtures. Specifically, never set
 `os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module
@@ -81,7 +123,7 @@ this with an AST scanner.
 git clone <repo>
 cd trinity-local
 ./setup.sh                          # bootstraps venv + config + Shortcut + launchpad
-.venv/bin/python -m pytest -q       # ~800 tests, ~80s; gate must stay green
+.venv/bin/python -m pytest -q       # ~950 tests, ~80s; gate must stay green
 python scripts/browser_smoke.py     # 29-surface UI verification (Playwright)
 ```
 

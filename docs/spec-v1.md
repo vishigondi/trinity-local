@@ -83,11 +83,14 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local watch-once` — incremental transcript ingest
 - `trinity-local council-rate` — record user verdict; persists to `outcome.metadata.user_verdict` + `council_feedback.jsonl`
+- `trinity-local handoff <provider>` — cross-provider conversation continuity (the 60-second hero demo). Pulls recent (user, assistant) turns from the cross-provider prompt index, dispatches to a different provider with "continue this thread" context. Mirror of MCP `handoff` tool. Workstream #2 of the launch arc; tick #119.
+- `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
 
-### MCP tool surface (6, all stable)
+### MCP tool surface (10 total: 6 canonical + 3 v1.5 + 1 launch-arc)
 
-The original spec wanted 3 tools (council / query_lens / add_pair). Current ships 6 and
-they're all load-bearing for the supervision loop. Mapping:
+The original spec wanted 3 tools (council / query_lens / add_pair). Current ships 10 —
+6 canonical (v1.0), 3 v1.5 additions, 1 launch-arc addition (`handoff`, tick #119).
+All load-bearing for the supervision loop OR the launch hook. Mapping:
 
 | Spec tool | v1 tool | Status |
 |---|---|---|
@@ -97,8 +100,17 @@ they're all load-bearing for the supervision loop. Mapping:
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |
 | — | `get_persona` | Extended (reads `lens.md` so harnesses don't re-fetch per call) |
+| — | `ask` | v1.5 (single-call routing — the 90% case) |
+| — | `get_picks` | v1.5 (agent-facing introspection into extracted cortex rules) |
+| — | `mark_pick_wrong` | v1.5 (user-veto on a pick from the agent side) |
+| — | `handoff` | Launch-arc tick #119 (cross-provider conversation continuity — the killer-hook for the 60-second demo) |
 
 Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disappear.
+
+Also new in v1: `run_council` and `get_council_status` responses now carry a
+structured `rate_action` field when an outcome is completed-but-unrated. The
+agent reads its own tool result and surfaces the rating prompt inline (Pillar 4
+funnel stage 6) — no launchpad detour required to widen the verdict-capture rate.
 
 ### Folder layout (the licensable artifact)
 

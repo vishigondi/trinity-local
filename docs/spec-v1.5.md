@@ -626,26 +626,30 @@ synthetic guess at it.
   prompt, multiple providers) — each pair is N candidate responses
   to one prompt where the user implicitly preferred *something*.
 
-**Mechanism:**
+**Mechanism (SHIPPED 2026-05-14 — task #122 complete):**
 
 ```
-trinity-local eval --target gemini [--baseline claude] [--limit 50]
-                   [--rejection-types REFRAME,COMPRESSION,...]
-                   [--basin <basin_id>]
+trinity-local eval-build [--limit N] [--source rejections]
+trinity-local eval-stats [--eval-id ID]
+trinity-local eval-run --target <provider> [--judge <provider>]
+                       [--eval-id ID] [--limit N] [--no-score]
 ```
 
-1. Builds an eval set: `~/.trinity/evals/eval_<hash>.json` with
-   schema `{prompt, rejection_type, rejected_response, rubric_axes,
-   basin_id, source ∈ ("rejections", "cross_provider_pair")}`.
-2. Dispatches each prompt to the target provider via existing
-   `dispatch_runner.py`.
-3. Scores each (prompt, target_response, rejected_response) tuple
-   via a chairman-judge call conditioned on `lens.md`. The chairman
-   says: "given this user's lens, is the target response better than
-   the rejected one? Score 0-1 on each `rubric_axis`."
-4. Aggregates per basin × rejection_type into
+1. **`eval-build`** assembles an eval set at `~/.trinity/evals/eval_<hash>.json`
+   with schema `{prompt, rejection_type, rejected_response,
+   user_substitute, rubric_signal, basin_id, source, source_id,
+   prompt_id, provider_of_rejected_response}` — formally specified in
+   [`schemas/eval_set.schema.json`](../schemas/eval_set.schema.json).
+2. **`eval-run`** dispatches each prompt to `--target` via existing
+   `providers.make_provider` → `dispatch_runner` path.
+3. **Auto-scoring** asks `--judge` (auto-picked to differ from
+   `--target` for bias-trap avoidance) to grade `target_response` vs
+   `rejected_response` on the rejection_type axis, conditioned on
+   `lens.md`. Returns `{score, reason}` per item.
+4. Aggregates per rejection_type (`by_rejection_type` map) into
    `~/.trinity/evals/results/eval_<hash>__model_<provider>__<ts>.json`.
-   Replayable when a new model ships.
+   Timestamped path so multiple runs of the same (eval, provider) pair
+   coexist for diffing across model releases.
 
 **Output (the marketing surface):**
 
@@ -657,13 +661,15 @@ provider to refute. Same harness produces routing signal
 content (workstream #116). The two surfaces share a mechanism
 instead of being two unrelated efforts.
 
-**Why this lives in v1.5:** the inputs already exist (44 rejections
-mined on real corpus; 49k+ prompt nodes; lens.md built). What's
-missing is the eval harness + the scoring loop + the serialization
-contract. New CLI command + new MCP tool surface. ~one-week
-implementation. Compounds with #111-113 (matryoshka shape-sim feeds
-into basin-aware eval slicing) and #119 (handoff mechanism reuses
-the same dispatch_runner the eval harness needs).
+**Status (post-2026-05-14):** SHIPPED in the v1.0 launch-arc window
+as task #122. Inputs were already on disk (44 rejections; 49k+ prompt
+nodes; lens.md built); the missing builder + runner + scorer + CLI
+landed in two ticks today. Real-corpus first run produced REFRAME
+45.5% / COMPRESSION 25.0% / REDIRECT 22.7% / SHARPENING 6.8% on the
+maintainer's corpus — the signature itself is informative as a
+benchmark axis. Compounds with #111-113 (matryoshka shape-sim feeds
+into basin-aware eval slicing — pending) and #119 (handoff mechanism
+reuses the same `make_provider` dispatch path the eval harness uses).
 
 **Future hub angle:** the eval-set JSON (without raw prompt text,
 just `rejection_type` + `rubric_axes` shape) is shareable. A
