@@ -97,6 +97,19 @@ them can.
 Your prompts and the models' answers stay on your machine. Trinity rides your existing
 subscriptions — never proxies through a hosted API. Open source. macOS today. No account.
 
+### Build your corpus while it's cheap.
+
+Programmatic AI credits are subsidized right now. Every major provider is pricing
+inference below cost to grab the model-of-choice slot in your workflow. That window
+won't last — once one of them wins, the meter starts on the rest.
+
+The cross-provider preference corpus Trinity builds today (`~/.trinity/`) keeps
+working when the subsidy ends. The taste signal is captured forever; the model that
+benchmarks best on YOUR rejections today may not benchmark best in six months, and
+Trinity's the only layer that can re-score the new lineup against your actual prompts
+without re-asking each one. Build the corpus while the inference cost falls on the
+provider, not you.
+
 ## For teams: vendor-neutral agent memory
 
 Trinity Local is free and built for individuals. **Trinity for Teams** (private beta) brings

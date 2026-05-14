@@ -52,6 +52,13 @@ named. Run `me-card` to render it as a 1200×630 PNG. *This* is the social objec
 is becoming someone else's asset. Right now the .sqlite cache is still on your machine.
 Trinity is the local memory layer for the window before that closes.
 
+**The subsidy window (6b/12).** AI credits are priced below cost right now — every
+provider is racing to be the default in your workflow. That window won't last. Once
+one wins, the meter starts on the rest. The preference corpus you build today
+(`~/.trinity/`) keeps working when the subsidy ends. The taste signal is captured
+forever; only the layer above the labs can re-score next year's model lineup against
+this year's prompts. Build while the inference cost falls on the provider, not you.
+
 **The privacy moat (7/12).** Prompts never upload. No exceptions, no Pro tier that
 changes this. Telemetry is opt-in and ships only anonymous categorical labels — never
 content. Folder is yours. Break this once and the brand dies.
@@ -187,6 +194,13 @@ Backup titles (use if the Dreaming hook decays):
 > 2. **Prompts never upload.** What CAN be opted in (default off) is anonymous categorical
 >    routing labels — `task_type`, `winner`, `confidence`. Powers a future leaderboard for
 >    the curious; works perfectly fine without it.
+>
+> The timing pitch: AI credits are subsidized right now while the labs fight for default-
+> assistant slot in your workflow. That window won't last — once one wins, the meter
+> starts on the rest. The cross-provider preference corpus you build today keeps working
+> when the subsidy ends, and Trinity's the only layer that can re-score next year's model
+> lineup against this year's actual prompts. Build the corpus while the inference cost
+> falls on the provider, not you.
 >
 > The VentureBeat article has the deepest sentence in the debate: *"models may become
 > interchangeable, but the tooling and orchestration infrastructure will not."* Anthropic
