@@ -16,6 +16,7 @@ from .council_runtime import load_prompt_bundle
 from .council_status import load_council_status
 from .dispatch_registry import make_dispatch_action
 from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
+from .memory.store import iter_prompt_nodes
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
@@ -587,10 +588,64 @@ def build_page_data(
         # as the doctor check (tick #72) but on the surface the user
         # actually opens to do work.
         "shortcutStatus": _shortcut_status(),
+        # Handoff demo nudge — the launchpad-side mirror of the
+        # doctor "try this next" hint (tick post-#115). When the
+        # install has ≥2 providers green AND a non-empty prompt
+        # index, the conditions for the killer-hook demo are met
+        # and the banner surfaces the command. Silent when the
+        # demo wouldn't work yet.
+        "handoffNudge": _handoff_nudge(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
+    }
+
+
+def _handoff_nudge() -> dict:
+    """Launchpad-side mirror of the doctor 'try this next' hint.
+
+    Surfaces the handoff demo command when:
+      - ≥2 providers are enabled in config (handoff needs at least
+        two CLIs to switch BETWEEN)
+      - The prompt index has at least one node (handoff packages
+        recent turns as context; empty index → nothing to package)
+
+    Returns `{applicable, target, source_count}`. The template renders
+    a banner when `applicable` is true. Target prefers a non-claude
+    provider so the demo wedge (second model picks up first's context)
+    isn't defeated by suggesting `handoff claude` to a Claude default.
+
+    Same logic as `doctor._next_step_hint` but reads provider state
+    from config rather than runtime checks — the launchpad doesn't
+    re-probe CLIs every render.
+    """
+    try:
+        config = load_config(required=False)
+        provider_map = (config.providers if config else {}) or {}
+        # config.providers is dict[name, ProviderConfig] — values are
+        # what we iterate. Filter to enabled CLI-class providers
+        # (mlx / local doesn't have a CLI surface for handoff).
+        enabled = [
+            p.name for p in provider_map.values()
+            if p.enabled and getattr(p, "type", "") in ("cli", "codex")
+        ]
+    except Exception:
+        enabled = []
+    if len(enabled) < 2:
+        return {"applicable": False, "target": None, "source_count": 0}
+    # Prefer a non-claude target so the demo demonstrates the wedge.
+    non_claude = [name for name in enabled if name != "claude"]
+    target = non_claude[0] if non_claude else enabled[1]
+    # Count indexed prompts cheaply — mtime-cached at the store layer.
+    try:
+        prompt_count = sum(1 for _ in iter_prompt_nodes(limit=5))
+    except Exception:
+        prompt_count = 0
+    return {
+        "applicable": prompt_count > 0,
+        "target": target,
+        "source_count": prompt_count,
     }
 
 

@@ -327,3 +327,133 @@ class TestShortcutStatus:
             "fewer than 2 chips use the shared class — verify rebuild "
             "chips on lens + cortex cards both opt in"
         )
+
+
+class TestHandoffNudge:
+    """The launchpad handoff demo nudge (post-#115 browser-side mirror
+    of the doctor CLI hint)."""
+
+    def test_silent_when_no_config(self, isolated_home, monkeypatch):
+        """Empty config → no providers → no nudge."""
+        from trinity_local.config import AppConfig
+        empty_cfg = AppConfig(
+            max_turns=4, default_task_kind="general", notifications=True,
+            providers={},
+            role_preferences={}, task_preferences={},
+        )
+        monkeypatch.setattr("trinity_local.launchpad_data.load_config",
+                            lambda required=False: empty_cfg)
+        from trinity_local.launchpad_data import _handoff_nudge
+        result = _handoff_nudge()
+        assert result["applicable"] is False
+        assert result["target"] is None
+        assert result["source_count"] == 0
+
+    def test_silent_when_only_one_provider(self, isolated_home, monkeypatch):
+        """Handoff needs ≥2 providers. With one, the demo can't run —
+        don't suggest it."""
+        from trinity_local.config import AppConfig, ProviderConfig
+        cfg = AppConfig(
+            max_turns=4, default_task_kind="general", notifications=True,
+            providers={"claude": ProviderConfig(
+                name="claude", type="cli", enabled=True, label="Claude",
+                command=["claude"], args=[], roles={"thinker"},
+                task_types=set(), model="claude-opus",
+            )},
+            role_preferences={}, task_preferences={},
+        )
+        monkeypatch.setattr("trinity_local.launchpad_data.load_config", lambda required=False: cfg)
+        from trinity_local.launchpad_data import _handoff_nudge
+        assert _handoff_nudge()["applicable"] is False
+
+    def test_silent_when_no_prompts_indexed(self, isolated_home, monkeypatch):
+        """≥2 providers but empty prompt index → handoff has no
+        context to package. Don't suggest until seed has run."""
+        from trinity_local.config import AppConfig, ProviderConfig
+        cfg = AppConfig(
+            max_turns=4, default_task_kind="general", notifications=True,
+            providers={
+                "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
+                    command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
+                "gemini": ProviderConfig(name="gemini", type="cli", enabled=True, label="Gemini",
+                    command=["gemini"], args=[], roles={"thinker"}, task_types=set(), model="y"),
+            },
+            role_preferences={}, task_preferences={},
+        )
+        monkeypatch.setattr("trinity_local.launchpad_data.load_config", lambda required=False: cfg)
+        # iter_prompt_nodes returns empty on a clean home
+        from trinity_local.launchpad_data import _handoff_nudge
+        result = _handoff_nudge()
+        # Conditions met (≥2 providers) but no prompts → target is set
+        # but applicable=False
+        assert result["target"] in ("gemini", "claude")  # something picked
+        assert result["applicable"] is False
+        assert result["source_count"] == 0
+
+    def test_fires_with_2_providers_and_prompts(self, isolated_home, monkeypatch):
+        """The conditions the doctor hint uses — mirrored here."""
+        from trinity_local.config import AppConfig, ProviderConfig
+        from trinity_local.memory.schemas import PromptNode
+        from trinity_local.memory.store import upsert_prompt_node
+
+        cfg = AppConfig(
+            max_turns=4, default_task_kind="general", notifications=True,
+            providers={
+                "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
+                    command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
+                "gemini": ProviderConfig(name="gemini", type="cli", enabled=True, label="Gemini",
+                    command=["gemini"], args=[], roles={"thinker"}, task_types=set(), model="y"),
+            },
+            role_preferences={}, task_preferences={},
+        )
+        monkeypatch.setattr("trinity_local.launchpad_data.load_config", lambda required=False: cfg)
+        upsert_prompt_node(PromptNode(
+            id="pn_1", transcript_id="t1", provider="claude",
+            source_path="/fake.json", turn_index=0, text="some prompt",
+            embedding=None, created_at="2026-05-14T10:00:00",
+            timestamp="2026-05-14T10:00:00",
+            preceding_assistant_text="", following_assistant_text="",
+            themes=[],
+        ))
+        from trinity_local.launchpad_data import _handoff_nudge
+        result = _handoff_nudge()
+        assert result["applicable"] is True
+        assert result["target"] == "gemini"  # non-claude target preferred
+        assert result["source_count"] >= 1
+
+    def test_skips_mlx_provider_for_handoff_target(self, isolated_home, monkeypatch):
+        """The handoff CLI dispatches via the CLI-provider path. MLX
+        (local model) doesn't have a CLI handoff surface — exclude it
+        from the target list so we don't suggest `handoff mlx`."""
+        from trinity_local.config import AppConfig, ProviderConfig
+        cfg = AppConfig(
+            max_turns=4, default_task_kind="general", notifications=True,
+            providers={
+                "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
+                    command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
+                "mlx": ProviderConfig(name="mlx", type="mlx", enabled=True, label="MLX",
+                    command=["python", "-m", "mlx_lm.generate"], args=[],
+                    roles={"thinker"}, task_types=set(), model="local"),
+            },
+            role_preferences={}, task_preferences={},
+        )
+        monkeypatch.setattr("trinity_local.launchpad_data.load_config", lambda required=False: cfg)
+        from trinity_local.launchpad_data import _handoff_nudge
+        result = _handoff_nudge()
+        # Only one valid CLI-class provider (claude) → can't handoff
+        assert result["applicable"] is False
+        assert result["target"] is None or result["target"] != "mlx"
+
+    def test_handoff_nudge_wired_into_build_page_data(self):
+        """Source-level wiring check: build_page_data references
+        handoffNudge in its return dict. Calling build_page_data with
+        real kwargs is too heavy for a unit test (requires recent_councils,
+        live review state, etc.), but asserting the source code mentions
+        the key is enough to catch removal-by-refactor."""
+        from pathlib import Path
+        src = Path(__file__).resolve().parents[1] / "src/trinity_local/launchpad_data.py"
+        text = src.read_text(encoding="utf-8")
+        assert "\"handoffNudge\":" in text or "'handoffNudge':" in text, (
+            "build_page_data lost the handoffNudge key — the launchpad "
+            "banner has nothing to read from."
+        )

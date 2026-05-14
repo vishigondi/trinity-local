@@ -885,6 +885,33 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
+      <!-- Handoff demo nudge — info-style banner that surfaces the
+           60-second cross-provider continuity demo when conditions
+           are met (≥2 providers + ≥1 indexed prompt). Mirrors the
+           CLI doctor 'try this next' hint. Silent when the install
+           can't actually run the demo yet. Tick post-#115. -->
+      <section
+        class="card"
+        v-if="pageData.handoffNudge && pageData.handoffNudge.applicable"
+        style="border-left: 3px solid #3b6bd6; background: rgba(59, 107, 214, 0.04);"
+      >
+        <div class="eyebrow" style="color: #3b6bd6;">Try the 60-second demo</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Hand off a conversation across models — no copy-paste
+        </h2>
+        <p class="meta" style="margin-top: 8px;">
+          Have a conversation in Claude Code, then run
+          <code>trinity-local handoff {{{{ pageData.handoffNudge.target }}}}</code>
+          in a terminal. {{{{ pageData.handoffNudge.target }}}} will pick up exactly where Claude left off —
+          using your {{{{ pageData.handoffNudge.source_count > 5 ? pageData.handoffNudge.source_count + '+' : pageData.handoffNudge.source_count }}}}
+          indexed prompts as the cross-provider context bridge.
+        </p>
+        <p class="meta" style="margin-top: 8px;">
+          The wedge: no provider can build this — Anthropic can't read OpenAI's transcripts.
+          Only the layer above the labs can do continuity across them.
+        </p>
+      </section>
+
       <!-- Shortcut install banner — only renders when macOS + Shortcut
            is missing. Silent on non-macOS dev/CI and on healthy installs.
            Maps to pageData.shortcutStatus (tick #73). The user's
