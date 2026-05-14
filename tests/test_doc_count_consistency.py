@@ -393,6 +393,72 @@ class TestGithubUrlOwnerConsistency:
         )
 
 
+class TestReadmeHeroInstallCommand:
+    """README-hero install-command guard. Narrow scope: ONLY the
+    README hero section (first 25 lines) — the most-visible install
+    affordance, the literal first command a user types after landing
+    on GitHub. Other launch-copy references (launch.md tweets,
+    MCP_REGISTRY_SUBMISSIONS, embedded HN post) ship AFTER PyPI
+    publish lands, so the canonical `pip install trinity-local` is
+    correct in those surfaces.
+
+    The hero is different: it's read BEFORE the user knows whether
+    PyPI publish has happened. If it 404s, that's the first impression.
+    Verified at T-1: `trinity-local` package is NOT on PyPI
+    (https://pypi.org/pypi/trinity-local/json → 404). So the hero
+    must use the git+https:// form OR an explicit caveat.
+
+    Once PyPI publish lands at v1.0 ship, the README hero can revert
+    to the naked form; remove this guard at the same time.
+    """
+
+    NAKED_PIP_INSTALL = re.compile(
+        r"\bpip\s+install\s+trinity-local\b(?!\s*[/=<>!])"
+    )
+    CAVEAT_MARKERS = (
+        "post-ship",
+        "after v1.0",
+        "after publish",
+        "after ship",
+        "after that",
+        "until then",
+        "until pypi",
+        "until v1.0",
+    )
+
+    def test_readme_hero_install_works_today(self):
+        readme = REPO / "README.md"
+        try:
+            lines = readme.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return
+        # Hero region = the first 25 lines (above the body sections).
+        # The actual hero install line is around line 8; widen the
+        # window to be tolerant of small layout shifts without
+        # tracking every commit.
+        hero = lines[:25]
+        leaks: list[tuple[int, str]] = []
+        for idx, line in enumerate(hero, 1):
+            if not self.NAKED_PIP_INSTALL.search(line):
+                continue
+            # Allow when the immediate window mentions a caveat.
+            window_lo = max(0, idx - 3)
+            window_hi = min(len(hero), idx + 3)
+            window = " ".join(hero[window_lo:window_hi]).lower()
+            if any(marker in window for marker in self.CAVEAT_MARKERS):
+                continue
+            leaks.append((idx, line.strip()[:80]))
+        assert not leaks, (
+            f"README hero (first 25 lines) carries a naked "
+            f"`pip install trinity-local` command, but PyPI 404s "
+            f"pre-launch: {leaks}. The README hero is the FIRST "
+            f"command a reader types. Use "
+            f"`pip install git+https://github.com/vishigondi/trinity-local` "
+            f"or wrap the naked form with a caveat phrase like "
+            f"'(After v1.0 ship: pip install trinity-local)'."
+        )
+
+
 class TestLaunchCopyHasNoPlaceholders:
     """T-1 lorem-ipsum guard. The launch surface accumulates `[date]`,
     `<github.com/...>`, `<repo>`, `[handle]`, `[name]`, and similar

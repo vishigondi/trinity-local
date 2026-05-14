@@ -5,11 +5,11 @@
 ### One question. Every model you use. One answer that knows you.
 
 ```bash
-pip install trinity-local && trinity-local install-mcp
+pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
 ```
 
 One pain, one promise, one install command. The structure below cashes out each beat of
-the tagline.
+the tagline. (PyPI publish lands at v1.0 ship — after that, `pip install trinity-local`.)
 
 ### The 60-second demo
 
