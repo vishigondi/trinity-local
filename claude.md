@@ -361,14 +361,30 @@ go looking. Five workstreams, ordered by leverage:
    harnesses; the missing surface is *discoverability* — users who
    don't know Trinity exists never run `install-mcp`.
 
-2. **First-run wow** (task #115). The 90-second onboarding has to
-   produce a moment where the user sees the council give a
-   noticeably better answer than their default. Without that moment,
-   no second use, no corpus accumulation, no compounding. Optimize
-   one demo path obsessively. Current path: `pip install` →
-   `install-mcp` → first MCP `run_council` from inside Claude Code.
-   The "wow" must land in the synthesis output the agent surfaces to
-   the user.
+2. **First-run wow — cross-provider continuity, NOT council depth**
+   (task #115, reframed 2026-05-14). The 60-second demo path: user
+   asks Claude a complex question, then mid-conversation runs
+   `handoff gemini` (or agent suggests it). Gemini picks up exactly
+   where Claude left off — no re-context, no copy-paste. ONE answer
+   that visibly knew what the prior model said. "Wait, how did it
+   know?" IS the demo working. Structurally non-refutable: only
+   Trinity has the cross-provider prompt index, so only Trinity can
+   do continuity (Anthropic can't read OpenAI's transcripts, etc.).
+
+   Council depth is the *quality engine* (Trinity's continued
+   responses get better as the corpus learns the user's lens). But
+   council comparisons are a B-grade hook — they require the user
+   to evaluate three answers. Continuity is the A-grade hook because
+   the wedge demonstrates itself in one beat.
+
+   Gemini-handoff branch is especially strong because Gemini brings
+   Google data (Gmail/Drive/Calendar) Claude/GPT can't see — a
+   "ask Claude about your codebase, hand off to Gemini for related
+   emails" demo lights up a capability no provider can match alone.
+
+   Depends on new handoff infrastructure: tasks #119 (mechanism),
+   #120 (demo recording), #121 (Gemini-Google branch). See
+   memory/killer_hook_cross_provider_continuity.md.
 
 3. **Cross-provider benchmarks** (task #116). Publish Trinity vs.
    Opus on design tasks, vs. GPT-5 on coding, vs. Gemini on

@@ -11,6 +11,16 @@ pip install trinity-local && trinity-local install-mcp
 One pain, one promise, one install command. The structure below cashes out each beat of
 the tagline.
 
+### The 60-second demo
+
+Ask Claude a complex question. Mid-conversation, run `trinity-local handoff gemini`.
+Gemini picks up exactly where Claude left off — no re-context, no copy-paste — and adds
+what it can see that Claude can't (your Gmail, your Drive, your Calendar). Then hand
+off to GPT. Same thread, three perspectives, one continuous conversation.
+
+That's the wedge. No frontier provider can build it: Anthropic can't read OpenAI's
+transcripts, and OpenAI can't read Gemini's. Only the layer above them can.
+
 ---
 
 ### Stop copy-pasting prompts.

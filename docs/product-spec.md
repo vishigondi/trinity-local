@@ -266,9 +266,15 @@ Five workstreams that compound during the consumer-AI land-grab phase
 1. **MCP-dropdown distribution** — submit Trinity to the curated MCP
    server registries for Claude Desktop, Codex CLI, Cursor, Cline,
    Continue. Being in the dropdown beats being technically perfect.
-2. **First-run wow** — the 90-second onboarding must produce a moment
-   where the user sees the council give a noticeably better answer
-   than their default model. Without that, no second use.
+2. **First-run wow — cross-provider continuity** (reframed 2026-05-14):
+   the 60-second demo is "ask Claude a complex question, hand off
+   mid-conversation to Gemini, watch it pick up the context." ONE
+   answer that visibly knew the prior context — the "wait, how did
+   it know?" moment IS the demo working. Structurally non-refutable:
+   only Trinity has the cross-provider prompt index. Gemini handoff
+   is especially strong because it ALSO brings Google data (Gmail/
+   Drive/Calendar) Claude/GPT can't see. Council depth is the
+   *quality engine*, not the hook.
 3. **Cross-provider benchmarks** — publish Trinity vs. Opus on design,
    vs. GPT-5 on coding, vs. Gemini on long-context. Even modest wins
    are structurally non-refutable; only Trinity can run cross-provider
