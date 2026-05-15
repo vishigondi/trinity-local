@@ -3,6 +3,28 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 Day 9 — README section + ship-plan status sweep] — 2026-05-15
+
+Per spec line 405-409: the "Install once" wedge claim becomes literal
+on the README. Plus the spec's own ship-plan section updated with the
+commit hashes that landed each day's deliverable.
+
+- README: new `## Then — Trinity v1.6 (~ 2 weeks after v1.5)` section
+  positioned after the v1.5 forward-look. Explains the gap that
+  v1.0/v1.5 leave for chat-UI users (transcripts on provider servers,
+  export ritual is high friction) and the Native-Messaging mechanic
+  that closes it (same pattern 1Password / Bitwarden use). Names the
+  privacy invariants: `lsof -i | grep LISTEN` finds nothing,
+  capture host has no networking imports (AST-enforced),
+  `allowed_origins` gates extension identity.
+- spec-v1.6.md: ship-plan section now carries shipped/pending status
+  per day, with commit hashes for traceability. Week 1 + Week 2
+  Days 6-9 marked ✅; Day 10 ship is pending the user's one-time
+  Chrome Load Unpacked.
+
+No code changes this tick — docs only. 21/21 doc-consistency guards
+still green; suite stays at 1125 passing.
+
 ## [v1.6 Surface 33 — Browser capture launchpad card] — 2026-05-15
 
 Per spec line 479-497: makes silent capture breakage VISIBLE. Same

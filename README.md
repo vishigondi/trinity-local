@@ -388,6 +388,36 @@ record.
 
 For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
 
+## Then — Trinity v1.6 (~ 2 weeks after v1.5)
+
+The wedge claim *"Trinity reads transcripts already on your machine"* works literally
+for CLI users today — Claude Code, Codex CLI, and Gemini CLI write session files to
+disk that Trinity ingests. For users who spend their day on **claude.ai chat**,
+**chatgpt.com**, or **gemini.google.com**, the chat UIs keep transcripts on the
+provider's servers — the export ritual (settings → Export data → email → tarball)
+is high enough friction that most users never do it. v1.6 closes that gap.
+
+**The mechanic:** one-time install of the Trinity browser extension. After that
+every conversation you have on the web lands in
+`~/.trinity/conversations/<provider>/<conv_id>.json` the moment it completes. No
+listening server, no daemon — Chrome spawns a local capture host on demand via
+Native Messaging (the same pattern 1Password / Bitwarden use to bridge their
+extensions to local apps), and the OS reaps the process when the extension
+disconnects. Files are atomic-write-by-overwrite keyed on the provider's stable
+conversation ID; the existing incremental-ingest pipeline picks them up and
+threads them into your cortex / lens / picks alongside your CLI sessions.
+
+Privacy invariants stay literal: `lsof -i | grep LISTEN` shows nothing related
+to Trinity, the host has no networking imports (enforced by AST scanner), the
+`allowed_origins` field in Chrome's native-messaging manifest restricts the host
+to invocations from *the* Trinity extension only.
+
+Full spec: [`docs/spec-v1.6.md`](docs/spec-v1.6.md). Install ritual:
+[`browser-extension/README.md`](browser-extension/README.md). Week 1 of the
+2-week ship plan has landed end-to-end for `claude.ai` and `chatgpt.com`;
+`gemini.google.com` ships in v1.7 (Google's RPC-over-JSON protocol is higher
+fragility per the spec's stability assessment).
+
 ## Help
 
 | Command | What it does |

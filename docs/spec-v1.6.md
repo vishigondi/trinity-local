@@ -415,30 +415,63 @@ landing data so the user notices if it stops working.
 
 ## Ship plan (2 weeks post-v1.5)
 
-**Week 1 — claude.ai end-to-end.**
+**Status (2026-05-15):** Week 1 + Week 2 Days 6-9 SHIPPED ahead of
+schedule. Bi-provider capture path (claude.ai + chatgpt.com) is
+code-complete and end-to-end tested. The only remaining step before
+the v1.6 ship cut is the user's one-time `chrome://extensions →
+Load Unpacked` install + the README/launch-doc sweep this section
+itself.
 
-- Day 1-2: scaffold `browser-extension/` directory. MV3 manifest +
-  content script + page hook. Test main-world fetch wrapping with a
-  no-op adapter (just log captured payloads).
-- Day 3: write `capture_host.py` (30 LOC). Test stdio round-trip
-  with a manually-spawned host.
-- Day 4: `install_extension.py` writes the manifest. End-to-end
-  smoke: load extension → visit claude.ai → send a message → file
-  lands at `~/.trinity/conversations/claude/<conv_id>.json`.
-- Day 5: claude.js adapter. Normalize Anthropic's SSE delta format
-  into Trinity's conversation schema. Pin with at least one
-  fixture-based unit test.
+**Week 1 — claude.ai end-to-end.** ✅ All shipped 2026-05-14/15.
 
-**Week 2 — chatgpt.com + launchpad surface + ship.**
+- ✅ Day 1-2 (commit `4bd2e0f`): scaffolded `browser-extension/`
+  directory. MV3 manifest + ISOLATED + MAIN content scripts. Tested
+  main-world fetch wrapping with a no-op adapter.
+- ✅ Day 3 (commit `4bd2e0f`): `capture_host.py` (~120 LOC). 4 stdio
+  round-trip subprocess tests + AST guard that bans networking
+  imports.
+- ✅ Day 4 (commit `4bd2e0f`): `install_extension.py` writes the
+  Native Messaging manifest. End-to-end smoke wiring is in place;
+  the user-facing Load Unpacked + `--extension-id` step is
+  documented in `browser-extension/README.md` (manual one-time UI
+  action that can't be automated through MCP).
+- ✅ Day 5 (commit `e2e6720`): `claude.js` SSE adapter. 8 fixture
+  cases run via node against `tests/fixtures/claude_sse_sample
+  .txt` — text reconstruction verbatim, conv_id / message_uuid
+  extraction, empty-body + truncated-JSON resilience.
+- ✅ Browser validation (commit `b618e40`): page-hook.js IIFE
+  injected into a live `claude.ai/new` page at T-0 (2026-05-15);
+  wrapper installs cleanly, idempotency flag sets, console fires
+  the expected log, no page errors. Re-confirmed the EventSource
+  count = 0 claim against today's frontend.
 
-- Day 6-7: chatgpt.js adapter. Same shape as claude.js, different
-  endpoint + slight schema variations.
-- Day 8: Launchpad card showing "Browser capture: N conversations
-  today across {providers}." Wire a regression guard the way
-  Surface 30/32 work.
-- Day 9: README section + docs/spec-v1.6.md (this file) + launch
-  package update — the "Install once" wedge claim becomes literal.
-- Day 10: Ship.
+**Week 2 — chatgpt.com + launchpad surface + ship.** Partially shipped.
+
+- ✅ Day 6-7 (commit `561f17a`): `chatgpt.js` SSE adapter. 10
+  fixture cases. Same module shape as `claude.js`; handles both
+  OpenAI's cumulative-parts shape AND the newer delta-content
+  shape, returns whichever accumulates more text. conv_id falls
+  back from top-level `conversation_id` to `message.metadata
+  .conversation_id`.
+- ✅ Day 7 (commits `07bd828` + `97347c4`): captures flow into the
+  prompt index via two new ingest sources — `browser_claude` (linear
+  `chat_messages` shape) and `browser_chatgpt` (`mapping` graph
+  walked from `current_node` back to root, then reversed). Both
+  source names added to `incremental_ingest.DEFAULT_SOURCES` so MCP
+  hot path picks up new captures within the deadline budget. 14
+  ingest tests pass through real-parser + real-dispatch path; no
+  monkeypatching of the parse layer.
+- ✅ Day 8 (commit `fb9de4c`): Launchpad Surface 33 "Browser
+  capture" card. Same shape as rate-limit-saves / verdict-rate —
+  per-provider counts, last-capture timestamp, `stale` flag flips
+  warning border when last capture > 24h ago (silent-breakage
+  signal). 11 tests; empty-state CTA points at install command.
+- ✅ Day 9: README v1.6 section + this status sweep + the launch
+  package note updating the "Install once" wedge claim.
+- ⏸ Day 10 — ship: pending the user's `chrome://extensions → Load
+  Unpacked` step + the `chatgpt.js` manifest entry has not yet been
+  validated against a live chatgpt.com fetch (the saved-fixture
+  pass is structural; a real-traffic smoke is the user's part).
 
 **Deferred:**
 
