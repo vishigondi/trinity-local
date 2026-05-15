@@ -150,9 +150,11 @@ all point at the same architectural claim.
   ```bash
   # 1. Final verification — all guards green on current main
   cd ~/projects/trinity-local
-  pytest -q                                  # 1063 tests
-  pytest tests/test_doc_count_consistency.py # 16 doc-consistency guards
-  bash scripts/smoke_install.sh local        # cold-install + 11 MCP tools
+  bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
+  # Or run individually:
+  #   pytest -q                                  # 1065 tests
+  #   pytest tests/test_doc_count_consistency.py # 18 doc-consistency guards
+  #   bash scripts/smoke_install.sh local        # cold-install + 11 MCP tools
 
   # 2. Flip the GitHub repo to public
   gh repo edit vishigondi/trinity-local --visibility public --accept-visibility-change-consequences
