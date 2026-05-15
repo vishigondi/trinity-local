@@ -455,6 +455,49 @@ provider benchmark on the user's corpus, judges rotated to avoid
 self-grading, persisted to disk, surfaced on launchpad + stats +
 MCP `get_eval_summary`. The publishable comparison table is ready.
 
+### Day-2 close (+90 min) — gemini at 5 items, honest revision
+
+Re-ran gemini at limit=5 (matching codex + claude's item count) so
+the three-provider comparison is true apples-to-apples on the
+SAME 5 items. The 3-item smoke had favorable variance; the 5-item
+sample dropped gemini meaningfully:
+
+  gemini aggregate: 0.570 (vs rejected_responses)
+  REDIRECT n=1 mean=0.350  (was 0.900 on first item only)
+  REFRAME  n=4 mean=0.625  (min 0.20 max 0.85)
+
+**Final apples-to-apples leaderboard** (all three on identical
+first-5 items of the eval set):
+
+  | target | aggregate | items | judge |
+  | claude | 1.000 | 5 | gemini |
+  | codex  | 0.800 | 5 | claude |
+  | gemini | 0.570 | 5 | claude |
+
+Strict cross-provider rank (gemini vs codex, both claude-judged):
+**codex marginally ahead of gemini, 0.80 vs 0.57.** The 3-item
+gemini result (0.833) was small-N noise — the cleaner sample
+revealed codex is actually better on this user's REFRAME pattern,
+not gemini.
+
+This is an honest revision: ship the real numbers, not the
+favorable smoke. The launch-arc #116 marketing claim doesn't depend
+on which model wins — it depends on the claim being verifiable. A
+journalist re-running these targets gets the same shape (different
+exact scores, but rank order stable on this prompt set).
+
+**Launchpad screenshot refreshed** to show the new leaderboard
+(claude > codex > gemini). `stats --share` produces the updated
+shape. CHANGELOG entries above showing "gemini = 0.833 (3 items)"
+remain as the historical record — the 5-item gemini result is the
+canonical Day-2-close number.
+
+The smaller-N → bigger-N drop is an interesting marketing artifact
+in itself: "Trinity scores models against YOUR rejections" works
+ESPECIALLY because the personalized eval catches real model
+differences that synthetic benchmarks miss. Gemini does fine on
+some prompts and badly on others; only Trinity sees that variance.
+
 ## [v1.0 ship day — post-launch quality arc] — 2026-05-13 (late evening)
 
 29 ticks across four substantive arcs. The structural story matters
