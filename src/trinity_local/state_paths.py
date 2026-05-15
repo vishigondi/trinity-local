@@ -215,8 +215,13 @@ def prompts_dir() -> Path:
 
 
 def memories_dir() -> Path:
-    """The five durable memory types dream creates (lens, picks, routing,
-    topics, vocabulary). See claude.md Glossary → "core memories".
+    """The three *thinking* memories that compose your lens: lens, topics,
+    vocabulary. See claude.md Glossary → "core memories".
+
+    picks and routing are model-selection *scoreboards* — operational
+    bookkeeping derived from council outcomes, not cognitive shape — and
+    live under ``scoreboard_dir()``. They are excluded from distill and
+    from the memory viewer's cognitive surface.
 
     Migration: any pre-existing files at legacy paths
     (`~/.trinity/cortex/routing_patterns.json`, `~/.trinity/me.md`,
@@ -228,6 +233,25 @@ def memories_dir() -> Path:
     path.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_memory_paths(path)
     return path
+
+
+def scoreboard_dir() -> Path:
+    """Operational scoreboards derived from council outcomes —
+    ``picks.json`` (extracted model-selection rules) and ``routing.json``
+    (per-task-type provider track record). These are computed from
+    ``council_outcomes/`` and consumed by the chairman picker, ``ask``,
+    and the launchpad routing card; they are NOT cognitive memories and
+    are excluded from distill.
+
+    Migration: if pre-existing files live at
+    ``~/.trinity/memories/{picks,routing}.json`` (the pre-collapse home),
+    they're moved here on first access. Idempotent — see
+    ``_migrate_legacy_memory_paths``.
+    """
+    scoreboard = state_dir() / "scoreboard"
+    scoreboard.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_scoreboard_paths(scoreboard)
+    return scoreboard
 
 
 def _migrate_legacy_memory_paths(memories: Path) -> None:
@@ -248,8 +272,25 @@ def _migrate_legacy_memory_paths(memories: Path) -> None:
         try:
             legacy.rename(new)
         except OSError:
-            # Cross-device move or transient permission issue — copy + leave
-            # legacy in place so we never lose data.
+            try:
+                new.write_bytes(legacy.read_bytes())
+            except OSError:
+                pass
+
+
+def _migrate_legacy_scoreboard_paths(scoreboard: Path) -> None:
+    """Move picks.json + routing.json from the pre-collapse memories/ home
+    into scoreboard/ on first access. Same shape as
+    ``_migrate_legacy_memory_paths`` — best-effort, idempotent."""
+    legacy_memories = state_dir() / "memories"
+    for filename in ("picks.json", "routing.json"):
+        legacy = legacy_memories / filename
+        new = scoreboard / filename
+        if new.exists() or not legacy.exists():
+            continue
+        try:
+            legacy.rename(new)
+        except OSError:
             try:
                 new.write_bytes(legacy.read_bytes())
             except OSError:
@@ -257,9 +298,10 @@ def _migrate_legacy_memory_paths(memories: Path) -> None:
 
 
 def picks_path() -> Path:
-    """`picks.json` — your model picks per topic with reasoning.
-    Procedural memory. Written by `consolidate`, read by `ask` + chairman."""
-    return memories_dir() / "picks.json"
+    """`picks.json` — extracted model-selection rules per task_type.
+    Operational scoreboard, not a cognitive memory. Written by
+    `consolidate`; read by `ask` + the chairman picker."""
+    return scoreboard_dir() / "picks.json"
 
 
 def lens_path() -> Path:
@@ -270,28 +312,30 @@ def lens_path() -> Path:
 
 def topics_path() -> Path:
     """`topics.json` — k-means clusters of subjects you ask about.
-    Semantic memory. Written by lens-build Stage 1."""
+    Semantic memory + evidence map for lens (basins_spanned per pair).
+    Written by lens-build Stage 1."""
     return memories_dir() / "topics.json"
 
 
 def routing_path() -> Path:
     """`routing.json` — per-category provider track record (numbers).
-    Empirical memory. Computed on demand from council_outcomes/, written
-    on dream Phase 4 for the chairman context loader."""
-    return memories_dir() / "routing.json"
+    Operational scoreboard, not a cognitive memory. Computed on demand
+    from council_outcomes/ and frozen here for the chairman picker +
+    launchpad routing card."""
+    return scoreboard_dir() / "routing.json"
 
 
 def vocabulary_path() -> Path:
-    """`vocabulary.md` — bimodality detection on YOUR terminology.
+    """`vocabulary.md` — anchors + bimodality detection on YOUR terminology.
     Language memory. Written by dream Phase 2.5."""
     return memories_dir() / "vocabulary.md"
 
 
 def core_path() -> Path:
-    """`core.md` — singular paragraph distillation subsuming the five
-    plural core memories. Identity. Read FIRST by the chairman on every
-    council; falls through to specific memory files only on demand.
-    Written by dream Phase 5."""
+    """`core.md` — singular paragraph distillation subsuming the three
+    *thinking* memories (lens + topics + vocabulary). Identity. Read FIRST
+    by the chairman on every council; falls through to specific memory
+    files only on demand. Written by dream Phase 5."""
     return state_dir() / "core.md"
 
 
