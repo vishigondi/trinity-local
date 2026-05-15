@@ -3,6 +3,41 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 — doc-consistency guards for new surfaces] — 2026-05-15
+
+Per Principle #21 ("public claims need regression guards at the
+surface that ships them"). The v1.6 work added 4+ file references
+and 2 CLI surfaces in launch-facing markdown (README, spec-v1.6.md,
+browser-extension/README.md) — zero of which were covered by the
+existing 21 doc-consistency guards. If any of those targets were
+renamed without the markdown updating, the install ritual silently
+404s the user.
+
+Three new test classes (+7 guards), bringing doc-consistency total
+to 28:
+
+- `TestV16BrowserExtensionArtifactsExist` (+4)
+  - `browser-extension/` directory exists
+  - `browser-extension/README.md` exists
+  - `docs/spec-v1.6.md` exists
+  - Every `js` file referenced in `manifest.json` exists on disk
+    (cross-check from the existing structural suite, replicated
+    here so doc-consistency runs catch the same drift)
+
+- `TestV16ClaimedCliCommandsExist` (+2)
+  - `trinity-local install-extension --help` exits 0 (subcommand
+    is registered)
+  - `pyproject.toml` declares the `trinity-local-capture-host`
+    console_script entry pointed at `trinity_local.capture_host:main`
+
+- `TestV16SpecShipPlanCommitHashesResolve` (+1)
+  - Every commit hash cited in `docs/spec-v1.6.md` ship-plan resolves
+    via `git cat-file -e <sha>`. Same shape as the existing
+    `TestCitedCouncilArtifactsExistInRepo` but for git history rather
+    than disk files. Catches rebase-induced drift in launch copy.
+
+Suite: 1134 → 1141 passing.
+
 ## [v1.6 — doctor browser_capture preflight] — 2026-05-15
 
 `trinity-local doctor` now includes a 4-stage browser-capture check

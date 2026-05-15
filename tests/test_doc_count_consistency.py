@@ -22,7 +22,10 @@ the guard.
 """
 from __future__ import annotations
 
+import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -1182,3 +1185,141 @@ class TestLaunchCopyHasNoPlaceholders:
             f"'<github.com/...>' in the published artifact. Fill "
             f"each one with the canonical value, or remove the slot."
         )
+
+
+class TestV16BrowserExtensionArtifactsExist:
+    """Per Principle #21: every public claim needs a regression guard
+    at the surface that ships it. v1.6 added a handful of file
+    references in launch-facing markdown (README, spec-v1.6.md,
+    browser-extension/README.md) — if any of those targets get
+    renamed without the README/spec updating, the install ritual
+    silently 404s the user.
+    """
+
+    REPO = Path(__file__).resolve().parent.parent
+
+    def test_browser_extension_directory_exists(self):
+        ext = self.REPO / "browser-extension"
+        assert ext.exists() and ext.is_dir(), (
+            "browser-extension/ directory missing. README + spec-v1.6.md "
+            "tell users to `chrome://extensions → Load Unpacked → "
+            "browser-extension/`. If the directory was renamed or moved, "
+            "the install ritual silently breaks."
+        )
+
+    def test_browser_extension_readme_exists(self):
+        readme = self.REPO / "browser-extension" / "README.md"
+        assert readme.exists(), (
+            "browser-extension/README.md missing. README's v1.6 section + "
+            "spec-v1.6.md both link here for the 60-second install ritual. "
+            "Renaming this file orphans those references."
+        )
+
+    def test_spec_v16_exists(self):
+        spec = self.REPO / "docs" / "spec-v1.6.md"
+        assert spec.exists(), (
+            "docs/spec-v1.6.md missing. README + claude.md companion-docs "
+            "header reference this spec by path. Renaming it requires "
+            "updating all referrers in the same commit."
+        )
+
+    def test_manifest_json_referenced_files_all_exist(self):
+        """Cross-check from the test_browser_extension_manifest suite,
+        replicated here so a doc-consistency run catches the same drift
+        even when the structural suite is skipped."""
+        manifest_path = self.REPO / "browser-extension" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        for entry in manifest.get("content_scripts", []):
+            for js_file in entry.get("js", []):
+                full = self.REPO / "browser-extension" / js_file
+                assert full.exists(), (
+                    f"manifest.json references missing file {js_file!r}. "
+                    "Chrome's Load Unpacked silently fails when any "
+                    "content_script js path doesn't resolve."
+                )
+
+
+class TestV16ClaimedCliCommandsExist:
+    """The v1.6 install ritual names two CLI surfaces:
+    ``trinity-local install-extension`` (subcommand) and
+    ``trinity-local-capture-host`` (separate console script). Both
+    are referenced in README + spec + doctor output + browser-
+    extension/README. Drift catches: subcommand renamed, console
+    script removed from pyproject.toml.
+    """
+
+    REPO = Path(__file__).resolve().parent.parent
+
+    def test_install_extension_subcommand_is_registered(self):
+        """``trinity-local install-extension --help`` must succeed."""
+        result = subprocess.run(
+            [sys.executable, "-m", "trinity_local.main", "install-extension", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=str(self.REPO),
+        )
+        assert result.returncode == 0, (
+            f"`trinity-local install-extension --help` exit {result.returncode}: "
+            f"{result.stderr}. README v1.6 section + spec + browser-extension/"
+            "README all name this subcommand; if it's been renamed or removed, "
+            "those docs are silently broken."
+        )
+
+    def test_capture_host_console_script_in_pyproject(self):
+        """`trinity-local-capture-host` is what Chrome's Native
+        Messaging manifest spawns. If this entry-point disappears
+        from pyproject.toml, `pip install` won't put the binary on
+        PATH and install-extension's --host-path resolution fails."""
+        pyproject = (self.REPO / "pyproject.toml").read_text()
+        assert "trinity-local-capture-host" in pyproject, (
+            "pyproject.toml is missing the trinity-local-capture-host "
+            "console_script entry. The v1.6 install ritual depends on "
+            "this binary being on PATH after `pip install -e .`. "
+            "Re-add the entry under [project.scripts]."
+        )
+        assert "trinity_local.capture_host:main" in pyproject, (
+            "pyproject.toml mentions trinity-local-capture-host but the "
+            "entry-point target trinity_local.capture_host:main isn't "
+            "wired. Check the [project.scripts] section."
+        )
+
+
+class TestV16SpecShipPlanCommitHashesResolve:
+    """The spec-v1.6.md ship-plan section names commit hashes for
+    traceability (Week 1 ✅ commit `4bd2e0f` etc.). If the repo gets
+    rebased or those commits get squashed, the hashes become dead
+    pointers. Same shape as TestCitedCouncilArtifactsExistInRepo
+    earlier in this file but for git history rather than disk files.
+    """
+
+    REPO = Path(__file__).resolve().parent.parent
+
+    def test_cited_commit_hashes_resolve_in_git_log(self):
+        spec = (self.REPO / "docs" / "spec-v1.6.md").read_text()
+        # Match the inline-code commit references used in the ship plan,
+        # e.g. `4bd2e0f`. Use a strict pattern so we only check actual
+        # short-SHA-looking tokens, not arbitrary 7-char strings.
+        hashes = set(re.findall(r"`([0-9a-f]{7})`", spec))
+        # Drop a known non-hash: `7216` is the Intuit IRC section number
+        # the existing guards parse out of other surfaces. Filter to
+        # tokens that look like git SHAs (mix of digits + letters).
+        hashes = {h for h in hashes if not h.isdigit()}
+        assert hashes, (
+            "spec-v1.6.md ship-plan should cite at least one commit hash "
+            "for traceability. Found none — either the ship-plan annotation "
+            "was reverted or the regex needs updating."
+        )
+        for sha in hashes:
+            result = subprocess.run(
+                ["git", "cat-file", "-e", sha],
+                capture_output=True,
+                text=True,
+                cwd=str(self.REPO),
+            )
+            assert result.returncode == 0, (
+                f"spec-v1.6.md cites commit {sha!r} but it doesn't resolve "
+                f"in git. stderr: {result.stderr}. If the repo was rebased, "
+                "update the ship-plan annotations to the new hashes; otherwise "
+                "this is a dead pointer in launch-facing copy."
+            )
