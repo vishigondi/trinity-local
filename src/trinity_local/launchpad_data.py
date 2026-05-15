@@ -607,6 +607,13 @@ def build_page_data(
         # action. Once data exists, the number is the case-study
         # anchor for "Trinity continues your work when Claude limits."
         "rateLimitSaves": _rate_limit_saves(),
+        # v1.6 Surface 33 — browser-capture activity. Empty state has a
+        # CTA (install the extension); populated state shows per-provider
+        # counts + last-capture timestamp. Stale (> 24h since last
+        # capture, when at least one exists) flips a warning border —
+        # the same silent-breakage signal verdict_rate / handoff_ready
+        # use elsewhere.
+        "browserCapture": _browser_capture(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
@@ -898,6 +905,118 @@ def _rate_limit_saves() -> dict:
                 [{"provider": p, "count": c} for p, c in by_primary.items()],
                 key=lambda x: x["count"], reverse=True,
             ),
+        }
+    except Exception:
+        return empty
+
+
+def _humanize_ago(seconds: int | None) -> str:
+    """Friendly relative-time string for the launchpad UI."""
+    if seconds is None or seconds < 0:
+        return ""
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m"
+    if seconds < 86400:
+        return f"{seconds // 3600}h"
+    return f"{seconds // 86400}d"
+
+
+def _browser_capture() -> dict:
+    """Surface 33 — "Browser capture · last 24h" launchpad card.
+
+    Per ``docs/spec-v1.6.md`` line 479-497: makes silent capture breakage
+    VISIBLE. Walks ``~/.trinity/conversations/<provider>/*.json`` (the
+    paths the v1.6 capture host writes to), counts per-provider, finds
+    the most-recent mtime. If the extension stops working, the "Last
+    capture" timestamp ages; same shape as the verdict_rate /
+    handoff_ready / cortex_freshness checks.
+
+    Skips ``.stream.json`` sidecars (adapter outputs without canonical
+    structure) — those don't count as "captured conversations" for the
+    user-facing counter even though they exist on disk.
+
+    Returns:
+      - {has_data: False, install_command} when zero capture files
+      - {has_data: True, total_captured, providers[], last_capture_iso,
+         last_capture_ago_seconds, stale (when last_capture > 24h ago)}
+        once captures exist.
+
+    Per "Analytics never crash": any unexpected failure returns the
+    empty shape.
+    """
+    from .state_paths import trinity_home
+    empty = {
+        "has_data": False,
+        "total_captured": 0,
+        "captured_24h": 0,
+        "providers": [],
+        "last_capture_iso": None,
+        "last_capture_ago_seconds": None,
+        "stale": False,
+        "install_command": "trinity-local install-extension",
+    }
+    conv_root = trinity_home() / "conversations"
+    if not conv_root.exists():
+        return empty
+    try:
+        import time as _time
+        now = _time.time()
+        day_ago = now - 86400
+        per_provider: dict[str, dict[str, int]] = {}
+        latest_mtime: float = 0.0
+        total = 0
+        total_24h = 0
+        for provider_dir in conv_root.iterdir():
+            if not provider_dir.is_dir():
+                continue
+            provider_name = provider_dir.name
+            count = 0
+            count_24h = 0
+            for f in provider_dir.glob("*.json"):
+                if f.name.endswith(".stream.json"):
+                    continue
+                try:
+                    mtime = f.stat().st_mtime
+                except OSError:
+                    continue
+                count += 1
+                if mtime > day_ago:
+                    count_24h += 1
+                if mtime > latest_mtime:
+                    latest_mtime = mtime
+            if count:
+                per_provider[provider_name] = {"count": count, "count_24h": count_24h}
+                total += count
+                total_24h += count_24h
+        if total == 0:
+            return empty
+        ago_seconds = int(now - latest_mtime) if latest_mtime else None
+        last_iso = None
+        if latest_mtime:
+            from datetime import datetime, timezone
+            last_iso = datetime.fromtimestamp(latest_mtime, tz=timezone.utc).isoformat()
+        return {
+            "has_data": True,
+            "total_captured": total,
+            "captured_24h": total_24h,
+            "providers": sorted(
+                [
+                    {"provider": p, "count": v["count"], "count_24h": v["count_24h"]}
+                    for p, v in per_provider.items()
+                ],
+                key=lambda r: r["count"],
+                reverse=True,
+            ),
+            "last_capture_iso": last_iso,
+            "last_capture_ago_seconds": ago_seconds,
+            "last_capture_ago_human": _humanize_ago(ago_seconds),
+            # > 24h is the silent-breakage signal — capture host should
+            # fire at least once a day on any active install. The
+            # launchpad shows a warning border when this flips True.
+            "stale": ago_seconds is not None and ago_seconds > 86400,
+            "install_command": "trinity-local install-extension",
         }
     except Exception:
         return empty

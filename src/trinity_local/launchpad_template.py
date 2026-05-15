@@ -1357,6 +1357,70 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Surface 33 (v1.6) — Browser capture activity. Shows per-
+           provider counts + last-capture timestamp. Empty state has
+           a CTA (install the extension); populated state surfaces
+           silent-breakage signal when last capture > 24h ago. -->
+      <section class="card browser-capture-card"
+               v-if="pageData.browserCapture && pageData.browserCapture.has_data"
+               :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #4a90e2; background: rgba(74, 144, 226, 0.04);'">
+        <div class="eyebrow" :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #4a90e2;'">
+          Browser capture<span v-if="pageData.browserCapture.captured_24h > 0"> · last 24h</span>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          <span v-if="pageData.browserCapture.captured_24h > 0">
+            {{{{ pageData.browserCapture.captured_24h }}}} conversation<span v-if="pageData.browserCapture.captured_24h !== 1">s</span> captured
+          </span>
+          <span v-else>
+            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> captured
+            <span class="meta" style="font-weight: normal;">(none in last 24h)</span>
+          </span>
+          <span style="float: right; font-variant-numeric: tabular-nums;"
+                :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #4a90e2;'">
+            {{{{ pageData.browserCapture.providers.length }}}} provider<span v-if="pageData.browserCapture.providers.length !== 1">s</span>
+          </span>
+        </h2>
+        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
+          <li v-for="row in pageData.browserCapture.providers" :key="row.provider"
+              style="display: grid; grid-template-columns: 140px 60px 1fr; gap: 8px; align-items: center;">
+            <span>{{{{ row.provider }}}}</span>
+            <span class="meta">{{{{ row.count }}}}</span>
+            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#4a90e2') + '; border-radius: 3px;'"></span>
+            </span>
+          </li>
+        </ul>
+        <p class="meta" style="margin-top: 12px;" v-if="!pageData.browserCapture.stale">
+          Last capture {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago. Run
+          <code>trinity-local ingest-recent</code> to pull new captures into the prompt index.
+        </p>
+        <p class="meta" style="margin-top: 12px; color: #c4791f;" v-else>
+          ⚠ No new captures in the last 24h (last was {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago).
+          Check the service-worker console at <code>chrome://extensions</code> — the extension may have been
+          disabled or the provider may have refactored their API. Details in
+          <code>browser-extension/README.md</code>.
+        </p>
+      </section>
+
+      <section class="card browser-capture-card"
+               v-if="pageData.browserCapture && !pageData.browserCapture.has_data"
+               style="border-left: 3px dashed rgba(74, 144, 226, 0.4); background: rgba(74, 144, 226, 0.02);">
+        <div class="eyebrow" style="color: #4a90e2;">Browser capture</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Capture every Claude / ChatGPT conversation automatically
+        </h2>
+        <p class="meta" style="margin-top: 4px;">
+          Trinity reads transcripts already on your machine — for the chat web UIs that means
+          installing the v1.6 browser extension. One-time, no server, no daemon. Every message
+          you send on claude.ai or chatgpt.com lands in <code>~/.trinity/conversations/</code>
+          and flows into your cortex / lens / picks.
+        </p>
+        <pre class="md-code-block"><code>{{{{ pageData.browserCapture.install_command }}}}</code></pre>
+        <p class="meta" style="margin-top: 8px;">
+          Full ritual in <code>browser-extension/README.md</code>.
+        </p>
+      </section>
+
       <section class="card eval-summary-card" v-if="pageData.evalSummary && !pageData.evalSummary.has_results">
         <div class="eyebrow">Personalized benchmark</div>
         <h2 style="margin-top: 4px; font-size: 18px;">

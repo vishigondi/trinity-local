@@ -3,6 +3,33 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 Surface 33 — Browser capture launchpad card] — 2026-05-15
+
+Per spec line 479-497: makes silent capture breakage VISIBLE. Same
+shape as verdict_rate / handoff_ready / cortex_freshness checks — a
+visible-by-default signal the user notices when it's off.
+
+- `_browser_capture()` helper in `launchpad_data.py`. Walks
+  `~/.trinity/conversations/<provider>/*.json` (excludes `.stream.json`
+  sidecars), counts per-provider, finds most-recent mtime. Returns
+  `{has_data, total_captured, captured_24h, providers[], last_capture
+  _iso, last_capture_ago_seconds, last_capture_ago_human, stale,
+  install_command}`.
+- `stale` flips True when `has_data && last_capture > 24h ago` — the
+  silent-breakage signal. Launchpad shows a warning border in this
+  state with a debug pointer to `browser-extension/README.md`.
+- `_humanize_ago(seconds)` helper produces s/m/h/d buckets.
+- Empty state has a CTA (`trinity-local install-extension`); populated
+  state shows per-provider bars + last-capture timestamp.
+
+Tests (+11) in `test_browser_capture_surface.py`: empty state, counts
+per provider, `.stream.json` exclusion, 24h mtime filter, max-mtime
+selection across providers, stale flag flips correctly, humanize-ago
+buckets, build_page_data payload assembly (regression guard against
+quietly dropping the helper).
+
+Suite: 1114 → 1125 passing.
+
 ## [v1.6 — browser_chatgpt ingest source] — 2026-05-15
 
 OpenAI parallel to the `browser_claude` ingest wire. Captured chatgpt
