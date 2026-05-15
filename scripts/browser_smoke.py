@@ -1978,6 +1978,75 @@ def main() -> int:
             else:
                 print("[ ✓ ] Surface 32 rate-limit saves: empty state silent (no saves yet)")
 
+        # ─── Surface 33: Browser-capture card (v1.6 silent-breakage signal) ──
+        # Per docs/spec-v1.6.md line 479-497. Card surfaces capture
+        # activity so silent breakage of the browser extension is
+        # VISIBLE within 24h (stale flag → warning border).
+        #
+        # Card is conditional: renders in EITHER state when
+        # `pageData.browserCapture` is set. Two valid outcomes:
+        #   has_data=true  → populated card with per-provider bars
+        #   has_data=false → empty-state CTA card with install command
+        # Unlike Surface 32 (silent on empty), Surface 33 SHOWS the
+        # empty state because there's a user action available (install
+        # the extension).
+        browser_capture_state = page.evaluate(
+            """() => {
+              const script = document.getElementById('page-data');
+              const data = script ? JSON.parse(script.textContent || '{}') : {};
+              const cap = data.browserCapture || {};
+              const cards = Array.from(document.querySelectorAll('section.browser-capture-card'));
+              return {
+                has_data: !!cap.has_data,
+                total_captured: cap.total_captured || 0,
+                stale: !!cap.stale,
+                provider_count: (cap.providers || []).length,
+                card_count: cards.length,
+                install_command: cap.install_command || null,
+                card_has_install_pre: cards.some(c =>
+                  /trinity-local install-extension/.test(c.textContent || '')
+                ),
+              };
+            }"""
+        )
+        if browser_capture_state.get("card_count") == 0:
+            reason = (
+                "browserCapture card not rendered in EITHER state. "
+                "Card should always appear — populated when captures exist, "
+                "CTA when they don't."
+            )
+            print(f"[ ✗ ] Surface 33 browser capture: {reason}")
+            fails.append((33, "browser capture card", reason))
+        elif browser_capture_state.get("has_data"):
+            # Populated state must mention the per-provider bar count
+            if browser_capture_state.get("provider_count", 0) < 1:
+                reason = (
+                    f"has_data=true but providers list empty: "
+                    f"{browser_capture_state}"
+                )
+                print(f"[ ✗ ] Surface 33 browser capture: {reason}")
+                fails.append((33, "browser capture card", reason))
+            else:
+                stale_tag = " STALE" if browser_capture_state.get("stale") else ""
+                print(
+                    f"[ ✓ ] Surface 33 browser capture: populated · "
+                    f"total={browser_capture_state['total_captured']} "
+                    f"providers={browser_capture_state['provider_count']}{stale_tag}"
+                )
+        else:
+            # Empty-state branch MUST surface the install command — that's
+            # the user action the card exists to suggest.
+            if not browser_capture_state.get("card_has_install_pre"):
+                reason = (
+                    "has_data=false but card doesn't surface "
+                    "`trinity-local install-extension` — the CTA the empty "
+                    "state exists for is missing."
+                )
+                print(f"[ ✗ ] Surface 33 browser capture: {reason}")
+                fails.append((33, "browser capture card", reason))
+            else:
+                print("[ ✓ ] Surface 33 browser capture: empty state with install CTA")
+
         browser.close()
 
     print()
