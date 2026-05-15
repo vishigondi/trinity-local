@@ -1,10 +1,11 @@
 """Tests for `freeze_routing_to_disk` — the writer that materializes the
 on-demand personal routing table into `~/.trinity/memories/routing.json`.
 
-Phase 5 distill reads routing.json as one of the five plural core memories;
-without a writer the file is always empty and the empirical-memory entry
-is silently dropped from the distillation prompt. This suite pins that the
-writer produces a valid file, skips when empty, and respects the cache.
+routing.json is one of the user-facing model-selection memories surfaced
+in the memory viewer. Phase 5 distill no longer reads it — picks/routing
+are scoreboards, not cognitive shape — but the freeze writer still has to
+produce a valid file (or skip cleanly when empty) so the viewer and any
+external tooling can read it.
 """
 from __future__ import annotations
 
@@ -75,15 +76,14 @@ class TestFreezeRouting:
         # an empty "ROUTING" header. Skip the write entirely.
         assert not routing_path().exists()
 
-    def test_distill_reads_frozen_routing(self, isolated_home):
-        """End-to-end pinning: after freeze, the distill prompt composer
-        includes the ROUTING section because the file is now on disk."""
+    def test_distill_does_not_read_frozen_routing(self, isolated_home):
+        """End-to-end pinning: distill must NOT include ROUTING even when
+        routing.json is on disk. routing is a model-selection scoreboard,
+        not a cognitive memory — by design it is excluded from core.md."""
         from trinity_local.personal_routing import freeze_routing_to_disk, invalidate_cache
         from trinity_local.distill import build_distill_prompt
         from trinity_local.state_paths import lens_path
 
-        # Seed both a lens (so distill doesn't short-circuit on no-memories)
-        # and outcomes (so routing freezes non-empty).
         lens_path().write_text("# Lens\n→ leverage over ownership.", encoding="utf-8")
         _seed_outcome(isolated_home, council_id="r1", task_type="code_refactor", winner="codex")
         _seed_outcome(isolated_home, council_id="r2", task_type="code_refactor", winner="codex")
@@ -91,5 +91,5 @@ class TestFreezeRouting:
         freeze_routing_to_disk()
 
         prompt = build_distill_prompt()
-        assert "ROUTING" in prompt
-        assert "code_refactor" in prompt or "codex" in prompt
+        assert "ROUTING" not in prompt
+        assert "codex" not in prompt

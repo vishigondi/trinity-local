@@ -561,6 +561,24 @@ def _is_user_facing_prompt(message: SessionMessage) -> bool:
     lowered = text.lstrip().lower()
     if lowered.startswith(("you are ", "you will ")):
         return False
+    # Structured-block markers Claude Code injects as role=user when its own
+    # tool-use machinery turns. These poison rejections.jsonl + vocabulary
+    # if indexed as user voice.
+    if lowered.startswith(("<task-notification>", "<task-id>", "<tool-use-id>",
+                            "<command-name>", "<command-message>", "<local-command-stdout>",
+                            "<local-command-stderr>", "<system-reminder>")):
+        return False
+    # Meta-narrative + session-frame markers — synthesized by the harness,
+    # not the user.
+    if lowered.startswith(("[request interrupted by user]", "[image #",
+                            "stop hook feedback:", "this session is being continued",
+                            "caveat:")):
+        return False
+    # Trinity dispatch verbs that escape the "you are / you will " filter —
+    # patterns observed in the audit (Subagent V tick).
+    if lowered.startswith(("look at these recurring", "read the image at",
+                            "for each durable fact")):
+        return False
     return True
 
 

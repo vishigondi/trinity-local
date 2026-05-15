@@ -1,10 +1,11 @@
 """Tests for Phase 2.5 vocabulary distillation.
 
-Pure-geometric scan of the user's prompt corpus that surfaces two kinds
-of terminology overload: homonyms (one word, multiple meanings) and
-synonyms (multiple words, one meaning). Output is markdown at
+Pure-geometric (+ pure-regex for anchors) scan of the user's prompt
+corpus that surfaces three views of distinctive terminology: anchors
+(proper-noun recurrence across threads), homonyms (one word, multiple
+meanings), synonyms (multiple words, one meaning). Output is markdown at
 ~/.trinity/memories/vocabulary.md. Read by the chairman as one of the
-five plural core memories.
+three thinking core memories.
 """
 from __future__ import annotations
 
@@ -148,6 +149,74 @@ class TestSynonymDetection:
         # Synonym table should pair delete and remove.
         assert "delete" in text.lower() and "remove" in text.lower()
         assert "synonym" in text.lower()
+
+
+class TestAnchorDetection:
+    def test_surfaces_phrase_recurring_across_threads(self, isolated_home):
+        """Plant "Trinity Local" across 4 distinct transcripts. The anchor
+        section must list it because thread recurrence ≥ default min (3)."""
+        from trinity_local.memory import upsert_prompt_node
+        from trinity_local.memory.schemas import PromptNode
+
+        for i in range(4):
+            upsert_prompt_node(PromptNode(
+                id=f"anc_{i}",
+                transcript_id=f"thread_{i}",  # distinct threads
+                provider="claude",
+                source_path=f"/fake/{i}",
+                turn_index=0,
+                text=f"Working on Trinity Local for council {i}.",
+                embedding=[1.0, 0.0] + [0.0] * 6,
+                created_at="2026-05-12T00:00:00Z",
+                following_assistant_text="",
+            ))
+
+        from trinity_local.vocabulary import distill_vocabulary
+        report = distill_vocabulary(min_freq=5, anchor_min_threads=3)
+        assert report["ok"] is True
+        assert report.get("anchors_emitted", 0) >= 1
+        text = (isolated_home / "memories" / "vocabulary.md").read_text()
+        assert "Trinity Local" in text
+        assert "anchors" in text.lower()
+
+    def test_single_thread_recurrence_does_not_anchor(self, isolated_home):
+        """If "Trinity Local" only appears in ONE thread (even 5 times), it
+        must NOT be surfaced as an anchor — recurrence across threads is
+        the load-bearing signal."""
+        from trinity_local.memory import upsert_prompt_node
+        from trinity_local.memory.schemas import PromptNode
+
+        # 5 turns, all same transcript_id
+        for i in range(5):
+            upsert_prompt_node(PromptNode(
+                id=f"single_{i}",
+                transcript_id="one_thread",
+                provider="claude",
+                source_path="/fake",
+                turn_index=i,
+                text=f"Trinity Local task step {i}.",
+                embedding=[1.0, 0.0] + [0.0] * 6,
+                created_at="2026-05-12T00:00:00Z",
+                following_assistant_text="",
+            ))
+
+        from trinity_local.vocabulary import find_anchors
+        from trinity_local.memory.store import iter_prompt_nodes
+        nodes = list(iter_prompt_nodes(limit=None))
+        anchors = find_anchors(nodes, min_threads=3, top_n=10)
+        # "Trinity Local" appears 5 times but in 1 thread — under the gate.
+        assert not any(phrase == "Trinity Local" for phrase, *_ in anchors)
+
+    def test_strips_sentence_start_capital(self):
+        """"The Task" should not anchor — first word is a stopword that
+        happens to start a sentence."""
+        from trinity_local.vocabulary import _extract_proper_phrases
+        phrases = _extract_proper_phrases("The Task is hard. When something happens.")
+        # "Task" alone is fine (after stripping "The"), but "The Task" should not.
+        assert not any(p.startswith("The ") for p in phrases)
+        # "When something" starts with stopword — should be filtered entirely
+        # (no capital word after "When").
+        assert "When" not in phrases
 
 
 class TestVocabularyPath:

@@ -88,23 +88,32 @@ def iter_turn_pairs(limit: int | None = None):
     nodes = list(iter_prompt_nodes(limit=None))
     yielded = 0
     for i, node in enumerate(nodes):
-        assistant = (node.preceding_assistant_text or "").strip()
         user = (node.text or "").strip()
-        if not assistant or not user:
+        if not user:
             continue
-        # Best-effort next-user-turn lookup. `following_assistant_text` is
-        # the model's response to the current user turn; the user's next
-        # turn isn't directly stored, but if the next PromptNode is from
-        # the same transcript and the current node's `following_assistant_text`
-        # roughly matches its `preceding_assistant_text`, we can chain.
+        # Per-transcript fallback: claude_code transcripts have ~10%
+        # preceding_assistant coverage but 73% following coverage — the
+        # ingest path populates `following_assistant_text` on each node
+        # but skipped `preceding_assistant_text` on the next-turn node.
+        # When the current node lacks preceding, look back at the prior
+        # node in the same transcript and use its `following_assistant_text`.
+        # Lifts coverage from 37% → ~80% across providers.
+        assistant = (node.preceding_assistant_text or "").strip()
+        if not assistant and i > 0:
+            prev = nodes[i - 1]
+            if getattr(prev, "transcript_id", None) == getattr(node, "transcript_id", None):
+                assistant = (prev.following_assistant_text or "").strip()
+        if not assistant:
+            continue
+        # Best-effort next-user-turn lookup. Same per-transcript shape.
         next_user = ""
         if i + 1 < len(nodes):
             cand = nodes[i + 1]
-            if (
-                getattr(cand, "transcript_id", None) == getattr(node, "transcript_id", None)
-                and (cand.preceding_assistant_text or "").strip() == (node.following_assistant_text or "").strip()
-            ):
-                next_user = (cand.text or "").strip()
+            if getattr(cand, "transcript_id", None) == getattr(node, "transcript_id", None):
+                cand_pred = (cand.preceding_assistant_text or "").strip()
+                following = (node.following_assistant_text or "").strip()
+                if cand_pred == following or (following and not cand_pred):
+                    next_user = (cand.text or "").strip()
         yield (assistant, user, node.id, next_user)
         yielded += 1
         if limit is not None and yielded >= limit:

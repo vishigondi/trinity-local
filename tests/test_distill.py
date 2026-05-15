@@ -1,9 +1,11 @@
 """Tests for `trinity-local distill` — Phase 5 of dream.
 
-Distill reads the five plural core memories (lens, picks, routing, topics,
-vocabulary) under ~/.trinity/memories/ and writes a single paragraph to
-~/.trinity/core.md. The chairman reads core.md FIRST on every council; this
-test suite pins the contract.
+Distill reads the three thinking core memories (lens, topics, vocabulary)
+under ~/.trinity/memories/ and writes a single paragraph to ~/.trinity/core.md.
+picks.json and routing.json are model-selection memories (a scoreboard, not
+cognitive shape) and are intentionally excluded from the distillation. The
+chairman reads core.md FIRST on every council; this test suite pins the
+contract.
 """
 from __future__ import annotations
 
@@ -43,24 +45,32 @@ class TestDistillSkipsWhenNoMemories:
 
 
 class TestDistillPromptComposition:
-    def test_prompt_includes_each_present_memory(self, isolated_home):
-        """build_distill_prompt() must reflect every memory file that
-        exists on disk and skip the ones that don't."""
+    def test_prompt_includes_each_present_thinking_memory(self, isolated_home):
+        """build_distill_prompt() must reflect every THINKING memory file
+        that exists on disk and skip the ones that don't. picks/routing are
+        model-selection memories — they're excluded even when present."""
         from trinity_local.distill import build_distill_prompt
-        from trinity_local.state_paths import lens_path, picks_path
+        from trinity_local.state_paths import (
+            lens_path, picks_path, routing_path, vocabulary_path,
+        )
 
         _seed_memory(lens_path(), "# Lens\n→ leverage over ownership.\n")
+        _seed_memory(vocabulary_path(), "# Vocabulary\n- `leverage`: 42 uses\n")
+        # picks/routing seeded but MUST NOT appear in the prompt.
         _seed_memory(picks_path(), json.dumps({"system_design": {"primary": "codex"}}))
+        _seed_memory(routing_path(), json.dumps({"coding": {"claude": 0.9}}))
 
         prompt = build_distill_prompt()
 
         assert "LENS" in prompt
         assert "leverage over ownership" in prompt
-        assert "PICKS" in prompt
-        assert "codex" in prompt
-        # Memories not present should NOT be advertised in the prompt.
-        assert "ROUTING" not in prompt  # routing.json not seeded
-        assert "VOCABULARY" not in prompt
+        assert "VOCABULARY" in prompt
+        # Model-selection memories: excluded by design (not cognitive shape).
+        assert "PICKS" not in prompt
+        assert "ROUTING" not in prompt
+        assert "codex" not in prompt
+        # Topics not seeded — must not appear.
+        assert "TOPICS" not in prompt
 
     def test_prompt_asks_for_second_person_paragraph(self, isolated_home):
         """The chairman should be instructed to write in second person ('You

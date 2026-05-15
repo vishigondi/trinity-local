@@ -3,15 +3,20 @@
 Reads ~/.trinity/memory/prompt_nodes.jsonl and emits
 ~/.trinity/memories/vocabulary.md — the user's terminology overlay.
 
-Two flavors of overload detected geometrically (no LLM call):
+Three flavors of distinctive terminology surfaced (no LLM call):
 
-1. **Homonyms** (one word → two meanings): tokens whose context-embedding
+1. **Anchors** (proper-noun recurrence): capitalized multi-word entities the
+   user names across ≥3 distinct conversation threads. Pure regex + thread
+   count; surfaces the projects/people/products that thread through the
+   user's thinking but get stopword-stripped by the lowercase tokenizer.
+
+2. **Homonyms** (one word → two meanings): tokens whose context-embedding
    distribution spreads across multiple regions of embedding space. Detected
    by the variance ratio between two clusters of the token's prompt
    embeddings — a high split-variance ratio signals the same token sitting in
    two semantic contexts.
 
-2. **Synonyms** (two words → one meaning): pairs of distinct tokens whose
+3. **Synonyms** (two words → one meaning): pairs of distinct tokens whose
    mean context embeddings are cosine-similar above threshold. Each token's
    "mean context" is the centroid of every prompt embedding the token appears
    in. Near-identical centroids → the words are used in the same semantic
@@ -22,7 +27,7 @@ prior) applied to the user's own terminology. Pure numpy; no chairman call;
 runs ~1s on a 5k-prompt index.
 
 Output schema is markdown, intentionally human-legible — chairman reads
-vocabulary.md as one of the five plural core memories before synthesizing.
+vocabulary.md as one of the three thinking core memories before synthesizing.
 """
 from __future__ import annotations
 
@@ -39,6 +44,8 @@ from .embeddings import is_finite_embedding
 DEFAULT_MIN_FREQ = 5
 DEFAULT_TOP_HOMONYMS = 10
 DEFAULT_TOP_SYNONYMS = 10
+DEFAULT_TOP_ANCHORS = 15
+DEFAULT_ANCHOR_MIN_THREADS = 3
 DEFAULT_SYNONYM_COSINE_THRESHOLD = 0.92
 
 # Stopwords kept tight — only words a developer would reflexively skip,
@@ -56,9 +63,84 @@ _STOPWORDS = frozenset(
 
 _TOKEN_RX = re.compile(r"[a-zA-Z][a-zA-Z_-]{2,}")  # 3+ chars, alpha/_/-, alpha start
 
+# Anchors: capitalized words optionally chained with internal lowercase + hyphens
+# (Trinity, GitHub, Sakana TRINITY, Claude Code). The runs of single capitalized
+# tokens are merged at extraction time when adjacent in source text.
+_PROPER_TOKEN_RX = re.compile(r"\b([A-Z][a-zA-Z][a-zA-Z0-9_-]*(?:\s+[A-Z][a-zA-Z][a-zA-Z0-9_-]*){0,3})\b")
+
+# Words common at sentence start that aren't real anchors — filtered out
+# because they always capitalize but rarely refer to entities.
+_ANCHOR_BLACKLIST = frozenset({
+    "the", "this", "that", "these", "those", "there", "here",
+    "what", "when", "where", "which", "who", "why", "how",
+    "i", "you", "we", "they", "he", "she", "it", "my", "your",
+    "but", "and", "or", "so", "if", "yes", "no", "not",
+    "can", "could", "would", "should", "will", "may", "might",
+    "is", "are", "was", "were", "be", "been", "being",
+    "do", "does", "did", "have", "has", "had",
+    "ok", "okay", "well", "now", "then", "just", "let", "lets",
+})
+
 
 def _tokenize(text: str) -> list[str]:
     return [t.lower() for t in _TOKEN_RX.findall(text or "") if t.lower() not in _STOPWORDS]
+
+
+def _extract_proper_phrases(text: str) -> list[str]:
+    """Pull capitalized multi-word entity candidates from text.
+
+    Lowercases the first word against the blacklist (catches "The …" /
+    "When …" sentence starts that wear capital letters but aren't anchors).
+    Returns the raw matched phrases — caller decides what counts.
+    """
+    out: list[str] = []
+    if not text:
+        return out
+    for raw in _PROPER_TOKEN_RX.findall(text):
+        phrase = raw.strip()
+        if not phrase:
+            continue
+        first = phrase.split()[0].lower()
+        if first in _ANCHOR_BLACKLIST:
+            # Strip a sentence-start blacklisted word; keep rest only if it
+            # still has ≥1 capitalized token left.
+            rest = phrase.split(maxsplit=1)
+            if len(rest) < 2:
+                continue
+            phrase = rest[1]
+        out.append(phrase)
+    return out
+
+
+def find_anchors(
+    nodes: Iterable, *, min_threads: int, top_n: int,
+) -> list[tuple[str, int, int]]:
+    """Rank proper-noun phrases by distinct-thread count.
+
+    Returns [(phrase, n_threads, n_mentions), ...] descending by thread
+    recurrence then mention count. Filters to phrases appearing in
+    ≥ min_threads distinct transcripts — the recurrence signal is what
+    makes a token an anchor instead of a one-off proper noun.
+    """
+    # phrase → {transcript_ids}, mention count
+    threads: dict[str, set] = defaultdict(set)
+    mentions: dict[str, int] = defaultdict(int)
+    for node in nodes:
+        text = getattr(node, "text", "") or ""
+        tid = getattr(node, "transcript_id", None) or getattr(node, "id", None)
+        for phrase in _extract_proper_phrases(text):
+            threads[phrase].add(tid)
+            mentions[phrase] += 1
+    ranked = [
+        (phrase, len(tids), mentions[phrase])
+        for phrase, tids in threads.items()
+        if len(tids) >= min_threads
+    ]
+    # Sort by (thread recurrence DESC, mention count DESC). Recurrence first
+    # because "appeared in 8 different conversations" is the load-bearing
+    # signal — anchors are projects/people, not single-thread mentions.
+    ranked.sort(key=lambda r: (-r[1], -r[2]))
+    return ranked[:top_n]
 
 
 def _l2_normalize(vec):
@@ -221,21 +303,35 @@ def find_synonyms(
 def render_vocabulary_md(
     *, homonyms: list[tuple[str, float, int]],
     synonyms: list[tuple[str, str, float, int, int]],
+    anchors: list[tuple[str, int, int]],
     corpus_size: int,
 ) -> str:
-    """Compose the markdown output. Chairman reads it as one of the five
-    plural core memories — keep it human-legible, no JSON dump."""
+    """Compose the markdown output. Chairman reads it as one of the three
+    thinking core memories — keep it human-legible, no JSON dump."""
     lines = [
         "# Your vocabulary",
         "",
-        "*Pure-geometric scan of your prompt corpus. Two flavors of terminology",
-        "overload, surfaced as one of your five core memories.*",
+        "*Pure-geometric scan of your prompt corpus. Three views of distinctive",
+        "terminology — anchors, homonyms, synonyms — surfaced as one of your",
+        "three thinking core memories.*",
         "",
-        f"_Scanned {corpus_size} prompts. Tokens require ≥5 occurrences to qualify._",
+        f"_Scanned {corpus_size} prompts. Tokens require ≥5 occurrences; anchors require ≥3 distinct threads._",
         "",
-        "## Homonyms — one word, multiple meanings",
+        "## Anchors — proper nouns you return to across threads",
         "",
     ]
+    if anchors:
+        lines.append("Projects, people, products, and named ideas that recur across distinct conversations. Each row: anchor, distinct threads, total mentions.")
+        lines.append("")
+        lines.append("| anchor | threads | mentions |")
+        lines.append("|---|---|---|")
+        for phrase, n_threads, n_mentions in anchors:
+            lines.append(f"| {phrase} | {n_threads} | {n_mentions} |")
+    else:
+        lines.append("_(none yet — no capitalized phrase recurs across enough distinct threads)_")
+    lines.append("")
+    lines.append("## Homonyms — one word, multiple meanings")
+    lines.append("")
     if homonyms:
         lines.append("Words you use across distinct semantic contexts. Each row: token, bimodality score (0–1), times used.")
         lines.append("")
@@ -266,6 +362,8 @@ def distill_vocabulary(
     min_freq: int = DEFAULT_MIN_FREQ,
     top_homonyms: int = DEFAULT_TOP_HOMONYMS,
     top_synonyms: int = DEFAULT_TOP_SYNONYMS,
+    top_anchors: int = DEFAULT_TOP_ANCHORS,
+    anchor_min_threads: int = DEFAULT_ANCHOR_MIN_THREADS,
     synonym_threshold: float = DEFAULT_SYNONYM_COSINE_THRESHOLD,
 ) -> dict:
     """End-to-end Phase 2.5: scan corpus → emit vocabulary.md.
@@ -292,16 +390,22 @@ def distill_vocabulary(
         }
 
     contexts = _gather_token_contexts(nodes_with_emb, min_freq=min_freq)
-    if not contexts:
+    # Anchors run on the FULL node set (not just embedded ones) — proper-noun
+    # recurrence is pure-text and benefits from every transcript we have.
+    # Doesn't share the embedding/min_freq gate; can surface signal even when
+    # the corpus is too sparse for k=2 silhouette to be meaningful.
+    anchors = find_anchors(nodes, min_threads=anchor_min_threads, top_n=top_anchors)
+    if not contexts and not anchors:
         return {
             "ok": False, "skipped": True,
-            "reason": f"no tokens meet min_freq={min_freq}; corpus too small or too sparse",
+            "reason": f"no tokens meet min_freq={min_freq} and no anchors meet min_threads={anchor_min_threads}; corpus too small or too sparse",
         }
 
-    homonyms = find_homonyms(contexts, top_n=top_homonyms)
-    synonyms = find_synonyms(contexts, top_n=top_synonyms, threshold=synonym_threshold)
+    homonyms = find_homonyms(contexts, top_n=top_homonyms) if contexts else []
+    synonyms = find_synonyms(contexts, top_n=top_synonyms, threshold=synonym_threshold) if contexts else []
     md = render_vocabulary_md(
-        homonyms=homonyms, synonyms=synonyms, corpus_size=len(nodes_with_emb),
+        homonyms=homonyms, synonyms=synonyms, anchors=anchors,
+        corpus_size=len(nodes_with_emb),
     )
     path = vocabulary_path()
     path.write_text(md, encoding="utf-8")
@@ -310,6 +414,7 @@ def distill_vocabulary(
         "path": str(path),
         "corpus_size": len(nodes_with_emb),
         "tokens_scanned": len(contexts),
+        "anchors_emitted": len(anchors),
         "homonyms_emitted": len(homonyms),
         "synonyms_emitted": len(synonyms),
     }
