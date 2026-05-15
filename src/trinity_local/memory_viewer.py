@@ -33,18 +33,25 @@ from .state_paths import (
 # file contents into the inlined JS payload) and by the client-side JS
 # (to validate the ?file= param against a known set).
 ALLOWED_FILES: list[dict[str, str]] = [
+    # The four THINKING memories — what dream creates from your prompt
+    # corpus, what the chairman reads as identity context on every
+    # council. Ordered as the chairman reads them (top-down, drill-only-
+    # when-needed): manifesto → tensions → basins → language.
+    {"name": "core.md", "brain": "identity (distilled)",
+     "tagline": "One-paragraph manifesto subsuming the three thinking memories. Chairman reads this FIRST on every council."},
     {"name": "lens.md", "brain": "value memory",
-     "tagline": "Tensions you'd reject vs accept. Written by lens-build."},
-    {"name": "picks.json", "brain": "procedural memory",
-     "tagline": "Model picks per topic with reasoning. Written by consolidate."},
-    {"name": "routing.json", "brain": "empirical memory",
-     "tagline": "Per-category provider track record. Computed from council outcomes."},
+     "tagline": "Paired tensions you'd reject vs accept. Written by lens-build."},
     {"name": "topics.json", "brain": "semantic memory",
-     "tagline": "K-means clusters of subjects you ask about. Written by lens-build Stage 1."},
-    {"name": "vocabulary.md", "brain": "language memory",
-     "tagline": "Phrases you keep using + your overloaded terms. Written by dream Phase 2.5."},
-    {"name": "core.md", "brain": "identity",
-     "tagline": "One-paragraph distillation. Chairman reads this FIRST on every council."},
+     "tagline": "Subject basins + evidence map for lens. Written by lens-build Stage 1."},
+    {"name": "vocabulary.md", "brain": "linguistic memory",
+     "tagline": "Anchors (proper nouns) + homonyms + synonyms. Written by dream Phase 2.5."},
+    # The two OPERATIONAL scoreboards — derived from your council
+    # outcomes (the verdicts you log) and read by the chairman picker.
+    # Not cognitive memory, not part of the lens distillation.
+    {"name": "picks.json", "brain": "scoreboard (operational)",
+     "tagline": "Extracted model-selection rules per task_type. Written by consolidate; read by ask + chairman picker."},
+    {"name": "routing.json", "brain": "scoreboard (operational)",
+     "tagline": "Per-task-type provider track record. Computed from council outcomes; read by route + launchpad."},
 ]
 
 

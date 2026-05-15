@@ -1533,9 +1533,9 @@ trinity-local eval-run --target gemini</code></pre>
             <span v-else>Save as PNG card</span>
           </button>
           <!-- Cross-memory link: lens card preview → full lens.md viewer.
-               The "Your memories, raw" chip card below links to the same
-               place, but a user reading the lens preview here shouldn't
-               have to scroll down to find that chip. Closes the gap. -->
+               The "Your lens" chip card below also links to the same place,
+               but a user reading the lens preview here shouldn't have to
+               scroll down to find that chip. Closes the gap. -->
           <a class="button ghost taste-share-btn" href="../portal_pages/memory.html?file=lens.md" style="margin-left: 8px; text-decoration: none;">
             View full lens →
           </a>
@@ -1558,42 +1558,35 @@ trinity-local eval-run --target gemini</code></pre>
       </section>
 
       <section class="card">
-        <div class="eyebrow">Your memories, raw</div>
-        <h2>Inspect what dream wrote about you</h2>
+        <div class="eyebrow">Your lens</div>
+        <h2>The four files that compose your cognitive memory</h2>
         <p class="meta">
-          Six files Trinity stores under <code>~/.trinity/memories/</code> (plus <code>core.md</code>).
-          The chairman reads these on every council; you can hand-edit any of them.
+          One artifact, four levels — read top-down by the chairman on every
+          council. <code>picks.json</code> and <code>routing.json</code> are
+          operational scoreboards (model-selection bookkeeping derived from
+          your verdicts) and surface on the routing card above; they're not
+          part of the lens.
         </p>
-        <div class="memory-links" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 16px;">
+        <div class="memory-links" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 16px;">
+          <a class="memory-chip" href="../portal_pages/memory.html?file=core.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">core.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">identity · manifesto paragraph</span>
+          </a>
           <a class="memory-chip" href="../portal_pages/memory.html?file=lens.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">lens.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">value memory</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=picks.json"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">picks.json</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">procedural memory</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=routing.json"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">routing.json</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">empirical memory</span>
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">lens.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">value · paired tensions</span>
           </a>
           <a class="memory-chip" href="../portal_pages/memory.html?file=topics.json"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">topics.json</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">semantic memory</span>
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">topics.json</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">semantic · basins + evidence map</span>
           </a>
           <a class="memory-chip" href="../portal_pages/memory.html?file=vocabulary.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">vocabulary.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">language memory</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=core.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border, #e5e5e0); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent, #6366f1); font-size: 13px;">core.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">identity (distilled)</span>
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">vocabulary.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">linguistic · anchors / homonyms / synonyms</span>
           </a>
         </div>
       </section>
