@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 trinity-local = "trinity_local.main:main"
+trinity-local-capture-host = "trinity_local.capture_host:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

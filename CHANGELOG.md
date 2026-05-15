@@ -3,6 +3,80 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 week 1 — browser capture scaffold] — 2026-05-14 (post-launch)
+
+First tick of the v1.6 (browser-side conversation capture) ship plan
+from `docs/spec-v1.6.md`. Days 1-3 of the 2-week sprint, shipped as one
+tick.
+
+### Browser extension scaffold (Day 1-2)
+
+New `browser-extension/` directory (separate from `src/trinity_local/`
+because it ships to Chrome Web Store, not bundled with the pip wheel):
+
+- `manifest.json` — MV3, Chrome 111+. Two `content_scripts` entries
+  (ISOLATED + MAIN worlds) avoid the runtime `executeScript` dance
+  for page-hook injection. Host permissions: claude.ai, chatgpt.com,
+  chat.openai.com, gemini.google.com.
+- `page-hook.js` (MAIN world) — wraps `window.fetch` and tees
+  streamed response bodies. **Uses `fetch()` + `response.clone()`,
+  NOT EventSource** per the spec-v1.6 validation log (EventSource is
+  GET-only; provider completion endpoints are POST). Classifies each
+  request by host+path against PROVIDER_PATTERNS, emits captured
+  payloads via `window.postMessage` to the isolated content script.
+- `content-script.js` (ISOLATED world) — bridges postMessage events
+  to `chrome.runtime.sendMessage`. Filters by `source === "trinity-
+  hook"` since both target sites use postMessage internally.
+- `background.js` (service worker) — receives captured payloads and
+  forwards to the native messaging host via
+  `chrome.runtime.connectNative("local.trinity.capture")`.
+
+### Native messaging host (Day 3)
+
+- `src/trinity_local/capture_host.py` (~120 LOC). Reads the Chrome
+  stdio wire protocol (4-byte little-endian length + UTF-8 JSON),
+  classifies payloads as canonical (full conversation tree from
+  `/chat_conversations/<id>`) or stream (raw SSE body), writes
+  atomically via `tmp.replace(target)` to
+  `~/.trinity/conversations/<provider>/<conv_id>.json`. **No imports
+  of networking modules** — enforced by
+  `tests/test_capture_host_no_network.py` (the "no outbound network
+  from the host" invariant).
+- `trinity-local-capture-host` console script registered in
+  `pyproject.toml` so Chrome can spawn it by name.
+
+### Install bridge (Day 4 first pass)
+
+- `trinity-local install-extension --extension-id <id>` writes
+  Chrome's Native Messaging manifest to
+  `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/
+  local.trinity.capture.json` (macOS) or `~/.config/google-chrome/...`
+  (Linux). The `allowed_origins` field gates which extension can
+  invoke the host — security primitive enforced by Chrome itself.
+  CLI prints the load-unpacked next-steps when called without an ID.
+
+### Tests + regression guards (+4)
+
+- `tests/test_capture_host_no_network.py` — AST scanner; banned
+  imports = `{requests, httpx, aiohttp, urllib3, socket, ssl, http,
+  urllib}`. Pin for the "your data, your machine" invariant.
+- `tests/test_capture_host_stdio.py` — 3 round-trip cases through
+  the actual subprocess: canonical payload (claude.ai shape with
+  `chat_messages`), stream payload (chatgpt.com SSE body, keyed by
+  URL hash), unrecognized payload (host errors but stays alive for
+  the next message).
+
+Test suite: **1068 → 1072 passing** (+4).
+
+### What's NOT shipped this tick (Day 4 finish + Day 5)
+
+- Manual Chrome "Load Unpacked" + `install-extension --extension-id`
+  with a real ID — needs Chrome UI interaction; next tick.
+- `claude.js` adapter normalizing Anthropic's SSE delta format —
+  current scaffold logs raw stream bodies; Day-5 work.
+- Launchpad Surface 33 ("Browser capture · last 24h") — Week 2 per
+  the spec timeline.
+
 ## [v1.0 ship window — day 2 launch-arc workstreams] — 2026-05-14
 
 Three launch-arc workstream ticks shipped: the killer-hook handoff

@@ -1,4 +1,4 @@
-"""Handlers for install-mcp, install-hooks."""
+"""Handlers for install-mcp, install-app, install-hooks."""
 from __future__ import annotations
 
 import json
@@ -7,15 +7,41 @@ import sys
 from importlib import resources
 from pathlib import Path
 
+from ..launchpad_install import install_launchpad_shortcuts
+from ..refresh import refresh_launchpad
+
 
 def register(subparsers):
     imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, and Codex CLI")
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
     imp.set_defaults(handler=handle_install_mcp)
 
+    iap = subparsers.add_parser("install-app", help="Install the Trinity desktop launcher app")
+    iap.add_argument(
+        "--destination",
+        action="append",
+        default=None,
+        help="Directory to install Trinity.app into; repeat for multiple destinations. Defaults to Applications when writable plus Desktop.",
+    )
+    iap.set_defaults(handler=handle_install_app)
+
     ihp = subparsers.add_parser("install-hooks", help="Install Trinity Stop hook (calls watch-once after each Claude turn)")
     ihp.add_argument("--path", default=".", help="Project directory to install hooks into")
     ihp.set_defaults(handler=handle_install_hooks)
+
+    iep = subparsers.add_parser(
+        "install-extension",
+        help="Write Chrome's Native Messaging manifest so the Trinity browser extension can spawn the local capture host",
+    )
+    iep.add_argument(
+        "--extension-id",
+        help="Chrome-assigned extension ID (the long hash from chrome://extensions). Required on first install; cached afterwards.",
+    )
+    iep.add_argument(
+        "--host-path",
+        help="Path to the trinity-local-capture-host binary. Defaults to the one resolved via shutil.which().",
+    )
+    iep.set_defaults(handler=handle_install_extension)
 
 
 def handle_install_mcp(args):
@@ -51,6 +77,21 @@ def handle_install_mcp(args):
         print(f"✓ Installed Trinity MCP server to: {', '.join(written)}")
     else:
         print("No MCP configuration files were updated.")
+
+
+def handle_install_app(args):
+    launchpad_path = refresh_launchpad()
+    destinations = None
+    if args.destination:
+        destinations = [Path(raw).expanduser() for raw in args.destination]
+    app_paths = install_launchpad_shortcuts(
+        launchpad_path=launchpad_path,
+        destinations=destinations,
+    )
+    print(json.dumps({
+        "launchpad_path": str(launchpad_path),
+        "app_paths": [str(path) for path in app_paths],
+    }, indent=2))
 
 
 def _install_trinity_skill() -> str | None:
@@ -228,3 +269,72 @@ def handle_install_hooks(args):
             print(f"Error writing to {settings_path}: {exc}")
     else:
         print(f"Hooks already present in {settings_path}")
+
+
+def _native_messaging_dir() -> Path:
+    """Chrome's per-user NativeMessagingHosts directory for the current OS."""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Google" / "Chrome" / "NativeMessagingHosts"
+    if sys.platform.startswith("linux"):
+        return Path.home() / ".config" / "google-chrome" / "NativeMessagingHosts"
+    raise SystemExit(
+        f"install-extension: unsupported platform {sys.platform!r}. v1.6 ships macOS first; "
+        "Linux works (same Native Messaging protocol) but path resolution is unverified."
+    )
+
+
+def handle_install_extension(args):
+    import shutil
+
+    extension_id = getattr(args, "extension_id", None)
+    host_path = getattr(args, "host_path", None) or shutil.which("trinity-local-capture-host")
+
+    if not host_path:
+        print(
+            "error: could not locate trinity-local-capture-host on PATH. "
+            "Reinstall the wheel (pip install -e .) so the console script lands, "
+            "or pass --host-path /full/path/to/trinity-local-capture-host."
+        )
+        return 1
+
+    if not extension_id:
+        print(
+            "install-extension needs the Chrome-assigned extension ID.\n"
+            "\n"
+            "1. Open chrome://extensions in Chrome and enable Developer mode.\n"
+            "2. Click 'Load unpacked' and select browser-extension/ in this repo.\n"
+            "3. Copy the 32-character ID Chrome assigns to the extension.\n"
+            "4. Rerun: trinity-local install-extension --extension-id <ID>\n"
+            "\n"
+            "(The ID gates which extension can invoke the local capture host. The host "
+            "is otherwise unreachable.)"
+        )
+        return 0
+
+    extension_id = extension_id.strip().lower()
+    if not re.fullmatch(r"[a-p]{32}", extension_id):
+        print(
+            f"error: extension ID {extension_id!r} does not match Chrome's 32-char a-p format. "
+            "Copy it from chrome://extensions next to the Trinity extension."
+        )
+        return 1
+
+    manifest_dir = _native_messaging_dir()
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / "local.trinity.capture.json"
+
+    manifest = {
+        "name": "local.trinity.capture",
+        "description": "Trinity local conversation capture",
+        "path": str(host_path),
+        "type": "stdio",
+        "allowed_origins": [f"chrome-extension://{extension_id}/"],
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    print(f"✓ Wrote {manifest_path}")
+    print(f"  host: {host_path}")
+    print(f"  extension: {extension_id}")
+    print()
+    print("Next: visit claude.ai (or chatgpt.com), send a message, then check")
+    print("      ~/.trinity/conversations/<provider>/ for the captured turn.")
+    return 0
