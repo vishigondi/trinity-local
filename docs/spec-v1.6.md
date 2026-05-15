@@ -12,6 +12,37 @@
 > spend their day. v1.6 fixes that — automatically, with no listening server,
 > no daemon, and no ongoing user action after install.
 
+## Validation log (T-1, 2026-05-14 night)
+
+The provider-specific adapter notes below were validated against
+live network traffic via Chrome DevTools network panel + page-
+context fetch probes. Three findings updated from the initial
+draft:
+
+1. **claude.ai uses `fetch()` + `response.body.getReader()`, NOT
+   `EventSource`.** EventSource is GET-only; the completion
+   endpoint is POST. Live `EventSource` instance count on
+   claude.ai/new = 0. The initial spec said "Hook EventSource (not
+   just fetch)" — that's wrong; hook `fetch` and read the streamed
+   response body. This is the single most important correction.
+2. **Gemini's batchexecute path is `/_/BardChatUi/data/
+   batchexecute`** (full prefix), not just the bare word
+   `batchexecute`. The `rpcids` query parameter selects which
+   internal RPC is being invoked; multiple distinct RPC IDs
+   observed on a single page load.
+3. **Gemini's wire format is Google's RPC-over-JSON envelope**
+   (`f.req=<URL-encoded JSON array>`), not raw protobuf as the
+   initial spec implied. Decoding is array-position based, not
+   protobuf-descriptor based.
+
+claude.ai canonical fetch shape was verified end-to-end (200,
+JSON, `chat_messages` array with `parent_message_uuid` per
+message). chatgpt.com canonical endpoint shape was verified
+(200, JSON, `items/total/limit/offset` envelope on list);
+canonical conversation tree wasn't fully verified because the
+test account had 0 conversations, but the endpoint exists and
+returns the expected envelope.
+
 ## The reframe
 
 v1.0 ships with this gap quietly papered over: the seed-from-taste-terminal
@@ -108,42 +139,95 @@ layer normalizes them into Trinity's existing conversation schema.
 
 ### claude.ai
 
-- **Streaming endpoint:** Server-Sent Events on
-  `/api/organizations/<org>/chat_conversations/<conv_id>/completion`.
-  Hook `EventSource` (NOT just `fetch`); accumulate streamed chunks
-  until the `event: completion` arrives.
+**Validated against live traffic at T-1 (DevTools network panel + page-context probes).**
+
+- **Streaming endpoint:** **POST** to
+  `/api/organizations/<org>/chat_conversations/<conv_id>/completion`
+  with SSE-formatted response body. **Hook `fetch()` and read
+  `response.body.getReader()` — NOT `EventSource`.** EventSource is
+  spec-restricted to GET; the completion endpoint is POST. Verified
+  on a fresh claude.ai/new session: `EventSource` instance count = 0
+  globally; all streaming goes through `fetch()` with a streamed
+  response body. Accumulate streamed `data: ...` chunks until the
+  terminating event arrives.
 - **Canonical state fetch:** the full conversation lives at
-  `/api/organizations/<org>/chat_conversations/<conv_id>` — fetch
-  that after the stream completes for canonical state. Avoids
-  having to reconstruct from streamed deltas.
+  `/api/organizations/<org>/chat_conversations/<conv_id>`. Verified
+  shape (live response, T-1):
+  ```
+  top-level keys: uuid, name, summary, model, created_at,
+    updated_at, settings, is_starred, is_temporary, platform,
+    current_leaf_message_uuid, chat_messages
+  message keys:   uuid, text, sender, index, created_at,
+    updated_at, input_mode, truncated, attachments, files,
+    sync_sources, parent_message_uuid
+  ```
+  Fetch this after the stream completes for canonical state —
+  avoids reconstructing from streamed deltas.
+- **Org-ID discovery:** UUID, surfaces from the bootstrap call at
+  `/edge-api/bootstrap/<org_id>/app_start?...` (first call on page
+  load). Adapter caches the org_id per session.
 - **Stability:** medium. Anthropic's API is the most stable of
   the three but does refactor periodically. Ship a console-log
   fallback so we know within hours if a refactor breaks capture.
 
 ### chatgpt.com
 
+**Validated against live traffic at T-1.**
+
 - **Streaming endpoint:** `POST /backend-api/conversation` with
   SSE response. Wrap `fetch`, capture `data:` events from the
   response stream.
 - **Canonical state fetch:** `GET /backend-api/conversation/<id>`
   returns the conversation tree (branches included). Persist
-  after stream completion.
+  after stream completion. Tree shape uses a `mapping` dict keyed
+  by node id with `current_node` pointer — branching is real, not
+  linear like claude.ai.
+- **Conversation list:** `GET /backend-api/conversations?offset=
+  0&limit=N&order=updated` → `{items: [...], total, limit, offset}`
+  (verified shape; empty list returns `{items: [], total: 0, ...}`
+  without 404, so adapter can poll safely).
 - **Stability:** medium-high. OpenAI's frontend evolves but the
   `/backend-api/conversation` endpoint has been stable for over a
   year as of T-1.
 
 ### gemini.google.com
 
-- **Streaming endpoint:** Google obfuscates response payloads
-  through their internal `batchexecute` protocol. The wire format
-  is protobuf-ish: a base64-wrapped, framed message with
-  positional fields.
+**Validated against live traffic at T-1.**
+
+- **Streaming endpoint:** ALL conversation API calls go through
+  **`POST /_/BardChatUi/data/batchexecute`** (the full path
+  prefix; the bare word "batchexecute" is just one segment of it).
+  Selector is the **`rpcids` query parameter** — different RPC
+  IDs for list/send/respond/etc. Observed RPC IDs on a fresh
+  /app page load: `aPya6c`, `cYRIkd`, `ozz5Z`, `qpEbW`, `o30O0e`,
+  `K4WWud`, `CNgdBe`, `ku4Jyf`. Each adapter version pins the
+  current RPC IDs to operations.
+- **Other query params**: `f.sid` (session id), `_reqid`
+  (incrementing request counter), `bl` (build label like
+  `boq_assistant-bard-web-server_20260511.16_p8` — used to detect
+  frontend version changes; treat as an upgrade signal).
+- **Wire format:** the request body uses Google's RPC-over-HTTP
+  envelope (`f.req=<URL-encoded JSON array>` form-encoded). It's
+  NOT raw protobuf — it's structured JSON arrays with positional
+  fields wrapped in metadata. Decoder needs to walk the array
+  structure per RPC. The earlier "protobuf-ish" framing was
+  imprecise.
 - **Capture approach:** intercept both request and response;
-  decode the wire format. Likely needs reverse-engineering each
-  Gemini frontend revision.
+  decode by RPC-ID → operation map. The `bl` build label
+  rotating means the adapter needs a fallback "log unknown
+  rpcids" path so we know within hours when Google ships a new
+  frontend that introduces new RPCs.
 - **Stability:** low. Plan for the most fragility here.
   **Ship this adapter LAST** — get claude.ai and chatgpt.com
   shipping value before fighting Google's protocol.
+
+**Gemini's structural difference matters for capture:** unlike
+claude.ai (clean REST) and chatgpt.com (clean REST), Gemini's
+streaming API is essentially Google's internal RPC framework
+exposed through a URL. Every call is opaque to a HAR-based debugger
+unless the adapter knows which RPC ID maps to which operation. This
+is why it's higher fragility AND why exporting Gemini conversations
+through any third-party tool is structurally harder.
 
 ## The Manifest V3 detail nobody mentions
 
