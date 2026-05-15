@@ -40,7 +40,7 @@ Anthropic just ship this?*
 The brand axis splits cleanly into three load-bearing words:
 - **prompts** — what you own (raw, today scattered across browser tabs)
 - **dream** — the verb only Trinity has (synthesizes prompts → core memories, offline, your data)
-- **core memories** — what dream creates (the five plural files + `core.md`, all under `~/.trinity/memories/`; see the five-plural-plus-core mapping in claude.md)
+- **core memories** — what dream creates: a four-level lens hierarchy (`core.md` → `lens.md` → `topics.json` → `vocabulary.md`). Cognitive shape — what you think and how. The three thinking files live under `~/.trinity/memories/`; `core.md` is the distillation at `~/.trinity/core.md`. Model-selection scoreboards (`picks.json`, `routing.json`) live separately under `~/.trinity/scoreboard/` — operational bookkeeping, not cognition. See the lens-hierarchy mapping in claude.md.
 
 Three concrete pains underneath, each with a direct Trinity answer:
 
@@ -124,13 +124,14 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 │   ├── prompt_nodes.jsonl    ←   (was `memory/`; renamed per brand axis: prompts vs memories)
 │   ├── turn_windows.jsonl
 │   └── embeddings_matrix.npy ← numpy matmul fast-path; FAISS-compatible interface
-├── memories/                 ← five plural core memories (OUTPUT of dream)
-│   ├── lens.md               ← value memory — paired tensions
-│   ├── picks.json            ← procedural memory — model picks per topic
-│   ├── routing.json          ← empirical memory — provider track record
-│   ├── topics.json           ← semantic memory — subject clusters
-│   └── vocabulary.md         ← language memory — how you use words
-├── core.md                   ← singular distillation; chairman reads this first
+├── memories/                 ← three thinking memories (cognitive shape, OUTPUT of dream)
+│   ├── lens.md               ← value — paired tensions you'd reject vs accept
+│   ├── topics.json           ← semantic — subject clusters + evidence map for lens
+│   └── vocabulary.md         ← linguistic — anchors + homonyms + synonyms
+├── core.md                   ← singular distillation of the three above; chairman reads first
+├── scoreboard/               ← operational scoreboards (NOT cognitive memory)
+│   ├── picks.json            ← extracted model-selection rules per task_type
+│   └── routing.json          ← per-task-type provider track record
 ├── me/                       ← lens-discovery intermediate output
 │   ├── lenses.json
 │   ├── orderings.json
@@ -243,7 +244,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 
 **Lands in v1.5:**
 - **MCP-primary surface** — three-tier tools (`ask` cheap / `compare` medium / `plan_and_execute` expensive). Claude Code calls Trinity as a specialist consult.
-- **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/memories/picks.json`. The cognitive consolidation step the brain does during sleep. Hippocampus (kNN) + Cortex (rules) two-tier memory.
+- **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/scoreboard/picks.json`. Operational scoreboard the chairman picker reads; not a cognitive memory. Hippocampus (kNN) + Cortex (rules) two-tier picker pipeline.
 - **Local model dispatch** — Ollama + MLX added to the dispatch layer. Local routes for easy subtasks = zero subscription cost.
 - **Rate-limit handling + Conductor replan** — when Claude's own sub hits its limit, Trinity continues your work via Codex/Gemini/local. The cross-provider rate-limit-dodge is the killer flow.
 - **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) does Sakana's three-role planning with cortex context. No training required.

@@ -34,7 +34,7 @@ agents' memory, evals, and orchestration"*). Anthropic's stack:
 
 | Anthropic feature | Trinity equivalent | What's different |
 |---|---|---|
-| **Dreaming** — agents consolidate past sessions into reusable lessons | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes | Hosted on Anthropic infra vs. runs on your own subscription; single-provider vs. across Claude/GPT/Gemini; memory lives in Anthropic's storage vs. `~/.trinity/memories/picks.json` |
+| **Dreaming** — agents consolidate past sessions into reusable lessons | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes | Hosted on Anthropic infra vs. runs on your own subscription; single-provider vs. across Claude/GPT/Gemini; memory lives in Anthropic's storage vs. `~/.trinity/scoreboard/picks.json` |
 | **Outcomes** — rubric-graded eval by a separate grader agent | **Lens** — pair-wise tension evaluation in a separate context | Anthropic-grader vs. user-taste-derived lens from `memories/lens.md` |
 | **Multi-Agent Orchestration (MAO)** — specialist sub-agents with independent contexts | **Council** — Claude, GPT, Gemini in parallel, chairman synthesizes | Same-lab specialists vs. cross-lab council; Anthropic-owned vs. your-subs-owned |
 
@@ -108,9 +108,9 @@ TIER 1 — Hippocampus (episodic, fast write, slow recall)
 └── ~/.trinity/council_outcomes/*.json         v1 — individual council decisions
 
 TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
-├── ~/.trinity/memories/topics.json                  v1 — task-type clusters
-├── ~/.trinity/memories/lens.md                  v1 — taste tensions
-├── ~/.trinity/memories/picks.json    NEW — routing rules per basin
+├── ~/.trinity/memories/topics.json                  v1 — task-type clusters (cognitive: lens evidence map)
+├── ~/.trinity/memories/lens.md                      v1 — taste tensions (cognitive)
+├── ~/.trinity/scoreboard/picks.json    NEW — extracted model-selection rules per task_type (operational)
 ├── ~/.trinity/cortex/failure_modes.json       NEW — per-model failure patterns
 └── ~/.trinity/cortex/successful_prompts.json  NEW — per-model good-prompt templates
 ```
@@ -140,7 +140,7 @@ For each basin in ~/.trinity/memories/topics.json:
     3. Failure modes per losing provider (when they lose, HOW do they fail?)
     4. Successful prompt-shape patterns per winning provider
     5. Evidence decay: weight recent over old
-  Write rule to ~/.trinity/memories/picks.json keyed by basin_id
+  Write rule to ~/.trinity/scoreboard/picks.json keyed by basin_id
 ```
 
 **Triggers:**
@@ -693,7 +693,7 @@ Anonymous taste topology that no provider can collect themselves.
 
 **Week 2 — Cortex consolidation (offline only)**
 - `trinity-local consolidate` CLI command + flagship-call extraction
-- `~/.trinity/memories/picks.json` schema (write only — not yet read by `ask`)
+- `~/.trinity/scoreboard/picks.json` schema (write only — not yet read by `ask`)
 - 6-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence / audit_score. Plus a multiplicative `effective_trust = trust * 0.5^override_count` layered on top for user vetoes.
 - Model-checkpoint detection via `model_detector.py` deltas → version-shift decay
 - Evidence citations required; consolidator MUST cite council IDs per rule

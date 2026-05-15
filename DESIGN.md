@@ -278,7 +278,12 @@ Live council, council review, and memory viewer all conform.
 ## Memory Viewer Guidance
 
 The memory viewer (`~/.trinity/portal_pages/memory.html`) is the canonical
-hand-inspection surface for the six core memories. Conventions:
+hand-inspection surface for your lens — one page that renders the four
+levels of the cognitive hierarchy (`core.md` manifesto → `lens.md`
+tensions → `topics.json` basins → `vocabulary.md` anchors/homonyms/
+synonyms). Operational scoreboards (`scoreboard/picks.json`,
+`scoreboard/routing.json`) surface elsewhere on the launchpad — not in
+this cognitive page. Conventions:
 
 - **Two-column shell**: 240 px nav of memory chips on the left, content
   on the right. Active memory tinted with `rgba(37, 88, 71, 0.10)`

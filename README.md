@@ -61,29 +61,36 @@ them has to.
 
 ### Dream your core memories.
 
-`trinity-local dream` synthesizes your prompts into **six pieces of memory** only you
-can see. Each is a different kind of memory; each lives in `~/.trinity/memories/`:
+`trinity-local dream` synthesizes your prompts into **your lens** — one
+hierarchical artifact the chairman reads top-down on every council. Four
+levels of cognitive shape, generated bottom-up from your prompt corpus:
 
-| memory | what's in it | brain analog |
-|---|---|---|
-| `lens.md` | tensions you'd reject vs accept | value memory |
-| `picks.json` | your model picks per topic, with reasoning | procedural memory |
-| `routing.json` | per-category provider track record (numbers) | empirical memory |
-| `topics.json` | clusters of subjects you ask about | semantic memory |
-| `vocabulary.md` | how you use specific words | language memory |
-| `core.md` | one paragraph that subsumes them all | identity |
+| level | file | what's in it | brain analog |
+|---|---|---|---|
+| identity | `~/.trinity/core.md` | one-paragraph manifesto subsuming the rest | distillation |
+| tensions | `~/.trinity/memories/lens.md` | paired tensions you'd reject vs accept | value |
+| basins | `~/.trinity/memories/topics.json` | subject clusters + evidence map for lens | semantic |
+| language | `~/.trinity/memories/vocabulary.md` | anchors + homonyms + synonyms | linguistic |
 
-The first five are the durable plural — your **core memories**, written under
-`~/.trinity/memories/`. `core.md` (one level up at `~/.trinity/core.md`) is the
-distilled singular — one paragraph that subsumes them all, read by the chairman
-first on every council.
+Two operational scoreboards live alongside but are NOT cognitive
+memory — they're derived from your council outcomes (the verdicts you
+log) and feed Trinity's model picker, not the chairman's identity context:
 
-Inspect any of the six at any time via the launchpad's "Your memories, raw" card,
-which links to a local viewer at `~/.trinity/portal_pages/memory.html`. Markdown
-renders with `marked`; `picks.json` and `routing.json` get schema-aware cards and
-tables; `topics.json` renders as an Obsidian-style force graph over centroid
-cosine similarity, with each basin's most-representative prompts on click. All
-inlined at `portal-html` time — works under `file://`, no server needed.
+| file | what's in it |
+|---|---|
+| `~/.trinity/scoreboard/picks.json` | extracted model-selection rules per task_type |
+| `~/.trinity/scoreboard/routing.json` | per-task-type provider track record |
+
+Inspect your lens any time via the launchpad's lens card, which links to a
+local viewer at `~/.trinity/portal_pages/memory.html`. The four cognitive
+levels render together as one document: `core.md` manifesto at the top,
+`lens.md` tensions below it (with `basins_spanned` chips per pair),
+`topics.json` rendered as an Obsidian-style force graph over centroid
+cosine similarity with each basin's most-representative prompts on click,
+and `vocabulary.md` anchors + homonyms + synonyms tables. Scoreboards
+(`picks.json` / `routing.json`) surface as schema-aware Reader views on
+the launchpad's routing card, not in the lens viewer. All inlined at
+`portal-html` time — works under `file://`, no server needed.
 
 ### One answer that knows you.
 
@@ -178,8 +185,13 @@ are missing.
 # Fastest today: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Trinity.app
 git clone https://github.com/vishigondi/trinity-local && cd trinity-local
 ./setup.sh                          # one script handles Python check + everything else
-trinity-local install-app           # repairs/regenerates Trinity.app later if needed
+trinity-local install-app           # Trinity.app desktop wrapper (non-coder daily-launch)
 trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
+                                    #   → first MCP spawn auto-scans your local CLI history
+                                    #     (~/.claude/, ~/.codex/, ~/.gemini/, cowork) in the
+                                    #     background so the first council is already personal
+trinity-local install-extension     # optional: Chrome extension for claude.ai + chatgpt.com
+                                    #   browser capture (grows the corpus passively)
 trinity-local doctor                # verify providers + auth before your first council
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
 trinity-local lens-build            # surface your taste lenses (after a few councils)
@@ -192,6 +204,13 @@ pip install git+https://github.com/vishigondi/trinity-local
 # Or, from inside Claude Code (after either of the two above):
 /trinity                            # the bundled skill re-runs install + first-council
 ```
+
+**Three install paths, three audiences.** The CLI (`install-mcp`) is the
+engine — every other surface wraps it. `install-app` is the non-coder daily
+launch. `install-extension` is the compounding moat — your claude.ai and
+chatgpt.com conversations grow the corpus passively. None of them gate the
+wow: the moment `install-mcp` lands, the first MCP spawn auto-scans the CLI
+transcripts you already have on disk, so your first council is personalized.
 
 For non-coders, the intended daily launch is `Trinity.app`: double-click it from
 Applications or Desktop, type a task, and review/rate the result in the app's
