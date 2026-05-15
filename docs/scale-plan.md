@@ -1259,3 +1259,338 @@ For every choice in Phase 8, ask:
 - Adding a new dispatch action? **Probably neither.** Skip unless it directly helps users run more councils.
 
 This is the discipline that keeps Phase 8 from drifting into "build a pretty workspace" and instead aimed at "build the dataset that lets us train the small thing."
+
+## Phase 10 — 100-persona audit backlog (2026-05-15)
+
+100 sub-agents each simulated a distinct user persona walking through
+Trinity for the first time (or returning, or auditing, or evaluating).
+Findings written to `/tmp/persona_findings/persona_NN.md` during the
+audit; this section is the aggregated backlog. Themes are ordered by
+prevalence × severity; each theme cites the personas that surfaced it
+so the evidence trail survives the temp-file cleanup.
+
+Severity counts: **39 HIGH · 45 MED · 16 LOW** across 100 personas.
+The META-auditor (persona #100) named the unifying pattern:
+**Trinity's README is a single-audience funnel for CLI-coder users, but
+multi-audience features (`install-app`, `install-extension`, single-
+provider councils, Ollama dispatch) already exist in code — they're
+just invisible above the fold.** Highest-leverage fix is restaging the
+README around three audience-tagged install paths plus a visible
+"Remove" section. Most of the other themes follow from that frame.
+
+### Theme A — Acquisition path is single-audience (CLI-coder only)
+
+**Evidence**: personas 02, 04, 07, 15, 23, 31, 39, 69, 83, 87, 88, 89,
+92, 100. HIGH on most.
+
+**Symptoms**: Designer (P04) and teacher (P15) bounce at `pip install`
+on README line 8 within seconds. ChatGPT-only writer (P07) and
+claude.ai-only user (P88) cannot install the Chrome extension WITHOUT
+running the CLI installer first. Cursor user (P92) finds Trinity not
+in `install-mcp`. Codex-only user (P89) gets broken three-column
+councils because launchpad/MCP/CLI/skill hardcode `["claude","gemini","codex"]`.
+
+**Fixes (priority order):**
+
+1. **Three audience-tagged install paths above the fold** in README
+   (`Trinity.app` .dmg / Chrome Web Store / `pip install`). The CLI
+   block stays; the other two land first.
+2. **Chrome Web Store listing for the extension** decoupled from CLI
+   install — let claude.ai-only users install JUST the extension.
+3. **Signed `.dmg` for `Trinity.app`** as the non-coder acquisition
+   surface, paired with download button above the fold.
+4. **`install-mcp` adds Cursor** to its harness list (P16: 30-line fix;
+   P92: same conclusion).
+5. **Single-provider council mode** — when only one of claude/gemini/
+   codex is configured, ask + run_council degrade to single-call
+   instead of broken three-column.
+
+### Theme B — Launchpad is a feature changelog, not a product surface
+
+**Evidence**: personas 20, 24, 50, 52, 53, 55, 56, 63. HIGH on most.
+
+**Symptoms**: 16+ launchpad sections; fresh installer sees brand
+pitch + 4-6 empty cards before his actual council. **100% of real-
+corpus topology basins have empty `label` field — largest cluster of
+3,408 prompts renders as "Hello."** (P53). `mark_pick_wrong` button
+copies CLI to clipboard instead of executing veto (P63). Launchpad
+copy says "you can hand-edit any of [the memories]" but `lens-build`
+flat-overwrites (P56). Unrated councils have no search or unrated-
+filter (P50).
+
+**Fixes**:
+
+1. **Launchpad collapse** (already planned, mid-ship per the active
+   `/loop`): single lens card + three "use the lens" cards + recent
+   councils + training history. Collapse empty-state pairs into one-
+   liner CTAs at the top of their parent card.
+2. **Basin labeler must actually run** (P53) — `topics.json` has
+   `label` field but it's always empty on real corpus. Either run the
+   labeler at lens-build time or fall back to a TF-IDF top-term name,
+   not "Hello."
+3. **`mark_pick_wrong` button calls the MCP tool**, not copies a
+   shell command. Show before/after `effective_trust`.
+4. **Lens hand-edit preservation**: either pin file (`lens.user.md`
+   merged on rebuild) or `lens-add` command. Drop the "you can hand-
+   edit any of them" copy until merge-on-rebuild lands.
+5. **Per-tension veto chip** + `lens-build --hint` flag for "this
+   tension is wrong, rebuild with a different angle."
+
+### Theme C — Multi-platform / multi-harness gaps unstated
+
+**Evidence**: personas 17 (Linux), 18 (Windows/WSL), 22 (headless),
+23 (iPad), 66 (Firefox), 92 (Cursor). HIGH on Linux + headless.
+
+**Symptoms**: `install-app` crashes with raw `FileNotFoundError:
+osacompile` on Linux (P17). `setup.sh` shebangs `zsh` with macOS
+`shortcuts` CLI calls. `doctor` recommends installing the macOS
+Shortcut on Linux. pyproject claims Linux support, README is silent.
+iPad-only dev (P23) has zero entry point — mobile spec only ships
+review-link companion requiring a paired Mac he doesn't own.
+
+**Fixes**:
+
+1. **Platform-gate `install-app`** — bail loudly on non-macOS with a
+   one-line message linking to the Linux/headless story.
+2. **`#!/usr/bin/env bash`** + macOS-only sections gated in `setup.sh`.
+3. **Document the headless story** (P22): engine runs on Linux, no
+   GUI needed; use `trinity-local serve` for the local launchpad
+   page server.
+4. **Trim Windows claim in pyproject** to match README's macOS-first
+   reality.
+
+### Theme D — Lifecycle gaps (uninstall, export, backup, retention)
+
+**Evidence**: personas 30 (uninstall), 57 (backup), 58 (migrate), 76
+(retention/disk fill), 77 (export+anonymize), 85 (delete recovery).
+ALL HIGH.
+
+**Symptoms**: Zero "uninstall" mentions anywhere — contradicts the
+"own your data" wedge. Migration breaks (5 re-installs needed,
+0 docs). No `trinity-local export` command. Zero anonymization code
+across the repo (`grep` 0 hits for anonymize / redact / scrub / pii).
+Dev `~/.trinity/` already 4.4GB; no retention/prune/quota; doctor
+skips disk check.
+
+**Fixes**:
+
+1. **`trinity-local uninstall`** — removes MCP entries, Trinity.app,
+   Chrome Native Messaging manifest, skill file, optionally `~/.trinity/`
+   and the HF model cache. Inverse of `install-mcp` + `install-app` +
+   `install-extension`. Prints what it'll delete with a single `--yes`
+   confirmation.
+2. **`trinity-local export [--anonymize]`** — tar of `~/.trinity/`
+   with optional pii scrub on prompt content (anchors, code blocks,
+   file paths). Schema doc already exists at PREFERENCE_CORPUS_SPEC.md.
+3. **`trinity-local restore <archive>`** — inverse of export.
+4. **Migration doc** in README: "rsync `~/.trinity/` is necessary but
+   not sufficient; also re-run install-mcp + install-app".
+5. **Retention story**: doctor reports `~/.trinity/` size; soft warning
+   above 5GB; optional `trinity-local prune --older-than 90d`.
+
+### Theme E — Trust gaps in cognitive memory output
+
+**Evidence**: personas 52, 53, 54, 55, 56, 94, 96.
+
+**Symptoms**: lens "isn't me" has no remediation path (P52). Vocabulary
+anchors unredacted — leak project names like "Project Apollo" (P54).
+core.md viewer renders raw markdown with zero provenance ribbon, so
+it reads generic and trust dies on inspection (P55). No lens history
+or diff — `save_lenses` destructively overwrites (P94). me-card
+silently drops all 3 orderings, leaving 40% empty whitespace despite
+JSON reporting `orderings_count: 3` (P96 bug).
+
+**Fixes**:
+
+1. **Provenance ribbon on core.md viewer**: "Generated from N
+   tensions, M anchors, K basins. Source: lens.md@<git-hash>." Click-
+   through to evidence.
+2. **Per-tension veto chip** (also Theme B).
+3. **Append-only lens snapshots** at `~/.trinity/memories/lens.history/
+   <iso>.md`; `lens-diff` command.
+4. **Redaction primitives**: `me-card --safe`, `vocabulary --redact`,
+   anchor allowlist file.
+5. **me-card orderings render bug** (P96) — guard at me_card.py:247
+   silently drops all 3; one-line fix.
+
+### Theme F — Council UX (wait time, partial failures, garbage)
+
+**Evidence**: personas 45, 46, 47, 48, 49, 51, 95.
+
+**Symptoms**: 30-second wait on `run_council` is a void — no live-page
+URL in response, no polling cadence guidance for the agent (P45).
+`classify_dispatch_failure` is wired only into `ask.py`, not
+`council_runner` — rate-limited Codex doesn't demote dispatch_health,
+no "councilling without Codex" banner (P46). "Routing label" vs
+"Routing JSON" name drift across docs (P48). Verdict click-moment
+generic — no before/after delta visible (P49). Garbage detection only
+filters empty-stdout + nonzero-exit; mojibake/refusal-strings pass
+through to chairman (P95).
+
+**Fixes**:
+
+1. **`run_council` returns `live_page_url` + suggested poll cadence**
+   inline in the async response.
+2. **Wire `classify_dispatch_failure` into `council_runner`** + emit
+   "councilling without X" banner on the live page.
+3. **Resolve "Routing label" vs "Routing JSON" name drift** —
+   pick one (Routing JSON), search/replace across launchpad +
+   council_review.
+4. **Verdict click → before/after delta** ("This pushed Codex from
+   0.61 → 0.68 trust on `migration` tasks").
+5. **Provider-output validator** — empty/refusal/mojibake → flag in
+   chairman input as "[provider returned garbage]", don't blend
+   silently into synthesis.
+
+### Theme G — Cost story unquantified
+
+**Evidence**: personas 03, 62, 81.
+
+**Symptoms**: rate-limit-saves card shows counts ("28×"), not dollars
+(P62). No monthly $ saved estimate. Investor (P81) sees no
+monetization path → closes tab.
+
+**Fixes**:
+
+1. **Cost calculator surface**: rate-limit-saves card shows
+   `$X saved this month` using a provider-rate table.
+2. **Pricing reveal in README** even if free-forever: Trinity Pro
+   (v1.2 placeholder) + Teams (v2 custom) keep the monetization
+   story visible without committing prices.
+
+### Theme H — i18n / a11y / accessibility
+
+**Evidence**: personas 28 (Spanish), 29 (screen-reader), 73 (RTL),
+74 (color).
+
+**Symptoms**: ASCII-only regex strips Spanish accents across 3 files
+(vocabulary.py:64, turn_pairs.py:257, basins.py:194) — Spanish
+prompts fail validation (P28). HTML surfaces lack ARIA, skip-links,
+live-regions; `<html lang="en">` hardcoded; zero a11y tests (P29).
+No `dir="auto"` anywhere; Arabic prompts render bidi-mangled (P73).
+Chart palette has protan/deutan confusion axis (P74).
+
+**Fixes**:
+
+1. **Unicode-aware regex** in vocabulary + turn_pairs + basins
+   (`[^\W\d_]` instead of `[a-zA-Z]`).
+2. **Minimal a11y pass**: ARIA roles on cards, focus-trap on modals,
+   skip-link, `lang="en"`-but-`dir="auto"` on prompt content. Add
+   one a11y smoke test.
+3. **Pattern fills on charts** for color-blind safety.
+
+### Theme I — Multi-user / multi-account contamination
+
+**Evidence**: personas 26 (work + personal Claude accounts), 38
+(shared dev machine), 70 (pair-programming), 80 (system-wide
+install).
+
+**Symptoms**: `install-app` writes `/Applications/Trinity.app` with
+the installer's absolute launchpad path baked in — every other user
+opens user-1's lens (P38 — real cross-user leak). `~/.trinity/` is
+one lens per OS user; multi-account users have no scoping (P26).
+Pair-programmers pollute each other's lens silently (P70). System-
+wide install undocumented; install-mcp hard-codes `$HOME` (P80).
+
+**Fixes**:
+
+1. **`install-app` resolves paths per-user at launch** — don't bake
+   the installer's path into the .app's Info.plist / launcher.
+2. **Per-context lens scoping**: `TRINITY_PROFILE=work` env or
+   `--profile work` flag selects a subdir under `~/.trinity/<profile>/`.
+3. **`doctor` warns on shared-machine install** when other users
+   exist on the box AND `Trinity.app` is in `/Applications/`.
+4. **Document system-wide install** OR loudly deny it (current state
+   is silent half-broken).
+
+### Theme J — Documentation drift + onboarding
+
+**Evidence**: personas 01, 10, 24, 32, 40, 48, 59, 67, 86, 90, 91,
+92, 97. HIGH on test-count + tool-count drift.
+
+**Symptoms**: Tool count drifts across docs (README 10 / claude.md
+status 9 / claude.md arch 11 / prompt 11 — P24). CONTRIBUTING test
+counts stale (~950 vs actual 1141; 31 vs 33 surfaces — P67). No
+"What's new" / version anchor / upgrade section in README (P40, P91).
+No troubleshooting section (P97). Cursor manual MCP wiring works but
+undocumented (P92). digest deliberately deleted but claude.md still
+mentions `digest_pages/` (P86). Conductor only in CLAUDE.md glossary
+— README never names it (P90). install-mcp doesn't tell user to
+restart Claude Code so new MCP tools appear (P01).
+
+**Fixes**:
+
+1. **Single source of truth for tool count** (one canonical claim in
+   CLAUDE.md status block; everywhere else either drops the number
+   or uses an `MCP_TOOL_COUNT` constant the doc-consistency test
+   pins).
+2. **"What's new" section in README** linking to last 3 CHANGELOG
+   entries.
+3. **Troubleshooting section** with the top-5 install errors and
+   `doctor`-driven fixes.
+4. **install-mcp prints "Restart Claude Code to load Trinity tools"**
+   at the end (P01).
+5. **Cursor manual-wiring doc** in install-mcp help / README.
+6. **digest dead-link sweep** in claude.md.
+
+### Theme K — Privacy / compliance posture
+
+**Evidence**: personas 06, 14, 27, 43, 54, 77, 82.
+
+**Symptoms**: Launchpad + memory-viewer load 13 CDN JS (unpkg/jsdelivr)
+on every open — contradicts "never leaves your machine" absolutism
+(P06). No DPA / SOC2 / ISO27001 artifacts (P27, P43). No anonymizer
+for export (P77). NativeMessaging conv_id path traversal risk (P82).
+
+**Fixes**:
+
+1. **Bundle marked / d3 / Vue locally** — drop CDN dependencies from
+   launchpad + memory-viewer + live council. Privacy claim becomes
+   absolutely true, not "absolutely true except 13 JS files."
+2. **Compliance doc** (one-pager): data residency, no telemetry by
+   default, sub-processor list (none), DPA template.
+3. **Anonymizer** (also Theme D #2).
+4. **NativeMessaging conv_id path traversal** — sanitize at
+   `capture_host.py` before file write.
+
+### Theme L — Extensibility (new providers, custom dispatchers, CI)
+
+**Evidence**: personas 12 (HTTP/SDK), 60 (Ollama-only), 61
+(DeepSeek), 68 (HTTP for Go agent), 79 (GitHub Action).
+
+**Symptoms**: No HTTP API — MCP-stdio only (P12, P68). Roadmap doubles
+down on "no listening port." Adding a new provider (DeepSeek) is
+undocumented (P61). Ollama plumbing exists in v1.0 but is undocumented
+(P60). No GitHub Actions integration (P79).
+
+**Fixes**:
+
+1. **Provider plugin doc** — how to add a new CLI-wrappable provider
+   to `config.json` + provider class. DeepSeek as worked example.
+2. **Ollama configuration doc** — surface the v1.0 plumbing that
+   already exists.
+3. **Optional `trinity-local serve --api`** read-only HTTP surface
+   (route + search_prompts + get_picks endpoints) for non-MCP-aware
+   consumers. Keep the wedge intact: read-only, local-bind, no auth
+   surface.
+4. **GitHub Action template** in `.github/workflows/example-council.yml`
+   showing CI-driven council on a PR diff.
+
+### Priority filter for forward ticks
+
+Pick the next 5-10 ticks from this backlog by prevalence × severity ×
+effort. Top candidates (one each from Themes A-F):
+
+| # | Theme | Fix | Effort | Why now |
+|---|---|---|---|---|
+| 1 | B | Basin labeler runs at lens-build time; fall back to TF-IDF top-term | S | "Hello." cluster of 3,408 prompts is a visible launch-killer |
+| 2 | A | Three audience-tagged install paths above the fold | S | Highest acquisition lift; no code change |
+| 3 | D | `trinity-local uninstall` | M | Lifecycle gap directly contradicts the wedge |
+| 4 | B | `mark_pick_wrong` button calls MCP tool, not clipboard copy | S | Feedback loop visibly broken |
+| 5 | F | Wire `classify_dispatch_failure` into `council_runner` | S | Rate-limit-dodge story currently silently breaks |
+| 6 | E | me-card orderings render bug (one-line) | XS | Share artifact has 40% empty whitespace right now |
+| 7 | A | `install-mcp` adds Cursor | XS | 30-line fix per persona 16 |
+| 8 | J | "What's new" section in README + version anchor | S | Returning users (P40, P91) can't bridge |
+| 9 | K | Bundle marked/d3/Vue locally | M | Removes the only credible privacy attack on the wedge |
+| 10 | I | `install-app` resolves paths per-user at launch | S | Real cross-user leak on shared machines |
+
