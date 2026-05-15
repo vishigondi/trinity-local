@@ -3,6 +3,35 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 — browser_chatgpt ingest source] — 2026-05-15
+
+OpenAI parallel to the `browser_claude` ingest wire. Captured chatgpt
+.com conversations now flow into the prompt index alongside captured
+claude.ai ones.
+
+- `parse_captured_chatgpt_conversation(path)` in `ingest.py` — parses
+  one canonical chatgpt.com conversation JSON (the response shape
+  from `GET /backend-api/conversation/<id>`). Refactor: extracted
+  `_chatgpt_conversation_dict_to_session` shared with the existing
+  `parse_chatgpt_export` (wire shape is identical — v1.6 captures
+  the same endpoint OpenAI's bulk export reads from).
+- Returns None for `.stream.json` sidecars (no `mapping` field).
+- `watch_runtime`: new `browser_chatgpt` source →
+  `<TRINITY_HOME>/conversations/chatgpt/`. Globs `*.json` and
+  filters `.stream.json` sidecars at the glob level (same shape as
+  `browser_claude`, refactored into a tuple membership check).
+- `incremental_ingest.DEFAULT_SOURCES` now includes both
+  `browser_claude` and `browser_chatgpt` — MCP hot path picks up
+  both providers' captures.
+
+Tests (+7) in `test_browser_captured_chatgpt_ingest.py`: direct
+parser test, `.stream.json` skip, malformed-JSON resilience,
+fallback when `current_node` is missing (insertion-order walk),
+full ingest path with `iter_prompt_nodes` query, glob-level
+sidecar filter, `DEFAULT_SOURCES` regression guard.
+
+Suite: 1107 → 1114 passing.
+
 ## [v1.6 Week 2 Day 6-7 — chatgpt.js SSE adapter] — 2026-05-15
 
 OpenAI parallel to `claude.js`. Same module shape; different SSE

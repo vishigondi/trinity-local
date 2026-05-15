@@ -123,6 +123,9 @@ def _source_root(source: str) -> Path:
         # _iter_recent_paths bails cleanly in that case.
         from .state_paths import trinity_home
         return trinity_home() / "conversations" / "claude"
+    if source == "browser_chatgpt":
+        from .state_paths import trinity_home
+        return trinity_home() / "conversations" / "chatgpt"
     raise ValueError(f"Unknown source: {source}")
 
 
@@ -136,10 +139,11 @@ def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
         paths = root.rglob("rollout-*.jsonl")
     elif source == "gemini":
         paths = root.rglob("session-*.json")
-    elif source == "browser_claude":
+    elif source in ("browser_claude", "browser_chatgpt"):
         # Exclude .stream.json sidecars — they're adapter outputs without
-        # chat_messages and parse_captured_claude_conversation returns None
-        # for them. Saves the parse attempt + skipped_parse increment.
+        # the canonical structure (chat_messages for claude, mapping for
+        # chatgpt) and the captured parsers return None for them.
+        # Saves the parse attempt + skipped_parse increment.
         paths = (p for p in root.glob("*.json") if not p.name.endswith(".stream.json"))
     else:
         paths = root.rglob("local_*.json")
@@ -168,6 +172,9 @@ def _parse_source_path(source: str, path: Path):
     if source == "browser_claude":
         from .ingest import parse_captured_claude_conversation
         return parse_captured_claude_conversation(path)
+    if source == "browser_chatgpt":
+        from .ingest import parse_captured_chatgpt_conversation
+        return parse_captured_chatgpt_conversation(path)
     raise ValueError(f"Unknown source: {source}")
 
 

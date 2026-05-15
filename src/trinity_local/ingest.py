@@ -749,6 +749,105 @@ def _chatgpt_extract_text(content: Any) -> str:
     return "\n".join(chunks).strip()
 
 
+def _chatgpt_conversation_dict_to_session(
+    conv: dict[str, Any],
+    *,
+    source_path: str,
+    source_format: str,
+) -> SessionRecord | None:
+    """Shared shape: one chatgpt conversation dict → SessionRecord.
+
+    Used by both ``parse_chatgpt_export`` (bulk export — array of these)
+    and ``parse_captured_chatgpt_conversation`` (v1.6 browser capture —
+    one per file). Wire shape is identical because v1.6 captures the
+    same ``GET /backend-api/conversation/<id>`` endpoint OpenAI's bulk
+    export reads from.
+    """
+    conv_id = conv.get("conversation_id") or conv.get("id")
+    if not isinstance(conv_id, str) or not conv_id:
+        return None
+    mapping = conv.get("mapping")
+    if not isinstance(mapping, dict):
+        return None
+    current_id = conv.get("current_node")
+    if not isinstance(current_id, str) or current_id not in mapping:
+        # Fall back: iterate mapping in insertion order
+        ordered_ids = list(mapping.keys())
+    else:
+        ordered_ids = []
+        seen: set[str] = set()
+        cursor = current_id
+        while cursor and cursor in mapping and cursor not in seen:
+            seen.add(cursor)
+            ordered_ids.append(cursor)
+            node = mapping[cursor]
+            cursor = node.get("parent") if isinstance(node, dict) else None
+        ordered_ids.reverse()
+
+    messages: list[SessionMessage] = []
+    model: str | None = None
+    for node_id in ordered_ids:
+        node = mapping.get(node_id)
+        if not isinstance(node, dict):
+            continue
+        msg = node.get("message")
+        if not isinstance(msg, dict):
+            continue
+        author = msg.get("author") if isinstance(msg.get("author"), dict) else {}
+        role = author.get("role")
+        if role not in ("user", "assistant", "system", "tool"):
+            continue
+        text = _chatgpt_extract_text(msg.get("content"))
+        if not text and role != "user":
+            continue
+        metadata = msg.get("metadata") if isinstance(msg.get("metadata"), dict) else {}
+        model_slug = metadata.get("model_slug") or metadata.get("default_model_slug")
+        if isinstance(model_slug, str) and not model:
+            model = model_slug
+        create_time = msg.get("create_time")
+        timestamp = None
+        if isinstance(create_time, (int, float)):
+            timestamp = datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
+        messages.append(SessionMessage(
+            role=role,
+            text=text,
+            timestamp=timestamp,
+            model=model_slug if isinstance(model_slug, str) else None,
+            raw_type=role,
+        ))
+
+    create_time = conv.get("create_time")
+    update_time = conv.get("update_time")
+    started_at = (
+        datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
+        if isinstance(create_time, (int, float))
+        else None
+    )
+    ended_at = (
+        datetime.fromtimestamp(update_time, tz=timezone.utc).isoformat()
+        if isinstance(update_time, (int, float))
+        else None
+    )
+    return SessionRecord(
+        provider="chatgpt",
+        session_id=conv_id,
+        source_path=source_path,
+        native_id=conv_id,
+        started_at=started_at,
+        ended_at=ended_at,
+        cwd=None,
+        project_hint=None,
+        title=(conv.get("title") or "").strip() or None,
+        model=model or conv.get("default_model_slug"),
+        cli_name="chatgpt_webapp",
+        cli_version=None,
+        source_format=source_format,
+        source_format_version="1",
+        metadata={},
+        messages=messages,
+    )
+
+
 def parse_chatgpt_export(path: Path) -> Iterator[SessionRecord]:
     """Parse a ChatGPT webapp export (conversations*.json).
 
@@ -766,89 +865,35 @@ def parse_chatgpt_export(path: Path) -> Iterator[SessionRecord]:
     for conv in raw:
         if not isinstance(conv, dict):
             continue
-        conv_id = conv.get("conversation_id") or conv.get("id")
-        if not isinstance(conv_id, str) or not conv_id:
-            continue
-        mapping = conv.get("mapping")
-        if not isinstance(mapping, dict):
-            continue
-        current_id = conv.get("current_node")
-        if not isinstance(current_id, str) or current_id not in mapping:
-            # Fall back: iterate mapping in insertion order
-            ordered_ids = list(mapping.keys())
-        else:
-            ordered_ids = []
-            seen: set[str] = set()
-            cursor = current_id
-            while cursor and cursor in mapping and cursor not in seen:
-                seen.add(cursor)
-                ordered_ids.append(cursor)
-                node = mapping[cursor]
-                cursor = node.get("parent") if isinstance(node, dict) else None
-            ordered_ids.reverse()
+        rec = _chatgpt_conversation_dict_to_session(
+            conv, source_path=source_path, source_format="chatgpt_export_json"
+        )
+        if rec is not None:
+            yield rec
 
-        messages: list[SessionMessage] = []
-        model: str | None = None
-        for node_id in ordered_ids:
-            node = mapping.get(node_id)
-            if not isinstance(node, dict):
-                continue
-            msg = node.get("message")
-            if not isinstance(msg, dict):
-                continue
-            author = msg.get("author") if isinstance(msg.get("author"), dict) else {}
-            role = author.get("role")
-            if role not in ("user", "assistant", "system", "tool"):
-                continue
-            text = _chatgpt_extract_text(msg.get("content"))
-            if not text and role != "user":
-                continue
-            metadata = msg.get("metadata") if isinstance(msg.get("metadata"), dict) else {}
-            model_slug = metadata.get("model_slug") or metadata.get("default_model_slug")
-            if isinstance(model_slug, str) and not model:
-                model = model_slug
-            create_time = msg.get("create_time")
-            timestamp = None
-            if isinstance(create_time, (int, float)):
-                timestamp = datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
-            messages.append(SessionMessage(
-                role=role,
-                text=text,
-                timestamp=timestamp,
-                model=model_slug if isinstance(model_slug, str) else None,
-                raw_type=role,
-            ))
 
-        create_time = conv.get("create_time")
-        update_time = conv.get("update_time")
-        started_at = (
-            datetime.fromtimestamp(create_time, tz=timezone.utc).isoformat()
-            if isinstance(create_time, (int, float))
-            else None
-        )
-        ended_at = (
-            datetime.fromtimestamp(update_time, tz=timezone.utc).isoformat()
-            if isinstance(update_time, (int, float))
-            else None
-        )
-        yield SessionRecord(
-            provider="chatgpt",
-            session_id=conv_id,
-            source_path=source_path,
-            native_id=conv_id,
-            started_at=started_at,
-            ended_at=ended_at,
-            cwd=None,
-            project_hint=None,
-            title=(conv.get("title") or "").strip() or None,
-            model=model or conv.get("default_model_slug"),
-            cli_name="chatgpt_webapp",
-            cli_version=None,
-            source_format="chatgpt_export_json",
-            source_format_version="1",
-            metadata={},
-            messages=messages,
-        )
+def parse_captured_chatgpt_conversation(path: Path) -> SessionRecord | None:
+    """Parse a v1.6 browser-captured chatgpt.com conversation file.
+
+    Wire shape matches one element of the bulk export — the capture host
+    writes the response from
+    ``GET /backend-api/conversation/<conv_id>`` as-is. Returns None for
+    the ``.stream.json`` adapter outputs (those don't contain a
+    ``mapping`` graph — they're keyed by ``conv_id`` + ``assistant_text``
+    from the SSE accumulator).
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    # Skip adapter_stream payloads — they don't have mapping graph.
+    if "mapping" not in raw:
+        return None
+    return _chatgpt_conversation_dict_to_session(
+        raw, source_path=str(path), source_format="chatgpt_browser_capture"
+    )
 
 
 # ---------------------------------------------------------------------------
