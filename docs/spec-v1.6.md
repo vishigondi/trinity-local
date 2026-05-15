@@ -75,6 +75,31 @@ lands) remains the user's manual step per
 `browser-extension/README.md`; everything that can be validated
 without sending a real chat message has been validated.
 
+## Validation log (T-0, 2026-05-15, chatgpt.com mirror)
+
+After the chatgpt.js adapter shipped (commit `561f17a`), the
+page-hook was injected into a live `chatgpt.com/` page-context
+to verify the same wrapper that works on claude.ai installs
+cleanly on OpenAI's frontend:
+
+* `location.hostname === "chatgpt.com"`, `document.readyState
+  === "complete"`, `window.fetch` is a function — preconditions
+  match claude.ai. Title is `"ChatGPT"`.
+* Injection returns `"installed"`, `window.__TRINITY_HOOK_INSTALLED__
+  === true`, `window.fetch.name === "trinityFetch"` — same shape
+  as the claude.ai validation.
+* Console emits `[trinity-hook] fetch wrapper installed on
+  chatgpt.com` — same user-visible debug signal.
+* Page renders normally (no console errors). The `EventSource`
+  constructor is reachable but `window.fetch` is the streaming
+  primitive OpenAI uses, matching the assumption baked into
+  `chatgpt.js` (parses SSE body from a `fetch` clone, not from
+  an `EventSource`).
+
+Same closure: live page validation has been done for both
+providers shipped in v1.6 Week 1+2. gemini.google.com remains
+deferred to v1.7 per the spec's stability assessment.
+
 ## The reframe
 
 v1.0 ships with this gap quietly papered over: the seed-from-taste-terminal
