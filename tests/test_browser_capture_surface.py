@@ -71,6 +71,44 @@ def test_excludes_stream_sidecar_files(isolated_trinity_home):
     assert result["providers"][0]["count"] == 2
 
 
+def test_excludes_raw_stream_prefix_files(isolated_trinity_home):
+    """``stream-<urlhash>.json`` raw fallbacks (capture_host's
+    no-adapter path) ALSO don't count. Currently relevant for the
+    gemini.google.com path — gemini.js adapter is deferred to v1.7,
+    so gemini captures land as stream- files; they shouldn't inflate
+    the launchpad's user-facing count."""
+    gdir = isolated_trinity_home / "conversations" / "gemini"
+    gdir.mkdir(parents=True)
+    # 3 raw-stream fallback files + 0 canonical files for gemini
+    (gdir / "stream-abc123.json").write_text("{}")
+    (gdir / "stream-def456.json").write_text("{}")
+    (gdir / "stream-789xyz.json").write_text("{}")
+
+    result = _browser_capture()
+    # Should report empty — no real captures, just useless raw streams
+    assert result["has_data"] is False
+    assert result["total_captured"] == 0
+
+
+def test_mixed_provider_dirs_count_only_canonical(isolated_trinity_home):
+    """When claude has 2 canonical captures and gemini has 3 raw
+    stream fallbacks, the count + providers list reflect only claude."""
+    cdir = isolated_trinity_home / "conversations" / "claude"
+    gdir = isolated_trinity_home / "conversations" / "gemini"
+    cdir.mkdir(parents=True)
+    gdir.mkdir(parents=True)
+    (cdir / "real-1.json").write_text("{}")
+    (cdir / "real-2.json").write_text("{}")
+    (gdir / "stream-abc.json").write_text("{}")  # raw, ignored
+    (gdir / "stream-def.json").write_text("{}")  # raw, ignored
+
+    result = _browser_capture()
+    assert result["has_data"] is True
+    assert result["total_captured"] == 2
+    assert len(result["providers"]) == 1
+    assert result["providers"][0]["provider"] == "claude"
+
+
 def test_24h_counter_filters_by_mtime(isolated_trinity_home):
     """``captured_24h`` only counts files modified in the last 24
     hours — the bigger ``total_captured`` covers all time."""

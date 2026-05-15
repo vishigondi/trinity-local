@@ -933,9 +933,16 @@ def _browser_capture() -> dict:
     capture" timestamp ages; same shape as the verdict_rate /
     handoff_ready / cortex_freshness checks.
 
-    Skips ``.stream.json`` sidecars (adapter outputs without canonical
-    structure) — those don't count as "captured conversations" for the
-    user-facing counter even though they exist on disk.
+    Skips both kinds of partial-capture files:
+      - ``<conv_id>.stream.json`` — adapter outputs (e.g. claude.js
+        accumulator). Conv_id is real but the canonical fetch is
+        preferred for the user-facing count.
+      - ``stream-<urlhash>.json`` — fallback no-adapter writes
+        (capture_host stores raw stream bodies under this prefix when
+        no ``__TRINITY_ADAPTERS.<provider>`` exists; currently the
+        gemini.google.com path since `gemini.js` is deferred to v1.7).
+        These have no conv_id, just an opaque url hash; they aren't
+        user-facing conversations.
 
     Returns:
       - {has_data: False, install_command} when zero capture files
@@ -975,7 +982,12 @@ def _browser_capture() -> dict:
             count = 0
             count_24h = 0
             for f in provider_dir.glob("*.json"):
-                if f.name.endswith(".stream.json"):
+                # Two flavors of non-canonical sidecar:
+                #   - <conv_id>.stream.json (adapter accumulator)
+                #   - stream-<urlhash>.json  (raw fallback when no
+                #     adapter exists for this provider; currently the
+                #     gemini.google.com path)
+                if f.name.endswith(".stream.json") or f.name.startswith("stream-"):
                     continue
                 try:
                     mtime = f.stat().st_mtime

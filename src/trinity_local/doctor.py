@@ -705,8 +705,16 @@ def _check_browser_capture() -> CheckResult:
             if not provider_dir.is_dir():
                 continue
             for f in provider_dir.glob("*.json"):
-                if not f.name.endswith(".stream.json"):
-                    capture_files.append(f)
+                # Skip both sidecar flavors so doctor's "captures
+                # exist" stage matches Surface 33's user-facing count
+                # exactly: .stream.json (adapter accumulator) +
+                # stream-<urlhash>.json (raw fallback for providers
+                # without an adapter, e.g. gemini today).
+                if f.name.endswith(".stream.json"):
+                    continue
+                if f.name.startswith("stream-"):
+                    continue
+                capture_files.append(f)
 
     if not capture_files:
         return CheckResult(

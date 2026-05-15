@@ -133,6 +133,33 @@ def test_excludes_stream_sidecar_files_from_count(isolated_trinity_home, tmp_pat
     assert "1 captures" in result.detail
 
 
+def test_excludes_raw_stream_prefix_files_from_count(isolated_trinity_home, tmp_path, monkeypatch):
+    """Raw-stream fallback files (``stream-<urlhash>.json`` from
+    capture_host's no-adapter path) don't count either. Currently
+    relevant for the gemini.google.com path — gemini.js adapter is
+    deferred to v1.7, so gemini captures land as raw stream files.
+    Doctor stage 3 must not pretend those are real conversations.
+    """
+    import sys
+    monkeypatch.setattr("trinity_local.doctor.shutil.which", lambda _: "/usr/local/bin/trinity-local-capture-host")
+    monkeypatch.setattr(sys, "platform", "darwin")
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    _write_macos_manifest(fake_home)
+    monkeypatch.setattr("trinity_local.doctor.Path.home", classmethod(lambda cls: fake_home))
+
+    gemini_dir = isolated_trinity_home / "conversations" / "gemini"
+    gemini_dir.mkdir(parents=True)
+    (gemini_dir / "stream-abc.json").write_text("{}")
+    (gemini_dir / "stream-def.json").write_text("{}")
+    (gemini_dir / "stream-789.json").write_text("{}")
+
+    result = _check_browser_capture()
+    # 3 raw-stream files → "no captures yet" because none are
+    # user-facing conversations.
+    assert "no captures yet" in result.detail
+
+
 def test_unsupported_platform_skips_with_note(isolated_trinity_home, monkeypatch):
     import sys
     monkeypatch.setattr("trinity_local.doctor.shutil.which", lambda _: "/usr/local/bin/trinity-local-capture-host")
