@@ -616,6 +616,57 @@ def iter_prompt_turns(session: SessionRecord) -> Iterator[PromptTurn]:
 # Each content block: {type:"text", text, start_timestamp, ...}
 
 
+def _claude_conversation_dict_to_session(
+    conv: dict[str, Any],
+    *,
+    source_path: str,
+    source_format: str,
+) -> SessionRecord | None:
+    """Shared shape: one claude.ai conversation dict → SessionRecord.
+
+    Used by both ``parse_claude_ai_export`` (bulk export — array of these)
+    and ``parse_captured_claude_conversation`` (v1.6 browser capture — one
+    per file). The wire shape is identical because v1.6 captures the same
+    canonical endpoint Anthropic's export tool uses.
+    """
+    session_id = conv.get("uuid")
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    messages: list[SessionMessage] = []
+    for msg in conv.get("chat_messages", []):
+        if not isinstance(msg, dict):
+            continue
+        sender = msg.get("sender")
+        role = "user" if sender == "human" else "assistant"
+        text = _message_text(msg.get("content")) or (
+            msg.get("text") if isinstance(msg.get("text"), str) else ""
+        )
+        messages.append(SessionMessage(
+            role=role,
+            text=text,
+            timestamp=msg.get("created_at"),
+            raw_type=sender or "assistant",
+        ))
+    return SessionRecord(
+        provider="claude_ai",
+        session_id=session_id,
+        source_path=source_path,
+        native_id=session_id,
+        started_at=conv.get("created_at"),
+        ended_at=conv.get("updated_at"),
+        cwd=None,
+        project_hint=None,
+        title=(conv.get("name") or conv.get("summary") or "").strip() or None,
+        model=conv.get("model") if isinstance(conv.get("model"), str) else None,
+        cli_name="claude_ai_webapp",
+        cli_version=None,
+        source_format=source_format,
+        source_format_version="1",
+        metadata={},
+        messages=messages,
+    )
+
+
 def parse_claude_ai_export(path: Path) -> Iterator[SessionRecord]:
     """Parse a Claude.ai webapp export (conversations.json).
 
@@ -632,42 +683,39 @@ def parse_claude_ai_export(path: Path) -> Iterator[SessionRecord]:
     for conv in raw:
         if not isinstance(conv, dict):
             continue
-        session_id = conv.get("uuid")
-        if not isinstance(session_id, str) or not session_id:
-            continue
-        messages: list[SessionMessage] = []
-        for msg in conv.get("chat_messages", []):
-            if not isinstance(msg, dict):
-                continue
-            sender = msg.get("sender")
-            role = "user" if sender == "human" else "assistant"
-            text = _message_text(msg.get("content")) or (
-                msg.get("text") if isinstance(msg.get("text"), str) else ""
-            )
-            messages.append(SessionMessage(
-                role=role,
-                text=text,
-                timestamp=msg.get("created_at"),
-                raw_type=sender or "assistant",
-            ))
-        yield SessionRecord(
-            provider="claude_ai",
-            session_id=session_id,
-            source_path=source_path,
-            native_id=session_id,
-            started_at=conv.get("created_at"),
-            ended_at=conv.get("updated_at"),
-            cwd=None,
-            project_hint=None,
-            title=(conv.get("name") or conv.get("summary") or "").strip() or None,
-            model=None,
-            cli_name="claude_ai_webapp",
-            cli_version=None,
-            source_format="claude_ai_export_json",
-            source_format_version="1",
-            metadata={},
-            messages=messages,
+        rec = _claude_conversation_dict_to_session(
+            conv, source_path=source_path, source_format="claude_ai_export_json"
         )
+        if rec is not None:
+            yield rec
+
+
+def parse_captured_claude_conversation(path: Path) -> SessionRecord | None:
+    """Parse a v1.6 browser-captured claude.ai conversation file.
+
+    Wire shape matches one element of the bulk export — the capture host
+    writes the response from
+    ``GET /api/organizations/<org>/chat_conversations/<conv_id>``
+    as-is. Returns None for the ``.stream.json`` adapter outputs
+    (those don't contain a ``chat_messages`` array — they're keyed by
+    ``conv_id`` + ``assistant_text`` from the SSE accumulator).
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    # Skip adapter_stream payloads — they don't have chat_messages, so
+    # iter_prompt_turns has nothing to yield. The canonical fetch
+    # (sibling file at <conv_id>.json) is preferred. Adapter outputs
+    # become relevant only when the canonical never arrives (e.g. the
+    # user never reloaded the conversation page).
+    if "chat_messages" not in raw:
+        return None
+    return _claude_conversation_dict_to_session(
+        raw, source_path=str(path), source_format="claude_browser_capture"
+    )
 
 
 # ---------------------------------------------------------------------------

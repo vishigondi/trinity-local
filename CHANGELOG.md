@@ -3,6 +3,47 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 — browser captures flow into the prompt index] — 2026-05-15
+
+The load-bearing wire the spec calls out at line 422-425: captures
+written to `~/.trinity/conversations/<provider>/<conv_id>.json` by the
+v1.6 capture host now flow into the existing memory pipeline so
+cortex / lens / picks see them.
+
+### New ingest source: `browser_claude`
+
+- `parse_captured_claude_conversation(path)` in `ingest.py` — parses
+  one canonical claude.ai conversation JSON (the response shape from
+  `GET /api/organizations/<org>/chat_conversations/<conv_id>`).
+  Refactor: extracted `_claude_conversation_dict_to_session` helper
+  shared with the existing `parse_claude_ai_export` (bulk-export
+  parser), since the wire shape is identical — v1.6 captures the same
+  endpoint Anthropic's export tool reads from.
+- `watch_runtime` source dispatch: `_source_root("browser_claude")`
+  resolves to `<TRINITY_HOME>/conversations/claude/`,
+  `_iter_recent_paths` globs `*.json` and filters out
+  `*.stream.json` sidecars (adapter outputs without `chat_messages`
+  — `parse_captured_claude_conversation` returns None for them).
+- `incremental_ingest.DEFAULT_SOURCES` extended to include
+  `browser_claude`, so MCP `ask` / `search_prompts` calls trigger
+  scan of new captures within the deadline budget — no manual
+  `seed-from-taste-terminal` rerun required.
+
+### Tests (+7) — end-to-end real-parser path
+
+`tests/test_browser_captured_ingest.py`:
+- Direct parser test against a synthetic canonical-shape file
+- Parser returns None for `.stream.json` sidecars
+- Parser returns None for malformed JSON
+- Full ingest path: drop a canonical file in the capture directory,
+  run `ingest_recent(sources=["browser_claude"])`, verify the user
+  turn appears in `iter_prompt_nodes()` with the correct text
+- `.stream.json` files filtered at the glob level (no parse cycle)
+- Idempotent across two runs (cursor + stable_id dedup)
+- Regression guard: `browser_claude` stays in `DEFAULT_SOURCES`
+
+Suite: 1090 → 1097 passing.
+
 ## [v1.6 week 1 — browser capture scaffold] — 2026-05-14 (post-launch)
 
 First tick of the v1.6 (browser-side conversation capture) ship plan

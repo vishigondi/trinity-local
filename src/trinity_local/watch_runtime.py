@@ -116,6 +116,13 @@ def _source_root(source: str) -> Path:
         return home / ".gemini" / "tmp"
     if source == "cowork":
         return home / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions"
+    if source == "browser_claude":
+        # v1.6: capture_host writes here when the user sends a message on
+        # claude.ai with the Trinity browser extension installed. The
+        # directory may not exist on installs without the extension —
+        # _iter_recent_paths bails cleanly in that case.
+        from .state_paths import trinity_home
+        return trinity_home() / "conversations" / "claude"
     raise ValueError(f"Unknown source: {source}")
 
 
@@ -129,6 +136,11 @@ def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
         paths = root.rglob("rollout-*.jsonl")
     elif source == "gemini":
         paths = root.rglob("session-*.json")
+    elif source == "browser_claude":
+        # Exclude .stream.json sidecars — they're adapter outputs without
+        # chat_messages and parse_captured_claude_conversation returns None
+        # for them. Saves the parse attempt + skipped_parse increment.
+        paths = (p for p in root.glob("*.json") if not p.name.endswith(".stream.json"))
     else:
         paths = root.rglob("local_*.json")
     recent = []
@@ -153,6 +165,9 @@ def _parse_source_path(source: str, path: Path):
         return parse_gemini_cli_session(path, project_name=project_name)
     if source == "cowork":
         return parse_cowork_session(path)
+    if source == "browser_claude":
+        from .ingest import parse_captured_claude_conversation
+        return parse_captured_claude_conversation(path)
     raise ValueError(f"Unknown source: {source}")
 
 
