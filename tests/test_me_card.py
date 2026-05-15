@@ -74,6 +74,42 @@ class TestRenderShape:
         png = render_me_card(data)
         assert png[:8] == b"\x89PNG\r\n\x1a\n"
 
+    def test_orderings_always_render_when_present(self):
+        """100-persona audit P96: orderings silently dropped when the
+        lens-render `y` cursor crossed 430. New rule: ALWAYS render
+        orderings when present; slide down past lens content if needed.
+        Pixel-level check: the orderings region must contain non-bg
+        pixels when orderings are present, even on cards where the
+        upper lens content is dense."""
+        from io import BytesIO
+        from PIL import Image
+        from trinity_local.me_card import CardLensData, render_me_card
+
+        # Dense lens that previously pushed y past the orderings guard.
+        data = CardLensData(
+            lens_pole_a="leading proxy signal under uncertainty pressure",
+            lens_pole_b="official lagging metric ratified by consensus",
+            failure_a="paranoid pattern-matching from undersampled traces",
+            failure_b="consensus follower trailing the actual shift by quarters",
+            orderings=[("speed", "polish"), ("real test", "theoretical"), ("load-bearing", "menu")],
+        )
+        png = render_me_card(data)
+        img = Image.open(BytesIO(png)).convert("RGB")
+
+        # Sample a horizontal stripe in the orderings region (where
+        # "ALSO PREFERRED" + the 3 rows should sit). On a 1200x630 card
+        # with margin=60, label is around y=460, rows extend to ~y=580.
+        # Sample row at y=480 (middle of orderings label region),
+        # across x=80..400 (the left column).
+        stripe = [img.getpixel((x, 480)) for x in range(80, 400, 4)]
+        # Background paper is roughly (245,239,227). Any non-bg pixel
+        # means SOMETHING was drawn here — text, label, etc.
+        non_bg = sum(1 for px in stripe if abs(px[0] - 245) + abs(px[1] - 239) + abs(px[2] - 227) > 40)
+        assert non_bg > 0, (
+            "Orderings region (~y=480) is empty — orderings silently dropped "
+            "again per persona audit P96"
+        )
+
 
 class TestWordWrap:
     def test_short_text_returns_single_line(self):

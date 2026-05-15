@@ -242,14 +242,35 @@ def render_me_card(data: CardLensData) -> bytes:
         fill=COLOR_MUTED,
     )
 
-    # Optional: bottom-left orderings preview if room remains and we have
-    # them. Trims to 2 to keep the card breathable.
-    if data.orderings and y < CARD_HEIGHT - 200:
-        draw.text((margin, CARD_HEIGHT - margin - 110),
+    # Bottom-left orderings preview. 100-persona audit P96 fix: prior
+    # guard was `if data.orderings and y < CARD_HEIGHT - 200` (i.e. y < 430)
+    # — on any real lens with 2 paired tensions + failure modes, y easily
+    # crossed 430, so the orderings region (~460–542) silently dropped
+    # despite JSON reporting orderings_count: 3. Left ~40% empty whitespace
+    # below "hallucinated confidence".
+    #
+    # New rule: ALWAYS render orderings when present. Anchor to fixed
+    # bottom region (CARD_HEIGHT - margin - 110 for label); if the upper
+    # lens-render pushed y past the orderings label position, slide the
+    # orderings block DOWN past y so it doesn't overlap. Footer stays at
+    # absolute bottom; orderings live in the gap between lens-content and
+    # footer.
+    if data.orderings:
+        # Default position: anchored bottom-left, with room for 2 rows + footer.
+        orderings_label_y = CARD_HEIGHT - margin - 110
+        # If lens content already runs past the orderings region, slide
+        # down enough to clear (small 20px gap), accepting the orderings
+        # may sit closer to the footer than ideal.
+        if y > orderings_label_y - 20:
+            orderings_label_y = min(y + 20, CARD_HEIGHT - margin - 80)
+        draw.text((margin, orderings_label_y),
                   "ALSO PREFERRED",
                   font=fail_label, fill=COLOR_MUTED)
-        oy = CARD_HEIGHT - margin - 80
-        for pa, pb in data.orderings[:2]:
+        oy = orderings_label_y + 30
+        # Render up to 3 (was 2) — orderings_count up to 3 in real data.
+        for pa, pb in data.orderings[:3]:
+            if oy > CARD_HEIGHT - margin - 38:
+                break  # would collide with footer line
             draw.text((margin, oy), f"{pa} > {pb}",
                       font=ordering, fill=COLOR_INK)
             oy += 32
