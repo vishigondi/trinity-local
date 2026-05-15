@@ -752,40 +752,66 @@ class TestLaunchpadScreenshotFreshness:
     have shown a meaningfully thinner launchpad than the one a fresh
     install produces — false advertising for the launch-arc work.
 
-    Guard: assert the screenshot isn't grossly older than the source-
-    tree files that drive what the launchpad renders. If
-    launchpad_template.py or launchpad_data.py was edited more recently
-    than the screenshot, the screenshot is likely stale. Threshold is
-    generous (3 days) to avoid forcing re-render on every UI tweak —
+    Same shape applies to docs/me_card_example.png (the OTHER Product
+    Hunt asset named in launch-package): the example PNG can drift
+    behind the rendering source (me_card.py) if rendering changes ship
+    without re-running me-card. Both assets are guarded here.
+
+    Guard: assert each asset's mtime isn't grossly older (>3 days) than
+    the source files that drive its rendering. Threshold is generous —
     only catches true drift, not normal edit churn.
     """
 
-    def test_launchpad_example_not_grossly_stale(self):
-        screenshot = REPO / "docs" / "launchpad_example.png"
-        if not screenshot.exists():
+    STALE_THRESHOLD_DAYS = 3
+
+    def _assert_asset_fresh(self, asset_relpath: str, driver_relpaths: list[str], regen_recipe: str):
+        asset = REPO / asset_relpath
+        if not asset.exists():
             return  # not yet generated — guard is a no-op
-        source_drivers = [
-            REPO / "src" / "trinity_local" / "launchpad_template.py",
-            REPO / "src" / "trinity_local" / "launchpad_data.py",
-        ]
-        screenshot_mtime = screenshot.stat().st_mtime
-        STALE_THRESHOLD_DAYS = 3
+        asset_mtime = asset.stat().st_mtime
         stale_drivers: list[tuple[str, float]] = []
-        for path in source_drivers:
+        for rel in driver_relpaths:
+            path = REPO / rel
             if not path.exists():
                 continue
             src_mtime = path.stat().st_mtime
-            age_days = (src_mtime - screenshot_mtime) / 86400
-            if age_days > STALE_THRESHOLD_DAYS:
+            age_days = (src_mtime - asset_mtime) / 86400
+            if age_days > self.STALE_THRESHOLD_DAYS:
                 stale_drivers.append((path.name, age_days))
         assert not stale_drivers, (
-            f"docs/launchpad_example.png is grossly stale relative to "
-            f"the launchpad source files: {stale_drivers}. The README + "
-            f"launch-package link to this screenshot as the canonical "
-            f"'what Trinity looks like.' Regenerate via "
-            f"`trinity-local portal-html && trinity-local serve & "
-            f"python scripts/browser_smoke.py && cp docs/smoke/1-"
-            f"launchpad.png docs/launchpad_example.png`."
+            f"{asset_relpath} is grossly stale relative to its rendering "
+            f"source files: {stale_drivers}. Regenerate via: {regen_recipe}"
+        )
+
+    def test_launchpad_example_not_grossly_stale(self):
+        self._assert_asset_fresh(
+            "docs/launchpad_example.png",
+            [
+                "src/trinity_local/launchpad_template.py",
+                "src/trinity_local/launchpad_data.py",
+            ],
+            regen_recipe=(
+                "trinity-local portal-html && trinity-local serve & "
+                "python scripts/browser_smoke.py && "
+                "cp docs/smoke/1-launchpad.png docs/launchpad_example.png"
+            ),
+        )
+
+    def test_me_card_example_not_grossly_stale(self):
+        """me-card PNG is the OTHER Product Hunt asset (named in
+        launch-package alongside the launchpad screenshot + demo
+        video). T-1 catch: the example PNG was 6 days behind the
+        me_card.py rendering source, so the example didn't show what
+        `trinity-local me-card` actually produces today."""
+        self._assert_asset_fresh(
+            "docs/me_card_example.png",
+            [
+                "src/trinity_local/me_card.py",
+                "src/trinity_local/commands/me_card.py",
+            ],
+            regen_recipe=(
+                "trinity-local me-card --out docs/me_card_example.png"
+            ),
         )
 
 
