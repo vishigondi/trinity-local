@@ -41,11 +41,35 @@ class TestPickVetoChip:
 
     def test_pick_veto_copies_cortex_override(self, isolated_home):
         html = _render()
-        # The chip's clipboard payload is the cortex-override CLI. If
+        # The chip's CLI payload is the cortex-override invocation. If
         # the CLI is renamed, this guard catches the JS template drift
         # before Surface 17 in the browser run does.
         assert "trinity-local cortex-override --basin " in html, (
-            "pick-veto chip no longer copies cortex-override — template drift"
+            "pick-veto chip no longer references cortex-override — template drift"
+        )
+
+    def test_pick_veto_fires_shortcut_url_not_just_clipboard(self, isolated_home):
+        """100-persona audit P63: the veto chip used to ONLY copy the CLI
+        to clipboard — visible feedback-loop break. Now it fires the
+        macOS Shortcut directly (same shortcuts:// URL pattern as
+        launchpad council-launch); clipboard is fallback. Guard against
+        regression to clipboard-only."""
+        html = _render()
+        # Must build a shortcuts:// URL with the run_command action
+        assert "shortcuts://run-shortcut?name=" in html, (
+            "pick-veto no longer fires the macOS Shortcut — regressed to "
+            "clipboard-only per persona audit P63"
+        )
+        assert '"run_command"' in html, (
+            "pick-veto payload doesn't use the run_command dispatch action"
+        )
+        # JS object literal — unquoted key, quoted value
+        assert "action: " in html, (
+            "pick-veto payload missing the action: field in the JS object literal"
+        )
+        # Must still set window.location.href to trigger the URL handler
+        assert "window.location.href" in html, (
+            "pick-veto doesn't navigate to the shortcuts:// URL — won't actually fire"
         )
 
     def test_pick_actions_wrapper_present(self, isolated_home):
