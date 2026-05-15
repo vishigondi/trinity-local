@@ -251,6 +251,32 @@ shapes that earned their rules by costing time:
     — this covers formulas, headings, type signatures, command-help
     strings, anywhere prose carries a fact that another file owns.
 
+21. **Public claims need regression guards at the surface that ships
+    them.** Earned 2026-05-14 (T-1 of v1.0 launch) when a systematic
+    pass through launch-facing surfaces caught 14 separate drifts —
+    each a "claim X is made in surface Y; the private state of truth
+    in surface Z doesn't match" shape. Shapes ranged from launch
+    copy (cited councils not in repo, `[date]` placeholders, wrong
+    github owner) to programmatic (pyproject version+description
+    stale, schema $id pointing at an unregistered domain, smoke-
+    install hardcoded tool list 2 behind reality, bundled `/trinity`
+    skill using a 404 install command, README hero install command,
+    founder essay install command, demo recording timecode install
+    command, "verifier" reintroduced after the rename pass) to
+    binary assets (launchpad screenshot 6 days behind the
+    launchpad's source; me-card example PNG 6 days behind
+    me_card.py). Each had been live for hours-to-weeks before the
+    audit. The fix is two-step: (a) fix the immediate drift, (b)
+    add a test under `tests/test_doc_count_consistency.py` that
+    reads the canonical source of truth (`git remote get-url`,
+    `trinity-local --help`, file mtime, repo glob) and asserts the
+    public-facing surface matches. Treat the test as the surface's
+    own scar tissue from the bug — same shape can't quietly recur.
+    The audit trail itself becomes a launch-credibility artifact —
+    "open-source the trail" is literal when the trail names each
+    bug + fix + guard by commit hash. By T-1 close: 18 doc-
+    consistency guards green; each one earned by a real catch.
+
 ## Forward arc
 
 What the commit volume + theme distribution suggests for the next 50–100
