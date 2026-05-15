@@ -626,6 +626,126 @@ def _check_handoff_ready() -> CheckResult:
     )
 
 
+def _check_browser_capture() -> CheckResult:
+    """v1.6 browser-capture preflight.
+
+    Three install stages; first failure wins. All SOFT (ok=True) — the
+    extension is optional. The user might be CLI-only and never want
+    browser capture.
+
+    Stage 1 — host binary on PATH. ``trinity-local install-extension``
+    refuses to write the Native Messaging manifest until this exists.
+    If missing, the wheel installed without the v1.6 console script
+    (pre-v1.6 install of the package).
+
+    Stage 2 — Chrome Native Messaging manifest written. Chrome only
+    knows to spawn the host if its per-user
+    ``NativeMessagingHosts/local.trinity.capture.json`` exists with
+    Trinity's extension ID in ``allowed_origins``.
+
+    Stage 3 — at least one capture exists. If both above pass but
+    ``~/.trinity/conversations/`` is empty after the user has
+    presumably installed the extension, the host has never been
+    spawned — extension not loaded in Chrome, or its ID doesn't match
+    the manifest's ``allowed_origins``. Surface what to check.
+
+    Stage 4 — last capture freshness. Same threshold as Surface 33's
+    ``stale`` flag (24h): if at least one capture exists but the most
+    recent is > 24h old, surface as "investigate" (could be a provider
+    refactor, extension disabled, or just genuine no-use).
+    """
+    import shutil
+    import sys
+    import time
+
+    host_path = shutil.which("trinity-local-capture-host")
+    if not host_path:
+        return CheckResult(
+            name="browser_capture",
+            ok=True,  # soft
+            detail=(
+                "browser capture host not installed — `trinity-local-capture-host` "
+                "not on PATH. Reinstall the wheel (`pip install -e .` or "
+                "`pip install -U trinity-local`) so the v1.6 console script lands. "
+                "Skip if you don't use claude.ai / chatgpt.com chat UIs."
+            ),
+        )
+
+    # Stage 2 — Native Messaging manifest written?
+    if sys.platform == "darwin":
+        manifest_path = Path.home() / "Library" / "Application Support" / "Google" / "Chrome" / "NativeMessagingHosts" / "local.trinity.capture.json"
+    elif sys.platform.startswith("linux"):
+        manifest_path = Path.home() / ".config" / "google-chrome" / "NativeMessagingHosts" / "local.trinity.capture.json"
+    else:
+        # Windows path unverified; surface as soft skip.
+        return CheckResult(
+            name="browser_capture",
+            ok=True,
+            detail=f"v1.6 browser capture is macOS/Linux-first; platform {sys.platform!r} not yet supported.",
+        )
+
+    if not manifest_path.exists():
+        return CheckResult(
+            name="browser_capture",
+            ok=True,
+            detail=(
+                "Native Messaging manifest not written — Chrome doesn't know how to "
+                "spawn the capture host. Load `browser-extension/` in chrome://extensions, "
+                "copy the extension ID, then `trinity-local install-extension "
+                "--extension-id <ID>`. Skip if you don't use chat-UI captures."
+            ),
+        )
+
+    # Stage 3 — any captures yet?
+    from .state_paths import trinity_home
+    conv_root = trinity_home() / "conversations"
+    capture_files: list[Path] = []
+    if conv_root.exists():
+        for provider_dir in conv_root.iterdir():
+            if not provider_dir.is_dir():
+                continue
+            for f in provider_dir.glob("*.json"):
+                if not f.name.endswith(".stream.json"):
+                    capture_files.append(f)
+
+    if not capture_files:
+        return CheckResult(
+            name="browser_capture",
+            ok=True,
+            detail=(
+                "Manifest installed but no captures yet. Check: extension loaded in "
+                "chrome://extensions, extension ID in the manifest matches Chrome's "
+                "assigned ID, then send a message on claude.ai or chatgpt.com. "
+                "Debug steps in `browser-extension/README.md`."
+            ),
+        )
+
+    # Stage 4 — freshness.
+    try:
+        latest_mtime = max(f.stat().st_mtime for f in capture_files)
+    except OSError:
+        latest_mtime = 0
+    age_hours = (time.time() - latest_mtime) / 3600 if latest_mtime else None
+    if age_hours is not None and age_hours > 24:
+        return CheckResult(
+            name="browser_capture",
+            ok=True,
+            detail=(
+                f"{len(capture_files)} captures total but newest is "
+                f"{int(age_hours)}h old. Provider may have refactored their API, "
+                "extension may be disabled, or you may genuinely not have chatted "
+                "lately. chrome://extensions → service worker console for diagnosis."
+            ),
+        )
+
+    age_label = f"{int(age_hours * 60)}m" if age_hours and age_hours < 1 else f"{int(age_hours or 0)}h"
+    return CheckResult(
+        name="browser_capture",
+        ok=True,
+        detail=f"{len(capture_files)} captures across providers; newest {age_label} ago.",
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Sequential checks — fast (<1s), no network, no chairman calls."""
     report = DoctorReport()
@@ -643,6 +763,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_verdict_rate())
     report.checks.append(_check_cortex_freshness())
     report.checks.append(_check_handoff_ready())
+    report.checks.append(_check_browser_capture())
     return report
 
 

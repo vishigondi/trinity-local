@@ -3,6 +3,33 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 — doctor browser_capture preflight] — 2026-05-15
+
+`trinity-local doctor` now includes a 4-stage browser-capture check
+so the user gets a clean preflight when captures aren't firing —
+instead of having to grep through Chrome's service-worker console.
+All stages SOFT (ok=True) since the extension is optional and many
+users are CLI-only.
+
+Stages, first-failure-wins:
+
+1. `trinity-local-capture-host` on PATH — fails when the wheel
+   pre-dates v1.6 (no console script). Fix: `pip install -e .`
+2. Native Messaging manifest written at the per-platform path. Fix:
+   `trinity-local install-extension --extension-id <ID>`
+3. At least one capture in `~/.trinity/conversations/`. Fix points
+   at chrome://extensions to verify the extension is loaded with a
+   matching ID.
+4. Last capture < 24h old. Same threshold as Surface 33's `stale`
+   flag — provider refactor, extension disabled, or genuine no-use.
+
+Tests (+9) in `test_doctor_browser_capture.py`: each stage in
+isolation, soft-flag invariant, `.stream.json` exclusion matches
+Surface 33's count, unsupported-platform skip, `run_doctor()`
+regression guard that the new check is in the sequence.
+
+Suite: 1125 → 1134 passing.
+
 ## [v1.6 Day 9 — README section + ship-plan status sweep] — 2026-05-15
 
 Per spec line 405-409: the "Install once" wedge claim becomes literal
