@@ -815,6 +815,83 @@ class TestLaunchpadScreenshotFreshness:
         )
 
 
+class TestNoUnregisteredVanityDomains:
+    """Vanity-domain guard. Earlier launches considered using
+    `trinity.local` as a vanity URL for the Teams waitlist page; the
+    domain doesn't resolve (NXDOMAIN) and standing it up needs
+    registrar + DNS + hosting work. Likewise `trinity-local.dev` was
+    once the schema $id host (fixed in e64408d). Any future
+    introduction of these or similar vanity domains as CLICKABLE
+    links in launch copy would 404 for readers — same shape as the
+    schema $id catch.
+
+    T-1 catch: README line 137 had \`[trinity.local/teams](https://
+    trinity.local/teams)\` as the Teams waitlist link. Verified
+    trinity.local is NXDOMAIN. Replaced with GitHub Discussions link
+    (which works the moment the repo flips public).
+
+    Allowed contexts:
+      - References inside test files (this file scans for them)
+      - References inside CHANGELOG.md (documents the rename history)
+      - References inside docs/PREFERENCE_CORPUS_SPEC.md (deferred,
+        post-publish state allowed)
+
+    Blocked contexts (must NOT contain unregistered vanity domains):
+      - README.md (read pre-publish by anyone clicking through)
+      - docs/launch.md (the tweet thread + HN copy)
+      - docs/launch-package.md (the launch playbook)
+      - docs/founder-essay-draft.md (ships to personal blog T-7)
+    """
+
+    BLOCKED_DOMAINS = [
+        "trinity-local.dev",
+        # NOT trinity.local — that's the mDNS .local TLD which appears
+        # in legitimate contexts (mDNS, local network refs). Only flag
+        # when used as a URL host: https://trinity.local/...
+    ]
+
+    def test_no_unregistered_vanity_domains_in_launch_copy(self):
+        launch_docs = [
+            REPO / "README.md",
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "docs" / "founder-essay-draft.md",
+        ]
+        leaks: list[tuple[str, int, str]] = []
+        for path in launch_docs:
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                # Match `https://trinity.local/...` or
+                # `(https://trinity.local/...)` or backtick-quoted
+                # versions. The path component is what makes it a URL
+                # vs an mDNS reference.
+                for m in re.finditer(r"https?://(trinity\.local/[^\s\)`'\"]*)", line):
+                    leaks.append((path.name, lineno, m.group(0)))
+                for blocked in self.BLOCKED_DOMAINS:
+                    if blocked in line:
+                        # Allow if the line is explicitly documenting
+                        # the rename ("was trinity-local.dev, now ...").
+                        lower = line.lower()
+                        if any(marker in lower for marker in (
+                            "was trinity-local.dev",
+                            "earlier: trinity-local.dev",
+                            "deferred",
+                            "removed",
+                        )):
+                            continue
+                        leaks.append((path.name, lineno, blocked))
+        assert not leaks, (
+            f"Launch-facing docs reference unregistered/non-resolving "
+            f"vanity domains: {leaks}. These 404 for any reader "
+            f"clicking through. Use a working channel (GitHub repo, "
+            f"PyPI, email at a real domain) or wrap with explicit "
+            f"deferred-state language."
+        )
+
+
 class TestSchemaIdsResolveToReachableUrls:
     """Schema canonical-URL guard. The PREFERENCE_CORPUS_SPEC publishes
     three JSON Schema files (council_outcome, eval_set, rejection_

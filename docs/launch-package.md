@@ -135,9 +135,13 @@ all point at the same architectural claim.
    links back to.
 2. **5 tester DMs sent** — original spec-v1 plan; unchanged. Add the Dreaming hook to
    the message.
-3. **trinity.local/teams waitlist page live** — even if Teams isn't built. Single
-   email-capture form. Goal: every enterprise architect searching "Dreaming
-   alternative" / "Anthropic agent lock-in" lands here.
+3. **Teams interest channel ready** — GitHub Discussions on the trinity-local
+   repo (works the moment the repo flips public at T-0; no separate domain
+   registration needed). Email fallback: teams@openclaw.dev. Goal: every
+   enterprise architect searching "Dreaming alternative" / "Anthropic agent
+   lock-in" lands here. (Earlier plan: trinity.local/teams as a vanity domain
+   waitlist page — deferred; the GitHub-native channel is cheaper to stand up
+   and uses the same repo-public-flip gate as the rest of the launch.)
 
 **T-1 day:**
 4. **Twitter/X thread drafted** — `docs/launch.md` already has the structure; revise

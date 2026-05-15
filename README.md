@@ -134,7 +134,7 @@ agent memory without committing to any one lab's runtime.
 MassMutual, ProgressiveRobot, and others have started naming "agent lock-in" as a
 procurement concern; Trinity is the architectural response.
 
-**Waitlist:** [trinity.local/teams](https://trinity.local/teams) — or email teams@openclaw.dev.
+**Waitlist:** [GitHub Discussions](https://github.com/vishigondi/trinity-local/discussions) — open an "Interested in Teams" thread, or email teams@openclaw.dev.
 
 ## For tool builders: the Preference Corpus Spec
 
