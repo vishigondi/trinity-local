@@ -815,6 +815,79 @@ class TestLaunchpadScreenshotFreshness:
         )
 
 
+class TestBrandAxisConsistency:
+    """Hero + sub line must read identically across launch-facing
+    surfaces. Each surface independently quotes them; a copy edit
+    that only touches one surface silently drifts the others.
+
+    launch-package.md's 'locked positioning' section is the canonical
+    source of truth. Other surfaces (README hero, launch.md tweet
+    thread header, claude.md status block) must carry the EXACT same
+    hero + sub strings.
+
+    Verified manually at T-1 across 5 surfaces; promoting to a guard
+    so a future brand-pivot rename (or even a small word change in
+    one surface) fails the suite instead of shipping inconsistent
+    copy to readers.
+
+    Hero: 'Stop copy-pasting prompts. Own your context. Dream your core memories.'
+    Sub:  'One question. Every model you use. One answer that knows you.'
+
+    Both pinned by exact substring match — punctuation matters
+    (em-dashes, periods, capitalization).
+    """
+
+    CANONICAL_HERO = "Stop copy-pasting prompts. Own your context. Dream your core memories."
+    CANONICAL_SUB = "One question. Every model you use. One answer that knows you."
+
+    SURFACES_CARRYING_HERO = [
+        REPO / "README.md",
+        REPO / "docs" / "launch.md",
+        REPO / "docs" / "launch-package.md",
+        REPO / "claude.md",
+    ]
+
+    SURFACES_CARRYING_SUB = [
+        REPO / "README.md",
+        REPO / "docs" / "launch.md",
+        REPO / "docs" / "launch-package.md",
+        REPO / "claude.md",
+    ]
+
+    def test_hero_appears_verbatim_in_each_launch_surface(self):
+        missing: list[str] = []
+        for path in self.SURFACES_CARRYING_HERO:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if self.CANONICAL_HERO not in text:
+                missing.append(path.name)
+        assert not missing, (
+            f"Hero line missing from launch surfaces: {missing}. "
+            f"Each surface must carry the canonical hero verbatim: "
+            f"{self.CANONICAL_HERO!r}. A future copy edit that "
+            f"changed the wording in one surface without updating "
+            f"the others would land here — update all four at the "
+            f"same commit, or update the CANONICAL_HERO constant."
+        )
+
+    def test_sub_appears_verbatim_in_each_launch_surface(self):
+        missing: list[str] = []
+        for path in self.SURFACES_CARRYING_SUB:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if self.CANONICAL_SUB not in text:
+                missing.append(path.name)
+        assert not missing, (
+            f"Sub line missing from launch surfaces: {missing}. "
+            f"Each surface must carry the canonical sub verbatim: "
+            f"{self.CANONICAL_SUB!r}."
+        )
+
+
 class TestNoUnregisteredVanityDomains:
     """Vanity-domain guard. Earlier launches considered using
     `trinity.local` as a vanity URL for the Teams waitlist page; the
