@@ -459,24 +459,42 @@ A few words do specific work; they get conflated otherwise:
 
 - **prompts** — what the user owns (raw, indexed in `~/.trinity/prompts/`; renamed from `memory/` per Tier 1 #1, automatic one-time migration in `memory_dir()`). Inputs to dream.
 - **dream** — the verb only Trinity has. Reads prompts, emits core memories (offline, your data).
-- **core memories** — the durable memory types dream creates (plural):
+- **core memories** — the three *thinking* memories that compose your lens. The four-level hierarchy chairman reads top-down (drill only when needed):
 
-  | memory | what's in it | brain analog | status |
-  |---|---|---|---|
-  | `lens.md` | tensions you'd reject vs accept | value memory | shipped |
-  | `picks.json` | your model picks per topic, with reasoning | procedural memory | shipped |
-  | `routing.json` | per-category provider track record (numbers) | empirical memory | shipped |
-  | `topics.json` | clusters of subjects you ask about | semantic memory | shipped |
-  | `vocabulary.md` | how you use specific words | language memory | shipped |
-  | `principles.md` | rules you'd extract from watching yourself work | meta-cognitive memory | on hold, data-gated (task #109) |
+  | level | file | what's in it | brain analog | status |
+  |---|---|---|---|---|
+  | identity | `core.md` | one-paragraph manifesto | distillation | shipped |
+  | tensions | `lens.md` | paired tensions you'd reject vs accept | value | shipped |
+  | basins | `topics.json` | clusters of subjects + evidence map for lens | semantic | shipped |
+  | language | `vocabulary.md` | anchors + homonyms + synonyms | linguistic | shipped |
 
-  The five shipped memories live in `~/.trinity/memories/`. Principles
-  reuses the same directory when it lands. Splits cleanly along
-  WHAT (lens) / HOW (picks, routing) / META (principles); first three
-  rows are WHAT-and-HOW combined, last row is the GPS that lifts the
-  hill-climbing out of any single basin's local maximum.
+  Generation runs bottom-up (vocabulary + topics → lens → core); reads run
+  top-down (core first, drill to lens / topics / vocabulary on demand). The
+  three thinking files live in `~/.trinity/memories/`; `core.md` is the
+  distillation at `~/.trinity/core.md`. Together they ARE the lens — not
+  four separate "memories" — and that is what the launchpad surfaces as one
+  card with drill-down chips.
 
-- **core** — the singular distillation. `~/.trinity/core.md` is one paragraph that subsumes the five memories above — chairman reads it FIRST on every council, falls through to specific memory files only when it needs depth.
+  *Deferred:* `principles.md` (meta-cognitive, data-gated, task #109).
+
+- **scoreboards** — operational bookkeeping derived from council outcomes,
+  not cognitive shape. Excluded from distill (chairman doesn't read them as
+  identity context) and from the memory viewer's cognitive surface; surfaced
+  on the launchpad routing card. Two files under `~/.trinity/scoreboard/`:
+
+  | file | what's in it | what reads it |
+  |---|---|---|
+  | `picks.json` | extracted model-selection rules per task_type | `ask`, chairman picker |
+  | `routing.json` | per-task-type provider track record (numbers) | route, chairman picker, launchpad |
+
+  Both are computed from `council_outcomes/` (the user verdicts are the
+  ground truth). `picks.json` is a cortex-extraction over the outcomes;
+  `routing.json` is the on-demand aggregation frozen for read-only display.
+
+- **core** — the singular distillation at `~/.trinity/core.md`. One
+  paragraph that subsumes the three thinking memories above. Chairman reads
+  it FIRST on every council, falls through to lens / topics / vocabulary
+  only on demand.
 - **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.
 - **chairman** — the synthesis model in a single council. Reads `core.md`, emits structured Routing JSON. Per-call role.
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
@@ -644,6 +662,15 @@ Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
 │   ├── turn_windows.jsonl          # TurnWindow index (tier 2 — local context)
 │   ├── cursors.json                # Per-source memory ingest cursors (consumed by tool-triggered `ingest_recent()`)
 │   └── embeddings_matrix.npy       # numpy fast-path matrix (lazy)
+├── memories/                       # Cognitive memories: the three thinking files that compose your lens
+│   ├── lens.md                     #   paired tensions (value)
+│   ├── topics.json                 #   subject basins (semantic + lens evidence map)
+│   └── vocabulary.md               #   anchors + homonyms + synonyms (linguistic)
+├── core.md                         # Singular distillation of the three above (one paragraph manifesto)
+├── scoreboard/                     # Operational scoreboards: model-selection bookkeeping (NOT cognitive memory)
+│   ├── picks.json                  #   extracted model-selection rules per task_type
+│   └── routing.json                #   per-task-type provider track record
+├── cold_start_scan.json            # State file for first-spawn auto-scan (status, sources, added count)
 ├── analytics/
 │   ├── routing_label_events.jsonl  # Chairman parse-success rate
 │   ├── knn_advisory.jsonl          # k-NN advisory log
