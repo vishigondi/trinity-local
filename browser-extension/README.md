@@ -100,9 +100,10 @@ a claude.ai message:
   ISOLATED and MAIN worlds; the `world: "MAIN"` field requires Chrome 111+.
 - `page-hook.js` (MAIN world) — wraps `window.fetch`, tees streamed
   response bodies, dispatches through `window.__TRINITY_ADAPTERS`.
-- `adapters/claude.js` (MAIN world, loaded first) — registers the
-  Anthropic SSE parser on the adapter registry. `chatgpt.js` and
-  `gemini.js` follow in Week 2 / v1.7.
+- `adapters/claude.js` + `adapters/chatgpt.js` (MAIN world, loaded
+  before page-hook) — register Anthropic + OpenAI SSE parsers on the
+  adapter registry. `gemini.js` ships in v1.7 (Google's RPC-over-JSON
+  protocol is higher fragility per spec).
 - `content-script.js` (ISOLATED world) — bridges `window.postMessage`
   events to `chrome.runtime.sendMessage`.
 - `background.js` (service worker) — receives captured payloads,

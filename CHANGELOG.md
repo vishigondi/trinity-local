@@ -3,6 +3,35 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.6 Week 2 Day 6-7 — chatgpt.js SSE adapter] — 2026-05-15
+
+OpenAI parallel to `claude.js`. Same module shape; different SSE
+semantics:
+
+- conv_id source: top-level `conversation_id` on each event (or
+  nested in `message.metadata` as fallback)
+- message_id: walks events for first `message.author.role ===
+  "assistant"` with an `id` field
+- assistant text: OpenAI's `message.content.parts[]` is CUMULATIVE
+  (each event carries the full text so far), not incremental like
+  Anthropic's `content_block_delta`. Adapter takes the longest
+  observed `parts` join rather than concatenating events.
+- delta-shape fallback: newer responses ship `delta.content` chunks
+  per event. Adapter accumulates these AND returns whichever of
+  (cumulative, delta-accumulated) is longer.
+
+Wired into `manifest.json` as a MAIN-world content_script alongside
+`claude.js`, ordered before `page-hook.js` so the registry is
+populated by the time fetch is wrapped.
+
+Tests (+10) in `test_browser_extension_chatgpt_adapter.py`: provider
+identity, conv_id from event payload, conv_id fallback to
+`message.metadata`, assistant message id, cumulative-parts text
+reconstruction verbatim, delta-shape text accumulation, event count,
+empty-body resilience, truncated-JSON resilience.
+
+Suite: 1097 → 1107 passing.
+
 ## [v1.6 — browser captures flow into the prompt index] — 2026-05-15
 
 The load-bearing wire the spec calls out at line 422-425: captures
