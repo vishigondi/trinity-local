@@ -533,6 +533,33 @@ def run_council(
             pass  # observability; never block the run
     member_prompt = render_member_prompt(bundle)
 
+    # 100-persona audit P46 fix: classify + log member dispatch failures
+    # so dispatch_health.compute_health() demotes rate-limited providers
+    # for the NEXT call. Before this, council failures were silent: a
+    # rate-limited Codex in a council never demoted, the next ask
+    # routed back to it, and the rate-limit-saves metric missed council
+    # saves entirely.
+    from .dispatch_errors import classify_dispatch_failure
+    from .dispatch_health import log_member_failure
+
+    def _log_council_member_failure(provider_name: str, returncode: int, stderr_text: str) -> None:
+        try:
+            failure = classify_dispatch_failure(
+                provider=provider_name,
+                returncode=returncode,
+                stderr=stderr_text,
+            )
+            log_member_failure(
+                provider=provider_name,
+                council_run_id=council_id,
+                failure_kind=failure.kind.value,
+                stderr_excerpt=stderr_text,
+            )
+        except Exception:
+            # Same contract as the underlying logger — observability
+            # MUST NOT crash the dispatch path.
+            pass
+
     def _run_member(provider_name: str) -> MemberExecutionResult:
         provider_config = config.providers.get(provider_name)
         if provider_config is None or not provider_config.enabled:
@@ -553,6 +580,11 @@ def run_council(
         except Exception as exc:
             error_text = str(exc)
             update_member_failure(state_token, provider_name, error_text)
+            _log_council_member_failure(
+                provider_name,
+                returncode=getattr(exc, "returncode", 1),
+                stderr_text=error_text,
+            )
             return MemberExecutionResult(
                 provider_name=provider_name,
                 provider_config=provider_config,
@@ -567,6 +599,11 @@ def run_council(
         output_text = result.stdout or result.stderr or ""
         if result.returncode != 0 and not (result.stdout or "").strip():
             update_member_failure(state_token, provider_name, result.stderr or f"Exited with code {result.returncode}.")
+            _log_council_member_failure(
+                provider_name,
+                returncode=result.returncode,
+                stderr_text=result.stderr or "",
+            )
             return MemberExecutionResult(
                 provider_name=provider_name,
                 provider_config=provider_config,

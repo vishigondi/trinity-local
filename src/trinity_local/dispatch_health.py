@@ -161,3 +161,48 @@ def unhealthy_providers(*, min_failures: int = 1) -> set[str]:
 def clear_health_cache() -> None:
     """Test affordance."""
     _cache.clear()
+
+
+def log_member_failure(
+    *,
+    provider: str,
+    council_run_id: str,
+    failure_kind: str,
+    stderr_excerpt: str = "",
+) -> None:
+    """Append one council-member dispatch failure to dispatch_outcomes.jsonl
+    so dispatch_health.compute_health() picks it up.
+
+    100-persona audit P46 fix: before this, council_runner caught member
+    dispatch exceptions but never wrote to the outcomes log — so a rate-
+    limited Codex in a council never demoted the provider, and the next
+    ask routed back to the same rate-limited provider. ask.py logs
+    via _log_dispatch_outcome with a `query` shape; this is the
+    council-shape twin (`council_run_id` instead of query).
+
+    Same write contract: failures swallowed (observability MUST NOT
+    crash the dispatch path), same on-disk JSONL the health-reader
+    expects.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        from .state_paths import dispatch_outcomes_path
+
+        path = dispatch_outcomes_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            "source": "council_member",
+            "council_run_id": council_run_id,
+            "primary": provider,
+            "succeeded_on": None,
+            "retries": 0,
+            "rate_limit_save": False,
+            "failure_kind": failure_kind,
+            "stderr_excerpt": (stderr_excerpt or "")[:240],
+        }
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass

@@ -18,6 +18,7 @@ from trinity_local.dispatch_health import (
     _DECAY_MINUTES,
     clear_health_cache,
     compute_health,
+    log_member_failure,
     unhealthy_providers,
 )
 
@@ -215,3 +216,56 @@ class TestPoolDemotion:
 
         pool = mcp_server._full_provider_pool()
         assert pool == ["claude", "codex"]
+
+
+class TestLogMemberFailure:
+    """100-persona audit P46 fix: council member dispatch failures must
+    write to dispatch_outcomes.jsonl so compute_health() can demote the
+    provider on the next ask. Without this the council was silent —
+    rate-limited Codex stayed routable, rate-limit-saves missed council
+    saves entirely."""
+
+    def test_writes_to_outcomes_log(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        log_member_failure(
+            provider="codex",
+            council_run_id="council_test_001",
+            failure_kind="rate_limited",
+            stderr_excerpt="429 Too Many Requests",
+        )
+        path = tmp_path / "analytics" / "dispatch_outcomes.jsonl"
+        assert path.exists()
+        entry = json.loads(path.read_text().strip())
+        assert entry["primary"] == "codex"
+        assert entry["failure_kind"] == "rate_limited"
+        assert entry["source"] == "council_member"
+        assert entry["council_run_id"] == "council_test_001"
+        assert entry["succeeded_on"] is None
+
+    def test_council_failure_marks_provider_unhealthy(self, tmp_path, monkeypatch):
+        """End-to-end: log a council member rate-limit, run compute_health(),
+        codex should land in unhealthy_providers() set."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        log_member_failure(
+            provider="codex",
+            council_run_id="council_e2e",
+            failure_kind="rate_limited",
+            stderr_excerpt="429",
+        )
+        clear_health_cache()
+        unhealthy = unhealthy_providers()
+        assert "codex" in unhealthy, (
+            "Council-logged rate limit did not propagate to dispatch_health "
+            "— the loop is broken again"
+        )
+
+    def test_swallows_exceptions(self, tmp_path, monkeypatch):
+        """Per contract, observability must NOT crash the dispatch path.
+        Force a write failure and confirm no exception escapes."""
+        monkeypatch.setenv("TRINITY_HOME", "/this/dir/cannot/possibly/exist/nope")
+        # No raise expected
+        log_member_failure(
+            provider="codex",
+            council_run_id="x",
+            failure_kind="rate_limited",
+        )
