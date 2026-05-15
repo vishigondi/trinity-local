@@ -1430,30 +1430,61 @@ def render_memory_viewer_html() -> str:
       // basin is *about*. Falls back to TF-IDF top_terms when representatives
       // haven't been written yet (legacy topics.json files from before the
       // representatives feature shipped — those clear on the next lens-build).
-      function labelFor(b) {{
-        // Tick #49: prefer chairman-derived semantic label when present.
-        // Falls through to the prior chain (representative headline →
-        // top_terms → basin id) for basins written before the labeler
-        // stage existed.
-        if (b.label) {{
-          return b.label.length > 36 ? b.label.slice(0, 36) + "…" : b.label;
+      // Greetings + short ack words that should NOT label a basin (mirror
+      // of _LABEL_GREETINGS in src/trinity_local/me/basins.py — kept in
+      // sync because old on-disk topics.json files from before the Python
+      // labeler shipped have empty `label`; this JS fallback rescues them
+      // at render-time without forcing a lens-rebuild).
+      const _LABEL_GREETINGS = new Set([
+        "hi","hello","hey","yo","sup","thanks","thank you","ok","okay",
+        "yes","no","sure","got it","cool","nice","great","awesome",
+        "continue","go on","next","more","again","?","??","..."
+      ]);
+      function _pickSubstantiveSnippet(reps) {{
+        // Same algorithm as Python _pick_label_snippet: longest multi-word
+        // non-greeting turn across the top-5 reps. Returns "" when nothing
+        // qualifies (caller falls through to top_terms).
+        let best = "";
+        const cap = Math.min(reps.length, 5);
+        for (let i = 0; i < cap; i++) {{
+          const rep = reps[i] || {{}};
+          const candidates = [rep.headline || ""];
+          for (const t of (rep.turns || [])) {{
+            const s = (t.snippet || "").trim();
+            if (s && !candidates.includes(s)) candidates.push(s);
+          }}
+          for (const cand of candidates) {{
+            const trimmed = (cand || "").trim();
+            if (!trimmed) continue;
+            const norm = trimmed.toLowerCase().replace(/[?.!,;:'\" ]+$/, "");
+            if (_LABEL_GREETINGS.has(norm)) continue;
+            if (trimmed.split(/\\s+/).length < 3) continue;
+            if (trimmed.length > best.length) best = trimmed;
+          }}
         }}
-        // New thread shape: reps[0].headline. Legacy: reps[0].snippet.
+        return best;
+      }}
+      function labelFor(b) {{
+        // Prefer the Python-computed semantic label when present (new
+        // basins). Fall through to the JS picker (same heuristic) for
+        // legacy basins where `label` was never written.
+        const truncate = (s) => s.length > 36 ? s.slice(0, 36) + "…" : s;
+        if (b.label) return truncate(b.label);
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
-        const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
-        if (text) {{
-          const words = text.trim().split(/\\s+/).slice(0, 4).join(" ");
-          if (words) return words.length > 36 ? words.slice(0, 36) + "…" : words;
+        const picked = _pickSubstantiveSnippet(reps);
+        if (picked) {{
+          const words = picked.split(/\\s+/).slice(0, 6).join(" ");
+          return truncate(words);
         }}
         return (b.top_terms && b.top_terms[0]) || b.id || "?";
       }}
       function tooltipFor(b) {{
-        // Hover tooltip prefers the chairman label (full, not truncated)
-        // when present. Legacy fallback chain unchanged.
+        // Hover tooltip prefers the full (non-truncated) label when present;
+        // legacy basins use the substantive picker; finally top_terms.
         if (b.label) return b.label;
         const reps = Array.isArray(b.representatives) ? b.representatives : [];
-        const text = reps.length ? (reps[0].headline || reps[0].snippet) : null;
-        if (text) return text;
+        const picked = _pickSubstantiveSnippet(reps);
+        if (picked) return picked;
         return (b.top_terms || []).join(", ");
       }}
       const nodes = basins.map((b, i) => ({{

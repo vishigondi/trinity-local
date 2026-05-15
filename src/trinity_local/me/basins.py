@@ -434,6 +434,16 @@ def compute_basins(
                 "turns": turns_payload,
             })
 
+        # Compute a substantive label from the representative turns — pick the
+        # longest non-greeting snippet across the reps' first turn. Without
+        # this, persona audit Theme B #1 reproduces: 100% of real-corpus
+        # basins have empty `label`, and viewers fall back to `headline`
+        # which is whichever turn is closest to the basin centroid — that's
+        # often a short greeting ("Hello.") for greeting-heavy basins, so
+        # the largest cluster of 3,408 prompts renders as "Hello." in the
+        # topology graph. Pure regex/length heuristic, no LLM call; the
+        # chairman labeler stage stays a forward-arc item.
+        basin_label = _pick_label_snippet(reps)
         basins.append(Basin(
             id=f"b{cluster_idx:02d}",
             size=len(member_turn_indices),  # total turn count
@@ -442,12 +452,55 @@ def compute_basins(
             centroid=basin_centroids[cluster_idx].tolist(),
             prompt_ids=[nodes[i].id for i in member_turn_indices],
             representatives=reps,
+            label=basin_label,
         ))
 
     basins.sort(key=lambda b: -b.size)
     for i, basin in enumerate(basins):
         basin.id = f"b{i:02d}"
     return basins
+
+
+_LABEL_GREETINGS = {
+    "hi", "hello", "hey", "yo", "sup", "thanks", "thank you", "ok", "okay",
+    "yes", "no", "sure", "got it", "cool", "nice", "great", "awesome",
+    "continue", "go on", "next", "more", "again", "?", "??", "...",
+}
+
+_LABEL_MAX_CHARS = 80
+
+
+def _pick_label_snippet(reps: list[dict]) -> str:
+    """Pick the most substantive turn across reps to use as the basin's
+    human label. Skips short greetings; prefers longer, multi-word turns
+    closer to the centroid (reps come pre-sorted that way).
+
+    Returns "" if nothing substantive — the viewer then falls back to
+    top_terms display, which at least surfaces what tokens dominate the
+    cluster instead of misleading with a stale greeting.
+    """
+    best: tuple[int, str] = (0, "")
+    for rep in reps[:5]:  # top 5 representatives only
+        headline = (rep.get("headline") or "").strip()
+        candidates = [headline]
+        for turn in rep.get("turns") or []:
+            snippet = (turn.get("snippet") or "").strip()
+            if snippet and snippet not in candidates:
+                candidates.append(snippet)
+        for cand in candidates:
+            if not cand:
+                continue
+            normalized = cand.lower().rstrip("?.!,;:'\" ")
+            if normalized in _LABEL_GREETINGS:
+                continue
+            words = cand.split()
+            if len(words) < 3:
+                continue
+            score = len(cand)
+            if score > best[0]:
+                truncated = cand if len(cand) <= _LABEL_MAX_CHARS else cand[:_LABEL_MAX_CHARS].rstrip() + "…"
+                best = (score, truncated)
+    return best[1]
 
 
 def save_basins(basins: list[Basin]) -> Path:
