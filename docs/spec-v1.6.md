@@ -43,6 +43,38 @@ canonical conversation tree wasn't fully verified because the
 test account had 0 conversations, but the endpoint exists and
 returns the expected envelope.
 
+## Validation log (T-0, 2026-05-15)
+
+After Week 1 of v1.6 shipped (commits `4bd2e0f`, `e2e6720`,
+`2784717`), the `page-hook.js` IIFE was injected into a live
+`claude.ai/new` page-context to re-confirm the spec
+assumptions against today's frontend:
+
+* `location.hostname === "claude.ai"`, `document.readyState ===
+  "complete"`, `window.fetch` is a function — basic
+  preconditions hold.
+* Injection returns `"installed"`, `window.__TRINITY_HOOK_INSTALLED__
+  === true`, `window.fetch.name === "trinityFetch"` — the wrapper
+  is in place exactly as it would be after the extension's
+  MAIN-world content_script runs.
+* Console emits `[trinity-hook] fetch wrapper installed on
+  claude.ai` — the user-visible signal documented in
+  `browser-extension/README.md` ("3 places to look when capture
+  isn't firing").
+
+Claim re-confirmed: claude.ai's frontend is fetch-based; the
+EventSource constructor remains globally reachable but the page
+itself does not construct any (anything that would have shown up
+as `EventSource` had to flow through `window.EventSource` and a
+sentinel wrap would have logged it). Hook installation does not
+break any page behavior — title still renders, `/new` route still
+loads, no console errors.
+
+End-to-end smoke (Load Unpacked → send message → verify file
+lands) remains the user's manual step per
+`browser-extension/README.md`; everything that can be validated
+without sending a real chat message has been validated.
+
 ## The reframe
 
 v1.0 ships with this gap quietly papered over: the seed-from-taste-terminal
