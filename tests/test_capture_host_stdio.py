@@ -129,6 +129,46 @@ def test_stream_payload_keyed_by_url_hash(tmp_path):
     assert "data: [DONE]" in saved["_raw_stream_body"]
 
 
+def test_adapter_stream_writes_with_stream_suffix(tmp_path):
+    """``kind: "adapter_stream"`` payloads land under ``<conv_id>.stream.json``
+    so they don't overwrite the canonical conversation file when both
+    arrive for the same conv_id.
+    """
+    trinity_home = tmp_path / "trinity"
+    proc = _spawn_host(trinity_home)
+
+    payload = {
+        "kind": "captured",
+        "payload": {
+            "provider": "claude",
+            "kind": "adapter_stream",
+            "conv_id": "conv-xyz",
+            "message_uuid": "msg-aa11",
+            "url": "https://claude.ai/api/organizations/o/chat_conversations/conv-xyz/completion",
+            "method": "POST",
+            "assistant_text": "Hello world.",
+            "events_count": 5,
+        },
+    }
+
+    proc.stdin.write(_frame(payload))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    assert ack["conv_id"] == "conv-xyz.stream"
+
+    written = Path(ack["path"])
+    assert written.exists()
+    assert written == trinity_home / "conversations" / "claude" / "conv-xyz.stream.json"
+
+    saved = json.loads(written.read_text())
+    assert saved["assistant_text"] == "Hello world."
+    assert saved["message_uuid"] == "msg-aa11"
+
+
 def test_unrecognized_payload_errors_but_keeps_host_alive(tmp_path):
     trinity_home = tmp_path / "trinity"
     proc = _spawn_host(trinity_home)

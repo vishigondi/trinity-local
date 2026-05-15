@@ -98,14 +98,26 @@
             if (done) break;
             buf += decoder.decode(value, { stream: true });
           }
-          emit({
-            provider: classification.provider,
-            kind: "stream",
-            url,
-            method,
-            body_text: buf,
-            captured_at: new Date().toISOString(),
-          });
+          const captured_at = new Date().toISOString();
+          // Dispatch through the provider's adapter if loaded
+          // (adapters/<provider>.js runs before page-hook.js and
+          // registers on window.__TRINITY_ADAPTERS). The adapter
+          // normalizes the SSE delta stream into a structured payload
+          // the host can write directly. Fallback: emit raw if no
+          // adapter is registered for this provider.
+          const adapter = window.__TRINITY_ADAPTERS?.[classification.provider];
+          if (adapter?.adapt) {
+            emit(adapter.adapt({ url, body_text: buf, method, captured_at }));
+          } else {
+            emit({
+              provider: classification.provider,
+              kind: "stream",
+              url,
+              method,
+              body_text: buf,
+              captured_at,
+            });
+          }
         } else if (classification.kind === "canonical") {
           const json = await captured.json();
           emit({

@@ -75,9 +75,22 @@ def _extract_target(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]] 
         if not conv_id:
             return None
         return provider, str(conv_id), conv
+    if kind == "adapter_stream":
+        # Per-provider adapter (e.g. adapters/claude.js) has normalized
+        # the streamed SSE body. The adapter provides conv_id directly.
+        # The whole adapter result is saved — assistant_text, message_uuid,
+        # events_count etc. — so consumers can join with the canonical
+        # fetch (which arrives later under the same conv_id).
+        conv_id = raw.get("conv_id")
+        if not conv_id:
+            return None
+        # Save under a separate key so the canonical write doesn't get
+        # overwritten when both arrive for the same conversation.
+        return provider, f"{conv_id}.stream", dict(raw)
     if kind == "stream":
-        # Day-1 scaffold: no adapter yet. Key by URL hash so distinct
-        # streams don't overwrite each other. Adapters replace this.
+        # Raw (un-adapted) stream — fallback when no adapter is loaded
+        # for this provider. Key by URL hash so distinct streams don't
+        # overwrite each other.
         from hashlib import sha1
         url = raw.get("url") or ""
         conv_id = "stream-" + sha1(url.encode("utf-8")).hexdigest()[:16]

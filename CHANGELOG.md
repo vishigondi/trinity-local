@@ -66,16 +66,48 @@ because it ships to Chrome Web Store, not bundled with the pip wheel):
   URL hash), unrecognized payload (host errors but stays alive for
   the next message).
 
-Test suite: **1068 → 1072 passing** (+4).
+Test suite: **1068 → 1072 passing** (+4 in this tick).
 
-### What's NOT shipped this tick (Day 4 finish + Day 5)
+### Day 5 — claude.js SSE adapter (second tick)
+
+- `browser-extension/adapters/claude.js` — MAIN-world script loaded
+  BEFORE `page-hook.js` (manifest order). Registers at
+  `window.__TRINITY_ADAPTERS.claude` so page-hook dispatches through
+  it without imports (MV3 content scripts can't import each other).
+  Also exports for node so unit tests run without a browser.
+- Parses Anthropic's SSE event stream — robust to `\r\n` line
+  endings, multiple `data:` lines per event, `[DONE]` terminator,
+  malformed JSON in truncated streams (skips silently). Accumulates
+  text from both `content_block_delta` (current shape) and older
+  `completion`-event shapes. Extracts conv_id from URL and
+  message_uuid from `message_start` for downstream join with the
+  canonical fetch.
+- `page-hook.js` now dispatches stream payloads through
+  `window.__TRINITY_ADAPTERS?.[provider]?.adapt` when an adapter is
+  loaded for that provider; falls back to raw stream emit otherwise.
+  Means claude.ai captures are normalized inline; chatgpt.com and
+  gemini.google.com still go through the raw path until their
+  adapters ship.
+- `capture_host.py` handles a new `kind: "adapter_stream"` payload
+  shape — writes under `<conv_id>.stream.json` so the canonical
+  conversation file (when it eventually arrives) doesn't get
+  overwritten by streamed-only data.
+
+Tests (+9): `test_browser_extension_claude_adapter.py` runs the JS
+adapter via node against a saved SSE fixture and asserts the
+reconstructed `assistant_text` matches verbatim, plus correct conv_id
+/ message_uuid extraction, empty-body resilience, and truncated-JSON
+resilience. `test_capture_host_stdio.py` gains a case for the new
+`adapter_stream` payload kind.
+
+Test suite: **1072 → 1081 passing**.
+
+### What's NOT shipped yet (Day 4 finish + Week 2)
 
 - Manual Chrome "Load Unpacked" + `install-extension --extension-id`
-  with a real ID — needs Chrome UI interaction; next tick.
-- `claude.js` adapter normalizing Anthropic's SSE delta format —
-  current scaffold logs raw stream bodies; Day-5 work.
-- Launchpad Surface 33 ("Browser capture · last 24h") — Week 2 per
-  the spec timeline.
+  with a real ID — needs Chrome UI interaction.
+- `chatgpt.js` and `gemini.js` adapters — Week 2 per spec.
+- Launchpad Surface 33 ("Browser capture · last 24h") — Week 2.
 
 ## [v1.0 ship window — day 2 launch-arc workstreams] — 2026-05-14
 
