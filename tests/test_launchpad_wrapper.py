@@ -16,9 +16,11 @@ flagged it as an untested public surface.
 """
 from __future__ import annotations
 
+import json
 import stat
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -192,3 +194,34 @@ class TestInstallWiresWrapper:
         wrapper = isolated_home / "bin" / "trinity-launchpad"
         assert wrapper.exists(), "install must drop the trinity-launchpad wrapper"
         assert wrapper.stat().st_mode & stat.S_IXUSR
+
+
+class TestInstallAppCommand:
+    def test_install_app_command_prints_installed_paths(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ):
+        from trinity_local.commands import install as install_cmd
+
+        expected_launchpad_path = tmp_path / "launchpad.html"
+        app_dir = tmp_path / "Apps"
+        app_path = app_dir / "Trinity.app"
+
+        monkeypatch.setattr(install_cmd, "refresh_launchpad", lambda: expected_launchpad_path)
+
+        def fake_install_launchpad_shortcuts(*, launchpad_path: Path, destinations: list[Path] | None = None):
+            assert launchpad_path == expected_launchpad_path
+            assert destinations == [app_dir]
+            return [app_path]
+
+        monkeypatch.setattr(install_cmd, "install_launchpad_shortcuts", fake_install_launchpad_shortcuts)
+
+        install_cmd.handle_install_app(SimpleNamespace(destination=[str(app_dir)]))
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload == {
+            "launchpad_path": str(expected_launchpad_path),
+            "app_paths": [str(app_path)],
+        }

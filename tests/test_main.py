@@ -20,6 +20,7 @@ def test_build_parser_registers_core_commands():
     choices = _subparser_choices(parser)
     assert "portal-html" in choices
     assert "council-launch" in choices
+    assert "install-app" in choices
     assert "telemetry-show" in choices
 
 

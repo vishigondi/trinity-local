@@ -105,13 +105,19 @@ What to copy:
 
 The shipped architecture is:
 
-1. **Direct prompt → council** is the primary path: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click fires `launch_council` via Shortcut.
-2. Trinity writes `TaskRecord`, `PromptBundle`, and `CouncilOutcome` files.
-3. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
-4. Launch actions use `shortcuts://run-shortcut?...`.
-5. A single macOS Shortcut named `Trinity Dispatch` executes the local command via `~/.trinity/bin/trinity-dispatch`.
-6. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
-7. **Watchers are secondary** (`watch-once`, `watch-loop`) — opt-in for users who want background suggestion of council-worthy prompts. The primary path doesn't require them.
+1. **Desktop-app launch is the non-coder path:** `Trinity.app` opens the local
+   launchpad/review cockpit without a terminal window. `trinity-local
+   install-app` repairs or regenerates that app wrapper.
+2. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click fires `launch_council` via Shortcut.
+3. Trinity writes `TaskRecord`, `PromptBundle`, and `CouncilOutcome` files.
+4. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
+5. Launch actions use `shortcuts://run-shortcut?...`.
+6. A single macOS Shortcut named `Trinity Dispatch` executes the local command via `~/.trinity/bin/trinity-dispatch`.
+7. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
+8. **Mobile starts as review links**: the phone opens a web/deep link to a
+   council review page, then writes ratings through the paired desktop when
+   available.
+9. **Watchers are secondary** (`watch-once`, `watch-loop`) — opt-in for users who want background suggestion of council-worthy prompts. The primary path doesn't require them.
 
 ## Watcher layer (optional)
 

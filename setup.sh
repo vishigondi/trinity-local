@@ -174,7 +174,7 @@ fi
 step "Trinity app (Desktop + Applications)"
 
 .venv/bin/python -c "
-from trinity_local.portal_page import install_launchpad_shortcuts, write_portal_html
+from trinity_local.launchpad_page import install_launchpad_shortcuts, write_portal_html
 launchpad_path = write_portal_html()
 paths = install_launchpad_shortcuts(launchpad_path=launchpad_path)
 print(f'  \033[0;32m✓\033[0m Launchpad written')
