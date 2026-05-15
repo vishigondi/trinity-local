@@ -405,7 +405,24 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
 
 
 def _text(payload: dict | str) -> dict:
-    """Wrap a JSON-serializable result as an MCP text response."""
+    """Wrap a JSON-serializable result as an MCP text response.
+
+    If the payload is a dict and the cold-start auto-scan is currently
+    running (or just finished), inject the hint under ``cold_start`` so
+    the agent surfaces "Trinity is ingesting your CLI history…" inline.
+    Strings pass through unchanged; the hint only attaches to structured
+    responses where the agent can pluck the field.
+    """
+    if isinstance(payload, dict) and "cold_start" not in payload:
+        try:
+            from .cold_start import cold_start_hint
+
+            hint = cold_start_hint()
+            if hint is not None:
+                payload = dict(payload)
+                payload["cold_start"] = hint
+        except Exception:
+            pass
     body = payload if isinstance(payload, str) else json.dumps(payload, indent=2, default=str)
     return {"type": "text", "text": body}
 
@@ -1547,6 +1564,14 @@ async def run_stdio_server():
     from .mcp_watchdog import start_watchdog_if_enabled
 
     start_watchdog_if_enabled()
+
+    # First-spawn auto-scan: when corpus is empty AND local CLI transcript
+    # dirs (~/.claude, ~/.codex, ~/.gemini, cowork) exist, kick a background
+    # ingest so the first council the user fires already has personalization
+    # signal. No-op when corpus is populated or no source dirs found.
+    from .cold_start import maybe_kick_cold_start
+
+    maybe_kick_cold_start()
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

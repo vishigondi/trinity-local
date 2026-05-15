@@ -9,6 +9,20 @@ from typing import Any
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_cold_start_autoscan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Block the MCP cold-start auto-scan from firing during tests.
+
+    Without this, ``cold_start.is_cold_start()`` reads ``Path.home()`` to
+    look for ``~/.claude``, ``~/.codex`` etc — i.e., the developer's
+    real corpus — and would either scan it (slow + unexpected) or skip
+    based on whatever happens to be on the machine (flaky). Tests opt
+    in to cold-start behavior by clearing this var inside their own
+    monkeypatch.
+    """
+    monkeypatch.setenv("TRINITY_AUTOSCAN_DISABLED", "1")
+
+
 @pytest.fixture
 def tmp_state_dir(tmp_path: Path) -> Path:
     """Create a temporary state directory mimicking trinity-local's ~/.trinity/ layout."""
