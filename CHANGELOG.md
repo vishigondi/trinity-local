@@ -3,6 +3,78 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7 follow-up — silent-failure audit + atomicity batch] — 2026-05-16
+
+Self-paced loop iteration audited recently-touched code (vendor.py,
+cold_start.py, mcp_server.py, council_runtime.py, doctor.py) for
+silent-failure shapes the launch-prep batch left exposed. 7 ticks
+landed in this arc (H–N).
+
+**Atomicity**
+- `utils.atomic_write_text` helper: tmp+rename + per-process PID-
+  stamped tmp suffix + parent-dir creation + tmp cleanup on success.
+  Adopted at all 5 callsites that previously inlined the pattern
+  (Principle #17 follow-through): incremental_ingest cursor save,
+  cortex routing patterns save, cold_start state writer, capture_host
+  capture writer, AND council_runtime's 4 direct write_text() sites
+  (save_prompt_bundle, save_council_outcome, JSONP wrapper, thread
+  manifest). New `TestNoInlineAtomicWritePattern` regex guard bans
+  the inline shape from reappearing across `src/trinity_local/`.
+- Council outcome writes — the durable supervision signal that's
+  Trinity's moat — are now atomic. Kill-mid-write no longer leaves
+  a half-JSON file that compute_personal_routing_table silently
+  drops.
+
+**Silent failures surfaced**
+- `mcp.record_outcome`: `load_council_outcome` exception used to
+  silently set `outcome_updated:false` and return `ok:true`. Now
+  surfaces `outcome_load_error` + `recoverable` + `user_message`
+  so the agent can tell the user their verdict was queued to the
+  feedback side-log but didn't reach the canonical outcome JSON
+  (highest-blast-radius silent failure of the launch).
+- `mcp.get_council_status`: same shape as record_outcome — corrupt
+  outcome JSON now surfaces `outcome_load_error` instead of `outcome:null`
+  with no signal. Both the completed-with-corrupt-outcome and the
+  no-status-AND-corrupt-outcome paths carry the load error.
+- `vendor.publish_vendor_files`: bare `except OSError: pass` on
+  write_bytes now writes a stderr warning naming the file +
+  exception detail + the vendor_dir path the user needs to fix
+  perms on. The silent skip turned "perms problem at install" into
+  "launchpad has broken ./vendor/*.js 404s with no log trail."
+
+**Cross-process race fixed**
+- `cold_start.kick_cold_start_scan`: state file is now written
+  SYNCHRONOUSLY before the daemon thread spawns, not deferred to
+  the thread body + polled. Closes the cross-process race where
+  multiple MCP servers (Claude Code + Codex CLI + Gemini CLI +
+  Cursor each spawn one at session-start) could pass `is_cold_start()`
+  before any one of them wrote state, then all spawn duplicate
+  ingestion threads. The state file is now the cross-process
+  serialization point.
+
+**Doctor coverage**
+- New `_check_vendor_published` doctor check: walks
+  `~/.trinity/portal_pages/vendor/` against the canonical
+  VENDORED_FILES list. Soft check (`ok=True` regardless) — surfaces
+  partial-publish state with the fix command. Closes the loop on
+  the vendor.py silent-failure fix above.
+
+**Tests**
+- 1212 → 1238 (+26). New surfaces: TestAtomicWriteText (6),
+  TestNoInlineAtomicWritePattern (1), TestVendorPublishedCheck (4),
+  TestRefreshVendorScript (2), TestVendorFilesPublished (2),
+  test_state_file_written_synchronously_before_thread_starts (1),
+  test_outcome_load_error_surfaces_when_council_id_unknown (1),
+  TestGetCouncilStatus (1), TestScoreboardPathRenameInDocs (1) +
+  the extended TestTestCountConsistency (now 4 surfaces).
+
+**Maintenance ritual**
+- `scripts/refresh-vendor.sh` (new): pins exact versions for all 12
+  vendored URLs. `--check` mode for dry-run. Closes a stale TODO in
+  vendor.py docstring that pointed at a non-existent commit hash.
+
+1238 tests passing; 30 doc-consistency guards green.
+
 ## [v1.7 — persona-audit batch + architectural collapse] — 2026-05-15
 
 100 sub-agents simulated a distinct user persona walking through Trinity
