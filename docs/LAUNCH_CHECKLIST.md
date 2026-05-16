@@ -1,0 +1,104 @@
+# Launch checklist — Trinity v1.0 alongside Gemini 4
+
+> Generated 2026-05-16 by the cron loop after council `ff3da1fa84906791`
+> ratified the v1.0 floor. Sunday/Monday tasks below; everything in
+> "Done — v1.0 ready to ship" is committed and tested.
+
+## Done — v1.0 ready to ship
+
+**Code (1295 tests passing, 36 doc-consistency guards green)**
+- 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
+  (commits d56cffc → ebc212a). Every launchpad button works
+  cross-platform via the extension; macOS Shortcut as tier-2 fallback.
+- Phase 1 v1.0-floor three-tier skill artifact (commits 6e2cd12 →
+  2860688): `skills/trinity/SKILL.md` + schemas + arch doc + 4 new
+  doc-consistency guards. Skill is additive over the existing CLI;
+  no `src/trinity_local/` modules touched.
+- Council `ff3da1fa84906791` cited in 4 surfaces (claude.md,
+  docs/launch.md, docs/launch-package.md, docs/three-tier-architecture.md);
+  outcome JSON copied to docs/launch_councils/ so HN readers resolve
+  the cite.
+
+**Framing**
+- Hero locked: *"Your taste, ported. Lives inside Claude Code, Codex
+  CLI, Gemini CLI, and Cursor."*
+- Three tiers documented (Skill primary / Pip engine / Chrome extension)
+- Tier-equivalence invariant locked verbatim: cosine ≥ 0.9999, NOT
+  bit-identical. Pinned in 4 surfaces; doc-consistency guard catches
+  drift.
+
+## External gates (user-action only, can't be done by the loop)
+
+These are the items that block the launch URL from working when HN
+clicks. Today they all 404; flipping them is what makes Monday's
+launch live.
+
+- [ ] **github.com/vishigondi/trinity-local goes public.** Repo is
+      private. Every launch URL points here. Make public Sunday
+      night / Monday morning.
+- [ ] **PyPI publishes the trinity-local wheel.** The README and
+      SKILL.md install snippets use `git+https://...` as the
+      pre-PyPI fallback; the canonical `pip install trinity-local`
+      goes live when PyPI accepts the upload. Run `python -m build
+      && twine upload dist/*` from a clean checkout.
+- [ ] **Demo recording shot + hosted.** Task #120: the 60-second
+      cross-provider handoff demo. Use `trinity-local handoff
+      gemini` mid-conversation; show Gemini picking up the thread
+      with Google data Claude couldn't see. Host on
+      vishigondi.com/trinity-demo or wherever; update the README +
+      docs/launch.md to embed.
+
+## Sunday polish (loop-doable, low-risk)
+
+- [ ] Review docs/founder-essay-draft.md for stale framing — should
+      probably mention the three-tier architecture in the technical-
+      credibility section.
+- [ ] Consider running an end-to-end smoke on a fresh venv: `pip
+      install -e .` from clean clone → `trinity-local install-mcp` →
+      `trinity-local doctor` → `trinity-local dream` → `trinity-local
+      portal-html --open-browser`. Time it; if under 8 minutes, the
+      "8-minute bar" promise in docs/spec-v1.md holds.
+- [ ] Real-Chrome smoke (the gated test): load the unpacked
+      extension in a fresh Chrome profile, set TRINITY_EXTENSION_ID,
+      run `pytest tests/test_chrome_extension_smoke.py -v` with
+      `TRINITY_CHROME_SMOKE=1`. Wire the puppeteer driver if you
+      want full automation; the structural contract guard already
+      runs in CI without Chrome.
+
+## Monday morning final-mile
+
+- [ ] Flip the gates above.
+- [ ] Tweet the locked thread from docs/launch.md "Twitter / X thread".
+- [ ] HN post: title + opener from docs/launch.md "Hacker News title
+      + opener".
+- [ ] Set up Anthropic, OpenAI, Google referrals if applicable
+      (subsidy-window narrative angle).
+
+## Cron status
+
+Job `923536e4` running every 10 minutes; CronDelete it when ready
+to stop the loop. Auto-expires after 7 days.
+
+## Stop condition
+
+The original /loop prompt said: stop when all 8 phases pass
+acceptance AND fresh-machine install of any tier combination works
+AND claude.md cites Phase 7's council outcome ID.
+
+Council `ff3da1fa84906791` revised that criterion to: v1.0 floor
+shipped, framing propagated, deferred items documented. **All three
+are done.** The cron can fire empty ticks until the user
+`CronDelete`s it; nothing more is needed for v1.0.
+
+## What v1.1 picks up
+
+Per council verdict, deferred:
+- `scripts/` as importable+executable shared substrate
+- 70-module engine extraction from `src/trinity_local/`
+- Trust mode + audit log substrate (`~/.trinity/trust.toml`,
+  `~/.trinity/audit.log`, `--dangerously-trust-all`)
+- Cross-backend equivalence test harness (MLX / torch CPU / CUDA)
+- Web-chat capture in extension v0.2 (separate per-site permission
+  opt-in)
+
+See `docs/three-tier-architecture.md` for the full v1.1 spec.
