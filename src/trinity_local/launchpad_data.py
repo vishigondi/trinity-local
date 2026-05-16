@@ -1069,6 +1069,66 @@ def _browser_extension() -> dict:
         return {"extensionId": None, "configured": False}
 
 
+def dispatch_readiness() -> dict:
+    """Phase 5: snapshot of which dispatch path(s) the launchpad can use.
+
+    Read by `trinity-local portal-html --open-browser` so the CLI can print
+    a precise hint when neither the extension nor the Shortcut is wired up.
+    Same data the file:// launchpad surfaces in its banner (Phase 4 verdict
+    `council_fb374b01311885cc`); CLI is a second visibility lane for users
+    who run `portal-html` headless or in CI.
+
+    Returns:
+        {
+            "extension_configured": bool,
+            "host_on_path": bool,
+            "shortcut_applicable": bool,   # macOS only
+            "shortcut_installed": bool,    # only meaningful when applicable
+            "ready": bool,                 # at least one tier is wired
+            "recommended_action": str|None,  # one-line hint, None when ready
+        }
+    """
+    import shutil
+    ext = _browser_extension()
+    shortcut = _shortcut_status()
+    host_on_path = bool(shutil.which("trinity-local-capture-host"))
+
+    extension_ready = ext["configured"] and host_on_path
+    shortcut_ready = bool(shortcut.get("applicable") and shortcut.get("ok"))
+    ready = extension_ready or shortcut_ready
+
+    recommendation: str | None = None
+    if not ready:
+        if shortcut.get("applicable") and not shortcut.get("ok"):
+            recommendation = (
+                "No dispatch path active. Install the browser extension "
+                "(chrome://extensions → Load unpacked → browser-extension/), "
+                "then run `trinity-local install-extension --extension-id <ID>`. "
+                "Or run `trinity-local shortcut-install` for the legacy macOS path."
+            )
+        elif ext["configured"] and not host_on_path:
+            recommendation = (
+                "Extension ID is configured but `trinity-local-capture-host` is "
+                "not on PATH. Reinstall: `pip install -e .` (or `pip install "
+                "trinity-local`) so the console script lands."
+            )
+        else:
+            recommendation = (
+                "No dispatch path active. Install the browser extension "
+                "(chrome://extensions → Load unpacked → browser-extension/), "
+                "then run `trinity-local install-extension --extension-id <ID>`."
+            )
+
+    return {
+        "extension_configured": ext["configured"],
+        "host_on_path": host_on_path,
+        "shortcut_applicable": bool(shortcut.get("applicable")),
+        "shortcut_installed": bool(shortcut.get("ok")) if shortcut.get("applicable") else False,
+        "ready": ready,
+        "recommended_action": recommendation,
+    }
+
+
 def _shortcut_status() -> dict:
     """Check whether the macOS Shortcut Trinity dispatches through is
     actually registered. Mirrors the doctor's check (tick #72) on the

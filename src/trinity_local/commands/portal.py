@@ -57,9 +57,25 @@ def register(subparsers):
 
 
 def handle_portal_html(args):
+    from ..launchpad_data import dispatch_readiness
+
     path = refresh_launchpad(title=args.title)
+    readiness = dispatch_readiness()
     opened = open_path(path) if args.open_browser else False
-    print(json.dumps({"path": str(path), "opened": opened}, indent=2))
+
+    # Phase 5: surface the dispatch hint when nothing is wired AND the
+    # user asked us to open the page. The launchpad's own banner (Phase 4)
+    # is the in-page version; this is the second visibility lane so
+    # headless `portal-html --open-browser` runs aren't silent. Hint
+    # goes to stderr to keep stdout JSON-parseable.
+    if args.open_browser and not readiness["ready"] and readiness["recommended_action"]:
+        print(f"hint: {readiness['recommended_action']}", file=sys.stderr)
+
+    print(json.dumps({
+        "path": str(path),
+        "opened": opened,
+        "dispatch": readiness,
+    }, indent=2))
 
 
 def handle_open_review(args):
