@@ -57,10 +57,11 @@ chairmen (claude/codex/gemini in priority order).
 
 ## Headline for the launch tweet/HN
 
-> "On Vishi's actual prompt corpus, Codex scored 0.74 and Claude scored
-> 0.71 — judged by the OTHER model against the rejection-signal pattern
-> only Trinity captures. Only Trinity sees the cross-provider rejection
-> data needed to build this benchmark."
+> "On Vishi's actual N=20 rejection corpus, Claude scored 0.66 aggregate
+> — strong on SHARPENING (0.93) and REDIRECT (0.80), but weak on
+> COMPRESSION (0.50) where it over-engineers when the user wanted
+> brevity. Codex at 0.74 on a smaller N=4 cohort. Only Trinity sees
+> the cross-provider rejection data needed to build this benchmark."
 
 ## Caveats
 

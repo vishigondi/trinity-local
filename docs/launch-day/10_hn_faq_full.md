@@ -96,7 +96,7 @@ No listening port, no daemon. The v1.6 extension uses Chrome's Native Messaging 
 
 ### Why should I trust your eval numbers?
 
-You don't have to — `eval-build` produces the suite from *your* `~/.trinity/me/rejections.jsonl`, not ours. The mechanic: Stage 0 mines (prompt, rejected_response, rejection_type) triples from your transcripts (REFRAME / COMPRESSION / REDIRECT / SHARPENING). `eval-run --target <provider>` dispatches each prompt and scores via judge against *your* `lens.md`. Output is "Model X scored 0.73 on YOUR COMPRESSION-prone prompts". The first real run (memory file `empirical_benchmark_first_run.md`): Gemini 0.833 aggregate on 3-item smoke. Provider can't game it — only Trinity has cross-provider rejection signal.
+You don't have to — `eval-build` produces the suite from *your* `~/.trinity/me/rejections.jsonl`, not ours. The mechanic: Stage 0 mines (prompt, rejected_response, rejection_type) triples from your transcripts (REFRAME / COMPRESSION / REDIRECT / SHARPENING). `eval-run --target <provider>` dispatches each prompt and scores via judge against *your* `lens.md`. Output is "Model X scored 0.66 on YOUR COMPRESSION-prone prompts" — and the *per-axis* breakdown reveals where each model actually struggles. Real run on Vishi's corpus (2026-05-15): claude N=20 → 0.66 aggregate, with COMPRESSION 0.50 (real over-engineering weakness) vs SHARPENING 0.93. Codex N=4 → 0.74. Provider can't game it — only Trinity has cross-provider rejection signal.
 
 ### The basin labels look fake — "Hello.", "thanks!", greeting noise.
 

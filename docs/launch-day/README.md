@@ -6,7 +6,7 @@ eval-run against Vishi's actual rejection corpus.
 
 | # | File | Use it for |
 |---|---|---|
-| 00 | `00_leaderboard.md` | Real numbers from the eval-run (codex 0.74, claude 0.71). Caveats included. |
+| 00 | `00_leaderboard.md` | Real numbers from the eval-run (claude N=20 → 0.66 aggregate; COMPRESSION 0.50 = over-engineering when user wanted brevity). Codex N=4 → 0.74 (small-sample). Gemini API outage. |
 | 01 | `01_tweet_thread.md` | 12-tweet launch thread (each ≤280c). Tweet 1 is the hero opener. |
 | 02 | `02_show_hn_post.md` | "Show HN" title + opener + closer |
 | 03 | `03_hn_objection_faq.md` | Top-5 anticipated objections + named-author rebuttals |
