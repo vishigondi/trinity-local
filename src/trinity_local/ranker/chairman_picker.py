@@ -101,7 +101,31 @@ def _blended_pick(
     task_type: str, available: list[str]
 ) -> tuple[str | None, dict]:
     """Sigmoid-blend personal vs global per provider; return the argmax and a
-    debug payload describing the alpha and the contributing scores."""
+    debug payload describing the alpha and the contributing scores.
+
+    KNOWN GAP (2026-05-16, real-data smoke tick JJ): personal vs heuristic
+    task_type vocabularies diverge. Chairman emits open-set rich labels
+    (`architecture_decision`, `launch_copy_review`, `code_refactor`) when
+    classifying its own councils; `guess_task_type()` (heuristic, used at
+    query time) emits a small closed set (`coding`, `writing`, `general`).
+    The two write into and read from the same task_type key in
+    council_outcomes/, so `_personal_scores("coding")` rarely matches
+    anything — personal data exists but stays invisible to the picker.
+
+    This blocks the moat thesis: "Trinity learns YOUR taste from YOUR
+    verdicts." Today the alpha sigmoid stays near 0 (n_personal ≈ 0)
+    because the task_type vocabularies don't intersect, so global
+    benchmarks win every blend.
+
+    Three possible fixes (not chosen yet):
+      1. Constrain chairman to emit only closed-set task_types via
+         prompt + post-validator (lose label specificity)
+      2. Map open-set chairman labels → closed-set at consolidate time
+         via the categories.py registry (need to extend registry as
+         new labels appear — drift surface)
+      3. Embed task_type strings + match by cosine at query time
+         (heaviest, but lets the chairman keep its rich vocabulary)
+    """
     personal, n = _personal_scores(task_type, available)
     glb = _global_scores(task_type, available)
     alpha = _sigmoid_alpha(n)
