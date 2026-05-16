@@ -367,7 +367,7 @@ commit you see here.
 
 ## How to use it inside Claude Code
 
-The MCP surface ships 10 tools — three of them are the load-bearing user-facing ones:
+The MCP surface ships 11 tools — three of them are the load-bearing user-facing ones:
 
 **Run a council** (multi-model deliberation):
 

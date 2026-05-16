@@ -233,6 +233,12 @@ class TestMcpToolNameConsistency:
             (REPO / "docs" / "launch-day" / "10_hn_faq_full.md", r"(\d+) tools total"),
             (REPO / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md",
              r"—\s*(\d+)\s*total\."),
+            # README hero paragraph — earned 2026-05-16 when the README
+            # claimed "10 tools" while claude.md and every other surface
+            # said 11. The README is the most-read surface; locking it
+            # closes the highest-blast-radius gap in the count drift.
+            (REPO / "README.md", r"The MCP surface ships (\d+) tools"),
+            (REPO / "docs" / "launch-package.md", r"cold-install \+ (\d+) MCP tools"),
         ]
 
         mismatches: list[str] = []
