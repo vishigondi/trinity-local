@@ -129,3 +129,42 @@ class TestAtomicWriteText:
             "atomic_write_text left the canonical path corrupted "
             "after a failed write — atomicity violated"
         )
+
+
+class TestNoInlineAtomicWritePattern:
+    """Earned 2026-05-16 after Principle #17 audit found the tmp+rename
+    pattern inlined in 5 places (cortex, cold_start, capture_host,
+    incremental_ingest, council_runtime). After refactor, only
+    ``utils.atomic_write_text`` should carry the pattern — anyone
+    reintroducing inline ``tmp = path.with_suffix(...".tmp")`` is
+    duplicating logic that's already a helper. Same shape as
+    test_no_module_level_env_mutation.py: a structural ban prevents
+    re-drift after a one-time cleanup.
+    """
+
+    def test_only_utils_carries_the_atomic_write_inline(self):
+        import re
+        from pathlib import Path as P
+
+        repo = P(__file__).resolve().parent.parent
+        src = repo / "src" / "trinity_local"
+        offenders: list[tuple[str, int, str]] = []
+        # Match: path.with_suffix( ... ".tmp" ... )  — the inline
+        # signature of the tmp+rename pattern. The utils.py
+        # implementation is the only allowed home.
+        pattern = re.compile(r'\.with_suffix\([^)]*"\.tmp')
+        for py in src.rglob("*.py"):
+            if py.name == "utils.py":
+                continue
+            text = py.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if pattern.search(line):
+                    rel = str(py.relative_to(repo))
+                    offenders.append((rel, lineno, line.strip()))
+        assert not offenders, (
+            "Inline tmp+rename atomic-write pattern reintroduced: "
+            f"{offenders}. Use `utils.atomic_write_text(path, content)` "
+            "instead — that helper already handles tmp suffix, parent-"
+            "dir creation, PID-stamping for cross-process safety, and "
+            "tmp cleanup on success."
+        )

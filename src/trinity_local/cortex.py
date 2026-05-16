@@ -339,11 +339,10 @@ def load_routing_patterns() -> dict[str, RoutingPattern]:
 
 def save_routing_patterns(patterns: dict[str, RoutingPattern]) -> None:
     """Write the cortex routing_patterns.json atomically."""
+    from .utils import atomic_write_text
     path = cortex_routing_patterns_path()
     serialized = {basin_id: p.to_dict() for basin_id, p in patterns.items()}
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(serialized, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    atomic_write_text(path, json.dumps(serialized, indent=2))
 
 
 def _pattern_from_dict(raw: dict) -> RoutingPattern:

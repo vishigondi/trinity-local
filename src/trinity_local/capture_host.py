@@ -131,13 +131,11 @@ def _sanitize_id(value: str, label: str) -> str:
 
 
 def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) -> Path:
+    from .utils import atomic_write_text
     provider = _sanitize_id(provider, "provider")
     conv_id = _sanitize_id(conv_id, "conv_id")
     target = _conv_dir() / provider / f"{conv_id}.json"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(".tmp")
-    tmp.write_text(json.dumps(conversation, indent=2, ensure_ascii=False))
-    tmp.replace(target)
+    atomic_write_text(target, json.dumps(conversation, indent=2, ensure_ascii=False))
     return target
 
 

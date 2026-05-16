@@ -101,11 +101,8 @@ def read_state() -> dict | None:
 
 
 def _write_state(state: dict) -> None:
-    path = cold_start_state_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    from .utils import atomic_write_text
+    atomic_write_text(cold_start_state_path(), json.dumps(state, indent=2))
 
 
 def _run_scan(sources: list[str], deadline_s: float, start_iso: str) -> None:

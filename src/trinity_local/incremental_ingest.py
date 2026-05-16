@@ -75,12 +75,10 @@ def _load_cursors() -> dict[str, float]:
 
 
 def _save_cursors(cursors: dict[str, float]) -> None:
+    from .utils import atomic_write_text
     path = ingest_cursors_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = {source: {"last_mtime": mtime} for source, mtime in cursors.items()}
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    atomic_write_text(path, json.dumps(payload, indent=2))
 
 
 def _existing_prompt_node_ids() -> set[str]:
