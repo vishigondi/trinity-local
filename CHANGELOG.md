@@ -108,7 +108,7 @@ above):**
   prefers cloud chairmen (claude / codex / gemini) over local
   MLX/Ollama.
 
-1236 tests passing; 30 doc-consistency guards green.
+1237 tests passing; 30 doc-consistency guards green.
 
 ## [v1.6 — doc-consistency guards for new surfaces] — 2026-05-15
 

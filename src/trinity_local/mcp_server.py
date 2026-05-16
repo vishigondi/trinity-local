@@ -1161,10 +1161,19 @@ async def _record_outcome(args: dict) -> list[Any]:
 
     # Update the persisted CouncilOutcome with verdict metadata. Only include
     # fields the caller actually provided — avoid clobbering with None.
+    outcome = None
+    outcome_load_error: str | None = None
     try:
         outcome = load_council_outcome(council_run_id)
-    except Exception:
-        outcome = None
+    except Exception as exc:
+        # Silent skip here would be load-bearing data loss — the moat
+        # thesis ("personal ledger of cross-model preferences") rests
+        # on every verdict landing on the canonical outcome JSON, not
+        # just the feedback.jsonl side-log. Surface the error in the
+        # response so the agent can warn the user / retry. council_run_id
+        # might be wrong (typo from the agent), the file might be
+        # half-written, or the disk might be full.
+        outcome_load_error = f"{type(exc).__name__}: {exc}"
     if outcome is not None:
         outcome.metadata.setdefault("user_verdict", {})
         verdict = {
@@ -1226,12 +1235,25 @@ async def _record_outcome(args: dict) -> list[Any]:
                 # primary record_outcome flow.
                 pass
 
-    return [_text({
+    payload: dict[str, Any] = {
         "ok": True,
         "feedback": feedback,
         "outcome_updated": outcome is not None,
         "abandoned": abandoned,
-    })]
+    }
+    if outcome_load_error is not None:
+        # The verdict landed in council_feedback.jsonl but did NOT update
+        # the canonical outcome JSON. Surface so the agent can warn the
+        # user that the personal-routing aggregation may miss this rating.
+        payload["outcome_load_error"] = outcome_load_error
+        payload["recoverable"] = True
+        payload["user_message"] = (
+            f"Rating recorded in council_feedback.jsonl but the canonical "
+            f"outcome JSON for {council_run_id!r} could not be loaded "
+            f"({outcome_load_error}). The personal routing table may not "
+            f"reflect this verdict until the outcome file is restored."
+        )
+    return [_text(payload)]
 
 
 async def _search_prompts(args: dict) -> list[Any]:

@@ -228,6 +228,8 @@ class TestRecordOutcome:
         })
         assert result["ok"] is True
         assert result["outcome_updated"] is True
+        # Happy path: no error surfaced.
+        assert "outcome_load_error" not in result
 
         # Verify the outcome JSON now carries user_verdict
         from trinity_local.council_runtime import load_council_outcome
@@ -236,6 +238,36 @@ class TestRecordOutcome:
         assert verdict is not None
         assert verdict["user_winner"] == "claude"
         assert verdict["accepted"] is True
+
+    def test_outcome_load_error_surfaces_when_council_id_unknown(self, home: Path):
+        """Earned 2026-05-16: silent skip when load_council_outcome fails
+        was load-bearing data loss — the verdict gets queued to
+        council_feedback.jsonl but the canonical outcome JSON (which
+        compute_personal_routing_table walks) doesn't get the verdict
+        metadata. The personal routing table the agent uses for the
+        NEXT council picks the wrong chairman because the previous
+        verdict is invisible.
+
+        Now: outcome_load_error is surfaced in the response so the
+        agent can warn the user / retry. recoverable=True signals that
+        a retry with the right council_run_id might succeed.
+        """
+        # Pass a bogus council_run_id that doesn't exist on disk.
+        result = _call_tool_sync("record_outcome", {
+            "council_run_id": "council_doesnotexist1234",
+            "user_winner": "claude",
+        })
+        # The feedback append still succeeds — that's a side-log.
+        assert result["ok"] is True
+        # But the canonical outcome JSON couldn't be loaded.
+        assert result["outcome_updated"] is False
+        # And the agent now sees WHY.
+        assert "outcome_load_error" in result, (
+            "Silent failure regressed: load_council_outcome raised but "
+            "the agent has no way to know — the verdict is half-lost"
+        )
+        assert result["recoverable"] is True
+        assert "council_doesnotexist1234" in result["user_message"]
 
 
 # ---------------------------------------------------------------------------
