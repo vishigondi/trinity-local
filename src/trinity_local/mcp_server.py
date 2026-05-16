@@ -1531,6 +1531,7 @@ async def _get_council_status(args: dict) -> list[Any]:
 
     outcome_summary: dict | None = None
     rate_action: dict | None = None
+    outcome_load_error: str | None = None
     outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
     if outcome_path.exists():
         try:
@@ -1548,15 +1549,27 @@ async def _get_council_status(args: dict) -> list[Any]:
                 "member_count": len(outcome.member_results),
             }
             rate_action = _build_rate_action(outcome)
-        except Exception:
+        except Exception as exc:
+            # Same shape as record_outcome's outcome_load_error fix
+            # (347b933) — silent skip would tell the agent "status is
+            # completed" but "outcome is null" without explaining why.
+            # Most likely cause: outcome JSON half-written by a legacy
+            # writer or partially corrupted on disk.
             outcome_summary = None
+            outcome_load_error = f"{type(exc).__name__}: {exc}"
 
     if status_payload is None and outcome_summary is None:
-        return [_text({
+        # The corrupt-outcome-file path needs to carry outcome_load_error
+        # too — otherwise the agent sees "unknown" with no signal that
+        # an actual file existed but wouldn't parse.
+        early_response: dict[str, Any] = {
             "council_run_id": council_run_id,
             "status": "unknown",
             "error": "no live status file or completed outcome found",
-        })]
+        }
+        if outcome_load_error is not None:
+            early_response["outcome_load_error"] = outcome_load_error
+        return [_text(early_response)]
 
     # Compress live status to a small per-member summary.
     members_summary: dict | None = None
@@ -1582,6 +1595,8 @@ async def _get_council_status(args: dict) -> list[Any]:
     }
     if rate_action is not None:
         status_response["rate_action"] = rate_action
+    if outcome_load_error is not None:
+        status_response["outcome_load_error"] = outcome_load_error
     return [_text(status_response)]
 
 

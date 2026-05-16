@@ -270,6 +270,41 @@ class TestRecordOutcome:
         assert "council_doesnotexist1234" in result["user_message"]
 
 
+class TestGetCouncilStatus:
+    """Same silent-failure shape audit as TestRecordOutcome —
+    get_council_status used to swallow load_council_outcome
+    exceptions and return `status: completed, outcome: null` with
+    no signal of why the outcome was unreadable. The agent would
+    show the user a half-rendered status. Now: outcome_load_error
+    surfaces the cause."""
+
+    def test_outcome_load_error_surfaces_when_outcome_file_corrupt(self, home: Path):
+        from trinity_local.state_paths import council_outcomes_dir
+
+        # Plant a council outcome file with corrupted (un-loadable) JSON
+        # AND a matching status payload so the function takes the
+        # "outcome_path.exists() so attempt load" branch.
+        council_run_id = "council_corrupted_abc"
+        outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
+        outcome_path.parent.mkdir(parents=True, exist_ok=True)
+        outcome_path.write_text("{ this is not valid json ", encoding="utf-8")
+
+        result = _call_tool_sync("get_council_status", {
+            "council_run_id": council_run_id,
+        })
+        # The function still responds (didn't crash).
+        # outcome_summary couldn't be built but the error reason is named.
+        assert result.get("outcome") is None
+        assert "outcome_load_error" in result, (
+            "Silent failure regressed: load_council_outcome raised but "
+            "the agent has no way to know the outcome JSON is corrupt"
+        )
+        # The error string mentions the exception class so the agent
+        # can distinguish JSONDecodeError (file corrupt) from
+        # FileNotFoundError (id wrong) etc.
+        assert "Error" in result["outcome_load_error"] or "JSONDecodeError" in result["outcome_load_error"]
+
+
 # ---------------------------------------------------------------------------
 # Chain-mode council
 # ---------------------------------------------------------------------------
