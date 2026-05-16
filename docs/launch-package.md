@@ -13,9 +13,10 @@ enterprise category — *vendor-neutral agent memory* — in one news cycle. Tri
 structurally the simplest answer. The freshness of that signal is measured in weeks;
 the launch happens inside that window.
 
-**Ship target unchanged:** v1.0 May 13–15, with v1.5 cortex-consolidation flow shipping
-in the ~30-day follow-on (target June 3 per `spec-v1.5.md`). The narrative below ships
-at v1.0 launch — v1.5 is the technical proof that the architecture works.
+**Ship window:** v1.0 lands within the May 13–16 window, with v1.5
+cortex-consolidation flow shipping in the ~30-day follow-on (target
+June 3 per `spec-v1.5.md`). The narrative below ships at v1.0 launch
+— v1.5 is the technical proof that the architecture works.
 
 ## The locked positioning
 
