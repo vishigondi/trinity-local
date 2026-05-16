@@ -1,8 +1,72 @@
-# Migration — macOS Shortcut → Chrome extension
+# Migration
 
-> Effective with the v1.0 launch wave. Existing macOS-Shortcut installs
-> keep working; nothing breaks. This document explains the *new* path
-> and why it's the recommended default.
+> Effective with the v1.0 launch wave. Existing installs keep working;
+> nothing breaks. This document covers two migration arcs that landed
+> together in this release:
+>
+> 1. **Three-tier architecture** (Skill / Pip / Extension) — the new
+>    framing for *how* you interact with Trinity. Existing users see
+>    the engine they always had, plus a skill orchestration layer on
+>    top.
+> 2. **macOS Shortcut → Chrome extension dispatcher** — the launchpad
+>    button-click implementation. The Shortcut is now the legacy
+>    tier-2 fallback; the extension is the cross-platform default.
+
+---
+
+## Arc 1 — Three-tier architecture (Phase 1, council `ff3da1fa84906791`)
+
+Pre-v1.0, Trinity was a single pip wheel: `trinity-local` the CLI did
+everything, the launchpad opened via macOS Shortcut, the Chrome
+extension only captured web-chat transcripts. Three concerns smushed
+into one shape.
+
+v1.0 splits this into three tiers, each independently functional:
+
+- **Tier 1 — Skill** (`~/.claude/skills/trinity/`): the primary surface.
+  When you type `/trinity` in Claude Code, the skill drives the engine
+  for you. SKILL.md IS the spec — the user-facing contract.
+- **Tier 2 — Pip wheel** (`pip install trinity-local`): the engine the
+  skill calls. Same CLI you had before. Now also imports from
+  `scripts/` for the heavy operations (embeddings, clustering,
+  geometric primitives, descriptor / signature / anchor extraction).
+- **Tier 3 — Chrome extension** (optional): cross-surface UI +
+  web-chat capture. Was already there pre-v1.0 for capture; now also
+  carries the cross-platform launchpad dispatcher (see Arc 2).
+
+Data in `~/.trinity/` is invariant across tiers — same files, same
+schemas. The tiers differ in *how you invoke Trinity*, not *what
+Trinity computes*. The falsifiable invariant: cosine similarity
+≥ 0.9999 between any two backends on the same input under pinned
+tokenizer + model hash, identical k-means cluster assignments under
+the same seed.
+
+**What existing users do**: nothing required. Your existing `trinity-
+local` install IS the Tier 2 wheel. Type `/trinity` in Claude Code if
+you want the orchestration; skip it if you prefer driving the CLI by
+hand. Both work.
+
+**What changed under the hood**: the `scripts/` directory ships six
+shebang-runnable Python scripts (`embed.py`, `cluster.py`, `pca.py`,
+`descriptor.py`, `signature.py`, `anchor.py`) that the pip tier
+imports. The dependency inversion (pip imports from scripts/ exclusively)
+ships in v1.1; v1.0 has scripts/ wrapping the pip tier with the same
+output guarantees. See [`three-tier-architecture.md`](three-tier-architecture.md).
+
+**Trust + audit substrate**: `~/.trinity/trust.toml` + `~/.trinity/audit.log`
+now ship with v1.0. Every Trinity operation either prompts (default)
+or pre-grants per config + writes an audit-log entry. See
+[`TRUST-MODE.md`](TRUST-MODE.md). Bootstrap with:
+
+```bash
+trinity-local trust-init
+trinity-local trust-show          # inspect resolved levels
+trinity-local audit-show --last 20
+```
+
+---
+
+## Arc 2 — macOS Shortcut → Chrome extension dispatcher (Phase 4b)
 
 ## TL;DR
 
