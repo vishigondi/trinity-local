@@ -3,15 +3,17 @@
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero
 > rewrite, blog hook, 60s demo script. Send me-card PNG with every external post.
 >
-> v1 brand: **Stop copy-pasting prompts. Own your context. Dream your core memories.**
-> Sub: **One question. Every model you use. One answer that knows you.** Manifesto
-> sentence: *"the cross-provider memory layer the labs are commercially prevented from
-> building."* Three load-bearing pains in order: copy-paste pain → siloed-thinking pain
-> → over-engineering pain. Two earlier taglines are retired and stay retired —
-> "Own your memories" (the standalone, replaced because ownership attaches more cleanly to
-> **prompts** and **context**) and "Own your prompts. Dream creates the memory." (the
-> previous draft, replaced because the noun **core memories** is what dream actually
-> produces; **dream your core memories** makes that explicit).
+> v1 brand: **Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.**
+> Sub: **No new app. No service. No API key. Your transcripts never leave your machine.**
+> Lead: *"You've already chosen between Claude, Codex, and Gemini a thousand times.
+> Trinity reads those transcripts, learns the pattern in how you rephrase, judge, and
+> decide — then runs hard questions through all three in your voice and picks the
+> answer you would have picked."* Manifesto sentence: *"the cross-provider memory
+> layer the labs are commercially prevented from building."* The digital-twin framing
+> retired the prior "Stop copy-pasting / Dream your core memories" tagline on
+> 2026-05-16 — the new pitch leads with what Trinity DOES (ports your taste) rather
+> than what the user is pained by (copy-pasting). Below the tweet thread still leans
+> on the copy-paste pain as the recognition hook, but resolves into the twin framing.
 >
 > Prior council ratification: [`council_4f34cd1181d5bd08`](launch_councils/council_4f34cd1181d5bd08.json) (Codex won, high, ledger-first
 > reordering). Subsequent user spec elevated the brand from ledger-mechanic to memory-
@@ -143,8 +145,14 @@ visionary voice in 2026.
 
 ## README hero (locked, see README.md)
 
-> ## Stop copy-pasting prompts. Own your context. Dream your core memories.
-> ### One question. Every model you use. One answer that knows you.
+> ## Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.
+>
+> You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
+> reads those transcripts, learns the pattern in how you rephrase, judge, and decide
+> — then runs hard questions through all three in your voice and picks the answer
+> you would have picked.
+>
+> **No new app. No service. No API key. Your transcripts never leave your machine.**
 >
 > You use Claude, ChatGPT, and Gemini. They don't talk to each other. Your context lives
 > in three different SQLite caches, owned by three different companies, none of which are

@@ -20,8 +20,19 @@ June 3 per `spec-v1.5.md`). The narrative below ships at v1.0 launch
 
 ## The locked positioning
 
-**Hero:** *Stop copy-pasting prompts. Own your context. Dream your core memories.*
-**Sub:** *One question. Every model you use. One answer that knows you.*
+**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.*
+**Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
+
+**Lead paragraph (the digital-twin pitch):** *You've already chosen between Claude,
+Codex, and Gemini a thousand times. Trinity reads those transcripts, learns the
+pattern in how you rephrase, judge, and decide — then runs hard questions through
+all three in your voice and picks the answer you would have picked.*
+
+**Prior framing** (pre-2026-05-16, retained for context): Hero was *"Stop copy-pasting
+prompts. Own your context. Dream your core memories."* Sub was *"One question. Every
+model you use. One answer that knows you."* Pivoted to the digital-twin framing
+because the polyharness power user reads "councils" as another tool to learn; reads
+"your taste, ported" as something working FOR them.
 
 **One-sentence pitch:** *Anthropic just shipped Dreaming. Trinity does it across Claude,
 ChatGPT, and Gemini — and the memory dream creates lives in your folder, not theirs.*
