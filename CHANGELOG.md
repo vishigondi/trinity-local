@@ -117,7 +117,7 @@ landed in this arc (H–N).
   CLI guard, every backticked claim in the architecture table is
   now load-tested against the filesystem.
 
-1241 tests passing; 31 doc-consistency guards green.
+1242 tests passing; 32 doc-consistency guards green.
 
 ## [v1.7 — persona-audit batch + architectural collapse] — 2026-05-15
 

@@ -225,8 +225,8 @@ outcomes produced each rule. Verifiable against drift.
 Claude 4.8 ships, all prior Claude outcomes are partially stale regardless of
 recency. The `decay.model_checkpoints` array marks dates where a provider
 released a material update; pre-checkpoint outcomes for that provider get
-an extra decay factor. Checkpoints are detected from the `model_detector.py`
-output (which already probes for the strongest model each provider accepts);
+an extra decay factor. Checkpoints are detected from the strongest-model
+probe output (the planned per-provider "which model do you accept?" check);
 when the detected model string changes for a provider, a checkpoint is written.
 
 Without this, the cortex slowly accumulates wrong rules every time a model
@@ -577,7 +577,7 @@ flagship has 100x the linguistic capability.
 New in v1.5:
 
 - **Local model dispatch** — Ollama + MLX added as dispatch targets alongside
-  the 3 CLIs. `model_detector.py` extended to probe local runtimes.
+  the 3 CLIs. Strongest-model probe extended to local runtimes.
 - **Rate-limit detection** — parse stderr from each CLI for known
   rate-limit / billing-exceeded patterns. Surface as structured error.
 - **Conductor replan** — on dispatch failure, the planner gets called back
@@ -695,7 +695,7 @@ Anonymous taste topology that no provider can collect themselves.
 - `trinity-local consolidate` CLI command + flagship-call extraction
 - `~/.trinity/scoreboard/picks.json` schema (write only — not yet read by `ask`)
 - 6-component `trust_score` computed by the system (not the flagship): n_episodes / consistency / recency / diversity / coherence / audit_score. Plus a multiplicative `effective_trust = trust * 0.5^override_count` layered on top for user vetoes.
-- Model-checkpoint detection via `model_detector.py` deltas → version-shift decay
+- Model-checkpoint detection via strongest-model-probe deltas → version-shift decay
 - Evidence citations required; consolidator MUST cite council IDs per rule
 - Scheduled triggers (every 10 councils + nightly via launchd)
 - **🛑 GATE: Human calibration checkpoint before Week 3.** Founder reads 30
@@ -712,7 +712,7 @@ Anonymous taste topology that no provider can collect themselves.
 - Cortex (routing) + Lens (evaluation) composed flow inside `ask`
 - Rate-limit detection per provider; structured error codes
 - Conductor replan with reduced pool (for `compare`)
-- Local model dispatch (Ollama + MLX); `model_detector.py` probes local runtimes
+- Local model dispatch (Ollama + MLX); strongest-model probe extended to local runtimes
 - Pool composition + cost metadata exposed in tool responses
 
 **Week 4 — `compare` + per-provider failure-mode tracking + cold-install resilience**

@@ -1543,3 +1543,125 @@ class TestScoreboardPathRenameInDocs:
             "Update launch copy + specs to use the new path so readers "
             "who look on disk find the file where the docs said it would be."
         )
+
+
+class TestNoBannedSynonyms:
+    """Single guard for the drift CLASS that this session caught
+    one-instance-at-a-time across 30+ ticks. Each entry is a string
+    that USED to be the right framing but was retired by a rename
+    (v1.7 architectural collapse, brand-pivot work, etc.). Catching
+    them in the same test means a future rename's propagation is a
+    grep-then-add-one-line operation, not a 14-commit drift hunt.
+
+    Rationale (the per-instance ticks earned each entry):
+      - "five plural" / "five core memories": v1.7 collapse retired
+        the 5-memory framing; chairman now reads 3 thinking memories
+        + core.md distillation. picks/routing are scoreboards.
+      - "Your memories" in user-facing headers: replaced by "Your lens"
+        on the memory viewer h1 + launchpad chip card (tick AA).
+      - "6-chip" / "six-chip": memory viewer was 6 chips pre-collapse,
+        now describes itself as "lens + scoreboards" (4 + 2).
+      - "models-detect" CLI / `model_detector.py`: phantom command +
+        module documented but never shipped (tick U).
+      - `memories/picks.json` / `memories/routing.json`: pre-v1.7
+        scoreboard paths (caught earlier via TestScoreboardPathRename
+        InDocs; included here so all banned strings share one test).
+
+    Surface scope is user-facing prose ONLY: README, claude.md, docs/
+    launch.md, launch-package.md, MCP_REGISTRY, launch-day/*.md,
+    DESIGN.md, frontend-architecture.md. CHANGELOG + scale-plan are
+    exempt — they legitimately describe the pre-rename state for
+    migration context (Principle #8: timestamped + okay to be stale).
+    """
+
+    # (banned_substring, suggested_replacement, why)
+    BANNED: list[tuple[str, str, str]] = [
+        ("five plural memor", "lens hierarchy / three thinking memories",
+         "v1.7 collapse retired the 5-memory framing"),
+        ("five core memor", "lens hierarchy / three thinking memories",
+         "v1.7 collapse retired the 5-memory framing"),
+        ("six plural memor", "lens hierarchy / three thinking memories",
+         "pre-v1.7 framing — was 5/6 'memories', now lens + scoreboards"),
+        # NOTE: "6-chip" / "six-chip" intentionally NOT banned. The only
+        # place they legitimately appear is rename narration like "6-chip
+        # nav collapses to a 4-chip card" — banning would force awkward
+        # rewordings of legitimate change-log descriptions. The "Your
+        # memories" → "Your lens" header rename is what caught the real
+        # drift; chip-count appears purely in rename narration.
+        ("models-detect", "(removed — feature never shipped)",
+         "phantom CLI command documented but never wired"),
+        ("model_detector.py", "(removed — module never shipped)",
+         "phantom module documented but never written"),
+    ]
+
+    # Files that get the scan. User-facing surfaces only.
+    SCAN_FILES = [
+        "README.md",
+        "claude.md",
+        "DESIGN.md",
+        "docs/launch.md",
+        "docs/launch-package.md",
+        "docs/MCP_REGISTRY_SUBMISSIONS.md",
+        "docs/frontend-architecture.md",
+        "docs/spec-v1.md",
+        "docs/spec-v1.5.md",
+        "docs/spec-v1.6.md",
+        "docs/product-spec.md",
+        # All launch-day artifacts (paste-ready copy).
+        "docs/launch-day/00_leaderboard.md",
+        "docs/launch-day/01_tweet_thread.md",
+        "docs/launch-day/02_show_hn_post.md",
+        "docs/launch-day/03_hn_objection_faq.md",
+        "docs/launch-day/04_demo_voiceover.md",
+        "docs/launch-day/05_comparison_table.md",
+        "docs/launch-day/06_founder_narrative.md",
+        "docs/launch-day/07_pricing_faq.md",
+        "docs/launch-day/08_twitter_bio.md",
+        "docs/launch-day/09_linkedin_post.md",
+        "docs/launch-day/10_hn_faq_full.md",
+        "docs/launch-day/README.md",
+    ]
+
+    # Files exempt by design (Principle #8 + migration-context).
+    # CHANGELOG entries are timestamped; scale-plan documents history.
+    # The test file itself contains the banned strings as data.
+    EXEMPT_FILES: set[str] = {
+        "CHANGELOG.md",
+        "docs/scale-plan.md",
+        "AGENTS.md",
+        "tests/test_doc_count_consistency.py",
+    }
+
+    def test_no_banned_synonyms_in_user_facing_docs(self):
+        leaks: list[tuple[str, int, str, str]] = []
+        for rel in self.SCAN_FILES:
+            if rel in self.EXEMPT_FILES:
+                continue
+            path = REPO / rel
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                lower = line.lower()
+                for banned, replacement, _why in self.BANNED:
+                    if banned.lower() in lower:
+                        leaks.append((rel, lineno, banned, replacement))
+                        break  # one hit per line is enough
+        if leaks:
+            msg_lines = ["Banned synonym strings found in user-facing docs:"]
+            for rel, lineno, banned, replacement in leaks:
+                msg_lines.append(
+                    f"  {rel}:{lineno} contains {banned!r} — "
+                    f"use {replacement} instead"
+                )
+            msg_lines.append("")
+            msg_lines.append(
+                "These strings were retired by past renames (v1.7 "
+                "architectural collapse, brand pivot, etc.). Each "
+                "appears here because a per-instance drift-hunt tick "
+                "caught it; adding to TestNoBannedSynonyms.BANNED makes "
+                "the next rename's propagation a one-line add, not a "
+                "session-long drift hunt."
+            )
+            raise AssertionError("\n".join(msg_lines))
