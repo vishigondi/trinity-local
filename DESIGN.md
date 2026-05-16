@@ -274,7 +274,7 @@ all sub-pages. Pages must:
   the bar spans the viewport while content respects the 1080 px column
 - Use "← Launchpad" exactly — the arrow conveys the back-direction
   without the verbose "Back to" prefix
-- Set the page title to a single noun ("Your memories", "Council",
+- Set the page title to a single noun ("Your lens", "Council",
   "Council review") — no breadcrumbs, no dynamic titles
 
 Live council, council review, and memory viewer all conform.

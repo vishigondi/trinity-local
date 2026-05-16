@@ -836,11 +836,11 @@ def render_memory_viewer_html() -> str:
 <body>
   <header class="trinity-topbar">
     <a class="topbar-back" href="../portal_pages/launchpad.html">← Launchpad</a>
-    <h1 class="topbar-title">Your memories</h1>
+    <h1 class="topbar-title">Your lens</h1>
   </header>
   <div class="layout">
     <nav class="nav">
-      <div class="nav-eyebrow">Five plural + one core</div>
+      <div class="nav-eyebrow">Lens hierarchy · core → lens → topics → vocabulary</div>
       {nav_links}
     </nav>
     <main class="content" id="content">
