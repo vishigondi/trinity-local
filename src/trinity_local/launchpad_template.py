@@ -2600,10 +2600,11 @@ trinity-local eval-run --target gemini</code></pre>
         }},
         renderMeCard() {{
           if (this.busy) return;
-          // Render the strongest lens as a PNG + open in Preview. The card is
-          // the spec-v1 "social object" — no point if it lives only as a CLI
-          // output path. `open` works because the macOS Shortcut bridge runs
-          // commands via /bin/sh.
+          // Render the strongest lens as a PNG + open it. Card is the
+          // spec-v1 "social object". Phase 4b closes the last residual-
+          // drift gap: extension tier fires `me-card --open` (the CLI
+          // grew an --open flag so the host can't shell-chain); macOS
+          // Shortcut tier keeps the run_command payload as fallback.
           const out = '~/.trinity/share/me_card.png';
           const command = `trinity-local me-card --out ${{out}} && open ${{out}}`;
           const payload = {{
@@ -2613,7 +2614,16 @@ trinity-local eval-run --target gemini</code></pre>
           }};
           this.copiedKey = 'me-card';
           setTimeout(() => {{ if (this.copiedKey === 'me-card') this.copiedKey = ''; }}, 2400);
-          this.triggerShortcut(buildShortcutUrl(payload));
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'render-me-card' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => this.handleDispatchResult(r),
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+          }}
         }},
         ingestOnce() {{
           if (this.busy) {{

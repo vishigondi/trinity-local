@@ -152,11 +152,16 @@ def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) ->
 # action kinds require an explicit ALLOWLIST entry — adding one is a
 # security review.
 
-# Each entry: (cli_subcommand, list-of-(arg_name, json_field, required))
-# Args are passed to the CLI as `--<arg_name> <value>`. Required fields
-# missing → reject. The allowlist intentionally lists only the buttons
-# the launchpad UI exposes today — not the full CLI surface.
-ACTION_ALLOWLIST: dict[str, tuple[str, list[tuple[str, str, bool]]]] = {
+# Each entry can be one of two shapes:
+#   2-tuple: (cli_subcommand, [(arg_name, json_field, required), ...])
+#   3-tuple: above + a list of *constant* CLI flags appended unconditionally
+#            (e.g. always pass `--open` when the launchpad's "Render lens
+#            card" button fires render-me-card — the dispatcher path can't
+#            shell-chain `open <path>`, so the CLI does it).
+# Args are passed as `--<arg_name> <value>`; missing required → reject.
+# The allowlist intentionally lists only the buttons the launchpad UI
+# exposes today — not the full CLI surface.
+ACTION_ALLOWLIST: dict[str, tuple] = {
     "launch-council": (
         "council-launch",
         [
@@ -193,6 +198,18 @@ ACTION_ALLOWLIST: dict[str, tuple[str, list[tuple[str, str, bool]]]] = {
     "auto-chain-disable": ("auto-chain-disable", []),
     "polish-auto-enable":  ("polish-auto-enable",  []),
     "polish-auto-disable": ("polish-auto-disable", []),
+    # render-me-card closes the last residual-drift gap from
+    # council_bf1ab3f4dd70f75e. The CLI grew an `--open` flag (Phase 4b
+    # follow-up) so the host doesn't need to shell-chain `open <path>`.
+    # `open` is a no-arg boolean — payload may include `{"open": true}`
+    # to fire the cross-platform open after writing the PNG.
+    "render-me-card": (
+        "me-card",
+        [],
+        ["--open"],  # always opens the PNG after writing — that's what the
+                     # launchpad button means by "render". The CLI honors
+                     # --open via notifications.open_path (cross-platform).
+    ),
 }
 
 
@@ -210,7 +227,12 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     kind = payload.get("kind")
     if kind not in ACTION_ALLOWLIST:
         return {"ok": False, "error": f"action {kind!r} not in allowlist"}
-    cli_subcommand, arg_spec = ACTION_ALLOWLIST[kind]
+    entry = ACTION_ALLOWLIST[kind]
+    if len(entry) == 2:
+        cli_subcommand, arg_spec = entry
+        constant_flags: list[str] = []
+    else:
+        cli_subcommand, arg_spec, constant_flags = entry
 
     argv: list[str] = ["trinity-local", cli_subcommand]
     for arg_name, json_field, required in arg_spec:
@@ -228,6 +250,11 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
                 "error": f"field {json_field!r} must be primitive, got {type(value).__name__}",
             }
         argv.extend([f"--{arg_name}", str(value)])
+
+    # Append any constant flags (e.g. always `--open` for render-me-card).
+    # These are defined in the allowlist, not in the payload — caller
+    # cannot influence them, so they're safe to append unconditionally.
+    argv.extend(constant_flags)
 
     try:
         result = subprocess.run(

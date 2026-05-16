@@ -33,6 +33,15 @@ def register(subparsers):
         action="store_true",
         help="Write PNG bytes to stdout instead of a file (for piping).",
     )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        dest="open_after",
+        help="Open the rendered PNG in the default viewer after writing "
+             "(cross-platform: macOS `open`, Linux `xdg-open`, Windows "
+             "`start`). Required by Phase 4b extension dispatch so the "
+             "launchpad button can render-and-show without shell-chaining.",
+    )
     parser.set_defaults(handler=handle_me_card)
 
 
@@ -47,11 +56,16 @@ def handle_me_card(args):
     out = args.out or (state_dir() / "share" / "me_card.png")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(png)
+    opened = False
+    if getattr(args, "open_after", False):
+        from ..notifications import open_path
+        opened = open_path(out)
     print(json.dumps({
         "ok": True,
         "path": str(out),
         "bytes": len(png),
         "lens_present": data.lens_pole_a is not None,
         "orderings_count": len(data.orderings or []),
+        "opened": opened,
     }, indent=2))
     return 0
