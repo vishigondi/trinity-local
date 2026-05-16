@@ -225,3 +225,70 @@ class TestInstallAppCommand:
             "launchpad_path": str(expected_launchpad_path),
             "app_paths": [str(app_path)],
         }
+
+
+class TestLaunchpadAppleScriptPerUserPath:
+    """100-persona audit P38 fix: install-app was baking the installer's
+    absolute path into the AppleScript, so Trinity.app in /Applications
+    opened the INSTALLER's launchpad for every user on the machine —
+    real cross-user data leak. The script now reads $HOME at launch
+    time so each user opens their own lens."""
+
+    def test_script_uses_runtime_home_for_launchpad_path(self, tmp_path, monkeypatch):
+        """When the install-time launchpad lives under the installer's
+        home, the script must use $HOME at launch time — not bake the
+        installer's absolute home in."""
+        from trinity_local.launchpad_install import _launchpad_applescript
+
+        # Simulate an installer whose home is /Users/alice
+        fake_install_home = tmp_path / "alice"
+        fake_install_home.mkdir()
+        monkeypatch.setattr("trinity_local.launchpad_install.Path.home", lambda: fake_install_home)
+        launchpad_path = fake_install_home / ".trinity" / "portal_pages" / "launchpad.html"
+
+        script = _launchpad_applescript(launchpad_path)
+        # Runtime-home read present
+        assert 'do shell script "/bin/echo $HOME"' in script, (
+            "AppleScript must read $HOME at runtime, not bake installer home"
+        )
+        # Relative part under home is what's appended
+        assert ".trinity/portal_pages/launchpad.html" in script
+        # The installer's absolute home should NOT appear as a hardcoded
+        # path the runtime open call uses. It's allowed in the fallback
+        # branch only — verify by counting occurrences (1 = fallback only).
+        installer_abs = str(launchpad_path.resolve())
+        assert script.count(installer_abs) <= 1, (
+            f"installer absolute path appears {script.count(installer_abs)}× — should be in fallback only"
+        )
+
+    def test_script_falls_back_to_absolute_for_non_home_launchpad(self, tmp_path, monkeypatch):
+        """If TRINITY_HOME is set to /opt/trinity (a shared-server install
+        outside any user's home), there's no per-user equivalent — keep
+        the install-time absolute path."""
+        from trinity_local.launchpad_install import _launchpad_applescript
+
+        fake_install_home = tmp_path / "alice"
+        fake_install_home.mkdir()
+        monkeypatch.setattr("trinity_local.launchpad_install.Path.home", lambda: fake_install_home)
+        # Launchpad path OUTSIDE the home — simulates TRINITY_HOME=/opt/trinity
+        outside_path = tmp_path / "opt" / "trinity" / "portal_pages" / "launchpad.html"
+        outside_path.parent.mkdir(parents=True)
+
+        script = _launchpad_applescript(outside_path)
+        # No $HOME read needed — absolute path is baked
+        assert 'do shell script "/bin/echo $HOME"' not in script
+        assert str(outside_path.resolve()) in script
+
+    def test_script_preserves_notify_argv_path(self, tmp_path, monkeypatch):
+        """Regression: the notify path (display macOS notifications via
+        Trinity.app bundle) must still work after the per-user path fix."""
+        from trinity_local.launchpad_install import _launchpad_applescript
+
+        fake_home = tmp_path / "user"
+        fake_home.mkdir()
+        monkeypatch.setattr("trinity_local.launchpad_install.Path.home", lambda: fake_home)
+        launchpad_path = fake_home / ".trinity" / "portal_pages" / "launchpad.html"
+
+        script = _launchpad_applescript(launchpad_path)
+        assert 'if firstArg is "notify" then' in script
+        assert "display notification" in script

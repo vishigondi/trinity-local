@@ -47,16 +47,62 @@ def _cleanup_legacy_launchpad_links(destination_dir: Path) -> None:
 
 
 def _launchpad_applescript(launchpad_path: Path) -> str:
-    launchpad = str(launchpad_path.expanduser().resolve())
-    # Plain `do shell script` to launch the launchpad. The AppleScriptObjC
-    # bridge (NSWorkspace) was throwing -1700 on Apple Silicon Sequoia; the
-    # shell-script TCC prompt only appears once and is then granted forever.
+    # 100-persona audit P38 fix: resolve the launchpad path AT LAUNCH TIME
+    # from the runtime user's $HOME — NOT at compile time from the
+    # installer's $HOME. Before this fix, `launchpad_path.expanduser().resolve()`
+    # baked the installer's absolute path (e.g. /Users/alice/.trinity/...)
+    # into the AppleScript. When Trinity.app sat in /Applications/ and
+    # user "bob" double-clicked, it opened ALICE'S launchpad — real
+    # cross-user data leak on shared dev machines.
     #
-    # The `notify` argv path is the surface external callers use to display
-    # macOS notifications via the Trinity app's bundle (icon-polish). Default
-    # action is just "open the launchpad" — no regen, no Python boot. The
-    # page on disk is kept fresh by refresh_launchpad() calls baked into
-    # every state-mutation path (council save, watch cycle, telemetry).
+    # New shape: AppleScript reads $HOME at runtime, falls back to a
+    # user-relative path under that. If a non-default TRINITY_HOME was
+    # used at install time (env var overriding the resolver), preserve
+    # it as the fallback so power users with custom paths still work.
+    #
+    # The `notify` argv path is the surface external callers use to
+    # display macOS notifications via the Trinity app's bundle. Default
+    # action is just "open the launchpad" — no regen, no Python boot.
+    install_time_resolved = str(launchpad_path.expanduser().resolve())
+    install_time_home = str(Path.home().resolve())
+    if install_time_resolved.startswith(install_time_home + "/"):
+        # Common case: launchpad lives under installer's home. Replace
+        # the installer-home prefix with $HOME so the same .app works
+        # for every user on the machine.
+        rel_under_home = install_time_resolved[len(install_time_home) + 1:]
+        # AppleScript: use `do shell script "echo $HOME"` to get the
+        # runtime user's home; build the URL from that. Falls back to
+        # the install-time resolved path if $HOME is empty (shouldn't
+        # happen in practice but keeps the script defensive).
+        return (
+            'on run argv\n'
+            '  try\n'
+            '    if (count of argv) >= 1 then\n'
+            '      set firstArg to item 1 of argv\n'
+            '      if firstArg is "notify" then\n'
+            '        set notifTitle to ""\n'
+            '        set notifBody to ""\n'
+            '        if (count of argv) >= 2 then set notifTitle to item 2 of argv\n'
+            '        if (count of argv) >= 3 then set notifBody to item 3 of argv\n'
+            '        display notification notifBody with title notifTitle\n'
+            '        return\n'
+            '      end if\n'
+            '    end if\n'
+            '  on error\n'
+            '    -- fall through to launchpad open\n'
+            '  end try\n'
+            '  set userHome to (do shell script "/bin/echo $HOME")\n'
+            f'  set launchpadPath to userHome & "/{rel_under_home}"\n'
+            '  if launchpadPath does not start with "/" then\n'
+            f'    set launchpadPath to "{install_time_resolved}"\n'
+            '  end if\n'
+            '  do shell script "/usr/bin/open " & quoted form of ("file://" & launchpadPath)\n'
+            '  return\n'
+            'end run\n'
+        )
+    # Custom TRINITY_HOME path that doesn't live under installer's home
+    # (e.g. TRINITY_HOME=/opt/trinity for shared-server installs). Keep
+    # the install-time absolute path — there's no per-user equivalent.
     return (
         'on run argv\n'
         '  try\n'
@@ -74,7 +120,7 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
         '  on error\n'
         '    -- fall through to launchpad open\n'
         '  end try\n'
-        f'  do shell script "/usr/bin/open " & quoted form of "file://{launchpad}"\n'
+        f'  do shell script "/usr/bin/open " & quoted form of "file://{install_time_resolved}"\n'
         '  return\n'
         'end run\n'
     )
