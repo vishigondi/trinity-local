@@ -243,6 +243,39 @@ across every CLI call and every MCP child process.
 machine without touching your shell. The skill respects local edits — if you've customized
 the file, future `install-mcp` runs leave it alone.
 
+## What's new — v1.7 (2026-05-15)
+
+Returning from an earlier install? The big shifts since v1.6 are:
+
+- **`picks.json` + `routing.json` moved** from `~/.trinity/memories/` to
+  `~/.trinity/scoreboard/` (they're operational scoreboards, not
+  cognitive memory). Idempotent migration on first access; no action
+  needed. The chairman now reads only the three thinking memories
+  (lens, topics, vocabulary) for identity context.
+- **Launchpad "Your memories, raw" → "Your lens"** — 6-chip nav
+  collapses to a 4-chip card in chairman-read order. picks + routing
+  surface on the routing card where they belong.
+- **Cold-start auto-scan** — first MCP spawn scans your `~/.claude`,
+  `~/.codex`, `~/.gemini` (and cowork) CLI transcripts in the background.
+  Your first council is already personalized; no manual `seed-from-taste-
+  terminal` step needed.
+- **Cursor is a first-class harness** — `trinity-local install-mcp`
+  drops `~/.cursor/mcp.json` alongside Claude Code / Codex / Gemini CLI.
+- **Basin labels** — the topology graph no longer renders the largest
+  cluster as "Hello.". Substantive snippets picked across reps,
+  greetings skipped, in both Python (next `lens-build`) and the JS
+  viewer (existing on-disk data benefits at render-time).
+- **`mark_pick_wrong` actually fires** — the chip on the picks Reader
+  now fires the macOS Shortcut to run `cortex-override`, not just copy
+  the command to clipboard.
+- **Council failures feed `dispatch_health`** — rate-limited Codex in
+  a council now demotes the provider for the next ask. Rate-limit-
+  saves metric includes council saves.
+- **me-card share artifact** no longer drops orderings silently.
+
+Full log in [CHANGELOG.md](./CHANGELOG.md). 100-persona audit backlog
+in [docs/scale-plan.md §Phase 10](./docs/scale-plan.md).
+
 ## How is this different from \[X\]
 
 | | Trinity Local | LMArena | promptfoo / Claude evals | OpenRouter | Karpathy LLM Council |

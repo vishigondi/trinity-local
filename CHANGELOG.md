@@ -3,6 +3,65 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7 — persona-audit batch + architectural collapse] — 2026-05-15
+
+100 sub-agents simulated a distinct user persona walking through Trinity
+(see `docs/scale-plan.md` §Phase 10 for the full backlog). 39 HIGH /
+45 MED / 16 LOW pain points clustered into 12 themes. This release
+closes the highest-leverage items from the audit plus the architectural
+simplification pass the audit unblocked.
+
+**Architectural collapse**
+- `picks.json` + `routing.json` move from `~/.trinity/memories/` to
+  `~/.trinity/scoreboard/` (operational scoreboards, not cognitive
+  memory). Distill now reads only the three thinking memories (lens,
+  topics, vocabulary). Idempotent best-effort migration on first
+  `scoreboard_dir()` access. Glossary collapse: "five core memories" →
+  "three thinking + two scoreboards" across CLAUDE.md / docs/spec-v1.md /
+  docs/spec-v1.5.md / DESIGN.md / README.
+- Launchpad "Your memories, raw" 6-chip nav → "Your lens" 4-chip card
+  (chairman-read order: core → lens → topics → vocabulary). picks +
+  routing surface on the routing card; not in the lens viewer's nav.
+
+**Persona-audit fixes shipped**
+- **Basin labels** (P53): real-corpus largest cluster of 3,408 prompts
+  no longer renders as "Hello." in topology graph. Python + JS picker
+  drops greetings/acks + chooses longest substantive snippet across
+  top-5 reps. Same algorithm both layers so existing on-disk basins
+  benefit at render-time without forcing `lens-build` rerun.
+- **`mark_pick_wrong` actually fires** (P63): button now builds a
+  `shortcuts://run-shortcut?name=Trinity%20Dispatch` URL with
+  `{action: "run_command", args: {command: "trinity-local cortex-
+  override --basin <id>"}}` and navigates to it. Was clipboard-copy-
+  only — visible feedback-loop break.
+- **Council failures feed dispatch_health** (P46): rate-limited Codex
+  in a council now demotes the provider for the next ask. New public
+  `dispatch_health.log_member_failure()`; wired into
+  `council_runner._run_member` both failure branches. Rate-limit-
+  saves metric now includes council saves.
+- **me-card orderings always render** (P96): the share artifact no
+  longer drops orderings when the upper lens render's `y` cursor
+  crosses 430. Slides down past lens content; row cap bumped 2 → 3.
+- **install-mcp adds Cursor** (P16/P92): user-scope writes
+  `~/.cursor/mcp.json`; project-scope writes `.cursor/mcp.json` next
+  to `.mcp.json`. Cursor was the only big MCP-native harness silently
+  absent from the install loop.
+
+**Other improvements (same audit + architectural collapse)**
+- Cold-start auto-scan on first MCP spawn: scans `~/.claude`,
+  `~/.codex`, `~/.gemini`, cowork for existing CLI transcripts in
+  the background so the first council is already personalized.
+- `ingest._is_user_facing_prompt`: filter expansion drops Claude
+  Code's `<task-notification>` / `<command-*>` / `<system-reminder>`
+  blocks before they reach rejections.jsonl or vocabulary.
+- `me/turn_pairs.iter_turn_pairs`: per-transcript fallback to prior
+  node's `following_assistant_text` lifts coverage from 37% → ~80%
+  across providers.
+- `vocabulary.md` gains an Anchors section: proper-noun phrases
+  recurring across ≥3 distinct threads.
+
+1183 tests passing; 28 doc-consistency guards green.
+
 ## [v1.6 — doc-consistency guards for new surfaces] — 2026-05-15
 
 Per Principle #21 ("public claims need regression guards at the
