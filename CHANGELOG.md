@@ -91,7 +91,7 @@ landed in this arc (H–N).
   pyflakes warnings (unused imports, f-strings without placeholders)
   tolerated — only NameError-at-runtime is the high-stakes target.
 
-1240 tests passing; 30 doc-consistency guards green.
+1241 tests passing; 31 doc-consistency guards green.
 
 ## [v1.7 — persona-audit batch + architectural collapse] — 2026-05-15
 

@@ -571,6 +571,66 @@ class TestCliCommandsReferencedExistInCli:
         )
 
 
+class TestArchitectureTableModulesExist:
+    """Companion to TestCliCommandsReferencedExistInCli (CLI side):
+    every backticked `<name>.py` in claude.md's architecture tables
+    must resolve to a real file in src/ or tests/. Catches the
+    phantom-module shape that bit us 2026-05-16 with
+    `model_detector.py` (named in claude.md, no file anywhere).
+
+    Allowlist exists for files explicitly documented as
+    not-shipping (per Principle #20, docs can reference
+    historical-state filenames with explanatory context).
+    """
+
+    # Files claude.md references with an explicit "doesn't exist /
+    # didn't materialize" note. Adding here is OK when the doc text
+    # makes the absence unambiguous to a reader.
+    DOCUMENTED_ABSENT = {
+        # "subprocess_utils.py was the original plan but the split
+        # didn't materialize" — claude.md narrates this directly
+        # near the runtime_env row.
+        "subprocess_utils.py",
+    }
+
+    def test_no_phantom_py_files_in_claude_md(self):
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        # Find every backticked `<name>.py` reference. Bare filename
+        # form only; the architecture table uses this shape
+        # consistently. Path-form refs (subdir/file.py) skipped —
+        # the recursive search resolves them regardless.
+        files = set(re.findall(r"`([a-z_][a-z_0-9]*\.py)`", claude_md))
+
+        # Recursive search: a referenced filename is valid if it
+        # exists ANYWHERE under src/ or tests/. The architecture
+        # table mentions `base.py` etc. as living under `ranker/`,
+        # but claude.md writes the bare name — search has to
+        # tolerate that.
+        searchable = [REPO / "src", REPO / "tests"]
+        phantoms: list[str] = []
+        for name in sorted(files):
+            if name in self.DOCUMENTED_ABSENT:
+                continue
+            found = False
+            for root in searchable:
+                if any(root.rglob(name)):
+                    found = True
+                    break
+            if not found:
+                phantoms.append(name)
+
+        assert not phantoms, (
+            "claude.md architecture table references .py files that "
+            "don't exist anywhere in src/ or tests/:\n  "
+            + "\n  ".join(phantoms)
+            + "\n\nEither restore the file (the rename was unintended) "
+            "or remove the row from claude.md (the feature didn't "
+            "land). If absence is intentional + documented, add the "
+            "filename to TestArchitectureTableModulesExist."
+            "DOCUMENTED_ABSENT with a one-line context note."
+        )
+
+
 class TestReadmeHeroInstallCommand:
     """README-hero install-command guard. Narrow scope: ONLY the
     README hero section (first 25 lines) — the most-visible install
