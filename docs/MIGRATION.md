@@ -107,18 +107,12 @@ For Trinity specifically:
 - The extension is platform-portable and returns structured errors
   (`native-host-unavailable`, etc.) that the launchpad surfaces as a
   precise install hint instead of a silent no-op.
-- The two paths have **partial coverage overlap**, not equivalence:
-  - The Chrome extension routes only the subset of buttons whose action
-    kind appears in `capture_host.ACTION_ALLOWLIST` (`launch-council`
-    and `ingest-recent` in v1.0).
-  - The macOS Shortcut path additionally handles the legacy
-    `run_command` payload, which is how settings toggles, `me-card`
-    rendering, and `stop-council` currently fire. Those buttons go
-    through tier 2 only.
-  - Expanding the allowlist (post-v1.0) will narrow this gap.
-    Until then, non-macOS users see the legacy Shortcut-only buttons
-    no-op silently; that's a known limitation tracked under the
-    Phase 4b residual-drift cleanup (council_bf1ab3f4dd70f75e).
+- The two paths now have **full button parity** as of Phase 4b:
+  every launchpad control has a narrow action-allowlist entry in
+  `capture_host.ACTION_ALLOWLIST` (see the table in the
+  "Cross-platform parity" section below). The macOS Shortcut path
+  stays as tier-2 fallback so existing installs keep working,
+  but no button is Shortcut-only anymore.
 
 ## When the Shortcut path actually retires
 
@@ -136,19 +130,28 @@ Until then: it's a load-bearing fallback. The note printed by
 
 ## FAQ
 
-### Known limitation: Shortcut-only buttons on non-macOS
+### Cross-platform parity (as of Phase 4b)
 
-Three launchpad controls still route through the `shortcuts://` URL
-exclusively in v1.0: the "Render lens card" button, the
-"Stop current council" button, and the gear-menu settings toggles
-(sharing, auto-chain, polish-auto-iterate, reset anonymous ID).
-These predate the action-allowlist; their corresponding entries in
-`capture_host.ACTION_ALLOWLIST` are planned for v1.1 (Phase 4b).
+All ten launchpad controls now have a narrow action-allowlist entry,
+so every button works on Linux + Windows when the extension is
+wired. The macOS Shortcut path remains as tier-2 fallback for
+existing installs.
 
-Until then, on Linux and Windows these specific buttons no-op
-silently. The "Run council" and "Refresh from latest transcripts"
-buttons — the hot path — work cross-platform via the extension as
-of v1.0.
+The current allowlist (capture_host.ACTION_ALLOWLIST):
+
+| Kind | CLI command |
+|---|---|
+| launch-council | council-launch |
+| ingest-recent | ingest-recent |
+| stop-council | council-stop --status-token … |
+| telemetry-enable / -disable / -reset-id | telemetry-enable / … / -reset-id |
+| auto-chain-enable / -disable | auto-chain-enable / -disable |
+| polish-auto-enable / -disable | polish-auto-enable / -disable |
+| render-me-card | me-card --open |
+
+Each entry is the narrowest possible surface — no `run_command`, no
+arbitrary shell. Spoofed payloads can't trigger anything beyond the
+specific CLI subcommand named above.
 
 ### Will my existing macOS install break when I upgrade?
 
