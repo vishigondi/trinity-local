@@ -115,7 +115,28 @@ def handle_install_mcp(args):
         print("No MCP configuration files were updated.")
 
 
-def handle_install_app(args):
+def handle_install_app(args) -> int:
+    # 100-persona audit Theme C: install-app uses osacompile + macOS
+    # Shortcuts under the hood. On Linux (persona P17) it crashes with
+    # `FileNotFoundError: osacompile`; on Windows (P18) the install
+    # silently writes a broken .app then half-breaks the desktop launch.
+    # iPad-only (P23) and headless (P22) have no entry point. Bail
+    # loudly with a one-line message linking to the supported path.
+    if sys.platform != "darwin":
+        print(
+            f"install-app: Trinity.app is macOS-only (sys.platform={sys.platform!r}).\n"
+            "\n"
+            "On Linux: the engine + CLI work; use the local-launchpad serve mode\n"
+            "  trinity-local serve              # http://localhost:8765 for the launchpad\n"
+            "  trinity-local install-mcp        # registers MCP for Claude Code/Codex/Gemini CLI/Cursor\n"
+            "  trinity-local council-launch --task '...'\n"
+            "\n"
+            "On Windows: run inside WSL2 (Trinity treats WSL as Linux).\n"
+            "Native Windows + iPad + headless: track docs/cross-platform-spec.md for the rollout.",
+            file=sys.stderr,
+        )
+        return 1
+
     launchpad_path = refresh_launchpad()
     destinations = None
     if args.destination:
@@ -128,6 +149,7 @@ def handle_install_app(args):
         "launchpad_path": str(launchpad_path),
         "app_paths": [str(path) for path in app_paths],
     }, indent=2))
+    return 0
 
 
 def _install_trinity_skill() -> str | None:

@@ -196,6 +196,52 @@ class TestInstallWiresWrapper:
         assert wrapper.stat().st_mode & stat.S_IXUSR
 
 
+class TestInstallAppPlatformGate:
+    """100-persona audit Theme C: install-app must bail loudly on non-
+    macOS, not crash with `FileNotFoundError: osacompile` (persona P17
+    on Linux) or silently half-break the .app (P18 on Windows)."""
+
+    def test_install_app_bails_loud_on_linux(self, monkeypatch, capsys):
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_cmd
+
+        monkeypatch.setattr("trinity_local.commands.install.sys.platform", "linux")
+        called = []
+        monkeypatch.setattr(install_cmd, "install_launchpad_shortcuts",
+                            lambda **kw: called.append(True) or [])
+
+        rc = install_cmd.handle_install_app(SimpleNamespace(destination=None))
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "macOS-only" in err
+        assert "trinity-local serve" in err
+        # CRITICAL: bail must happen BEFORE install_launchpad_shortcuts runs.
+        assert called == [], "install-app proceeded past the platform gate on Linux"
+
+    def test_install_app_bails_loud_on_windows(self, monkeypatch, capsys):
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_cmd
+
+        monkeypatch.setattr("trinity_local.commands.install.sys.platform", "win32")
+        rc = install_cmd.handle_install_app(SimpleNamespace(destination=None))
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "macOS-only" in err
+        assert "WSL" in err  # nudges Windows users toward the supported path
+
+    def test_compile_launchpad_app_raises_on_linux(self, monkeypatch, tmp_path):
+        """Defense-in-depth: even if a caller bypasses handle_install_app,
+        _compile_launchpad_app SystemExits with a readable message
+        instead of crashing with FileNotFoundError."""
+        import pytest
+        from trinity_local.launchpad_install import _compile_launchpad_app
+
+        monkeypatch.setattr("sys.platform", "linux")
+        target = tmp_path / "Trinity.app"
+        with pytest.raises(SystemExit, match="osacompile"):
+            _compile_launchpad_app(target, "on run argv\nend run\n")
+
+
 class TestInstallAppCommand:
     def test_install_app_command_prints_installed_paths(
         self,

@@ -127,6 +127,16 @@ def _launchpad_applescript(launchpad_path: Path) -> str:
 
 
 def _compile_launchpad_app(target: Path, script: str) -> None:
+    # Defense-in-depth for persona audit Theme C: even if a caller
+    # bypasses handle_install_app's platform gate, fail with a
+    # readable message instead of crashing with bare FileNotFoundError.
+    import sys as _sys
+    if _sys.platform != "darwin":
+        raise SystemExit(
+            f"_compile_launchpad_app requires osacompile (macOS only); "
+            f"sys.platform={_sys.platform!r}. Use `trinity-local serve` for "
+            "the Linux/headless local launchpad path."
+        )
     if target.exists() or target.is_symlink():
         _remove_launchpad_artifact(target)
     with tempfile.TemporaryDirectory() as tmpdir:
