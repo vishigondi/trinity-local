@@ -90,6 +90,32 @@ landed in this arc (H–N).
   src/trinity_local/ failing on any "undefined name" line. Other
   pyflakes warnings (unused imports, f-strings without placeholders)
   tolerated — only NameError-at-runtime is the high-stakes target.
+- Companion guard in the same file: `test_all_src_modules_import_cleanly`
+  walks all 135 src/ modules and `import_module` each. Catches what
+  pyflakes can't — runtime-at-import-time crashes (eager annotations,
+  circular imports, missing optional deps imported unconditionally).
+  Skips `__init__.py` (transitively loaded) and `capture_host.py`
+  (has stdin-reading __main__ side effects).
+
+**Phantom-claim audit (post-arc ticks U + V)**
+- claude.md "Model detection" architecture row referenced
+  `model_detector.py` + `data/model_candidates.json` +
+  `trinity-local models-detect` CLI + `~/.trinity/detected_models.json`
+  state file. NONE of those exist in the codebase — pure phantom
+  documentation. A user reading the table and trying the command
+  hits "command not found"; a contributor grepping for the module
+  finds nothing. Row removed.
+- `TestCliCommandsReferencedExistInCli` extended to scan claude.md
+  (was launch-facing-docs only). Same shape as Principle #21:
+  claude.md IS a public surface (every agent harness reads it), so
+  its CLI references need anti-drift gating too.
+- New `TestArchitectureTableModulesExist`: scans claude.md for
+  backticked `<name>.py` references, recursive-searches src/+tests/
+  for each. Allowlist for files claude.md explicitly documents as
+  "didn't ship" (currently just `subprocess_utils.py`). Closes the
+  module-side of the phantom-row class. Together with the extended
+  CLI guard, every backticked claim in the architecture table is
+  now load-tested against the filesystem.
 
 1241 tests passing; 31 doc-consistency guards green.
 
