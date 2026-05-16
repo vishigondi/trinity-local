@@ -110,3 +110,37 @@ def _empty_config() -> AppConfig:
         role_preferences={},
         task_preferences={},
     )
+
+
+# Canonical 3-provider lineup for parallel councils, in display order.
+# Codex-only / claude-only / gemini-only users (persona audit P89) had
+# broken 3-column councils because 9 sites hardcoded this list as a
+# default; the helper below picks the enabled subset so a single-
+# provider user gets a clean single-call instead of failed 3-of-3.
+CANONICAL_COUNCIL_PROVIDERS: tuple[str, ...] = ("claude", "gemini", "codex")
+
+
+def default_council_members(explicit: str | None = None) -> list[str]:
+    """Return the canonical 3-provider council lineup filtered to whatever
+    the user has actually enabled in config.json. Preserves canonical order.
+
+    When config can't be loaded (cold install, malformed file) OR no
+    cloud providers are enabled, returns the full canonical list — the
+    caller's existing "Provider missing or disabled" error path is the
+    right thing to surface.
+
+    Use this as the default whenever a CLI / MCP / launchpad surface
+    would otherwise hardcode ``["claude", "gemini", "codex"]``. Honors
+    user override (--members on CLI, members= on MCP) unchanged.
+    """
+    try:
+        config = load_config(explicit, required=False)
+    except Exception:
+        return list(CANONICAL_COUNCIL_PROVIDERS)
+    enabled = {
+        name for name, p in config.providers.items()
+        if getattr(p, "enabled", True) and name in CANONICAL_COUNCIL_PROVIDERS
+    }
+    if not enabled:
+        return list(CANONICAL_COUNCIL_PROVIDERS)
+    return [name for name in CANONICAL_COUNCIL_PROVIDERS if name in enabled]

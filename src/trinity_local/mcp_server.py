@@ -966,7 +966,8 @@ async def _run_council(args: dict) -> list[Any]:
 
     task = args["task"]
     goal = args.get("goal", "Find the strongest answer.")
-    members = args.get("members") or ["claude", "gemini", "codex"]
+    from .config import default_council_members
+    members = args.get("members") or default_council_members()
     mode = args.get("mode", "parallel")
     sequence = args.get("sequence")
     primary_provider = args.get("primary_provider")
