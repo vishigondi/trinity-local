@@ -24,6 +24,8 @@ Gemini picks up exactly where Claude left off — no re-context, no copy-paste �
 what it can see that Claude can't (your Gmail, your Drive, your Calendar). Then hand
 off to GPT. Same thread, three perspectives, one continuous conversation.
 
+![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
+
 That's the wedge. No frontier provider can build it: Anthropic can't read OpenAI's
 transcripts, and OpenAI can't read Gemini's. Only the layer above them can.
 
