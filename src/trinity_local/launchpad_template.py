@@ -2364,28 +2364,40 @@ trinity-local eval-run --target gemini</code></pre>
             window.location.reload();
           }}, delay);
         }},
-        triggerSettingsAction(url) {{
-          this.triggerShortcut(url);
+        triggerSettingsAction(entry) {{
+          // Phase 4b — settings actions now ship as {{shortcutUrl, extensionKind}}.
+          // Route through the dispatcher so they work on Linux/Windows when
+          // the extension is wired; fall back to the shortcut URL on macOS.
           this.settingsOpen = false;
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher && entry?.extensionKind) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: entry.extensionKind }},
+              shortcutUrl: entry.shortcutUrl,
+              onResult: (r) => this.handleDispatchResult(r),
+            }});
+          }} else {{
+            this.triggerShortcut(entry?.shortcutUrl || entry);
+          }}
           this.scheduleLaunchpadReload();
         }},
         toggleSharing(event) {{
           event.target.checked = this.telemetry.enabled;
           const isNowEnabled = !this.telemetry.enabled;
-          const url = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
-          this.triggerSettingsAction(url);
+          const entry = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
+          this.triggerSettingsAction(entry);
         }},
         toggleAutoChain(event) {{
           event.target.checked = this.telemetry.autoChainEnabled;
           const isNowEnabled = !this.telemetry.autoChainEnabled;
-          const url = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
-          this.triggerSettingsAction(url);
+          const entry = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
+          this.triggerSettingsAction(entry);
         }},
         togglePolishAutoIterate(event) {{
           event.target.checked = this.telemetry.polishAutoIterate;
           const isNowEnabled = !this.telemetry.polishAutoIterate;
-          const url = isNowEnabled ? this.settingsLinks.polishAutoEnable : this.settingsLinks.polishAutoDisable;
-          this.triggerSettingsAction(url);
+          const entry = isNowEnabled ? this.settingsLinks.polishAutoEnable : this.settingsLinks.polishAutoDisable;
+          this.triggerSettingsAction(entry);
         }},
         resetAnonymousId() {{
           this.triggerSettingsAction(this.settingsLinks.reset);

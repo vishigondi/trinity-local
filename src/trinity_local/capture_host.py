@@ -181,6 +181,18 @@ ACTION_ALLOWLIST: dict[str, tuple[str, list[tuple[str, str, bool]]]] = {
             ("status-token", "status_token", True),
         ],
     ),
+    # Phase 4b (council_bf1ab3f4dd70f75e residual-drift cleanup): the seven
+    # settings toggles. Each is a no-arg CLI subcommand — the narrowest
+    # possible allowlist surface, satisfying the council's "do NOT add
+    # run_command" verdict. Enum-by-kind so spoofed payloads can't trigger
+    # arbitrary shell commands.
+    "telemetry-enable":   ("telemetry-enable",   []),
+    "telemetry-disable":  ("telemetry-disable",  []),
+    "telemetry-reset-id": ("telemetry-reset-id", []),
+    "auto-chain-enable":  ("auto-chain-enable",  []),
+    "auto-chain-disable": ("auto-chain-disable", []),
+    "polish-auto-enable":  ("polish-auto-enable",  []),
+    "polish-auto-disable": ("polish-auto-disable", []),
 }
 
 

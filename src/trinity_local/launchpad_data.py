@@ -443,14 +443,18 @@ def _settings_links() -> dict[str, str]:
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
+    # Phase 4b — each settings action surfaces its narrow extension-tier
+    # `kind` alongside the legacy shortcut URL. The launchpad's dispatcher
+    # picks the extension path when wired, falls back to the URL on
+    # macOS, surfaces the install banner otherwise.
     return {
-        "enable": enable.url,
-        "disable": disable.url,
-        "reset": reset.url,
-        "autoChainEnable": auto_chain_enable.url,
-        "autoChainDisable": auto_chain_disable.url,
-        "polishAutoEnable": polish_auto_enable.url,
-        "polishAutoDisable": polish_auto_disable.url,
+        "enable": {"shortcutUrl": enable.url, "extensionKind": "telemetry-enable"},
+        "disable": {"shortcutUrl": disable.url, "extensionKind": "telemetry-disable"},
+        "reset": {"shortcutUrl": reset.url, "extensionKind": "telemetry-reset-id"},
+        "autoChainEnable": {"shortcutUrl": auto_chain_enable.url, "extensionKind": "auto-chain-enable"},
+        "autoChainDisable": {"shortcutUrl": auto_chain_disable.url, "extensionKind": "auto-chain-disable"},
+        "polishAutoEnable": {"shortcutUrl": polish_auto_enable.url, "extensionKind": "polish-auto-enable"},
+        "polishAutoDisable": {"shortcutUrl": polish_auto_disable.url, "extensionKind": "polish-auto-disable"},
     }
 
 
