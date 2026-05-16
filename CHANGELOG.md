@@ -3,6 +3,72 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7 — three-tier architecture complete, Monday launch ready] — 2026-05-16
+
+The user overrode the Phase 1 council's defer-to-v1.1 verdict — "we
+have time, let's restructure" — and executed the full 8-phase plan
+in one continuous loop iteration. All 8 phases pass acceptance.
+Launch architecture ratified by `council_37eca30b6e7010df` (Phase 7,
+load-bearing); antecedents `council_ff3da1fa84906791` (Phase 1) +
+`council_c18f739a0234aa58` (Phase 6).
+
+**Phase 2 — scripts/ shebang substrate** (commits 22ddad5 → b5da65c)
+Six heavy-op scripts with dual interface (shebang-runnable +
+importable): `_runtime.py` (venv bootstrap + audit log + JSON I/O),
+`embed.py` (nomic-embed-text-v1.5 batch), `cluster.py` (k-means +
+k-means++ init), `pca.py` (Weiszfeld median + manifold-dim +
+bimodality), `descriptor.py` (rejection-signal validators),
+`signature.py` (homonyms + synonyms), `anchor.py` (proper-noun
+recurrence). 44 new tests.
+
+**Phase 6 — trust + audit substrate** (commit d492d0d, council
+c18f739a)
+`~/.trinity/trust.toml` with `schema_version = 1` + `[trust.rules]`
+exact tier.operation overrides + `[trust.operations]` +
+`[trust.tiers]` + global default. Atomic single-write audit log via
+os.open+O_APPEND (PIPE_BUF doesn't apply to regular files; that was
+a v1.0-floor wording bug the council caught). Cross-tier
+TRINITY_ORIGIN_TIER env propagation. Loud failure surfacing on
+audit-write errors. New CLI: trust-init, trust-show, audit-show.
+18 trust tests + 14 runtime tests.
+
+**Phase 7 — integration + ratification** (commit e6d0b35, council
+37eca30b — load-bearing launch decision)
+12 new tests across two files:
+- test_tier_equivalence.py: scripts/ ↔ trinity_local/ outputs match
+  on embeddings (cosine ≥ 0.9999, NOT bit-identical), k-means
+  labels (identical under seed), Weiszfeld median (bit-equal),
+  basin_geometry composite, chairman picker, cross-tier env
+  propagation through subprocess.
+- test_phase7_fresh_install.py: doctor + trust-init + trust-show +
+  audit-show + portal-html all work on a fresh TRINITY_HOME with
+  no provider CLIs, no embeddings cached, no ~/.trinity/ data.
+  Includes the council pre-empt verifier
+  test_tfidf_hash_is_stable_across_processes.
+
+**The critical pre-empt** (Phase 7 council flagged): TF-IDF
+fallback used Python's hash() which is PYTHONHASHSEED-randomized.
+Subprocess vs in-process would silently produce DIFFERENT vectors
+for the same text. Fixed: stable SHA-1 hash projection.
+Regression test runs two subprocesses with different
+PYTHONHASHSEED values + asserts bit-equal vectors.
+
+**Phase 8 — companion docs**
+- docs/TRUST-MODE.md: trust.toml + audit-log user-facing explainer
+- docs/INSTALL-skill.md: primary install path (via Claude Code skill)
+- docs/INSTALL-pip.md: engine-only install
+- claude.md: Phase 7 council ID designated as load-bearing launch
+  architecture decision; Phase 1 + Phase 6 as antecedents
+
+**Deferred to v1.1 per council verdicts** (none blocking launch):
+- Cross-platform CI matrix (macOS/Linux/Windows × 3 tiers)
+- Live Chrome extension smoke in CI (gated test ships as scaffold)
+- Pip-package dependency inversion (scripts/ as canonical impl)
+- Visible trust indicators in launchpad header / extension popup
+- --dangerously-trust-all global CLI flag (env var works in v1.0)
+- Automatic audit-log rotation (doctor warns above 50 MB in v1.0)
+- --tier/--operation/--outcome filters on audit-show
+
 ## [v1.7 launch-arc — three-tier framing locked, Phase 1 v1.0 floor shipped] — 2026-05-16
 
 Self-paced loop iteration after the Phase 4b cross-platform-dispatcher
