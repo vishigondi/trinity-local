@@ -1,4 +1,5 @@
-"""Static HTML viewer for the five plural core memories + core.md.
+"""Static HTML viewer for the lens hierarchy (core.md + the three
+thinking memories: lens.md, topics.json, vocabulary.md).
 
 Writes a single page at ~/.trinity/portal_pages/memory.html that loads
 the requested memory file by query param (?file=lens.md, picks.json...).

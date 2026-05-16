@@ -277,8 +277,9 @@ def render_primary_council_prompt(
         "Members generate broad; you condense through the user's taste.",
     ]
     # User profile — chairman reads `core.md` FIRST (one paragraph, the
-    # distillation of all five plural memories) and falls through to the
-    # full `lens.md` only when core is absent. This keeps each council
+    # distillation of the lens hierarchy: lens.md tensions, topics.json
+    # basins, vocabulary.md anchors) and falls through to the full
+    # `lens.md` only when core is absent. This keeps each council
     # cheap on a populated install (just one paragraph in context) while
     # cold-start installs still get the full lens.
     try:

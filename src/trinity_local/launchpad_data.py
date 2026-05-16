@@ -1124,25 +1124,27 @@ def _verdict_stats() -> dict:
 
 
 def _core_status() -> dict:
-    """Report the freshness of ~/.trinity/core.md vs the five plural
-    memories it distills. The launchpad surfaces this as a one-line
-    hint so users notice when a fresh `distill` would help.
+    """Report the freshness of ~/.trinity/core.md vs the three thinking
+    memories it actually distills (lens.md, topics.json, vocabulary.md
+    per `distill.py`). picks + routing are scoreboards, NOT inputs to
+    core.md — listing them here was a v1.7-collapse leak that fired
+    false 'stale' warnings whenever a user rated a council. The
+    launchpad surfaces this as a one-line hint so users notice when a
+    fresh `distill` would help.
 
     Returns one of three states:
-    - `{"state": "missing"}`  → core.md never built; lens/picks/... exist
+    - `{"state": "missing"}`  → core.md never built; lens/topics/... exist
     - `{"state": "stale"}`    → one or more source memories are newer
     - `{"state": "fresh"}`    → core.md is the newest of the bunch
     - `{"state": "empty"}`    → no memories present yet (cold install)
     """
     from .state_paths import (
-        core_path, lens_path, picks_path, routing_path,
-        topics_path, vocabulary_path,
+        core_path, lens_path, topics_path, vocabulary_path,
     )
     core = core_path()
-    sources = [
-        lens_path(), picks_path(), routing_path(),
-        topics_path(), vocabulary_path(),
-    ]
+    # Must match `distill.py`'s source list — picks/routing are
+    # scoreboards, not cognitive memory.
+    sources = [lens_path(), topics_path(), vocabulary_path()]
     existing_sources = [p for p in sources if p.exists()]
     if not existing_sources:
         return {"state": "empty"}
@@ -1163,7 +1165,7 @@ def _core_status() -> dict:
 
 def _memory_health() -> dict:
     """Aggregate the five staleness signals the launchpad surfaces:
-      - core.md staleness (vs the five plural memories) via _core_status
+      - core.md staleness (vs the three thinking memories) via _core_status
       - picks override_count > 0 (user-marked rules to demote)
       - picks audit_status == "disagreed" (chairman-audit caught drift)
       - topics.json prompt_ids round-trip integrity (legacy pre-thread-aware)

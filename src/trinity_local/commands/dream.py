@@ -209,7 +209,8 @@ def handle_dream(args):
         print("dream phase 2.5/5: scanning vocabulary for overloads…", file=sys.stderr)
         report["phases"]["vocabulary"] = _vocabulary_scan()
 
-    # ── Phase 5: distill the five plural memories into singular core.md ──
+    # ── Phase 5: distill the three thinking memories (lens, topics,
+    #              vocabulary) into singular core.md ──
     # Always runs (cheap — one flagship call). Even if upstream phases
     # were skipped, distill emits a core.md from whatever memories DO
     # exist on disk.
@@ -241,7 +242,8 @@ def _vocabulary_scan() -> dict:
 
 
 def _distill(provider: str) -> dict:
-    """Phase 5 — collapse the five plural core memories into one paragraph."""
+    """Phase 5 — collapse the three thinking memories (lens.md tensions,
+    topics.json basins, vocabulary.md anchors) into one core.md paragraph."""
     from ..distill import distill_via_chairman
     return distill_via_chairman(provider=provider)
 

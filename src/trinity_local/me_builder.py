@@ -55,10 +55,11 @@ ME_SAMPLE_SIZE = 80
 
 def me_path() -> Path:
     """The lens file. Renamed from `me.md` → `memories/lens.md` per the
-    brand axis (lens is one of the five core memory types). The migration
-    happens automatically inside state_paths.memories_dir() on first
-    access; callers don't need to handle it. Back-compat alias kept so
-    existing imports still work."""
+    brand axis (lens is one of the three thinking memories in the
+    post-v1.7 lens hierarchy: lens.md tensions, topics.json basins,
+    vocabulary.md anchors). The migration happens automatically inside
+    state_paths.memories_dir() on first access; callers don't need to
+    handle it. Back-compat alias kept so existing imports still work."""
     from .state_paths import lens_path
     return lens_path()
 
