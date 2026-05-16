@@ -67,6 +67,89 @@ class TestInstallMcp:
             "project-scoped install-mcp must write .cursor/mcp.json too"
         )
 
+
+class TestUninstall:
+    """100-persona audit P30/P57/P85: removing Trinity required hand-
+    editing 4 MCP configs + Trinity.app + Chrome ext manifest + skill +
+    ~/.trinity/. The 'own your data' wedge demands a clean uninstall path."""
+
+    def _run_uninstall(self, monkeypatch, home_dir: Path, **flags):
+        from types import SimpleNamespace
+        from trinity_local.commands.install import handle_uninstall
+
+        monkeypatch.setattr(Path, "home", lambda: home_dir)
+        defaults = {"yes": False, "include_data": False, "include_hf_cache": False}
+        defaults.update(flags)
+        args = SimpleNamespace(**defaults)
+        return handle_uninstall(args)
+
+    def test_dry_run_lists_targets_without_deleting(self, home: Path, monkeypatch, capsys):
+        # First install so the configs exist.
+        _run_install(monkeypatch, home)
+        claude_path = home / ".claude.json"
+        cursor_path = home / ".cursor" / "mcp.json"
+        codex_path = home / ".codex" / "config.toml"
+        assert claude_path.exists() and cursor_path.exists() and codex_path.exists()
+
+        self._run_uninstall(monkeypatch, home)
+        out = capsys.readouterr().out
+        assert "Would remove" in out
+        assert "dry-run" in out
+        # Files still present (dry-run).
+        assert claude_path.exists()
+        assert cursor_path.exists()
+        # Codex TOML config not deleted, just block-stripped (would be in --yes pass).
+        assert codex_path.exists()
+
+    def test_yes_actually_removes_mcp_entries(self, home: Path, monkeypatch, capsys):
+        _run_install(monkeypatch, home)
+        claude_path = home / ".claude.json"
+        cursor_path = home / ".cursor" / "mcp.json"
+        codex_path = home / ".codex" / "config.toml"
+
+        self._run_uninstall(monkeypatch, home, yes=True)
+        out = capsys.readouterr().out
+        assert "Removed:" in out
+
+        # Files exist but Trinity entries gone.
+        claude_cfg = json.loads(claude_path.read_text())
+        assert "trinity-local" not in claude_cfg.get("mcpServers", {})
+        cursor_cfg = json.loads(cursor_path.read_text())
+        assert "trinity-local" not in cursor_cfg.get("mcpServers", {})
+        codex_content = codex_path.read_text()
+        assert "[mcp_servers.trinity-local]" not in codex_content
+
+    def test_idempotent_when_nothing_installed(self, home: Path, monkeypatch, capsys):
+        """Fresh tmp home: no install ever ran. Uninstall must not crash."""
+        self._run_uninstall(monkeypatch, home, yes=True)
+        out = capsys.readouterr().out
+        assert "Nothing to remove" in out
+
+    def test_include_data_flag_removes_trinity_home(self, home: Path, monkeypatch, capsys, tmp_path):
+        """--include-data removes ~/.trinity/ (the corpus)."""
+        trinity_dir = tmp_path / "trinity_home_uninstall"
+        trinity_dir.mkdir()
+        (trinity_dir / "marker.txt").write_text("data here")
+        monkeypatch.setenv("TRINITY_HOME", str(trinity_dir))
+        _run_install(monkeypatch, home)
+
+        self._run_uninstall(monkeypatch, home, yes=True, include_data=True)
+        assert not trinity_dir.exists(), "--include-data must remove ~/.trinity/"
+
+    def test_include_data_omitted_preserves_trinity_home(self, home: Path, monkeypatch, capsys, tmp_path):
+        """Default (no --include-data): ~/.trinity/ MUST be preserved.
+        The 'own your data' wedge means uninstall doesn't touch user data
+        unless they explicitly opted in."""
+        trinity_dir = tmp_path / "trinity_home_preserved"
+        trinity_dir.mkdir()
+        (trinity_dir / "marker.txt").write_text("preserve me")
+        monkeypatch.setenv("TRINITY_HOME", str(trinity_dir))
+        _run_install(monkeypatch, home)
+
+        self._run_uninstall(monkeypatch, home, yes=True)  # NO include_data
+        assert trinity_dir.exists(), "uninstall without --include-data must preserve ~/.trinity/"
+        assert (trinity_dir / "marker.txt").read_text() == "preserve me"
+
     def test_writes_codex_toml_config(self, home: Path, monkeypatch, capsys):
         # Codex CLI uses ~/.codex/config.toml with [mcp_servers.<name>] sections.
         _run_install(monkeypatch, home)

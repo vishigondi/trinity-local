@@ -43,6 +43,30 @@ def register(subparsers):
     )
     iep.set_defaults(handler=handle_install_extension)
 
+    # uninstall — inverse of install-mcp + install-app + install-extension.
+    # 100-persona audit Theme D #1 (personas P30/P57/P85): the "own your
+    # data" wedge cuts the wrong way if removing Trinity requires hand-
+    # editing 4 MCP configs + deleting 2 Trinity.app copies + a Chrome
+    # manifest + the skill file + ~/.trinity/. Dry-run by default; --yes
+    # to actually delete; --include-data also removes ~/.trinity/.
+    uin = subparsers.add_parser(
+        "uninstall",
+        help="Remove Trinity from MCP configs, Trinity.app, Chrome ext manifest, and bundled skill (idempotent). Pass --include-data to also delete ~/.trinity/.",
+    )
+    uin.add_argument(
+        "--yes", action="store_true",
+        help="Actually delete (default is dry-run that prints what would be removed).",
+    )
+    uin.add_argument(
+        "--include-data", action="store_true",
+        help="Also remove ~/.trinity/ (your prompt corpus + lens + scoreboard + council outcomes). Irreversible.",
+    )
+    uin.add_argument(
+        "--include-hf-cache", action="store_true",
+        help="Also remove the cached nomic-embed-text-v1.5 model from ~/.cache/huggingface/.",
+    )
+    uin.set_defaults(handler=handle_uninstall)
+
 
 def handle_install_mcp(args):
     mcp_config = {
@@ -349,4 +373,196 @@ def handle_install_extension(args):
     print()
     print("Next: visit claude.ai (or chatgpt.com), send a message, then check")
     print("      ~/.trinity/conversations/<provider>/ for the captured turn.")
+    return 0
+
+
+def _remove_trinity_from_json_mcp_config(target: Path, plan: list[str], dry_run: bool) -> None:
+    """Strip Trinity's entry from a JSON-shaped MCP config (Claude / Gemini /
+    Cursor / .mcp.json). Idempotent — no-op when the file is absent or
+    Trinity isn't in it."""
+    if not target.exists():
+        return
+    try:
+        existing = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    servers = existing.get("mcpServers") or {}
+    if "trinity-local" not in servers:
+        return
+    plan.append(f"remove trinity-local from {target}")
+    if dry_run:
+        return
+    del servers["trinity-local"]
+    if not servers:
+        existing.pop("mcpServers", None)
+    try:
+        target.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    except OSError as exc:
+        print(f"  warn: could not write {target}: {exc}")
+
+
+def _remove_trinity_from_codex_toml(target: Path, plan: list[str], dry_run: bool) -> None:
+    """Strip the [mcp_servers.trinity-local] block + any nested subtables +
+    inline-table form from Codex's TOML config. Uses the same regexes
+    install-mcp uses for replacement, so the round-trip is symmetric."""
+    if not target.exists():
+        return
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return
+    new = _CODEX_MCP_BLOCK_RE.sub("", content)
+    new = _CODEX_INLINE_TRINITY_RE.sub("", new)
+    if new == content:
+        return
+    plan.append(f"remove [mcp_servers.trinity-local] from {target}")
+    if dry_run:
+        return
+    try:
+        target.write_text(new, encoding="utf-8")
+    except OSError as exc:
+        print(f"  warn: could not write {target}: {exc}")
+
+
+def _remove_trinity_app(plan: list[str], dry_run: bool) -> None:
+    """Trinity.app may live in /Applications, ~/Applications, or ~/Desktop —
+    install_launchpad_shortcuts writes wherever's writable."""
+    for parent in (Path("/Applications"), Path.home() / "Applications", Path.home() / "Desktop"):
+        app = parent / "Trinity.app"
+        if app.exists():
+            plan.append(f"remove {app}")
+            if dry_run:
+                continue
+            try:
+                import shutil
+                shutil.rmtree(app, ignore_errors=True)
+            except Exception as exc:
+                print(f"  warn: could not remove {app}: {exc}")
+
+
+def _remove_native_messaging_manifest(plan: list[str], dry_run: bool) -> None:
+    """Drop Chrome's Native Messaging manifest so the v1.6 browser ext can
+    no longer spawn the host. Safe regardless of whether the host was
+    actually installed."""
+    try:
+        manifest = _native_messaging_dir() / "local.trinity.capture.json"
+    except SystemExit:
+        return  # unsupported platform — nothing to remove
+    if manifest.exists():
+        plan.append(f"remove {manifest}")
+        if dry_run:
+            return
+        try:
+            manifest.unlink()
+        except OSError as exc:
+            print(f"  warn: could not remove {manifest}: {exc}")
+
+
+def _remove_trinity_skill(plan: list[str], dry_run: bool) -> None:
+    """Remove the bundled /trinity skill. Preserves user edits — only
+    deletes when the file matches the bundled contents exactly, same
+    contract _install_trinity_skill uses on write."""
+    target = Path.home() / ".claude" / "skills" / "trinity" / "SKILL.md"
+    if not target.exists():
+        return
+    try:
+        bundled = resources.files("trinity_local").joinpath("data/skills/trinity/SKILL.md").read_text(encoding="utf-8")
+        current = target.read_text(encoding="utf-8")
+    except (OSError, FileNotFoundError, ModuleNotFoundError, AttributeError):
+        return
+    if current != bundled:
+        plan.append(f"skip {target} (locally edited; remove manually)")
+        return
+    plan.append(f"remove {target}")
+    if dry_run:
+        return
+    try:
+        target.unlink()
+        parent = target.parent
+        if not any(parent.iterdir()):
+            parent.rmdir()
+    except OSError as exc:
+        print(f"  warn: could not remove {target}: {exc}")
+
+
+def _remove_trinity_data(plan: list[str], dry_run: bool) -> None:
+    """Remove ~/.trinity/ — the corpus + memories + scoreboard + council
+    outcomes + cache. Destructive. Only fires when --include-data passed."""
+    from ..config import trinity_home
+    home = trinity_home()
+    if not home.exists():
+        return
+    plan.append(f"remove {home} (your corpus, lens, scoreboard, council outcomes)")
+    if dry_run:
+        return
+    try:
+        import shutil
+        shutil.rmtree(home, ignore_errors=True)
+    except Exception as exc:
+        print(f"  warn: could not remove {home}: {exc}")
+
+
+def _remove_hf_cache(plan: list[str], dry_run: bool) -> None:
+    """Remove just the nomic-embed-text-v1.5 model from the HuggingFace
+    cache, not the whole HF cache (other projects share it). Only fires
+    when --include-hf-cache passed."""
+    hf_root = Path.home() / ".cache" / "huggingface" / "hub"
+    if not hf_root.exists():
+        return
+    # The model path is models--nomic-ai--nomic-embed-text-v1.5
+    nomic_dir = hf_root / "models--nomic-ai--nomic-embed-text-v1.5"
+    if not nomic_dir.exists():
+        return
+    plan.append(f"remove {nomic_dir} (nomic embed model — first lens-build will re-download)")
+    if dry_run:
+        return
+    try:
+        import shutil
+        shutil.rmtree(nomic_dir, ignore_errors=True)
+    except Exception as exc:
+        print(f"  warn: could not remove {nomic_dir}: {exc}")
+
+
+def handle_uninstall(args) -> int:
+    """Inverse of install-mcp + install-app + install-extension. Idempotent:
+    safe to run on a system where some pieces were never installed."""
+    dry_run = not getattr(args, "yes", False)
+    plan: list[str] = []
+
+    # Always: configs + .app + ext manifest + skill (the things install-* wrote).
+    for target in (
+        Path.home() / ".claude.json",
+        Path.home() / ".gemini.json",
+        Path.home() / ".cursor" / "mcp.json",
+        Path(".mcp.json"),
+        Path(".cursor") / "mcp.json",
+    ):
+        _remove_trinity_from_json_mcp_config(target, plan, dry_run)
+    _remove_trinity_from_codex_toml(Path.home() / ".codex" / "config.toml", plan, dry_run)
+    _remove_trinity_app(plan, dry_run)
+    _remove_native_messaging_manifest(plan, dry_run)
+    _remove_trinity_skill(plan, dry_run)
+
+    # Opt-in destructive removals.
+    if getattr(args, "include_data", False):
+        _remove_trinity_data(plan, dry_run)
+    if getattr(args, "include_hf_cache", False):
+        _remove_hf_cache(plan, dry_run)
+
+    if not plan:
+        print("No Trinity install artifacts found. Nothing to remove.")
+        return 0
+
+    header = "Would remove (dry-run; pass --yes to actually delete):" if dry_run else "Removed:"
+    print(header)
+    for line in plan:
+        print(f"  • {line}")
+
+    if dry_run:
+        print("")
+        print("Re-run with --yes to actually delete.")
+        if not getattr(args, "include_data", False):
+            print("Add --include-data to also remove ~/.trinity/ (your corpus + memories).")
+        if not getattr(args, "include_hf_cache", False):
+            print("Add --include-hf-cache to also remove the nomic embed model.")
     return 0

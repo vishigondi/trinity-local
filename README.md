@@ -216,6 +216,22 @@ For non-coders, the intended daily launch is `Trinity.app`: double-click it from
 Applications or Desktop, type a task, and review/rate the result in the app's
 local pages. The CLI stays complete for power users and automation.
 
+### Removing Trinity
+
+```bash
+trinity-local uninstall                # dry-run: lists what would be removed
+trinity-local uninstall --yes          # actually remove MCP configs + Trinity.app + skill
+trinity-local uninstall --yes --include-data   # also delete ~/.trinity/ (irreversible)
+```
+
+The default uninstall removes Trinity from `~/.claude.json`, `~/.gemini.json`,
+`~/.cursor/mcp.json`, the `[mcp_servers.trinity-local]` block from
+`~/.codex/config.toml`, the `Trinity.app` copies in Applications/Desktop, the
+Chrome Native Messaging manifest, and the bundled `/trinity` skill — but
+**preserves `~/.trinity/`** (your corpus, lens, scoreboard, council outcomes)
+unless you explicitly pass `--include-data`. The wedge cuts both ways: own
+your data also means you decide when to delete it.
+
 `trinity-local doctor` checks each provider CLI is installed + authenticated, the MCP server
 dependency is present, and your Trinity directory is writable — surfaces a one-line fix for
 each ✗ before you hit a live council.
