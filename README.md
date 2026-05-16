@@ -9,23 +9,41 @@ would have picked.
 
 **No new app. No service. No API key. Your transcripts never leave your machine.**
 
-> **⚠️ Pre-PyPI:** Use this for now —
-> ```bash
-> pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
-> ```
-> After v1.0 ships, the simpler one is the same wheel:
-> ```bash
-> pip install trinity-local && trinity-local install-mcp
-> ```
+## Install
 
-On macOS that single command also drops **Trinity.app** on your Desktop — open it
-like any other app, no terminal needed after install.
+**You'll use Trinity by typing `/trinity` in Claude Code.** The skill at
+`~/.claude/skills/trinity/SKILL.md` orchestrates everything — install, first-run
+flow, councils, handoff, eval. It IS the user-facing contract.
 
-After install, **type `/trinity` in Claude Code** to use Trinity through the skill —
-the comprehensive driver at `~/.claude/skills/trinity/SKILL.md` orchestrates the CLI
-for you. The skill IS the user-facing contract; the pip wheel is the engine it
-calls. See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md) for
-how the skill (Tier 1), pip (Tier 2), and Chrome extension (Tier 3) relate.
+Underneath, a pip wheel ships the engine the skill calls. One line wires both:
+
+```bash
+# Pre-PyPI:
+pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
+
+# After v1.0 publishes:
+pip install trinity-local && trinity-local install-mcp
+```
+
+`install-mcp` registers Trinity's MCP server in Claude Code, Codex CLI, Gemini CLI,
+and Cursor, then copies the skill into `~/.claude/skills/trinity/`. On macOS it also
+drops **Trinity.app** on your Desktop — open like any other app, no terminal needed
+after.
+
+Then in Claude Code:
+
+```
+/trinity
+```
+
+The skill walks the rest — `doctor` checks, transcript ingest, dreaming your core
+memories, your first council. Three install paths exist:
+
+- **Tier 1 (Skill, primary)** — what `/trinity` runs. See [`docs/INSTALL-skill.md`](docs/INSTALL-skill.md)
+- **Tier 2 (Pip, engine)** — CLI-only / headless / CI. See [`docs/INSTALL-pip.md`](docs/INSTALL-pip.md)
+- **Tier 3 (Chrome extension, optional)** — cross-surface capture + one-click UI
+
+Three tiers, one `~/.trinity/` data contract. See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md).
 
 ### The 60-second demo
 
