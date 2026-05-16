@@ -88,11 +88,17 @@ def handle_me_build(args):
     print(json.dumps(payload, indent=2))
     # 100-persona audit P51 fix: tell the user where to go next.
     import sys as _sys
-    _sys.stderr.write(
-        "\n→ Lens built. View it:\n"
-        "    trinity-local lens-show\n"
-        "    open ~/.trinity/portal_pages/memory.html?file=lens.md\n"
-    )
+    if getattr(args, "dry_run", False):
+        _sys.stderr.write(
+            "\n→ Stage 1 dry-run complete (no lens written). To build:\n"
+            "    trinity-local lens-build\n"
+        )
+    else:
+        _sys.stderr.write(
+            "\n→ Lens built. View it:\n"
+            "    trinity-local lens-show\n"
+            "    open ~/.trinity/portal_pages/memory.html?file=lens.md\n"
+        )
 
 
 def handle_me_show(args):

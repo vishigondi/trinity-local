@@ -25,9 +25,9 @@ If both fail because the user is on a managed Python, surface the error and reco
 
 (Post-ship: `pipx install trinity-local` — same package, faster, after PyPI publish lands.)
 
-## 3. Register the MCP server in Claude Code, Codex, and Gemini CLI
+## 3. Register the MCP server in Claude Code, Codex, Gemini CLI, and Cursor
 
-This wires the Trinity MCP tools into every harness the user has installed. v1.0 ships 6 canonical tools (`run_council`, `route`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (introspection into extracted picks), `mark_pick_wrong` (user-veto on a pick — halves effective trust per click); launch-arc adds `handoff` (cross-provider continuity — switch models mid-conversation with full context preserved) and `get_eval_summary` (per-axis benchmark scores from your actual rejection signal) — 11 total. The install edits `~/.claude.json`, `~/.gemini.json`, and `~/.codex/config.toml` — non-destructive, only adds the Trinity entry.
+This wires the Trinity MCP tools into every harness the user has installed. v1.0 ships 6 canonical tools (`run_council`, `route`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (introspection into extracted picks), `mark_pick_wrong` (user-veto on a pick — halves effective trust per click); launch-arc adds `handoff` (cross-provider continuity — switch models mid-conversation with full context preserved) and `get_eval_summary` (per-axis benchmark scores from your actual rejection signal) — 11 total. The install edits `~/.claude.json`, `~/.gemini.json`, `~/.cursor/mcp.json`, and `~/.codex/config.toml` — non-destructive, only adds the Trinity entry.
 
 !`trinity-local install-mcp`
 
