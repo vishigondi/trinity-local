@@ -66,9 +66,13 @@ def test_migration_doc_exists_and_covers_three_platforms():
     # silent rename: install-extension is the v1 command name).
     assert "install-extension" in content
     assert "install-launcher" in content
-    # The retirement criteria (>=90% extension, >75% wired) must be in
-    # the doc so users know the Shortcut path is not gone overnight.
-    assert "90%" in content or "ninety" in content.lower()
+    # The retirement language must convey "not gone overnight" — it
+    # was tightened post-codex-Phase-8 (council_bf1ab3f4dd70f75e) to
+    # avoid a hard numeric commitment we have no telemetry for. The
+    # doc must still tell users the legacy path won't vanish without
+    # warning.
+    assert "deprecation" in content.lower() or "warning" in content.lower()
+    assert "measurement" in content.lower() or "telemetry" in content.lower()
 
 
 def test_doctor_check_dispatch_ready_ok_when_extension_wired(

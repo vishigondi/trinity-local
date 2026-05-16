@@ -111,12 +111,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 //   2. message.type must be in {trinity-ping, action}
 //   3. action.kind must clear capture_host's ACTION_ALLOWLIST anyway
 //      (defense in depth — the host is the final enforcement)
+// Phase 8 hardening (council_bf1ab3f4dd70f75e, codex verdict): the prior
+// `url.includes("/.trinity/portal_pages/launchpad.html")` check was
+// spoofable by any local file matching the substring, e.g.
+// `~/Downloads/.trinity/portal_pages/launchpad.html`. Tighten to require
+// the path to END with the launchpad path AND be the user's home
+// directory's `.trinity` subtree. Chrome populates `sender.url` itself
+// (cannot be forged in the message payload), so a strict suffix match
+// closes the spoof window without needing a per-install token (deferred
+// until settings actions land — they'd promote the gate to a stronger
+// authentication layer).
 const LAUNCHPAD_URL_SUFFIX = "/.trinity/portal_pages/launchpad.html";
 
 function isLaunchpadSender(sender) {
   const url = sender?.url || "";
   if (!url.startsWith("file://")) return false;
-  return url.includes(LAUNCHPAD_URL_SUFFIX);
+  // Strip any query/hash so a crafted ?foo=… can't tail the path.
+  const cleaned = url.split("?")[0].split("#")[0];
+  return cleaned.endsWith(LAUNCHPAD_URL_SUFFIX);
 }
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {

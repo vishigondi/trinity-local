@@ -107,21 +107,48 @@ For Trinity specifically:
 - The extension is platform-portable and returns structured errors
   (`native-host-unavailable`, etc.) that the launchpad surfaces as a
   precise install hint instead of a silent no-op.
-- The two paths share the same `ACTION_ALLOWLIST` in `capture_host.py`
-  so anything that works through one works through the other.
+- The two paths have **partial coverage overlap**, not equivalence:
+  - The Chrome extension routes only the subset of buttons whose action
+    kind appears in `capture_host.ACTION_ALLOWLIST` (`launch-council`
+    and `ingest-recent` in v1.0).
+  - The macOS Shortcut path additionally handles the legacy
+    `run_command` payload, which is how settings toggles, `me-card`
+    rendering, and `stop-council` currently fire. Those buttons go
+    through tier 2 only.
+  - Expanding the allowlist (post-v1.0) will narrow this gap.
+    Until then, non-macOS users see the legacy Shortcut-only buttons
+    no-op silently; that's a known limitation tracked under the
+    Phase 4b residual-drift cleanup (council_bf1ab3f4dd70f75e).
 
 ## When the Shortcut path actually retires
 
-When real-install telemetry shows ≥90% of dispatches going through
-the extension, and `trinity-local doctor` reports the extension wired
-on >75% of installs polled, the macOS Shortcut path moves to a
-deprecation-warning release (`shortcut-install` exits non-zero unless
-re-affirmed with `--legacy`). One release after that, it goes away.
+Shortcut retirement is gated on measurement infrastructure we don't
+have yet. Trinity ships v1.0 without dispatch-tier telemetry; any
+retirement commitment is a future gate, not a calendar date. Concretely:
+the macOS Shortcut path will not begin a deprecation-warning release
+until (a) an opt-in measured release lands that reports per-install
+dispatch-tier usage and (b) that release shows the extension carrying
+the dispatch load on macOS for an extended sample. One release after
+the warning lands, the path goes away.
 
 Until then: it's a load-bearing fallback. The note printed by
 `shortcut-install` (Phase 7) is friendly, not nagging.
 
 ## FAQ
+
+### Known limitation: Shortcut-only buttons on non-macOS
+
+Three launchpad controls still route through the `shortcuts://` URL
+exclusively in v1.0: the "Render lens card" button, the
+"Stop current council" button, and the gear-menu settings toggles
+(sharing, auto-chain, polish-auto-iterate, reset anonymous ID).
+These predate the action-allowlist; their corresponding entries in
+`capture_host.ACTION_ALLOWLIST` are planned for v1.1 (Phase 4b).
+
+Until then, on Linux and Windows these specific buttons no-op
+silently. The "Run council" and "Refresh from latest transcripts"
+buttons — the hot path — work cross-platform via the extension as
+of v1.0.
 
 ### Will my existing macOS install break when I upgrade?
 

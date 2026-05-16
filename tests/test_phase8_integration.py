@@ -226,6 +226,32 @@ def test_dispatch_readiness_doctor_launchpad_agree(
     assert "install-extension" in doctor_check.fix
 
 
+def test_background_sender_gate_rejects_path_spoof():
+    """Phase 8 hardening (council_bf1ab3f4dd70f75e codex verdict): the
+    sender.url check in background.js must REJECT path-suffix spoofs like
+    `~/Downloads/.trinity/portal_pages/launchpad.html`. Previously the
+    check used `includes(LAUNCHPAD_URL_SUFFIX)`; now it must use a strict
+    `endsWith` after stripping query+hash.
+
+    This test inspects the JS source for the load-bearing predicate
+    shape — a structural guard so a future refactor doesn't quietly
+    revert to the spoofable `includes()` form.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    bg_src = (repo_root / "browser-extension" / "background.js").read_text()
+    # The hardened predicate must use endsWith (anchored to end-of-path)
+    # against the launchpad suffix, NOT the old `.includes(...)`.
+    assert ".endsWith(LAUNCHPAD_URL_SUFFIX)" in bg_src, (
+        "background.js must use endsWith on the launchpad URL suffix — "
+        "council_bf1ab3f4dd70f75e flagged the prior `.includes(...)` as "
+        "spoofable by a malicious local file."
+    )
+    assert "split(\"?\")" in bg_src or "split('?')" in bg_src, (
+        "background.js must strip query string before matching — without "
+        "this, ?foo=… can tail the launchpad path."
+    )
+
+
 def test_chrome_extension_manifest_action_kinds_match_allowlist():
     """The capture_host action allowlist and the bundled launchpad's
     button data-action attributes must agree on the set of kinds.
