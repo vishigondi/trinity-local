@@ -163,8 +163,9 @@ def run_review(
 
 def save_review(review: ReviewResult) -> Path:
     """Save a review result as a JSON file."""
+    from .utils import atomic_write_text
     path = reviews_dir() / f"{review.review_id}.json"
-    path.write_text(json.dumps(review.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(review.to_dict(), indent=2))
     return path
 
 

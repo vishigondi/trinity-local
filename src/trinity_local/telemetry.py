@@ -72,8 +72,9 @@ def load_telemetry_settings() -> TelemetrySettings:
 
 
 def save_telemetry_settings(settings: TelemetrySettings) -> Path:
+    from .utils import atomic_write_text
     path = telemetry_settings_path()
-    path.write_text(json.dumps(settings.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(settings.to_dict(), indent=2))
     return path
 
 

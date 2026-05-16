@@ -259,6 +259,6 @@ def freeze_routing_to_disk() -> dict[str, Any]:
     # has entries.
     if not table.get("by_task_type"):
         return table
-    path: Path = routing_path()
-    path.write_text(json.dumps(table, indent=2, sort_keys=True), encoding="utf-8")
+    from .utils import atomic_write_text
+    atomic_write_text(routing_path(), json.dumps(table, indent=2, sort_keys=True))
     return table
