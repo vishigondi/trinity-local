@@ -597,6 +597,22 @@ def handle_install_extension(args):
         )
         return 1
 
+    # Phase 4: persist the extension ID for the file:// launchpad. The
+    # launchpad needs the ID to call chrome.runtime.sendMessage; without it,
+    # tier-1 dispatch is silently dead. Settings file is the bridge between
+    # install-extension (writes) and launchpad_data._browser_extension (reads).
+    from .. import state_paths as _sp
+    settings_path = _sp.telemetry_settings_dir() / "extension.json"
+    settings_payload = {
+        "extension_id": extension_id,
+        "host_path": str(host_path),
+        "browsers": list(written),
+    }
+    try:
+        settings_path.write_text(json.dumps(settings_payload, indent=2))
+    except OSError as exc:
+        print(f"  warn: could not persist extension ID to {settings_path}: {exc}")
+
     print(f"✓ Wrote {len(written)} manifest(s):")
     for entry in written:
         print(f"    {entry}")

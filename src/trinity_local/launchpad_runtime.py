@@ -103,4 +103,136 @@ function loadOutcomeScript(councilId, onComplete) {
   };
   document.body.appendChild(script);
 }
+
+// ─── Phase 4 dispatch runtime ─────────────────────────────────────
+// Routes button clicks across three tiers in priority order:
+//   1. Chrome extension present  → chrome.runtime.sendMessage(id, …)
+//   2. macOS Shortcut installed  → shortcuts:// URL (existing path)
+//   3. Neither                   → install banner
+//
+// Verdict: council_fb374b01311885cc (codex won). The detection cannot
+// be synchronous from file:// JS, so we warm-probe on page load and
+// cache in sessionStorage. Native-host-unavailable surfaces the
+// install-extension hint inline rather than silently falling through
+// to Shortcuts — silent fallback masks the setup bug.
+window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
+  const PROBE_TIMEOUT_MS = 1500;
+  const CACHE_KEY = 'trinityDispatchState';
+  const ext = (typeof pageData !== 'undefined' && pageData.browserExtension) || {};
+  const extensionId = ext.extensionId || null;
+  let state = sessionStorage.getItem(CACHE_KEY) || (extensionId ? 'unknown' : 'absent');
+  let lastProbedAt = 0;
+  const listeners = new Set();
+
+  function setState(next) {
+    if (next === state) return;
+    state = next;
+    try { sessionStorage.setItem(CACHE_KEY, state); } catch (_) {}
+    listeners.forEach((cb) => { try { cb(state); } catch (_) {} });
+  }
+
+  function canUseShortcut() {
+    const s = (typeof pageData !== 'undefined') ? pageData.shortcutStatus : null;
+    return !!(s && s.applicable && s.ok);
+  }
+
+  function sendExt(message) {
+    return new Promise((resolve, reject) => {
+      if (!extensionId || !window.chrome?.runtime?.sendMessage) {
+        reject(new Error('extension-unconfigured'));
+        return;
+      }
+      const timer = setTimeout(() => reject(new Error('extension-timeout')),
+                               PROBE_TIMEOUT_MS);
+      try {
+        chrome.runtime.sendMessage(extensionId, message, (response) => {
+          clearTimeout(timer);
+          const err = chrome.runtime.lastError;
+          if (err) { reject(new Error(err.message)); return; }
+          resolve(response);
+        });
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  }
+
+  async function probe(force) {
+    if (!extensionId) {
+      setState('absent');
+      return state;
+    }
+    const stale = (Date.now() - lastProbedAt) > 30_000;
+    if (!force && state === 'present' && !stale) return state;
+    lastProbedAt = Date.now();
+    try {
+      const r = await sendExt({ type: 'trinity-ping' });
+      if (r && r.ok) setState('present');
+      else setState('absent');
+    } catch (_) {
+      setState('absent');
+    }
+    return state;
+  }
+
+  async function dispatch({ extensionAction, shortcutUrl, onResult }) {
+    // Tier 1 — try the extension unless we already know it's absent.
+    if (state !== 'absent' && extensionId && extensionAction) {
+      try {
+        const r = await sendExt({ type: 'action', ...extensionAction });
+        setState('present');
+        if (r && r.ok) {
+          onResult && onResult({ tier: 'extension', ok: true, response: r });
+          return { tier: 'extension', ok: true, response: r };
+        }
+        // Extension reached the host but action failed. Surface the error;
+        // never silently fall through to Shortcuts when the host returned
+        // native-host-unavailable — that's a broken setup the user must fix.
+        if (r && r.error === 'native-host-unavailable') {
+          setState('native-missing');
+          onResult && onResult({ tier: 'extension', ok: false, response: r,
+                                 reason: 'native-host-unavailable' });
+          return { tier: 'extension', ok: false, response: r };
+        }
+        onResult && onResult({ tier: 'extension', ok: false, response: r });
+        return { tier: 'extension', ok: false, response: r };
+      } catch (e) {
+        // Extension not installed / no listener / timeout — fall through.
+        setState('absent');
+      }
+    }
+    // Tier 2 — macOS Shortcut, if registered.
+    if (shortcutUrl && canUseShortcut()) {
+      const link = document.createElement('a');
+      link.href = shortcutUrl;
+      link.rel = 'noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      onResult && onResult({ tier: 'shortcut', ok: true });
+      return { tier: 'shortcut', ok: true };
+    }
+    // Tier 3 — neither path available.
+    onResult && onResult({ tier: 'install-prompt', ok: false });
+    return { tier: 'install-prompt', ok: false };
+  }
+
+  function onStateChange(cb) { listeners.add(cb); return () => listeners.delete(cb); }
+
+  // Warm probe on script load + on focus when stale or unknown.
+  if (extensionId) {
+    setTimeout(() => probe(false), 50);
+    window.addEventListener('focus', () => {
+      if (state !== 'present' || (Date.now() - lastProbedAt) > 30_000) {
+        probe(false);
+      }
+    });
+  }
+
+  return { dispatch, probe, onStateChange,
+           get state() { return state; },
+           get extensionId() { return extensionId; },
+           get canUseShortcut() { return canUseShortcut(); } };
+})();
 """

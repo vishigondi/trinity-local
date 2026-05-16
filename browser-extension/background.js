@@ -99,4 +99,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-console.log("[trinity-bg] service worker started (v0.2 — capture + actions)");
+// ─── Phase 4: external messaging from the file:// launchpad ───────
+// The file launchpad at ~/.trinity/portal_pages/launchpad.html calls
+// chrome.runtime.sendMessage(TRINITY_EXTENSION_ID, ...) directly. That
+// path uses `onMessageExternal`, NOT `onMessage` — internal popups +
+// content scripts use onMessage, externally-connectable pages use the
+// External variant. They are NOT interchangeable.
+//
+// Security gates (codex's Phase 4 verdict, council_fb374b01311885cc):
+//   1. sender.url must be the launchpad file URL
+//   2. message.type must be in {trinity-ping, action}
+//   3. action.kind must clear capture_host's ACTION_ALLOWLIST anyway
+//      (defense in depth — the host is the final enforcement)
+const LAUNCHPAD_URL_SUFFIX = "/.trinity/portal_pages/launchpad.html";
+
+function isLaunchpadSender(sender) {
+  const url = sender?.url || "";
+  if (!url.startsWith("file://")) return false;
+  return url.includes(LAUNCHPAD_URL_SUFFIX);
+}
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (!isLaunchpadSender(sender)) {
+    sendResponse({ ok: false, error: "rejected-sender",
+                   detail: "external messages accepted only from the file:// launchpad" });
+    return false;
+  }
+  const messageType = message?.type;
+
+  if (messageType === "trinity-ping") {
+    sendResponse({
+      ok: true,
+      type: "trinity-pong",
+      extensionVersion: chrome.runtime.getManifest().version,
+    });
+    return false;
+  }
+
+  if (messageType === "action") {
+    const { type: _ignore, ...hostPayload } = message;
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, hostPayload, (response) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({
+            ok: false,
+            error: "native-host-unavailable",
+            detail: chrome.runtime.lastError.message,
+            hint: "Run `trinity-local install-extension --extension-id <ID>` to register the Native Messaging manifest.",
+          });
+          return;
+        }
+        sendResponse(response);
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: "send-failed", detail: String(e) });
+    }
+    return true;
+  }
+
+  sendResponse({ ok: false, error: "unknown-message-type", detail: String(messageType) });
+  return false;
+});
+
+console.log("[trinity-bg] service worker started (v0.2 — capture + actions + external)");

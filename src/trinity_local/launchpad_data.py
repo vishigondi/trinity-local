@@ -614,6 +614,13 @@ def build_page_data(
         # the same silent-breakage signal verdict_rate / handoff_ready
         # use elsewhere.
         "browserCapture": _browser_capture(),
+        # Phase 4: Chrome extension dispatch ID. Populated when the user has
+        # run `trinity-local install-extension --extension-id <ID>` (Phase 2).
+        # Read by window.__TRINITY_DISPATCH__ to call chrome.runtime.sendMessage
+        # against the right extension. None when not configured — dispatch
+        # falls back to the macOS Shortcut path on Mac, or shows the install
+        # banner elsewhere.
+        "browserExtension": _browser_extension(),
         # Timestamp baked at render time — shown in the footer so cache
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
@@ -1032,6 +1039,34 @@ def _browser_capture() -> dict:
         }
     except Exception:
         return empty
+
+
+def _browser_extension() -> dict:
+    """Read the persisted Chrome extension ID written by install-extension.
+
+    The file:// launchpad calls chrome.runtime.sendMessage(<extensionId>, ...)
+    to dispatch button clicks. Without the ID, tier-1 dispatch is dead
+    silent — there's no way to discover the ID from JS alone (the user
+    has to load the unpacked extension manually, copy the 32-char ID, and
+    feed it to `trinity-local install-extension --extension-id <ID>`).
+
+    Returns `{"extensionId": str|None, "configured": bool}`. The launchpad's
+    dispatch script gates on `configured`: if False, skip the extension
+    probe and go straight to shortcut/install-prompt.
+    """
+    try:
+        from . import state_paths as _sp
+        settings_path = _sp.telemetry_settings_dir() / "extension.json"
+        if not settings_path.exists():
+            return {"extensionId": None, "configured": False}
+        import json as _json
+        data = _json.loads(settings_path.read_text())
+        ext_id = data.get("extension_id")
+        if isinstance(ext_id, str) and ext_id:
+            return {"extensionId": ext_id, "configured": True}
+        return {"extensionId": None, "configured": False}
+    except Exception:
+        return {"extensionId": None, "configured": False}
 
 
 def _shortcut_status() -> dict:

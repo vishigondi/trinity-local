@@ -912,6 +912,50 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Phase 4 dispatch banner — single global banner that opens
+           when a click hits tier 3 (no extension + no Shortcut) or when
+           the extension is present but install-extension wasn't run.
+           Dismissible; a failed click reopens it. Bias toward the
+           extension path in copy (per launch-arc workstream #1: the
+           extension is the future, Shortcuts is the legacy). -->
+      <section
+        class="card memory-health-card"
+        v-if="dispatchBannerOpen"
+        style="border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.06);"
+      >
+        <div class="eyebrow" style="color: #b57438;">
+          <span v-if="dispatchBannerReason === 'native-host-unavailable'">Extension installed, host not registered</span>
+          <span v-else>No dispatch path is wired up</span>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          <span v-if="dispatchBannerReason === 'native-host-unavailable'">
+            Trinity reached the extension but the native host wasn't found
+          </span>
+          <span v-else>
+            Install the Trinity browser extension to dispatch from any platform
+          </span>
+        </h2>
+        <p class="meta" style="margin-top: 8px;" v-if="dispatchBannerReason === 'native-host-unavailable'">
+          The Chrome extension is loaded and responding, but the local helper
+          (<code>trinity-local-capture-host</code>) isn't registered. Run:
+          <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>
+          and reload the launchpad.
+        </p>
+        <p class="meta" style="margin-top: 8px;" v-else>
+          1. Open <code>chrome://extensions</code> in Chrome, enable Developer mode,
+          and load the <code>browser-extension/</code> folder.<br>
+          2. Copy the 32-character ID Chrome assigns.<br>
+          3. Run <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>.<br>
+          <span v-if="pageData.shortcutStatus && pageData.shortcutStatus.applicable">
+            Or, for macOS-only legacy: run <code>trinity-local shortcut-install</code>.
+          </span>
+        </p>
+        <p class="meta" style="margin-top: 8px;">
+          <a href="#" @click.prevent="dismissDispatchBanner">Dismiss</a>
+          — a failed click reopens this.
+        </p>
+      </section>
+
       <!-- Shortcut install banner — only renders when macOS + Shortcut
            is missing. Silent on non-macOS dev/CI and on healthy installs.
            Maps to pageData.shortcutStatus (tick #73). The user's
@@ -1869,6 +1913,13 @@ trinity-local eval-run --target gemini</code></pre>
         prompt: '',
         suggestionsOpen: false,
         launchError: '',
+        // Phase 4 — single global banner that opens when dispatch hits
+        // tier 3 (no extension + no Shortcut) or when the extension is
+        // present but install-extension wasn't run (`native-host-unavailable`).
+        // Per codex's verdict: ONE inline banner, not per-button replacement.
+        // Buttons stay clickable; failed click reopens the banner if dismissed.
+        dispatchBannerOpen: false,
+        dispatchBannerReason: '',  // 'no-route' | 'native-host-unavailable'
         operation: initialOperation,
         statusPollHandle: null,
         statusRotateHandle: null,
@@ -2282,6 +2333,32 @@ trinity-local eval-run --target gemini</code></pre>
           link.click();
           link.remove();
         }},
+        handleDispatchResult(result) {{
+          // Phase 4: surface dispatch-tier failures inline. The dispatcher
+          // returns {{tier: 'extension'|'shortcut'|'install-prompt', ok, response, reason}}.
+          // We act on three cases:
+          //   - tier === 'install-prompt': show the banner (neither path works)
+          //   - tier === 'extension' && reason === 'native-host-unavailable':
+          //       extension found but `install-extension` wasn't run — show
+          //       the install-extension hint specifically, not the generic
+          //       install banner
+          //   - tier === 'extension' && !ok && other error: surface to the
+          //       launchError ribbon
+          if (!result) return;
+          if (result.tier === 'install-prompt') {{
+            this.dispatchBannerOpen = true;
+            this.dispatchBannerReason = 'no-route';
+          }} else if (result.tier === 'extension' && !result.ok) {{
+            if (result.reason === 'native-host-unavailable') {{
+              this.dispatchBannerOpen = true;
+              this.dispatchBannerReason = 'native-host-unavailable';
+            }} else {{
+              const detail = result.response?.detail || result.response?.error || 'extension error';
+              this.launchError = String(detail);
+            }}
+          }}
+        }},
+        dismissDispatchBanner() {{ this.dispatchBannerOpen = false; }},
         scheduleLaunchpadReload(delay = 1400) {{
           window.setTimeout(() => {{
             window.location.reload();
@@ -2471,7 +2548,27 @@ trinity-local eval-run --target gemini</code></pre>
             label: prompt,
             memberOrder: [...pageData.defaultMembers],
           }});
-          this.triggerShortcut(buildShortcutUrl(payload));
+          // Phase 4: route through window.__TRINITY_DISPATCH__ which tries
+          // the Chrome extension first, falls back to the macOS Shortcut,
+          // and surfaces the install banner if neither is available. The
+          // `extensionAction` shape matches capture_host's ACTION_ALLOWLIST
+          // (kind=launch-council, task=…); `shortcutUrl` is the existing
+          // path so macOS users keep working unchanged.
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{
+                kind: 'launch-council',
+                task: prompt,
+                goal: pageData.defaultGoal,
+                primary_provider: pageData.defaultPrimaryProvider,
+              }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => this.handleDispatchResult(r),
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+          }}
         }},
         renderMeCard() {{
           if (this.busy) return;
@@ -2512,7 +2609,21 @@ trinity-local eval-run --target gemini</code></pre>
             label: 'Scan recent transcripts once',
           }});
           this.settingsOpen = false;
-          this.triggerShortcut(buildShortcutUrl(payload));
+          // Phase 4: Same routing as launchCouncil — extension first,
+          // then Shortcut, then install prompt. The `ingest-recent`
+          // allowlist entry replaces the run_command/watch-once payload
+          // (the extension surface is intentionally narrower than the
+          // Shortcut bridge — the host doesn't run arbitrary commands).
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'ingest-recent' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => this.handleDispatchResult(r),
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+          }}
         }},
       }};
     }}

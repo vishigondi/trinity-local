@@ -20,6 +20,9 @@
     "https://chat.openai.com/*",
     "https://gemini.google.com/*"
   ],
+  "externally_connectable": {
+    "matches": ["file:///*"]
+  },
   "background": {
     "service_worker": "background.js"
   },
