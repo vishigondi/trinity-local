@@ -3,6 +3,59 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7 launch-arc — three-tier framing locked, Phase 1 v1.0 floor shipped] — 2026-05-16
+
+Self-paced loop iteration after the Phase 4b cross-platform-dispatcher
+work landed (commit a6fe6ad). The user proposed a full 8-phase
+restructure to a skill-primary three-tier architecture (Skill / Pip /
+Chrome Extension) for Monday's launch alongside Gemini 4.
+
+**Architecture ratified by `council_ff3da1fa84906791`**
+(chairman codex, winner claude; stop-light: ship with modifications).
+The full 8-phase plan was the failure mode, not the win condition —
+the 1290-test green gate is the single most credible launch-day asset
+and a 70-module refactor under deadline pressure puts it at risk for
+a reframe that doesn't require code motion. v1.0 ships the skill
+artifact additive over the existing CLI; shared `scripts/` substrate
++ cross-backend equivalence test harness + trust-mode + audit-log
+substrate all defer to v1.1.
+
+**Phase 1 v1.0 floor files**
+- `skills/trinity/SKILL.md` — 11-section comprehensive driver
+  orchestrating the existing `trinity-local` CLI via Claude Code's
+  bash tool. Three tiers framed; tier-equivalence invariant pinned
+  (cosine ≥ 0.9999, NOT bit-identical — float-order differs across
+  MLX vs torch CPU vs torch CUDA by SIMD scheduling).
+- `skills/trinity/schemas/` — copies of `council_outcome`,
+  `eval_set`, `rejection_signal` so the skill artifact is
+  self-contained when git-cloned to `~/.claude/skills/trinity/`.
+- `docs/three-tier-architecture.md` — full vision doc; v1.0 floor
+  vs v1.1 stretch split documented; council outcome ID cited.
+- `tests/test_skill_md_commands_resolve.py` — 4 new guards:
+  SKILL.md exists, every `trinity-local <cmd>` it references
+  resolves in `--help`, three-tier framing + tier-equivalence
+  invariant pinned as substrings, SKILL.md byte-identical across
+  the canonical / package-data / .claude-dev-convenience copies.
+- README + claude.md + docs/launch.md + docs/launch-package.md:
+  three-tier framing propagated; council citation pinned in 4
+  load-bearing surfaces.
+- `docs/launch_councils/council_ff3da1fa84906791.json` — outcome
+  copied for the cited-artifacts-resolve guard.
+
+**Deferred to v1.1 (explicit per council verdict)**
+- `scripts/` as importable+executable shared substrate
+- 70-module engine extraction from `src/trinity_local/`
+- Trust mode + audit log substrate
+- Cross-backend equivalence test harness (MLX / torch CPU / CUDA)
+
+**Verified**: 1295 passed + 4 skipped (gated Chrome smoke);
+36 doc-consistency guards green.
+
+The brand pivot survives intact — "Your taste, ported. Lives inside
+Claude Code, Codex CLI, Gemini CLI, and Cursor." — because the skill
+exists and works, not because the substrate underneath has been
+refactored.
+
 ## [v1.7 follow-up — silent-failure audit + atomicity batch] — 2026-05-16
 
 Self-paced loop iteration audited recently-touched code (vendor.py,
