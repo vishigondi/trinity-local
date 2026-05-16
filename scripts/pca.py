@@ -52,13 +52,14 @@ REQUIREMENTS = ["numpy>=1.26"]
 def weiszfeld_median(
     points: list[list[float]],
     *,
-    max_iter: int = 200,
-    eps: float = 1e-7,
+    max_iter: int = 50,
+    eps: float = 1e-6,
 ) -> list[float]:
     """Geometric median via Weiszfeld iteration. Robust to outliers.
 
-    Delegates to trinity_local.cortex_geometry.weiszfeld_median to keep
-    the algorithm canonical for v1.0. v1.1 inverts the dependency.
+    Defaults match trinity_local.cortex_geometry.weiszfeld_median
+    EXACTLY so tier-equivalence holds when both are called with no
+    explicit params. v1.1 inverts the dependency; defaults stay.
     """
     from trinity_local.cortex_geometry import weiszfeld_median as _impl
     return _impl(points, max_iter=max_iter, eps=eps)
