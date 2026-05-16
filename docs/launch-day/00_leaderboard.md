@@ -6,29 +6,41 @@ in Vishi's prompt history). Each provider was asked to produce a response
 to the same prompts the user actually pushed back on; a different model
 played judge so no provider grades itself.
 
-## Headline
+## Headline (N=20 vs N=4 — larger sample is more honest)
 
-| target | aggregate | judge | items |
-|---|---|---|---|
-| **codex** | **0.737** | claude | 4/5 |
-| **claude** | **0.708** | codex | 4/5 |
-| gemini | (API outage) | — | 0/10 |
+| target | aggregate | N | judge | notes |
+|---|---|---|---|---|
+| **codex** | **0.737** | 4/5 | claude | early N=5 run, not yet expanded |
+| **claude** | **0.661** | 20/20 | codex | full N=20 run; aggregate dropped from N=4's 0.708 as more axes sampled |
+| gemini | (API outage) | 0/10 | — | every dispatch attempt errored — re-run after API recovers |
 
-## By rejection axis
+## By rejection axis (claude N=20 — the substantive run)
 
-### codex (judge=claude)
+| axis | n | mean | range | observation |
+|---|---|---|---|---|
+| COMPRESSION | 8 | **0.504** | 0.12–0.90 | weakness — claude over-engineers when user wanted brevity |
+| REDIRECT | 2 | 0.800 | 0.78–0.82 | reliable when answer is multi-part and user follows one thread |
+| REFRAME | 9 | 0.740 | 0.08–0.97 | high variance — strong when prompt-shape matches the lens |
+| SHARPENING | 1 | 0.930 | — | strong (small sample) |
+
+## By rejection axis (codex N=4 — earlier small run)
 
 | axis | n | mean | range |
 |---|---|---|---|
 | REDIRECT | 1 | 0.85 | 0.85 |
 | REFRAME | 3 | 0.700 | 0.55–0.90 |
 
-### claude (judge=codex)
+## What the launch headline can claim
 
-| axis | n | mean | range |
-|---|---|---|---|
-| REDIRECT | 1 | 0.78 | 0.78 |
-| REFRAME | 3 | 0.683 | 0.25–0.92 |
+> **"On Vishi's actual 20-item rejection corpus, Claude scored 0.66
+> aggregate — strong on SHARPENING (0.93) and REDIRECT (0.80), but
+> weak on COMPRESSION (0.50) where it over-engineers when the user
+> wanted brevity. Only Trinity sees the cross-provider rejection data
+> needed to build this benchmark."**
+
+The COMPRESSION-weak finding IS the kind of personal-benchmark signal
+the launch positioning promised. Specific, actionable, structurally
+non-refutable.
 
 ## What the numbers mean
 

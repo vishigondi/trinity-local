@@ -182,6 +182,63 @@ class TestMcpToolNameConsistency:
             f"{sorted(unlisted)}. Add to the '### The nine MCP tools' section."
         )
 
+    def test_numeric_tool_count_claims_match_code(self):
+        """The numeric MCP-tool count claim (`11 tools`, `11 total`, `exposes
+        11 tools`, etc.) is duplicated across ≥7 surfaces — claude.md, README,
+        product-spec, spec-v1, scale-plan, SKILL.md, launch-day docs. Today
+        (launch day) four of them were stale together (`9 total`, `10 total`,
+        `exposes 9 tools`, `1 launch-arc addition`). Principle #20: drift
+        accumulates in the OLDEST surface; principle #21: public claims need
+        regression guards at the surface that ships them.
+
+        This test parses the actual tool count from mcp_server.py and asserts
+        every numeric claim across docs matches.
+        """
+        mcp_server = REPO / "src" / "trinity_local" / "mcp_server.py"
+        code = mcp_server.read_text(encoding="utf-8")
+        actual_count = len(set(re.findall(r'\s+name="([a-z_]+)"', code)))
+        # Sanity: there should be at least 6 (the v1.0 canonical).
+        assert actual_count >= 6, (
+            f"mcp_server.py only exposes {actual_count} tools; "
+            "did the Tool() definitions move?"
+        )
+
+        # Surfaces that pin the count numerically. Each entry is (path,
+        # regex with one capture group for the number). The regex must
+        # match exactly the public phrasing on that surface — if a doc
+        # is rewritten to use a different phrasing, update the regex here
+        # rather than letting drift slip through.
+        surfaces: list[tuple[Path, str]] = [
+            (REPO / "claude.md", r"exposes (\d+) tools"),
+            (REPO / "claude.md", r"The full public surface is \*\*(\d+) tools\*\*"),
+            (REPO / "docs" / "spec-v1.md", r"### MCP tool surface \((\d+) total"),
+            (REPO / "docs" / "spec-v1.md", r"Current ships (\d+)"),
+            (REPO / "docs" / "product-spec.md", r"\b(\d+) total\b"),
+            (REPO / "docs" / "launch-day" / "07_pricing_faq.md", r"all (\d+) MCP tools"),
+            (REPO / "docs" / "launch-day" / "10_hn_faq_full.md", r"(\d+) tools total"),
+            (REPO / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md",
+             r"—\s*(\d+)\s*total\."),
+        ]
+
+        mismatches: list[str] = []
+        for path, pattern in surfaces:
+            text = path.read_text(encoding="utf-8")
+            for m in re.finditer(pattern, text):
+                claimed = int(m.group(1))
+                if claimed != actual_count:
+                    line = text[: m.start()].count("\n") + 1
+                    mismatches.append(
+                        f"{path.relative_to(REPO)}:{line} claims {claimed} "
+                        f"but mcp_server.py exposes {actual_count}"
+                    )
+
+        assert not mismatches, (
+            "MCP tool-count drift across surfaces:\n  "
+            + "\n  ".join(mismatches)
+            + f"\n\nCanonical count is {actual_count} "
+            "(parsed from mcp_server.py Tool() definitions)."
+        )
+
 
 class TestCitedCouncilArtifactsExistInRepo:
     """Launch-artifact integrity guard. docs/launch.md and the README
