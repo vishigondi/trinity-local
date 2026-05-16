@@ -111,6 +111,33 @@ def append_launch_event(event: LaunchEvent) -> None:
 
 
 def render_member_prompt(bundle: PromptBundle) -> str:
+    """Build the council-member prompt (currently identical across providers).
+
+    DESIGN HOLE (digital-twin vision, 2026-05-16): this function returns
+    the SAME prompt for every member. The chairman is lens-conditioned
+    (reads core.md before synthesis) but the dispatch is not — each
+    model receives the raw user prompt with no taste-derived twist.
+
+    The vision (per the user's persona-twin framing): each member's
+    prompt should be twisted the way the user would twist it, derived
+    from the lens + scoreboards. Example shape when adopted:
+
+        render_member_prompt(bundle, provider_name="claude", lens=...)
+        → prepends "User has historically rejected over-engineered
+           answers (COMPRESSION rejection signal n=8, mean 0.50 on
+           your corpus). Prefer the tightest answer that lands."
+        render_member_prompt(bundle, provider_name="gemini", lens=...)
+        → prepends "User's REFRAME rejection rate on your corpus is
+           low — don't pivot the question, answer it."
+
+    Inputs already on disk: ~/.trinity/me/rejections.jsonl (per-axis
+    rejection signal), ~/.trinity/me/lens.md (paired tensions),
+    ~/.trinity/scoreboard/picks.json (per-task_type winner rules).
+
+    Not implemented yet. When implemented, callers in council_runner.py
+    must pass provider_name + lens; today they call this with bundle
+    alone and get a shared prompt.
+    """
     sections = [
         "You are one member of a multi-model council.",
         f"Task:\n{bundle.task_text}",
