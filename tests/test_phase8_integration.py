@@ -226,6 +226,39 @@ def test_dispatch_readiness_doctor_launchpad_agree(
     assert "install-extension" in doctor_check.fix
 
 
+def test_manifest_declares_external_messaging_contract_for_file_url():
+    """Phase 8 structural pre-flight (council_bf1ab3f4dd70f75e flagged
+    the real-Chrome boundary). Three contracts the real-Chrome smoke
+    depends on; all must be present in the static artifacts so CI
+    catches drift even without Chrome available:
+
+      1. manifest.externally_connectable.matches includes file://
+         (otherwise chrome.runtime.sendMessage from the launchpad
+         is rejected before reaching the extension)
+      2. background.js registers chrome.runtime.onMessageExternal
+         (the internal onMessage listener does NOT receive
+         externally-connectable messages)
+      3. background.js handles the `trinity-ping` probe type
+         (used by __TRINITY_DISPATCH__.probe() to detect the extension)
+    """
+    repo = Path(__file__).resolve().parents[1]
+    manifest = json.loads((repo / "browser-extension" / "manifest.json").read_text())
+    matches = manifest.get("externally_connectable", {}).get("matches", [])
+    assert any("file:" in m for m in matches), (
+        f"manifest.externally_connectable.matches must include file:// — got {matches!r}"
+    )
+    bg = (repo / "browser-extension" / "background.js").read_text()
+    assert "onMessageExternal" in bg, (
+        "background.js must register chrome.runtime.onMessageExternal — "
+        "the internal onMessage listener does NOT receive externally-"
+        "connectable messages."
+    )
+    assert "trinity-ping" in bg, (
+        "background.js must handle the trinity-ping probe type — that's "
+        "the warm-probe __TRINITY_DISPATCH__ uses to detect the extension."
+    )
+
+
 def test_background_sender_gate_rejects_path_spoof():
     """Phase 8 hardening (council_bf1ab3f4dd70f75e codex verdict): the
     sender.url check in background.js must REJECT path-suffix spoofs like
