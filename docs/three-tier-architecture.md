@@ -1,0 +1,162 @@
+# Three-tier architecture
+
+> Ratified 2026-05-16 by `council_ff3da1fa84906791` (chairman codex, winner claude).
+> Stop-light: **ship with modifications** — partial three-tier for v1.0,
+> shared substrate in v1.1.
+
+Trinity ships as three tiers, each fully functional standalone. The data
+format in `~/.trinity/` is invariant across tiers; the tiers differ in
+*how* you invoke Trinity, not *what* Trinity computes.
+
+## Tier 1 — Skill (primary)
+
+Markdown + JSON + tiny scripts at `~/.claude/skills/trinity/`. Maximum
+trust: the user can read every file Trinity invokes.
+
+When you type `/trinity` in Claude Code, Claude Code reads
+`SKILL.md` and runs the shell commands it specifies. No daemon, no
+listening port, no hidden state.
+
+**v1.0 shape**: SKILL.md orchestrates the existing `trinity-local` CLI
+(Tier 2). The skill IS the spec; the CLI is the engine the skill calls.
+
+**v1.1 shape** (deferred): SKILL.md will orchestrate standalone shebang
+scripts at `scripts/` with on-demand venv-scoped dependencies. The pip
+package's role narrows to ergonomic wrapping; the engine sits in
+`scripts/` and both tiers import from there.
+
+## Tier 2 — Pip (engine)
+
+`pip install trinity-local`. Same engine, performance + convenience
+upgrade. The CLI (`trinity-local`) this skill calls.
+
+In v1.0, the pip package contains both the CLI ergonomics AND the
+heavy ops (embeddings, k-means, geometric median, descriptor
+pipeline, etc.). In v1.1, the heavy ops extract to `scripts/` and the
+pip package becomes a thin wrapper.
+
+## Tier 3 — Chrome Extension (optional)
+
+Cross-surface capture (web chats at claude.ai / chatgpt.com /
+gemini.google.com) + one-click launchpad UI. Native Messaging bridges
+the extension to `trinity-local-capture-host` — no localhost server.
+
+Phase 4b (committed 2026-05-16) wires the extension as the
+cross-platform launchpad dispatcher via narrow action-allowlist
+entries (`launch-council`, `ingest-recent`, `stop-council`,
+`render-me-card`, seven settings toggles). See
+[`MIGRATION.md`](MIGRATION.md).
+
+---
+
+## Data invariance contract
+
+The `~/.trinity/` directory is the contract. Every tier writes to the
+same files with the same schemas:
+
+| File | Schema | Producer |
+|---|---|---|
+| `~/.trinity/prompts/prompt_nodes.jsonl` | PromptNode (in-tree) | ingest |
+| `~/.trinity/council_outcomes/*.json` | `schemas/council_outcome.schema.json` | council runner |
+| `~/.trinity/memories/lens.md` | paired tensions (in-tree) | lens-build |
+| `~/.trinity/memories/topics.json` | basins (in-tree) | basins |
+| `~/.trinity/memories/vocabulary.md` | anchors (in-tree) | vocabulary |
+| `~/.trinity/core.md` | distillation (in-tree) | distill |
+| `~/.trinity/scoreboard/picks.json` | picks (in-tree) | consolidate |
+| `~/.trinity/scoreboard/routing.json` | routing (in-tree) | aggregation |
+| `~/.trinity/me/rejections.jsonl` | `schemas/rejection_signal.schema.json` | turn_pairs |
+
+## Tier-equivalence invariant
+
+Trinity tiers produce **tier-equivalent** outputs under a pinned
+configuration — NOT bit-identical. Float-order differs across MLX
+vs torch CPU vs torch CUDA by SIMD lane scheduling; claiming
+bit-equality would be a launch-credibility bug.
+
+The falsifiable v1.0 invariant:
+
+- Embedding cosine similarity ≥ 0.9999 between any two backends on
+  the same input under pinned tokenizer + model hash
+- Identical k-means cluster assignments at production N (n ≥ 30
+  threads) given the same RNG seed
+- Identical chairman picker output for the same `(task_type,
+  available_models)` input
+
+Verified by `tests/test_phase8_integration.py` for the launchpad
+dispatch contract; the broader cross-backend matrix lands in v1.1.
+
+## v1.0 floor (this weekend)
+
+Ratified by the council:
+
+- `src/trinity_local/` unchanged. 1290 tests stay green.
+- `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
+  Claude Code's bash tool.
+- `skills/trinity/schemas/` (new) — copies of the in-repo schemas
+  (`council_outcome`, `eval_set`, `rejection_signal`).
+- Extension as-is (Phase 4b shipped — see MIGRATION.md).
+- `docs/three-tier-architecture.md` (this file) — full vision,
+  marks shared `scripts/` substrate as v1.1.
+- One new doc-consistency guard:
+  `tests/test_skill_md_commands_resolve.py` — every
+  `trinity-local <cmd>` mentioned in SKILL.md must exist in
+  `trinity-local --help`.
+
+## v1.1 stretch (post-launch)
+
+**Do NOT attempt this weekend.** Council verdict was unambiguous:
+the 70-module refactor under deadline pressure puts the 1290-test
+green gate at risk for a reframe that doesn't require code motion.
+
+What v1.1 picks up:
+
+- `scripts/` as importable+executable shared substrate. Each script:
+  shebang, own venv at `~/.trinity/.venvs/<script_name>/`, JSON
+  stdin/file input, JSON stdout/path output, audit-log append per
+  invocation, `--help` documenting interface + deps.
+- Engine extraction from `src/trinity_local/` to `scripts/` —
+  embeddings, basins, cortex geometry, descriptor, signature,
+  anchor. ~25 modules.
+- Pip package narrows to CLI ergonomics + installers + optional
+  daemon. ~40 modules stay (commands, MCP server, launchpad
+  templates).
+- Trust mode + audit log substrate: `~/.trinity/audit.log` JSONL
+  (timestamp, tier, operation, sanitized args, outcome,
+  trust_mode_status), `~/.trinity/trust.toml` per-operation grants,
+  `--dangerously-trust-all` uniform flag, visible trust indicators
+  across every UI surface.
+- Cross-backend equivalence test harness:
+  `tests/test_tier_equivalence.py` covering MLX / torch CPU / (post-
+  v1.1) torch CUDA against pinned-config invariants.
+
+## Sequencing rationale
+
+The brand pivot is a story about WHERE Trinity lives (Claude Code,
+Codex CLI, Gemini CLI, Cursor) — not WHAT it's compiled into. A
+SKILL.md that calls `trinity-local consolidate` is structurally
+indistinguishable from a SKILL.md that calls `python3 scripts/
+cortex.py` for the user-visible claim "lives inside Claude Code."
+
+The shared-`scripts/` refactor is an engineering luxury, not a
+launch requirement.
+
+## Known limitations (v1.0)
+
+- **Concurrent multi-tier use**: undefined behavior if the user has
+  Claude Code (Tier 1) writing to `~/.trinity/` while the extension
+  (Tier 3) also writes. v1.0 assumes single active tier per
+  directory. v1.1's audit log + file locking lifts this.
+- **Real-Chrome smoke gated**: `tests/test_chrome_extension_smoke.py`
+  is gated behind `TRINITY_CHROME_SMOKE=1` + the user installing the
+  unpacked extension. Static contract guard in
+  `test_phase8_integration.py` catches manifest drift in CI.
+- **HF-Hub cold start**: ~3-minute one-time download of
+  `nomic-embed-text-v1.5` on first embedding call. Surface this in
+  SKILL.md Section 3 before the user runs `dream`.
+
+---
+
+**Council citation**: `council_ff3da1fa84906791` (2026-05-16).
+Outcome JSON at `~/.trinity/council_outcomes/council_ff3da1fa84906791.json`.
+Routing lesson: "For architecture_decision, prefer claude because it
+identifies the one launch-preserving move and cuts the rest."
