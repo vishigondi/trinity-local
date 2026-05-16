@@ -21,8 +21,13 @@ zero outbound network traffic. The privacy claim becomes absolutely
 true, not "absolutely true except 13 JS files."
 
 Refreshing the vendored set is a maintenance ritual (when a new d3
-version ships): run scripts/refresh-vendor.sh (TODO; for now the curl
-loop in the commit message of f6650f1 is the recipe).
+version ships): edit + run ``scripts/refresh-vendor.sh``. The script
+pins every URL with an explicit version; treat version bumps as
+security-sensitive (the rendered HTML is what the user sees offline,
+so the bytes have to be auditable). After refresh, re-run
+``pytest tests/test_no_cdn_in_rendered_html.py`` — the 5 guards there
+re-render launchpad + memory-viewer and check zero unpkg/jsdelivr
+references make it into the produced HTML.
 """
 from __future__ import annotations
 

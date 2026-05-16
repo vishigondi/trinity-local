@@ -104,3 +104,45 @@ class TestVendorFilesPublished:
             assert mtimes_before[name] == mtimes_after[name], (
                 f"vendor/{name} rewritten on idempotent re-publish"
             )
+
+
+class TestRefreshVendorScript:
+    """The maintainer-side refresh script must exist and cover every
+    file in VENDORED_FILES. If someone adds a new vendored dep without
+    extending the script, future-me hits the "TODO: write the refresh
+    script" trap the v1.7 audit already closed once.
+
+    Earned 2026-05-16: vendor.py's docstring referenced
+    `scripts/refresh-vendor.sh (TODO)` for weeks with no script on
+    disk. The fix WAS to write the script — this guard prevents the
+    docstring from lying again.
+    """
+
+    def test_refresh_script_exists_and_is_executable(self):
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parent.parent
+        script = repo / "scripts" / "refresh-vendor.sh"
+        assert script.exists(), (
+            "scripts/refresh-vendor.sh missing — vendor.py's docstring "
+            "promises it. Either restore the script or update the "
+            "docstring to point at the new recipe."
+        )
+        assert script.stat().st_mode & 0o111, (
+            "scripts/refresh-vendor.sh exists but isn't executable. "
+            "`chmod +x scripts/refresh-vendor.sh` to fix."
+        )
+
+    def test_refresh_script_covers_all_vendored_files(self):
+        from pathlib import Path
+        from trinity_local.vendor import VENDORED_FILES
+
+        repo = Path(__file__).resolve().parent.parent
+        script_text = (repo / "scripts" / "refresh-vendor.sh").read_text()
+        for name in VENDORED_FILES:
+            assert name in script_text, (
+                f"refresh-vendor.sh doesn't pin a URL for {name!r}. "
+                f"Add a `\"{name} https://...\"` line to the URLS array "
+                f"so `bash scripts/refresh-vendor.sh` actually refreshes "
+                f"every file ``VENDORED_FILES`` declares."
+            )
