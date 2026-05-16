@@ -13,13 +13,19 @@ landed in this arc (H–N).
 **Atomicity**
 - `utils.atomic_write_text` helper: tmp+rename + per-process PID-
   stamped tmp suffix + parent-dir creation + tmp cleanup on success.
-  Adopted at all 5 callsites that previously inlined the pattern
-  (Principle #17 follow-through): incremental_ingest cursor save,
-  cortex routing patterns save, cold_start state writer, capture_host
-  capture writer, AND council_runtime's 4 direct write_text() sites
-  (save_prompt_bundle, save_council_outcome, JSONP wrapper, thread
-  manifest). New `TestNoInlineAtomicWritePattern` regex guard bans
-  the inline shape from reappearing across `src/trinity_local/`.
+  Adopted at 11 callsites across the moat-load-bearing surface
+  (Principle #17 follow-through):
+  - **Refactored from inline tmp+rename** (4): incremental_ingest
+    cursor save, cortex routing patterns save, cold_start state
+    writer, capture_host capture writer.
+  - **council_runtime** (1 file, 4 callsites): save_prompt_bundle,
+    save_council_outcome JSON, JSONP wrapper, thread manifest.
+  - **Promoted from direct write_text** (6): personal_routing
+    freeze (routing scoreboard), telemetry settings, review save,
+    pair_mining lens + orderings output, action_runtime save,
+    memory/store ingest cursor.
+  New `TestNoInlineAtomicWritePattern` regex guard bans the
+  inline shape from reappearing across `src/trinity_local/`.
 - Council outcome writes — the durable supervision signal that's
   Trinity's moat — are now atomic. Kill-mid-write no longer leaves
   a half-JSON file that compute_personal_routing_table silently
