@@ -79,7 +79,19 @@ landed in this arc (H–N).
   vendored URLs. `--check` mode for dry-run. Closes a stale TODO in
   vendor.py docstring that pointed at a non-existent commit hash.
 
-1238 tests passing; 30 doc-consistency guards green.
+**Static-analysis gate (post-arc tick S)**
+- `me_builder.build_me_via_lens_pipeline` had 3 references to
+  `chairman_name` (the scoped variable was `chairman`). Every unit
+  test that touched lens-build did so via `monkeypatch.setattr` of
+  the whole function — the NameError never fired in tests, only on
+  the real user's `trinity-local lens-build`. Principle #5 catch at
+  the static-analysis tier.
+- New `tests/test_no_undefined_names.py`: pyflakes-scan of
+  src/trinity_local/ failing on any "undefined name" line. Other
+  pyflakes warnings (unused imports, f-strings without placeholders)
+  tolerated — only NameError-at-runtime is the high-stakes target.
+
+1239 tests passing; 30 doc-consistency guards green.
 
 ## [v1.7 — persona-audit batch + architectural collapse] — 2026-05-15
 

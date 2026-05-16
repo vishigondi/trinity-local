@@ -249,7 +249,6 @@ def freeze_routing_to_disk() -> dict[str, Any]:
     compute_personal_routing_table). Skips writing if the table is empty.
     """
     import json
-    from pathlib import Path
     from .state_paths import routing_path
 
     table = compute_personal_routing_table()
