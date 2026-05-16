@@ -623,7 +623,7 @@ empirical-benchmark surface to agents inline.
 
 7. **`ask(task, harness, available_models, budget)`** → cheap single-call default routing. The 90% case: harness has a question, wants one model's answer with a chairman-blessed verdict, doesn't need a full council. Pulls from cortex picks first (high-trust rule → use directly), falls back to k-NN advisory, finally to heuristic.
 
-8. **`get_picks(task_type)`** → agent-facing introspection into extracted picks. Returns the cortex rule for the given task_type (provider, reasoning, trust score, source councils). Lets a harness ask "which model would Trinity pick for THIS kind of question and why" without firing route().
+8. **`get_picks(basin_id?, min_trust?)`** → agent-facing introspection into extracted cortex routing patterns. Returns `{rules: {basin_id: pattern}, total_basins, returned}` — patterns are keyed by basin_id (cortex consolidation is per-basin, not per-task_type), each carrying provider/reasoning/trust score/source councils inside the pattern dict. `basin_id` filter narrows to one basin; `min_trust` floor filters by `trust_score.value`. Empty cortex returns `{rules: {}, note: "..."}`. Lets a harness inspect what Trinity has learned about which model wins for which basin without firing route().
 
 9. **`mark_pick_wrong(task_type)`** → user-veto on an extracted pick. Halves effective trust per click, persists across consolidations. Same shape as the launchpad's pick-veto chip (Surface 17) but from the agent side.
 
