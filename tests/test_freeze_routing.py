@@ -1,11 +1,13 @@
 """Tests for `freeze_routing_to_disk` — the writer that materializes the
-on-demand personal routing table into `~/.trinity/memories/routing.json`.
+on-demand personal routing table into `~/.trinity/scoreboard/routing.json`
+(was `~/.trinity/memories/routing.json` pre-v1.7; auto-migrated by
+`state_paths._migrate_legacy_scoreboard_paths()`).
 
-routing.json is one of the user-facing model-selection memories surfaced
-in the memory viewer. Phase 5 distill no longer reads it — picks/routing
-are scoreboards, not cognitive shape — but the freeze writer still has to
-produce a valid file (or skip cleanly when empty) so the viewer and any
-external tooling can read it.
+routing.json is one of the user-facing model-selection scoreboards
+surfaced in the memory viewer. Phase 5 distill no longer reads it —
+picks/routing are scoreboards, not cognitive shape — but the freeze
+writer still has to produce a valid file (or skip cleanly when empty)
+so the viewer and any external tooling can read it.
 """
 from __future__ import annotations
 

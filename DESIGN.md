@@ -23,7 +23,11 @@ Trinity's frontend stack is:
   `d3-dispatch`, `d3-timer`, `d3-quadtree`, `d3-drag`, `d3-force`
   — ~80 KB total, not the full ~250 KB d3 bundle)
 
-All JS is loaded from `cdn.jsdelivr.net` / `unpkg.com`, no NPM bundling.
+All JS is vendored locally under `~/.trinity/vendor/` (12 files —
+petite-vue, chart.js, marked, 9 d3-* modules — published once on
+`install-mcp` by `vendor.publish_vendor_files()`). No NPM bundling and
+no third-party CDN at runtime — the "nothing leaves your machine" claim
+is structural, enforced by `tests/test_no_cdn_in_rendered_html.py`.
 Memory content is inlined at render time (`portal-html`); pages never
 `fetch()` at runtime so they work under `file://`.
 

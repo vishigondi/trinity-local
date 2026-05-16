@@ -1382,3 +1382,75 @@ class TestV16SpecShipPlanCommitHashesResolve:
                 "update the ship-plan annotations to the new hashes; otherwise "
                 "this is a dead pointer in launch-facing copy."
             )
+
+
+class TestScoreboardPathRenameInDocs:
+    """v1.7 moved `picks.json` and `routing.json` out of
+    `~/.trinity/memories/` (cognitive memories — lens/topics/vocabulary)
+    into `~/.trinity/scoreboard/` (operational scoreboards). The rename
+    has an idempotent on-disk migration in `state_paths._migrate_legacy_
+    scoreboard_paths()`, but user-facing prose that still says
+    `memories/picks.json` or `memories/routing.json` will mislead
+    readers who go look on disk and find the file under `scoreboard/`
+    instead.
+
+    Tests/code may legitimately reference the old path as
+    historical-context comments (e.g. test_freeze_routing's docstring
+    explains the migration); this guard only scans user-facing prose
+    docs (README, launch-facing markdown, spec docs) for the bare
+    string.
+
+    Skip docs that ARE explaining the rename — claude.md, CHANGELOG,
+    scale-plan all need to describe the old vs new paths for the
+    migration story to be readable. Only ban it from launch copy +
+    user-onboarding surfaces where the reader will trust the path
+    and go looking on disk.
+    """
+
+    BANNED_STRINGS = ("memories/picks.json", "memories/routing.json")
+
+    # Docs that explain the migration legitimately reference the old
+    # path — don't flag them.
+    EXEMPT_DOCS = {
+        "CHANGELOG.md",
+        "claude.md",
+        "CLAUDE.md",  # macOS case-insensitive FS dupe
+        "docs/scale-plan.md",
+        "AGENTS.md",
+    }
+
+    def test_no_old_scoreboard_paths_in_user_facing_docs(self):
+        scan_globs = [
+            "README.md",
+            "docs/launch.md",
+            "docs/launch-package.md",
+            "docs/MCP_REGISTRY_SUBMISSIONS.md",
+            "docs/spec-v1.md",
+            "docs/spec-v1.5.md",
+            "docs/spec-v1.6.md",
+            "docs/launch-day/*.md",
+            "DESIGN.md",
+            "docs/frontend-architecture.md",
+        ]
+        leaks: list[tuple[str, int, str]] = []
+        for pattern in scan_globs:
+            for path in REPO.glob(pattern):
+                rel = str(path.relative_to(REPO))
+                if rel in self.EXEMPT_DOCS:
+                    continue
+                try:
+                    lines = path.read_text(encoding="utf-8").splitlines()
+                except OSError:
+                    continue
+                for lineno, line in enumerate(lines, 1):
+                    for banned in self.BANNED_STRINGS:
+                        if banned in line:
+                            leaks.append((rel, lineno, banned))
+        assert not leaks, (
+            "User-facing docs still reference the pre-v1.7 scoreboard "
+            "paths: "
+            f"{leaks}. v1.7 moved picks/routing to "
+            "`~/.trinity/scoreboard/` (out of `~/.trinity/memories/`). "
+            "Update launch copy + specs to use the new path so readers "
+            "who look on disk find the file where the docs said it would be."
+        )

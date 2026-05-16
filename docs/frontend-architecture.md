@@ -106,7 +106,7 @@ Example:
   ...
 </div>
 <script type="module">
-  import { createApp } from 'https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js'
+  import { createApp } from '../../vendor/petite-vue.es.js'
 
   const pageData = JSON.parse(document.getElementById('page-data').textContent)
 
@@ -157,7 +157,7 @@ Example:
 ```html
 <script type="application/json" id="chart-data">{ ... }</script>
 <canvas id="radar-chart"></canvas>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="../../vendor/chart.umd.min.js"></script>
 <script>
   const data = JSON.parse(document.getElementById('chart-data').textContent)
   const ctx = document.getElementById('radar-chart')
