@@ -640,3 +640,69 @@ class TestHandoffReadyCheck:
         report = run_doctor()
         names = {c.name for c in report.checks}
         assert "handoff_ready" in names
+
+
+class TestVendorPublishedCheck:
+    """Doctor surfaces silent vendor-publish failures.
+
+    vendor.py writes 12 JS files under ~/.trinity/portal_pages/vendor/.
+    A perms issue at install time can silently skip writes (now warned
+    to stderr by `vendor.publish_vendor_files`, but stderr only helps
+    whoever ran install-mcp — a user who clicks the launchpad days
+    later sees broken ./vendor/*.js 404s with no surface that explains
+    it). This check closes that loop on the doctor side.
+    """
+
+    def test_no_vendor_dir_returns_friendly_hint(self, tmp_path, monkeypatch):
+        """Fresh install before first portal-html: vendor/ doesn't
+        exist yet — surface a hint pointing at the fix command."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        (tmp_path / "trinity" / "portal_pages").mkdir(parents=True)
+        from trinity_local.doctor import _check_vendor_published
+        result = _check_vendor_published()
+        assert result.ok is True
+        assert "vendor/ not yet populated" in result.detail
+        assert "portal-html" in result.detail
+
+    def test_all_files_present(self, tmp_path, monkeypatch):
+        """All 12 vendored files written → quiet success detail."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        portal_pages = tmp_path / "trinity" / "portal_pages"
+        vendor_dir = portal_pages / "vendor"
+        vendor_dir.mkdir(parents=True)
+        from trinity_local.vendor import VENDORED_FILES
+        for name in VENDORED_FILES:
+            (vendor_dir / name).write_text("// stub", encoding="utf-8")
+        from trinity_local.doctor import _check_vendor_published
+        result = _check_vendor_published()
+        assert result.ok is True
+        assert "12 vendored JS files present" in result.detail
+        assert "missing" not in result.detail.lower()
+
+    def test_partial_publish_lists_missing(self, tmp_path, monkeypatch):
+        """Some files missing (perms issue during install) → detail
+        names the count + suggests the fix command + a sample of
+        missing files."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        portal_pages = tmp_path / "trinity" / "portal_pages"
+        vendor_dir = portal_pages / "vendor"
+        vendor_dir.mkdir(parents=True)
+        from trinity_local.vendor import VENDORED_FILES
+        # Write only the first 8 of 12 to simulate partial publish
+        for name in VENDORED_FILES[:8]:
+            (vendor_dir / name).write_text("// stub", encoding="utf-8")
+        from trinity_local.doctor import _check_vendor_published
+        result = _check_vendor_published()
+        assert result.ok is True  # soft — not blocking
+        assert "4 of 12 vendored JS files missing" in result.detail
+        assert "portal-html" in result.detail
+        # Surfaces ≥1 missing-file name so user can grep their logs
+        assert any(name in result.detail for name in VENDORED_FILES[8:])
+
+    def test_check_is_registered_in_run_doctor(self):
+        """Same defensive shape as TestHandoffReadyCheck — a check
+        defined-but-not-wired silently no-ops."""
+        from trinity_local.doctor import run_doctor
+        report = run_doctor()
+        names = {c.name for c in report.checks}
+        assert "vendor_published" in names

@@ -439,6 +439,66 @@ def _check_verdict_rate() -> CheckResult:
     )
 
 
+def _check_vendor_published() -> CheckResult:
+    """Soft check: are all VENDORED_FILES present under portal_pages/vendor/?
+
+    vendor.py publishes 12 bundled JS files (petite-vue, chart.js, marked,
+    9 d3-* modules) into `~/.trinity/portal_pages/vendor/` on every
+    `refresh_launchpad`. The privacy claim ("never leaves your machine")
+    is structural — every render references `./vendor/<file>.js`. If the
+    publish silently failed at install (perms / disk full / etc.),
+    `vendor.py`'s stderr warning will tell whoever ran install-mcp, but
+    a user who clicks the launchpad days later sees broken `./vendor/*`
+    404s with no surface that explains it. This check closes that loop.
+
+    Soft (ok=True regardless of result). When some vendor files are
+    missing, the detail names how many + suggests the one-liner that
+    re-publishes them. Re-running `trinity-local portal-html` (or any
+    `refresh_launchpad`-touching command) re-publishes.
+    """
+    try:
+        from .state_paths import portal_pages_dir
+        from .vendor import VENDORED_FILES
+    except Exception as exc:
+        return CheckResult(
+            name="vendor_published",
+            ok=True,
+            detail=f"could not check vendor files: {exc}",
+        )
+    vendor_dir = portal_pages_dir() / "vendor"
+    if not vendor_dir.exists():
+        return CheckResult(
+            name="vendor_published",
+            ok=True,
+            detail=(
+                "vendor/ not yet populated — run "
+                "`trinity-local portal-html` to publish "
+                f"{len(VENDORED_FILES)} JS files into "
+                "~/.trinity/portal_pages/vendor/"
+            ),
+        )
+    missing = [n for n in VENDORED_FILES if not (vendor_dir / n).exists()]
+    if missing:
+        sample = ", ".join(missing[:3])
+        suffix = "" if len(missing) <= 3 else f" (+{len(missing) - 3} more)"
+        return CheckResult(
+            name="vendor_published",
+            ok=True,
+            detail=(
+                f"{len(missing)} of {len(VENDORED_FILES)} vendored JS "
+                f"files missing ({sample}{suffix}) — launchpad will 404 "
+                f"on those scripts. Re-run `trinity-local portal-html` "
+                f"to republish. If it fails again, check perms on "
+                f"{vendor_dir}."
+            ),
+        )
+    return CheckResult(
+        name="vendor_published",
+        ok=True,
+        detail=f"all {len(VENDORED_FILES)} vendored JS files present",
+    )
+
+
 def _check_cortex_freshness() -> CheckResult:
     """Soft check: are cortex picks current relative to recent councils?
 
@@ -772,6 +832,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_cortex_freshness())
     report.checks.append(_check_handoff_ready())
     report.checks.append(_check_browser_capture())
+    report.checks.append(_check_vendor_published())
     return report
 
 
