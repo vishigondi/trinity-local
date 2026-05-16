@@ -50,3 +50,53 @@ def test_no_undefined_names_in_src():
         + "\n".join(undefined_lines)
         + "\n\nFix the names or pre-define the variables before use."
     )
+
+
+def test_all_src_modules_import_cleanly():
+    """Smoke-import every module under src/trinity_local/.
+
+    Catches module-level crashes that pyflakes misses: type errors
+    on annotations evaluated eagerly, circular imports surfacing
+    only at import time, dataclass field defaults that depend on
+    missing imports, etc. These are the kinds of bugs that would
+    crash `trinity-local --help` (and every other entry point)
+    without ever showing up in a test that doesn't import the
+    affected module.
+
+    Same structural-gate spirit as the pyflakes scan above — but
+    catches a wider class (runtime errors at module init time, not
+    just static lookup failures).
+
+    Skips `__init__.py` modules (they're imported transitively when
+    we import any submodule) and any `__main__` entry points that
+    have side effects on import.
+    """
+    import importlib
+    import sys
+
+    src = REPO / "src" / "trinity_local"
+    failures: list[tuple[str, str]] = []
+    for py in sorted(src.rglob("*.py")):
+        # Skip __init__ — imported transitively when submodules load.
+        if py.name == "__init__.py":
+            continue
+        # Skip capture_host: it has __main__ side effects (reads stdin,
+        # writes stdout) that we don't want to trigger.
+        if py.name == "capture_host.py":
+            continue
+        rel = py.relative_to(REPO / "src").with_suffix("")
+        mod_name = str(rel).replace("/", ".")
+        # Drop from cache so we get a fresh import.
+        sys.modules.pop(mod_name, None)
+        try:
+            importlib.import_module(mod_name)
+        except Exception as exc:
+            failures.append((mod_name, f"{type(exc).__name__}: {exc}"))
+
+    assert not failures, (
+        "Module-level import failures in src/trinity_local/. Each "
+        "would crash any entry point that touches the broken module:\n\n"
+        + "\n".join(f"  {m}: {e}" for m, e in failures)
+        + "\n\nLikely causes: undefined name at module top-level, "
+        "circular import, missing optional dep imported unconditionally."
+    )
