@@ -35,7 +35,7 @@ transcripts, and OpenAI can't read Gemini's. Only the layer above them can.
 
 ---
 
-### Stop copy-pasting prompts.
+### Trinity reads what you've already typed.
 
 Three subscriptions, three tabs, three half-answers. Trinity sends one question to
 every model you use in parallel and runs a synthesis pass that returns one verdict —
@@ -62,7 +62,7 @@ where you actually thought, not the ones where you typed "more". Broad: see the
 topology of everything you've asked. Deep: surface the threads where you went
 somewhere.
 
-### Own your context.
+### Context is the durable asset, not the prompts.
 
 Prompts are transient strings; *context* is the durable asset that shapes how every
 model answers. Trinity treats your context as a first-class object — indexed, embedded,
@@ -70,7 +70,7 @@ yours. The labs are commercially prevented from helping you use a competitor, wh
 means none of them can build the layer that holds context across them. Someone outside
 them has to.
 
-### Dream your core memories.
+### Your lens, generated from your prompts.
 
 `trinity-local dream` synthesizes your prompts into **your lens** — one
 hierarchical artifact the chairman reads top-down on every council. Four
