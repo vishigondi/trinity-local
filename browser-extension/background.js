@@ -41,31 +41,62 @@ function ensurePort() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type !== "captured") return false;
-
-  const p = ensurePort();
-  if (!p) {
-    // Native host unavailable (not installed yet, or manifest missing).
-    // Don't drop silently — surface to the extension's console.
-    console.warn("[trinity-bg] no native host; payload dropped", message.payload?.provider);
-    sendResponse({ ok: false, reason: "no-host" });
+  // ─── v1.6 capture flow (existing) ─────────────────────────────
+  // Content scripts on claude.ai/chatgpt.com/gemini.google.com send
+  // {type: "captured", payload: ...} when they observe a conversation.
+  if (message?.type === "captured") {
+    const p = ensurePort();
+    if (!p) {
+      console.warn("[trinity-bg] no native host; payload dropped",
+                   message.payload?.provider);
+      sendResponse({ ok: false, reason: "no-host" });
+      return false;
+    }
+    try {
+      p.postMessage({
+        kind: "captured",
+        payload: message.payload,
+        origin_tab_url: sender?.tab?.url,
+        received_at: new Date().toISOString(),
+      });
+      sendResponse({ ok: true });
+    } catch (e) {
+      console.warn("[trinity-bg] postMessage to host failed", e);
+      sendResponse({ ok: false, reason: String(e) });
+    }
     return false;
   }
 
-  try {
-    p.postMessage({
-      kind: "captured",
-      payload: message.payload,
-      origin_tab_url: sender?.tab?.url,
-      received_at: new Date().toISOString(),
-    });
-    sendResponse({ ok: true });
-  } catch (e) {
-    console.warn("[trinity-bg] postMessage to host failed", e);
-    sendResponse({ ok: false, reason: String(e) });
+  // ─── Phase 1+3 action-dispatch (new — launchpad bridge) ───────
+  // Popup/launchpad sends {type: "action", kind: "launch-council",
+  // task: "..."} to invoke a CLI command via Native Messaging. The
+  // host's ACTION_ALLOWLIST gates which kinds are runnable; this
+  // service worker is a transparent forwarder.
+  if (message?.type === "action") {
+    const { type: _ignore, ...hostPayload } = message;
+    // One-shot request/response (sendNativeMessage spawns a fresh
+    // host process per call, exits when message returns). Cleaner
+    // for actions than a persistent port — action != streaming.
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, hostPayload, (response) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({
+            ok: false,
+            error: "native-host-unavailable",
+            detail: chrome.runtime.lastError.message,
+            hint: "Run `trinity-local install-extension --extension-id <ID>` to register the Native Messaging manifest.",
+          });
+          return;
+        }
+        sendResponse(response);
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: "send-failed", detail: String(e) });
+    }
+    return true;  // signal async sendResponse
   }
 
   return false;
 });
 
-console.log("[trinity-bg] service worker started");
+console.log("[trinity-bg] service worker started (v0.2 — capture + actions)");

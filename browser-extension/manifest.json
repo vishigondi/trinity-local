@@ -1,9 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "Trinity Local Capture",
-  "version": "0.1.0",
-  "description": "Captures Claude, ChatGPT, and Gemini conversations to ~/.trinity/conversations/. Local-first, no server, no account.",
-  "permissions": ["nativeMessaging", "storage"],
+  "name": "Trinity Local",
+  "version": "0.2.0",
+  "description": "Your taste, ported. Captures conversations from Claude, ChatGPT, and Gemini, and dispatches CLI actions (run council, ingest recent prompts) from the toolbar — all to your local ~/.trinity/ install. No server, no account.",
+  "permissions": ["nativeMessaging", "storage", "tabs"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Trinity Local — open launchpad or run a quick council"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["launchpad.html", "launchpad.css", "launchpad.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",

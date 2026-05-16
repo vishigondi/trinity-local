@@ -1,0 +1,51 @@
+<!doctype html>
+<!--
+  Trinity Local — toolbar popup.
+
+  Phase 3 of the extension transition (commit 243dc49 → Phase 3).
+  Minimal action surface: open launchpad in a tab, or fire a quick
+  council without leaving the popup.
+
+  Larger launchpad (recent councils, lens preview, eval leaderboard)
+  lives at launchpad.html — opened by clicking the "Open launchpad"
+  button below.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Trinity</title>
+  <link rel="stylesheet" href="launchpad.css">
+  <style>
+    body { width: 320px; padding: 14px; font-family: -apple-system, system-ui, sans-serif; background: #f5efe3; color: #1f1a17; }
+    h1 { margin: 0 0 12px 0; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+    .row { margin-bottom: 10px; }
+    .row label { display: block; font-size: 11px; color: #5f554d; margin-bottom: 4px; }
+    .row input { width: 100%; padding: 6px 8px; border: 1px solid #d7ccb9; border-radius: 4px; background: #fbf8f2; font-size: 12px; font-family: inherit; box-sizing: border-box; }
+    .row .btn { width: 100%; padding: 8px 10px; border: none; border-radius: 4px; background: #255847; color: #f7f3ea; font-size: 12px; font-weight: 500; cursor: pointer; }
+    .row .btn:hover { background: #1d4638; }
+    .row .btn.secondary { background: transparent; color: #255847; border: 1px solid #d7ccb9; }
+    .row .btn.secondary:hover { background: rgba(37, 88, 71, 0.06); }
+    .status { font-size: 11px; color: #86796d; margin-top: 6px; min-height: 14px; }
+    .status.error { color: #b54a3e; }
+    .status.ok { color: #255847; }
+  </style>
+</head>
+<body>
+  <h1>Trinity Local</h1>
+
+  <div class="row">
+    <label for="task">Run a quick council</label>
+    <input id="task" type="text" placeholder="What should I ask three models at once?" autofocus>
+  </div>
+  <div class="row">
+    <button class="btn" id="run-btn">Send to council</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="row" style="margin-top: 14px;">
+    <button class="btn secondary" id="open-launchpad-btn">Open full launchpad →</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
