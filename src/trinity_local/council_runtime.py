@@ -54,8 +54,9 @@ def create_prompt_bundle(
 
 
 def save_prompt_bundle(bundle: PromptBundle) -> Path:
+    from .utils import atomic_write_text
     path = prompt_bundles_dir() / f"{bundle.bundle_id}.json"
-    path.write_text(json.dumps(bundle.to_dict(), indent=2))
+    atomic_write_text(path, json.dumps(bundle.to_dict(), indent=2))
     return path
 
 
@@ -449,10 +450,11 @@ def append_council_outcome(outcome: CouncilOutcome) -> None:
 
 def save_council_outcome(outcome: CouncilOutcome) -> Path:
     from .markdown_utils import render_markdown
+    from .utils import atomic_write_text
 
     payload = outcome.to_dict()
     path = council_outcomes_dir() / f"{outcome.council_run_id}.json"
-    path.write_text(json.dumps(payload, indent=2))
+    atomic_write_text(path, json.dumps(payload, indent=2))
 
     # JSONP wrapper for the unified review page (file:// can't fetch JSON
     # cross-origin; a script tag works). Pre-render markdown so the page
@@ -473,10 +475,11 @@ def save_council_outcome(outcome: CouncilOutcome) -> Path:
     jsonp_payload["synthesis_html"] = render_markdown(synthesis_clean) if synthesis_clean else ""
 
     jsonp_path = council_outcomes_dir() / f"{outcome.council_run_id}.js"
-    jsonp_path.write_text(
+    atomic_write_text(
+        jsonp_path,
         "window.__TRINITY_COUNCIL_OUTCOME__ = window.__TRINITY_COUNCIL_OUTCOME__ || {};\n"
         f"window.__TRINITY_COUNCIL_OUTCOME__[{json.dumps(outcome.council_run_id)}] = "
-        f"{json.dumps(jsonp_payload)};\n"
+        f"{json.dumps(jsonp_payload)};\n",
     )
     append_council_outcome(outcome)
     update_thread_manifest(outcome)
@@ -496,13 +499,15 @@ def _read_thread_manifest(path: Path) -> dict:
 
 
 def _write_thread_manifest(chain_root_id: str, segments: list[dict]) -> Path:
+    from .utils import atomic_write_text
     manifest_path = council_outcomes_dir() / f"_thread_{chain_root_id}.js"
     segments.sort(key=lambda s: (s.get("round_number") or 1, s.get("started_at") or ""))
     manifest = {"chain_root_id": chain_root_id, "segments": segments}
-    manifest_path.write_text(
+    atomic_write_text(
+        manifest_path,
         "window.__TRINITY_COUNCIL_THREAD__ = window.__TRINITY_COUNCIL_THREAD__ || {};\n"
         f"window.__TRINITY_COUNCIL_THREAD__[{json.dumps(chain_root_id)}] = "
-        f"{json.dumps(manifest)};\n"
+        f"{json.dumps(manifest)};\n",
     )
     return manifest_path
 
