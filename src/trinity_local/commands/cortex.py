@@ -231,9 +231,13 @@ def handle_consolidate(args):
         return 1
 
     save_routing_patterns(patterns)
-    # picks.json was just rewritten → core.md is now stale. Auto-fire
-    # distill so the chairman sees fresh picks in core context on its
-    # next council. is_core_stale() guards the call internally.
+    # Picks just rewrote, but picks/routing are scoreboards, not core
+    # inputs (distill only reads the three thinking memories). Auto-fire
+    # distill anyway since it's idempotent — is_core_stale() returns
+    # False when lens/topics/vocabulary haven't moved, so the call
+    # no-ops on routine consolidate runs. Cheap safety net for the
+    # case where the same consolidate session also touched a thinking
+    # memory.
     routing_summary: dict | None = None
     distill_summary: dict | None = None
     try:

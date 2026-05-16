@@ -841,7 +841,7 @@ def render_memory_viewer_html() -> str:
   </header>
   <div class="layout">
     <nav class="nav">
-      <div class="nav-eyebrow">Lens hierarchy · core → lens → topics → vocabulary</div>
+      <div class="nav-eyebrow">Lens (core · lens · topics · vocabulary) + Scoreboards (picks · routing)</div>
       {nav_links}
     </nav>
     <main class="content" id="content">
