@@ -57,6 +57,7 @@ CORE_COMMAND_MODULES = (
     "status",
     "tasks",
     "telemetry",
+    "trust",
     "unrated",
     "vocabulary",
     "watch",

@@ -75,7 +75,7 @@ def audit_log(
     args: dict[str, Any] | None = None,
     outcome: str = "ok",
     detail: str | None = None,
-    tier: str = "skill",
+    tier: str | None = None,
     trust_mode: str = "default",
 ) -> None:
     """Append one line to ~/.trinity/audit.log.
@@ -84,11 +84,28 @@ def audit_log(
     anything else is stringified + length-capped to 200 chars. Don't put
     user prompt content here — only categorical operation metadata.
 
-    Failures are silent (audit must not crash the operation it's
-    recording). If the disk is full or the file is unwritable, the
-    operation succeeds and the audit entry is dropped — that's the
-    correct tradeoff for a *log*, not a journal.
+    Cross-tier propagation: `tier` is the ORIGINATING tier (council
+    `c18f739a0234aa58` verdict), read from `TRINITY_ORIGIN_TIER` env
+    when set. Native-host spawned subprocesses are stamped tier=extension
+    even though they run trinity-local (= pip-tier process).
+
+    Failure surfacing: if audit append fails (disk full, perms,
+    file deleted) we MUST NOT silently swallow — the audit log IS the
+    moat. Emit a one-line stderr warning so the user/agent notices.
+    Per-process rate-limited to avoid spam if every call fails.
+
+    Atomic-append: use os.open + O_APPEND + single os.write. PIPE_BUF
+    bounds atomicity ONLY for pipes/FIFOs; for regular files, atomic
+    append is the kernel's commitment. Single write() call → single
+    atomic append (per POSIX O_APPEND semantics).
     """
+    # Originating-tier resolution: env var wins (set by extension/skill
+    # spawners), explicit `tier` arg is the fallback, "skill" default.
+    if tier is None:
+        tier = os.environ.get("TRINITY_ORIGIN_TIER", "skill")
+    origin_action = os.environ.get("TRINITY_ORIGIN_ACTION")
+    invocation_id = os.environ.get("TRINITY_INVOCATION_ID")
+
     record = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         "script": script,
@@ -97,6 +114,10 @@ def audit_log(
         "trust_mode": trust_mode,
         "outcome": outcome,
     }
+    if origin_action:
+        record["origin_action"] = origin_action[:120]
+    if invocation_id:
+        record["invocation_id"] = invocation_id[:120]
     if detail:
         record["detail"] = detail[:200]
     if args:
@@ -108,13 +129,34 @@ def audit_log(
                 sanitized[k] = str(type(v).__name__)
         record["args"] = sanitized
 
+    line = json.dumps(record, separators=(",", ":")) + "\n"
+    encoded = line.encode("utf-8")
+
     try:
-        # POSIX O_APPEND atomic for writes < PIPE_BUF. Each record is
-        # one short JSON line; well under the 512-byte boundary.
-        with _audit_log_path().open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, separators=(",", ":")) + "\n")
-    except OSError:
-        pass
+        # Low-level atomic append. O_APPEND on regular files = each write
+        # appends at the current end-of-file as one indivisible op.
+        path = _audit_log_path()
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        try:
+            os.write(fd, encoded)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        # LOUD failure (council c18f739a verdict): the audit log IS the
+        # moat. If we can't write to it, the user must see it. Rate-limit
+        # per-process to avoid spamming when every call fails.
+        if not getattr(audit_log, "_failure_warned", False):
+            try:
+                import sys as _sys
+                print(
+                    f"⚠ Trinity audit log write FAILED ({type(exc).__name__}): "
+                    f"{exc}. Operations will continue but Trinity's "
+                    "supervision ledger has a gap.",
+                    file=_sys.stderr,
+                )
+            except Exception:
+                pass
+            audit_log._failure_warned = True  # type: ignore[attr-defined]
 
 
 def _script_venv_dir(script_name: str) -> Path:

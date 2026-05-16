@@ -102,20 +102,53 @@ def test_audit_log_caps_long_strings(isolated_home):
     assert len(record["args"]["task"]) == 120
 
 
-def test_audit_log_silently_swallows_disk_failures(monkeypatch, tmp_path):
-    """If the audit log path is unwritable, the caller MUST NOT crash.
-    Audit is a log, not a journal; dropping a record under disk
-    pressure is the correct tradeoff."""
+def test_audit_log_failure_emits_stderr_warning_then_silences(
+    monkeypatch, tmp_path, capsys
+):
+    """council c18f739a verdict: audit-log failures MUST be loud, not
+    silent. First failure emits a stderr warning naming the OSError;
+    subsequent failures in the same process are rate-limited to avoid
+    spam. The caller still doesn't crash — operations continue."""
     from scripts import _runtime
+    # Reset the rate-limit flag if a prior test set it
+    if hasattr(_runtime.audit_log, "_failure_warned"):
+        del _runtime.audit_log._failure_warned
+
     monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-    # Force the audit file to fail by pointing it at a read-only dir.
+    # Point at an unwritable path (directory doesn't exist + parent
+    # is read-only).
     bad = tmp_path / "readonly"
     bad.mkdir()
     bad.chmod(0o500)
     monkeypatch.setattr(_runtime, "_audit_log_path",
                         lambda: bad / "audit.log")
-    # Must not raise.
+    # First call: must not raise, must warn
     _runtime.audit_log(script="embed", operation="x")
+    captured = capsys.readouterr()
+    assert "audit log write FAILED" in captured.err
+    # Second call: must not raise, must NOT warn again (rate-limited)
+    _runtime.audit_log(script="embed", operation="y")
+    captured2 = capsys.readouterr()
+    assert captured2.err == ""
+
+
+def test_audit_log_reads_origin_tier_from_env(monkeypatch, tmp_path):
+    """council c18f739a verdict: TRINITY_ORIGIN_TIER env var stamps the
+    audit record with the originating tier (skill / pip / extension)
+    even when the actual runtime is the pip CLI."""
+    from scripts import _runtime
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    monkeypatch.setenv("TRINITY_ORIGIN_TIER", "extension")
+    monkeypatch.setenv("TRINITY_ORIGIN_ACTION", "launch-council")
+    monkeypatch.setenv("TRINITY_INVOCATION_ID", "abc-123")
+
+    _runtime.audit_log(script="embed", operation="embed_batch")
+
+    audit = (tmp_path / "audit.log").read_text().splitlines()
+    record = json.loads(audit[-1])
+    assert record["tier"] == "extension"
+    assert record["origin_action"] == "launch-council"
+    assert record["invocation_id"] == "abc-123"
 
 
 def test_bootstrap_short_circuits_on_sentinel(monkeypatch):
