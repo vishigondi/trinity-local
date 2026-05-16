@@ -250,3 +250,115 @@ def test_valid_uuid_passes(tmp_path, monkeypatch):
     monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
     target = _write_capture("claude", "abc123-def456_xyz-uuid", {"chat_messages": []})
     assert target.exists()
+
+
+# ─── Phase 1: action-dispatch messages (Chrome extension transition) ──
+
+def test_launch_council_action_dispatches_to_cli(monkeypatch, tmp_path):
+    """An action message with kind=launch-council must dispatch via
+    subprocess to `trinity-local council-launch --task <task>`. The host
+    builds the argv from the ACTION_ALLOWLIST spec; this test verifies
+    the argv shape without actually invoking the CLI."""
+    from trinity_local import capture_host
+
+    captured_argv: list[list[str]] = []
+
+    class _FakeCompletedProcess:
+        returncode = 0
+        stdout = '{"ok": true, "council_run_id": "council_test123"}'
+        stderr = ""
+
+    def _fake_run(argv, **kwargs):
+        captured_argv.append(list(argv))
+        return _FakeCompletedProcess()
+
+    monkeypatch.setattr(capture_host.subprocess if hasattr(capture_host, "subprocess") else __import__("subprocess"), "run", _fake_run, raising=False)
+    # _run_action imports subprocess locally, so we patch the module:
+    import subprocess as real_subprocess
+    monkeypatch.setattr(real_subprocess, "run", _fake_run)
+
+    result = capture_host._run_action({
+        "kind": "launch-council",
+        "task": "Compare Rust vs Go for a CLI",
+        "primary_provider": "codex",
+    })
+
+    assert result["ok"] is True
+    assert result["returncode"] == 0
+    assert result["action"] == "launch-council"
+    assert "council_run_id" in result["stdout"]
+    assert captured_argv, "_run_action did not invoke subprocess.run"
+    argv = captured_argv[0]
+    assert argv[0] == "trinity-local"
+    assert argv[1] == "council-launch"
+    assert "--task" in argv
+    assert argv[argv.index("--task") + 1] == "Compare Rust vs Go for a CLI"
+    assert "--primary-provider" in argv
+    assert argv[argv.index("--primary-provider") + 1] == "codex"
+
+
+def test_action_missing_required_field_rejected(monkeypatch):
+    """launch-council requires `task`. Missing → reject without invoking CLI."""
+    from trinity_local import capture_host
+
+    invoked = []
+    import subprocess as real_subprocess
+    monkeypatch.setattr(
+        real_subprocess, "run", lambda *a, **k: invoked.append(a) or None,
+    )
+
+    result = capture_host._run_action({"kind": "launch-council"})  # no task
+    assert result["ok"] is False
+    assert "missing required field" in result["error"]
+    assert "task" in result["error"]
+    assert not invoked, "subprocess.run should not be invoked when validation fails"
+
+
+def test_action_not_in_allowlist_rejected(monkeypatch):
+    """Defense in depth: unknown kind → reject. Even if a compromised
+    extension sends arbitrary action names, the host won't run them."""
+    from trinity_local import capture_host
+
+    invoked = []
+    import subprocess as real_subprocess
+    monkeypatch.setattr(
+        real_subprocess, "run", lambda *a, **k: invoked.append(a) or None,
+    )
+
+    result = capture_host._run_action({
+        "kind": "rm-rf-everything",
+        "task": "x",
+    })
+    assert result["ok"] is False
+    assert "not in allowlist" in result["error"]
+    assert not invoked
+
+
+def test_action_non_primitive_field_rejected(monkeypatch):
+    """Field values must be str/int/float — reject dicts/lists. Defends
+    against payloads that could be misinterpreted as shell metacharacters."""
+    from trinity_local import capture_host
+
+    invoked = []
+    import subprocess as real_subprocess
+    monkeypatch.setattr(
+        real_subprocess, "run", lambda *a, **k: invoked.append(a) or None,
+    )
+
+    result = capture_host._run_action({
+        "kind": "launch-council",
+        "task": {"nested": "payload"},
+    })
+    assert result["ok"] is False
+    assert "primitive" in result["error"]
+    assert not invoked
+
+
+def test_is_action_message_recognizes_action_kinds():
+    from trinity_local.capture_host import _is_action_message
+    assert _is_action_message({"kind": "launch-council"}) is True
+    assert _is_action_message({"kind": "ingest-recent"}) is True
+    assert _is_action_message({"kind": "canonical"}) is False
+    assert _is_action_message({"kind": "adapter_stream"}) is False
+    assert _is_action_message({"kind": "stream"}) is False
+    assert _is_action_message({}) is False

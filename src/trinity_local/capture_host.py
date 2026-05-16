@@ -139,6 +139,106 @@ def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) ->
     return target
 
 
+# Phase 1 (Chrome extension transition): action-dispatch messages.
+#
+# The browser extension sends two message classes:
+#   1. `kind` in {"canonical", "adapter_stream", "stream"} → conversation
+#       captures (handled by _extract_target above, v1.6 flow)
+#   2. `kind` in ACTION_ALLOWLIST → CLI-invocation requests (new in this
+#       release — replaces the macOS Shortcuts dispatch path)
+#
+# The action allowlist is defense-in-depth: even if the extension is
+# compromised, the host will only run pre-approved CLI surfaces. New
+# action kinds require an explicit ALLOWLIST entry — adding one is a
+# security review.
+
+# Each entry: (cli_subcommand, list-of-(arg_name, json_field, required))
+# Args are passed to the CLI as `--<arg_name> <value>`. Required fields
+# missing → reject. The allowlist intentionally lists only the buttons
+# the launchpad UI exposes today — not the full CLI surface.
+ACTION_ALLOWLIST: dict[str, tuple[str, list[tuple[str, str, bool]]]] = {
+    "launch-council": (
+        "council-launch",
+        [
+            ("task", "task", True),
+            ("goal", "goal", False),
+            ("primary-provider", "primary_provider", False),
+        ],
+    ),
+    "ingest-recent": (
+        "ingest-recent",
+        [],
+    ),
+}
+
+
+def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch an action message to a trinity-local CLI subcommand.
+
+    Subprocess (not in-process) so capture_host stays small + the action
+    runs in a fresh interpreter with the user's full env. Output streamed
+    back as a single response message — no partial streaming yet, but the
+    message shape leaves room for it later via a `stream_id` field.
+    """
+    import shlex
+    import subprocess
+
+    kind = payload.get("kind")
+    if kind not in ACTION_ALLOWLIST:
+        return {"ok": False, "error": f"action {kind!r} not in allowlist"}
+    cli_subcommand, arg_spec = ACTION_ALLOWLIST[kind]
+
+    argv: list[str] = ["trinity-local", cli_subcommand]
+    for arg_name, json_field, required in arg_spec:
+        value = payload.get(json_field)
+        if value is None or value == "":
+            if required:
+                return {
+                    "ok": False,
+                    "error": f"missing required field {json_field!r} for action {kind!r}",
+                }
+            continue
+        if not isinstance(value, (str, int, float)):
+            return {
+                "ok": False,
+                "error": f"field {json_field!r} must be primitive, got {type(value).__name__}",
+            }
+        argv.extend([f"--{arg_name}", str(value)])
+
+    try:
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error": f"timeout after 120s",
+            "argv": " ".join(shlex.quote(a) for a in argv),
+        }
+    except FileNotFoundError:
+        return {
+            "ok": False,
+            "error": "trinity-local CLI not on PATH; install via `pip install trinity-local`",
+        }
+    return {
+        "ok": result.returncode == 0,
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "action": kind,
+    }
+
+
+def _is_action_message(msg: dict[str, Any]) -> bool:
+    """An action message has `kind` in the action allowlist. Capture
+    messages have `kind` in {canonical, adapter_stream, stream}."""
+    return msg.get("kind") in ACTION_ALLOWLIST
+
+
 def main() -> int:
     while True:
         try:
@@ -148,6 +248,12 @@ def main() -> int:
             return 1
         if msg is None:
             return 0
+        # Action messages dispatch to the CLI (Phase 1 of the extension
+        # transition). Capture messages flow through _extract_target +
+        # _write_capture as before. Two distinct paths, one host process.
+        if _is_action_message(msg):
+            _write_message(_run_action(msg))
+            continue
         extracted = _extract_target(msg)
         if extracted is None:
             _write_message({"ok": False, "error": "unrecognized_payload"})
