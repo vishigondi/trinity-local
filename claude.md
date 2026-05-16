@@ -498,7 +498,7 @@ A few words do specific work; they get conflated otherwise:
 - **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.
 - **chairman** — the synthesis model in a single council. Reads `core.md`, emits structured Routing JSON. Per-call role.
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
-- **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cowork). Trinity registers as an MCP server inside each.
+- **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cursor, Cowork). Trinity registers as an MCP server inside each.
 - **seat / member** — a provider acting as one voice in a council. Code uses `members=[...]`; marketing copy will use `seat` (table metaphor).
 - **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
 

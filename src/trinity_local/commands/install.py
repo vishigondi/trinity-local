@@ -12,7 +12,7 @@ from ..refresh import refresh_launchpad
 
 
 def register(subparsers):
-    imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, and Codex CLI")
+    imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, Codex CLI, and Cursor")
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
     imp.set_defaults(handler=handle_install_mcp)
 
@@ -56,8 +56,18 @@ def handle_install_mcp(args):
 
     written: list[str] = []
     if args.scope == "user":
-        # Claude Code + Gemini CLI: JSON config with `mcpServers` key.
-        for target in (Path.home() / ".claude.json", Path.home() / ".gemini.json"):
+        # Claude Code, Gemini CLI, Cursor: JSON config with `mcpServers` key.
+        # 100-persona audit P16/P92 fix: Cursor was silently absent — it
+        # supports MCP natively (same JSON shape as Claude Code) but the
+        # install-mcp loop didn't write to its config path. Trinity-curious
+        # Cursor users had no working install path despite the engine
+        # already being compatible.
+        json_targets = (
+            Path.home() / ".claude.json",
+            Path.home() / ".gemini.json",
+            Path.home() / ".cursor" / "mcp.json",
+        )
+        for target in json_targets:
             if _write_json_mcp_config(target, mcp_config["mcpServers"]["trinity-local"]):
                 written.append(str(target))
         # Codex CLI: TOML config with `[mcp_servers.<name>]` section.
@@ -65,9 +75,11 @@ def handle_install_mcp(args):
         if _write_codex_toml_mcp_config(codex_path, sys.executable):
             written.append(str(codex_path))
     else:
-        target = Path(".mcp.json")
-        if _write_json_mcp_config(target, mcp_config["mcpServers"]["trinity-local"]):
-            written.append(str(target))
+        # Project scope: both .mcp.json (Claude Code/Gemini default) AND
+        # .cursor/mcp.json (Cursor's project-local convention).
+        for target in (Path(".mcp.json"), Path(".cursor") / "mcp.json"):
+            if _write_json_mcp_config(target, mcp_config["mcpServers"]["trinity-local"]):
+                written.append(str(target))
 
     skill_status = _install_trinity_skill()
     if skill_status:

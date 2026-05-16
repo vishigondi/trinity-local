@@ -36,6 +36,37 @@ class TestInstallMcp:
             "-m", "trinity_local.main", "--mcp",
         ]
 
+    def test_writes_cursor_mcp_config(self, home: Path, monkeypatch, capsys):
+        """100-persona audit P16/P92 fix: install-mcp must drop a config
+        into ~/.cursor/mcp.json too. Cursor uses the same `mcpServers`
+        JSON shape as Claude Code; before this fix Cursor users had to
+        hand-wire the config, which silently churned them."""
+        _run_install(monkeypatch, home)
+
+        cursor_path = home / ".cursor" / "mcp.json"
+        assert cursor_path.exists(), (
+            "install-mcp must write Cursor config too — Cursor is a first-class harness"
+        )
+        cursor_cfg = json.loads(cursor_path.read_text())
+        assert "trinity-local" in cursor_cfg["mcpServers"]
+        assert cursor_cfg["mcpServers"]["trinity-local"]["args"] == [
+            "-m", "trinity_local.main", "--mcp",
+        ]
+
+    def test_project_scope_writes_both_mcp_json_and_cursor(self, home: Path, monkeypatch, tmp_path, capsys):
+        """Project-scoped install (.mcp.json) must ALSO drop the
+        Cursor-shaped .cursor/mcp.json so a project-scoped Cursor user
+        gets the server in the project's MCP surface."""
+        # Project scope uses cwd-relative paths — switch into tmp_path
+        # so the test's writes don't leak into the repo.
+        monkeypatch.chdir(tmp_path)
+        _run_install(monkeypatch, home, scope="project")
+
+        assert (tmp_path / ".mcp.json").exists()
+        assert (tmp_path / ".cursor" / "mcp.json").exists(), (
+            "project-scoped install-mcp must write .cursor/mcp.json too"
+        )
+
     def test_writes_codex_toml_config(self, home: Path, monkeypatch, capsys):
         # Codex CLI uses ~/.codex/config.toml with [mcp_servers.<name>] sections.
         _run_install(monkeypatch, home)

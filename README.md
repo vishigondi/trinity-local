@@ -186,7 +186,7 @@ are missing.
 git clone https://github.com/vishigondi/trinity-local && cd trinity-local
 ./setup.sh                          # one script handles Python check + everything else
 trinity-local install-app           # Trinity.app desktop wrapper (non-coder daily-launch)
-trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI
+trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI / Cursor
                                     #   → first MCP spawn auto-scans your local CLI history
                                     #     (~/.claude/, ~/.codex/, ~/.gemini/, cowork) in the
                                     #     background so the first council is already personal
