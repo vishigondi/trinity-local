@@ -101,6 +101,32 @@ class TestTestCountConsistency:
             f"would be cleaner long-term."
         )
 
+    def test_prose_count_at_or_above_realistic_floor(self):
+        """The four-surfaces-agree test passes if all four claim the
+        SAME number — even if that number is stale. This guard locks
+        in a realistic floor (the current pytest count at write time)
+        so silent regression downward is caught.
+
+        v1.7 launch state: 1372 passing. Floor set to 1300 — gives
+        ~70 tests of headroom for hypothetical future test deletions
+        without false-flagging, while still catching the "we claim
+        1242 but actually have 1372" stale-by-130 drift this guard
+        was born from.
+
+        If the real test count grows (good), keep the floor in step
+        when convenient — that's the load-bearing assertion.
+        """
+        FLOOR = 1300  # current count is 1372; floor allows ≤72 deletions
+        status_count = _extract(CLAUDE_MD, r"(\d+) tests passing")
+        assert status_count is not None
+        assert int(status_count) >= FLOOR, (
+            f"claude.md status block claims '{status_count} tests passing' "
+            f"but the realistic floor is {FLOOR}. Either: (a) you deleted "
+            f">{1372-FLOOR} tests legitimately and should bump the floor "
+            f"down in this file, OR (b) prose is stale and needs updating "
+            f"to match the actual pytest count."
+        )
+
 
 class TestSmokeSurfaceCountConsistency:
     """The smoke-surface count claim appears in claude.md status + the

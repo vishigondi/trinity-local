@@ -6,7 +6,7 @@
 
 ## Done — v1.0 ready to ship
 
-**Code (1295 tests passing, 36 doc-consistency guards green)**
+**Code (1372 tests passing + 4 skipped, 36 doc-consistency guards green)**
 - 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
   (commits d56cffc → ebc212a). Every launchpad button works
   cross-platform via the extension; macOS Shortcut as tier-2 fallback.
