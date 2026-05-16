@@ -529,6 +529,14 @@ class TestCliCommandsReferencedExistInCli:
             REPO / "docs" / "launch.md",
             REPO / "docs" / "launch-package.md",
             REPO / "docs" / "MCP_REGISTRY_SUBMISSIONS.md",
+            # claude.md added 2026-05-16 after the architecture-table
+            # row for `model_detector.py` / `trinity-local models-detect`
+            # turned out to reference a module + a CLI command that
+            # never existed in the codebase. The guard scanned launch
+            # docs but not claude.md; users following the project-
+            # context file hit a phantom command. Adding claude.md
+            # closes that surface.
+            REPO / "claude.md",
             # CHANGELOG.md deliberately excluded — historical context.
         ]
         # Pattern: `trinity-local <kebab-cmd>` where <kebab-cmd> is
