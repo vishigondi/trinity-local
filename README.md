@@ -1,8 +1,13 @@
 # Trinity Local
 
-## Stop copy-pasting prompts. Own your context. Dream your core memories.
+## Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.
 
-### One question. Every model you use. One answer that knows you.
+You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
+reads those transcripts, learns the pattern in how you rephrase, judge, and decide —
+then runs hard questions through all three in your voice and picks the answer you
+would have picked.
+
+**No new app. No service. No API key. Your transcripts never leave your machine.**
 
 > **⚠️ Pre-PyPI:** Use this for now —
 > ```bash
@@ -13,9 +18,8 @@
 > pip install trinity-local && trinity-local install-mcp
 > ```
 
-One pain, one promise, one install command. On macOS that single command drops
-**Trinity.app** on your Desktop too — open it like any other app, no terminal
-needed after install. The structure below cashes out each beat of the tagline.
+On macOS that single command also drops **Trinity.app** on your Desktop — open it
+like any other app, no terminal needed after install.
 
 ### The 60-second demo
 

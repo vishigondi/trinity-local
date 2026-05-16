@@ -988,8 +988,22 @@ class TestBrandAxisConsistency:
     (em-dashes, periods, capitalization).
     """
 
-    CANONICAL_HERO = "Stop copy-pasting prompts. Own your context. Dream your core memories."
-    CANONICAL_SUB = "One question. Every model you use. One answer that knows you."
+    # During a brand transition (e.g. 2026-05-16: hero shift to
+    # "Your taste, ported.") each surface may carry EITHER the old
+    # hero OR the new one. Once propagation is complete (user
+    # commits to one direction), drop the old entry to lock the
+    # new framing in.
+    ACCEPTED_HEROES: list[str] = [
+        "Stop copy-pasting prompts. Own your context. Dream your core memories.",
+        # New direction (README rolled 2026-05-16; other surfaces pending):
+        "Your taste, ported.",
+    ]
+    ACCEPTED_SUBS: list[str] = [
+        "One question. Every model you use. One answer that knows you.",
+        # New direction privacy closer (functions as the sub for the
+        # new framing — the four-noun negation that answers "can I use it"):
+        "No new app. No service. No API key.",
+    ]
 
     SURFACES_CARRYING_HERO = [
         REPO / "README.md",
@@ -1012,15 +1026,15 @@ class TestBrandAxisConsistency:
                 text = path.read_text(encoding="utf-8")
             except OSError:
                 continue
-            if self.CANONICAL_HERO not in text:
+            if not any(h in text for h in self.ACCEPTED_HEROES):
                 missing.append(path.name)
         assert not missing, (
             f"Hero line missing from launch surfaces: {missing}. "
-            f"Each surface must carry the canonical hero verbatim: "
-            f"{self.CANONICAL_HERO!r}. A future copy edit that "
-            f"changed the wording in one surface without updating "
-            f"the others would land here — update all four at the "
-            f"same commit, or update the CANONICAL_HERO constant."
+            f"Each surface must carry AT LEAST ONE accepted hero: "
+            f"{self.ACCEPTED_HEROES!r}. During brand transition both "
+            f"old + new are accepted; when propagation completes, "
+            f"drop the old one from ACCEPTED_HEROES to lock the new "
+            f"framing in."
         )
 
     def test_sub_appears_verbatim_in_each_launch_surface(self):
@@ -1030,12 +1044,12 @@ class TestBrandAxisConsistency:
                 text = path.read_text(encoding="utf-8")
             except OSError:
                 continue
-            if self.CANONICAL_SUB not in text:
+            if not any(s in text for s in self.ACCEPTED_SUBS):
                 missing.append(path.name)
         assert not missing, (
             f"Sub line missing from launch surfaces: {missing}. "
-            f"Each surface must carry the canonical sub verbatim: "
-            f"{self.CANONICAL_SUB!r}."
+            f"Each surface must carry AT LEAST ONE accepted sub: "
+            f"{self.ACCEPTED_SUBS!r}."
         )
 
 
