@@ -270,6 +270,47 @@ def _check_feedback_consistency() -> CheckResult:
     )
 
 
+def _check_dispatch_ready() -> CheckResult:
+    """Phase 7: any-tier dispatch readiness — at least one of the two
+    dispatch paths (extension, Shortcut) must be wired for the launchpad
+    to actually do anything.
+
+    On macOS this is broader than `_check_shortcut_installed`: a user
+    who installed the extension instead of (or before) the Shortcut is
+    fine. On Linux/Windows this is the only relevant check — the
+    Shortcut path was never functional there.
+
+    Surfaces the same `recommended_action` hint the launchpad shows in
+    its inline banner so the doctor and the launchpad agree.
+    """
+    try:
+        from .launchpad_data import dispatch_readiness
+    except Exception as exc:
+        return CheckResult(
+            name="dispatch_ready",
+            ok=False,
+            detail=f"could not import dispatch_readiness: {exc}",
+        )
+    readiness = dispatch_readiness()
+    if readiness["ready"]:
+        tier = "extension" if readiness["extension_configured"] and readiness["host_on_path"] else "macOS Shortcut"
+        return CheckResult(
+            name="dispatch_ready",
+            ok=True,
+            detail=f"launchpad dispatch ready via {tier}",
+        )
+    fix_command = (
+        "trinity-local install-extension --extension-id <ID>   "
+        "# 1. Load browser-extension/ in chrome://extensions first."
+    )
+    return CheckResult(
+        name="dispatch_ready",
+        ok=False,
+        detail=readiness["recommended_action"] or "no dispatch path wired",
+        fix=fix_command,
+    )
+
+
 def _check_shortcut_installed() -> CheckResult:
     """Macros Shortcut named "Trinity Dispatch" must be in the user's library.
 
@@ -820,6 +861,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_trinity_home())
     report.checks.append(_check_config())
     report.checks.append(_check_mcp_available())
+    report.checks.append(_check_dispatch_ready())
     report.checks.append(_check_shortcut_installed())
     report.checks.append(_check_feedback_consistency())
     report.checks.append(_check_provider("claude", "claude"))

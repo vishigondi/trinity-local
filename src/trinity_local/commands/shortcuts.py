@@ -97,6 +97,19 @@ def handle_shortcut_setup(args):
 
 
 def handle_shortcut_install(args):
+    # Phase 7 deprecation soft-notice. The macOS Shortcut path is the
+    # legacy tier-2 fallback; the cross-platform Chrome extension is the
+    # forward path. We DON'T remove shortcut-install — existing users
+    # need it. But every invocation surfaces a one-line note (stderr,
+    # so the JSON contract on stdout stays parseable for scripts).
+    # See docs/MIGRATION.md for the upgrade path.
+    import sys as _sys
+    print(
+        "note: macOS Shortcut is now the legacy fallback (tier 2). The "
+        "cross-platform Chrome extension is the recommended path — see "
+        "docs/MIGRATION.md and `trinity-local install-extension --help`.",
+        file=_sys.stderr,
+    )
     setup_path = write_shortcut_setup(args.shortcut_name)
     script_path = write_installer_script(args.shortcut_name)
     if args.dry_run:
