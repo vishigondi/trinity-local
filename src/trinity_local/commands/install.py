@@ -39,7 +39,7 @@ def register(subparsers):
 
     iep = subparsers.add_parser(
         "install-extension",
-        help="Write Chrome's Native Messaging manifest so the Trinity browser extension can spawn the local capture host",
+        help="Write the Native Messaging manifest so the Trinity browser extension can spawn the local capture host (Chrome + Edge by default; Firefox via --firefox)",
     )
     iep.add_argument(
         "--extension-id",
@@ -48,6 +48,18 @@ def register(subparsers):
     iep.add_argument(
         "--host-path",
         help="Path to the trinity-local-capture-host binary. Defaults to the one resolved via shutil.which().",
+    )
+    iep.add_argument(
+        "--browsers",
+        nargs="+",
+        choices=["chrome", "edge"],
+        default=None,
+        help="Chromium browsers to install the manifest for. Default: chrome edge (covers ~85%% of audience).",
+    )
+    iep.add_argument(
+        "--firefox",
+        action="store_true",
+        help="Also write a Firefox-format manifest (uses allowed_extensions instead of allowed_origins; ID must be hand-edited).",
     )
     iep.set_defaults(handler=handle_install_extension)
 
@@ -367,16 +379,100 @@ def handle_install_hooks(args):
         print(f"Hooks already present in {settings_path}")
 
 
-def _native_messaging_dir() -> Path:
-    """Chrome's per-user NativeMessagingHosts directory for the current OS."""
+def _native_messaging_dirs(browsers: list[str]) -> list[tuple[str, Path]]:
+    """Per-browser, per-OS NativeMessagingHosts directories.
+
+    Phase 2 of the Chrome-extension transition adds Edge support and a
+    Windows path; Firefox uses a different manifest schema so is
+    handled by _firefox_manifest_dir() separately.
+
+    Returns [(browser_label, dir_path), ...] for the requested browsers
+    on the current OS. Unsupported (browser, OS) combinations are
+    silently omitted — caller reports which targets actually wrote.
+    """
+    out: list[tuple[str, Path]] = []
+    home = Path.home()
+    for b in browsers:
+        if b == "chrome":
+            if sys.platform == "darwin":
+                out.append(("chrome", home / "Library" / "Application Support"
+                            / "Google" / "Chrome" / "NativeMessagingHosts"))
+            elif sys.platform.startswith("linux"):
+                out.append(("chrome", home / ".config" / "google-chrome"
+                            / "NativeMessagingHosts"))
+            elif sys.platform == "win32":
+                # Windows uses HKCU registry, not a filesystem path —
+                # callers detect win32 and dispatch to the registry
+                # writer. We surface this as a sentinel "registry:" path
+                # rather than skipping silently.
+                out.append(("chrome", Path("registry:HKCU\\Software\\Google"
+                            "\\Chrome\\NativeMessagingHosts")))
+        elif b == "edge":
+            # Edge mirrors Chrome's NM protocol verbatim (Chromium fork).
+            # Same manifest schema; different per-user dir.
+            if sys.platform == "darwin":
+                out.append(("edge", home / "Library" / "Application Support"
+                            / "Microsoft Edge" / "NativeMessagingHosts"))
+            elif sys.platform.startswith("linux"):
+                out.append(("edge", home / ".config" / "microsoft-edge"
+                            / "NativeMessagingHosts"))
+            elif sys.platform == "win32":
+                out.append(("edge", Path("registry:HKCU\\Software\\Microsoft"
+                            "\\Edge\\NativeMessagingHosts")))
+        # Firefox handled by _firefox_manifest_dir() — different schema.
+    return out
+
+
+def _firefox_manifest_dirs() -> list[Path]:
+    """Firefox per-user NativeMessagingHosts dirs (manifest schema differs;
+    uses ``allowed_extensions`` instead of ``allowed_origins``)."""
+    home = Path.home()
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Google" / "Chrome" / "NativeMessagingHosts"
+        return [home / "Library" / "Application Support" / "Mozilla"
+                / "NativeMessagingHosts"]
     if sys.platform.startswith("linux"):
-        return Path.home() / ".config" / "google-chrome" / "NativeMessagingHosts"
-    raise SystemExit(
-        f"install-extension: unsupported platform {sys.platform!r}. v1.6 ships macOS first; "
-        "Linux works (same Native Messaging protocol) but path resolution is unverified."
-    )
+        return [home / ".mozilla" / "native-messaging-hosts"]
+    if sys.platform == "win32":
+        return [Path("registry:HKCU\\Software\\Mozilla\\NativeMessagingHosts")]
+    return []
+
+
+def _write_windows_nm_registry(reg_path_sentinel: Path, host_name: str,
+                                manifest_path: Path) -> bool:
+    """On Windows, the NM host is registered via a registry value pointing
+    at the manifest JSON on disk. We still write the JSON to a stable
+    AppData path; the registry just points there.
+
+    No-ops on non-Windows (caller already checks but this is defensive).
+    Returns True on success.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import winreg  # stdlib on Windows; absent elsewhere
+    except ImportError:
+        return False
+    sub = str(reg_path_sentinel).removeprefix("registry:HKCU\\")
+    # HKCU is the assumed root (we only write per-user). Path string
+    # is the rest. winreg.OpenKey + SetValueEx.
+    try:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
+                                 f"{sub}\\{host_name}") as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, str(manifest_path))
+        return True
+    except OSError:
+        return False
+
+
+def _native_messaging_dir() -> Path:
+    """DEPRECATED: pre-Phase-2 single-Chrome path lookup. Kept for any
+    external callers; new code uses _native_messaging_dirs(browsers)."""
+    dirs = _native_messaging_dirs(["chrome"])
+    if not dirs:
+        raise SystemExit(
+            f"install-extension: unsupported platform {sys.platform!r}."
+        )
+    return dirs[0][1]
 
 
 def handle_install_extension(args):
@@ -415,24 +511,102 @@ def handle_install_extension(args):
         )
         return 1
 
-    manifest_dir = _native_messaging_dir()
-    manifest_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = manifest_dir / "local.trinity.capture.json"
+    # Phase 2 (extension transition): write the manifest to every
+    # browser the user requested. Default: chrome + edge (covers ~85%
+    # of audience per the locked architectural decision). Firefox uses
+    # a different schema (allowed_extensions vs allowed_origins) and
+    # is opt-in via --firefox.
+    browsers = getattr(args, "browsers", None) or ["chrome", "edge"]
+    include_firefox = getattr(args, "firefox", False)
 
-    manifest = {
+    chromium_manifest = {
         "name": "local.trinity.capture",
         "description": "Trinity local conversation capture",
         "path": str(host_path),
         "type": "stdio",
         "allowed_origins": [f"chrome-extension://{extension_id}/"],
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"✓ Wrote {manifest_path}")
+    written: list[str] = []
+    for browser_label, dir_path in _native_messaging_dirs(browsers):
+        if str(dir_path).startswith("registry:"):
+            # Windows path — write manifest to %APPDATA% AND set
+            # the registry pointer to it.
+            from os import environ
+            appdata = Path(environ.get("APPDATA",
+                                       Path.home() / "AppData" / "Roaming"))
+            manifest_path = (appdata / "trinity-local" /
+                             f"local.trinity.capture.{browser_label}.json")
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(json.dumps(chromium_manifest, indent=2))
+            if _write_windows_nm_registry(dir_path, "local.trinity.capture",
+                                           manifest_path):
+                written.append(f"{browser_label} (Windows registry → {manifest_path})")
+            else:
+                print(f"  warn: could not write {browser_label} Windows registry — "
+                      f"manifest dropped at {manifest_path} but Chrome won't find it")
+            continue
+        try:
+            dir_path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print(f"  warn: could not create {browser_label} NM dir {dir_path}: {exc}")
+            continue
+        manifest_path = dir_path / "local.trinity.capture.json"
+        try:
+            manifest_path.write_text(json.dumps(chromium_manifest, indent=2))
+            written.append(f"{browser_label}: {manifest_path}")
+        except OSError as exc:
+            print(f"  warn: could not write {browser_label} manifest at "
+                  f"{manifest_path}: {exc}")
+
+    if include_firefox:
+        # Firefox manifest schema diverges: allowed_extensions (a list of
+        # add-on IDs like "trinity@local.example") instead of
+        # allowed_origins. The extension_id format also differs — for
+        # AMO-published extensions it's an email-like ID, for unsigned
+        # dev builds it's the manifest applications.gecko.id field.
+        # For v1.6 we just write the manifest with a placeholder; the
+        # caller can hand-edit allowed_extensions once they have the
+        # Firefox-assigned ID.
+        firefox_manifest = {
+            "name": "local.trinity.capture",
+            "description": "Trinity local conversation capture",
+            "path": str(host_path),
+            "type": "stdio",
+            "allowed_extensions": [f"trinity-local@{extension_id[:8]}.example"],
+        }
+        for dir_path in _firefox_manifest_dirs():
+            if str(dir_path).startswith("registry:"):
+                # Windows Firefox also via registry — defer for now.
+                print(f"  warn: Firefox on Windows registry not yet supported")
+                continue
+            try:
+                dir_path.mkdir(parents=True, exist_ok=True)
+                manifest_path = dir_path / "local.trinity.capture.json"
+                manifest_path.write_text(json.dumps(firefox_manifest, indent=2))
+                written.append(f"firefox: {manifest_path}")
+            except OSError as exc:
+                print(f"  warn: Firefox manifest write failed at "
+                      f"{dir_path}: {exc}")
+
+    if not written:
+        print(
+            f"error: no browser manifests written. Platform "
+            f"{sys.platform!r} may be unsupported, or requested "
+            f"browsers ({browsers}) aren't installed in standard "
+            f"locations on this OS."
+        )
+        return 1
+
+    print(f"✓ Wrote {len(written)} manifest(s):")
+    for entry in written:
+        print(f"    {entry}")
     print(f"  host: {host_path}")
     print(f"  extension: {extension_id}")
     print()
     print("Next: visit claude.ai (or chatgpt.com), send a message, then check")
     print("      ~/.trinity/conversations/<provider>/ for the captured turn.")
+    print("Or click any launchpad button to dispatch a CLI command via the")
+    print("extension (Phase 1 action-dispatch path).")
     return 0
 
 
