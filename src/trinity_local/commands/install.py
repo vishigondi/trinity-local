@@ -63,6 +63,24 @@ def register(subparsers):
     )
     iep.set_defaults(handler=handle_install_extension)
 
+    # Phase 6 — cross-platform desktop launcher installer.
+    # macOS: delegate to install-app (Trinity.app via osacompile).
+    # Linux: write a `.desktop` entry in ~/.local/share/applications.
+    # Windows: write a `.url` Internet Shortcut to the user's Start Menu.
+    # All three resolve to the same `~/.trinity/portal_pages/launchpad.html`
+    # file:// URL — the launchpad is the home, regardless of platform.
+    ilp = subparsers.add_parser(
+        "install-launcher",
+        help="Install a desktop launcher pointing at the local Trinity launchpad (cross-platform: Trinity.app on macOS, .desktop on Linux, .url Start Menu shortcut on Windows).",
+    )
+    ilp.add_argument(
+        "--destination",
+        action="append",
+        default=None,
+        help="Directory to install into; repeat for multiple. Defaults per platform.",
+    )
+    ilp.set_defaults(handler=handle_install_launcher)
+
     # uninstall — inverse of install-mcp + install-app + install-extension.
     # 100-persona audit Theme D #1 (personas P30/P57/P85): the "own your
     # data" wedge cuts the wrong way if removing Trinity requires hand-
@@ -163,6 +181,125 @@ def handle_install_mcp(args):
         )
     else:
         print("No MCP configuration files were updated.")
+
+
+def _install_linux_desktop_entry(launchpad_path: Path,
+                                 destination: Path | None = None) -> Path:
+    """Write a freedesktop.org `.desktop` entry pointing at the launchpad.
+
+    Default location: ~/.local/share/applications/ (the XDG per-user app
+    directory). Most distros auto-pick this up so the entry appears in
+    GNOME/KDE/etc. application launchers without further action.
+
+    The Exec line uses `xdg-open` so the user's default browser opens
+    the file:// URL. `xdg-open` is shipped by every major distro; we
+    don't try to be clever about Chrome-vs-Firefox here.
+    """
+    if destination is None:
+        destination = Path.home() / ".local" / "share" / "applications"
+    destination.mkdir(parents=True, exist_ok=True)
+    target = destination / "trinity-local.desktop"
+    uri = launchpad_path.expanduser().resolve().as_uri()
+    desktop_entry = "\n".join([
+        "[Desktop Entry]",
+        "Type=Application",
+        "Name=Trinity Local",
+        "GenericName=Your taste, ported",
+        "Comment=Open the Trinity launchpad in your default browser",
+        f"Exec=xdg-open {uri}",
+        "Terminal=false",
+        "Categories=Development;Utility;",
+        "Keywords=Trinity;council;LLM;Claude;Codex;Gemini;",
+        "",
+    ])
+    target.write_text(desktop_entry)
+    target.chmod(0o755)
+    return target
+
+
+def _install_windows_url_shortcut(launchpad_path: Path,
+                                  destination: Path | None = None) -> Path:
+    """Write a Windows Internet Shortcut (.url) to the Start Menu.
+
+    The .url format is plain INI; writing it from Python avoids the
+    PowerShell COM-object dance for .lnk files. Windows treats .url
+    entries in the Start Menu folder as first-class launchable items
+    and respects the user's default browser when opening file:// URLs.
+    """
+    from os import environ
+    if destination is None:
+        appdata = environ.get("APPDATA")
+        if not appdata:
+            destination = Path.home() / "AppData" / "Roaming"
+        else:
+            destination = Path(appdata)
+        destination = destination / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+    destination.mkdir(parents=True, exist_ok=True)
+    target = destination / "Trinity Local.url"
+    uri = launchpad_path.expanduser().resolve().as_uri()
+    url_entry = "\r\n".join([
+        "[InternetShortcut]",
+        f"URL={uri}",
+        # IconIndex / IconFile would point at an icon; the launchpad
+        # path itself is a fine fallback (Windows falls back to the
+        # default browser icon when IconFile is absent).
+        "",
+    ])
+    target.write_text(url_entry)
+    return target
+
+
+def handle_install_launcher(args) -> int:
+    """Phase 6 — cross-platform desktop launcher installer.
+
+    Dispatches by platform:
+      macOS   → delegate to install-app (Trinity.app via osacompile)
+      Linux   → ~/.local/share/applications/trinity-local.desktop
+      Windows → Start Menu/Programs/Trinity Local.url
+      Other   → loud failure with a hint pointing at `trinity-local serve`
+    """
+    from ..refresh import refresh_launchpad
+    launchpad_path = refresh_launchpad()
+
+    if sys.platform == "darwin":
+        # Delegate. install-app already implements Trinity.app generation
+        # with osacompile + Applications/Desktop placement; don't fork.
+        return handle_install_app(args)
+
+    destinations = None
+    if getattr(args, "destination", None):
+        destinations = [Path(raw).expanduser() for raw in args.destination]
+
+    paths: list[Path] = []
+    try:
+        if sys.platform.startswith("linux"):
+            targets = destinations or [None]
+            for dest in targets:
+                paths.append(_install_linux_desktop_entry(launchpad_path, dest))
+        elif sys.platform.startswith("win") or sys.platform == "cygwin":
+            targets = destinations or [None]
+            for dest in targets:
+                paths.append(_install_windows_url_shortcut(launchpad_path, dest))
+        else:
+            print(
+                f"install-launcher: no desktop launcher for sys.platform={sys.platform!r}.\n"
+                "Use `trinity-local serve` to open the launchpad at "
+                "http://localhost:8765, or run `trinity-local portal-html "
+                "--open-browser` to open the file:// version.",
+                file=sys.stderr,
+            )
+            return 1
+    except OSError as exc:
+        print(f"install-launcher: failed to write desktop entry: {exc}",
+              file=sys.stderr)
+        return 1
+
+    print(json.dumps({
+        "platform": sys.platform,
+        "launchpad_path": str(launchpad_path),
+        "launcher_paths": [str(p) for p in paths],
+    }, indent=2))
+    return 0
 
 
 def handle_install_app(args) -> int:
