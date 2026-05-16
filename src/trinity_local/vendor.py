@@ -32,6 +32,7 @@ references make it into the produced HTML.
 from __future__ import annotations
 
 import hashlib
+import sys
 from importlib import resources
 from pathlib import Path
 
@@ -92,6 +93,12 @@ def publish_vendor_files(target_dir: Path) -> list[Path]:
         try:
             target.write_bytes(payload)
             written.append(target)
-        except OSError:
-            pass
+        except OSError as exc:
+            print(
+                f"warning: failed to publish vendored file {name!r} "
+                f"to {target}: {exc.__class__.__name__}: {exc}. "
+                f"Launchpad will 404 on ./vendor/{name} — "
+                f"check perms on {vendor_dir}.",
+                file=sys.stderr,
+            )
     return written
