@@ -2408,7 +2408,23 @@ trinity-local eval-run --target gemini</code></pre>
               source: 'launchpad',
             }},
           }};
-          this.triggerShortcut(buildShortcutUrl(payload));
+          // Phase 4b (council_bf1ab3f4dd70f75e residual-drift fix): route
+          // through the dispatcher so Stop works cross-platform. Extension
+          // tier fires `stop-council --status-token <X>`; macOS Shortcut
+          // tier keeps the run_command payload as the legacy fallback.
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{
+                kind: 'stop-council',
+                status_token: this.operation.statusToken,
+              }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => this.handleDispatchResult(r),
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+          }}
         }},
         openSuggestions() {{
           this.suggestionsOpen = true;

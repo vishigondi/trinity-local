@@ -169,6 +169,18 @@ ACTION_ALLOWLIST: dict[str, tuple[str, list[tuple[str, str, bool]]]] = {
         "ingest-recent",
         [],
     ),
+    # Phase 4b (council_bf1ab3f4dd70f75e residual-drift fix): stop-council
+    # lets the launchpad's "Stop" button work cross-platform. Previously
+    # the button fired a `shortcuts://run_command` payload that no-op'd
+    # silently off macOS. Narrow allowlist entry — only --status-token,
+    # no shell command — preserves the "no run_command" verdict from
+    # the council.
+    "stop-council": (
+        "council-stop",
+        [
+            ("status-token", "status_token", True),
+        ],
+    ),
 }
 
 
