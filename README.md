@@ -4,10 +4,14 @@
 
 ### One question. Every model you use. One answer that knows you.
 
-```bash
-pip install trinity-local && trinity-local install-mcp
-```
-*Until PyPI publishes, the same wheel is `pip install git+https://github.com/vishigondi/trinity-local`.*
+> **⚠️ Pre-PyPI:** Use this for now —
+> ```bash
+> pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
+> ```
+> After v1.0 ships, the simpler one is the same wheel:
+> ```bash
+> pip install trinity-local && trinity-local install-mcp
+> ```
 
 One pain, one promise, one install command. On macOS that single command drops
 **Trinity.app** on your Desktop too — open it like any other app, no terminal
