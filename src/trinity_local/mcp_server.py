@@ -616,6 +616,13 @@ async def _ask(args: dict) -> list[Any]:
         })]
 
     payload = result.to_dict()
+    # Make the success/failure shape symmetric: the failure branch above
+    # returns {"ok": False, error_code, ...}; the success branch needs
+    # ok=True so an agent doing `if response.get("ok"): proceed` works
+    # uniformly. Was asymmetric — happy path returned the raw answer
+    # dict with no ok key, agent's natural check treated success as
+    # failure.
+    payload["ok"] = True
     pending = _pending_ratings_hint()
     if pending is not None:
         payload["pending_ratings"] = pending
