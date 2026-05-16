@@ -131,18 +131,18 @@ def handle_status(args):
     print(f"  Councils:  {council_count}")
     print()
 
-    # Core memories — the five plural memories dream creates + the
-    # singular core.md distillation. Reading paths from state_paths so
-    # auto-migration kicks in transparently.
+    # Lens hierarchy + scoreboards. Per v1.7 architectural collapse,
+    # the three thinking memories (lens / topics / vocabulary) + core.md
+    # are what chairman reads as identity context; picks + routing are
+    # operational scoreboards, surfaced separately. Reading paths from
+    # state_paths so auto-migration kicks in transparently.
     from ..state_paths import (
         core_path, lens_path, picks_path, routing_path,
         topics_path, vocabulary_path,
     )
-    print("  Memories:")
+    print("  Memories:  (lens hierarchy — chairman identity context)")
     for label, path in [
         ("lens.md       ", lens_path()),
-        ("picks.json    ", picks_path()),
-        ("routing.json  ", routing_path()),
         ("topics.json   ", topics_path()),
         ("vocabulary.md ", vocabulary_path()),
     ]:
@@ -161,6 +161,16 @@ def handle_status(args):
         print(f"    {marker} core.md       {core.stat().st_size:>8,} bytes — chairman reads this first")
     else:
         print("    · core.md       not distilled — run `trinity-local distill`")
+    print()
+    print("  Scoreboards:  (operational model-selection bookkeeping)")
+    for label, path in [
+        ("picks.json    ", picks_path()),
+        ("routing.json  ", routing_path()),
+    ]:
+        if path.exists():
+            print(f"    ✅ {label} {path.stat().st_size:>8,} bytes")
+        else:
+            print(f"    · {label} not built")
     print()
 
     # Drift

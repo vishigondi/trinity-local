@@ -295,7 +295,8 @@ def render_primary_council_prompt(
         if core:
             sections.append(
                 "User profile (from ~/.trinity/core.md — distilled paragraph "
-                "subsuming the five plural core memories).\n"
+                "subsuming the lens hierarchy: lens.md tensions, topics.json "
+                "basins, vocabulary.md anchors).\n"
                 "Use this to score 'which answer fits THIS user'. Do not echo "
                 "it back; use it as latent context.\n\n"
                 f"{core}"
