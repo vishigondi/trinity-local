@@ -573,7 +573,47 @@ async def _ask(args: dict) -> list[Any]:
             available_providers=available,
         )
     except Exception as exc:
-        return [ErrorData(code=502, message=f"dispatch_failed: {type(exc).__name__}: {exc}")]
+        # 100-persona audit D7: structured error shape lets the agent
+        # auto-retry around rate limits without parsing a free-form
+        # string. Detect the failure kind from the exception message
+        # so {error_code, recoverable, retry_with} can drive recovery.
+        from .dispatch_errors import classify_dispatch_failure
+        exc_text = str(exc)
+        try:
+            failure = classify_dispatch_failure(
+                provider=available[0] if available else "unknown",
+                returncode=getattr(exc, "returncode", 1),
+                stderr=exc_text,
+            )
+            failure_kind = failure.kind.value
+            recoverable = failure.retry_with_other_provider
+        except Exception:
+            failure_kind = "unknown"
+            recoverable = True
+        # Suggest the remaining pool minus the failing provider so the
+        # agent can immediately retry around it (the rate-limit-dodge
+        # wedge in one hop).
+        failing_provider = available[0] if available else None
+        retry_pool = [p for p in available if p != failing_provider] if available else []
+        return [_text({
+            "ok": False,
+            "error_code": {
+                "rate_limited": "RATE_LIMITED",
+                "billing_exceeded": "BILLING_EXCEEDED",
+                "auth_failed": "AUTH_FAILED",
+                "model_not_found": "MODEL_NOT_FOUND",
+                "timeout": "TIMEOUT",
+            }.get(failure_kind, "DISPATCH_FAILED"),
+            "provider": failing_provider,
+            "recoverable": bool(recoverable and retry_pool),
+            "retry_with": {"available_providers": retry_pool} if retry_pool else None,
+            "user_message": (
+                f"{failing_provider} {failure_kind.replace('_', ' ')}; "
+                f"try {retry_pool[0]} next" if retry_pool else
+                f"All providers failed ({failure_kind})"
+            ),
+            "detail": exc_text[:240],
+        })]
 
     payload = result.to_dict()
     pending = _pending_ratings_hint()
@@ -689,7 +729,8 @@ async def _route(args: dict) -> list[Any]:
         if not available:
             return [_text({"ok": False, "error": "`available_models` is empty — no providers to route to"})]
     else:
-        available = ["claude", "gemini", "codex"]
+        from .config import default_council_members
+        available = default_council_members()
     current_provider = args.get("current_provider") or available[0]
     budget_pref = (args.get("budget") or "normal").lower()
     latency_pref = (args.get("latency") or "normal").lower()

@@ -5,12 +5,12 @@
 ### One question. Every model you use. One answer that knows you.
 
 ```bash
-pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
+pip install trinity-local && trinity-local install-mcp
 ```
+*Until PyPI publishes, the same wheel is `pip install git+https://github.com/vishigondi/trinity-local`.*
 
 One pain, one promise, one install command. The structure below cashes out each beat of
-the tagline. (Either install form works after v1.0 ship; before publish, only the
-git+https form does. `pip install trinity-local` is the canonical post-ship command.)
+the tagline.
 
 ### The 60-second demo
 

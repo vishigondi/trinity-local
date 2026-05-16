@@ -86,6 +86,13 @@ def handle_me_build(args):
     if distill_summary is not None:
         payload["distill"] = distill_summary
     print(json.dumps(payload, indent=2))
+    # 100-persona audit P51 fix: tell the user where to go next.
+    import sys as _sys
+    _sys.stderr.write(
+        "\n→ Lens built. View it:\n"
+        "    trinity-local lens-show\n"
+        "    open ~/.trinity/portal_pages/memory.html?file=lens.md\n"
+    )
 
 
 def handle_me_show(args):

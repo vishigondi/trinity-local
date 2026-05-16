@@ -488,6 +488,8 @@ def build_me_via_lens_pipeline(
     # taste-terminal spec). One batch chairman call classifies turn pairs
     # into REFRAME/COMPRESSION/REDIRECT/SHARPENING; deterministic
     # post-validators drop chairman-skim labels.
+    # Progress messages added per persona audit P51 (silent for 30-60s).
+    print(f"  Stage 0: turn-pair rejection extraction (chairman: {chairman_name})…", flush=True)
     turn_pairs, pair_index = collect_turn_pairs(limit=max(200, sample_size * 2))
     rejections: list = []
     rejected_records: list = []
@@ -497,6 +499,9 @@ def build_me_via_lens_pipeline(
         rejections, rejected_records = stage0_parse_and_validate(
             stage0_result.stdout or "", basins, pair_index,
         )
+        print(f"           → {len(rejections)} rejection signals kept, {len(rejected_records)} dropped by validators", flush=True)
+    else:
+        print(f"           → no turn pairs yet, skipping", flush=True)
 
     # Stage 2: decision extraction (one chairman call). Rejections
     # produced by Stage 0 are mixed into the sampled corpus as
@@ -512,9 +517,12 @@ def build_me_via_lens_pipeline(
                 "text": f"[{sig.type}] model said \"{sig.model_quote}\"; I went with: {sig.user_substitute}. {sig.why_signal}",
             })
 
+    print(f"  Stage 2: decision extraction (chairman: {chairman_name}, "
+          f"{len(augmented_samples)} samples)…", flush=True)
     stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
     stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
     decisions = stage2_parse(stage2_result.stdout or "", basins)
+    print(f"           → {len(decisions)} decisions extracted", flush=True)
 
     if not decisions:
         return me_path(), {
@@ -527,9 +535,11 @@ def build_me_via_lens_pipeline(
     # Stage 3: pair mining (one chairman call wraps the 3-member council
     # via the standard mcp run_council path; for the first cut we run a
     # single pass through chairman over decisions.jsonl).
+    print(f"  Stage 3: pair mining (chairman: {chairman_name})…", flush=True)
     stage3_prompt = stage3_pair_mining_prompt(decisions)
     stage3_result = primary.run(stage3_prompt, cwd=Path.cwd())
     pairs = stage3_parse(stage3_result.stdout or "")
+    print(f"           → {len(pairs)} candidate pairs proposed", flush=True)
 
     # Stage 4: deterministic basin post-filter
     accepted, orderings = stage4_post_filter(pairs, decisions)

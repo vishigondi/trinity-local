@@ -223,6 +223,14 @@ def handle_dream(args):
 
     report["total_ms"] = int((time.monotonic() - started) * 1000)
     print(json.dumps(report, indent=2))
+    # 100-persona audit C2 fix: tell the user where to go next.
+    print(
+        "\n→ Dream complete. Open your lens:\n"
+        "    open ~/.trinity/portal_pages/launchpad.html       # the dashboard\n"
+        "    open ~/.trinity/portal_pages/memory.html          # the lens viewer\n"
+        "    trinity-local me-card --out /tmp/me.png           # share-card PNG",
+        file=sys.stderr,
+    )
     return 0
 
 

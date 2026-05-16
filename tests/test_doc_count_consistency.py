@@ -516,6 +516,8 @@ class TestReadmeHeroInstallCommand:
         "until then",
         "until pypi",
         "until v1.0",
+        "pre-pypi",
+        "pre pypi",
     )
 
     def test_skill_install_commands_work_today(self):

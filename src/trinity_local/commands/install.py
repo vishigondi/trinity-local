@@ -111,6 +111,19 @@ def handle_install_mcp(args):
 
     if written:
         print(f"✓ Installed Trinity MCP server to: {', '.join(written)}")
+        # 100-persona audit P01/C4: restart-prompt — running harnesses
+        # cache MCP tool lists at connect time. Without this line, users
+        # type /trinity or hit run_council in the same session and see
+        # nothing happen.
+        print(
+            "\nNext: restart Claude Code / Codex / Gemini CLI / Cursor to pick "
+            "up the new tools.\n"
+            "Then verify with:  trinity-local doctor   (or type /trinity in "
+            "Claude Code)\n"
+            "On first MCP spawn, Trinity auto-scans ~/.claude, ~/.codex, "
+            "~/.gemini, cowork in the background — your first council is "
+            "already personalized."
+        )
     else:
         print("No MCP configuration files were updated.")
 

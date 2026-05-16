@@ -1129,8 +1129,13 @@ class TestMcpAskHandler:
         monkeypatch.setattr(mcp_server, "_dispatch_via_config", broken_dispatch)
 
         result = asyncio.run(mcp_server._ask({"query": "q"}))
-        # Should surface as ErrorData, not crash the server.
-        assert hasattr(result[0], "code") or "ErrorData" in type(result[0]).__name__
-        # Error message should mention rate limit for Claude in harness to act on.
-        if hasattr(result[0], "message"):
-            assert "rate limit" in result[0].message
+        # Structured error shape (persona audit D7 reshape) — surfaces
+        # as a {ok:false, error_code, recoverable, retry_with, ...} text
+        # response so the agent can auto-retry around the failure
+        # instead of seeing a free-form string.
+        import json
+        payload = json.loads(result[0]["text"])
+        assert payload["ok"] is False
+        assert payload["error_code"] == "RATE_LIMITED"
+        assert "rate limit" in payload["detail"].lower()
+        assert payload["recoverable"] is True or payload["retry_with"] is None
