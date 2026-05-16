@@ -60,7 +60,55 @@ simplification pass the audit unblocked.
 - `vocabulary.md` gains an Anchors section: proper-noun phrases
   recurring across ≥3 distinct threads.
 
-1183 tests passing; 28 doc-consistency guards green.
+**Launch-prep batch (later in the day, after the persona-audit fixes
+above):**
+
+- **Path traversal blocker (D6)**: `capture_host._write_capture` now
+  sanitizes `provider` + `conv_id` via a strict
+  `[a-zA-Z0-9._-]{1,80}` allowlist that rejects `..` + leading dot.
+  Before: a compromised Chrome extension OR server-controlled JSON
+  in `conv.uuid` could write attacker-controlled files anywhere the
+  user can write.
+- **Fresh-install hero command crash (D1)**: bundled
+  `data/config.example.json` as package_data so `pip install` +
+  `trinity-local council-launch --task "hello"` no longer
+  FileNotFoundError on a bare site-packages path. The
+  tweet-screenshot failure mode.
+- **Single-provider council mode**: `config.default_council_members()`
+  helper + 9 call sites swapped. Codex-only / claude-only / gemini-
+  only users no longer fire broken 3-column councils.
+- **Vendored 12 CDN JS deps locally**: petite-vue, chart.js, marked,
+  9 d3-* modules → `src/trinity_local/data/vendor/`. Privacy claim
+  ("never leaves your machine") becomes absolutely true — open the
+  launchpad with Wi-Fi off, it still renders.
+- **`trinity-local uninstall`**: inverse of install-mcp + install-app
+  + install-extension. Dry-run by default; `--yes` to delete;
+  `--include-data` for `~/.trinity/`; `--include-hf-cache` for the
+  nomic model. Preserves `~/.trinity/` by default (the wedge cuts
+  both ways).
+- **install-mcp → install-app chained on macOS**: one command now
+  drops the MCP integration AND the Trinity.app desktop icon.
+  Opt out with `--no-install-app`.
+- **install-app per-user paths**: AppleScript reads `$HOME` at launch
+  time instead of baking the installer's home. Real cross-user data
+  leak on shared machines fixed.
+- **install-app platform gate**: Linux/Windows bail loudly with a
+  one-line "use `trinity-local serve` instead" message instead of
+  crashing on `osacompile`.
+- **MCP `ask` structured error shape**: returns
+  `{ok, error_code, recoverable, retry_with: {available_providers},
+  user_message, detail}` so agents can auto-retry around
+  rate-limited providers — the rate-limit-dodge wedge in one hop.
+- **lens-build + dream + install-mcp printers**: progress messages
+  between chairman stages, restart-prompt after install, "open this
+  next" footers after lens-build and dream.
+- **Judge-picker fix (silent-0.5 catch)**: eval-run was alphabet-
+  picking MLX as judge and getting empty stdout for every score —
+  every model would have shipped a fake-precise 0.500. Picker now
+  prefers cloud chairmen (claude / codex / gemini) over local
+  MLX/Ollama.
+
+1211 tests passing; 28 doc-consistency guards green.
 
 ## [v1.6 — doc-consistency guards for new surfaces] — 2026-05-15
 

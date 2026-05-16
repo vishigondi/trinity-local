@@ -238,7 +238,7 @@ def invalidate_cache() -> None:
 
 
 def freeze_routing_to_disk() -> dict[str, Any]:
-    """Write the current routing table to `~/.trinity/memories/routing.json`.
+    """Write the current routing table to `~/.trinity/scoreboard/routing.json`.
 
     The table is otherwise lazy-computed on every call from
     `council_outcomes/`. Freezing lets the chairman context loader, Phase 5

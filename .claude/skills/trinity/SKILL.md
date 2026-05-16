@@ -44,8 +44,13 @@ If any required check fails, stop and walk the user through the surfaced fix lin
 If the user passed an argument, launch a council against it so they see a structured Routing JSON on their first run:
 
 ```
-mcp__trinity-local__run_council(task="$ARGUMENTS", members=["claude","gemini","codex"], mode="parallel")
+mcp__trinity-local__run_council(task="$ARGUMENTS", mode="parallel")
 ```
+
+(`members` defaults to the enabled subset of `claude / gemini / codex` —
+codex-only / claude-only users get a clean single-call instead of a
+broken 3-column council. Pass `members=["claude","gemini","codex"]`
+explicitly to force the full lineup.)
 
 Otherwise, summarize what's installed and suggest the obvious next move:
 

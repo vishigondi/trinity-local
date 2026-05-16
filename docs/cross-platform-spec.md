@@ -14,22 +14,42 @@
 > app, Cowork-style: install once, then double-click an app icon or use a menu
 > bar entry. Mobile starts thinner than a full controller: it opens review links
 > and closes the rating loop before it grows into paired remote dispatch.
+>
+> 2026-05-16 audit: current Claude Code docs show the pattern more clearly than
+> the first draft: full-power terminal, same engine across IDE/desktop/web,
+> desktop as "no terminal required" supervision surface, and phone/web as ways
+> to dispatch or steer work. Trinity follows that sequencing. It does not copy
+> the hosted-cloud default, Anthropic relay, or single-provider trust model.
 
 ## Reference Pattern
 
-Claude Code's useful lesson is not "build a bigger app." It is:
+Claude Code's useful lesson is not "build a bigger app." It is that the engine
+and the surfaces are separate product layers.
+
+### What Claude Code Did
+
+Verified against official Claude Code docs on 2026-05-16:
 
 1. **Terminal first.** The CLI is the complete product, scriptable and useful
-   before any graphical shell exists.
+   before any graphical shell exists. The docs still describe the terminal as
+   the full-featured CLI.
 2. **Same engine everywhere.** Terminal, IDE, desktop, web, and mobile attach
-   to the same underlying Claude Code capability rather than becoming separate
-   products.
+   to the same underlying Claude Code capability. The docs explicitly say each
+   surface connects to the same engine, settings, and MCP servers.
 3. **Desktop adds supervision.** The desktop app is strongest where the
    terminal is weak: visual diffs, multiple parallel sessions, preview servers,
-   scheduled/local tasks, and at-a-glance status.
-4. **Mobile starts and monitors work.** The phone is not the full development
-   environment. It dispatches tasks, monitors progress, and lets the user steer
-   or review while away from the keyboard.
+   scheduled/local tasks, integrated terminal/file editor, and at-a-glance
+   status.
+4. **Desktop becomes the non-terminal install path.** Claude Code Desktop can
+   run the Code tab with no separate CLI install, while the CLI remains available
+   for people who want it.
+5. **Mobile starts and monitors work.** Claude's phone surface opens Code
+   sessions by deep link or universal link, can dispatch tasks, and can steer or
+   review work while away from the keyboard.
+6. **Remote control is a separate trust decision.** Claude Remote Control keeps
+   execution on the user's machine, but messages are routed through Anthropic's
+   API. That is acceptable for Claude's trust model. Trinity needs a local-first
+   equivalent that keeps prompt content out of an OpenClaw relay by default.
 
 Trinity's version:
 
@@ -45,6 +65,13 @@ Trinity's version:
 5. **Mobile starts as a review companion.** It opens web links to council review
    pages, lets the user rate or mark picks wrong, and only later grows into
    paired dispatch.
+6. **Deep links are product contracts.** `trinity://...` and universal-link
+   fallbacks are how work moves between terminal, desktop, browser artifacts,
+   and phone without inventing a second state store.
+7. **Cloud is metadata-only unless explicitly approved.** Hosted pages may help
+   with install, update, discovery, universal-link bootstrap, or public registry
+   metadata. They must not hold private prompts, provider outputs, memories, or
+   routing decisions for ordinary users.
 
 ## Product Boundary
 
@@ -82,6 +109,14 @@ the routing, memory, cross-provider continuity, and supervision signal.**
    must feed the same `CouncilOutcome.metadata.user_verdict`,
    `council_feedback.jsonl`, cortex overrides, and routing ledger used by the
    terminal path.
+8. **Links must degrade without leaking content.** A hosted universal-link URL
+   may route to install, pairing, or an app-open fallback, but prompt text and
+   provider outputs must not be placed in the URL path, query string, or hosted
+   logs. Content loads from disk, an explicit exported artifact, or a paired
+   desktop node.
+9. **Mobile never writes around the ledger.** Phone actions become signed
+   desktop actions, then normal Trinity ledger writes. The phone does not get a
+   private shadow state.
 
 ## Phase 1: Terminal Foundation
 
@@ -146,6 +181,25 @@ The MCP surface remains the harness-facing mirror:
   `Trinity.app` to the user's normal app locations without requiring a source
   checkout script.
 
+### App-Facing Contracts
+
+Before desktop and mobile depend on the terminal engine, the CLI must expose
+stable machine-readable contracts. Desktop must call these contracts instead of
+scraping human prose or importing internal Python modules.
+
+| Contract | Producer | Consumers |
+|---|---|---|
+| Provider/auth/setup status | `trinity-local doctor --json` | desktop setup, mobile pairing preflight |
+| Active/recent/unrated councils | `trinity-local councils --json --status ...` | desktop home, mobile review queue |
+| One council run status | `trinity-local council-status <id> --json` | live progress, notifications |
+| Memory health | `trinity-local memory-health --json` | desktop memory screen, setup warnings |
+| Review artifact path | `trinity-local review-link <id> --json` | share sheet, universal-link bootstrap |
+| Device list/revoke | `trinity-local device-list --json`, `device-revoke <id>` | desktop settings, lost-phone recovery |
+
+If a command does not exist yet, this spec treats it as part of Milestone 0.
+Names may change during implementation, but the contract shape cannot: JSON
+with stable fields, deterministic errors, and a one-line remediation hint.
+
 ## Phase 2: Desktop App
 
 Objective: make Trinity feel like a normal local desktop app without making it
@@ -190,6 +244,19 @@ Non-coder launch requirements:
 - The app can repair its own launchpad, Shortcut, and MCP registrations.
 - Power-user CLI commands remain visible as advanced details, not the main path.
 
+Claude-Code-shaped desktop requirements:
+
+- Multiple active councils or handoffs can be watched side by side.
+- Provider disagreement is reviewable visually, the way Claude Desktop makes code
+  diffs reviewable visually. Trinity's version is an evidence/delta pane, not a
+  git diff pane.
+- Local scheduled work covers `dream`, `consolidate`, stale-memory checks, and
+  unrated-outcome reminders.
+- Desktop owns phone pairing and later phone dispatch. Mobile should not need to
+  know how to spawn provider CLIs directly.
+- A "continue in Trinity" handoff exists from static review pages and deep links,
+  matching Claude Code's cross-surface handoff pattern.
+
 ### Architecture
 
 Recommended first implementation:
@@ -213,6 +280,9 @@ Recommended first implementation:
 - **Rendering:** reuse existing static pages and shared CSS where practical,
   but move repeated UI primitives into a desktop component layer instead of
   copying launchpad HTML into multiple screens.
+- **Command adapter:** desktop owns presentation and cancellation UX; the Python
+  CLI owns behavior. All subprocess calls go through one adapter that handles
+  JSON decoding, progress, cancellation, stderr capture, and remediation text.
 
 ### Desktop State Additions
 
@@ -300,6 +370,40 @@ Expected workflows:
 - Queue ratings offline and submit when the paired desktop is reachable.
 - Later: capture a prompt by voice, send it to desktop as `ask` or `council`.
 
+### Link Contract
+
+Claude mobile's useful pattern is that app links and universal links are first
+class product routes. Trinity needs the same mechanic with a stricter data
+boundary.
+
+Initial routes:
+
+```text
+trinity://review/<council_id>
+trinity://council/new?draft=<local_handoff_id>
+trinity://handoff/<provider>?thread=latest
+https://trinity.openclaw.ai/app/review/<council_id>
+https://trinity.openclaw.ai/app/council/new?title=<optional-redacted-title>
+```
+
+Rules:
+
+- `trinity://...` opens the installed desktop or mobile app.
+- `https://trinity.openclaw.ai/app/...` is a universal-link bootstrap only: open
+  the app if installed, show install/pair instructions if not, and never log or
+  store private prompt content.
+- Review content loads from the paired desktop API, a local static artifact, or
+  an explicit user-exported share bundle. A public web endpoint must not be the
+  default review data source.
+- Private prompt text should move through the local clipboard, a local handoff
+  file, or the paired-device API, not through URL query strings. Links may carry
+  IDs, redacted titles, or user-approved exported bundles.
+- Fragment-only payloads (`#...`) may carry an encrypted user-exported bundle
+  because URL fragments are not sent to the server, but this is a share feature,
+  not the default private workflow.
+- Every link resolves to the same ledger record under `~/.trinity/`; links are
+  pointers, not state.
+
 ### Pairing Model
 
 Pairing is optional for read-only review links and required for any action that
@@ -322,7 +426,8 @@ Initial transport for rating and later remote actions:
 Future transport, after review-link MVP:
 
 - push notifications for "council finished" without prompt content;
-- optional encrypted relay for wake-up and routing metadata only;
+- optional encrypted relay for wake-up and routing metadata only, never prompt
+  content or provider outputs by default;
 - user-owned cloud sync folder for remote action queues if it preserves the
   no-hosted-controller rule.
 
@@ -400,6 +505,9 @@ structured views needed for the screen it is showing.
 - Keep `doctor --json` stable enough for app setup UIs.
 - Add or verify machine-readable output for `unrated`, active councils, memory
   health, and provider health.
+- Add the review-link and device-management JSON contracts needed by later
+  desktop/mobile milestones, even if their first implementation is a no-op or
+  empty list.
 - Make `handoff` reliable enough to be the cross-surface demo primitive.
 - Ensure every command has a deterministic error shape and a one-line fix.
 
@@ -432,6 +540,7 @@ browser launchpad.
 ### Milestone 3: Mobile Review Links
 
 - Define `trinity://review/<id>` and web fallback URL shapes.
+- Add the universal-link bootstrap route without hosting prompt content.
 - Add share/open affordances on desktop review pages.
 - Build mobile review rendering for chairman synthesis, provider outputs, and
   verdict controls.
@@ -480,12 +589,15 @@ loop without touching a hosted controller.
 2. **Transport for away-from-home mobile.** Tailscale/manual VPN preserves the
    trust model but has setup friction. A relay improves reachability but risks
    violating the brand if it ever sees prompt content.
-3. **Desktop supervisor lifetime.** The app should not create a surprise daemon.
+3. **Universal-link domain.** A hosted app-open route helps mobile UX, but the
+   implementation must prove that private prompt content never enters server
+   paths, queries, request bodies, or logs.
+4. **Desktop supervisor lifetime.** The app should not create a surprise daemon.
    The open question is whether menu bar mode counts as "explicitly running" for
    most users.
-4. **Notification privacy.** Completion notifications are useful, but titles can
+5. **Notification privacy.** Completion notifications are useful, but titles can
    leak prompt content. Default to generic notifications unless the user opts in.
-5. **Windows/Linux desktop timing.** Claude Code covers macOS, Windows, and
+6. **Windows/Linux desktop timing.** Claude Code covers macOS, Windows, and
    Linux. Trinity's v1 scope is macOS-first; cross-platform desktop should wait
    until the macOS local-node model is stable.
 
@@ -503,14 +615,21 @@ controller, it is no longer Trinity Local.
 
 ## External References
 
-- Claude Code overview: terminal, IDE, desktop app, and browser surfaces:
+- Claude Code overview: terminal, IDE, desktop app, browser, same-engine surfaces,
+  desktop handoff, phone dispatch, and Remote Control:
   <https://code.claude.com/docs/en/overview>
-- Claude Code product page: desktop, terminal, IDE, web/iOS, Slack, and phone
-  routing to desktop:
-  <https://claude.com/product/claude-code>
-- Claude Code web docs: cloud sessions, mobile monitoring, and moving tasks
-  between web and terminal:
+- Claude Code Desktop quickstart: no-terminal desktop install, Code tab, and
+  desktop/CLI split:
+  <https://code.claude.com/docs/en/desktop-quickstart>
+- Claude Code Desktop reference: parallel sessions, integrated terminal/file
+  editor, visual diff review, app previews, phone dispatch:
+  <https://code.claude.com/docs/en/desktop>
+- Claude Code web docs: cloud sessions, mobile monitoring, `--remote`, and
+  `--teleport`:
   <https://code.claude.com/docs/en/claude-code-on-the-web>
+- Claude Code Remote Control: local execution from phone/web, outbound-only
+  machine connection through Anthropic API, and limitations:
+  <https://code.claude.com/docs/en/remote-control>
 - Claude mobile deep links: Code tab, existing session, and new-session
-  composer:
+  composer plus universal-link fallback:
   <https://support.claude.com/en/articles/14898120-open-the-claude-mobile-app-with-a-link>

@@ -523,7 +523,7 @@ def build_page_data(
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "councilSuggestions": council_suggestions,
         "defaultGoal": "Find the strongest answer.",
-        "defaultMembers": ["claude", "gemini", "codex"],
+        "defaultMembers": __import__("trinity_local.config", fromlist=["default_council_members"]).default_council_members(),
         "defaultPrimaryProvider": None,
         "telemetry": telemetry,
         "settingsLinks": settings_links,

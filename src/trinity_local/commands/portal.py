@@ -7,8 +7,10 @@ import socketserver
 import sys
 import webbrowser
 from pathlib import Path
+from urllib.parse import quote
 
-from ..council_runtime import load_council_outcome
+from ..council_review import write_unified_council_page
+from ..council_runtime import load_council_outcome, load_prompt_bundle
 from ..notifications import open_path
 from ..refresh import refresh_launchpad
 from ..state_paths import review_pages_dir, trinity_home
@@ -26,6 +28,24 @@ def register(subparsers):
     orp.add_argument("--outcome", default=None)
     orp.add_argument("--path", default=None)
     orp.set_defaults(handler=handle_open_review)
+
+    rlp = subparsers.add_parser(
+        "review-link",
+        help="Print mobile-safe links for a council review page",
+    )
+    rlp.add_argument("council_id", help="Council run id, e.g. council_abc123")
+    rlp.add_argument("--json", dest="as_json", action="store_true")
+    rlp.add_argument(
+        "--web-base",
+        default="https://trinity.openclaw.ai/app",
+        help="Universal-link bootstrap base URL. Carries only the council id.",
+    )
+    rlp.add_argument(
+        "--no-web",
+        action="store_true",
+        help="Omit the hosted universal-link bootstrap URL.",
+    )
+    rlp.set_defaults(handler=handle_review_link)
 
     sp = subparsers.add_parser(
         "serve",
@@ -57,6 +77,42 @@ def handle_open_review(args):
         raise SystemExit("error: open-review requires --path, --task, or --outcome with a recorded review page")
     opened = open_path(target)
     print(json.dumps({"path": str(target), "opened": opened}, indent=2))
+
+
+def _review_link_payload(council_id: str, review_path: Path, web_base: str | None) -> dict:
+    safe_id = quote(council_id, safe="")
+    resolved = review_path.expanduser().resolve()
+    payload = {
+        "council_id": council_id,
+        "review_path": str(resolved),
+        "file_url": resolved.as_uri(),
+        "deep_link": f"trinity://review/{safe_id}",
+        "content_source": "local_review_artifact_or_paired_desktop",
+        "url_privacy": "URLs contain only the council id; review content stays local unless the user explicitly exports it.",
+    }
+    if web_base:
+        payload["web_url"] = f"{web_base.rstrip('/')}/review/{safe_id}"
+    return payload
+
+
+def handle_review_link(args):
+    outcome = load_council_outcome(args.council_id)
+    bundle = load_prompt_bundle(outcome.bundle_id)
+    review_path = write_unified_council_page(bundle, outcome)
+    payload = _review_link_payload(
+        outcome.council_run_id,
+        review_path,
+        None if args.no_web else args.web_base,
+    )
+    if args.as_json:
+        print(json.dumps(payload, indent=2))
+        return
+
+    print(f"Review file: {payload['file_url']}")
+    print(f"App link:    {payload['deep_link']}")
+    if payload.get("web_url"):
+        print(f"Web link:    {payload['web_url']}")
+    print("Privacy:     URL carries only council_id; content loads from local review artifact or paired desktop.")
 
 
 def handle_serve(args):

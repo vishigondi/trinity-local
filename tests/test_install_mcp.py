@@ -12,13 +12,17 @@ def home(patch_trinity_home: Path) -> Path:
     return patch_trinity_home
 
 
-def _run_install(monkeypatch, home_dir: Path, scope: str = "user"):
+def _run_install(monkeypatch, home_dir: Path, scope: str = "user", install_app: bool = False):
     from types import SimpleNamespace
 
     from trinity_local.commands.install import handle_install_mcp
 
     monkeypatch.setattr(Path, "home", lambda: home_dir)
-    handle_install_mcp(SimpleNamespace(scope=scope))
+    # install_app=False by default in tests — the chained Trinity.app
+    # install would shell out to osacompile and write to /Applications
+    # on macOS. The chain itself is exercised by TestInstallAppChain
+    # below with the launchpad install monkeypatched.
+    handle_install_mcp(SimpleNamespace(scope=scope, install_app=install_app))
 
 
 class TestInstallMcp:
@@ -266,6 +270,92 @@ class TestInstallTrinitySkill:
         assert skill_path.read_text() == custom, "user-edited SKILL.md must not be overwritten"
         out = capsys.readouterr().out
         assert "skipping" in out.lower() or "local edits" in out.lower()
+
+
+class TestInstallAppChain:
+    """The README hero install command is `pip install trinity-local && trinity-local install-mcp`.
+    For the non-coder positioning (Cowork-shaped double-click launch) to hold,
+    that command MUST also drop Trinity.app on Desktop / in Applications when
+    running on macOS — otherwise the user gets MCP but no desktop icon and
+    has to know to run `install-app` separately. Chain is gated to darwin and
+    is best-effort (failure doesn't break install-mcp)."""
+
+    def test_chain_runs_install_app_on_darwin(self, home: Path, monkeypatch, capsys):
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_mod
+        from trinity_local.commands.install import handle_install_mcp
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(install_mod.sys, "platform", "darwin")
+
+        called = []
+        def fake_install(*args, **kwargs):
+            called.append(True)
+            return [Path("/Applications/Trinity.app"), home / "Desktop" / "Trinity.app"]
+        monkeypatch.setattr(install_mod, "install_launchpad_shortcuts", fake_install)
+
+        handle_install_mcp(SimpleNamespace(scope="user", install_app=True))
+        assert called, "install-mcp on darwin must chain install_launchpad_shortcuts by default"
+        out = capsys.readouterr().out
+        assert "Trinity.app" in out
+
+    def test_chain_skipped_when_flag_false(self, home: Path, monkeypatch, capsys):
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_mod
+        from trinity_local.commands.install import handle_install_mcp
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(install_mod.sys, "platform", "darwin")
+
+        called = []
+        monkeypatch.setattr(
+            install_mod, "install_launchpad_shortcuts",
+            lambda *a, **kw: called.append(True) or [],
+        )
+
+        handle_install_mcp(SimpleNamespace(scope="user", install_app=False))
+        assert not called, "--no-install-app must suppress the chained Trinity.app install"
+
+    def test_chain_skipped_on_non_darwin(self, home: Path, monkeypatch, capsys):
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_mod
+        from trinity_local.commands.install import handle_install_mcp
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(install_mod.sys, "platform", "linux")
+
+        called = []
+        monkeypatch.setattr(
+            install_mod, "install_launchpad_shortcuts",
+            lambda *a, **kw: called.append(True) or [],
+        )
+
+        handle_install_mcp(SimpleNamespace(scope="user", install_app=True))
+        assert not called, "chain must not run outside darwin — Trinity.app is macOS-only"
+
+    def test_chain_failure_does_not_break_install_mcp(self, home: Path, monkeypatch, capsys):
+        """If osacompile is missing or /Applications is read-only, the chain
+        must fail soft — install-mcp itself still succeeds and the MCP
+        configs are written."""
+        from types import SimpleNamespace
+        from trinity_local.commands import install as install_mod
+        from trinity_local.commands.install import handle_install_mcp
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(install_mod.sys, "platform", "darwin")
+
+        def fake_install(*args, **kwargs):
+            raise FileNotFoundError("osacompile not found")
+        monkeypatch.setattr(install_mod, "install_launchpad_shortcuts", fake_install)
+
+        rc = handle_install_mcp(SimpleNamespace(scope="user", install_app=True))
+        # handle_install_mcp returns None on success; failure is the absence
+        # of a written config, not a chained-install failure.
+        assert rc is None
+        # MCP config still got written despite the chain failure.
+        assert (home / ".claude.json").exists()
+        out = capsys.readouterr().out
+        assert "install-app" in out and "skipped" in out
 
 
 def test_local_repo_skill_matches_packaged_skill():

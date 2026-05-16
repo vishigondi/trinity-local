@@ -9,6 +9,17 @@ from trinity_local.ranker.heuristic import HeuristicRanker
 from trinity_local.ranker.knn_ranker import KnnRanker
 
 
+@pytest.fixture(autouse=True)
+def _isolate_trinity_home(tmp_path, monkeypatch):
+    """Ranker tests may touch the embedding cache; keep it out of real ~/.trinity."""
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity_home"))
+    from trinity_local.embeddings import cache as embedding_cache
+
+    embedding_cache.clear_cache()
+    yield
+    embedding_cache.clear_cache()
+
+
 class TestRoutingContext:
     """RoutingContext contract: construction, immutability."""
 

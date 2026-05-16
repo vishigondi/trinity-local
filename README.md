@@ -9,8 +9,9 @@ pip install trinity-local && trinity-local install-mcp
 ```
 *Until PyPI publishes, the same wheel is `pip install git+https://github.com/vishigondi/trinity-local`.*
 
-One pain, one promise, one install command. The structure below cashes out each beat of
-the tagline.
+One pain, one promise, one install command. On macOS that single command drops
+**Trinity.app** on your Desktop too — open it like any other app, no terminal
+needed after install. The structure below cashes out each beat of the tagline.
 
 ### The 60-second demo
 
@@ -493,6 +494,7 @@ fragility per the spec's stability assessment).
 | `trinity-local doctor` | Pre-flight checks; surfaces a fix line per ✗ |
 | `trinity-local install-app` | Install or repair the Trinity desktop launcher |
 | `trinity-local council-launch --task "..."` | Run a council from the terminal |
+| `trinity-local review-link <council_id> --json` | Generate mobile-safe review links |
 | `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
 | `trinity-local portal-html --open` | Open the launchpad |

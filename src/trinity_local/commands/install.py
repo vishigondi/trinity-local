@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from importlib import resources
 from pathlib import Path
@@ -14,6 +15,13 @@ from ..refresh import refresh_launchpad
 def register(subparsers):
     imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, Codex CLI, and Cursor")
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
+    imp.add_argument(
+        "--no-install-app",
+        dest="install_app",
+        action="store_false",
+        default=True,
+        help="Skip chained Trinity.app desktop install (macOS only — install-mcp normally drops the icon so non-coders never see the CLI distinction).",
+    )
     imp.set_defaults(handler=handle_install_mcp)
 
     iap = subparsers.add_parser("install-app", help="Install the Trinity desktop launcher app")
@@ -111,6 +119,23 @@ def handle_install_mcp(args):
 
     if written:
         print(f"✓ Installed Trinity MCP server to: {', '.join(written)}")
+        # Chain Trinity.app install on macOS so the README hero install
+        # command produces both the MCP integration AND the double-click
+        # desktop launcher. Non-coders never see the CLI distinction —
+        # `pip install trinity-local && trinity-local install-mcp` puts
+        # an icon on the Desktop, Cowork-shaped. Best-effort: a missing
+        # osacompile or a non-writable destination logs a warning, never
+        # fails the MCP install. Opt out with --no-install-app.
+        if getattr(args, "install_app", True) and sys.platform == "darwin":
+            try:
+                app_paths = install_launchpad_shortcuts()
+                if app_paths:
+                    print(f"✓ Installed Trinity.app to: {', '.join(str(p) for p in app_paths)}")
+            except (OSError, FileNotFoundError, SystemExit, subprocess.CalledProcessError) as exc:
+                print(
+                    f"  (Trinity.app install skipped: {exc}. "
+                    "Run `trinity-local install-app` directly to retry.)"
+                )
         # 100-persona audit P01/C4: restart-prompt — running harnesses
         # cache MCP tool lists at connect time. Without this line, users
         # type /trinity or hit run_council in the same session and see

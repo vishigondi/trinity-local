@@ -253,7 +253,7 @@ def handle_consolidate(args):
         "path": str(_routing_patterns_path()),
         **({"routing_frozen": routing_summary} if routing_summary is not None else {}),
         "calibration_reminder": (
-            "Read ~/.trinity/memories/picks.json and verify ≥70% of the "
+            "Read ~/.trinity/scoreboard/picks.json and verify ≥70% of the "
             "extracted rules match your actual behavior before the cortex "
             "wires into the query hot-path (Week 3)."
         ),

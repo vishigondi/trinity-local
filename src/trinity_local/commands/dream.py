@@ -186,7 +186,7 @@ def handle_dream(args):
     else:
         print("dream phase 4/5: rebuilding lenses + freezing routing…", file=sys.stderr)
         me_report = _me_build(args.primary_provider or "claude")
-        # Freeze the empirical-memory entry to memories/routing.json so the
+        # Freeze the empirical-memory entry to scoreboard/routing.json so the
         # chairman context loader (and Phase 5 distill) sees the routing
         # signal without re-walking council_outcomes/ on every call.
         try:
