@@ -88,7 +88,11 @@ def handle_status(args):
                 "total_transcripts": total_transcripts,
                 "details": [a.to_dict() for a in adapters],
             },
-            "tasks": task_count,
+            # Key matches the on-disk directory (~/.trinity/todos/) AND
+            # the human "Todos:" display below. Internal Python name
+            # `tasks_dir()` retained for back-compat with the v1.7
+            # rename; external surfaces use the post-rename "todos".
+            "todos": task_count,
             "actions": {
                 "pending": len(pending_actions),
                 "completed": len(completed_actions),
