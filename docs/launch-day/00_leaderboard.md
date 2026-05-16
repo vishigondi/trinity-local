@@ -12,7 +12,7 @@ played judge so no provider grades itself.
 |---|---|---|---|---|
 | **codex** | **0.737** | 4/5 | claude | early N=5 run, not yet expanded |
 | **claude** | **0.661** | 20/20 | codex | full N=20 run; aggregate dropped from N=4's 0.708 as more axes sampled |
-| gemini | (API outage) | 0/10 | — | every dispatch attempt errored — re-run after API recovers |
+| gemini | (quota exhausted) | 0/10 | — | free-tier Gemini quota depleted during launch window; ~22h reset — re-run via repro command below |
 
 ## By rejection axis (claude N=20 — the substantive run)
 
@@ -68,10 +68,16 @@ chairmen (claude/codex/gemini in priority order).
 - N=4 per provider is thin. The 44-item eval set built from
   rejections.jsonl supports larger samples; the launch run is what
   fit in the credit window today.
-- Gemini scored zero items because its CLI errored on every dispatch
-  attempt during the launch window (`Error when talking to Gemini API`).
-  Reproduce after the API recovers via:
+- Gemini scored zero items because the test rig's free-tier Gemini
+  quota was exhausted during the launch window
+  (`TerminalQuotaError: You have exhausted your capacity on this model.
+  Your quota will reset after ~22h`). The API itself is healthy — the
+  user's subscription credits just ran out. Reproduce after the
+  quota resets via:
   `trinity-local eval-run --eval-id eval_d32567a386b9 --target gemini --limit 20`
+  This is exactly the kind of subsidy-window pressure the launch
+  positioning calls out: build the corpus while credits are cheap;
+  the corpus has lifetime value once subscriptions tighten.
 - Self-judging risk is mitigated by cross-judge pairs (codex judges
   claude, claude judges codex). Until gemini holds up, only those two
   comparisons are real.
