@@ -14,7 +14,7 @@ This skill is the orchestration layer that drives the `trinity-local` CLI from i
 **Three tiers** the user can run Trinity at (this skill is Tier 1):
 
 - **Tier 1 — Skill** (this file): markdown + JSON + tiny scripts at `~/.claude/skills/trinity/`. Trust mode read by Claude Code, no daemon, no listening port. What runs when the user types `/trinity`.
-- **Tier 2 — Pip** (`pip install trinity-local`): same engine, performance + convenience upgrade. The `trinity-local` CLI this skill calls.
+- **Tier 2 — Pip** (the `trinity-local` wheel — install path shown in section 2 below): same engine, performance + convenience upgrade. The `trinity-local` CLI this skill calls.
 - **Tier 3 — Chrome Extension**: cross-surface capture (web chats) + one-click launchpad. Optional. See `trinity-local install-extension`.
 
 All three tiers write to `~/.trinity/`. The data format is the contract; the tiers are surfaces.

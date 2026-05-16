@@ -93,6 +93,29 @@ def test_every_trinity_local_invocation_resolves(cli_subcommands):
     )
 
 
+def test_skill_md_synced_to_package_data():
+    """The skill artifact lives at TWO paths:
+      - skills/trinity/SKILL.md (canonical, repo-root, git-cloneable)
+      - src/trinity_local/data/skills/trinity/SKILL.md (bundled into the
+        pip wheel; install-mcp copies this to ~/.claude/skills/trinity/)
+
+    The repo-root path is the source of truth; the package-data path
+    must mirror it byte-for-byte. Drift here means the skill the user
+    git-clones is different from the skill `install-mcp` writes — and
+    the doc-consistency guards above only check the canonical one.
+    """
+    canonical = SKILL_PATH.read_text()
+    bundled = (Path(__file__).resolve().parents[1]
+               / "src" / "trinity_local" / "data" / "skills" / "trinity"
+               / "SKILL.md").read_text()
+    assert canonical == bundled, (
+        "skills/trinity/SKILL.md (canonical) and src/trinity_local/data/"
+        "skills/trinity/SKILL.md (package-bundled) have drifted. "
+        "Re-sync with: cp skills/trinity/SKILL.md src/trinity_local/data/"
+        "skills/trinity/SKILL.md"
+    )
+
+
 def test_skill_md_documents_three_tier_invariant():
     """The skill's framing carries the brand pitch. If the three-tier
     framing or the tier-equivalence claim drifts out of SKILL.md, the

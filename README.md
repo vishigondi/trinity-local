@@ -21,6 +21,12 @@ would have picked.
 On macOS that single command also drops **Trinity.app** on your Desktop — open it
 like any other app, no terminal needed after install.
 
+After install, **type `/trinity` in Claude Code** to use Trinity through the skill —
+the comprehensive driver at `~/.claude/skills/trinity/SKILL.md` orchestrates the CLI
+for you. The skill IS the user-facing contract; the pip wheel is the engine it
+calls. See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md) for
+how the skill (Tier 1), pip (Tier 2), and Chrome extension (Tier 3) relate.
+
 ### The 60-second demo
 
 Ask Claude a complex question. Mid-conversation, run `trinity-local handoff gemini`.
