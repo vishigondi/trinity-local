@@ -5,8 +5,8 @@ import json
 from .design_system import render_html_footer, render_html_head
 from .launchpad_runtime import launchpad_runtime_js
 
-PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
-CHART_JS_SRC = "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+PETITE_VUE_MODULE = "./vendor/petite-vue.es.js"
+CHART_JS_SRC = "./vendor/chart.umd.min.js"
 
 
 def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Dream your core memories") -> str:

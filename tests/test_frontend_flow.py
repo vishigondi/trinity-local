@@ -96,7 +96,7 @@ class TestLaunchpadFlow:
         assert "Dream your core memories" in html
         assert "launch_council" in html
         assert "Launchpad controls" in html
-        assert "petite-vue@0.4.1" in html
+        assert "petite-vue.es.js" in html
         assert "chart.umd.min.js" in html
         assert "Write a launch announcement for Trinity Local" in html
         assert "Top used council queries" in html
@@ -166,7 +166,7 @@ class TestLaunchpadFlow:
         # are the FIRST thing a new user sees and they can't be data-gated.
         assert "Dream your core memories" in html
         # Petite-vue + Chart.js must load — the JS deps aren't data-conditional.
-        assert "petite-vue@0.4.1" in html
+        assert "petite-vue.es.js" in html
         # Empty-state copy for the recent-councils card — exact string
         # comes from build_recent_cards_html's fallback path.
         assert "No councils yet. Launch one above to get started." in html

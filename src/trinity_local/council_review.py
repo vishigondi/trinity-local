@@ -89,7 +89,7 @@ def _render_routing_label_section(outcome: CouncilOutcome) -> str:
 
 
 
-PETITE_VUE_MODULE = "https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.es.js"
+PETITE_VUE_MODULE = "../portal_pages/vendor/petite-vue.es.js"
 LIVE_COUNCIL_LOADING_MESSAGES = [
     "Reticulating splines...",
     "Generating witty dialog...",

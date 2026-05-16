@@ -160,7 +160,7 @@ def render_memory_viewer_html() -> str:
     # renderer; ~30KB gzipped. Kills the dual-renderer problem (we already
     # have markdown_utils server-side for council pages; client-side
     # marked() keeps the memory viewer DRY).
-    marked_src = "https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+    marked_src = "./vendor/marked.min.js"
     # wordcloud2.js (timdream) — standalone, ~31KB. Used by the topics.json
     # Reader view to render a basin cloud above the bar list.
     # d3 modules for the topics.json basin-relation graph. We pull only
@@ -171,20 +171,20 @@ def render_memory_viewer_html() -> str:
     #   - d3-quadtree: spatial index used by forceCollide + forceManyBody
     #   - d3-force: the simulation itself
     # Total ~80KB — still under the full d3 (~250KB).
-    d3_select_src = "https://cdn.jsdelivr.net/npm/d3-selection@3.0.0/dist/d3-selection.min.js"
-    d3_dispatch_src = "https://cdn.jsdelivr.net/npm/d3-dispatch@3.0.1/dist/d3-dispatch.min.js"
-    d3_timer_src = "https://cdn.jsdelivr.net/npm/d3-timer@3.0.1/dist/d3-timer.min.js"
-    d3_quadtree_src = "https://cdn.jsdelivr.net/npm/d3-quadtree@3.0.1/dist/d3-quadtree.min.js"
-    d3_drag_src = "https://cdn.jsdelivr.net/npm/d3-drag@3.0.0/dist/d3-drag.min.js"
-    d3_force_src = "https://cdn.jsdelivr.net/npm/d3-force@3.0.0/dist/d3-force.min.js"
+    d3_select_src = "./vendor/d3-selection.min.js"
+    d3_dispatch_src = "./vendor/d3-dispatch.min.js"
+    d3_timer_src = "./vendor/d3-timer.min.js"
+    d3_quadtree_src = "./vendor/d3-quadtree.min.js"
+    d3_drag_src = "./vendor/d3-drag.min.js"
+    d3_force_src = "./vendor/d3-force.min.js"
     # d3-zoom — pan + scroll-wheel zoom on the topic graph. The viewer
     # advertises "scroll to zoom" in the hint chip; without this module
     # that was a lie.
-    d3_zoom_src = "https://cdn.jsdelivr.net/npm/d3-zoom@3.0.0/dist/d3-zoom.min.js"
+    d3_zoom_src = "./vendor/d3-zoom.min.js"
     # d3-interpolate is a transitive dep of d3-zoom (for the transform
     # interpolation during programmatic zoom). Tiny (~5KB).
-    d3_interpolate_src = "https://cdn.jsdelivr.net/npm/d3-interpolate@3.0.1/dist/d3-interpolate.min.js"
-    d3_color_src = "https://cdn.jsdelivr.net/npm/d3-color@3.1.0/dist/d3-color.min.js"
+    d3_interpolate_src = "./vendor/d3-interpolate.min.js"
+    d3_color_src = "./vendor/d3-color.min.js"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>

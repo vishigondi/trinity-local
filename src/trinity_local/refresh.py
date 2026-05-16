@@ -5,9 +5,18 @@ from pathlib import Path
 
 def refresh_launchpad(*, title: str = "Trinity · Own your memories") -> Path:
     from .launchpad_page import write_portal_html
+    from .state_paths import portal_pages_dir
+    from .vendor import publish_vendor_files
 
     _backfill_thread_manifests()
     _reap_zombie_tasks()
+    # Drop the vendored JS into ~/.trinity/portal_pages/vendor/ so the
+    # launchpad / memory viewer / council review pages have offline
+    # JS available via ./vendor/* — same dir as the HTML they reference
+    # from. Idempotent (skips when content matches). Privacy: closes
+    # persona audit P06's "13 CDN JS contradicts never-leaves-machine"
+    # objection.
+    publish_vendor_files(portal_pages_dir())
     return write_portal_html(title=title)
 
 
