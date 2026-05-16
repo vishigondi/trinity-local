@@ -202,11 +202,24 @@ def handle_eval_stats(args):
 
 
 def _default_judge_provider(target: str, configs: dict) -> str | None:
-    """Pick a judge that isn't the model being scored. Falls back to
-    target if no alternative is enabled (bias-trap warning surfaced
-    in the CLI output)."""
-    candidates = [name for name in configs if name != target and configs[name].enabled]
-    return candidates[0] if candidates else None
+    """Pick a judge that isn't the model being scored. Prefers cloud
+    chairman-grade providers (claude / codex / gemini) over local
+    models — pre-launch real-run discovered MLX was being picked as
+    judge by alphabetical default and returning empty stdout for the
+    judge prompt, defaulting every score to 0.5. Bias-trap warning
+    surfaced in the CLI output."""
+    # Preferred chairman-grade providers, in priority order.
+    preferred = ("claude", "codex", "gemini")
+    for name in preferred:
+        if name != target and name in configs and configs[name].enabled:
+            return name
+    # Fallback: any enabled non-target provider — but log a warning
+    # via the calling CLI when this branch hits, since it likely
+    # means an MLX/Ollama judge that may not produce structured output.
+    for name in configs:
+        if name != target and configs[name].enabled:
+            return name
+    return None
 
 
 def handle_eval_run(args):
