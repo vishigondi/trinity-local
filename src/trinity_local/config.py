@@ -64,14 +64,35 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
             — useful for read-only CLI commands that only inspect state.
     """
     path = config_path(explicit)
-    if not path.exists():
-        if not required:
-            return _empty_config()
-        raise FileNotFoundError(
-            f"Missing config file at {path}. Copy config.example.json to config.json first."
-        )
+    raw_text: str | None = None
+    if path.exists():
+        raw_text = path.read_text()
+    else:
+        # 100-persona audit D1 fix: a fresh wheel install has no
+        # `config.json` next to project_root(), so the README's first
+        # command (`council-launch --task "hello"`) used to crash with a
+        # FileNotFoundError pointing at a site-packages path the user
+        # neither owns nor knows about — the tweet-screenshot failure
+        # mode. Fall through to the bundled `data/config.example.json`
+        # so the hero command works on a clean pip install.
+        try:
+            from importlib import resources
+            raw_text = (
+                resources.files("trinity_local")
+                .joinpath("data/config.example.json")
+                .read_text(encoding="utf-8")
+            )
+        except (FileNotFoundError, ModuleNotFoundError, AttributeError):
+            raw_text = None
+        if raw_text is None:
+            if not required:
+                return _empty_config()
+            raise FileNotFoundError(
+                f"Missing config file at {path} and no bundled fallback found. "
+                "Run `trinity-local install-mcp` to recreate config.json."
+            )
 
-    raw = json.loads(path.read_text())
+    raw = json.loads(raw_text)
     providers: dict[str, ProviderConfig] = {}
     for name, provider in raw["providers"].items():
         providers[name] = ProviderConfig(

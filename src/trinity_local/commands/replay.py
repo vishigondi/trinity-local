@@ -44,11 +44,12 @@ def register(subparsers):
     parser.add_argument("--limit", type=int, default=20, help="Max councils to run")
     parser.add_argument("--task-type", default=None, help="Only replay prompts of this task_type")
     parser.add_argument("--source", default=None, help="Only replay prompts from this provider source")
+    from ..config import default_council_members
     parser.add_argument(
         "--members",
         nargs="+",
-        default=["claude", "gemini", "codex"],
-        help="Council members to compare",
+        default=default_council_members(),
+        help="Council members to compare (defaults to enabled subset of claude/gemini/codex)",
     )
     parser.add_argument(
         "--primary-provider",

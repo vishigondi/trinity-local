@@ -39,6 +39,7 @@ where = ["src"]
 trinity_local = [
     "data/skills/**/*.md",
     "data/vendor/*.js",
+    "data/config.example.json",
 ]
 
 [project.optional-dependencies]

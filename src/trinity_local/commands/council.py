@@ -112,7 +112,12 @@ def register(subparsers):
     council_launch_parser.add_argument("--instructions", default="Prefer the strongest answer for the user's current task.")
     council_launch_parser.add_argument("--context-file", default=None)
     council_launch_parser.add_argument("--project-hint", default="")
-    council_launch_parser.add_argument("--members", nargs="+", default=["claude", "gemini", "codex"])
+    # Default = enabled subset of canonical providers, not hardcoded 3-up.
+    # Codex-only / claude-only / gemini-only users no longer fire a broken
+    # 3-column council (persona audit P89). User can still pass --members
+    # claude gemini codex to force the full lineup.
+    from ..config import default_council_members
+    council_launch_parser.add_argument("--members", nargs="+", default=default_council_members())
     council_launch_parser.add_argument(
         "--primary-provider",
         default=None,

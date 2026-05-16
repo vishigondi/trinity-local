@@ -1,0 +1,150 @@
+{
+    "max_turns": 4,
+    "default_task_kind": "general",
+    "notifications": true,
+    "providers": {
+      "mlx": {
+        "type": "mlx",
+        "enabled": true,
+        "label": "MLX Small",
+        "model": "mlx-community/Qwen3-0.6B-4bit",
+        "command": [
+          "python3",
+          "-m",
+          "mlx_lm.generate"
+        ],
+        "args": [
+          "--temp",
+          "0.2",
+          "--max-tokens",
+          "900"
+        ],
+        "roles": [
+          "thinker",
+          "verifier"
+        ],
+        "task_types": [
+          "general",
+          "reasoning",
+          "coding"
+        ]
+      },
+      "claude": {
+        "type": "cli",
+        "enabled": true,
+        "label": "Claude",
+        "model": "claude-sonnet-4-6",
+        "command": [
+          "claude",
+          "-p"
+        ],
+        "args": [
+          "--model",
+          "claude-sonnet-4-6"
+        ],
+        "roles": [
+          "thinker",
+          "worker",
+          "verifier"
+        ],
+        "task_types": [
+          "general",
+          "reasoning",
+          "coding",
+          "writing"
+        ]
+      },
+      "gemini": {
+        "type": "cli",
+        "enabled": true,
+        "label": "Gemini",
+        "model": "gemini-2.5-pro",
+        "command": [
+          "gemini",
+          "-p"
+        ],
+        "args": [
+          "--model",
+          "gemini-2.5-pro"
+        ],
+        "roles": [
+          "thinker",
+          "verifier"
+        ],
+        "task_types": [
+          "general",
+          "reasoning",
+          "research"
+        ]
+      },
+      "codex": {
+        "type": "codex",
+        "enabled": true,
+        "label": "Codex",
+        "model": "gpt-5.3-codex",
+        "command": [
+          "codex",
+          "exec"
+        ],
+        "args": [
+          "--sandbox",
+          "workspace-write",
+          "--skip-git-repo-check",
+          "--model",
+          "gpt-5.3-codex"
+        ],
+        "roles": [
+          "worker",
+          "verifier"
+        ],
+        "task_types": [
+          "coding",
+          "debugging"
+        ]
+      }
+    },
+    "role_preferences": {
+      "thinker": [
+        "mlx",
+        "claude",
+        "gemini"
+      ],
+      "worker": [
+        "codex",
+        "claude",
+        "mlx"
+      ],
+      "verifier": [
+        "claude",
+        "gemini",
+        "mlx"
+      ]
+    },
+    "task_preferences": {
+      "coding": [
+        "codex",
+        "claude",
+        "mlx"
+      ],
+      "debugging": [
+        "codex",
+        "claude",
+        "gemini"
+      ],
+      "reasoning": [
+        "mlx",
+        "claude",
+        "gemini"
+      ],
+      "research": [
+        "gemini",
+        "claude",
+        "mlx"
+      ],
+      "general": [
+        "claude",
+        "mlx",
+        "gemini"
+      ]
+    }
+}

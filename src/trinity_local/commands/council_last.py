@@ -43,11 +43,12 @@ def register(subparsers):
         action="store_true",
         help="Skip the confirmation prompt; immediately fire the council.",
     )
+    from ..config import default_council_members
     parser.add_argument(
         "--members",
         nargs="+",
-        default=["claude", "gemini", "codex"],
-        help="Council members.",
+        default=default_council_members(),
+        help="Council members (defaults to enabled subset of claude/gemini/codex).",
     )
     parser.add_argument(
         "--dry-run",

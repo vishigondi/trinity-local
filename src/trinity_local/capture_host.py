@@ -98,7 +98,41 @@ def _extract_target(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]] 
     return None
 
 
+import re
+
+# 100-persona audit D6 fix (security blocker): conv_id + provider arrive
+# unsanitized via Chrome Native Messaging. A compromised/malicious extension
+# OR adversarial JSON in a captured response (conv.uuid is server-controlled)
+# could send provider="../../.." or conv_id="../../../../.ssh/authorized_keys"
+# and the host would happily write attacker-controlled JSON anywhere the
+# user can write. Strict allowlist on both fields blocks this primitive.
+_SAFE_ID_RX = re.compile(r"^[a-zA-Z0-9._-]{1,80}$")
+
+
+def _sanitize_id(value: str, label: str) -> str:
+    """Return value if it's filename-safe; else raise.
+
+    Allows ASCII alnum + `.` `_` `-`, capped at 80 chars (UUIDs +
+    `.stream` suffix fit). Rejects:
+      - non-string types (a malicious payload could send an int/dict)
+      - traversal sequences (`..`)
+      - leading dots (would hide files / disrupt globs)
+      - path separators (`/` `\\` already excluded by the allowlist)
+    """
+    if not isinstance(value, str) or not _SAFE_ID_RX.match(value):
+        raise ValueError(
+            f"unsafe {label}: must match [a-zA-Z0-9._-]{{1,80}}, got {value!r}"
+        )
+    if ".." in value or value.startswith("."):
+        raise ValueError(
+            f"unsafe {label}: contains traversal sequence or leading dot, got {value!r}"
+        )
+    return value
+
+
 def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) -> Path:
+    provider = _sanitize_id(provider, "provider")
+    conv_id = _sanitize_id(conv_id, "conv_id")
     target = _conv_dir() / provider / f"{conv_id}.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".tmp")

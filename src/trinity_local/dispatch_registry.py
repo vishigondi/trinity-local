@@ -73,7 +73,10 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
             return None
         goal = args.get("goal") or "Find the strongest answer."
         cwd = args.get("cwd") or "."
-        members = args.get("members") or ["claude", "gemini", "codex"]
+        # Single-provider users (persona P89) get the enabled subset, not
+        # the full hardcoded 3-lineup that fails 2/3.
+        from .config import default_council_members
+        members = args.get("members") or default_council_members()
         primary_provider = args.get("primary_provider")
         member_args = " ".join(shlex.quote(str(member)) for member in members)
         parts = [

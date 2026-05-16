@@ -195,3 +195,58 @@ def test_unrecognized_payload_errors_but_keeps_host_alive(tmp_path):
 
     proc.stdin.close()
     proc.wait(timeout=5)
+
+
+# 100-persona audit D6 fix: path traversal blocker.
+def test_provider_path_traversal_rejected(tmp_path, monkeypatch):
+    """Compromised extension sends provider='../../etc' — host MUST refuse
+    instead of writing outside ~/.trinity/conversations/."""
+    import pytest
+    from trinity_local.capture_host import _write_capture
+
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="unsafe provider"):
+        _write_capture("../../etc", "innocent_conv", {"chat_messages": []})
+
+    # Confirm nothing was written outside the conversations dir.
+    forbidden = tmp_path / ".." / "etc"
+    assert not forbidden.exists(), "path traversal succeeded — should have raised"
+
+
+def test_conv_id_path_traversal_rejected(tmp_path, monkeypatch):
+    """Same shape on conv_id — adversarial JSON in conv.uuid can't escape."""
+    import pytest
+    from trinity_local.capture_host import _write_capture
+
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="unsafe conv_id"):
+        _write_capture("claude", "../../../etc/passwd_attempt", {"chat_messages": []})
+
+
+def test_conv_id_with_slash_rejected(tmp_path, monkeypatch):
+    import pytest
+    from trinity_local.capture_host import _write_capture
+
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="unsafe conv_id"):
+        _write_capture("claude", "abc/def", {"chat_messages": []})
+
+
+def test_overlong_id_rejected(tmp_path, monkeypatch):
+    """DoS guard — 80-char cap blocks filename-length attacks
+    (cap is 80 to fit `<uuid>.stream` adapter suffix)."""
+    import pytest
+    from trinity_local.capture_host import _write_capture
+
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    long_id = "x" * 81
+    with pytest.raises(ValueError, match="unsafe conv_id"):
+        _write_capture("claude", long_id, {"chat_messages": []})
+
+
+def test_valid_uuid_passes(tmp_path, monkeypatch):
+    """Legitimate UUIDs (the common case) MUST keep working."""
+    from trinity_local.capture_host import _write_capture
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    target = _write_capture("claude", "abc123-def456_xyz-uuid", {"chat_messages": []})
+    assert target.exists()
