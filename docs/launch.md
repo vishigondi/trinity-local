@@ -164,6 +164,13 @@ visionary voice in 2026.
 >
 > **The cross-provider memory layer the labs are commercially prevented from building.**
 
+**Three tiers** (ratified by `council_ff3da1fa84906791`, 2026-05-16):
+> Skill primary — what you interact with when you type `/trinity` in Claude Code.
+> Pip — the engine the skill calls. Chrome extension — optional cross-surface
+> capture + one-click UI. Data in `~/.trinity/` is invariant across all three;
+> the tiers differ in *how* you invoke Trinity, not *what* Trinity computes.
+> See `docs/three-tier-architecture.md`.
+
 ---
 
 ## Hacker News title + opener

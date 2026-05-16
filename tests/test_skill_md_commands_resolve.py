@@ -93,27 +93,44 @@ def test_every_trinity_local_invocation_resolves(cli_subcommands):
     )
 
 
-def test_skill_md_synced_to_package_data():
-    """The skill artifact lives at TWO paths:
+def test_skill_md_synced_across_all_copies():
+    """The skill artifact lives at THREE paths:
       - skills/trinity/SKILL.md (canonical, repo-root, git-cloneable)
-      - src/trinity_local/data/skills/trinity/SKILL.md (bundled into the
-        pip wheel; install-mcp copies this to ~/.claude/skills/trinity/)
+      - src/trinity_local/data/skills/trinity/SKILL.md (bundled into
+        the pip wheel; install-mcp copies this to ~/.claude/skills/
+        trinity/)
+      - .claude/skills/trinity/SKILL.md (in-repo project skill — what
+        Claude Code reads when run from this checkout)
 
-    The repo-root path is the source of truth; the package-data path
-    must mirror it byte-for-byte. Drift here means the skill the user
-    git-clones is different from the skill `install-mcp` writes — and
-    the doc-consistency guards above only check the canonical one.
+    All three must stay byte-identical. Drift means the skill the user
+    git-clones differs from the skill install-mcp writes differs from
+    the skill an in-repo dev sees — the existing
+    `test_local_repo_skill_matches_packaged_skill` guards (.claude vs
+    package-data); this one adds the canonical repo-root path so all
+    three are pinned together.
     """
+    repo = Path(__file__).resolve().parents[1]
     canonical = SKILL_PATH.read_text()
-    bundled = (Path(__file__).resolve().parents[1]
-               / "src" / "trinity_local" / "data" / "skills" / "trinity"
-               / "SKILL.md").read_text()
+    bundled = (repo / "src" / "trinity_local" / "data" / "skills"
+               / "trinity" / "SKILL.md").read_text()
     assert canonical == bundled, (
-        "skills/trinity/SKILL.md (canonical) and src/trinity_local/data/"
-        "skills/trinity/SKILL.md (package-bundled) have drifted. "
-        "Re-sync with: cp skills/trinity/SKILL.md src/trinity_local/data/"
-        "skills/trinity/SKILL.md"
+        "skills/trinity/SKILL.md (canonical, git-tracked) and "
+        "src/trinity_local/data/skills/trinity/SKILL.md (package-bundled, "
+        "git-tracked) have drifted. Re-sync with:\n"
+        "  cp skills/trinity/SKILL.md src/trinity_local/data/skills/trinity/SKILL.md"
     )
+    # The .claude/skills/trinity/SKILL.md path is the in-repo dev copy
+    # for Claude Code running against this checkout; it's gitignored so
+    # CI never sees it. The existing
+    # `test_local_repo_skill_matches_packaged_skill` in test_install_mcp
+    # locks it against the package-data copy when present.
+    in_repo_dot_claude = repo / ".claude" / "skills" / "trinity" / "SKILL.md"
+    if in_repo_dot_claude.exists():
+        assert in_repo_dot_claude.read_text() == canonical, (
+            ".claude/skills/trinity/SKILL.md (dev convenience) has drifted "
+            "from skills/trinity/SKILL.md (canonical). Re-sync with:\n"
+            "  cp skills/trinity/SKILL.md .claude/skills/trinity/SKILL.md"
+        )
 
 
 def test_skill_md_documents_three_tier_invariant():
