@@ -154,6 +154,55 @@ class TestKickColdStartScan:
         assert final["status"] == "failed"
         assert "simulated parser breakage" in (final.get("error") or "")
 
+    def test_state_file_written_synchronously_before_thread_starts(
+        self, isolated_home, autoscan_enabled, monkeypatch,
+    ):
+        """Cross-process race guard: when two MCP servers (e.g. Claude
+        Code + Codex CLI + Gemini CLI + Cursor) start at session-load
+        and each calls is_cold_start() simultaneously, only one should
+        actually spawn a scan thread. The serialization point is the
+        on-disk state file. This test asserts kick_cold_start_scan
+        writes the in_progress state SYNCHRONOUSLY (before returning
+        from the parent thread), so the second simultaneous caller's
+        is_cold_start() check fails on the state-file-exists branch.
+
+        Previous behavior wrote state inside the daemon thread body
+        and polled for it to appear (~200ms window for the race).
+        Now the parent writes synchronously, then spawns the thread.
+        """
+        from trinity_local.cold_start import (
+            kick_cold_start_scan, cold_start_state_path, is_cold_start,
+        )
+
+        _stub_one_source_available(monkeypatch)
+
+        # Block ingest_recent so the daemon thread sleeps forever —
+        # this lets us inspect state immediately after kick returns
+        # without races on test thread vs daemon thread.
+        import threading
+        block = threading.Event()
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest.ingest_recent",
+            lambda **kw: (block.wait(), None)[1],
+        )
+        try:
+            initial = kick_cold_start_scan(deadline_s=1.0)
+            # The function returned — state file MUST be on disk now.
+            assert cold_start_state_path().exists(), (
+                "kick_cold_start_scan returned but state file not yet "
+                "written — race window still open for second caller"
+            )
+            # And is_cold_start() must now return False (the
+                # short-circuit the race fix relies on).
+            assert is_cold_start() is False, (
+                "is_cold_start() still True after kick_cold_start_scan "
+                "returned — second caller would spawn a duplicate scan"
+            )
+            assert initial is not None
+            assert initial["status"] == "in_progress"
+        finally:
+            block.set()
+
     def test_idempotent_when_state_file_already_present(self, isolated_home, autoscan_enabled, monkeypatch):
         """Once a scan has run (state file present), a second kick is a
         no-op — we don't re-scan transcripts already covered by the

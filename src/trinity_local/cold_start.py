@@ -108,26 +108,20 @@ def _write_state(state: dict) -> None:
     tmp.replace(path)
 
 
-def _run_scan(sources: list[str], deadline_s: float) -> None:
-    """The thread body. Writes the state file at start, runs the scan,
-    rewrites with results. Wrapped in broad try/except: a parser blow-up
-    in any source cannot leave the state file at status=in_progress
-    forever (would block future cold-start triggers)."""
+def _run_scan(sources: list[str], deadline_s: float, start_iso: str) -> None:
+    """The thread body. Runs the scan, rewrites the state file with the
+    result. Wrapped in broad try/except: a parser blow-up in any source
+    cannot leave the state file at status=in_progress forever (would
+    block future cold-start triggers).
+
+    The initial in_progress state file is written synchronously by
+    ``kick_cold_start_scan`` BEFORE this thread starts, so the
+    cross-process race (two MCP servers calling is_cold_start()
+    simultaneously) closes via the existence-check on the state file.
+    """
     from .incremental_ingest import ingest_recent
 
-    start_iso = now_iso()
     started = time.monotonic()
-    _write_state({
-        "status": "in_progress",
-        "started_at": start_iso,
-        "finished_at": None,
-        "sources_detected": list(sources),
-        "added": 0,
-        "scanned": 0,
-        "deadline_s": deadline_s,
-        "error": None,
-    })
-
     error: str | None = None
     added = 0
     scanned = 0
@@ -156,27 +150,46 @@ def kick_cold_start_scan(deadline_s: float = DEFAULT_SCAN_DEADLINE_S) -> dict | 
     state dict (with status=in_progress), or None when no scan was kicked
     (autoscan disabled, corpus non-empty, prior scan present, or no
     available sources). Caller doesn't wait — the thread runs to deadline
-    or completion and rewrites the state file."""
+    or completion and rewrites the state file.
+
+    The initial in_progress state file is written SYNCHRONOUSLY before
+    the daemon thread starts. This closes the cross-process race where
+    two MCP servers (Claude Code + Codex CLI + Cursor + Gemini CLI all
+    spawn on session start) call is_cold_start() simultaneously and
+    both see an empty state — only the first to reach this function
+    creates the state file; the rest hit the `is_cold_start()`
+    state-file-exists short-circuit and return None.
+    """
     if not is_cold_start():
         return None
     sources = detect_available_sources()
     if not sources:
         return None
 
+    start_iso = now_iso()
+    # Write the in_progress state BEFORE spawning the thread so the
+    # second simultaneous caller's is_cold_start() check sees it and
+    # bails. Within a single process, threading.Lock would be cheaper
+    # but doesn't help across processes; the on-disk state file is
+    # the cross-process serialization point.
+    _write_state({
+        "status": "in_progress",
+        "started_at": start_iso,
+        "finished_at": None,
+        "sources_detected": list(sources),
+        "added": 0,
+        "scanned": 0,
+        "deadline_s": deadline_s,
+        "error": None,
+    })
+
     thread = threading.Thread(
         target=_run_scan,
-        args=(sources, deadline_s),
+        args=(sources, deadline_s, start_iso),
         name="trinity-cold-start-scan",
         daemon=True,
     )
     thread.start()
-    # Give the thread a beat to write the initial state file, so the
-    # immediate next is_cold_start() call sees status=in_progress and
-    # doesn't double-fire.
-    for _ in range(20):
-        if cold_start_state_path().exists():
-            break
-        time.sleep(0.01)
     return read_state()
 
 
