@@ -257,10 +257,11 @@ def split_by_verdict(pairs: list[LensPair]) -> tuple[list[LensPair], list[LensPa
 
 
 def save_lenses(accepted: list[LensPair], orderings: list[LensPair]) -> tuple[Path, Path]:
+    from ..utils import atomic_write_text
     lp = lenses_path()
     op = orderings_path()
-    lp.write_text(json.dumps({"lenses": [p.to_dict() for p in accepted]}, indent=2))
-    op.write_text(json.dumps({"orderings": [p.to_dict() for p in orderings]}, indent=2))
+    atomic_write_text(lp, json.dumps({"lenses": [p.to_dict() for p in accepted]}, indent=2))
+    atomic_write_text(op, json.dumps({"orderings": [p.to_dict() for p in orderings]}, indent=2))
     return lp, op
 
 

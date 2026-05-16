@@ -211,4 +211,5 @@ def save_cursor(source: str, cursor: dict) -> None:
         else:
             all_cursors = {}
         all_cursors[source] = cursor
-        path.write_text(json.dumps(all_cursors, indent=2), encoding="utf-8")
+        from ..utils import atomic_write_text
+        atomic_write_text(path, json.dumps(all_cursors, indent=2))

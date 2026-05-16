@@ -157,9 +157,10 @@ def create_review_ready_action(
 
 
 def save_action(action: PendingAction) -> Path:
+    from .utils import atomic_write_text
     action.updated_at = now_iso()
     path = actions_dir() / f"{action.action_id}.json"
-    path.write_text(json.dumps(action.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(action.to_dict(), indent=2))
     return path
 
 
