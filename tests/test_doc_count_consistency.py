@@ -47,9 +47,16 @@ def _extract(path: Path, pattern: str) -> str | None:
 
 
 class TestTestCountConsistency:
-    """Three known surfaces pin the pytest count. They must agree."""
+    """Four surfaces pin the pytest count. They must agree.
 
-    def test_three_surfaces_agree(self):
+    CHANGELOG.md is intentionally NOT in the guard set — per Principle
+    #8, CHANGELOG entries are timestamped and allowed to be stale.
+    Current-state surfaces (claude.md status, claude.md verified,
+    product-spec item 11, 10_hn_faq_full.md launch FAQ closing claim)
+    are not — they describe what's true *now*, so they drift loudly.
+    """
+
+    def test_four_surfaces_agree(self):
         # Surface A: claude.md Status block — "N tests passing"
         status_count = _extract(
             CLAUDE_MD,
@@ -65,24 +72,32 @@ class TestTestCountConsistency:
             PRODUCT_SPEC,
             r"Test suite:\s*(\d+) passing",
         )
+        # Surface D: docs/launch-day/10_hn_faq_full.md closing claim —
+        # "N tests, M doc-consistency guards" (the launch-day "trust us"
+        # numbers a reader sees on the HN FAQ page).
+        hn_faq_count = _extract(
+            REPO / "docs" / "launch-day" / "10_hn_faq_full.md",
+            r"(\d+) tests,\s*\d+ doc-consistency guards",
+        )
 
-        # All three must be present (locating-the-marker is itself a guard
-        # against someone re-titling a section and breaking the pin point).
+        # All four must be present.
         assert status_count, "claude.md Status block lost the 'N tests passing' marker"
         assert verified_count, "claude.md Verified status lost the 'pytest -q — **N passed**' marker"
         assert spec_count, "product-spec.md item 11 lost the 'Test suite: N passing' marker"
+        assert hn_faq_count, "10_hn_faq_full.md lost the 'N tests, M doc-consistency guards' closing marker"
 
-        # All three numbers must agree.
+        # All four numbers must agree.
         counts = {
             "claude.md status": status_count,
             "claude.md verified": verified_count,
             "product-spec item 11": spec_count,
+            "10_hn_faq_full closing": hn_faq_count,
         }
         unique = set(counts.values())
         assert len(unique) == 1, (
             f"Test count drifted across surfaces: {counts}. "
             f"Principle #20: when you bump the test count, bump it in "
-            f"ALL three places in the same commit. Single-source-of-truth "
+            f"ALL four places in the same commit. Single-source-of-truth "
             f"would be cleaner long-term."
         )
 
