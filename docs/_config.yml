@@ -1,0 +1,39 @@
+# Trinity Local — GitHub Pages config.
+#
+# Source: docs/ on main branch (set this in the repo's Settings → Pages).
+# Theme: minima is the GH Pages default; switch later if we want a custom
+# landing page with hero / screenshots / install widget.
+
+title: "Trinity Local"
+description: "Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor."
+url: "https://vishigondi.github.io"
+baseurl: "/trinity-local"
+
+# Use the minima theme (ships with GH Pages by default).
+theme: minima
+minima:
+  skin: classic
+
+# Show GitHub repo link in the nav.
+github_username: vishigondi
+repository: vishigondi/trinity-local
+
+# Markdown processor (kramdown is the GH Pages default — supports
+# GitHub-flavored markdown).
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+
+# Exclude things from the published site that don't belong on the
+# public web (council outcome JSONs, launch-day prep notes, internal
+# checklists). These stay in the repo but don't render as web pages.
+exclude:
+  - launch_councils/
+  - launch-day/
+  - LAUNCH_CHECKLIST.md
+  - smoke/
+  - experiments/
+  - "*.png"  # binary assets stay at their repo path; we link to them as-needed
+
+# Permalinks: keep them shallow + readable.
+permalink: /:path/

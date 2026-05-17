@@ -14,25 +14,36 @@ Code shows the bash invocations) and audited (`~/.trinity/audit.log`).
 
 ## Install path
 
-Skill tier requires the pip wheel underneath (the engine that does
-the work). The skill is the user-facing contract; pip is the
-plumbing.
+One curl-bash. Trinity is a git clone, not a published package. The
+installer drops the skill at `~/.claude/skills/trinity/`, writes thin
+shell wrappers in `~/.local/bin/`, registers MCP in every harness it
+finds, and runs `doctor`:
 
 ```bash
-# Pre-PyPI (today):
-pip install git+https://github.com/vishigondi/trinity-local
-trinity-local install-mcp
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 ```
 
-After v1.0 ships to PyPI, the same wheel is on the index — no
-`git+https://` prefix needed.
+Prefer to inspect before piping to bash? Same install in two steps:
 
-The `install-mcp` step:
-- Wires the Trinity MCP server into Claude Code, Codex CLI, Gemini
-  CLI, and Cursor (edits each harness's MCP config; non-destructive)
-- Copies `skills/trinity/SKILL.md` from the wheel's package data into
-  `~/.claude/skills/trinity/`. Claude Code reads it when you type
-  `/trinity`.
+```bash
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh -o install.sh
+less install.sh    # ~150 lines of plain bash; read it
+bash install.sh
+```
+
+What the installer does:
+1. Verifies Python 3.10+ is on PATH (doesn't try to install Python
+   for you — too many opinions on how it should be managed)
+2. `git clone` the repo to `~/.claude/skills/trinity/` (or `git pull`
+   if already present — idempotent)
+3. Drops `~/.local/bin/trinity-local` + `~/.local/bin/trinity-local-capture-host`
+   as thin shell wrappers (~5 lines each; PYTHONPATH-set + exec)
+4. Runs `trinity-local install-mcp` to register the MCP server in
+   Claude Code, Codex CLI, Gemini CLI, and Cursor (non-destructive
+   edits to each harness's config)
+5. Runs `trinity-local doctor` to verify
+
+No PyPI, no npm. Updates: `trinity-local update` — pulls + refreshes.
 
 ## After install
 
@@ -84,8 +95,9 @@ trinity-local audit-show --last 20 # grep the audit ledger
 
 ## See also
 
-- `INSTALL-pip.md` — install Trinity as a CLI-only tool (no Claude
-  Code skill registration; useful for headless / CI use)
+- `INSTALL-pip.md` — Python-library access for users who want
+  `from trinity_local import council_runtime` in their own code
+  (uses the same git clone; `pip install -e .` from there)
 - `INSTALL-extension.md` — install the Chrome extension for cross-
   surface capture + one-click UI
 - `three-tier-architecture.md` — full architecture

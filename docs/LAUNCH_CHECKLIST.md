@@ -34,13 +34,11 @@ clicks. Today they all 404; flipping them is what makes Monday's
 launch live.
 
 - [ ] **github.com/vishigondi/trinity-local goes public.** Repo is
-      private. Every launch URL points here. Make public Sunday
-      night / Monday morning.
-- [ ] **PyPI publishes the trinity-local wheel.** The README and
-      SKILL.md install snippets use `git+https://...` as the
-      pre-PyPI fallback; the canonical `pip install trinity-local`
-      goes live when PyPI accepts the upload. Run `python -m build
-      && twine upload dist/*` from a clean checkout.
+      private. Every launch URL points here — including the
+      `curl -fsSL .../install.sh | bash` lead. Make public Sunday
+      night / Monday morning. This is the ONLY external gate that
+      MUST flip — no PyPI publish, no npm publish; Trinity ships as
+      a git clone via curl|sh.
 - [ ] **Demo recording shot + hosted.** Task #120: the 60-second
       cross-provider handoff demo. Use `trinity-local handoff
       gemini` mid-conversation; show Gemini picking up the thread

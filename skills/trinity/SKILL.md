@@ -27,19 +27,19 @@ If `NOT_INSTALLED`, run section 2. Otherwise skip to section 3.
 
 ## 2. Install
 
-Prefer `pipx` (isolates the install) when available; fall back to `pip --user` otherwise. Until PyPI publish lands at v1.0 ship, install from GitHub directly.
+Trinity ships as a git clone, not a published package. The installer drops the skill in `~/.claude/skills/trinity/`, writes thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have, and runs `doctor`.
 
-!`command -v pipx >/dev/null && pipx install git+https://github.com/vishigondi/trinity-local || pip install --user git+https://github.com/vishigondi/trinity-local`
+!`curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash`
 
-If both fail because the user is on a managed Python, surface the error and recommend:
+If the user wants to inspect first (recommended for trust-cautious users):
 
 ```
-python3 -m venv ~/.trinity-venv
-~/.trinity-venv/bin/pip install git+https://github.com/vishigondi/trinity-local
-ln -s ~/.trinity-venv/bin/trinity-local ~/.local/bin/trinity-local
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh -o /tmp/trinity-install.sh
+less /tmp/trinity-install.sh
+bash /tmp/trinity-install.sh
 ```
 
-Once PyPI publishes: `pipx install trinity-local`.
+The installer needs `git` + `python3.10+` on PATH. If Python is missing, recommend `brew install python@3.12` (macOS) or the distro equivalent (`apt install python3.12` etc.) — Trinity doesn't manage Python versions itself; too many opinions on how to do that.
 
 ## 3. Pre-flight checks
 
@@ -53,7 +53,7 @@ If any required check fails, walk the user through the surfaced fix. Don't proce
 
 ## 4. Register the MCP server in every harness
 
-Wires the Trinity MCP tools into Claude Code, Codex CLI, Gemini CLI, and Cursor. Edits `~/.claude.json`, `~/.codex/config.toml`, `~/.gemini.json`, `~/.cursor/mcp.json` — non-destructive, only adds the Trinity entry.
+The installer in section 2 already ran this. If MCP needs re-registration (after a `trinity-local update`, or to wire a newly-installed harness), run:
 
 v1.0 ships 11 MCP tools:
 - **canonical six** — `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`

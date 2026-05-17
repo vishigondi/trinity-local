@@ -16,7 +16,7 @@ What ships today (v1.7, MIT): the handoff tool, multi-model councils with a chai
 
 Install (macOS, Python 3.10+):
 
-    pip install trinity-local && trinity-local install-mcp
+    curl -fsSL trinity.local/install.sh | bash
 
 Then `trinity-local handoff gemini` from inside any thread.
 

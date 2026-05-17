@@ -15,20 +15,13 @@ would have picked.
 `~/.claude/skills/trinity/SKILL.md` orchestrates everything — install, first-run
 flow, councils, handoff, eval. It IS the user-facing contract.
 
-Underneath, a pip wheel ships the engine the skill calls. One line wires both:
+One line — clones the skill into `~/.claude/skills/trinity/`, drops two thin shell
+wrappers in `~/.local/bin/`, registers MCP in every harness you have, and runs
+`doctor`:
 
 ```bash
-# Pre-PyPI:
-pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
-
-# After v1.0 publishes:
-pip install trinity-local && trinity-local install-mcp
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 ```
-
-`install-mcp` registers Trinity's MCP server in Claude Code, Codex CLI, Gemini CLI,
-and Cursor, then copies the skill into `~/.claude/skills/trinity/`. On macOS it also
-drops **Trinity.app** on your Desktop — open like any other app, no terminal needed
-after.
 
 Then in Claude Code:
 
@@ -37,11 +30,13 @@ Then in Claude Code:
 ```
 
 The skill walks the rest — `doctor` checks, transcript ingest, dreaming your core
-memories, your first council. Three install paths exist:
+memories, your first council. No PyPI, no npm — Trinity is a git clone you can read
+end-to-end (`ls ~/.claude/skills/trinity/`). Updates: `trinity-local update`. Three
+install paths exist:
 
 - **Tier 1 (Skill, primary)** — what `/trinity` runs. See [`docs/INSTALL-skill.md`](docs/INSTALL-skill.md)
-- **Tier 2 (Pip, engine)** — CLI-only / headless / CI. See [`docs/INSTALL-pip.md`](docs/INSTALL-pip.md)
-- **Tier 3 (Chrome extension, optional)** — cross-surface capture + one-click UI
+- **Tier 2 (Engine)** — CLI-only / headless / CI / Python-library use. See [`docs/INSTALL-pip.md`](docs/INSTALL-pip.md)
+- **Tier 3 (Chrome extension, optional)** — cross-surface capture + one-click UI. See [`docs/INSTALL-extension.md`](docs/INSTALL-extension.md)
 
 Three tiers, one `~/.trinity/` data contract. See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md).
 
