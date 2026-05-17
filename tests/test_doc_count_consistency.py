@@ -1120,6 +1120,13 @@ class TestNoUnregisteredVanityDomains:
             REPO / "docs" / "launch.md",
             REPO / "docs" / "launch-package.md",
             REPO / "docs" / "founder-essay-draft.md",
+            # All docs/launch-day/*.md ship publicly as the tweet thread /
+            # HN opener / pricing one-pager — coverage gap caught when
+            # `trinity.local/install.sh` slipped through in tweet thread
+            # lines 11, 72 + HN post line 19 (commit 5605d36 found this
+            # via 4-agent audit; the original guard only covered launch.md
+            # not the per-day launch-day directory).
+            *sorted((REPO / "docs" / "launch-day").glob("*.md")),
         ]
         leaks: list[tuple[str, int, str]] = []
         for path in launch_docs:
@@ -1128,11 +1135,28 @@ class TestNoUnregisteredVanityDomains:
             except OSError:
                 continue
             for lineno, line in enumerate(lines, 1):
-                # Match `https://trinity.local/...` or
-                # `(https://trinity.local/...)` or backtick-quoted
-                # versions. The path component is what makes it a URL
-                # vs an mDNS reference.
-                for m in re.finditer(r"https?://(trinity\.local/[^\s\)`'\"]*)", line):
+                # Match `trinity.local/...` with or without protocol —
+                # the bare-host shape (`curl trinity.local/install.sh`)
+                # is the most dangerous because it's CLICK-EQUIVALENT
+                # (the reader copy-pastes the command). The optional
+                # `https?://` prefix is in the same match so we don't
+                # need a variable-width lookbehind (which Python re
+                # doesn't support).
+                for m in re.finditer(r"(?:https?://)?trinity\.local/[A-Za-z0-9_./-]+", line):
+                    # Allow lines that explicitly document the URL as
+                    # historical / deferred / removed — same allowlist
+                    # the BLOCKED_DOMAINS check uses below. Without
+                    # this, the guard can't distinguish "shipping copy
+                    # promises this URL" from "doc explains we dropped
+                    # this URL in favor of GitHub-native channel."
+                    lower = line.lower()
+                    if any(marker in lower for marker in (
+                        "earlier plan",
+                        "deferred",
+                        "removed",
+                        "sunset",
+                    )):
+                        continue
                     leaks.append((path.name, lineno, m.group(0)))
                 for blocked in self.BLOCKED_DOMAINS:
                     if blocked in line:

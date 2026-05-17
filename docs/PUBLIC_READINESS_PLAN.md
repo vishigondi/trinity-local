@@ -16,7 +16,7 @@
 
 ## Tier 1 — HIGH (fix before flipping public)
 
-- [ ] **H1. Replace `trinity.local/install.sh` vanity URL with the real one.** `docs/launch-day/01_tweet_thread.md:11,72` and `docs/launch-day/02_show_hn_post.md:19` use a domain that isn't registered. Every other surface uses `https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh`. Sweep both files. After: re-grep the repo for any other `trinity\.local/` references; if zero, add a guard in `tests/test_doc_count_consistency.py` asserting the string never reappears in `docs/launch-day/`.
+- [x] **H1. Replace `trinity.local/install.sh` vanity URL with the real one.** ✓ done in commit (see git log). Swept `docs/launch-day/01_tweet_thread.md:11,72` and `docs/launch-day/02_show_hn_post.md:19`. Extended `tests/test_doc_count_consistency.py::TestNoUnregisteredVanityDomains` to cover `docs/launch-day/*.md` (was a guard coverage gap — the same shape can't recur) and to match the bare-host form (`curl trinity.local/...`, no protocol prefix) in addition to the existing `https://` form.
 
 - [ ] **H2. Reconcile the v1.0 vs v1.7 version story.** Today: `docs/launch.md:90` says "v1 ships May 2026", `docs/launch-package.md:16` says "v1.0", `docs/launch-day/01_tweet_thread.md` says "v1.7", `README.md:302` confirms v1.7 actually shipped. Pick one (recommend `v1.7` everywhere since that's what's on disk) and sweep all four surfaces in one commit. Add a doc-consistency guard in `tests/test_doc_count_consistency.py` that asserts the version string is identical across the four files.
 

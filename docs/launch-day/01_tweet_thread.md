@@ -8,7 +8,7 @@ Today I shipped the layer above them.
 2. Tweet 2 (218/280):
 Trinity Local v1.7 — a cross-provider memory layer that lives in your folder, not theirs.
 
-  curl -fsSL trinity.local/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
 One command. Registers Trinity in Claude Code, Codex CLI, Gemini CLI, and Cursor. macOS today.
 
@@ -69,7 +69,7 @@ The cross-provider corpus you build today keeps working when the subsidy ends.
 12. Tweet 12 (245/280):
 Trinity Local v1.7 ships today. Open source, MIT, macOS.
 
-  curl -fsSL trinity.local/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
 If you build with two or more model providers, run one council. Tell me what you learned.
 
