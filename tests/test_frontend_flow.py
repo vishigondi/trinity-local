@@ -504,10 +504,17 @@ class TestWatchStatusFlow:
 
 class TestDispatchWrapper:
     def test_render_dispatch_wrapper_includes_common_bin_paths(self):
-        script = _render_dispatch_wrapper("/Users/openclaw/projects/trinity-local/.venv/bin/python3")
+        # Compute the expected venv root the same way the renderer does
+        # (`.resolve()` follows symlinks like /tmp → /private/tmp on
+        # macOS) so the assertion is portable across hosts. Using a
+        # placeholder path keeps the developer's personal $HOME out of a
+        # public-repo test.
+        input_python = "/tmp/trinity-test-venv/bin/python3"
+        expected_root = str(Path(input_python).parent.parent.resolve())
 
-        assert 'TRINITY_VENV_ROOT="/Users/openclaw/projects/trinity-local/.venv"' in script
-        assert "/Users/openclaw/.local/bin" in script
+        script = _render_dispatch_wrapper(input_python)
+
+        assert f'TRINITY_VENV_ROOT="{expected_root}"' in script
         assert "/opt/homebrew/bin" in script
         assert "/usr/local/bin" in script
         assert "TRINITY_VENV_ROOT" in script
