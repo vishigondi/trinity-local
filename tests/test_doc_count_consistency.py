@@ -351,77 +351,15 @@ class TestCitedCouncilArtifactsExistInRepo:
         )
 
 
-class TestInstallSmokeTracksMcpTools:
-    """Regression guard for the install-smoke MCP tool list. The
-    install-smoke script (`scripts/smoke_install.sh`) verifies that
-    the wheel-installed MCP server exposes the canonical tool set —
-    that's the v1.5 Week 5 gate ratified by council_5699d0e62cf965d0.
-
-    But the script hardcodes the canonical list. Today at T-1 (May
-    14) the install smoke ran for the first time since the morning's
-    11th MCP tool landed (`get_eval_summary`, plus `handoff` earlier)
-    — and it FAILED because the hardcoded set was stale. Anyone
-    running the wheel-install path would have hit a red gate that
-    didn't reflect a real problem.
-
-    This guard ensures the smoke script's canonical set MATCHES the
-    one in test_mcp_tools.py — the single source of truth for "what
-    tools MUST exist after a fresh pip install." Updating either
-    requires updating both, or the suite fails loudly with a
-    drift-shaped error message.
-    """
-
-    def test_smoke_install_canonical_set_matches_test_suite_canonical(self):
-        smoke_script = REPO / "scripts" / "smoke_install.sh"
-        try:
-            text = smoke_script.read_text(encoding="utf-8")
-        except OSError:
-            return  # script absent — different launch path, not this guard's concern
-        # Pull names out of the `canonical = { ... }` python set literal
-        # inside the heredoc'd python check. Match anything that looks
-        # like a quoted MCP tool identifier inside the canonical block.
-        m = re.search(r"canonical\s*=\s*\{([^}]+)\}", text)
-        assert m, (
-            "scripts/smoke_install.sh lost its `canonical = {...}` "
-            "set anchor — the install-smoke MCP check can't drift-"
-            "monitor without it. Restore the set definition."
-        )
-        smoke_tools = set(re.findall(r'"([a-z_]+)"', m.group(1)))
-        # Compare to the test_mcp_tools canonical (single source of truth)
-        mcp_tests = REPO / "tests" / "test_mcp_tools.py"
-        try:
-            test_text = mcp_tests.read_text(encoding="utf-8")
-        except OSError:
-            return
-        # The test file's canonical set lives in test_canonical_tools_present
-        # as `assert names == {...}` literal. Scan the function body
-        # for the asserted set; anchor on the function name so a future
-        # restructure that splits this elsewhere still finds it.
-        func_start = test_text.find("def test_canonical_tools_present")
-        assert func_start > 0, (
-            "tests/test_mcp_tools.py lost the test_canonical_tools_present "
-            "function — the smoke parity guard anchors on it."
-        )
-        # Find the next "assert names == {...}" after the function def.
-        func_slice = test_text[func_start:func_start + 3000]
-        test_match = re.search(r"assert\s+names\s*==\s*\{([^}]+)\}", func_slice)
-        assert test_match, (
-            "test_canonical_tools_present body lost its `assert names == {...}` "
-            "anchor. If the test was restructured, update the smoke parity guard."
-        )
-        test_tools = set(re.findall(r'"([a-z_]+)"', test_match.group(1)))
-        # Symmetric difference: drift in EITHER direction = bug
-        smoke_only = smoke_tools - test_tools
-        test_only = test_tools - smoke_tools
-        assert not smoke_only and not test_only, (
-            f"MCP canonical-tool set drift between smoke_install.sh "
-            f"and test_mcp_tools.py:\n"
-            f"  in smoke_install.sh only: {sorted(smoke_only)}\n"
-            f"  in test_mcp_tools.py only: {sorted(test_only)}\n"
-            f"Both surfaces must agree — they're parallel gates for "
-            f"the same '11 canonical tools must survive a fresh pip "
-            f"install' invariant. Fix in one, fix in the other."
-        )
+# TestInstallSmokeTracksMcpTools removed in T10b (proactive test-orphan hunt).
+# The class enforced parity between scripts/smoke_install.sh's hardcoded
+# canonical MCP tool set and test_mcp_tools.py's canonical set. Both
+# scripts/smoke_install.sh and scripts/smoke_install_macvm.sh were deleted
+# in commit 8469c6e (the curl|sh pivot — wheel-build smoke is no longer
+# Trinity's distribution path). The guard self-skipped on OSError so it
+# became silently dead code; removed here to keep the suite honest.
+# If a future install-smoke script returns, restore from git history of
+# this file at any commit before T10b's removal.
 
 
 class TestGithubUrlOwnerConsistency:

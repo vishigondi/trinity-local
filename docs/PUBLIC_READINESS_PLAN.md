@@ -88,7 +88,12 @@
   
   Decision: keep all three as-is. Test sweep: existing `TestV16SpecShipPlanCommitHashesResolve` correctly anchors on each spec; no changes. **5-for-5 KEEP in Tier 3.**
 
-- [ ] **T10b. Proactive test-orphan hunt** (NEW). Walk `tests/test_*.py`: for each `test_X.py`, check `src/trinity_local/X.py` (or the matching commands/ module) exists. Flag orphans (test file present, source module absent → stale test). Walk `tests/` for `import` lines referring to modules that no longer exist (use `python -c "import trinity_local.<name>"` to verify). Also check `tests/test_doc_count_consistency.py` guard list for any path that doesn't resolve. Output: a small commit-message punch list of `tests/test_X.py` files to either delete or update. Don't auto-delete unless source removal is unambiguous (e.g., the source path was removed in this same readiness pass).
+- [x] **T10b. Proactive test-orphan hunt** — clean. Three scans:
+  1. **Naive `test_X.py` → `X.py` 1:1 mapping** flagged ~40 "orphans," but the mapping is wrong for this codebase — tests are named for behaviors/features, not single modules (e.g. `test_chairman_picker.py` tests `ranker/chairman_picker.py`, not a top-level `chairman_picker.py`). Discarded as too noisy to be useful.
+  2. **AST-based import resolution** (`python -c "import trinity_local.X"` for every import in `tests/`): **0 broken imports.** Every `trinity_local.*` reference in the test suite resolves cleanly.
+  3. **REPO-anchored guard path scan** of `tests/test_doc_count_consistency.py`: 25 unique paths, 1 broken — `scripts/smoke_install.sh`. The script was deleted in commit `8469c6e` (curl|sh pivot), but `TestInstallSmokeTracksMcpTools` survived with an OSError early-return — making it silently dead code. Per the test-hygiene rule ("do NOT loosen the guard to make it pass — that silently disables it"), removed the dead guard cleanly with a tombstone comment pointing at the deletion commit for restoration.
+  
+  Net: 1 dead guard sunset, 0 actual orphan tests. The proactive scan was worth doing exactly to catch this one dead guard the prior cleanup missed.
 
 ## Tier 3 retrospective
 
