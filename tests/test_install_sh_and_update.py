@@ -89,6 +89,23 @@ def test_install_sh_installs_runtime_python_deps():
     )
 
 
+def test_install_sh_handles_venv_active_state():
+    """pip refuses `--user` when run inside an active virtualenv. The
+    installer must detect this case (e.g. a contributor smoking install
+    from inside their venv-active shell) and install into the venv
+    instead. Sandboxed smoke (May 17) caught this: the warning fired
+    silently, doctor only went green because mcp happened to be in the
+    dev's system Python — on a truly fresh box that path doesn't exist
+    and the install would surface a real failure downstream."""
+    content = INSTALL_SH.read_text()
+    # The venv detector must check sys.prefix vs sys.base_prefix — that's
+    # the canonical Python idiom for "am I inside a venv right now."
+    assert "sys.prefix" in content and "sys.base_prefix" in content, (
+        "install.sh must detect virtualenv state via sys.prefix vs "
+        "sys.base_prefix and drop the --user flag inside a venv."
+    )
+
+
 def test_install_sh_wrapper_uses_resolved_python():
     """The wrapper that ~/.local/bin/trinity-local writes must use the
     Python binary the install script validated, not a raw `python3`.

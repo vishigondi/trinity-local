@@ -173,10 +173,21 @@ fi
 
 step "Installing Python runtime deps"
 
+# pip refuses --user when run inside an active virtualenv. Detect the
+# venv first; if we're inside one, install into the venv directly (no
+# --user). Otherwise prefer --user so we don't touch system site-
+# packages without explicit consent.
 if "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
-  if "$PYTHON_BIN" -m pip install --quiet --user --upgrade \
+  if "$PYTHON_BIN" -c 'import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)' 2>/dev/null; then
+    PIP_INSTALL_ARGS=(install --quiet --upgrade)
+    PIP_MODE_LABEL="venv $PYTHON_BIN"
+  else
+    PIP_INSTALL_ARGS=(install --quiet --user --upgrade)
+    PIP_MODE_LABEL="user site-packages"
+  fi
+  if "$PYTHON_BIN" -m pip "${PIP_INSTALL_ARGS[@]}" \
        'Pillow>=10' 'mcp>=1.0' 2>/dev/null; then
-    ok "Pillow + mcp installed"
+    ok "Pillow + mcp installed ($PIP_MODE_LABEL)"
   else
     warn "pip install reported issues (Pillow / mcp) — see 'trinity-local doctor'"
   fi
