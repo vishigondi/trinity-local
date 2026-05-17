@@ -110,6 +110,28 @@ def register(subparsers):
     )
     show_p.set_defaults(handler=handle_eval_show)
 
+    share_p = subparsers.add_parser(
+        "eval-share",
+        help="Render an eval run result as a 1200×630 PNG you can tweet (task #122 follow-up)",
+    )
+    share_p.add_argument(
+        "--target", default=None,
+        help="Filter to runs against this provider. Defaults to the latest run regardless of target.",
+    )
+    share_p.add_argument(
+        "--eval-id", default=None,
+        help="Filter to a specific eval_id.",
+    )
+    share_p.add_argument(
+        "--out", default=None,
+        help="Output PNG path. Defaults to ~/.trinity/share/eval_card.png.",
+    )
+    share_p.add_argument(
+        "--open", dest="open_after", action="store_true",
+        help="Open the produced PNG with the OS default handler (Preview on macOS).",
+    )
+    share_p.set_defaults(handler=handle_eval_share)
+
 
 def handle_eval_build(args):
     from ..evals.builder import build_eval_set, save_eval_set
@@ -396,3 +418,69 @@ def _print_sample_line(item):
     if len(item.prompt or "") > 70:
         prompt_preview += "…"
     print(f"    [{item.rejection_type:<11}] {score}  {prompt_preview}")
+
+
+def handle_eval_share(args):
+    """Render the latest (or filtered) eval run result as a 1200×630
+    PNG share card. The artifact the user's pitch produces — "I ran my
+    evals on Gemini, here's where it landed."
+
+    Defaults to ~/.trinity/share/eval_card.png to match the me-card
+    convention. Prints a small JSON summary to stdout for scriptability.
+    """
+    import os
+    from pathlib import Path
+    from ..evals.runner import load_run_result
+    from ..eval_card import collect_card_data_from_result, render_eval_card
+    from ..state_paths import state_dir
+
+    path = _latest_result_path(args.target, args.eval_id)
+    if path is None:
+        msg = "No eval results found on disk."
+        if args.target or args.eval_id:
+            msg += " Try without --target/--eval-id, or run `trinity-local eval-run --target <provider>` first."
+        else:
+            msg += " Run `trinity-local eval-run --target <provider>` to produce one."
+        print(f"  {msg}")
+        raise SystemExit(1)
+
+    result = load_run_result(path)
+    if result is None:
+        print(f"✗ result at {path} unreadable")
+        raise SystemExit(2)
+
+    card_data = collect_card_data_from_result(result)
+    png_bytes = render_eval_card(card_data)
+
+    out = Path(args.out) if args.out else (state_dir() / "share" / "eval_card.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(png_bytes)
+
+    opened = False
+    if args.open_after:
+        try:
+            # macOS `open`, Linux `xdg-open`. Best-effort; print errors but
+            # don't fail the command — the file is written either way.
+            import subprocess
+            import sys
+            if sys.platform == "darwin":
+                subprocess.run(["open", str(out)], check=False)
+                opened = True
+            elif sys.platform.startswith("linux"):
+                subprocess.run(["xdg-open", str(out)], check=False)
+                opened = True
+        except OSError:
+            opened = False
+
+    summary = {
+        "ok": True,
+        "path": str(out),
+        "bytes": len(png_bytes),
+        "target_provider": card_data.target_provider,
+        "target_model": card_data.target_model,
+        "aggregate_score": card_data.aggregate_score,
+        "items_completed": card_data.items_completed,
+        "axes": [a for a, _, _ in card_data.by_axis],
+        "opened": opened,
+    }
+    print(json.dumps(summary, indent=2))
