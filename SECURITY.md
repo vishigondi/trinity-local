@@ -40,8 +40,9 @@ What Trinity defends against (in priority order):
 
 4. **CLI subprocess auth boundaries.** Trinity dispatches to `claude`, `codex`,
    `gemini` CLIs via `subprocess.Popen` with explicit argv. We do not pass user-provided
-   strings as shell arguments without explicit quoting. The `subprocess_utils.py`
-   module is the single audit surface for shell-execution patterns.
+   strings as shell arguments without explicit quoting. The `runtime_env.py` module
+   (`run_with_runtime_env()` + the PATH-injection helpers) is the single audit surface
+   for shell-execution patterns.
 
 What Trinity does NOT defend against (out of scope):
 
