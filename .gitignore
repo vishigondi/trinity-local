@@ -19,3 +19,9 @@ state/
 .playwright-mcp/
 *.png
 mock_gen.py
+
+# Node.js artifacts — package-lock from the browser-extension build path
+node_modules/
+.agents/
+launch_councils/
+
