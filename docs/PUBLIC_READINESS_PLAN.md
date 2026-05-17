@@ -79,9 +79,31 @@
   
   Decision: keep scale-plan.md as the canonical long-form roadmap. Pattern: **4-for-4 KEEP** outcomes in Tier 3. The audit agent's "consolidation candidate" signal has been 0% precision; all 4 Tier-3 deletion recommendations have been load-bearing on inspection.
 
-- [ ] **D10. Decide on the 3-live-spec layout.** `spec-v1.md` describes what shipped, `spec-v1.5.md` is active, `spec-v1.6.md` is forward-looking. 3,718 LOC combined. Options: (a) keep all three with clearer headers ("Shipped" / "Active" / "Next"), (b) collapse v1 into a CHANGELOG appendix and keep v1.5+v1.6 as the live spec pair, (c) merge all three into a single `SPEC.md` with version sections. Pick option (b) — least churn, clearest entry point — then execute the merge. **Test sweep:** any doc-consistency guard anchored on `spec-v1.md` path must move to the new home (or delete if v1 collapses into CHANGELOG); the existing `TestV16SpecShipPlanCommitHashesResolve` class is the obvious candidate to audit.
+- [x] **D10. 3-spec layout — KEEP all three. Option (a) is effectively already in place.** Investigation flipped this for the 5th time:
+  - **Combined size is 1,719 LOC, not 3,718** (plan miscounted — that was scale-plan + specs combined; scale-plan was already kept in D9).
+  - **Each spec has distinct code+test load-bearing references**: spec-v1.md (4 refs incl. **regex-anchored numeric guards** at `test_doc_count_consistency.py:255-256` that extract MCP-tool counts from specific headers — merging would break these); spec-v1.5.md (7 refs across `ask.py`, `cortex.py`, `providers.py`, `state_paths.py`, tests); spec-v1.6.md (2 refs including `launchpad_data.py`).
+  - **Existing "Status:" headers already self-identify lifecycle**: v1 = "locked for May 13–15 ship", v1.5 = "spec only, follows v1.0 ship, target June 3 2026", v1.6 = "spec only, follows v1.5 ship, 2-week implementation after". That's option (a) ("keep all three with clearer headers") already in place.
+  - **Option (b) "collapse v1 into CHANGELOG appendix"** would break the regex-anchored count guards, lose the locked-contract semantics, and require 4+ code+test reference updates. Cost > benefit for the public-readiness pass.
+  - **Option (c) single SPEC.md merge** would create a 1,719-LOC mega-doc that's harder to navigate than three purposed files.
+  
+  Decision: keep all three as-is. Test sweep: existing `TestV16SpecShipPlanCommitHashesResolve` correctly anchors on each spec; no changes. **5-for-5 KEEP in Tier 3.**
 
 - [ ] **T10b. Proactive test-orphan hunt** (NEW). Walk `tests/test_*.py`: for each `test_X.py`, check `src/trinity_local/X.py` (or the matching commands/ module) exists. Flag orphans (test file present, source module absent → stale test). Walk `tests/` for `import` lines referring to modules that no longer exist (use `python -c "import trinity_local.<name>"` to verify). Also check `tests/test_doc_count_consistency.py` guard list for any path that doesn't resolve. Output: a small commit-message punch list of `tests/test_X.py` files to either delete or update. Don't auto-delete unless source removal is unambiguous (e.g., the source path was removed in this same readiness pass).
+
+## Tier 3 retrospective
+
+5-for-5 KEEP outcomes (D6, D7, D8, D9, D10). The audit agent's
+"removable code" signal was 0% precision on this codebase. Each
+"DELETE high-confidence" item turned out to be load-bearing when
+call-sites were checked:
+
+- **D6 spec-v2.md** — 14 live cross-refs, intentional sunset header
+- **D7 sync_reference_evals.py + reference_evals.json** — agent said "no callers in src/", reality: `global_benchmarks.py:18` loads the JSON for the launchpad
+- **D8 founder-essay-draft.md** — drafted in-repo for collaborative editing, ships T-7 to personal blog (per launch-package.md), not a repo deliverable
+- **D9 scale-plan.md** — agent said "one test reference", reality: 11+ refs incl. `cortex.py §8.9`, `replay_value.py §8.5` source citations
+- **D10 3-spec layout** — combined size was misreported (1,719 not 3,718); each spec has code+test refs; existing "Status:" headers already provide the lifecycle-tagging option (a) the plan offered
+
+**Pattern lesson**: the codebase is more integrated than a surface-level audit suggests. Future deletion plans should require a `git grep` for live cross-references BEFORE tagging anything "removable." T10b's proactive orphan hunt below is the right shape — it scans for ACTUAL orphans (test files with no source module) rather than guessing at deletion candidates.
 
 ## Tier 4 — Verification + close
 
