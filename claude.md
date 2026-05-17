@@ -559,7 +559,7 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (22 modules):
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (30 modules in the table below; 4 more — `distill`, `merges`, `stats`, `trust` — are ancillary maintenance/debug tools intentionally off the user-surface table):
 
 | Module | Key commands |
 |--------|-------------|
@@ -580,6 +580,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/status.py` | `status` |
 | `commands/cache.py` | `cache-stats`, `cache-clear` |
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
+| `commands/vocabulary.py` | `vocabulary` (scan prompts for terminology overloads — one word ↔ two meanings; two words ↔ one meaning. Emits `~/.trinity/memories/vocabulary.md`; load-bearing Stage 4 of the lens pipeline) |
 | `commands/doctor.py` | `doctor` (preflight: providers / MCP dep / writable Trinity home) |
 | `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
 | `commands/bootstrap_pairs.py` | `bootstrap-pairs` (just phase 1+2 of `dream` exposed standalone — discover clusters + synthesize, no consolidate/lens-build follow-up) |
@@ -590,6 +591,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
 | `commands/research.py` | `replay`, `rank`, `hard`, `hardeval`, `analytics`, `embed` (off the live product path — research pipeline only) |
 | `commands/install.py` | `install-mcp`, `install-hooks` |
+| `commands/update.py` | `update` (pull latest, refresh MCP configs, verify with doctor — the post-curl-bash self-update mechanism; ships the staleness check `doctor` surfaces) |
 | `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint`, `auto-chain-enable`, `auto-chain-disable`, `auto-open-enable` (post-council `open <review_path>` on macOS), `auto-open-disable` |
 
 ### Core layers
