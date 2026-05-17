@@ -32,9 +32,11 @@ What Trinity defends against (in priority order):
    `force=True`. Long-running MCP servers running pre-upgrade code can no longer
    clobber the on-disk launchpad with stale templates.
 
-3. **Folder ownership.** Setup script (`setup.sh`) enforces `~/.trinity/` permissions
-   to 700. Other processes on the same machine should not be able to read the user's
-   council outcomes by default.
+3. **Folder ownership.** The installer (`scripts/install.sh`) creates
+   `~/.claude/skills/trinity/` and `~/.local/bin/` wrappers with default umask. Trinity's
+   own state directory (`~/.trinity/`) is created on first invocation; permissions
+   inherit from the user's umask. Set umask 077 or `chmod 700 ~/.trinity/` if you want
+   tighter isolation from other local users.
 
 4. **CLI subprocess auth boundaries.** Trinity dispatches to `claude`, `codex`,
    `gemini` CLIs via `subprocess.Popen` with explicit argv. We do not pass user-provided

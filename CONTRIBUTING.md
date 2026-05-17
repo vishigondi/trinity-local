@@ -123,12 +123,18 @@ this with an AST scanner.
 ## Local development
 
 ```bash
-git clone <repo>
+git clone https://github.com/vishigondi/trinity-local
 cd trinity-local
-./setup.sh                          # bootstraps venv + config + Shortcut + launchpad
-.venv/bin/python -m pytest -q       # ~950 tests, ~80s; gate must stay green
-python scripts/browser_smoke.py     # 31-surface UI verification (Playwright)
+python3 -m venv .venv               # contributors use a venv for the dev install
+.venv/bin/pip install -e ".[test]"  # editable install + test deps (pytest, etc.)
+.venv/bin/python -m pytest -q       # ~1382 tests, ~140s; gate must stay green
+python scripts/browser_smoke.py     # 33-surface UI verification (Playwright)
 ```
+
+End-users install Trinity via the curl-bash flow
+(`curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash`).
+Contributors need the editable pip install above so changes take effect
+without re-running the installer. See `docs/INSTALL-pip.md`.
 
 The browser smoke requires `playwright` + `chromium`:
 

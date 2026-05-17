@@ -212,20 +212,22 @@ are missing.
 ## Quickstart (desktop first)
 
 ```bash
-# Fastest today: clone + setup.sh — checks Python, bootstraps venv, Shortcut, Trinity.app
-git clone https://github.com/vishigondi/trinity-local && cd trinity-local
-./setup.sh                          # one script handles Python check + everything else
-trinity-local install-app           # Trinity.app desktop wrapper (non-coder daily-launch)
-trinity-local install-mcp           # registers Trinity in Claude Code / Codex / Gemini CLI / Cursor
-                                    #   → first MCP spawn auto-scans your local CLI history
-                                    #     (~/.claude/, ~/.codex/, ~/.gemini/, cowork) in the
-                                    #     background so the first council is already personal
-trinity-local install-extension     # optional: Chrome extension for claude.ai + chatgpt.com
-                                    #   browser capture (grows the corpus passively)
-trinity-local doctor                # verify providers + auth before your first council
+# One-liner — clones to ~/.claude/skills/trinity/, drops wrappers in ~/.local/bin/,
+# registers MCP in every harness you have, runs doctor.
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+
+# Then, in Claude Code, just type:  /trinity
+# The skill walks you through doctor + ingest + dream + your first council.
+
+# Or use the CLI directly:
+trinity-local doctor                # verify providers + auth
 trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
 trinity-local lens-build            # surface your taste lenses (after a few councils)
 trinity-local me-card               # render your strongest lens as a 1200×630 PNG to share
+trinity-local install-extension     # optional: Chrome extension for claude.ai + chatgpt.com
+                                    #   browser capture (grows the corpus passively)
+trinity-local update                # pull latest + refresh MCP + verify
+trinity-local install-app           # macOS only: Trinity.app desktop wrapper for non-coders
 
 # Or via pip (PyPI publish lands at v1.0 ship; until then use the git+https form):
 pip install git+https://github.com/vishigondi/trinity-local
