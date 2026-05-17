@@ -147,9 +147,17 @@ def register(subparsers):
 
     council_share_parser = subparsers.add_parser(
         "council-share",
-        help="Copy council review HTML to Desktop for sharing",
+        help="Render a council outcome as a 1200×630 PNG share card (privacy-safe — no user prompts inlined)",
     )
     council_share_parser.add_argument("--council", required=True, help="Council ID")
+    council_share_parser.add_argument(
+        "--out", default=None,
+        help="Output PNG path. Defaults to ~/.trinity/share/council_<id8>.png.",
+    )
+    council_share_parser.add_argument(
+        "--open", dest="open_after", action="store_true",
+        help="Open the produced PNG with the OS default handler.",
+    )
     council_share_parser.set_defaults(handler=handle_council_share)
 
     # Single unified iteration command. Replaces the prior trio of
@@ -620,22 +628,52 @@ def handle_council_stop(args):
 
 
 def handle_council_share(args):
+    """Render a council outcome as a 1200×630 PNG share card.
+
+    Rewritten 2026-05-17 (iteration 5 of the share-workflow audit).
+    Prior implementation copied write_unified_council_page's redirect
+    HTML (379 bytes pointing at a relative `live_council.html?...` path)
+    to Desktop — which was useless to any recipient because the
+    relative path resolved only on the author's filesystem.
+
+    New shape: PNG card matching eval_card + me_card. Three share
+    surfaces, one visual language. Privacy-safe by construction —
+    only the chairman-extracted agreed_claims / disagreed_claims /
+    winner cross to the card. The user's verbatim prompt + members'
+    full response text never touch the artifact, AND the prompt no
+    longer leaks into the output filename (former bug).
+    """
+    from ..council_card import collect_card_data_from_outcome, render_council_card
+    from ..state_paths import state_dir
+
     outcome = load_council_outcome(args.council)
-    desktop = Path.home() / "Desktop"
+    # Strip the "council_" prefix when slicing the id for the filename —
+    # the prior code used outcome.council_run_id[:8] which (since the
+    # id starts with literal "council_") produced filenames like
+    # "trinity-council-council_-..." with a useless prefix.
+    id_short = outcome.council_run_id.removeprefix("council_")[:8] or "anon"
 
-    bundle = load_prompt_bundle(outcome.bundle_id)
-    review_path = write_unified_council_page(bundle, outcome)
-    if not review_path.exists():
-        raise SystemExit(f"error: review page not found at {review_path}")
+    card_data = collect_card_data_from_outcome(outcome)
+    png_bytes = render_council_card(card_data)
 
-    safe_title = re.sub(r"[^a-zA-Z0-9]", "_", bundle.task_text[:30]).strip("_")
-    share_path = desktop / f"trinity-council-{outcome.council_run_id[:8]}-{safe_title}.html"
+    out = (Path(args.out) if args.out
+           else state_dir() / "share" / f"council_{id_short}.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(png_bytes)
 
-    shutil.copy2(review_path, share_path)
-    opened = open_path(share_path)
+    opened = False
+    if args.open_after:
+        opened = open_path(out)
 
     print(json.dumps({
-        "shared_path": str(share_path),
+        "ok": True,
+        "path": str(out),
+        "bytes": len(png_bytes),
+        "council_id": outcome.council_run_id,
+        "winner": card_data.winner,
+        "members": list(card_data.members),
+        "agreed_claims_count": len(card_data.agreed_claims),
+        "disagreed_claim_present": card_data.disagreed_claim is not None,
         "opened": opened,
     }, indent=2))
 
