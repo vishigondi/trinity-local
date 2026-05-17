@@ -1,9 +1,15 @@
 # Why I stopped trusting any one AI lab with my context
 
-> Draft. Voice belongs to the user. Re-anchored after VentureBeat published "Anthropic
+> **Pre-publication draft. NOT a repo deliverable.** Lives here for collaborative
+> drafting + version control; ships to the founder's personal blog at T-7 day per
+> `docs/launch-package.md`. A public-repo reader is welcome to read it, but it's
+> not a doc the codebase depends on — the philosophical anchor for marketing,
+> not part of Trinity's runtime contract.
+>
+> Voice belongs to the user. Re-anchored after VentureBeat published "Anthropic
 > wants to own your agents' memory, evals, and orchestration — and that should make
-> enterprises nervous" (Dec 2025). Publish BEFORE the HN launch — this essay becomes the
-> philosophical anchor every subsequent piece of marketing links back to.
+> enterprises nervous" (Dec 2025). Publish BEFORE the HN launch — this essay becomes
+> the philosophical anchor every subsequent piece of marketing links back to.
 
 ---
 
