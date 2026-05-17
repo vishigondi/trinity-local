@@ -205,7 +205,7 @@ def _check_mcp_available() -> CheckResult:
             name="mcp_available",
             ok=False,
             detail="mcp package not installed (Claude Code MCP integration disabled)",
-            fix="pip install 'trinity-local[mcp]'   # adds the mcp dep",
+            fix="python3 -m pip install --user 'mcp>=1.0' 'Pillow>=10'",
         )
 
 

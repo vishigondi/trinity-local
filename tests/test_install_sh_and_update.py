@@ -48,14 +48,20 @@ def test_install_sh_passes_bash_syntax_check():
 def test_install_sh_references_canonical_paths():
     """The installer must point at the canonical skill directory and
     bin directory. Drift here means the docs and the script diverge —
-    user gets one path from README, installer puts files elsewhere."""
+    user gets one path from README, installer puts files elsewhere.
+
+    Distribution invariant: Trinity itself is NOT installed via pip/npm
+    (the script clones the repo and writes shell wrappers). Runtime
+    Python deps (Pillow, mcp) ARE installed via pip — they're third-
+    party and we don't vendor them. The forbidden form is specifically
+    `pip install trinity-local` / `pipx install trinity-local`."""
     content = INSTALL_SH.read_text()
     assert ".claude/skills/trinity" in content
     assert ".local/bin" in content
-    # No pip/npm references (the whole point of this approach).
-    assert "pip install" not in content
-    assert "npm install" not in content
-    assert "pipx install" not in content
+    assert "pip install trinity-local" not in content
+    assert "pipx install trinity-local" not in content
+    assert "npm install trinity-local" not in content
+    assert "npm install -g trinity-local" not in content
 
 
 def test_install_sh_writes_two_wrappers():
@@ -65,6 +71,37 @@ def test_install_sh_writes_two_wrappers():
     content = INSTALL_SH.read_text()
     assert "TRINITY_BIN_DIR/trinity-local" in content
     assert "TRINITY_BIN_DIR/trinity-local-capture-host" in content
+
+
+def test_install_sh_installs_runtime_python_deps():
+    """Trinity's runtime deps (Pillow, mcp) are pyproject-declared but
+    NOT auto-installed by the git clone. The installer must pip-install
+    them or doctor's first run flags two failures the user has to fix
+    manually — a "vibes-coded" first-impression smell."""
+    content = INSTALL_SH.read_text()
+    assert "Pillow>=10" in content, (
+        "install.sh must install Pillow — without it me-card PNG "
+        "rendering fails and doctor flags it on first run."
+    )
+    assert "mcp>=1.0" in content, (
+        "install.sh must install the mcp package — without it the MCP "
+        "server can't start and Claude Code can't see Trinity's tools."
+    )
+
+
+def test_install_sh_wrapper_uses_resolved_python():
+    """The wrapper that ~/.local/bin/trinity-local writes must use the
+    Python binary the install script validated, not a raw `python3`.
+    On systems where `python3` is older than the candidate the script
+    picked (e.g. `python3.13` passes, `python3` is 3.9), the wrapper
+    would silently break."""
+    content = INSTALL_SH.read_text()
+    # Heredoc body must reference $PYTHON_BIN (unescaped — expanded at
+    # script time) for the wrapper, NOT literal `python3 -m`.
+    assert 'exec "$PYTHON_BIN" -m trinity_local.main' in content, (
+        "wrapper should embed the resolved Python binary so it can't "
+        "drift if the user later installs a stale python3 ahead of it."
+    )
 
 
 # ─── trinity-local update ──────────────────────────────────────────
