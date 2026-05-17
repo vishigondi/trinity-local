@@ -112,7 +112,14 @@ call-sites were checked:
 
 ## Tier 4 — Verification + close
 
-- [ ] **V11. Re-run the 4-agent audit** (the one that produced this plan) after Tier 1-3 lands. If any new drift surfaces, append to this file as Tier 5. Otherwise: green-stamp the readiness state in `CHANGELOG.md` (`v1.7.2 — final public-readiness pass`) and `CronDelete` the loop.
+- [x] **V11. 4-agent re-audit complete; readiness verified.** All 4 agents reported clean OR found drift fixed in this same commit. Punch list caught + closed:
+  - **Architecture (agent 2):** zero drift. M5 fix verified — table has 30 rows, vocabulary + update present, 4 ancillary called out. MCP tool count matches mcp_server.py.
+  - **Cleanup (agent 4):** zero deletion candidates. 5-for-5 KEEP pattern from Tier 3 holds.
+  - **Launch copy (agent 3):** 1 HIGH carryover — claude.md:52 status block still said "v1.0 ships May 13–15" (H2 swept launch.md but missed claude.md). Fixed in V11 close commit.
+  - **User-facing promises (agent 1):** 1 HIGH new — `seed-from-taste-terminal --path` is `required=True` but README/SKILL/INSTALL-* M4 callout showed `--limit 1000` without `--path`. Documented cold-start command would fail. Fixed by switching the example to `trinity-local ingest-recent` (the actual auto-discover cold-start; needs no `--path`).
+  - **Bonus catches:** claude.md:534 said "9 total" MCP tools (stale — actual is 11); test count drift 1384 → 1385 (5 surfaces swept via the 4-surfaces-agree guard).
+  
+  All 1385 tests + 4 skipped passing, 33 doc-consistency guards green. CHANGELOG `v1.7.2 — final public-readiness verification + close` entry added. Plan complete; loop ready for `CronDelete 8f2d39e4`.
 
 ## How the loop should pick the next item
 

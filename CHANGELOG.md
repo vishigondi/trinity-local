@@ -3,6 +3,73 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.2 — final public-readiness verification + close] — 2026-05-17
+
+Loop-executed Tier 1–4 of `docs/PUBLIC_READINESS_PLAN.md`. 12 commits
+since v1.7.1 (`7154ab5`, `7cea5b9`, `69d14dc`, `738e8e4`, `7d64819`,
+`80b922c`, `9eb5f72`, `cfbbf05`, `67c5298`, `1f2b0a8`, `4bea46c`,
+`d27d401`). 4-agent re-audit confirms zero residual drift.
+
+**Tier 1 HIGH (2 fixed):**
+- H1: `trinity.local/install.sh` vanity URL purged from
+  `docs/launch-day/01_tweet_thread.md` (2 sites) + `02_show_hn_post.md`.
+  Existing guard extended to cover `docs/launch-day/*.md` (was a
+  coverage gap) and to match bare-host form (no `https://` prefix).
+- H2: v1.0 vs v1.7 version story reconciled across launch.md +
+  launch-package.md + tweet thread + README. pyproject.toml bumped
+  to 1.7.1 (now 1.7.2 with this commit). New guard pins all 4 launch
+  surfaces to pyproject's `major.minor`.
+
+**Tier 2 MEDIUM (3 fixed):**
+- M3: macOS framing pinned to "macOS today, cross-platform on the
+  v1.5/v1.6 roadmap" across README, launch.md, spec-v1.md (caught a
+  silent "macOS-only is a feature, not a bug" drift in spec-v1.md
+  that contradicted cross-platform-spec.md).
+- M4: README 60-sec demo gained a "First-install prereq" callout.
+  V11 catch: the M4 example used the wrong command — replaced with
+  `trinity-local ingest-recent` (the actual auto-discover cold-start;
+  the old `seed-from-taste-terminal --limit 1000` would have failed
+  on `--path` required).
+- M5: claude.md CLI table header fixed ("22 modules" → "30 modules
+  in the table below; 4 ancillary off-table"); `vocabulary` and
+  `update` rows added.
+
+**Tier 3 DELETE/SIMPLIFY — 5-for-5 KEEP on inspection:**
+- D6 (spec-v2.md), D7 (sync_reference_evals + reference_evals.json),
+  D8 (founder-essay-draft.md), D9 (scale-plan.md), D10 (3-spec
+  layout) — every agent-recommended deletion candidate had load-
+  bearing live call-sites. New "Tier 3 retrospective" in the plan
+  documents the pattern: the audit agent's removable-code signal
+  was 0% precision on this codebase.
+
+**T10b proactive test-orphan hunt:**
+- 0 orphan tests by AST import-resolution.
+- 1 dead guard sunset (`TestInstallSmokeTracksMcpTools` — was
+  enforcing parity against `scripts/smoke_install.sh` deleted in
+  commit `8469c6e`; OSError-early-return made it silently dead).
+
+**V11 final 4-agent re-audit:**
+- 0 architecture drift (M5 fix verified; all 30 modules + 29 core
+  layer modules present; MCP tool count matches mcp_server.py).
+- 0 deletion candidates (matches Tier 3 pattern).
+- 1 launch-copy carryover: claude.md status block still said "v1.0
+  ships May 13–15" — H2 swept launch.md but missed claude.md;
+  fixed in this commit alongside the test-count refresh.
+- 1 user-facing promise drift: documented `seed-from-taste-terminal`
+  examples lacked `--path` (required). Fixed by switching the
+  cold-start example to `ingest-recent`.
+- 1 stale tool-count claim at claude.md:534 ("9 total" → "11 total").
+
+**Test count drift swept across 5 surfaces** (the 4-surfaces-agree
+guard caught this on every commit): 1384 → 1385 in claude.md status
++ verified + product-spec item 11 + 10_hn_faq_full closing +
+CONTRIBUTING.md.
+
+**Final state:** 1385 tests passing + 4 skipped, 33 doc-consistency guards green,
+pyproject 1.7.2, claude.md status block accurate, all launch surfaces
+agree on v1.7, vanity-domain guard covers all launch-day files +
+bare-host form, version guard pins to pyproject major.minor.
+
 ## [v1.7.1 — public-repo readiness pass] — 2026-05-17
 
 Pre-flip-public hardening. The goal: stand the repo up so a hostile

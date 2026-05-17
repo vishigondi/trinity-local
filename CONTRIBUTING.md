@@ -108,7 +108,7 @@ worth contributing on:
 ## Priority 6 — Docs and tests
 
 Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
-green on every commit, and the gate currently runs ~1384 tests in ~150s.
+green on every commit, and the gate currently runs ~1385 tests in ~150s.
 
 **Writing tests:** scope all test state via fixtures. Specifically, never set
 `os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module

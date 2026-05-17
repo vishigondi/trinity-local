@@ -56,7 +56,7 @@ Three tiers, one `~/.trinity/` data contract. See [`docs/three-tier-architecture
 
 Trinity has two demos that work on minute one of install — one for the wedge, one for the tweet.
 
-> **First-install prereq.** Both demos read your prompt index. On the first run, build it once: `trinity-local seed-from-taste-terminal --limit 1000`. The skill ([`/trinity` in Claude Code](#install)) walks you through it. After that, every demo below is instant.
+> **First-install prereq.** Both demos read your prompt index. On the first run, build it once: `trinity-local ingest-recent` (auto-discovers transcripts in `~/.claude/projects/`, `~/.codex/sessions/`, `~/.gemini/sessions/`). The skill ([`/trinity` in Claude Code](#install)) walks you through it. After that, every demo below is instant.
 
 **The wedge — cross-provider continuity** (structurally unique to Trinity):
 
