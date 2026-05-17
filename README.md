@@ -1,5 +1,10 @@
 # Trinity Local
 
+[![tests](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml/badge.svg)](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
+
 ## Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.
 
 You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
@@ -8,6 +13,13 @@ then runs hard questions through all three in your voice and picks the answer yo
 would have picked.
 
 **No new app. No service. No API key. Your transcripts never leave your machine.**
+
+> **Not the Sakana paper.** [Sakana AI's *TRINITY: An Evolved LLM Coordinator*](https://arxiv.org/abs/2512.04695)
+> (ICLR 2026) is a research coordinator trained with sep-CMA-ES on LiveCodeBench.
+> *This* Trinity is a consumer cross-provider memory layer for polyharness CLI users
+> — different audience, different mechanism (chairman synthesis + local cortex, no
+> training step). Naming collision is real; we share an architectural axis but not
+> a build path. See [`docs/spec-v2.md`](docs/spec-v2.md) for the comparison.
 
 ## Install
 

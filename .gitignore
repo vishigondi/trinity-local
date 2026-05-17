@@ -18,6 +18,8 @@ state/
 .claude.json
 .playwright-mcp/
 *.png
+!docs/launchpad_example.png
+!docs/me_card_example.png
 mock_gen.py
 
 # Node.js artifacts — package-lock from the browser-extension build path
