@@ -13,6 +13,23 @@
 > .venv/bin/python -m pytest -q                       # full suite must stay green
 > .venv/bin/python -m pytest -q tests/test_doc_count_consistency.py  # guards must stay green
 > ```
+>
+> **Test-hygiene rule for every item below.** When a fix renames a
+> module / deletes a doc / removes a CLI flag, sweep `tests/` in the
+> same commit. Two failure modes to catch each tick:
+>
+> 1. **Stale tests** — `tests/test_X.py` for an `X` that no longer
+>    exists, OR tests asserting on a string/path/module that was just
+>    deleted. Sunset them (`git rm`) and note in the commit message.
+> 2. **Stale guards** — `tests/test_doc_count_consistency.py` rules
+>    pointing at a file that just moved (path-anchored asserts) or a
+>    count that just shifted (numeric asserts). Update the guard in
+>    the same commit; do NOT loosen the guard to make it pass — that
+>    silently disables it.
+>
+> The 4-surface agree-guard already enforces this for some categories
+> (test counts, MCP tool counts, brand axis). Each new tier-3 deletion
+> below should add or update the corresponding guard.
 
 ## Tier 1 — HIGH (fix before flipping public)
 
@@ -30,15 +47,17 @@
 
 ## Tier 3 — DELETE / SIMPLIFY (after Tier 1+2 land)
 
-- [ ] **D6. Delete `docs/spec-v2.md` (1,500+ LOC).** Explicitly sunset per `claude.md`. Architectural reference preserved in `docs/v2-loop-constitution.md`; git history retains it. Before delete: `grep -rn "spec-v2.md" .` — sweep any remaining live references in CHANGELOG/claude.md to either remove or annotate "sunset, see git history." Commit message should cite the sunset rationale from claude.md.
+- [ ] **D6. Delete `docs/spec-v2.md` (1,500+ LOC).** Explicitly sunset per `claude.md`. Architectural reference preserved in `docs/v2-loop-constitution.md`; git history retains it. Before delete: `grep -rn "spec-v2.md" .` — sweep any remaining live references in CHANGELOG/claude.md to either remove or annotate "sunset, see git history." **Test sweep:** `grep -rn "spec-v2\|spec_v2" tests/` — any guard asserting spec-v2.md exists must be sunset (`git rm` the test or remove the assertion). Commit message should cite the sunset rationale from claude.md.
 
-- [ ] **D7. Investigate `tools/sync_reference_evals.py` + `data/reference_evals.json`.** Last touched May 6, no callers in src/. Either: (a) delete both if truly unused, or (b) wire them into the eval harness if they're the canonical reference suite the harness should compare against. Decision needs human judgment — don't auto-delete; flag with the call sites for the user.
+- [ ] **D7. Investigate `tools/sync_reference_evals.py` + `data/reference_evals.json`.** Last touched May 6, no callers in src/. Either: (a) delete both if truly unused (and sunset any `tests/test_sync_reference_evals.py` / `tests/test_reference_evals.py` in same commit), or (b) wire them into the eval harness if they're the canonical reference suite the harness should compare against. Decision needs human judgment — don't auto-delete; flag with the call sites for the user.
 
-- [ ] **D8. Decide on `docs/founder-essay-draft.md`.** Marked "Draft". Either ship it (rename, link from README, remove "draft" frame) or move to a private branch. Don't leave half-shipped drafts in a public-launch repo.
+- [ ] **D8. Decide on `docs/founder-essay-draft.md`.** Marked "Draft". Either ship it (rename, link from README, remove "draft" frame) or move to a private branch. **Test sweep:** the `TestNoUnregisteredVanityDomains` guard already references founder-essay-draft.md as a "blocked context" — if the file is renamed/moved, update that path in the guard. Don't leave half-shipped drafts in a public-launch repo.
 
-- [ ] **D9. Consolidate `docs/scale-plan.md` (1,599 LOC) into `docs/spec-v1.5.md`.** Per agent 4: scale-plan is superseded by spec-v1.5; only one test reference. Extract the still-actionable parts into spec-v1.5 as a new section, delete scale-plan, update the test reference. Net: ~1,500 LOC reduction and clearer "what spec is canonical."
+- [ ] **D9. Consolidate `docs/scale-plan.md` (1,599 LOC) into `docs/spec-v1.5.md`.** Per agent 4: scale-plan is superseded by spec-v1.5; only one test reference. Extract the still-actionable parts into spec-v1.5 as a new section, delete scale-plan, update the test reference. **Test sweep:** `grep -rn "scale-plan\|scale_plan" tests/` — update the one reference (likely in `test_doc_count_consistency.py`) to point at spec-v1.5 instead. Net: ~1,500 LOC reduction and clearer "what spec is canonical."
 
-- [ ] **D10. Decide on the 3-live-spec layout.** `spec-v1.md` describes what shipped, `spec-v1.5.md` is active, `spec-v1.6.md` is forward-looking. 3,718 LOC combined. Options: (a) keep all three with clearer headers ("Shipped" / "Active" / "Next"), (b) collapse v1 into a CHANGELOG appendix and keep v1.5+v1.6 as the live spec pair, (c) merge all three into a single `SPEC.md` with version sections. Pick option (b) — least churn, clearest entry point — then execute the merge.
+- [ ] **D10. Decide on the 3-live-spec layout.** `spec-v1.md` describes what shipped, `spec-v1.5.md` is active, `spec-v1.6.md` is forward-looking. 3,718 LOC combined. Options: (a) keep all three with clearer headers ("Shipped" / "Active" / "Next"), (b) collapse v1 into a CHANGELOG appendix and keep v1.5+v1.6 as the live spec pair, (c) merge all three into a single `SPEC.md` with version sections. Pick option (b) — least churn, clearest entry point — then execute the merge. **Test sweep:** any doc-consistency guard anchored on `spec-v1.md` path must move to the new home (or delete if v1 collapses into CHANGELOG); the existing `TestV16SpecShipPlanCommitHashesResolve` class is the obvious candidate to audit.
+
+- [ ] **T10b. Proactive test-orphan hunt** (NEW). Walk `tests/test_*.py`: for each `test_X.py`, check `src/trinity_local/X.py` (or the matching commands/ module) exists. Flag orphans (test file present, source module absent → stale test). Walk `tests/` for `import` lines referring to modules that no longer exist (use `python -c "import trinity_local.<name>"` to verify). Also check `tests/test_doc_count_consistency.py` guard list for any path that doesn't resolve. Output: a small commit-message punch list of `tests/test_X.py` files to either delete or update. Don't auto-delete unless source removal is unambiguous (e.g., the source path was removed in this same readiness pass).
 
 ## Tier 4 — Verification + close
 
