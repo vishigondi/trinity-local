@@ -106,7 +106,7 @@ question will get asked in HN comments + on X. Pre-empted answer:
 > Trinity Local is a local-first consumer tool for polyharness users — people running
 > Claude + ChatGPT + Gemini subscriptions in parallel. It watches the transcripts on
 > your machine, learns your taste, picks the right model for your kind of question, and
-> when in doubt convenes them as a council. Free. Open-source. macOS-only at launch.
+> when in doubt convenes them as a council. Free. Open-source. macOS today, cross-platform on the v1.5/v1.6 roadmap (see `docs/cross-platform-spec.md`).
 >
 > Same wedge ("coordination beats monolithic scaling"), different audience (researchers
 > vs. polyharness power users), different mechanism (their trained cortex vs. our

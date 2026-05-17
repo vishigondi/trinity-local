@@ -255,7 +255,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 - Narrative video pipeline — the me-card PNG is the v1 social object; richer video animation is a future explore-not-commit
 - Hosted council orchestration / cross-machine sync — the local-first promise is the brand; revisit only if a real paid tier ever exists
 - Federated / shared / team anything — single-user has to be overwhelmingly great first
-- Windows / Linux — macOS-only is a feature, not a bug
+- Windows / Linux — macOS-first at launch; cross-platform expansion is the v1.5/v1.6 trajectory per `docs/cross-platform-spec.md`. The core CLI + MCP path runs on Linux today (pyproject's `POSIX :: Linux` classifier reflects this); the launchpad Shortcut dispatcher is macOS-specific until the v1.6 browser-extension fallback ships
 - Hosted leaderboard from opt-in routing labels
 
 **Sunset (v2.0 trained-coordinator path):**
