@@ -54,15 +54,31 @@ Three tiers, one `~/.trinity/` data contract. See [`docs/three-tier-architecture
 
 ### The 60-second demo
 
-Ask Claude a complex question. Mid-conversation, run `trinity-local handoff gemini`.
-Gemini picks up exactly where Claude left off — no re-context, no copy-paste — and adds
-what it can see that Claude can't (your Gmail, your Drive, your Calendar). Then hand
-off to GPT. Same thread, three perspectives, one continuous conversation.
+Trinity has two demos that work on minute one of install — one for the wedge, one for the tweet.
+
+**The wedge — cross-provider continuity** (structurally unique to Trinity):
+
+```bash
+trinity-local handoff gemini
+```
+
+Mid-conversation, hand the thread to a different provider. Gemini picks up exactly where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, your Drive, your Calendar). Then hand off to GPT. Same thread, three perspectives.
+
+**The number you can tweet — your personal model leaderboard** (the empirical wedge):
+
+```bash
+trinity-local eval-build                                   # one-time: build eval suite from your rejection signal
+trinity-local eval-run --target gemini --judge claude      # dispatches your prompts to Gemini, scores against YOUR lens
+trinity-local eval-show
+# → "Gemini scored 0.83 on YOUR kind of question.
+#    Claude scored 0.91. GPT-5 scored 0.77."
+```
+
+When **a new model launches**, re-run the same eval against it. *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05"* is a number no other tool can produce, because no other tool has read your prompts across all three providers.
 
 ![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
-That's the wedge. No frontier provider can build it: Anthropic can't read OpenAI's
-transcripts, and OpenAI can't read Gemini's. Only the layer above them can.
+That's the wedge, both shapes. The frontier providers can't build either: Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. Only the layer above them can.
 
 ---
 
