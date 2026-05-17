@@ -53,7 +53,13 @@
 
   **Decision:** keep the file as-is. Its sunset header is the intended pattern for "architectural specs explicitly held back, preserved as decision history." Test sweep confirmed no stale asserts (tests/test_doc_path_consistency.py correctly skips spec-v2.md path-rename checks). This is exactly the "INVESTIGATE → keep on inspection" outcome the plan's footer warned about ("don't auto-delete unless source removal is unambiguous"). The "removable" signal in the original agent audit was a false positive.
 
-- [ ] **D7. Investigate `tools/sync_reference_evals.py` + `data/reference_evals.json`.** Last touched May 6, no callers in src/. Either: (a) delete both if truly unused (and sunset any `tests/test_sync_reference_evals.py` / `tests/test_reference_evals.py` in same commit), or (b) wire them into the eval harness if they're the canonical reference suite the harness should compare against. Decision needs human judgment — don't auto-delete; flag with the call sites for the user.
+- [x] **D7. Investigate `tools/sync_reference_evals.py` + `data/reference_evals.json` — KEEP both.** Agent 4's "no callers in src/" was wrong. Investigation found:
+  - **`data/reference_evals.json`** is loaded by `src/trinity_local/global_benchmarks.py:18` — the launchpad's "Global benchmarks" card data source. Also referenced by `tests/test_chairman_picker.py:149` (the global-lookup-wins path).
+  - **`tools/sync_reference_evals.py`** is a documented manual refresh script that converts an artificialanalysis.ai xlsx export into the JSON. `docs/scale-plan.md:1133` explicitly cites it as "the correct place to maintain the [provider→AA-slug] translation."
+  - **"Last touched May 6"** = the benchmark data hasn't been refreshed since (which is fine — providers don't bump models weekly). Not a staleness signal.
+  - **No `tests/test_sync_reference_evals.py` exists**, so no orphan tests to sunset.
+  
+  Decision: keep both, no edits. Same shape as D6 (INVESTIGATE → keep on inspection) — the original agent audit's "no callers" claim should have triggered the call-site grep before tagging removable.
 
 - [ ] **D8. Decide on `docs/founder-essay-draft.md`.** Marked "Draft". Either ship it (rename, link from README, remove "draft" frame) or move to a private branch. **Test sweep:** the `TestNoUnregisteredVanityDomains` guard already references founder-essay-draft.md as a "blocked context" — if the file is renamed/moved, update that path in the guard. Don't leave half-shipped drafts in a public-launch repo.
 
