@@ -270,6 +270,73 @@ def _check_feedback_consistency() -> CheckResult:
     )
 
 
+def _check_skill_freshness() -> CheckResult:
+    """Auto-CHECK leg of automatic updates: report whether the cloned
+    skill repo is behind origin/main.
+
+    No network call by default — uses git's cached refs which were
+    last updated by `git fetch`. Users who want fresher staleness
+    info can run `trinity-local update --check` (which does a real
+    fetch). This keeps `doctor` fast (<200ms) while still surfacing
+    the "you should update" signal in the common case where the
+    fetch happened recently (last update, last install, etc.).
+
+    Trust positioning: this surfaces "you're behind" — never auto-
+    pulls. The user runs `trinity-local update` to apply.
+    """
+    import os
+    import subprocess
+    from pathlib import Path
+
+    skill_dir = Path(os.environ.get(
+        "TRINITY_SKILL_DIR", Path.home() / ".claude" / "skills" / "trinity"
+    ))
+    if not (skill_dir / ".git").exists():
+        # Not a git checkout (or skill not installed via install.sh) —
+        # nothing to compare against. This is fine (some users may run
+        # straight from a repo clone for dev).
+        return CheckResult(
+            name="skill_freshness",
+            ok=True,
+            detail=(
+                f"skill at {skill_dir} is not a git checkout; "
+                "freshness check skipped"
+            ),
+        )
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD..origin/main"],
+            cwd=skill_dir, capture_output=True, text=True, check=False,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return CheckResult(
+            name="skill_freshness", ok=True,
+            detail="git not available; freshness check skipped",
+        )
+    if result.returncode != 0:
+        return CheckResult(
+            name="skill_freshness", ok=True,
+            detail="no origin/main ref cached; "
+                   "run `trinity-local update --check` to fetch",
+        )
+    behind = int(result.stdout.strip() or "0")
+    if behind == 0:
+        return CheckResult(
+            name="skill_freshness", ok=True,
+            detail="skill is up to date with origin/main (cached refs)",
+        )
+    return CheckResult(
+        name="skill_freshness", ok=False,
+        detail=(
+            f"skill is {behind} commit(s) behind origin/main "
+            "(per cached refs; run --check for a fresh fetch)"
+        ),
+        fix="trinity-local update   # pulls + refreshes MCP + verifies",
+    )
+
+
 def _check_dispatch_ready() -> CheckResult:
     """Phase 7: any-tier dispatch readiness — at least one of the two
     dispatch paths (extension, Shortcut) must be wired for the launchpad
@@ -861,6 +928,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_trinity_home())
     report.checks.append(_check_config())
     report.checks.append(_check_mcp_available())
+    report.checks.append(_check_skill_freshness())
     report.checks.append(_check_dispatch_ready())
     report.checks.append(_check_shortcut_installed())
     report.checks.append(_check_feedback_consistency())

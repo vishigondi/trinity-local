@@ -59,6 +59,7 @@ CORE_COMMAND_MODULES = (
     "telemetry",
     "trust",
     "unrated",
+    "update",
     "vocabulary",
     "watch",
 )
