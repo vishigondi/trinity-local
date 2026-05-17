@@ -18,7 +18,7 @@
 
 - [x] **H1. Replace `trinity.local/install.sh` vanity URL with the real one.** ✓ done in commit (see git log). Swept `docs/launch-day/01_tweet_thread.md:11,72` and `docs/launch-day/02_show_hn_post.md:19`. Extended `tests/test_doc_count_consistency.py::TestNoUnregisteredVanityDomains` to cover `docs/launch-day/*.md` (was a guard coverage gap — the same shape can't recur) and to match the bare-host form (`curl trinity.local/...`, no protocol prefix) in addition to the existing `https://` form.
 
-- [ ] **H2. Reconcile the v1.0 vs v1.7 version story.** Today: `docs/launch.md:90` says "v1 ships May 2026", `docs/launch-package.md:16` says "v1.0", `docs/launch-day/01_tweet_thread.md` says "v1.7", `README.md:302` confirms v1.7 actually shipped. Pick one (recommend `v1.7` everywhere since that's what's on disk) and sweep all four surfaces in one commit. Add a doc-consistency guard in `tests/test_doc_count_consistency.py` that asserts the version string is identical across the four files.
+- [x] **H2. Reconcile the v1.0 vs v1.7 version story.** ✓ done. Swept `docs/launch.md:90` ("v1" → "v1.7"), `docs/launch-package.md:16` (rewrote ship-window paragraph from "v1.0 lands" → "v1.7 ships"), `docs/launch-package.md:189-191` (git tag `v1.0.0` → `v1.7.0`). Updated `pyproject.toml` version `1.0.0` → `1.7.1` (matches the CHANGELOG `v1.7.1 — public-readiness pass` entry). Added new guard `test_launch_copy_pins_pyproject_minor_version` — reads pyproject's `major.minor` (e.g. `v1.7`), asserts that string appears in all 4 launch surfaces. When v1.8 lands, this fires until the launch copy is swept.
 
 ## Tier 2 — MEDIUM (cosmetic drift readers will notice)
 

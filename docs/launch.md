@@ -87,7 +87,7 @@ preferences you've expressed — are the raw asset. Dream synthesizes them into 
 rules, taste lens, routing brain. The labs can't build this because they can't see across
 each other. Trinity is the only layer above them that can.
 
-**CTA (12/12).** Trinity Local v1 ships open-source (May 2026).
+**CTA (12/12).** Trinity Local v1.7 ships open-source (May 2026).
 github.com/vishigondi/trinity-local. If you build with two or more model providers,
 run one council. Tell me what you learned.
 

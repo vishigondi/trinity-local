@@ -1293,6 +1293,52 @@ class TestPyprojectMatchesLaunchVersion:
             f"the version (to 1.x) or the launch claim (to '{major}.x ships')."
         )
 
+    def test_launch_copy_pins_pyproject_minor_version(self):
+        """Stricter version-parity check than `test_pyproject_version_is_v1`.
+
+        The existing test only asserts major == '1' — passes for any
+        v1.x. But H2 caught real drift: launch-package.md said "v1.0
+        ships" while the actual ship was v1.7 (pyproject = 1.7.1). A
+        reader pasted the v1.0 tweet would have copy-pasted a tag that
+        doesn't exist.
+
+        This guard reads pyproject.toml's `major.minor` (e.g. '1.7')
+        and asserts `v1.7` appears verbatim in each of the four launch
+        surfaces. When a future release bumps to v1.8, this fires
+        until the launch copy is swept — exactly the gate the H2 bug
+        wanted.
+        """
+        pyproject = REPO / "pyproject.toml"
+        try:
+            text = pyproject.read_text(encoding="utf-8")
+        except OSError:
+            return
+        m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        assert m, "pyproject.toml lost its version field"
+        parts = m.group(1).split(".")
+        major_minor = f"v{parts[0]}.{parts[1]}"
+
+        surfaces = {
+            "launch.md": REPO / "docs" / "launch.md",
+            "launch-package.md": REPO / "docs" / "launch-package.md",
+            "01_tweet_thread.md": REPO / "docs" / "launch-day" / "01_tweet_thread.md",
+            "README.md": REPO / "README.md",
+        }
+        missing = []
+        for name, path in surfaces.items():
+            try:
+                doc = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if major_minor not in doc:
+                missing.append(name)
+        assert not missing, (
+            f"pyproject.toml ships as {major_minor} but launch surfaces "
+            f"don't reference it: {missing}. Either bump pyproject or "
+            f"sweep these files to match. Surfaces a reader sees first "
+            f"must agree on the ships-today version number."
+        )
+
     def test_pyproject_description_uses_current_brand(self):
         pyproject = REPO / "pyproject.toml"
         try:

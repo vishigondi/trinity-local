@@ -13,10 +13,10 @@ enterprise category — *vendor-neutral agent memory* — in one news cycle. Tri
 structurally the simplest answer. The freshness of that signal is measured in weeks;
 the launch happens inside that window.
 
-**Ship window:** v1.0 lands within the May 13–16 window, with v1.5
-cortex-consolidation flow shipping in the ~30-day follow-on (target
-June 3 per `spec-v1.5.md`). The narrative below ships at v1.0 launch
-— v1.5 is the technical proof that the architecture works.
+**Ship window:** v1.7 ships within the May 13–16 window (v1.0's scope
+plus the v1.5 cortex-consolidation flow landed early — see CHANGELOG
+v1.7 entry). The next forward-spec is `docs/spec-v1.6.md`. The
+narrative below ships at v1.7 launch.
 
 ## The locked positioning
 
@@ -186,9 +186,9 @@ all point at the same architectural claim.
   gh repo edit vishigondi/trinity-local --visibility public --accept-visibility-change-consequences
   # → every github.com/vishigondi/trinity-local URL in launch copy goes 200
 
-  # 3. Tag v1.0.0
-  git tag -a v1.0.0 -m "Trinity Local v1.0 — ships May 13–15, 2026"
-  git push origin v1.0.0
+  # 3. Tag v1.7.0
+  git tag -a v1.7.0 -m "Trinity Local v1.7 — ships May 13–15, 2026"
+  git push origin v1.7.0
 
   # 4. (No PyPI publish — Trinity ships as a git clone via curl-bash; see
   #    docs/INSTALL-pip.md "Why no PyPI publish?" for the architectural reasons.)
