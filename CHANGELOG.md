@@ -3,6 +3,79 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.1 — public-repo readiness pass] — 2026-05-17
+
+Pre-flip-public hardening. The goal: stand the repo up so a hostile
+HN/Twitter reviewer who skims the first screen + clones to inspect can't
+find an embarrassing seam. 13 commits, all reversible.
+
+**Install hardening.**
+
+- `scripts/install.sh` now `pip install --user`s the pyproject runtime
+  deps (`Pillow>=10`, `mcp>=1.0`) after cloning — without this, fresh
+  doctor flagged two failures the user had to manually fix.
+- Wrapper template now embeds the resolved Python binary (e.g.
+  `python3.12`) instead of literal `python3` — on Linux boxes where
+  `python3` is older than the validated candidate, the wrapper would
+  have silently crashed at runtime.
+- Detects active virtualenv via `sys.prefix != sys.base_prefix` and
+  drops `--user` accordingly. Caught by sandboxed end-to-end smoke
+  (`TRINITY_REPO_URL=file://...` with isolated HOME) — pip refuses
+  `--user` inside a venv, so a contributor smoking install from their
+  venv-active shell had been silently hitting "deps not installed"
+  with no surface error.
+- `doctor`'s `mcp_available` fix-hint now points at the right command.
+  Was `pip install 'trinity-local[mcp]'` — neither the package (no
+  PyPI publish) nor the extras (`mcp` is a main dep) existed.
+
+**Embarrassment audit.**
+
+- Untracked 16 dev artifacts that slipped past `.gitignore` (added
+  after they were tracked, so the rules never applied retroactively):
+  `.playwright-mcp/*` (April console + DOM snapshots),
+  `.claude/skills/trinity/SKILL.md` (dev-convenience copy),
+  `node_modules/.package-lock.json`.
+- Deleted vestigial empty `package.json` + `package-lock.json` at top
+  level — looked like vibes-coded mixed-stack mess.
+- Stripped personal `/Users/openclaw/...` paths from
+  `tests/test_frontend_flow.py` (input/expected was hardcoded to the
+  dev's machine) and `docs/v2-loop-constitution.md` (6 absolute
+  paths anchored at the author's $HOME).
+- Removed 470 LOC of obsolete pip-wheel smoke scripts
+  (`scripts/smoke_install.sh`, `scripts/smoke_install_macvm.sh`) —
+  both tested a distribution path Trinity no longer ships.
+
+**Repo signal layer.**
+
+- `.github/workflows/test.yml` — runs `pytest -q` on ubuntu-latest +
+  macos-latest with Python 3.12. Triggered on push/PR to main.
+- README badges (tests, license, python, security) + Sakana paper
+  name-collision FAQ above the install fold.
+- `.github/ISSUE_TEMPLATE/{bug,feature,adapter}.md` + `config.yml` +
+  `pull_request_template.md` + `CODEOWNERS`.
+- `scripts/launch-check.sh` rewritten — gates on pytest +
+  doc-consistency + install.sh structural guards + `bash -n`. No
+  `twine upload` / `python -m build` references.
+- `docs/REPO_PUBLIC_RUNBOOK.md` — top-to-bottom T-0 sequence with
+  debugged `gh` commands for the flip, description + 13 topics,
+  social card, 3 pinned starter issues, Pages enable, badge
+  verification, and rollback.
+
+**Drift fixes.**
+
+- `CONTRIBUTING.md`: "~950 tests in under 80s" → "~1384 tests in ~150s"
+- `SECURITY.md`: `subprocess_utils.py` (doesn't exist) → `runtime_env.py`
+  with the actual `run_with_runtime_env()` helpers.
+- Doc-side test-count claims in `claude.md` swept (1372 → 1384,
+  36 → 33 doc-guards).
+- `.gitignore` exception for `docs/launchpad_example.png` +
+  `docs/me_card_example.png` so the broad `*.png` rule can't
+  accidentally shadow the tracked canonical PNGs.
+
+**Tests:** 1384 passed + 4 skipped (33 doc-consistency guards). Up
+from 1382 — the personal-path cleanup converted two hidden-pass
+assertions into properly portable ones.
+
 ## [v1.7 — three-tier architecture complete, Monday launch ready] — 2026-05-16
 
 The user overrode the Phase 1 council's defer-to-v1.1 verdict — "we
