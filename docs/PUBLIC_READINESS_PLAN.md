@@ -63,7 +63,21 @@
 
 - [x] **D8. Decide on `docs/founder-essay-draft.md` — KEEP with a clarifying frontmatter.** Investigation found the plan's binary ("ship it OR move to private branch") missed the third option that matched reality: the essay IS scheduled to publish (T-7 day, per `docs/launch-package.md:154`), but to the founder's personal blog, NOT into the repo. It's drafted in-repo for collaborative editing + version control. Two guards already enforce shape: `tests/test_doc_count_consistency.py:829` (no naked pip-install) and `tests/test_doc_count_consistency.py:1107,1122` (vanity-domain blocked context). The risk wasn't "stale draft sitting in public repo" — it was "public-repo reader misreads it as a repo deliverable." Fix: added an explicit "NOT a repo deliverable. Ships to the founder's personal blog at T-7 per docs/launch-package.md" line in the frontmatter. Existing draft tag + voice-belongs-to-user note preserved. Test sweep: no path changes (the guard paths stay valid since we didn't rename/move the file).
 
-- [ ] **D9. Consolidate `docs/scale-plan.md` (1,599 LOC) into `docs/spec-v1.5.md`.** Per agent 4: scale-plan is superseded by spec-v1.5; only one test reference. Extract the still-actionable parts into spec-v1.5 as a new section, delete scale-plan, update the test reference. **Test sweep:** `grep -rn "scale-plan\|scale_plan" tests/` — update the one reference (likely in `test_doc_count_consistency.py`) to point at spec-v1.5 instead. Net: ~1,500 LOC reduction and clearer "what spec is canonical."
+- [x] **D9. Consolidate `docs/scale-plan.md` — DON'T. Agent claim was wrong by an order of magnitude.** Agent 4: "only one test reference." Actual: 11+ live cross-references that make consolidation more invasive than the LOC reduction is worth.
+
+  **Source code references the file by §-number** — would lose the anchor:
+  - `src/trinity_local/cortex.py:55` cites `scale-plan §8.9` (audit logic)
+  - `src/trinity_local/memory/replay_value.py:38` cites `scale-plan §8.5` (the replay-value formula)
+  
+  **Tests reference it in 4 places**: `test_launchpad_wrapper.py:9,99` (cites "scale-plan item 13: shebang-baked Python path" as the rationale for venv-relocation tests); `test_doc_count_consistency.py:1617,1740` include it in scan lists for banned-synonyms + path-rename guards.
+  
+  **Docs cross-reference it 7+ times**: `AGENTS.md:8` ("long-form Phase 0-9 roadmap"), `README.md:351` (Phase 10 backlog pointer), `README.md:494` ("long-form roadmap"), `claude.md:10,818` (load-bearing companion doc), `product-spec.md:332` (TRM-style learned-coordinator plan), `training-data.md:3` (explicit redirect: "content has moved to scale-plan.md §Phase 9").
+  
+  **Actively maintained** — last touched May 15 with "Phase 10 — 100-persona audit backlog." Not stale.
+  
+  Consolidating into spec-v1.5.md would: lose §-anchored code refs, break the AGENTS.md / training-data.md redirect, conflate Phase 0-10 roadmap with v1.5 spec scope. Net cost > LOC win.
+  
+  Decision: keep scale-plan.md as the canonical long-form roadmap. Pattern: **4-for-4 KEEP** outcomes in Tier 3. The audit agent's "consolidation candidate" signal has been 0% precision; all 4 Tier-3 deletion recommendations have been load-bearing on inspection.
 
 - [ ] **D10. Decide on the 3-live-spec layout.** `spec-v1.md` describes what shipped, `spec-v1.5.md` is active, `spec-v1.6.md` is forward-looking. 3,718 LOC combined. Options: (a) keep all three with clearer headers ("Shipped" / "Active" / "Next"), (b) collapse v1 into a CHANGELOG appendix and keep v1.5+v1.6 as the live spec pair, (c) merge all three into a single `SPEC.md` with version sections. Pick option (b) — least churn, clearest entry point — then execute the merge. **Test sweep:** any doc-consistency guard anchored on `spec-v1.md` path must move to the new home (or delete if v1 collapses into CHANGELOG); the existing `TestV16SpecShipPlanCommitHashesResolve` class is the obvious candidate to audit.
 
