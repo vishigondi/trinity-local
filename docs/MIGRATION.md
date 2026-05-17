@@ -26,10 +26,13 @@ v1.0 splits this into three tiers, each independently functional:
 - **Tier 1 — Skill** (`~/.claude/skills/trinity/`): the primary surface.
   When you type `/trinity` in Claude Code, the skill drives the engine
   for you. SKILL.md IS the spec — the user-facing contract.
-- **Tier 2 — Pip wheel** (`pip install trinity-local`): the engine the
-  skill calls. Same CLI you had before. Now also imports from
-  `scripts/` for the heavy operations (embeddings, clustering,
-  geometric primitives, descriptor / signature / anchor extraction).
+- **Tier 2 — Engine** (`~/.claude/skills/trinity/src/trinity_local/`):
+  the Python engine the skill calls. The `trinity-local` shell wrapper
+  at `~/.local/bin/` (dropped by the installer) routes to it. Same CLI
+  surface you had before. Imports from `scripts/` for the heavy
+  operations (embeddings, clustering, geometric primitives, descriptor /
+  signature / anchor extraction). No PyPI publish — installer clones
+  the repo.
 - **Tier 3 — Chrome extension** (optional): cross-surface UI +
   web-chat capture. Was already there pre-v1.0 for capture; now also
   carries the cross-platform launchpad dispatcher (see Arc 2).

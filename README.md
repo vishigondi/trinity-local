@@ -229,12 +229,8 @@ trinity-local install-extension     # optional: Chrome extension for claude.ai +
 trinity-local update                # pull latest + refresh MCP + verify
 trinity-local install-app           # macOS only: Trinity.app desktop wrapper for non-coders
 
-# Or via pip (PyPI publish lands at v1.0 ship; until then use the git+https form):
-pip install git+https://github.com/vishigondi/trinity-local
-# Post-ship: `pip install trinity-local` — same package, faster.
-
-# Or, from inside Claude Code (after either of the two above):
-/trinity                            # the bundled skill re-runs install + first-council
+# Or, from inside Claude Code (after the curl-bash install above):
+/trinity                            # the bundled skill walks first-run + first-council
 ```
 
 **Three install paths, three audiences.** The CLI (`install-mcp`) is the

@@ -75,9 +75,7 @@ It exposed the failure mode, named the deterministic test, drove the commit. The
 outcome is in the repo: [`docs/launch_councils/council_d55953003bb29f9d.json`](launch_councils/council_d55953003bb29f9d.json).
 Open-source the trail, not just the code.
 
-**Install (10/12).** `pip install trinity-local && trinity-local install-mcp` — drops a
-`/trinity` skill into Claude Code globally. From a fresh terminal OR from inside Claude
-Code, you're three commands from a council on your real work. Caveat: Trinity needs the
+**Install (10/12).** `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash` — clones the skill into `~/.claude/skills/trinity/`, drops thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have. From a fresh terminal OR from inside Claude Code (`/trinity`), you're three commands from a council on your real work. Caveat: Trinity needs the
 Claude / Gemini / Codex CLIs authenticated. `trinity-local doctor` tells you which are
 missing.
 
@@ -236,11 +234,10 @@ Backup titles (use if the Dreaming hook decays):
 >
 > Open-source. MIT. Repo: github.com/vishigondi/trinity-local. Three commands to first council:
 >
->     pip install trinity-local
->     trinity-local install-mcp
+>     curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 >     trinity-local council-launch --task "..."
 >
-> Or `/trinity` inside Claude Code (skill bundled with the wheel).
+> Or `/trinity` inside Claude Code — the installer registers the skill there automatically.
 
 ---
 
@@ -251,10 +248,11 @@ it (no provider can read competitors' transcripts). This is the demo
 that lands in the README hero block.
 
 ```
-0:00–0:08  CLI: pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
+0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
-           (RECORDING NOTE: use git+https form pre-PyPI; post-publish the
-            canonical `pip install trinity-local` is identical from the viewer's POV)
+           (RECORDING NOTE: the installer clones the repo to ~/.claude/skills/
+            trinity/, drops wrappers in ~/.local/bin/, registers MCP. No pip,
+            no npm — just a git clone + shell wrappers.)
 0:08–0:25  Open Claude Code. Ask a substantive multi-turn question
            ("explain this codebase's architecture and what I'd refactor first").
            Claude answers across 2-3 turns. Don't rush — let the conversation
@@ -280,10 +278,11 @@ the deeper "supervision signal" pitch. The council demo's strength is the
 Routing JSON ledger, which the handoff demo doesn't show.
 
 ```
-0:00–0:08  CLI: pip install git+https://github.com/vishigondi/trinity-local && trinity-local install-mcp
+0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
-           (RECORDING NOTE: use git+https form pre-PyPI; post-publish the
-            canonical `pip install trinity-local` is identical from the viewer's POV)
+           (RECORDING NOTE: the installer clones the repo to ~/.claude/skills/
+            trinity/, drops wrappers in ~/.local/bin/, registers MCP. No pip,
+            no npm — just a git clone + shell wrappers.)
 0:08–0:15  CLI: trinity-local doctor   (green checks scroll)
 0:15–0:23  Switch to Claude Code. Type /trinity. Show first-council prompt.
 0:23–0:38  Type real question (eg "Should I use SQLite or DuckDB for 50M-row analytics?")

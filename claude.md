@@ -812,6 +812,6 @@ preserves the prior implementation if v1.6 wants to study it.
 
 - Run tests: `.venv/bin/python -m pytest tests/ -v`
 - Or with isolated state: `TRINITY_HOME=/tmp/trinity-test PYTHONPATH=src python3 -m pytest -q`
-- Embeddings require `pip install -e '.[mlx]'`. Without it, all embedding features fall back to TF-IDF.
+- Embeddings require the MLX extras (`pip install -e '.[mlx]'` from a clone, for the contributor dev path). Without it, all embedding features fall back to the stable SHA-1 TF-IDF projection.
 - The agent's source of truth is this file (`claude.md`). The codebase plus `docs/scale-plan.md` and `docs/product-spec.md` round out the picture.
 - `AGENTS.md` is a thin redirect to here so Codex / other agent harnesses don't drift.

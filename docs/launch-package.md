@@ -189,17 +189,15 @@ all point at the same architectural claim.
   git tag -a v1.0.0 -m "Trinity Local v1.0 — ships May 13–15, 2026"
   git push origin v1.0.0
 
-  # 4. Build + publish to PyPI (needs ~/.pypirc with TestPyPI + PyPI creds)
-  python -m build       # produces dist/trinity_local-1.0.0-py3-none-any.whl
-  python -m twine check dist/*
-  python -m twine upload --repository testpypi dist/*    # smoke first
-  pip install --index-url https://test.pypi.org/simple/ --no-deps trinity-local==1.0.0  # verify TestPyPI
-  python -m twine upload dist/*                          # real PyPI
-  # → `pip install trinity-local` goes 200 everywhere
+  # 4. (No PyPI publish — Trinity ships as a git clone via curl-bash; see
+  #    docs/INSTALL-pip.md "Why no PyPI publish?" for the architectural reasons.)
+  #    Verify the install.sh works end-to-end on a fresh machine:
+  curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+  trinity-local doctor    # everything green
 
   # 5. Verify the live state
-  curl -sf -o /dev/null -w "%{http_code}\n" https://pypi.org/pypi/trinity-local/json   # → 200
   curl -sf -o /dev/null -w "%{http_code}\n" https://github.com/vishigondi/trinity-local # → 200
+  curl -sf -o /dev/null -w "%{http_code}\n" https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh # → 200
   curl -sf -o /dev/null -w "%{http_code}\n" https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/council_outcome.schema.json # → 200
 
   # 6. Generate the launchpad screenshot with FRESH eval numbers

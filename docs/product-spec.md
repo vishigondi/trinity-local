@@ -256,7 +256,7 @@ Why this order:
 1. **Desktop-app launch for non-coders** — `Trinity.app` is the visible product
    surface after setup: double-click, ask, review, rate. The CLI remains the
    engine, not the required daily launch gesture.
-2. **GitHub repo** — `pip install -e .` from source.
+2. **GitHub repo** — `curl -fsSL .../install.sh | bash` clones the repo into `~/.claude/skills/trinity/` and wires everything. Contributors `pip install -e .` from a clone for the editable dev path.
 3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
 4. **Word of mouth** — the multi-CLI power-user community is small and tight.
 5. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."

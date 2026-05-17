@@ -323,8 +323,8 @@ Rules:
 
 ### Desktop Acceptance Criteria
 
-- A user can run a first council from the desktop app after `pip install` or
-  packaged desktop install, without opening the launchpad in a browser.
+- A user can run a first council from the desktop app after the curl-bash
+  install or packaged desktop install, without opening the launchpad in a browser.
 - A non-coder can relaunch Trinity by double-clicking `Trinity.app`; no terminal
   command is required after initial setup.
 - Desktop can show live council progress for at least three providers.

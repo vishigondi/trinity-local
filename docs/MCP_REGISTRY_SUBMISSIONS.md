@@ -43,7 +43,7 @@ benchmarks, routing, agent, local-first, privacy, mcp
 ```
 
 Repo: `https://github.com/vishigondi/trinity-local`
-Install one-liner: `pip install trinity-local && trinity-local install-mcp`
+Install one-liner: `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash`
 
 ---
 
@@ -194,8 +194,8 @@ Before submitting to any registry:
 - [ ] License clearly displayed (MIT for Trinity itself; CC0 for the
       Preference Corpus Spec — many registries care about this distinction)
 - [ ] Working install one-liner verified on a fresh macOS install
-      (`pip install trinity-local && trinity-local install-mcp` followed
-      by `trinity-local doctor`)
+      (`curl -fsSL .../install.sh | bash` followed by
+      `trinity-local doctor`)
 - [ ] CHANGELOG entry noting the registry inclusion (so future
       contributors know it's listed)
 

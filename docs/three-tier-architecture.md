@@ -25,15 +25,21 @@ scripts at `scripts/` with on-demand venv-scoped dependencies. The pip
 package's role narrows to ergonomic wrapping; the engine sits in
 `scripts/` and both tiers import from there.
 
-## Tier 2 — Pip (engine)
+## Tier 2 — Engine
 
-`pip install trinity-local`. Same engine, performance + convenience
-upgrade. The CLI (`trinity-local`) this skill calls.
+The Python engine the skill calls. Lives in `~/.claude/skills/trinity/src/trinity_local/`
+after the curl-bash installer clones it. The `trinity-local` shell wrapper at
+`~/.local/bin/trinity-local` resolves to this engine via PYTHONPATH.
 
-In v1.0, the pip package contains both the CLI ergonomics AND the
-heavy ops (embeddings, k-means, geometric median, descriptor
-pipeline, etc.). In v1.1, the heavy ops extract to `scripts/` and the
-pip package becomes a thin wrapper.
+In v1.0 the engine contains both the CLI ergonomics AND the heavy ops
+(embeddings, k-means, geometric median, descriptor pipeline, etc.). In v1.1,
+the heavy ops fully invert into `scripts/` and the engine becomes a thin
+wrapper around them.
+
+**No PyPI publish.** Python-library users who want
+`from trinity_local import council_runtime` in their own code do
+`pip install -e ~/.claude/skills/trinity/` from the cloned repo — see
+[`INSTALL-pip.md`](INSTALL-pip.md) for the rationale.
 
 ## Tier 3 — Chrome Extension (optional)
 

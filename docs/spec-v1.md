@@ -164,12 +164,11 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 ### Install paths (dual)
 
 ```bash
-# from a terminal
-pip install trinity-local
-trinity-local install-mcp        # registers MCP + drops /trinity skill
-trinity-local doctor             # ✓ checks each provider CLI
+# One curl-bash. Clones the skill, drops shell wrappers, registers MCP,
+# verifies with doctor. No PyPI, no npm — Trinity is a git clone.
+curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
-# from inside Claude Code (after the two commands above)
+# Then from inside Claude Code:
 /trinity                          # one-shot install + first-council
 ```
 
@@ -210,7 +209,7 @@ unmeasurable without telemetry that violates the privacy posture (see disagreeme
 |---|---|
 | Day 1 (today) | Brand reconciliation: README hero, launch.md narrative, manifesto callouts |
 | Day 2 | (~~Docker smoke~~ — dropped: v1 is macOS-only per scope; `smoke_install.sh local` + `browser_smoke.py` are the actual gates and both green. Docker smoke returns in v2 when Linux is in scope.) |
-| Day 3 | Cold-install test on a fresh Mac (human-gated, ≤8 min from `pip install` to first council) |
+| Day 3 | Cold-install test on a fresh Mac (human-gated, ≤8 min from `curl -fsSL .../install.sh | bash` to first council) |
 | Day 4 | Founder narrative essay draft (the long-form post — week 2 in the spec, but draft now) |
 | Day 5 | 5 tester DMs sent; private install + watch them onboard |
 | Day 6 | HN post drafted, Twitter thread polished, Product Hunt assets prepped |
