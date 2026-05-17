@@ -179,7 +179,8 @@ all point at the same architectural claim.
   # Or run individually:
   #   pytest -q                                  # 1065 tests
   #   pytest tests/test_doc_count_consistency.py # 18 doc-consistency guards
-  #   bash scripts/smoke_install.sh local        # cold-install + 11 MCP tools
+  #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
+  #   bash -n scripts/install.sh                 # installer syntax check
 
   # 2. Flip the GitHub repo to public
   gh repo edit vishigondi/trinity-local --visibility public --accept-visibility-change-consequences
