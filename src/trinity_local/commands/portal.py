@@ -37,13 +37,19 @@ def register(subparsers):
     rlp.add_argument("--json", dest="as_json", action="store_true")
     rlp.add_argument(
         "--web-base",
-        default="https://trinity.openclaw.ai/app",
-        help="Universal-link bootstrap base URL. Carries only the council id.",
+        default=None,
+        help=(
+            "Universal-link bootstrap base URL (carries only the council id). "
+            "Defaults to None — no `web_url` is emitted by default. The prior "
+            "default `https://trinity.openclaw.ai/app` pointed at an "
+            "unregistered host that 404'd for any recipient. Pass an "
+            "explicit base if/when a hosted review surface exists."
+        ),
     )
     rlp.add_argument(
         "--no-web",
         action="store_true",
-        help="Omit the hosted universal-link bootstrap URL.",
+        help="Omit the hosted universal-link bootstrap URL (no-op now that web_base defaults to None; preserved for backward-compat).",
     )
     rlp.set_defaults(handler=handle_review_link)
 

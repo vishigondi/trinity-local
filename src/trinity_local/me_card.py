@@ -29,6 +29,15 @@ COLOR_MUTED = (95, 95, 95)        # muted ink for body
 COLOR_ACCENT = (37, 88, 71)       # sage green for accents
 COLOR_LENS_BG = (37, 88, 71, 12)  # subtle sage tint behind lens block
 
+# Single source of truth for the public landing URL on share artifacts.
+# Mirrors eval_card.CTA_LANDING_URL + council_card.CTA_LANDING_URL —
+# all three PNGs send recipients to the same GitHub Pages landing.
+# The shared brand line lives here so any future palette/footer tweak
+# stays consistent across the three card surfaces.
+ME_CARD_LANDING_URL = "vishigondi.github.io/trinity-local"
+ME_CARD_FOOTER_TAGLINE = "trinity-local · your taste, ported"
+
+
 # Font path candidates — try macOS first, fall back to PIL default.
 _FONT_CANDIDATES = {
     "regular": [
@@ -231,8 +240,12 @@ def render_me_card(data: CardLensData) -> bytes:
                   font=body, fill=COLOR_MUTED)
         y += 60
 
-    # Footer wordmark, bottom-right corner
-    footer_text = "trinity-local · local-first AI council on your machine"
+    # Footer wordmark + install URL, bottom-right corner.
+    # The URL is the SAME single-source-of-truth string used by eval_card
+    # and council_card (vishigondi.github.io/trinity-local). A recipient
+    # who sees this me-card on Twitter follows the URL to the GH Pages
+    # landing for the install one-liner.
+    footer_text = f"{ME_CARD_FOOTER_TAGLINE}   ·   {ME_CARD_LANDING_URL}"
     bbox = draw.textbbox((0, 0), footer_text, font=footer)
     fw = bbox[2] - bbox[0]
     draw.text(
