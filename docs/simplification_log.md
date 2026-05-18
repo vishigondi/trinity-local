@@ -180,3 +180,16 @@ caller sites). Until then, the off-by-default behavior costs nothing.
 
 **Audited**: 2026-05-18, iteration 9.
 
+- 2026-05-18 (iter 10): `review-link --web-base` + `--no-web` flags →
+  **KILL**. The `--web-base` flag pointed at `https://trinity.openclaw.
+  ai/app`, an unregistered host that 404'd; its default was already
+  flipped to None so no `web_url` was ever emitted. `--no-web` was a
+  no-op preserved for backward-compat. Pure dormant code — kept the
+  CLI surface noisy + carried a hostname promise we don't keep. Files
+  touched: 2 (commands/portal.py -23 LOC: 2 flag defs + simplified
+  `_review_link_payload` signature dropping the unused web_base param
+  + handler simplification; tests/test_review_link.py -10 LOC: drop
+  the now-dead `test_no_web_omits_hosted_bootstrap_url` test + remove
+  `web_url` assertions from the privacy test). Tests: 1400 pass, 4
+  skip (2 tests removed with the dead flag).
+

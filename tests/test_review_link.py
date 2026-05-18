@@ -52,8 +52,6 @@ def _run_review_link(council_id: str, **overrides) -> str:
     defaults = {
         "council_id": council_id,
         "as_json": True,
-        "web_base": "https://example.test/app",
-        "no_web": False,
     }
     defaults.update(overrides)
     buf = io.StringIO()
@@ -73,11 +71,10 @@ class TestReviewLink:
         assert data["council_id"] == council_id
         assert data["file_url"].startswith("file://")
         assert data["deep_link"] == f"trinity://review/{council_id}"
-        assert data["web_url"] == f"https://example.test/app/review/{council_id}"
+        assert "web_url" not in data
         assert task_text not in out
         assert "private acquisition" not in data["file_url"]
         assert "private acquisition" not in data["deep_link"]
-        assert "private acquisition" not in data["web_url"]
 
     def test_generates_review_artifact_for_mobile_to_open(self, patch_trinity_home: Path):
         council_id = _seed_council("Review this from my phone")
@@ -88,11 +85,3 @@ class TestReviewLink:
         assert review_path.exists()
         assert review_path.name == f"{council_id}.html"
         assert (patch_trinity_home / "review_pages" / "live_council.html").exists()
-
-    def test_no_web_omits_hosted_bootstrap_url(self, patch_trinity_home: Path):
-        council_id = _seed_council("Review without hosted fallback")
-
-        data = json.loads(_run_review_link(council_id, no_web=True))
-
-        assert "web_url" not in data
-        assert data["deep_link"] == f"trinity://review/{council_id}"

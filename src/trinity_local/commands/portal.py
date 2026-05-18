@@ -35,22 +35,6 @@ def register(subparsers):
     )
     rlp.add_argument("council_id", help="Council run id, e.g. council_abc123")
     rlp.add_argument("--json", dest="as_json", action="store_true")
-    rlp.add_argument(
-        "--web-base",
-        default=None,
-        help=(
-            "Universal-link bootstrap base URL (carries only the council id). "
-            "Defaults to None — no `web_url` is emitted by default. The prior "
-            "default `https://trinity.openclaw.ai/app` pointed at an "
-            "unregistered host that 404'd for any recipient. Pass an "
-            "explicit base if/when a hosted review surface exists."
-        ),
-    )
-    rlp.add_argument(
-        "--no-web",
-        action="store_true",
-        help="Omit the hosted universal-link bootstrap URL (no-op now that web_base defaults to None; preserved for backward-compat).",
-    )
     rlp.set_defaults(handler=handle_review_link)
 
     sp = subparsers.add_parser(
@@ -101,10 +85,10 @@ def handle_open_review(args):
     print(json.dumps({"path": str(target), "opened": opened}, indent=2))
 
 
-def _review_link_payload(council_id: str, review_path: Path, web_base: str | None) -> dict:
+def _review_link_payload(council_id: str, review_path: Path) -> dict:
     safe_id = quote(council_id, safe="")
     resolved = review_path.expanduser().resolve()
-    payload = {
+    return {
         "council_id": council_id,
         "review_path": str(resolved),
         "file_url": resolved.as_uri(),
@@ -112,28 +96,19 @@ def _review_link_payload(council_id: str, review_path: Path, web_base: str | Non
         "content_source": "local_review_artifact_or_paired_desktop",
         "url_privacy": "URLs contain only the council id; review content stays local unless the user explicitly exports it.",
     }
-    if web_base:
-        payload["web_url"] = f"{web_base.rstrip('/')}/review/{safe_id}"
-    return payload
 
 
 def handle_review_link(args):
     outcome = load_council_outcome(args.council_id)
     bundle = load_prompt_bundle(outcome.bundle_id)
     review_path = write_unified_council_page(bundle, outcome)
-    payload = _review_link_payload(
-        outcome.council_run_id,
-        review_path,
-        None if args.no_web else args.web_base,
-    )
+    payload = _review_link_payload(outcome.council_run_id, review_path)
     if args.as_json:
         print(json.dumps(payload, indent=2))
         return
 
     print(f"Review file: {payload['file_url']}")
     print(f"App link:    {payload['deep_link']}")
-    if payload.get("web_url"):
-        print(f"Web link:    {payload['web_url']}")
     print("Privacy:     URL carries only council_id; content loads from local review artifact or paired desktop.")
 
 
