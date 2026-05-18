@@ -384,3 +384,16 @@ The 4 proposals are queued for your morning review. Each carries
 specific blast radius + risk analysis above. Approving any of them
 ships another structural simplification before launch.
 
+## README/install simplification (new cron loop, started 2026-05-18)
+
+User directive: keep launchpad + browser extension + taste-conditioned
+synthesis + "visualizing me" launchpad. Simplify README and install.
+Cron `ce115b88` firing every 10m at :03/:13/:23/:33/:43/:53.
+
+- 2026-05-18 (tick 1): created `docs/architecture.md` and moved 4 README
+  sections into it: "Trinity reads what you've already typed", "Councils
+  are a GPS", "Context is the durable asset", "Architecture (one
+  paragraph)". README's `## Architecture` section collapsed to a 2-line
+  pointer. README -3,200 bytes (28,360 → 25,156). 1400 tests still pass,
+  37 doc-consistency guards green (no removed phrases were asserted).
+

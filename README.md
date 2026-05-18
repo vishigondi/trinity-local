@@ -46,41 +46,6 @@ When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.
 
 ---
 
-### Trinity reads what you've already typed.
-
-Three subscriptions, three tabs, three half-answers. Trinity sends one question to
-every model you use in parallel and runs a synthesis pass that returns one verdict —
-what they agreed on, where they disagreed and why it matters, which one was right.
-
-It also looks back: Trinity scans the transcripts already on your machine, finds
-questions you asked multiple providers separately, and turns each cross-provider pair
-into a synthetic council — bootstrapping your context from your own history before
-you run a single fresh council.
-
-### Councils are a GPS — broad when you need coverage, deep when you need conviction.
-
-You ask one question; Trinity hands you the right mode. **Broad councils** run every
-model you use in parallel — chairman synthesizes the spread, you see where the labs
-agree and where they fight. **Deep councils** run a chain — each round refines the
-previous round's answer, the chairman steers toward conviction instead of coverage.
-Same primitive, two zoom levels. You're never lost in the answer space because the
-mechanic moves with you.
-
-The same GPS shape applies inside your own data. Trinity ranks your past prompts by
-**depth score** — a pure-geometry signal over your transcript embeddings (centroid
-distance × inter-turn movement × intrinsic dimensionality) that picks out the threads
-where you actually thought, not the ones where you typed "more". Broad: see the
-topology of everything you've asked. Deep: surface the threads where you went
-somewhere.
-
-### Context is the durable asset, not the prompts.
-
-Prompts are transient strings; *context* is the durable asset that shapes how every
-model answers. Trinity treats your context as a first-class object — indexed, embedded,
-yours. The labs are commercially prevented from helping you use a competitor, which
-means none of them can build the layer that holds context across them. Someone outside
-them has to.
-
 ### Your lens, generated from your prompts.
 
 `trinity-local dream` synthesizes your prompts into **your lens** — one
@@ -415,25 +380,13 @@ trinity-local eval-run --target <model>    # score any model against your taste
 trinity-local doctor                       # health check; surfaces the next-step demo command
 ```
 
-## Architecture (one paragraph)
+## Architecture
 
-The chairman model synthesizes member outputs, emitting structured Routing JSON over every council.
-Members run in parallel (or in `chain` mode for sequential refinement). The personal routing
-table is computed on demand from `~/.trinity/council_outcomes/*.json` — no separate state
-file. The `/me` lens-discovery pipeline (4 stages: basins → decisions → pair-mining →
-basin post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair gap
-extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal behavioral
-evidence into decision extraction. The `handoff` mechanism (`trinity-local handoff <provider>`
-or `mcp__trinity-local__handoff`) reuses the cross-provider prompt index to package recent
-(user, assistant) turns as "continue this thread" context for a different provider — no
-re-context required. The `evals/` package consumes mined rejections + lens.md to produce
-replayable per-rejection-type benchmarks (`eval-build` / `eval-run`). All artifact shapes
-are JSON-Schema-validated and documented in
-[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md) — adoptable by other
-tools (Aider / Cline / Continue) under CC0 to interop with Trinity's preference corpus.
-
-For full architecture: [`claude.md`](claude.md) (agent context) and
-[`docs/scale-plan.md`](docs/scale-plan.md) (long-form roadmap).
+Chairman synthesizes member outputs into structured Routing JSON; members run in
+parallel (or `chain` mode for sequential refinement); lens-discovery is a 4-stage
+pipeline ratifying tensions across ≥3 topical basins. Full wire diagram + design
+rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
+[`claude.md`](claude.md); long-form roadmap in [`docs/scale-plan.md`](docs/scale-plan.md).
 
 ## What's next — Trinity v1.5 (ships June 3, 2026)
 
