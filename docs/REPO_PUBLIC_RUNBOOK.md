@@ -88,11 +88,6 @@ gh issue create -R vishigondi/trinity-local \
   --label "feedback" \
   --body "Run \`trinity-local council-share --safe <council_id>\` and paste the share link in this issue. We learn which question shapes are most useful — and you get a marketing-legible record of when Trinity helped."
 
-gh issue create -R vishigondi/trinity-local \
-  --title "Not the Sakana paper — naming + roadmap clarity" \
-  --label "documentation" \
-  --body "Trinity Local predates Sakana's \`TRINITY: An Evolved LLM Coordinator\` (ICLR 2026, arXiv:2512.04695) in our commit log but the names collide. They're a research coordinator; we're a consumer memory layer. We share an architectural axis (per-member prompt formulation, see \`docs/spec-v2.md\`). Use this thread for naming feedback."
-
 # Then pin them via the UI (gh CLI doesn't support pin):
 # https://github.com/vishigondi/trinity-local/issues
 ```

@@ -43,23 +43,20 @@ trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT 
 
 When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05."* That sentence is the thing only Trinity can produce.
 
-### And — the wedge, for hard questions
+### And — for new hard questions, the council reads through your lens
 
 ```bash
-trinity-local handoff gemini
+trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
 ```
 
-Hand a thread to a different provider mid-conversation. Gemini picks up where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, Drive, Calendar). Then hand to GPT. Same thread, three perspectives.
+Trinity runs the question through all three providers in parallel. The chairman synthesizes
+their answers — but synthesizes *through your lens*, the one distilled from how you've
+rephrased, judged, and rejected past responses. The verdict comes back in your voice: what
+the labs agree on, where they split and why it matters, which one was right *for you*.
 
-Anthropic can't read OpenAI's transcripts. OpenAI can't read Gemini's. Only the layer above them can do this.
-
-<details>
-<summary><b>Not the Sakana paper</b> — naming collision; different audience, different build path</summary>
-
-[Sakana AI's *TRINITY: An Evolved LLM Coordinator*](https://arxiv.org/abs/2512.04695) (ICLR 2026) is a research coordinator trained with sep-CMA-ES on LiveCodeBench.
-
-*This* Trinity is a consumer cross-provider memory layer for polyharness CLI users — chairman synthesis + local cortex, no training step. We share an architectural axis but not a build path. See [`docs/spec-v2.md`](docs/spec-v2.md).
-</details>
+The labs can't do this for you because they can't see across each other. Only the layer above
+them can read every transcript already on your machine and turn that history into a taste
+signal a new question can be evaluated against.
 
 ---
 
@@ -338,8 +335,8 @@ in [docs/scale-plan.md §Phase 10](./docs/scale-plan.md).
 | Output | **Structured Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
 | Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
 | Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
-| Cross-provider continuity | **`handoff` — mid-conversation, switch models, context survives** | n/a | n/a | n/a | n/a |
 | Personal benchmarks | **`eval-run` scores any model against YOUR actual rejections** | Synthetic prompts | Static fixtures | n/a | n/a |
+| Council reads through your lens | **Chairman synthesizes in your voice — distilled from past transcripts** | n/a | n/a | n/a | Generic synthesis |
 | Shareable artifact | **`/me` lens PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |
 
 If you want "which model is best in general," LMArena. If you want "which model handles **this
@@ -419,17 +416,6 @@ After the council finishes, the user clicks the answer they preferred. That clic
 flavor of question* next time. Completed-but-unrated councils carry a `rate_action` hint
 in the MCP response so the agent surfaces the rating prompt inline — no launchpad detour.
 
-**Hand off mid-conversation** (the 60-second demo wedge):
-
-```
-mcp__trinity-local__handoff(target_provider="gemini")
-```
-
-Pulls the user's recent (user, assistant) turns from the cross-provider prompt index,
-packages them as "continuing this thread", dispatches to a different provider. Gemini
-picks up exactly where Claude left off. Structurally non-refutable: only Trinity has
-the cross-provider index, so no other tool can do this.
-
 **Score any model against your actual taste** (empirical benchmarks):
 
 ```bash
@@ -448,8 +434,8 @@ Or via the CLI directly:
 
 ```bash
 trinity-local council-launch --task "..." --members claude gemini codex
-trinity-local handoff gemini       # mid-conversation continuity
-trinity-local doctor               # health check; surfaces the next-step demo command
+trinity-local eval-run --target <model>    # score any model against your taste
+trinity-local doctor                       # health check; surfaces the next-step demo command
 ```
 
 ## Architecture (one paragraph)
@@ -485,10 +471,10 @@ Two-tier memory architecture (hippocampus + cortex) inspired by how brains
 consolidate — kNN over episodes plus flagship-extracted routing rules per basin.
 *Free, local, MIT.* Full spec: [`docs/spec-v1.5.md`](docs/spec-v1.5.md).
 
-The trained-coordinator path (former v2) is sunset — Sakana's own ablation shows
-flagship prompt quality beats trained 7B routing, so v1.5 gets the same architecture
-via context engineering without paying for GPU training infrastructure. See the
-sunset header in [`docs/spec-v2.md`](docs/spec-v2.md) for the architectural-decision
+The trained-coordinator path (former v2) is sunset — flagship prompt quality
+beats trained 7B routing, so v1.5 gets the same architecture via context
+engineering without paying for GPU training infrastructure. See the sunset
+header in [`docs/spec-v2.md`](docs/spec-v2.md) for the architectural-decision
 record.
 
 For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).

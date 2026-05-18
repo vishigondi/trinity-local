@@ -14,10 +14,10 @@
 > ships local model dispatch, and inverts the surface from launchpad to harness-call. See
 > `docs/spec-v1.5.md`. Target: June 3, 2026.
 >
-> **v2.0 (trained-coordinator) is sunset.** Sakana's own paper shows the value of a
-> Conductor is in prompt-engineering quality, not routing decision — and a flagship model
-> with cortex context produces better prompts than a hypothetical local 7B. v1.5 absorbs
-> the architectural ideas (three-role action space, per-member prompt formulation,
+> **v2.0 (trained-coordinator) is sunset.** A Conductor's value sits in the prompt-engineering
+> quality of the routing prompts it writes, not in the routing decision itself — and a flagship
+> model with cortex context produces better prompts than a hypothetical local 7B. v1.5 ships
+> the same architectural ideas (three-role action space, per-member prompt formulation,
 > recursive verification) without paying the training-infrastructure cost. See the sunset
 > header in `docs/spec-v2.md` for the full reasoning.
 
@@ -248,7 +248,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 - **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/scoreboard/picks.json`. Operational scoreboard the chairman picker reads; not a cognitive memory. Hippocampus (kNN) + Cortex (rules) two-tier picker pipeline.
 - **Local model dispatch** — Ollama + MLX added to the dispatch layer. Local routes for easy subtasks = zero subscription cost.
 - **Rate-limit handling + Conductor replan** — when Claude's own sub hits its limit, Trinity continues your work via Codex/Gemini/local. The cross-provider rate-limit-dodge is the killer flow.
-- **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) does Sakana's three-role planning with cortex context. No training required.
+- **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) handles three-role (Thinker / Worker / Verifier) planning with cortex context. No training required.
 - **Launchpad reframe** — becomes "What Trinity has learned about you" dashboard, not the destination.
 
 **Deferred indefinitely (the labs may build these first; not our wedge):**
@@ -259,7 +259,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 - Hosted leaderboard from opt-in routing labels
 
 **Sunset (v2.0 trained-coordinator path):**
-- Training a local Qwen / 7B Conductor via DPO or sep-CMA-ES. v1.5's flagship-as-Conductor + cortex-via-flagship-extraction achieves the same architecture via context engineering, without 4-8 weeks of training infrastructure. Sakana's own ablation shows the value is in prompt-engineering quality (3B = 7B routing; 7B wins on prompt quality) — and flagships write better prompts than any 7B. If v1.5 hits a quality ceiling, this path re-opens as a future v2, trained on the data v1.0+v1.5 generated. See `docs/spec-v2.md` sunset header.
+- Training a local Qwen / 7B Conductor via DPO or sep-CMA-ES. v1.5's flagship-as-Conductor + cortex-via-flagship-extraction achieves the same architecture via context engineering, without 4-8 weeks of training infrastructure. Trained-router ablations in the literature show the value is in prompt-engineering quality (a smaller model can match a larger one on routing decisions; the larger model wins on prompt quality) — and flagships write better prompts than any 7B. If v1.5 hits a quality ceiling, this path re-opens as a future v2, trained on the data v1.0+v1.5 generated. See `docs/spec-v2.md` sunset header.
 
 ## The 8-minute bar (the only test that matters)
 

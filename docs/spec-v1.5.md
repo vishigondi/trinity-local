@@ -288,9 +288,10 @@ mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
 `search_prompts`, `get_persona`, `get_council_status`, `get_picks`,
 `route` (deprecated but retained).
 
-**Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (Sakana-style
-3-list multi-step workflow with `dry_run` mode and recursive verification).
-Conductor-as-flagship-prompt mechanics stay valid; just not in the v1.5 ship.
+**Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (three-role
+multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
+and recursive verification). Conductor-as-flagship-prompt mechanics stay
+valid; just not in the v1.5 ship.
 
 ### Basin classifier (gates the entire cortex layer)
 
@@ -563,14 +564,15 @@ There are two conductor layers, not one:
 
 For `plan_and_execute`: a flagship (default Claude Opus) gets the context
 package (kNN episodes + picks + lens basins + pool composition + cost
-metadata) and outputs Sakana's 3-list. Dispatcher executes. Verification
-step reviews.
+metadata) and outputs the three-role plan (Thinker / Worker / Verifier
+assignments per step). Dispatcher executes. Verification step reviews.
 
 **The Conductor is NOT a trained model.** It's a flagship prompted with the
-right context. Sakana's own paper shows the value is in prompt-engineering
-quality (3B vs 7B find same routing; 7B wins on prompt quality). A flagship
-with cortex+kNN context outperforms a hypothetical local 7B because the
-flagship has 100x the linguistic capability.
+right context. The value sits in prompt-engineering quality, not in the
+routing decision itself — smaller models find the same routing as larger
+ones, but the larger model writes better natural-language subtasks. A
+flagship with cortex+kNN context outperforms a hypothetical local 7B
+because the flagship has 100x the linguistic capability.
 
 ### Dispatch layer
 
@@ -797,7 +799,7 @@ If `ask` + `compare` + `plan_and_execute` + cortex consolidation hit a
 quality ceiling on real user data, the v2 trajectory opens:
 
 - True trained Conductor (Qwen 7B via DPO or sep-CMA-ES per the
-  Sakana-aligned recipe in `spec-v2.md` — deferred, not sunset)
+  recipe in `spec-v2.md` — deferred, not sunset)
 - v1.0 + v1.5 data IS the training set when v2 lands
 - Local fine-tune via MLX on Apple Silicon
 
@@ -806,19 +808,19 @@ covers 95% of cases at acceptable cost/latency, we don't pay the training
 infrastructure cost. If users hit specific failure modes at scale, that's
 when v2 (the trained-coordinator) starts.
 
-## Why this beats Sakana's trained-coordinator path for THIS market
+## Why this beats a trained-coordinator path for THIS market
 
-Sakana's TRINITY paper proves a 7B trained Conductor beats GPT-5 by ~2.5pts
-on benchmarks. Their own ablation (Fig 7) shows the value is in
-prompt-engineering quality, NOT routing decision — 3B and 7B find the same
-optimal routing; the 7B wins because of better natural-language subtasks.
+Trained-router research shows that for a fixed routing problem, model size
+buys you better natural-language *subtask prompts* more than better
+*routing decisions* — smaller models find roughly the same optimal routing
+as larger ones; the larger model wins because it writes cleaner subtasks.
 
-We can get better-than-7B prompt quality by using a flagship model as the
-Conductor with cortex-derived context. The Conductor doesn't have to learn
-routing because the cortex rules already encode it. The Conductor doesn't
-have to learn user taste because the lens + retrieval already encode it.
-The Conductor just writes the per-member subtask prompts — and a flagship
-writes those better than any 7B.
+We can get better prompt quality than any local 7B by using a flagship
+model as the Conductor with cortex-derived context. The Conductor doesn't
+have to learn routing because the cortex rules already encode it. The
+Conductor doesn't have to learn user taste because the lens + retrieval
+already encode it. The Conductor just writes the per-member subtask
+prompts — and a flagship writes those better than any 7B.
 
 The "things change weekly" point is load-bearing: trained Conductors decay
 when models update (Claude 4.8 ships, the trained routing decisions for

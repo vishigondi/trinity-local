@@ -27,7 +27,7 @@ Trinity is a **routing substrate** — the layer underneath every AI harness tha
 
 The router is the implementation. The verifier is the value. The personal preference graph is the moat. The closed loop with state and replay is the product that doesn't exist yet.
 
-**Reading list (research context, not current shipped identity):** RouteLLM (router baseline), LLM-Blender (generator-verifier asymmetry), Conductor / Fugu (recursive self-orchestration), Sakana TRINITY (tiny coordinator over frontier models). These are the research patterns Trinity Local's *evidence ledger* generates supervision signal for — when a learned controller is eventually trained against the ledger (Phase 9 future work; not in this repo), the ledger is the right shape to feed it. **Today's repo ships the ledger and the synthesizer, not the controller.**
+**Reading list (research context, not current shipped identity):** RouteLLM (router baseline), LLM-Blender (generator-verifier asymmetry), Conductor / Fugu (recursive self-orchestration). These are the research patterns Trinity Local's *evidence ledger* generates supervision signal for — when a learned controller is eventually trained against the ledger (Phase 9 future work; not in this repo), the ledger is the right shape to feed it. **Today's repo ships the ledger and the synthesizer, not the controller.**
 
 ---
 
@@ -331,7 +331,7 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 
 For the long-form Phase 0–9 plan (TRM-style learned coordinator, aggregation endpoint, Phase 9 training pipeline), see [`docs/scale-plan.md`](scale-plan.md). This file stays product-spec-shaped: positioning, GTM, what's in/out of v1.
 
-The destination matches the convergence of Lottery Ticket → HRM → TRM → Sakana TRINITY: a small learned controller (~10K params) over frontier models, with a verifier head, that recursively refines via chain mode. The chairman + `/me` primitive Trinity ships today is the supervision-signal generator that feeds Phase 9; chairman synthesis is `/me`-conditioned, so the Phase 9 router learns `(task_text, /me_embedding) → routing_decision` rather than a generic mapping.
+The destination matches the convergence of Lottery Ticket → HRM → TRM: a small learned controller (~10K params) over frontier models, with a verifier head, that recursively refines via chain mode. The chairman + `/me` primitive Trinity ships today is the supervision-signal generator that feeds Phase 9; chairman synthesis is `/me`-conditioned, so the Phase 9 router learns `(task_text, /me_embedding) → routing_decision` rather than a generic mapping.
 
 ## Trinity and the broader pattern
 

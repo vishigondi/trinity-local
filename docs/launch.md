@@ -93,36 +93,11 @@ run one council. Tell me what you learned.
 
 ---
 
-## FAQ pre-empt: Sakana TRINITY (ICLR 2026)
-
-Sakana AI published *"TRINITY: An Evolved LLM Coordinator"* (arXiv:2512.04695, ICLR
-2026) the same week Trinity Local ships. Two different things; the names collide. The
-question will get asked in HN comments + on X. Pre-empted answer:
-
-> Sakana's TRINITY is a research coordinator that trains a 0.6B SLM + 10K-param head via
-> sep-CMA-ES to hit 86.2% pass@1 on LiveCodeBench — beats GPT-5 and Gemini 2.5-Pro on
-> coding benchmarks. It's a learned coordinator over multiple LLMs.
->
-> Trinity Local is a local-first consumer tool for polyharness users — people running
-> Claude + ChatGPT + Gemini subscriptions in parallel. It watches the transcripts on
-> your machine, learns your taste, picks the right model for your kind of question, and
-> when in doubt convenes them as a council. Free. Open-source. macOS today, cross-platform on the v1.5/v1.6 roadmap (see `docs/cross-platform-spec.md`).
->
-> Same wedge ("coordination beats monolithic scaling"), different audience (researchers
-> vs. polyharness power users), different mechanism (their trained cortex vs. our
-> ledger + flagship-as-Conductor). The two coexist — the Sakana paper independently
-> validates the architectural thesis we're shipping. Their `Thinker / Worker / Verifier`
-> role decomposition is absorbed into `docs/spec-v1.5.md` as the `plan_and_execute`
-> three-list output schema. The key insight that drove our pivot from a trained
-> coordinator: their own 3B vs 7B ablation (Figure 7) shows both Conductor sizes find
-> the same routing — the 7B wins on natural-language prompt quality. A flagship model
-> with retrieval+cortex context produces better prompts than any 7B you could train,
-> so we ship the architecture via context engineering instead of paying for training.
-
-If asked in HN comments specifically: lead with the audience differentiation, link the
-arXiv paper, point at `docs/spec-v1.5.md` for our active plan (and the sunset header
-in `docs/spec-v2.md` for the trained-coordinator decision record). Don't pretend the
-collision isn't there.
+<!-- Sakana TRINITY paper FAQ removed 2026-05-18 — complicates the
+launch story without payoff. If the naming collision gets raised in
+HN comments, answer briefly off-the-cuff: different audiences (research
+coordinator vs consumer memory layer), don't engage in deep
+architecture comparison. -->
 
 ---
 
@@ -339,10 +314,9 @@ reference directly when relevant:
 - The personal `/me` lens demo on real data — only mention if I have ≥3 lenses to show.
   An empty `lens.md` undersells.
 - Hosted leaderboard — opt-in upload not yet wired; v1.5+ if needed.
-- Trained-coordinator path is **sunset** (former v2). If someone asks "why aren't you
-  training a 7B like Sakana?" answer: their own ablation shows the value is in
-  prompt-engineering quality, not routing decision. A flagship with cortex context
-  writes better prompts than any 7B. Reopens only if v1.5 ceilings.
+- Trained-coordinator path is **sunset** (former v2). A flagship with cortex
+  context writes better routing prompts than any 7B you could train; v1.5 ships
+  the same architecture via context engineering. Reopens only if v1.5 ceilings.
 
 ---
 

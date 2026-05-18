@@ -722,7 +722,7 @@ Phase 5c — Leaderboard              ← needs telemetry critical mass + Worker
 
 > **The product boundary:** Trinity is not a workspace. It is the routing substrate beneath every harness. Claude Code, Codex, Gemini Code, Cowork, Cursor — they own the work surface. Trinity owns the question: **"Which intelligence should be used here, and how confident are we?"** The harness asks. Trinity answers, runs councils when needed, records outcomes, and gets smarter for every harness.
 
-**Strategic frame** (Sakana Trinity-aligned): the coordinator stays small because it does not do the task. It selects models and roles; the larger models do the work. The moat compounds because every harness that calls Trinity contributes to one routing graph that no single model provider can see — Claude Code's outcomes train Codex's recommendations, and vice versa.
+**Strategic frame:** the coordinator stays small because it does not do the task. It selects models and roles; the larger models do the work. The moat compounds because every harness that calls Trinity contributes to one routing graph that no single model provider can see — Claude Code's outcomes train Codex's recommendations, and vice versa.
 
 **Sharpest positioning:** *Trinity is the exchange layer for model intelligence. Harnesses are brokers. Models are liquidity providers. Trinity routes.*
 

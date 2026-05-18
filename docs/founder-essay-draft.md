@@ -197,16 +197,14 @@ Then, in order:
   rule generalizes, the episodes calibrate. Brains don't kNN over raw episodes.
   Trinity shouldn't either.
 - **v1.6+ (post-v1.5): multi-step orchestration.** `plan_and_execute` for the rare
-  case Claude wants Trinity to plan a multi-step workflow (Sakana three-list output —
-  who plans, who implements, who verifies). v1.5 ships the routing; v1.6 ships the
-  orchestrator. The architecture is the same — a flagship Conductor reads cortex
-  context + emits the plan. No training. Just better prompts.
-- **The trained-coordinator path is sunset.** When Sakana published their TRINITY
-  paper in December (arXiv:2512.04388), I read it three times. Their own 3B vs 7B
-  ablation shows both Conductor sizes find the same routing — the 7B wins on
-  natural-language prompt quality. A flagship model with retrieval+cortex context
-  produces better prompts than any 7B you could train. So I'm not paying 4–8 weeks
-  of GPU training for an architecture I can ship in 5 weeks via context engineering.
+  case Claude wants Trinity to plan a multi-step workflow (who plans, who implements,
+  who verifies). v1.5 ships the routing; v1.6 ships the orchestrator. The
+  architecture is the same — a flagship Conductor reads cortex context + emits the
+  plan. No training. Just better prompts.
+- **The trained-coordinator path is sunset.** A flagship model with retrieval+cortex
+  context produces better routing prompts than any 7B you could train. So I'm not
+  paying 4–8 weeks of GPU training for an architecture I can ship in 5 weeks via
+  context engineering.
   If v1.5 hits a real quality ceiling on user data, the training path reopens. Not
   until then.
 
