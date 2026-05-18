@@ -262,3 +262,11 @@ states aren't useful smoke surfaces anyway.
 
 **Audited**: 2026-05-18, iteration 13.
 
+- 2026-05-18 (iter 14): no actionable surface → **KEEP** (whole iter).
+  Audit hunted cat 7 (flag noise on unrated/depth/cache — clean),
+  cat 10 (stale refs to renamed/removed commands in docs/scripts/
+  skills — all live or already swept), and cat 4 (H3/H4 README
+  drift — none). Convergence signal: the easy KILL/COLLAPSE territory
+  is exhausted; what's left is the 4 open PROPOSALs queued for user
+  decision.
+
