@@ -439,3 +439,58 @@ extracted content. 14 top-level README sections remain, all earning their
 place. Objections FAQ is the new conversion lever the user added on top.
 1400 tests pass; 39 doc-consistency + narrative guards green.
 
+## Charge-ahead session — additional simplifications shipped
+
+Following user directive "find more simplification proposals like this
+and charge ahead". Six more cleanups shipped:
+
+- **README streamline pass 2**: 12.1KB → 10.9KB. Trimmed Demo JSON,
+  killed duplicate launchpad screenshot, condensed "Your lens" + "For
+  tool builders" + "What's next" to one-liners, tightened 2 Objection
+  answers. (Commit: 5e944dc)
+
+- **README FAQ adds**: 4 conversion-blocker Q&As (Dreaming comparison,
+  Anthropic-build-it-themselves, who-is-behind-this trust, exit-safety).
+  README 10.9 → 12.1KB (worth the 1.2KB for the conversion levers).
+  (Commit: 34a9297)
+
+- **Launchpad empty-state eval card → KILL**: closes iter-13 PROPOSAL.
+  22 LOC removed from launchpad_template.py; Surface 30 smoke updated
+  to skip silently when no eval results exist. (Commit: 3de5cd5)
+
+- **Notifications feature → KILL**: closes iter-9 PROPOSAL. 11 files
+  touched, 177 LOC removed. notify() + system-notification platform code
+  + 2 CLI subcommands (notifications-enable/disable) + --notify flag on
+  watch-once/watch-loop/council-start/council-launch/review + notify_action
+  helper + dispatch_registry --notify append + launchpad ingest-once
+  template. open_path() kept (used by 4 commands). (Commit: 8010bc3)
+
+- **search_prompts MCP tool → KILL**: closes iter-1 PROPOSAL.
+  140 LOC across 7 files. Tool count 11 → 10, canonical 6 → 5. Sweep
+  through claude.md, docs/spec-v1, docs/product-spec, launch-day FAQs,
+  tests. (Commit: a815995)
+
+- **memory_dir() alias → DROP**: post-rename back-compat cruft retired.
+  5 files (cold_start.py + 3 tests + state_paths.py itself). prompts_dir
+  is now the canonical name; legacy alias deleted. (Commit: 5ce4168)
+
+## Open simplifications (analyzed but not shipped)
+
+- **doctor → collapse**: still PROPOSAL iter-1. Scope analyzed:
+  commands/doctor.py is only 37 LOC (CLI wrapper), doctor.py library
+  (1006 LOC) stays for MCP rate_action + status. Sweep blast radius:
+  ~25 files mentioning `trinity-local doctor` across install.sh,
+  README Help, SKILL.md sections, 6 docs, 3 test files. Mechanical
+  but high surface count. Decision pending user — was the only one
+  too risky to ship at 4am without diff review.
+
+- **install-app / Trinity.app**: real product scope. ~500+ LOC across
+  launchpad_install + commands/install + test files + uninstall.sh.
+  Documented as "non-coder daily launch" — killing it removes a real
+  audience. NOT a pre-launch simplification candidate.
+
+- **macOS Shortcut dispatcher → Chrome extension only**: ~700 LOC
+  killable but requires wiring launchpad dispatch through the Chrome
+  extension's Native Messaging host first. Not a 1-day cleanup; v1.1
+  candidate.
+
