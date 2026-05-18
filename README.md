@@ -5,15 +5,16 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Your taste, ported. Distilled from your transcripts — used to score any model.
+## Your taste, ported.
+
+Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through the taste distilled from transcripts already on your machine — and picks the answer YOU would have picked, not the generic one.
 
 ```bash
-trinity-local eval-run --target gemini
-# → Gemini scored 0.83 on YOUR kind of question.
-#   Claude 0.91.  GPT-5 0.77.
+trinity-local council-launch --task "Should I use SQLite or DuckDB for this analytics workload?"
+# → Claude, Codex, and Gemini answer in parallel.
+# → Chairman synthesizes through your taste lens (distilled from your transcripts).
+# → Verdict: winner, runner-up, agreed claims, where they split, why each split matters.
 ```
-
-A headline number no lab can produce — because only the layer above the labs sees your transcripts across all three.
 
 **No new app. No service. No API key. Your transcripts never leave your machine.**
 
@@ -29,11 +30,11 @@ Three install paths: **Skill** (primary; `/trinity`), **Engine** (CLI-only / hea
 
 ![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
-## What "your taste, ported" means
+## How it works
 
-Trinity reads the transcripts already on your machine (Claude Code, Codex CLI, Gemini CLI, Cursor, claude.ai exports, ChatGPT exports, Gemini Takeout), learns the pattern in **how you rephrase, judge, and decide**, then runs hard questions through all three providers in your voice and picks the answer you would have picked.
+Trinity reads the transcripts already on your machine — Claude Code, Codex CLI, Gemini CLI, Cursor, claude.ai exports, ChatGPT exports, Gemini Takeout — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
 
-Same eval suite works against every new model:
+### And — when a new model lands, score it against your taste
 
 ```bash
 trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/rejections.jsonl)
@@ -41,22 +42,7 @@ trinity-local eval-run --target claude-5    # re-target whenever a new model lan
 trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT / SHARPENING
 ```
 
-When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05."* That sentence is the thing only Trinity can produce.
-
-### And — for new hard questions, the council reads through your lens
-
-```bash
-trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
-```
-
-Trinity runs the question through all three providers in parallel. The chairman synthesizes
-their answers — but synthesizes *through your lens*, the one distilled from how you've
-rephrased, judged, and rejected past responses. The verdict comes back in your voice: what
-the labs agree on, where they split and why it matters, which one was right *for you*.
-
-The labs can't do this for you because they can't see across each other. Only the layer above
-them can read every transcript already on your machine and turn that history into a taste
-signal a new question can be evaluated against.
+When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05."* A headline number no lab can produce — because only the layer above the labs sees your transcripts across all three.
 
 ---
 
