@@ -6,26 +6,11 @@ import os
 from pathlib import Path
 
 from trinity_local.embeddings.backend_tfidf import embed_tfidf, cosine_similarity
-from trinity_local.embeddings.cache import (
-    _text_key,
-    get_cached,
-    put_cached,
-    clear_cache,
-    cache_stats,
-    _cache_path,
-    _load_index,
-)
 
 
-class TestTextKey:
-    def test_deterministic(self):
-        assert _text_key("hello", 512) == _text_key("hello", 512)
-
-    def test_different_dims(self):
-        assert _text_key("hello", 512) != _text_key("hello", 256)
-
-    def test_different_texts(self):
-        assert _text_key("hello", 512) != _text_key("world", 512)
+# The persistent embedding cache was retired 2026-05-17. TestTextKey
+# and TestCache classes used to live here; they're gone with the module
+# they exercised.
 
 
 class TestTfidfBackend:
@@ -58,96 +43,36 @@ class TestTfidfBackend:
         assert all(v == 0.0 for v in vec)
 
 
-class TestCache:
-    def test_miss_returns_none(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        # Reset cache state
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        assert get_cached("nonexistent text") is None
-
-    def test_put_and_get(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        vector = [0.1, 0.2, 0.3]
-        put_cached("test text", vector, dim=3)
-        result = get_cached("test text", dim=3)
-        assert result == vector
-
-    def test_clear(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        put_cached("text1", [1.0], dim=1)
-        count = clear_cache()
-        assert count == 1
-        assert get_cached("text1", dim=1) is None
-
-    def test_stats(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        put_cached("text1", [1.0, 2.0], dim=2)
-        stats = cache_stats()
-        assert stats["entries"] == 1
-        assert stats["size_bytes"] > 0
-
-    def test_persistence(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        put_cached("persistent", [0.5], dim=1)
-        # Reset in-memory index to force reload from disk
-        cache_mod._index = None
-        result = get_cached("persistent", dim=1)
-        assert result == [0.5]
-
-
 class TestPublicAPI:
     def test_get_backend_without_mlx(self):
         from trinity_local import embeddings
-        # Should be either "mlx" or "tfidf" depending on env
         assert embeddings.get_backend() in ("mlx", "tfidf")
 
-    def test_embed_returns_vector(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
+    def test_embed_returns_vector(self):
         from trinity_local import embeddings
         vec = embeddings.embed("test embedding text")
         assert isinstance(vec, list)
         assert len(vec) > 0
 
-    def test_similarity_symmetric(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
+    def test_similarity_symmetric(self):
         from trinity_local import embeddings
         sim_ab = embeddings.similarity("hello world", "hello there")
         sim_ba = embeddings.similarity("hello there", "hello world")
         assert abs(sim_ab - sim_ba) < 0.001
 
-    def test_model_status(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
+    def test_model_status(self):
         from trinity_local import embeddings
         status = embeddings.model_status()
         assert "backend" in status
-        assert "cache_entries" in status
+        assert "mlx_available" in status
 
-    def test_tfidf_fallback_respects_requested_dim(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
+    def test_tfidf_fallback_respects_requested_dim(self, monkeypatch):
         from trinity_local import embeddings
 
         monkeypatch.setattr(embeddings, "_mlx_backend", None)
         vec = embeddings.embed("fallback vector", dim=512)
 
         assert len(vec) == 512
-        assert get_cached("fallback vector", dim=512) == vec
 
 
 class TestIsFiniteEmbedding:
@@ -175,44 +100,18 @@ class TestIsFiniteEmbedding:
         assert not is_finite_embedding([1.0, float("-inf"), 0.5])
 
 
-class TestWriteBoundaryNaNGate:
+class TestEmbedBoundaryNaNGate:
     """Per meta-principle #3 (filter at the boundary, not the consumer):
-    non-finite vectors must never enter the cache and must never be
-    returned by embed()/embed_batch(). MLX has been observed emitting
-    NaN under memory pressure or quantization edges — without these
-    gates a single bad vector poisons every downstream cosine matmul,
-    and the cache makes the poisoning permanent across runs."""
+    non-finite vectors must never be returned by embed()/embed_batch().
+    MLX has been observed emitting NaN under memory pressure or
+    quantization edges — without these gates a single bad vector poisons
+    every downstream cosine matmul. (The persistent cache that used to
+    also gate writes was retired 2026-05-17; the embed()/embed_batch()
+    sanitizer is now the only boundary.)"""
 
-    def test_put_cached_refuses_nan(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        bad = [1.0, float("nan"), 0.5] + [0.0] * 765
-        cache_mod.put_cached("nan-text", bad, dim=768)
-        assert cache_mod.get_cached("nan-text", dim=768) is None
-
-    def test_put_cached_refuses_inf(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        bad = [1.0, float("inf"), 0.5] + [0.0] * 765
-        cache_mod.put_cached("inf-text", bad, dim=768)
-        assert cache_mod.get_cached("inf-text", dim=768) is None
-
-    def test_put_cached_accepts_finite(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
-        good = [0.1] * 768
-        cache_mod.put_cached("good-text", good, dim=768)
-        assert cache_mod.get_cached("good-text", dim=768) == good
-
-    def test_embed_sanitizes_nan_from_backend(self, tmp_path, monkeypatch):
+    def test_embed_sanitizes_nan_from_backend(self, monkeypatch):
         """When the MLX backend produces a non-finite vector, embed()
         falls back to TF-IDF instead of returning the poison."""
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
         from trinity_local import embeddings
 
         class _BadBackend:
@@ -225,10 +124,7 @@ class TestWriteBoundaryNaNGate:
         assert all(v == v for v in vec)  # no NaN
         assert all(v not in (float("inf"), float("-inf")) for v in vec)
 
-    def test_embed_batch_sanitizes_nan_from_backend(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        import trinity_local.embeddings.cache as cache_mod
-        cache_mod._index = None
+    def test_embed_batch_sanitizes_nan_from_backend(self, monkeypatch):
         from trinity_local import embeddings
 
         class _BadBackend:

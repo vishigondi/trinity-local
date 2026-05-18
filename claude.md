@@ -583,7 +583,6 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/review.py` | `review` |
 | `commands/adapters.py` | `adapters` |
 | `commands/status.py` | `status` |
-| `commands/cache.py` | `cache-stats`, `cache-clear` |
 | `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
 | `commands/vocabulary.py` | `vocabulary` (scan prompts for terminology overloads — one word ↔ two meanings; two words ↔ one meaning. Emits `~/.trinity/memories/vocabulary.md`; load-bearing Stage 4 of the lens pipeline) |
 | `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
@@ -609,7 +608,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Council status | `council_status.py` | Live run-state, member streaming, chairman synthesis progress |
 | Council review | `council_review.py` | Static HTML review pages, structured Routing label section, live page with streaming member responses |
 | Memory | `memory/` package — `schemas.py`, `store.py`, `index.py`, `replay_value.py` | `PromptNode` (atom) + `TurnWindow` (local context) index with replay-value scoring + MMR diversification |
-| Embeddings | `embeddings/` — `__init__.py`, `backend_mlx.py`, `backend_tfidf.py`, `cache.py` | `nomic-embed-text-v1.5` at **768d**, batched embed with cache-awareness, Nomic prefix preservation |
+| Embeddings | `embeddings/` — `__init__.py`, `backend_mlx.py`, `backend_tfidf.py` | `nomic-embed-text-v1.5` at **768d**, batched embed, Nomic prefix preservation. Persistent cache retired 2026-05-17 — offline rebuild passes re-encode their corpus per run (~2 min on 50k prompts); cold-start UX unchanged. |
 | Ingest | `ingest.py` | Parsers: `parse_claude_code_session`, `parse_codex_session`, `parse_gemini_cli_session`, `parse_cowork_session`, `parse_claude_ai_export`, `parse_chatgpt_export`, `parse_gemini_takeout_html`. `iter_prompt_turns(session)` yields clean user-facing turns (sidechain / API errors / synthetic stripped). Gemini Takeout cells are grouped into multi-turn sessions by 30-minute time-proximity (source_format_version "2") so prior-thread context is preserved across cells Google flattened. |
 | Thread context | `thread_context.py` | Canonical `build_threaded_prompt()` formatter — prepends preceding-assistant excerpt to short turns ("continue.", "Let me restart.") so fresh models replay with context. Used by both autofill and replay-history. |
 | Categories | `categories.py` | Trinity capability categories aligned with the LMArena leaderboard (Coding/Math/Creative Writing/Hard Prompts/Multi-Turn/Instruction Following/Overall). Single source for the task_type→category map and UI labels. |

@@ -68,16 +68,16 @@ def embed_batch(
 ) -> tuple[list[list[float]], dict[str, Any]]:
     """Batch-embed texts. Returns (vectors, meta).
 
-    meta carries: `backend` (mlx | tfidf), `cached_count`,
+    meta carries: `backend` (mlx | tfidf), `cached_count` (legacy:
+    always 0 since the persistent cache was retired 2026-05-17),
     `embedded_count`. The pip tier function only returns vectors;
     this wrapper adds the diagnostic meta so the shebang user can
     see which backend fired.
     """
     from trinity_local.embeddings import embed_batch as _embed
-    from trinity_local.embeddings.cache import get_cached
 
-    cached_count = sum(1 for t in texts if get_cached(t, dim=dim) is not None)
-    embedded_count = len(texts) - cached_count
+    cached_count = 0
+    embedded_count = len(texts)
 
     vectors = _embed(texts, dim=dim, batch_size=batch_size)
 

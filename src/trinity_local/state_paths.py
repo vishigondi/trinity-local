@@ -119,8 +119,9 @@ def models_dir() -> Path:
     return path
 
 
-def embeddings_cache_path() -> Path:
-    return cache_dir() / "embeddings.jsonl"
+# `embeddings_cache_path()` was retired 2026-05-17 with the embedding
+# cache kill. The persistent cache file at `~/.trinity/cache/embeddings.jsonl`
+# may exist on older installs but Trinity no longer reads or writes it.
 
 
 # --- Paths migrated from individual modules (Phase 0) ---

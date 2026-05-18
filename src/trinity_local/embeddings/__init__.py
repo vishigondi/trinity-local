@@ -2,17 +2,26 @@
 
 Public API:
     embed(text)       → list[float]   (MLX if available, TF-IDF fallback)
-    similarity(a, b)  → float         (cosine similarity, cached)
+    embed_batch(texts) → list[list[float]]  (batched, 10-50× faster on MLX)
+    similarity(a, b)  → float         (cosine similarity)
     is_available()    → bool          (True if MLX backend loaded)
     get_backend()     → str           ("mlx" | "tfidf")
 
 This package is imported by both the product path (watch_runtime) and
-the research path (research/ranking). It owns model loading, inference,
-and caching. The watcher never calls the model twice for the same text.
+the research path (research/ranking). It owns model loading and inference.
+
+The persistent embedding cache (`~/.trinity/cache/embeddings.jsonl`) was
+retired 2026-05-17 in the pre-launch simplification pass. With the
+embedding-powered search hot-path already removed (Tier 1 #4), the only
+remaining consumers are the offline rebuild commands (`dream`,
+`lens-build`, `vocabulary`, `consolidate`); each pass re-encodes its
+own corpus, which costs ~2 min on a 50k-prompt corpus but saves a
+persistent state file, an unbounded growth gotcha, and two CLI surfaces
+(`cache-stats`, `cache-clear`). Re-introduce an in-memory cache here
+if power-user perf complaints surface post-launch.
 """
 from __future__ import annotations
 
-from .cache import get_cached, put_cached
 from .backend_tfidf import embed_tfidf, cosine_similarity
 
 # Try to load MLX backend
@@ -80,86 +89,65 @@ def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
     """Embed text into a dense vector.
 
     Uses MLX (nomic-embed-text-v1.5) if available, TF-IDF stub otherwise.
-    Results are cached by text hash.
 
     MLX may fail at runtime (network issues, model not cached, permission errors).
     Any failure falls back gracefully to TF-IDF, ensuring offline availability.
 
     Non-finite vectors (NaN/Inf) are replaced with TF-IDF for the same
-    text before being cached or returned. MLX can occasionally emit
-    non-finite components under memory pressure or quantization edge
-    cases; the sanitization gate at this boundary means downstream
-    matmuls (basins k-means, depth_score cosine, etc.) never see them.
+    text before being returned. MLX can occasionally emit non-finite
+    components under memory pressure or quantization edge cases; the
+    sanitization gate at this boundary means downstream matmuls (basins
+    k-means, depth_score cosine, etc.) never see them.
 
     If the caller pre-prepended a Nomic task prefix (search_query:, search_document:,
     clustering:, classification:), it is preserved. Otherwise the MLX backend
     auto-prepends search_document: for backwards compatibility.
     """
-    cached = get_cached(text, dim=dim)
-    if cached is not None:
-        return cached
-
-    # Try MLX first, but fall back to TF-IDF on any error
     vector = None
     if _mlx_backend is not None:
         try:
             vector = _mlx_backend.embed(text, dim=dim)
         except Exception:
-            # MLX failed (network, missing model, permissions, etc.)
-            # Fall back to TF-IDF
             vector = None
 
     if vector is None or not is_finite_embedding(vector):
         vector = embed_tfidf(text, dim=dim)
 
-    put_cached(text, vector, dim=dim)
     return vector
 
 
 def embed_batch(texts: list[str], *, dim: int = DEFAULT_DIM, batch_size: int = 64) -> list[list[float]]:
     """Batch-embed multiple texts. 10-50× faster than serial embed() on MLX.
 
-    Cache-aware: returns cached vectors for known texts, only sends unknown
-    texts through the model. Falls back to per-text tfidf if MLX unavailable.
+    Falls back to per-text tfidf if MLX unavailable. Non-finite vectors
+    are sanitized inline (meta-principle #3: filter at the boundary).
     """
     if not texts:
         return []
 
-    # Cache lookup pass
-    cached_results: list[list[float] | None] = [get_cached(t, dim=dim) for t in texts]
-    uncached_indices = [i for i, v in enumerate(cached_results) if v is None]
-    if not uncached_indices:
-        return [v for v in cached_results if v is not None]
-
-    uncached_texts = [texts[i] for i in uncached_indices]
     new_vectors: list[list[float]] | None = None
     if _mlx_backend is not None:
         try:
-            new_vectors = _mlx_backend.embed_batch(uncached_texts, dim=dim, batch_size=batch_size)
+            new_vectors = _mlx_backend.embed_batch(texts, dim=dim, batch_size=batch_size)
         except Exception:
             new_vectors = None
 
     if new_vectors is None:
-        new_vectors = [embed_tfidf(t, dim=dim) for t in uncached_texts]
-    else:
-        # Replace any non-finite vectors with TF-IDF fallback for that
-        # specific text. MLX can emit NaN/Inf under memory pressure or
-        # quantization edge cases; sanitizing here means downstream
-        # matmuls (basins, depth, vocabulary, cross_provider) never see
-        # them. Meta-principle #3: filter at the boundary.
-        for i, vec in enumerate(new_vectors):
-            if not is_finite_embedding(vec):
-                new_vectors[i] = embed_tfidf(uncached_texts[i], dim=dim)
+        return [embed_tfidf(t, dim=dim) for t in texts]
 
-    # Stitch results back in order + write to cache
-    for idx, vec in zip(uncached_indices, new_vectors):
-        cached_results[idx] = vec
-        put_cached(texts[idx], vec, dim=dim)
-    return [v for v in cached_results if v is not None]
+    # Replace any non-finite vectors with TF-IDF fallback for that
+    # specific text. MLX can emit NaN/Inf under memory pressure or
+    # quantization edge cases; sanitizing here means downstream
+    # matmuls (basins, depth, vocabulary, cross_provider) never see
+    # them. Meta-principle #3: filter at the boundary.
+    for i, vec in enumerate(new_vectors):
+        if not is_finite_embedding(vec):
+            new_vectors[i] = embed_tfidf(texts[i], dim=dim)
+    return new_vectors
 
 
 def similarity(text_a: str, text_b: str, *, dim: int = DEFAULT_DIM) -> float:
-    """Cosine similarity between two texts. Cached per-text."""
+    """Cosine similarity between two texts."""
     vec_a = embed(text_a, dim=dim)
     vec_b = embed(text_b, dim=dim)
     return cosine_similarity(vec_a, vec_b)
@@ -176,14 +164,10 @@ def setup_model(*, force: bool = False) -> str:
 
 
 def model_status() -> dict:
-    """Return model and cache status."""
-    from .cache import cache_stats
-    stats = cache_stats()
+    """Return model status."""
     return {
         "backend": get_backend(),
         "mlx_available": is_available(),
         "model_path": str(_mlx_backend.model_path) if _mlx_backend else None,
         "model_ready": _mlx_backend.is_ready() if _mlx_backend else False,
-        "cache_entries": stats["entries"],
-        "cache_size_bytes": stats["size_bytes"],
     }
