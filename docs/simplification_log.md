@@ -213,3 +213,18 @@ caller sites). Until then, the off-by-default behavior costs nothing.
   pre-rename) on `--skip-lens-build`. Minor internal drift; not
   worth fixing standalone since it affects no user surface.
 
+- 2026-05-18 (iter 12): `install-hooks` CLI command → **KEEP**. Audit
+  agent flagged it as "0 audience / Phase 4 unfunded scaffolding" but
+  the handler at install.py:464-517 is a real Stop-hook installer
+  that wires a `~/.claude.json` block to call `watch-once --quiet`
+  after every Claude turn. Use case: auto-ingest for CLI-only users
+  (non-MCP setups). It's redundant with the MCP first-spawn
+  auto-scan for ~95% of users, but the remaining 5% — pure CLI users
+  without MCP — depend on this opt-in path. Documented in
+  scale-plan.md:793 ("Off by default; enable explicitly via
+  `trinity-local install-hooks`") and exercised by
+  test_phase8_integration.py:175 (registration smoke test). Killing
+  it requires deciding "do non-MCP users matter for v1?" — a product
+  scope call, not pre-launch simplification. Verdict: KEEP. (Could
+  reopen as PROPOSAL if you decide non-MCP is out of scope.)
+
