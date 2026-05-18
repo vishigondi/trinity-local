@@ -203,7 +203,9 @@ all point at the same architectural claim.
 
   # 6. Generate the launchpad screenshot with FRESH eval numbers
   trinity-local portal-html
-  trinity-local stats --share  # produces the leaderboard form for tweets
+  trinity-local eval-share --target gemini  # produces the leaderboard PNG for tweets
+  # (the v1.7 `stats` + `metric` marketing-voice commands were retired 2026-05-17
+  #  pre-launch; the eval-share card is the launch-ready shareable artifact.)
   ```
 
 **T-0 day (launch — May 13–15):**
