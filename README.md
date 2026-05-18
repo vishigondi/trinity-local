@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 
 Then type `/trinity` in Claude Code. The skill walks the rest — `doctor`, ingest, dream, first eval. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end (`ls ~/.claude/skills/trinity/`).
 
-Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated. Full prereqs, the three install paths (Skill / Trinity.app / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
+Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated. Full prereqs, the two install paths (Skill / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
 
 ![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
@@ -169,7 +169,6 @@ Trinity Local v1.7 ships today. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.
 | `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
 | `trinity-local portal-html --open` | Open the launchpad |
-| `trinity-local install-app` | Install/repair the Trinity desktop launcher |
 | `trinity-local review-link <council_id> --json` | Mobile-safe review links |
 | `trinity-local --help` | Full command list |
 

@@ -71,15 +71,8 @@ else
     echo "  ${DIM}– No daemon installed${NC}"
 fi
 
-# ── 2. Remove Trinity.app ────────────────────────────────
-step "Removing Trinity.app shortcuts"
-
-for path in "$HOME/Desktop/Trinity.app" "$HOME/Applications/Trinity.app"; do
-    if [ -e "$path" ]; then
-        rm -rf "$path"
-        ok "Removed: $path"
-    fi
-done
+# ── 2. (Trinity.app removed pre-launch — the launchpad now lives in the
+# Chrome extension, no .app to clean up.) ────────────────
 
 # ── 3. Remove dispatch wrapper ───────────────────────────
 step "Removing dispatch wrapper"

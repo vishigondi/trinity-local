@@ -484,13 +484,22 @@ and charge ahead". Six more cleanups shipped:
   but high surface count. Decision pending user — was the only one
   too risky to ship at 4am without diff review.
 
-- **install-app / Trinity.app**: real product scope. ~500+ LOC across
-  launchpad_install + commands/install + test files + uninstall.sh.
-  Documented as "non-coder daily launch" — killing it removes a real
-  audience. NOT a pre-launch simplification candidate.
+- **install-app / Trinity.app**: SHIPPED 2026-05-17 (user-authorized:
+  "yes kill Trinity.app. Chrome extension where it lives"). Net -700
+  LOC: launchpad_install.py (-293), commands/install.py install-app
+  subparser + handler + chained-install block + _remove_trinity_app
+  helper (-80), tests/test_launchpad_wrapper.py (-344), test_install_mcp
+  TestInstallAppChain class (-80), test_frontend_flow Trinity.app test
+  (-35), test_install_launcher delegation test rewritten as bail test.
+  uninstall.sh Trinity.app block removed. ~17 docs swept. README dropped
+  to "two install paths (Skill / Chrome extension)". The Chrome
+  extension is now the cross-platform launchpad host — single surface,
+  no per-OS .app maintenance.
 
 - **macOS Shortcut dispatcher → Chrome extension only**: ~700 LOC
   killable but requires wiring launchpad dispatch through the Chrome
-  extension's Native Messaging host first. Not a 1-day cleanup; v1.1
-  candidate.
+  extension's Native Messaging host first. Authorized by the same user
+  directive ("Chrome extension where it lives") — queued as the next
+  kill after the Trinity.app sweep lands clean. Not a 1-day cleanup;
+  separated to keep the diff reviewable.
 

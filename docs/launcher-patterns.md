@@ -105,9 +105,12 @@ What to copy:
 
 The shipped architecture is:
 
-1. **Desktop-app launch is the non-coder path:** `Trinity.app` opens the local
-   launchpad/review cockpit without a terminal window. `trinity-local
-   install-app` repairs or regenerates that app wrapper.
+1. **Chrome-extension launch is the non-coder path:** the Trinity Chrome
+   extension hosts the launchpad — click the toolbar icon to open the
+   local launchpad/review cockpit without a terminal window. Native
+   Messaging carries launchpad button clicks back to `trinity-local`.
+   The earlier `Trinity.app` osacompile wrapper was retired pre-launch
+   in favor of the cross-platform Chrome extension.
 2. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click fires `launch_council` via Shortcut.
 3. Trinity writes `TaskRecord`, `PromptBundle`, and `CouncilOutcome` files.
 4. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.

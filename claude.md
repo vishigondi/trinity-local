@@ -406,12 +406,18 @@ app *reaches users*. During the consumer-AI land-grab phase, the
 dominant pressure is being in the right dropdowns at the moment users
 go looking. Five workstreams, ordered by leverage:
 
-**Distribution correction (2026-05-14):** non-coders must launch Trinity like a
-desktop app, Cowork-style. `trinity-local` remains the complete engine, but
-`Trinity.app` is the acquisition and daily-use surface for ordinary users. The
+**Distribution correction (2026-05-14, revised 2026-05-17):** non-coders launch
+Trinity from the Chrome extension. `trinity-local` remains the complete engine,
+but the Chrome extension is where the static HTML launchpad lives — install once
+from the Chrome Web Store, click the toolbar icon to open the launchpad. The
 mobile app starts as a review-link companion: open the web review page, rate the
 winner, mark bad picks, and write the same ledger through the paired desktop.
 Full phone-to-desktop dispatch comes after that rating loop is reliable.
+
+The earlier `Trinity.app` (osacompile-generated .app bundle) was retired
+pre-launch — too much surface area for one launchpad host. The Chrome extension
+is cross-platform, single-source, and the same place Native Messaging carries
+launchpad button dispatches to the local CLI.
 
 1. **MCP-dropdown distribution** (task #114). Get Trinity into the
    curated MCP server lists for Claude Desktop, Codex CLI (whose MCP
@@ -615,7 +621,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
 | MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` (see below) |
-| Launchpad | `launchpad_data.py`, `launchpad_template.py`, `launchpad_runtime.py`, `launchpad_install.py`, `launchpad_page.py`, `memory_viewer.py` | Static HTML launchpad + memory viewer (memory.html with inlined memory contents) — autofill, personal routing table, council suggestions, 4-chip lens card (core / lens / topics / vocabulary) — picks + routing surface on the routing card |
+| Launchpad | `launchpad_data.py`, `launchpad_template.py`, `launchpad_runtime.py`, `launchpad_page.py`, `memory_viewer.py` | Static HTML launchpad + memory viewer (memory.html with inlined memory contents) — autofill, personal routing table, council suggestions, 4-chip lens card (core / lens / topics / vocabulary) — picks + routing surface on the routing card |
 | Share cards | `me_card.py`, `eval_card.py`, `council_card.py` | Three 1200×630 PNG renderers, one visual language (cream BG + sage accent + serif headline). `me_card` renders the strongest lens, `eval_card` renders an eval run's per-axis bars, `council_card` renders a council outcome's chairman-extracted agreed/disagreed claims. All three carry the same install CTA + `vishigondi.github.io/trinity-local` landing URL; council_card is privacy-safe by construction (chairman fields only, no user prompt or member text) |
 | Telemetry | `telemetry.py`, `notifications.py` | Opt-in telemetry settings (privacy-clean), system notifications |
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |

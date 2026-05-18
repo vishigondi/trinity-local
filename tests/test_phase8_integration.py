@@ -172,7 +172,7 @@ def test_public_cli_includes_all_extension_transition_commands():
     register(subparsers)
 
     for cmd in ("install-mcp", "install-extension", "install-launcher",
-                "install-app", "install-hooks", "uninstall"):
+                "install-hooks", "uninstall"):
         # argparse raises SystemExit on unknown subcommands; success means
         # the subcommand exists in the parser. We don't actually call the
         # handler — just confirm the parse succeeds.

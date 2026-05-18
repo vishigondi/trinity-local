@@ -33,38 +33,33 @@ The `/trinity` skill is the primary entry point; it teaches the full CLI
 after the first council. For the raw command reference, run
 `trinity-local --help`.
 
-## Three install paths, three audiences
+## Two install paths, two audiences
 
 The CLI (`install-mcp`) is the engine — every other surface wraps it.
 
 - **Skill** (primary; `/trinity`) — what you reach for inside Claude Code.
-- **Trinity.app** (`install-app`) — non-coder daily launch. Double-click it
-  from Applications or Desktop, type a task, review/rate the result in
-  the app's local pages.
-- **Chrome extension** (`install-extension`) — the compounding moat. Your
+- **Chrome extension** (`install-extension`) — also the launchpad host.
+  Pin the toolbar icon, click it to open the static launchpad; Native
+  Messaging dispatches launchpad buttons back to the local CLI. Your
   claude.ai and chatgpt.com conversations grow the corpus passively.
 
-None of them gate the wow: the moment `install-mcp` lands, the first MCP
+Neither gates the wow: the moment `install-mcp` lands, the first MCP
 spawn auto-scans the CLI transcripts you already have on disk, so your
 first council is personalized.
-
-For non-coders, the intended daily launch is `Trinity.app`. The CLI stays
-complete for power users and automation.
 
 ## Removing Trinity
 
 ```bash
 trinity-local uninstall                # dry-run: lists what would be removed
-trinity-local uninstall --yes          # actually remove MCP configs + Trinity.app + skill
+trinity-local uninstall --yes          # actually remove MCP configs + skill
 trinity-local uninstall --yes --include-data   # also delete ~/.trinity/ (irreversible)
 ```
 
 The default uninstall removes Trinity from `~/.claude.json`,
 `~/.gemini.json`, `~/.cursor/mcp.json`, the `[mcp_servers.trinity-local]`
-block from `~/.codex/config.toml`, the `Trinity.app` copies in
-Applications/Desktop, the Chrome Native Messaging manifest, and the
-bundled `/trinity` skill — but **preserves `~/.trinity/`** (your corpus,
-lens, scoreboard, council outcomes) unless you explicitly pass
+block from `~/.codex/config.toml`, the Chrome Native Messaging manifest,
+and the bundled `/trinity` skill — but **preserves `~/.trinity/`** (your
+corpus, lens, scoreboard, council outcomes) unless you explicitly pass
 `--include-data`. The wedge cuts both ways: own your data also means you
 decide when to delete it.
 

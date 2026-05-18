@@ -1,4 +1,4 @@
-"""Handlers for install-mcp, install-app, install-hooks."""
+"""Handlers for install-mcp + install-hooks + install-launcher + install-extension + uninstall."""
 from __future__ import annotations
 
 import json
@@ -8,30 +8,13 @@ import sys
 from importlib import resources
 from pathlib import Path
 
-from ..launchpad_install import install_launchpad_shortcuts
 from ..refresh import refresh_launchpad
 
 
 def register(subparsers):
     imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, Codex CLI, and Cursor")
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
-    imp.add_argument(
-        "--no-install-app",
-        dest="install_app",
-        action="store_false",
-        default=True,
-        help="Skip chained Trinity.app desktop install (macOS only — install-mcp normally drops the icon so non-coders never see the CLI distinction).",
-    )
     imp.set_defaults(handler=handle_install_mcp)
-
-    iap = subparsers.add_parser("install-app", help="Install the Trinity desktop launcher app")
-    iap.add_argument(
-        "--destination",
-        action="append",
-        default=None,
-        help="Directory to install Trinity.app into; repeat for multiple destinations. Defaults to Applications when writable plus Desktop.",
-    )
-    iap.set_defaults(handler=handle_install_app)
 
     ihp = subparsers.add_parser("install-hooks", help="Install Trinity Stop hook (calls watch-once after each Claude turn)")
     ihp.add_argument("--path", default=".", help="Project directory to install hooks into")
@@ -63,15 +46,14 @@ def register(subparsers):
     )
     iep.set_defaults(handler=handle_install_extension)
 
-    # Phase 6 — cross-platform desktop launcher installer.
-    # macOS: delegate to install-app (Trinity.app via osacompile).
-    # Linux: write a `.desktop` entry in ~/.local/share/applications.
-    # Windows: write a `.url` Internet Shortcut to the user's Start Menu.
-    # All three resolve to the same `~/.trinity/portal_pages/launchpad.html`
-    # file:// URL — the launchpad is the home, regardless of platform.
+    # Cross-platform desktop launcher (Linux .desktop / Windows .url
+    # shortcut). The macOS path is intentionally absent — the Chrome
+    # extension is now the canonical "open the launchpad" entry point
+    # on Mac (and works as a fallback for Linux/Windows users who
+    # install the extension too).
     ilp = subparsers.add_parser(
         "install-launcher",
-        help="Install a desktop launcher pointing at the local Trinity launchpad (cross-platform: Trinity.app on macOS, .desktop on Linux, .url Start Menu shortcut on Windows).",
+        help="Install a desktop launcher pointing at the local Trinity launchpad (Linux .desktop / Windows Start Menu .url; macOS users open the launchpad via the Chrome extension).",
     )
     ilp.add_argument(
         "--destination",
@@ -81,15 +63,14 @@ def register(subparsers):
     )
     ilp.set_defaults(handler=handle_install_launcher)
 
-    # uninstall — inverse of install-mcp + install-app + install-extension.
-    # 100-persona audit Theme D #1 (personas P30/P57/P85): the "own your
-    # data" wedge cuts the wrong way if removing Trinity requires hand-
-    # editing 4 MCP configs + deleting 2 Trinity.app copies + a Chrome
-    # manifest + the skill file + ~/.trinity/. Dry-run by default; --yes
-    # to actually delete; --include-data also removes ~/.trinity/.
+    # uninstall — inverse of install-mcp + install-extension + install-launcher.
+    # The "own your data" wedge cuts the wrong way if removing Trinity
+    # requires hand-editing 4 MCP configs + the Chrome manifest + the
+    # skill file + ~/.trinity/. Dry-run by default; --yes to actually
+    # delete; --include-data also removes ~/.trinity/.
     uin = subparsers.add_parser(
         "uninstall",
-        help="Remove Trinity from MCP configs, Trinity.app, Chrome ext manifest, and bundled skill (idempotent). Pass --include-data to also delete ~/.trinity/.",
+        help="Remove Trinity from MCP configs, Chrome ext manifest, desktop launcher, and bundled skill (idempotent). Pass --include-data to also delete ~/.trinity/.",
     )
     uin.add_argument(
         "--yes", action="store_true",
@@ -149,23 +130,6 @@ def handle_install_mcp(args):
 
     if written:
         print(f"✓ Installed Trinity MCP server to: {', '.join(written)}")
-        # Chain Trinity.app install on macOS so the README hero install
-        # command produces both the MCP integration AND the double-click
-        # desktop launcher. Non-coders never see the CLI distinction —
-        # `pip install trinity-local && trinity-local install-mcp` puts
-        # an icon on the Desktop, Cowork-shaped. Best-effort: a missing
-        # osacompile or a non-writable destination logs a warning, never
-        # fails the MCP install. Opt out with --no-install-app.
-        if getattr(args, "install_app", True) and sys.platform == "darwin":
-            try:
-                app_paths = install_launchpad_shortcuts()
-                if app_paths:
-                    print(f"✓ Installed Trinity.app to: {', '.join(str(p) for p in app_paths)}")
-            except (OSError, FileNotFoundError, SystemExit, subprocess.CalledProcessError) as exc:
-                print(
-                    f"  (Trinity.app install skipped: {exc}. "
-                    "Run `trinity-local install-app` directly to retry.)"
-                )
         # 100-persona audit P01/C4: restart-prompt — running harnesses
         # cache MCP tool lists at connect time. Without this line, users
         # type /trinity or hit run_council in the same session and see
@@ -250,21 +214,26 @@ def _install_windows_url_shortcut(launchpad_path: Path,
 
 
 def handle_install_launcher(args) -> int:
-    """Phase 6 — cross-platform desktop launcher installer.
+    """Cross-platform desktop launcher installer (Linux + Windows).
 
     Dispatches by platform:
-      macOS   → delegate to install-app (Trinity.app via osacompile)
       Linux   → ~/.local/share/applications/trinity-local.desktop
       Windows → Start Menu/Programs/Trinity Local.url
-      Other   → loud failure with a hint pointing at `trinity-local serve`
+      macOS   → install the Chrome extension instead (the launchpad
+                lives there); print a one-line hint and bail.
+      Other   → loud failure with a hint pointing at the extension.
     """
     from ..refresh import refresh_launchpad
     launchpad_path = refresh_launchpad()
 
     if sys.platform == "darwin":
-        # Delegate. install-app already implements Trinity.app generation
-        # with osacompile + Applications/Desktop placement; don't fork.
-        return handle_install_app(args)
+        print(
+            "install-launcher: on macOS the launchpad lives in the Chrome\n"
+            "extension. Run `trinity-local install-extension` to wire it up;\n"
+            "the extension's popup opens the launchpad in a new tab.",
+            file=sys.stderr,
+        )
+        return 1
 
     destinations = None
     if getattr(args, "destination", None):
@@ -298,43 +267,6 @@ def handle_install_launcher(args) -> int:
         "platform": sys.platform,
         "launchpad_path": str(launchpad_path),
         "launcher_paths": [str(p) for p in paths],
-    }, indent=2))
-    return 0
-
-
-def handle_install_app(args) -> int:
-    # 100-persona audit Theme C: install-app uses osacompile + macOS
-    # Shortcuts under the hood. On Linux (persona P17) it crashes with
-    # `FileNotFoundError: osacompile`; on Windows (P18) the install
-    # silently writes a broken .app then half-breaks the desktop launch.
-    # iPad-only (P23) and headless (P22) have no entry point. Bail
-    # loudly with a one-line message linking to the supported path.
-    if sys.platform != "darwin":
-        print(
-            f"install-app: Trinity.app is macOS-only (sys.platform={sys.platform!r}).\n"
-            "\n"
-            "On Linux: the engine + CLI work; use the local-launchpad serve mode\n"
-            "  trinity-local serve              # http://localhost:8765 for the launchpad\n"
-            "  trinity-local install-mcp        # registers MCP for Claude Code/Codex/Gemini CLI/Cursor\n"
-            "  trinity-local council-launch --task '...'\n"
-            "\n"
-            "On Windows: run inside WSL2 (Trinity treats WSL as Linux).\n"
-            "Native Windows + iPad + headless: track docs/cross-platform-spec.md for the rollout.",
-            file=sys.stderr,
-        )
-        return 1
-
-    launchpad_path = refresh_launchpad()
-    destinations = None
-    if args.destination:
-        destinations = [Path(raw).expanduser() for raw in args.destination]
-    app_paths = install_launchpad_shortcuts(
-        launchpad_path=launchpad_path,
-        destinations=destinations,
-    )
-    print(json.dumps({
-        "launchpad_path": str(launchpad_path),
-        "app_paths": [str(path) for path in app_paths],
     }, indent=2))
     return 0
 
@@ -811,22 +743,6 @@ def _remove_trinity_from_codex_toml(target: Path, plan: list[str], dry_run: bool
         print(f"  warn: could not write {target}: {exc}")
 
 
-def _remove_trinity_app(plan: list[str], dry_run: bool) -> None:
-    """Trinity.app may live in /Applications, ~/Applications, or ~/Desktop —
-    install_launchpad_shortcuts writes wherever's writable."""
-    for parent in (Path("/Applications"), Path.home() / "Applications", Path.home() / "Desktop"):
-        app = parent / "Trinity.app"
-        if app.exists():
-            plan.append(f"remove {app}")
-            if dry_run:
-                continue
-            try:
-                import shutil
-                shutil.rmtree(app, ignore_errors=True)
-            except Exception as exc:
-                print(f"  warn: could not remove {app}: {exc}")
-
-
 def _remove_native_messaging_manifest(plan: list[str], dry_run: bool) -> None:
     """Drop Chrome's Native Messaging manifest so the v1.6 browser ext can
     no longer spawn the host. Safe regardless of whether the host was
@@ -911,12 +827,13 @@ def _remove_hf_cache(plan: list[str], dry_run: bool) -> None:
 
 
 def handle_uninstall(args) -> int:
-    """Inverse of install-mcp + install-app + install-extension. Idempotent:
-    safe to run on a system where some pieces were never installed."""
+    """Inverse of install-mcp + install-extension + install-launcher.
+    Idempotent: safe to run on a system where some pieces were never
+    installed."""
     dry_run = not getattr(args, "yes", False)
     plan: list[str] = []
 
-    # Always: configs + .app + ext manifest + skill (the things install-* wrote).
+    # Always: configs + ext manifest + skill (the things install-* wrote).
     for target in (
         Path.home() / ".claude.json",
         Path.home() / ".gemini.json",
@@ -926,7 +843,6 @@ def handle_uninstall(args) -> int:
     ):
         _remove_trinity_from_json_mcp_config(target, plan, dry_run)
     _remove_trinity_from_codex_toml(Path.home() / ".codex" / "config.toml", plan, dry_run)
-    _remove_trinity_app(plan, dry_run)
     _remove_native_messaging_manifest(plan, dry_run)
     _remove_trinity_skill(plan, dry_run)
 

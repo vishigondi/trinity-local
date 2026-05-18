@@ -20,6 +20,15 @@
 > desktop as "no terminal required" supervision surface, and phone/web as ways
 > to dispatch or steer work. Trinity follows that sequencing. It does not copy
 > the hosted-cloud default, Anthropic relay, or single-provider trust model.
+>
+> 2026-05-17 revision: the "desktop app" launch surface for non-coders is the
+> **Chrome extension**, not a packaged `Trinity.app`. The osacompile-generated
+> `.app` wrapper was retired pre-launch — too narrow (macOS-only) and too much
+> surface area to maintain alongside the Chrome extension that already serves
+> as the launchpad host. Treat all "Trinity.app" / "install-app" references
+> below as **superseded by `install-extension`**; the rest of the architecture
+> (CLI engine, `~/.trinity/` corpus, deep links, mobile review companion)
+> stands unchanged.
 
 ## Reference Pattern
 
@@ -56,8 +65,10 @@ Trinity's version:
 1. **Terminal/MCP first.** `trinity-local` and `trinity-local --mcp` stay the
    authoritative engine.
 2. **Desktop launch for ordinary users.** The CLI can be complete without being
-   the default launch gesture. A packaged `Trinity.app` must be the visible
-   entry point for users who will not live in a terminal.
+   the default launch gesture. The Chrome extension hosts the static launchpad
+   and is the visible entry point for users who will not live in a terminal.
+   (Earlier draft said `Trinity.app`; superseded — see 2026-05-17 revision
+   note at the top.)
 3. **Same corpus everywhere.** Every surface reads and writes the same
    `~/.trinity/` corpus and schema.
 4. **Desktop is a local cockpit.** It manages councils, handoffs, memories,
@@ -141,7 +152,7 @@ The terminal product must keep these as stable public entry points:
 | Command | Role |
 |---|---|
 | `trinity-local install-mcp` | Register MCP and install the `/trinity` Claude Code skill |
-| `trinity-local install-app` | Install or repair the `Trinity.app` desktop launcher |
+| `trinity-local install-extension` | Install the Chrome extension that hosts the launchpad |
 | `trinity-local status` | Pre-flight provider, auth, schema, and writable-home checks |
 | `trinity-local council-launch --task "..."` | Run a multi-provider council |
 | `trinity-local handoff <provider>` | Continue the latest thread in a different provider |

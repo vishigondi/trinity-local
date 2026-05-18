@@ -14,7 +14,7 @@ from trinity_local.council_runner import run_council
 from trinity_local.council_runtime import create_prompt_bundle, save_prompt_bundle
 from trinity_local.council_status import load_council_status, write_council_status
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
-from trinity_local.launchpad_page import install_launchpad_shortcuts, write_portal_html
+from trinity_local.launchpad_page import write_portal_html
 from trinity_local.providers import ProviderError, ProviderResult
 from trinity_local.shortcut_setup import _render_dispatch_wrapper
 from trinity_local.telemetry import (
@@ -179,42 +179,6 @@ class TestLaunchpadFlow:
         # are the classic "render-broke" signals.
         assert "{{ undefined }}" not in html
         assert "[object Object]" not in html
-
-    def test_install_launchpad_shortcuts_writes_desktop_and_app_links(self, patch_trinity_home: Path, tmp_path: Path):
-        _write_council_fixture(patch_trinity_home)
-        launchpad_path = write_portal_html(title="Launchpad")
-        desktop_dir = tmp_path / "Desktop"
-        applications_dir = tmp_path / "Applications"
-
-        def fake_compile(target: Path, script: str) -> None:
-            (target / "Contents" / "Resources").mkdir(parents=True, exist_ok=True)
-            (target / "Contents" / "Info.plist").write_text(script, encoding="utf-8")
-
-        import trinity_local.launchpad_install as launchpad_install
-
-        original_compile = launchpad_install._compile_launchpad_app
-        original_find_icon = launchpad_install._find_launchpad_icon_source
-        original_apply_icon = launchpad_install._apply_launchpad_icon
-        launchpad_install._compile_launchpad_app = fake_compile
-        launchpad_install._find_launchpad_icon_source = lambda: None
-        launchpad_install._apply_launchpad_icon = lambda app_path, image_path: None
-        try:
-            written = install_launchpad_shortcuts(
-                launchpad_path=launchpad_path,
-                destinations=[desktop_dir, applications_dir],
-            )
-        finally:
-            launchpad_install._compile_launchpad_app = original_compile
-            launchpad_install._find_launchpad_icon_source = original_find_icon
-            launchpad_install._apply_launchpad_icon = original_apply_icon
-
-        assert len(written) == 2
-        app_path = applications_dir / "Trinity.app"
-        desktop_path = desktop_dir / "Trinity.app"
-        assert app_path.exists()
-        assert app_path.is_dir()
-        assert desktop_path.exists()
-        assert desktop_path.is_dir()
 
     def test_dead_runner_running_status_is_coerced_to_failed(self, patch_trinity_home: Path, monkeypatch):
         write_council_status(

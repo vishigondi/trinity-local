@@ -2,7 +2,7 @@
 
 `install-launcher` writes a per-platform desktop entry that opens the
 local file:// launchpad:
-  - macOS  → delegates to install-app (Trinity.app)
+  - macOS  → points at install-extension (Chrome ext is the launchpad host)
   - Linux  → ~/.local/share/applications/trinity-local.desktop
   - Win    → Start Menu/Programs/Trinity Local.url
 
@@ -167,13 +167,12 @@ def test_handle_install_launcher_linux_emits_json(
     assert written.name == "trinity-local.desktop"
 
 
-def test_handle_install_launcher_macos_delegates_to_install_app(
-    isolated_home, tmp_path, monkeypatch
+def test_handle_install_launcher_bails_on_macos(
+    isolated_home, tmp_path, monkeypatch, capsys
 ):
-    """On macOS the launcher installer must delegate to install-app so
-    Trinity.app stays the single macOS launcher implementation. A
-    parallel write here would mean two Trinity launchers — confusing
-    UX + double-maintenance burden."""
+    """On macOS the launchpad lives in the Chrome extension; the launcher
+    installer points users at install-extension instead of writing a
+    desktop shortcut (Trinity.app retired pre-launch)."""
     from trinity_local.commands import install as install_mod
 
     monkeypatch.setattr(install_mod.sys, "platform", "darwin")
@@ -183,17 +182,11 @@ def test_handle_install_launcher_macos_delegates_to_install_app(
     )
     (tmp_path / "launchpad.html").write_text("<html/>")
 
-    calls = []
-    def fake_install_app(args):
-        calls.append(args)
-        return 0
-
-    monkeypatch.setattr(install_mod, "handle_install_app", fake_install_app)
-
     args = SimpleNamespace(destination=None)
     rc = install_mod.handle_install_launcher(args)
-    assert rc == 0
-    assert len(calls) == 1, "install-launcher must delegate to install-app on macOS"
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "install-extension" in err
 
 
 def test_handle_install_launcher_registered_in_parser():
