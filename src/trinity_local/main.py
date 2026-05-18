@@ -32,7 +32,6 @@ CORE_COMMAND_MODULES = (
     "adapters",
     "cortex",
     "council",
-    "council_last",
     "depth",
     "dream",
     "eval",

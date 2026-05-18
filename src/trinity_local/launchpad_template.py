@@ -756,6 +756,36 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     .chart-panel .meta {{
       margin-bottom: 12px;
     }}
+
+    /* Recent-councils filter — pill chips + search.
+       Matches the launchpad's existing chip aesthetic (see
+       .cross-memory-chip) so the filter row reads as part of the
+       same UI family as the in-card cross-memory chips. */
+    .recent-filter-chip {{
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }}
+    .recent-filter-chip:hover {{
+      border-color: var(--action);
+      color: var(--text-primary);
+    }}
+    .recent-filter-chip.active {{
+      background: var(--accent, #b57438);
+      border-color: var(--accent, #b57438);
+      color: #fff;
+    }}
+    #recent-filter-search:focus {{
+      outline: none;
+      border-color: var(--action);
+      box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.12);
+    }}
   </style>
 
   <main>
@@ -1597,9 +1627,33 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <p class="meta" v-if="pageData.verdictStats && pageData.verdictStats.total >= 5 && pageData.verdictStats.rate < 0.5" style="color: var(--accent); margin-top: -4px;">
           Only {{{{ Math.round(pageData.verdictStats.rate * 100) }}}}% of councils have your verdict. Pick a card below — the ledger learns from every click.
         </p>
-        <div class="grid grid-2" style="margin-top: 20px;">
+
+        <!-- Recent-councils filter row. Replaces the retired `council-last`
+             CLI shortcut — instead of one CLI to find your last thread,
+             you filter the list down to what matters. Chips drive a JS
+             filter over the .council-card elements (data-rated /
+             data-title attrs); the search box does case-insensitive
+             substring match on the card title. -->
+        <div class="recent-filter-row" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px;">
+          <input
+            type="search"
+            id="recent-filter-search"
+            placeholder="Filter by title…"
+            aria-label="Filter recent councils by title"
+            style="flex: 1 1 200px; max-width: 320px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--surface); color: var(--text-primary);">
+          <div class="recent-filter-chips" role="tablist" style="display: flex; gap: 6px;">
+            <button type="button" class="recent-filter-chip active" data-filter="all" role="tab" aria-selected="true">All</button>
+            <button type="button" class="recent-filter-chip" data-filter="unrated" role="tab" aria-selected="false">Unrated</button>
+            <button type="button" class="recent-filter-chip" data-filter="rated" role="tab" aria-selected="false">Rated</button>
+          </div>
+        </div>
+
+        <div class="grid grid-2" id="recent-councils-grid" style="margin-top: 20px;">
           {recent_cards}
         </div>
+        <p class="meta" id="recent-filter-empty" style="display: none; margin-top: 16px;">
+          No councils match this filter. Try a different chip or clear the search box.
+        </p>
       </section>
 
       <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;" v-if="debugMode">
@@ -2589,5 +2643,57 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     createApp({{ LaunchpadApp, pageData }}).mount();
     maybeSendTelemetry();
     renderChart();
+
+    // ── Recent-councils filter (replaces the retired `council-last` CLI)
+    //
+    // Pure JS over the .council-card-wrapper elements — no petite-vue
+    // store, no server round-trip. Filters on the data-rated +
+    // data-title attrs the server emits.
+    (function() {{
+      const grid = document.getElementById('recent-councils-grid');
+      if (!grid) return;
+      const search = document.getElementById('recent-filter-search');
+      const emptyMsg = document.getElementById('recent-filter-empty');
+      const chips = document.querySelectorAll('.recent-filter-chip');
+      let activeFilter = 'all';
+
+      function applyFilter() {{
+        const term = (search && search.value || '').trim().toLowerCase();
+        const cards = grid.querySelectorAll('.council-card-wrapper');
+        let visible = 0;
+        cards.forEach((card) => {{
+          const rated = card.getAttribute('data-rated') === 'true';
+          const title = card.getAttribute('data-title') || '';
+          const ratedOk =
+            activeFilter === 'all' ||
+            (activeFilter === 'rated' && rated) ||
+            (activeFilter === 'unrated' && !rated);
+          const termOk = !term || title.includes(term);
+          const show = ratedOk && termOk;
+          card.style.display = show ? '' : 'none';
+          if (show) visible += 1;
+        }});
+        if (emptyMsg) {{
+          emptyMsg.style.display = (visible === 0 && cards.length > 0) ? '' : 'none';
+        }}
+      }}
+
+      chips.forEach((chip) => {{
+        chip.addEventListener('click', () => {{
+          chips.forEach((c) => {{
+            c.classList.remove('active');
+            c.setAttribute('aria-selected', 'false');
+          }});
+          chip.classList.add('active');
+          chip.setAttribute('aria-selected', 'true');
+          activeFilter = chip.getAttribute('data-filter') || 'all';
+          applyFilter();
+        }});
+      }});
+
+      if (search) {{
+        search.addEventListener('input', applyFilter);
+      }}
+    }})();
   </script>
 {footer}"""

@@ -1759,8 +1759,13 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
                  'font-weight: 500; letter-spacing: 0.02em;">'
                  'Unrated</span>'
         )
+        # data-rated + data-title power the launchpad's client-side
+        # filter chips (recent-filter-row). Title is lowercased once
+        # here so the JS substring match doesn't recompute per keystroke.
+        rated_attr = "true" if item.get("rated") else "false"
+        title_lower = str(item.get("title") or "").lower()
         return f"""
-        <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="council-card-wrapper" data-rated="{rated_attr}" data-title="{_esc(title_lower)}" style="display: flex; flex-direction: column; gap: 8px;">
           <a href="{href}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
             <article class="card council-card">
               <div class="eyebrow">Thread{unrated_badge}</div>
