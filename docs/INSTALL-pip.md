@@ -50,7 +50,8 @@ pip install -e .
 trinity-local doctor
 
 # Ingest existing CLI transcripts into ~/.trinity/prompts/
-trinity-local seed-from-taste-terminal --limit 1000
+# (auto-discovers ~/.claude/projects/, ~/.codex/sessions/, ~/.gemini/sessions/)
+trinity-local ingest-recent
 
 # Dream the core memories (~5-15 min)
 trinity-local dream

@@ -59,7 +59,7 @@ The skill walks the rest. If you want to script it instead of using
 Claude Code:
 
 ```bash
-trinity-local seed-from-taste-terminal --limit 1000
+trinity-local ingest-recent             # auto-discovers ~/.claude, ~/.codex, ~/.gemini transcripts
 trinity-local dream                     # ~5-15 minutes
 trinity-local portal-html --open-browser
 ```

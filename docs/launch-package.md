@@ -177,8 +177,8 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~1401 tests
-  #   pytest tests/test_doc_count_consistency.py # 36 doc-consistency guards
+  #   pytest -q                                  # ~1402 tests
+  #   pytest tests/test_doc_count_consistency.py # 37 doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check
 

@@ -1593,6 +1593,59 @@ class TestScoreboardPathRenameInDocs:
         )
 
 
+class TestNoBrokenSeedCommandInUserFacingDocs:
+    """Pin the seed-cmd fix from launch-eve iteration (2026-05-17).
+
+    `trinity-local seed-from-taste-terminal` has `--path` `required=True`;
+    historical doc copies showed `--limit 1000` *without* `--path`, which
+    fails with `error: the following arguments are required: --path`.
+    The fix is `trinity-local ingest-recent` (auto-discovers transcript
+    paths, no required flags).
+
+    The launch-eve sweep caught this in 5 user-facing surfaces in three
+    rounds (README, SKILL.md ×3, INSTALL-pip.md, INSTALL-skill.md).
+    This guard fires loudly if any future surface introduces the broken
+    form. Allowed in CHANGELOG / PUBLIC_READINESS_PLAN (historical
+    record of the fixes) and tests (this file documents the pattern).
+    """
+
+    def test_user_facing_docs_dont_show_broken_seed_cmd(self):
+        user_facing_paths = [
+            REPO / "README.md",
+            REPO / "skills" / "trinity" / "SKILL.md",
+            REPO / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md",
+            REPO / "docs" / "INSTALL-pip.md",
+            REPO / "docs" / "INSTALL-skill.md",
+            REPO / "docs" / "INSTALL-extension.md",
+            REPO / "docs" / "launch.md",
+            REPO / "docs" / "launch-package.md",
+            REPO / "docs" / "founder-essay-draft.md",
+            *(REPO / "docs" / "launch-day").glob("*.md"),
+        ]
+        leaks = []
+        for path in user_facing_paths:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            # Match `seed-from-taste-terminal --limit N` without --path
+            # on the same line. A line with both --path and --limit is
+            # the correct invocation and allowed.
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if "seed-from-taste-terminal" in line and "--limit" in line:
+                    if "--path" not in line:
+                        leaks.append((path.name, lineno))
+        assert not leaks, (
+            f"Broken `seed-from-taste-terminal --limit N` (without --path) "
+            f"in user-facing surfaces: {leaks}. The command's --path is "
+            f"required=True; recipients copy-pasting will hit `error: the "
+            f"following arguments are required: --path`. The intended "
+            f"polyharness-user cold-start command is "
+            f"`trinity-local ingest-recent` (no required flags; "
+            f"auto-discovers ~/.claude, ~/.codex, ~/.gemini transcripts)."
+        )
+
+
 class TestShareWorkflowCommandsDocumented:
     """Pin the v1.7.3 share-workflow surfaces in claude.md. The launch-eve
     audit (2026-05-17) caught `eval-share` missing from the claude.md
