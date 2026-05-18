@@ -68,33 +68,10 @@ def test_status_runs_on_fresh_home(isolated_home):
     )
 
 
-def test_trust_init_and_trust_show_round_trip(isolated_home):
-    """trust-init writes a valid trust.toml; trust-show parses it."""
-    init = _trinity_local("trust-init", isolated_home=isolated_home)
-    assert init.returncode == 0, f"trust-init: {init.stderr!r}"
-    payload = json.loads(init.stdout)
-    trust_toml = Path(payload["path"])
-    assert trust_toml.exists()
-    # The default trust.toml has all the required structure.
-    contents = trust_toml.read_text()
-    assert "schema_version = 1" in contents
-    assert "[trust]" in contents
-    assert 'default = "ask"' in contents
-
-    # trust-show parses it without error.
-    show = _trinity_local("trust-show", isolated_home=isolated_home)
-    assert show.returncode == 0, f"trust-show: {show.stderr!r}"
-    cfg = json.loads(show.stdout)
-    assert cfg["default"] == "ask"
-
-
-def test_audit_show_handles_empty_log(isolated_home):
-    """audit-show on a fresh install (no audit.log yet) must not crash —
-    it should print a clear "no entries" message."""
-    result = _trinity_local("audit-show", "--last", "5",
-                            isolated_home=isolated_home)
-    assert result.returncode == 0, f"audit-show: {result.stderr!r}"
-    assert "no audit" in result.stdout.lower() or result.stdout.strip() == ""
+# trust-init / trust-show / audit-show CLI tests retired 2026-05-17
+# along with the CLI surface. The trust+audit substrate is deferred to
+# v1.1; library tests in test_trust.py still pin the behavior the v1.1
+# CLI will re-expose.
 
 
 def test_portal_html_renders_on_fresh_home(isolated_home):

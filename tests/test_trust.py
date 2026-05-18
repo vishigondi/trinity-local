@@ -263,69 +263,11 @@ def test_write_default_trust_toml_idempotent_does_not_overwrite(isolated_home):
 
 
 # ─── CLI subcommands ───────────────────────────────────────────────
-
-
-def test_cli_audit_show_human_readable(isolated_home):
-    audit = isolated_home / "audit.log"
-    audit.write_text(json.dumps({
-        "ts": "2026-05-16T12:00:00", "script": "embed",
-        "operation": "embed_batch", "outcome": "ok", "tier": "skill",
-    }) + "\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "audit-show", "--last", "5"],
-        capture_output=True, text=True,
-        env={**os.environ, "TRINITY_HOME": str(isolated_home)},
-        timeout=15,
-    )
-    assert result.returncode == 0
-    assert "embed.embed_batch" in result.stdout
-    assert "[skill]" in result.stdout
-
-
-def test_cli_audit_show_json_mode(isolated_home):
-    audit = isolated_home / "audit.log"
-    audit.write_text(json.dumps({
-        "ts": "2026-05-16T12:00:00", "script": "x",
-        "operation": "y", "outcome": "ok",
-    }) + "\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "audit-show",
-         "--last", "5", "--json"],
-        capture_output=True, text=True,
-        env={**os.environ, "TRINITY_HOME": str(isolated_home)},
-        timeout=15,
-    )
-    assert result.returncode == 0
-    data = json.loads(result.stdout)
-    assert isinstance(data, list)
-    assert len(data) == 1
-
-
-def test_cli_trust_init_creates_file(isolated_home):
-    result = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "trust-init"],
-        capture_output=True, text=True,
-        env={**os.environ, "TRINITY_HOME": str(isolated_home)},
-        timeout=15,
-    )
-    assert result.returncode == 0
-    data = json.loads(result.stdout)
-    assert Path(data["path"]).exists()
-    assert (isolated_home / "trust.toml").exists()
-
-
-def test_cli_trust_show_with_operation_resolves(isolated_home):
-    (isolated_home / "trust.toml").write_text(
-        '[trust]\ndefault = "ask"\n'
-        '[trust.operations]\nembed_batch = "trust"\n'
-    )
-    result = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "trust-show",
-         "--operation", "embed_batch", "--tier", "skill"],
-        capture_output=True, text=True,
-        env={**os.environ, "TRINITY_HOME": str(isolated_home)},
-        timeout=15,
-    )
-    assert result.returncode == 0
-    data = json.loads(result.stdout)
-    assert data["resolved"]["level"] == "trust"
+#
+# The trust CLI (audit-show / trust-init / trust-show) was hidden from
+# the public CLI on 2026-05-17 — the trust+audit substrate is deferred
+# to v1.1 per the simplification pass. The handler functions in
+# commands/trust.py + the library in trust.py both remain importable;
+# the CLI subprocess tests that used to live here are dropped along
+# with the public surface. Library tests above still pin the behavior
+# v1.1 will re-expose.
