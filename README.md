@@ -80,6 +80,29 @@ in [`schemas/`](schemas/).
   use. Build the corpus now while inference is subsidized — the taste signal you capture
   survives the subsidy ending.
 
+## Objections (the ones I had)
+
+**"I don't want to learn another UI — I just use Claude Code."**
+You don't. Trinity is an MCP server inside your existing harness (Claude Code, Codex CLI, Gemini CLI, Cursor). `/trinity` walks installation in one step. After that, your existing UI is the UI.
+
+**"I don't want a daemon running on my machine."**
+Trinity isn't a daemon. The MCP server spawns when your harness opens, exits when it closes. ~62 MB resident while connected. `lsof -i | grep LISTEN` shows nothing — no listening port, no background process.
+
+**"I don't want my data sent to a server."**
+Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Telemetry is opt-in (default off) and even when on only sends categorical labels — no content.
+
+**"I want my subscriptions actually used."**
+Trinity dispatches via your existing `claude` / `codex` / `gemini` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
+
+**"I'm tired of copy-pasting between Claude / GPT / Gemini tabs."**
+That's the whole point. Every council runs all three in parallel from one prompt. `handoff` hands a thread between providers without re-pasting context.
+
+**"I want to know if a new model release is actually better for me."**
+`trinity-local eval-run --target <new-model>` scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
+
+**"I want the right model picked for the right task, automatically."**
+Every council you rate teaches Trinity which model wins for which kind of question. The personal routing table surfaces on the launchpad; the cortex extracts the rules; chairman uses them on the next call. Visualization of "what Trinity has learned about you" lives on the launchpad's lens + routing cards.
+
 ## How is this different from \[X\]
 
 | | Trinity Local | LMArena | promptfoo / Claude evals | OpenRouter | Karpathy LLM Council |
