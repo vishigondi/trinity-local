@@ -67,9 +67,9 @@ def _corpus_is_empty() -> bool:
     """True when no PromptNodes are on disk. Read directly from the
     JSONL file path to avoid pulling the full module + cache layer on
     the cold-start hot path."""
-    from .state_paths import memory_dir
+    from .state_paths import prompts_dir
 
-    path = memory_dir() / "prompt_nodes.jsonl"
+    path = prompts_dir() / "prompt_nodes.jsonl"
     if not path.exists():
         return True
     try:

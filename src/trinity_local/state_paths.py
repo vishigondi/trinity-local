@@ -180,18 +180,16 @@ def watcher_dir() -> Path:
     return path
 
 
-def memory_dir() -> Path:
+def prompts_dir() -> Path:
     """Raw prompt index — the INPUT to dream. Holds PromptNode / TurnWindow
     JSONL + cursors.
 
-    Renamed `memory/` → `prompts/` to match the brand axis: prompts (raw,
-    yours, the INPUT) vs memories (plural, what dream creates, the OUTPUT).
-    The two differed by one letter, which was a confusion grenade.
-
-    Back-compat function name kept so existing imports work; on disk the
-    files live under ~/.trinity/prompts/. Migration is one-time + idempotent:
-    if the legacy ~/.trinity/memory/ exists and the new ~/.trinity/prompts/
-    does not, the whole directory is renamed.
+    Migration: if the legacy ~/.trinity/memory/ exists and the new
+    ~/.trinity/prompts/ does not, the whole directory is renamed once
+    on first access. The function was previously named `prompts_dir()`;
+    the brand axis is prompts (raw, yours, the INPUT) vs memories
+    (plural, what dream creates, the OUTPUT). The two differed by one
+    letter, which was a confusion grenade.
     """
     path = state_dir() / "prompts"
     legacy = state_dir() / "memory"
@@ -200,18 +198,10 @@ def memory_dir() -> Path:
             legacy.rename(path)
         except OSError:
             # Cross-device or permission edge — leave legacy in place,
-            # create the new path empty so writes go forward. The
-            # raw_prompts_dir() consumer is structured-write-only, so a
-            # split state still functions — readers cap from the new path.
+            # create the new path empty so writes go forward.
             pass
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def prompts_dir() -> Path:
-    """Brand-aligned alias for memory_dir(). New code should call this;
-    existing imports of memory_dir() keep working."""
-    return memory_dir()
 
 
 def memories_dir() -> Path:
@@ -368,15 +358,15 @@ def cortex_routing_patterns_path() -> Path:
 
 
 def prompt_nodes_path() -> Path:
-    return memory_dir() / "prompt_nodes.jsonl"
+    return prompts_dir() / "prompt_nodes.jsonl"
 
 
 def turn_windows_path() -> Path:
-    return memory_dir() / "turn_windows.jsonl"
+    return prompts_dir() / "turn_windows.jsonl"
 
 
 def ingest_cursors_path() -> Path:
-    return memory_dir() / "cursors.json"
+    return prompts_dir() / "cursors.json"
 
 
 def hard_examples_dir() -> Path:

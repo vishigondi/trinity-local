@@ -3,7 +3,7 @@
 Earned in tick #105's real-corpus drift catch: claude.md, spec-v1.md,
 and spec-v1.5.md all carried `~/.trinity/memory/` references even
 though task #90 renamed the on-disk directory to `~/.trinity/prompts/`
-five months earlier. The `memory_dir()` function in state_paths.py
+five months earlier. The `prompts_dir()` function in state_paths.py
 still exists as a back-compat alias (and was the *function name* that
 got grandfathered), but the actual disk path is `~/.trinity/prompts/`.
 Doc references to the legacy path mislead anyone debugging a fresh
@@ -40,13 +40,12 @@ LIVE_DOCS = [
 
 # Match `~/.trinity/memory/` or `~/.trinity/memory ` — the trailing
 # slash/space catches references to the directory as a path. We don't
-# block `memory_dir(` (the back-compat function), `memory/` as a Python
-# package name (that's `src/trinity_local/memory/`), or `memory` as a
-# generic word.
+# block `memory/` as a Python package name (that's
+# `src/trinity_local/memory/`) or `memory` as a generic word.
 LEGACY_PATTERN = re.compile(r"~/\.trinity/memory(?:/|\b)")
 
 
-def test_no_live_doc_references_legacy_memory_dir():
+def test_no_live_doc_references_legacy_prompts_dir():
     """The on-disk path is `~/.trinity/prompts/` (task #90, 2026-01).
     Every live spec doc should use that — legacy `~/.trinity/memory/`
     references mislead users on a fresh install."""

@@ -29,8 +29,8 @@ def _seed_prompt_nodes(home, items):
     """Write a small prompt_nodes.jsonl the basin computer can read.
     items = list of {tid, nid, turn_index, text, embedding}."""
     from trinity_local.memory.schemas import PromptNode
-    from trinity_local.state_paths import memory_dir
-    path = memory_dir() / "prompt_nodes.jsonl"
+    from trinity_local.state_paths import prompts_dir
+    path = prompts_dir() / "prompt_nodes.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for it in items:
