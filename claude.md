@@ -559,7 +559,7 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (30 modules in the table below; 4 more — `distill`, `merges`, `stats`, `trust` — are ancillary maintenance/debug tools intentionally off the user-surface table):
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (30 modules in the table below; 3 more — `distill`, `stats`, `trust` — are ancillary maintenance/debug tools intentionally off the user-surface table):
 
 | Module | Key commands |
 |--------|-------------|

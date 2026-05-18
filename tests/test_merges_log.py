@@ -263,26 +263,6 @@ class TestSummarizeMerges:
         assert summary["last_ts"] == "2026-05-13T11:00:00"
 
 
-class TestMergesShowCLI:
-    """CLI handler wraps summarize_merges + prints either JSON or
-    a human-readable table. Smoke the JSON path so a downstream
-    `trinity-local merges-show --json | jq` recipe doesn't break."""
-
-    def test_cli_json_output(self, isolated_home, capsys):
-        from trinity_local.merges import record_merge
-        from trinity_local.commands.merges import handle_merges_show
-        record_merge({"type": "council_winner", "chosen": "claude"})
-
-        class Args:
-            as_json = True
-        handle_merges_show(Args())
-        out = capsys.readouterr().out
-        payload = json.loads(out)
-        assert payload["total"] == 1
-        assert payload["by_type"]["council_winner"] == 1
-        assert "path" in payload, "JSON output should include the merge log path"
-
-
 class TestPageDataMergeLog:
     """Tick #48 — page_data exposes the merge summary so launchpad
     Vue surfaces (and any other downstream consumer of build_page_data)

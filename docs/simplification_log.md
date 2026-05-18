@@ -116,3 +116,21 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   touched: 3 (deleted commands/research.py 431 LOC, main.py -1 line,
   claude.md -1 table row). Tests: 1402 pass, 4 skip (unchanged).
 
+- 2026-05-18 (iter 7): `merges-show` CLI command → **KILL**. Same shape
+  as iter 6 — claude.md explicitly tagged it in the "ancillary
+  maintenance/debug tools intentionally off the user-surface table"
+  list (along with distill, stats, trust). The handler was pure debug
+  ("verify the side-channel writers (council_winner / cortex_override
+  / in_thread_overwrite) are landing rows") — no user audience, not
+  in README/SKILL.md/launchpad. Audit agent first picked README "For
+  teams" + "For tool builders" sections but those are the waitlist
+  lead-gen + standardization launch-arc workstreams (#117/#118) —
+  intentional, not premature. Pivoted to merges-show. Trust /
+  cache-stats / distill / stats spared (trust has user-facing CLI in
+  docs/INSTALL-skill.md; cache-stats is a real debug tool; distill
+  has standalone use post-manual-edit; stats is the launch-package
+  one-liner per its own docstring). Files touched: 4 (deleted
+  commands/merges.py 50 LOC, main.py -1, claude.md table -1, deleted
+  TestMergesShowCLI class in test_merges_log.py -18 LOC). Tests:
+  1401 pass, 4 skip (1 test removed with the dead class).
+
