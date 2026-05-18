@@ -205,7 +205,7 @@ def _check_mcp_available() -> CheckResult:
             name="mcp_available",
             ok=False,
             detail="mcp package not installed (Claude Code MCP integration disabled)",
-            fix="python3 -m pip install --user 'mcp>=1.0' 'Pillow>=10'",
+            fix="python3 -m pip install --user 'mcp>=1.0' 'Pillow>=10' 'numpy>=1.26'",
         )
 
 

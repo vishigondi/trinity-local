@@ -157,14 +157,16 @@ if ! echo "$PATH" | tr ':' '\n' | grep -qx "$TRINITY_BIN_DIR"; then
   warn "Then re-open your terminal."
 fi
 
-# ─── 3.5. Install Python runtime deps (Pillow, mcp) ────────────────
+# ─── 3.5. Install Python runtime deps (Pillow, mcp, numpy) ─────────
 
 # Trinity's runtime deps are declared in pyproject.toml: Pillow>=10 (for
-# me-card PNG rendering, loaded lazily) and mcp>=1.0 (for the MCP server
-# the harness spawns). We don't pip-install trinity-local itself — the
-# wrapper points at the cloned repo via PYTHONPATH. But the runtime deps
-# still have to be available to the system python; without them,
-# doctor's first run flags two failures the user has to fix manually.
+# me-card PNG rendering, loaded lazily), mcp>=1.0 (for the MCP server
+# the harness spawns), and numpy>=1.26 (embedding matmul fast-path +
+# k-means + vocabulary stats — used across embeddings/, memory/, me/,
+# knn_analytics, vocabulary). We don't pip-install trinity-local itself
+# — the wrapper points at the cloned repo via PYTHONPATH. But the
+# runtime deps still have to be available to the system python; without
+# them, doctor's first run flags failures the user has to fix manually.
 #
 # --user installs into ~/.local (or the venv if active) without touching
 # system site-packages. If pip is missing we surface a warning rather
@@ -186,14 +188,14 @@ if "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
     PIP_MODE_LABEL="user site-packages"
   fi
   if "$PYTHON_BIN" -m pip "${PIP_INSTALL_ARGS[@]}" \
-       'Pillow>=10' 'mcp>=1.0' 2>/dev/null; then
-    ok "Pillow + mcp installed ($PIP_MODE_LABEL)"
+       'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26' 2>/dev/null; then
+    ok "Pillow + mcp + numpy installed ($PIP_MODE_LABEL)"
   else
-    warn "pip install reported issues (Pillow / mcp) — see 'trinity-local doctor'"
+    warn "pip install reported issues (Pillow / mcp / numpy) — see 'trinity-local doctor'"
   fi
 else
   warn "pip not available for $PYTHON_BIN — install pip and re-run, or:"
-  warn "  $PYTHON_BIN -m ensurepip --user && $PYTHON_BIN -m pip install --user 'Pillow>=10' 'mcp>=1.0'"
+  warn "  $PYTHON_BIN -m ensurepip --user && $PYTHON_BIN -m pip install --user 'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26'"
 fi
 
 # ─── 4. Register MCP server in installed harnesses ─────────────────

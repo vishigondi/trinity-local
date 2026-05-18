@@ -87,6 +87,13 @@ def test_install_sh_installs_runtime_python_deps():
         "install.sh must install the mcp package — without it the MCP "
         "server can't start and Claude Code can't see Trinity's tools."
     )
+    assert "numpy>=1.26" in content, (
+        "install.sh must install numpy — without it the embedding "
+        "matmul fast-path + k-means clustering + vocabulary stats all "
+        "fail at import time. CI launch-eve catch: fresh ubuntu-latest "
+        "+ python3.12 environment can't find numpy because it wasn't "
+        "in pyproject.toml main deps."
+    )
 
 
 def test_install_sh_handles_venv_active_state():
