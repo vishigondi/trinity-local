@@ -5,82 +5,61 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.
+## Your taste, ported. Score any model against the prompts *you've* rejected.
 
-You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
-reads those transcripts, learns the pattern in how you rephrase, judge, and decide —
-then runs hard questions through all three in your voice and picks the answer you
-would have picked.
+```bash
+trinity-local eval-run --target gemini
+# → Gemini scored 0.83 on YOUR kind of question.
+#   Claude 0.91.  GPT-5 0.77.
+```
+
+A headline number no lab can produce — because only the layer above the labs sees your prompts across all three.
 
 **No new app. No service. No API key. Your transcripts never leave your machine.**
 
-> **Not the Sakana paper.** [Sakana AI's *TRINITY: An Evolved LLM Coordinator*](https://arxiv.org/abs/2512.04695)
-> (ICLR 2026) is a research coordinator trained with sep-CMA-ES on LiveCodeBench.
-> *This* Trinity is a consumer cross-provider memory layer for polyharness CLI users
-> — different audience, different mechanism (chairman synthesis + local cortex, no
-> training step). Naming collision is real; we share an architectural axis but not
-> a build path. See [`docs/spec-v2.md`](docs/spec-v2.md) for the comparison.
-
 ## Install
-
-**You'll use Trinity by typing `/trinity` in Claude Code.** The skill at
-`~/.claude/skills/trinity/SKILL.md` orchestrates everything — install, first-run
-flow, councils, handoff, eval. It IS the user-facing contract.
-
-One line — clones the skill into `~/.claude/skills/trinity/`, drops two thin shell
-wrappers in `~/.local/bin/`, registers MCP in every harness you have, and runs
-`doctor`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 ```
 
-Then in Claude Code:
+Then type `/trinity` in Claude Code. The skill walks the rest — `doctor`, ingest, dream, first eval. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end (`ls ~/.claude/skills/trinity/`).
 
+Three install paths: **Skill** (primary; `/trinity`), **Engine** (CLI-only / headless), **Chrome extension** (optional). See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md).
+
+![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
+
+## What "your taste, ported" means
+
+Trinity reads the transcripts already on your machine (Claude Code, Codex CLI, Gemini CLI, Cursor, claude.ai exports, ChatGPT exports, Gemini Takeout), learns the pattern in **how you rephrase, judge, and decide**, then runs hard questions through all three providers in your voice and picks the answer you would have picked.
+
+Same eval suite works against every new model:
+
+```bash
+trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/rejections.jsonl)
+trinity-local eval-run --target claude-5    # re-target whenever a new model lands
+trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT / SHARPENING
 ```
-/trinity
-```
 
-The skill walks the rest — `doctor` checks, transcript ingest, dreaming your core
-memories, your first council. No PyPI, no npm — Trinity is a git clone you can read
-end-to-end (`ls ~/.claude/skills/trinity/`). Updates: `trinity-local update`. Three
-install paths exist:
+When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05."* That sentence is the thing only Trinity can produce.
 
-- **Tier 1 (Skill, primary)** — what `/trinity` runs. See [`docs/INSTALL-skill.md`](docs/INSTALL-skill.md)
-- **Tier 2 (Engine)** — CLI-only / headless / CI / Python-library use. See [`docs/INSTALL-pip.md`](docs/INSTALL-pip.md)
-- **Tier 3 (Chrome extension, optional)** — cross-surface capture + one-click UI. See [`docs/INSTALL-extension.md`](docs/INSTALL-extension.md)
-
-Three tiers, one `~/.trinity/` data contract. See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md).
-
-### The 60-second demo
-
-Trinity has two demos that work on minute one of install — one for the wedge, one for the tweet.
-
-> **First-install prereq.** Both demos read your prompt index. On the first run, build it once: `trinity-local ingest-recent` (auto-discovers transcripts in `~/.claude/projects/`, `~/.codex/sessions/`, `~/.gemini/sessions/`). The skill ([`/trinity` in Claude Code](#install)) walks you through it. After that, every demo below is instant.
-
-**The wedge — cross-provider continuity** (structurally unique to Trinity):
+### And — the wedge, for hard questions
 
 ```bash
 trinity-local handoff gemini
 ```
 
-Mid-conversation, hand the thread to a different provider. Gemini picks up exactly where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, your Drive, your Calendar). Then hand off to GPT. Same thread, three perspectives.
+Hand a thread to a different provider mid-conversation. Gemini picks up where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, Drive, Calendar). Then hand to GPT. Same thread, three perspectives.
 
-**The number you can tweet — your personal model leaderboard** (the empirical wedge):
+Anthropic can't read OpenAI's transcripts. OpenAI can't read Gemini's. Only the layer above them can do this.
 
-```bash
-trinity-local eval-build                                   # one-time: build eval suite from your rejection signal
-trinity-local eval-run --target gemini --judge claude      # dispatches your prompts to Gemini, scores against YOUR lens
-trinity-local eval-show
-# → "Gemini scored 0.83 on YOUR kind of question.
-#    Claude scored 0.91. GPT-5 scored 0.77."
-```
+<details>
+<summary><b>Not the Sakana paper</b> — naming collision; different audience, different build path</summary>
 
-When **a new model launches**, re-run the same eval against it. *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05"* is a number no other tool can produce, because no other tool has read your prompts across all three providers.
+[Sakana AI's *TRINITY: An Evolved LLM Coordinator*](https://arxiv.org/abs/2512.04695) (ICLR 2026) is a research coordinator trained with sep-CMA-ES on LiveCodeBench.
 
-![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
-
-That's the wedge, both shapes. The frontier providers can't build either: Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. Only the layer above them can.
+*This* Trinity is a consumer cross-provider memory layer for polyharness CLI users — chairman synthesis + local cortex, no training step. We share an architectural axis but not a build path. See [`docs/spec-v2.md`](docs/spec-v2.md).
+</details>
 
 ---
 
