@@ -80,3 +80,15 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   Files touched: 2 (eval.py -22 lines, test_evals_runner.py -5 stale
   args). Tests: 1402 pass, 4 skip (unchanged). Shipped: e5947a0.
 
+- 2026-05-18 (iter 4): user-facing error strings in `me_builder.py`
+  referencing removed command `me-build` → **KILL stale refs, replace
+  with `lens-build`** (renamed per task #91 but error strings missed
+  the sweep). 4 user-facing strings (lines 327/354/367/389) told the
+  user to re-run a command that no longer exists; 9 docstring/comment
+  refs swept for hygiene; line 327 also gained the canonical
+  `trinity-local` prefix (matches the form in commands/me.py). The
+  audit agent first picked SKILL.md doctor refs but that was wrong
+  (doctor is still a PROPOSAL, not yet removed); pivoted to this
+  category 10 catch. Files touched: 1 (me_builder.py, 13 string
+  replacements + 1 prefix addition). Tests: 1402 pass, 4 skip.
+
