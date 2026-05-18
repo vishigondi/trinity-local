@@ -61,19 +61,20 @@ class TestCoreStalenessSignal:
         core_issues = [i for i in issues if i["name"] == "core.md"]
         assert len(core_issues) == 1
         assert core_issues[0]["status"] == "stale"
-        # The actionable command must be the distill CLI — that's what
-        # the click-to-copy chip needs to copy.
-        assert core_issues[0]["command"] == "trinity-local distill"
+        # Actionable command flips to `dream` post-2026-05-18 (iter
+        # #12): the standalone `distill` CLI was hidden in commit
+        # c9b1f9d; dream Phase 5 is the live path that writes core.md.
+        assert core_issues[0]["command"] == "trinity-local dream"
 
     def test_core_missing_when_sources_exist(self, isolated_home):
-        # Sources present but no distillation yet.
+        # Sources present but no distillation yet — same `dream` flip.
         (isolated_home / "memories" / "lens.md").write_text("some lens", encoding="utf-8")
         _memory_health = _import_health()
         issues = _memory_health()["issues"]
         core_issues = [i for i in issues if i["name"] == "core.md"]
         assert len(core_issues) == 1
         assert core_issues[0]["status"] == "missing"
-        assert core_issues[0]["command"] == "trinity-local distill"
+        assert core_issues[0]["command"] == "trinity-local dream"
 
 
 class TestTopicsThreadAwareSignal:
