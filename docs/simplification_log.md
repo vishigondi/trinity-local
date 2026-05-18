@@ -70,3 +70,13 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   loading for v1.0. Files touched: 1 (README.md, -15 lines).
   Tests: 1402 pass, 4 skip (unchanged).
 
+- 2026-05-18 (iter 3): `--json` flag on `eval-build`, `eval-run`,
+  `eval-show` → **KILL**. Zero documented usage (no README/SKILL.md
+  mention beyond their own argparse help), zero tests exercise the
+  True branch (5 test arg constructors had `as_json=False` but none
+  asserted the JSON-output path), zero downstream consumers. The
+  result files are already JSON on disk at `~/.trinity/evals/...`;
+  power users can `cat | jq`. Pre-launch dead branch removal.
+  Files touched: 2 (eval.py -22 lines, test_evals_runner.py -5 stale
+  args). Tests: 1402 pass, 4 skip (unchanged). Shipped: e5947a0.
+
