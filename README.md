@@ -103,6 +103,18 @@ That's the whole point. Every council runs all three in parallel from one prompt
 **"I want the right model picked for the right task, automatically."**
 Every council you rate teaches Trinity which model wins for which kind of question. The personal routing table surfaces on the launchpad; the cortex extracts the rules; chairman uses them on the next call. Visualization of "what Trinity has learned about you" lives on the launchpad's lens + routing cards.
 
+**"How is this different from Anthropic's Dreaming?"**
+Dreaming consolidates sessions inside Anthropic's runtime — same lab. Trinity consolidates across `~/.claude/` + `~/.codex/` + `~/.gemini/` — three labs that can't read each other. Dreaming makes Claude smarter at being Claude; Trinity learns which model wins which kind of YOUR question.
+
+**"Won't Anthropic just build cross-provider memory themselves?"**
+They're commercially prevented from helping you use a competitor. Anthropic can't recommend ChatGPT; OpenAI can't recommend Claude. The layer above the labs has to come from outside the labs.
+
+**"Who's behind this? Why trust a random repo with my transcripts?"**
+Single developer, MIT, public source — small enough to audit in an evening. Trinity reads transcripts already on your machine, doesn't fetch or upload them. If you stop using it, `~/.trinity/` is plain JSON you can `cat | jq` without us.
+
+**"What happens if you abandon this project?"**
+The folder is the API. `~/.trinity/memories/lens.md` is Markdown; council outcomes are human-readable JSON; the schema is at [`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md). Your taste capture survives Trinity disappearing.
+
 ## How is this different from \[X\]
 
 | | Trinity Local | LMArena | promptfoo / Claude evals | OpenRouter | Karpathy LLM Council |
