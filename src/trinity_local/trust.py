@@ -226,7 +226,8 @@ def read_audit_log(limit: int = 20, since_ts: str | None = None) -> list[dict]:
     write should not break audit-show).
 
     `since_ts` (ISO 8601 string) filters to entries on/after the
-    timestamp. Useful for `trinity-local audit-show --since 2026-05-16`.
+    timestamp. (The audit-show CLI is deferred to v1.1 per commit
+    47e8250; this library function is the canonical read path.)
     """
     path = _audit_path()
     if not path.exists():

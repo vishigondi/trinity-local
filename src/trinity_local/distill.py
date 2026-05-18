@@ -10,8 +10,10 @@ user's cognitive shape, not their provider scoreboard, so they are excluded.
 read FIRST by every council's chairman. The chairman falls through to specific
 memory files only when it needs more depth than `core.md` carries.
 
-Cost: one flagship synthesis call per dream run (or per explicit
-`trinity-local distill` invocation). Skips entirely if no memories exist yet.
+Cost: one flagship synthesis call per `dream` run. (The standalone
+`distill` CLI was hidden in commit c9b1f9d; this library function is
+called from `dream` Phase 5 directly.) Skips entirely if no memories
+exist yet.
 """
 from __future__ import annotations
 

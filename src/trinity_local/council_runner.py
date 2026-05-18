@@ -20,10 +20,13 @@ from .council_review import write_unified_council_page
 
 
 def _maybe_auto_open(review_path) -> None:
-    """Open the review page in the default browser when the user opted in
-    via `trinity-local auto-open-enable`. Off by default; macOS-only;
+    """Open the review page in the default browser when
+    ``settings.auto_open_council`` is True. Off by default; macOS-only;
     failures swallowed (the council write already succeeded — a browser
-    hiccup must not pollute the return).
+    hiccup must not pollute the return). The auto-open-enable /
+    auto-open-disable CLI was retired 2026-05-17 (commit 1fed7fc);
+    flip the setting via `load_telemetry_settings()` + `save_telemetry_settings()`
+    if needed.
 
     Tab discipline (per the user's UX ask): every council opens into a
     single named window via ``window.open(url, "trinity-council")``. The
