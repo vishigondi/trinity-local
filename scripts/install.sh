@@ -9,7 +9,7 @@
 # shell wrappers to ~/.local/bin/ so `trinity-local <cmd>` works without
 # pip-installing the wheel. Detects the harnesses you have (Claude Code,
 # Codex CLI, Gemini CLI, Cursor) and registers Trinity's MCP server in
-# each. Verifies with `trinity doctor`.
+# each. Verifies with `trinity-local doctor`.
 #
 # Architecture ratified by council_37eca30b6e7010df (see
 # docs/three-tier-architecture.md). Skill is primary; this script is the
