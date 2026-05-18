@@ -290,8 +290,12 @@ def main() -> int:
             timeout=3000,
         )
         page.wait_for_timeout(200)
-        if gear_clicked.get("ok") and settings_state.get("modal_visible") and settings_state.get("toggle_count", 0) >= 2:
-            print(f"[ ✓ ] Surface 2 settings: modal opens with {settings_state['toggle_count']} toggles")
+        # Toggle count: telemetry-sharing only (auto-chain + polish-auto
+        # toggles were retired 2026-05-18 per the simplification pass —
+        # auto-chain is now per-council on the review page, no global
+        # toggle).
+        if gear_clicked.get("ok") and settings_state.get("modal_visible") and settings_state.get("toggle_count", 0) >= 1:
+            print(f"[ ✓ ] Surface 2 settings: modal opens with {settings_state['toggle_count']} toggle")
         else:
             reason = f"{gear_clicked} / {settings_state}"
             print(f"[ ✗ ] Surface 2 settings: {reason}")
@@ -838,13 +842,13 @@ def main() -> int:
               const data = script ? JSON.parse(script.textContent || '{}') : {};
               const tel = data.telemetry || {};
               const toggles = Array.from(document.querySelectorAll('.settings-modal input[type="checkbox"]'));
-              // Expected order matches the template: Sharing, Auto-chain, Polish-auto.
+              // Post-simplification (2026-05-18): only the telemetry-sharing
+              // toggle remains; auto-chain + polish-auto-iterate toggles
+              // were retired per commit 1fed7fc.
               const expected = [
                 ['enabled', tel.enabled],
-                ['autoChainEnabled', tel.autoChainEnabled],
-                ['polishAutoIterate', tel.polishAutoIterate],
               ];
-              const rows = toggles.slice(0, 3).map((t, i) => ({
+              const rows = toggles.slice(0, 1).map((t, i) => ({
                 key: expected[i][0],
                 expected: !!expected[i][1],
                 actual: t.checked,
@@ -855,13 +859,13 @@ def main() -> int:
         )
         rows = toggle_state.get("rows", [])
         bindings_ok = (
-            toggle_state.get("toggle_count", 0) >= 3
-            and len(rows) == 3
+            toggle_state.get("toggle_count", 0) >= 1
+            and len(rows) == 1
             and all(r.get("matches") for r in rows)
         )
         if bindings_ok:
             summary = ", ".join(f"{r['key']}={r['actual']}" for r in rows)
-            print(f"[ ✓ ] Surface 12 toggle bindings: all 3 match page-data ({summary})")
+            print(f"[ ✓ ] Surface 12 toggle bindings: 1 toggle matches page-data ({summary})")
         else:
             reason = f"count={toggle_state.get('toggle_count')} rows={rows}"
             print(f"[ ✗ ] Surface 12 toggle bindings: {reason}")
@@ -938,10 +942,15 @@ def main() -> int:
               };
             }"""
         )
-        expected_names = {"lens.md", "picks.json", "routing.json", "topics.json", "vocabulary.md", "core.md"}
+        # Memory chips = the 4 cognitive surfaces (core.md, lens.md,
+        # topics.json, vocabulary.md). picks.json + routing.json live on
+        # the scoreboard card now per the 2026-05-17 state-layout
+        # reshuffle — they're operational bookkeeping, not cognitive
+        # memory, so they don't appear in the .memory-chip row.
+        expected_names = {"lens.md", "topics.json", "vocabulary.md", "core.md"}
         actual_names = set(chips_state.get("names") or [])
-        if chips_state.get("count", 0) >= 6 and expected_names.issubset(actual_names):
-            print(f"[ ✓ ] Surface 14a memory chips: {chips_state['count']} links present (all 6 memories)")
+        if chips_state.get("count", 0) >= 4 and expected_names.issubset(actual_names):
+            print(f"[ ✓ ] Surface 14a memory chips: {chips_state['count']} cognitive-memory links present")
         else:
             reason = f"count={chips_state.get('count')} names={sorted(actual_names)}"
             print(f"[ ✗ ] Surface 14a memory chips: {reason}")
