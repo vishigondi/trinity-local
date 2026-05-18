@@ -1593,6 +1593,48 @@ class TestScoreboardPathRenameInDocs:
         )
 
 
+class TestShareWorkflowCommandsDocumented:
+    """Pin the v1.7.3 share-workflow surfaces in claude.md. The launch-eve
+    audit (2026-05-17) caught `eval-share` missing from the claude.md
+    eval.py command-row even though the command was live. Future
+    additions to the share family should land in claude.md in the same
+    commit; this guard fires loudly if a new share-card is wired in code
+    but the architecture doc isn't updated."""
+
+    def test_eval_share_listed_in_claude_md_eval_row(self):
+        text = (REPO / "claude.md").read_text(encoding="utf-8")
+        # The eval.py row should mention eval-share alongside the other
+        # eval subcommands so a reader scanning the CLI table sees the
+        # full eval-command family.
+        assert "eval-share" in text, (
+            "claude.md must list `eval-share` in the eval.py commands row. "
+            "Sweep claude.md's `commands/eval.py` row to include it."
+        )
+
+    def test_council_share_listed_in_claude_md(self):
+        text = (REPO / "claude.md").read_text(encoding="utf-8")
+        assert "council-share" in text, (
+            "claude.md must reference `council-share`. The command exists in "
+            "src/trinity_local/commands/council.py and ships a PNG share card; "
+            "the architecture doc needs to mention it."
+        )
+
+    def test_share_card_modules_in_core_layers(self):
+        """The 3 share-card renderers (me_card, eval_card, council_card)
+        should appear in claude.md's Core layers section. The launch-eve
+        audit caught eval_card.py + council_card.py missing despite being
+        new production modules; this guard prevents the same shape from
+        recurring."""
+        text = (REPO / "claude.md").read_text(encoding="utf-8")
+        for module in ("me_card.py", "eval_card.py", "council_card.py"):
+            assert module in text, (
+                f"claude.md Core layers must list {module}. Three share-"
+                f"card renderers ship one visual language; the architecture "
+                f"doc needs to surface all three or a reader can't trace "
+                f"the share workflow back to implementation."
+            )
+
+
 class TestNoBannedSynonyms:
     """Single guard for the drift CLASS that this session caught
     one-instance-at-a-time across 30+ ticks. Each entry is a string
