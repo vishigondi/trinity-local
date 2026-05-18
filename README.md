@@ -26,7 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 
 Then type `/trinity` in Claude Code. The skill walks the rest — `doctor`, ingest, dream, first eval. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end (`ls ~/.claude/skills/trinity/`).
 
-Three install paths: **Skill** (primary; `/trinity`), **Engine** (CLI-only / headless), **Chrome extension** (optional). See [`docs/three-tier-architecture.md`](docs/three-tier-architecture.md).
+Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated. Full prereqs, the three install paths (Skill / Trinity.app / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
 
 ![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
@@ -54,32 +54,6 @@ hierarchical artifact the chairman reads top-down on every council:
 (basins), `vocabulary.md` (language). Inspect via the launchpad's lens
 card. Full schema in [`docs/lens.md`](docs/lens.md).
 
-### One answer that knows you.
-
-The chairman reads `core.md` before synthesizing, so the verdict comes back in your
-voice — not in the voice of a model that loves factory patterns. When you push back on
-a response, the lens picks it up. The next council's chairman already knows. The labs
-can't do this for you because they can't see across each other; only the layer above
-them can.
-
-### Local, free, your data.
-
-Your prompts and the models' answers stay on your machine. Trinity rides your existing
-subscriptions — never proxies through a hosted API. Open source. macOS today. No account.
-
-### Build your corpus while it's cheap.
-
-Programmatic AI credits are subsidized right now. Every major provider is pricing
-inference below cost to grab the model-of-choice slot in your workflow. That window
-won't last — once one of them wins, the meter starts on the rest.
-
-The cross-provider preference corpus Trinity builds today (`~/.trinity/`) keeps
-working when the subsidy ends. The taste signal is captured forever; the model that
-benchmarks best on YOUR rejections today may not benchmark best in six months, and
-Trinity's the only layer that can re-score the new lineup against your actual prompts
-without re-asking each one. Build the corpus while the inference cost falls on the
-provider, not you.
-
 ## For teams
 
 Trinity Local is MIT and free for individuals. **Trinity for Teams** (private
@@ -87,18 +61,13 @@ beta) brings the same local-routing architecture into your VPC for data
 residency and stack composability — see [`docs/teams.md`](docs/teams.md) for
 the offering + waitlist.
 
-## For tool builders: the Preference Corpus Spec
+## For tool builders
 
-`~/.trinity/` ships an opinionated, JSON-Schema-validated format for the
-state a cross-provider tool produces: council outcomes, labeled
-rejections, personalized eval sets. See
-[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md) for
-the contract; schemas live under [`schemas/`](schemas/) and are CC0.
-
-If Aider, Cline, Continue, or your own MCP server adopts this format,
-preferences stay portable — the corpus you build today survives the
-next tool you try tomorrow. Standards outlive products ~10×; first-mover
-authority over the shape only holds while one tool ships in it.
+`~/.trinity/` ships a JSON-Schema-validated format for council outcomes,
+labeled rejections, and personalized eval sets — adoptable by other tools
+(Aider / Cline / Continue) under CC0. Contract:
+[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md); schemas
+in [`schemas/`](schemas/).
 
 ## Privacy is the wedge
 
@@ -108,50 +77,8 @@ authority over the shape only holds while one tool ships in it.
   `task_type`, `winner`, `confidence`. No content, ever. Powers a future leaderboard for
   the curious; lives perfectly fine without it.
 - **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
-  use. The provider eats the inference cost; you keep the preference signal.
-
-## Prereqs
-
-Requirements: Python 3.10+ and at least one of the `claude` / `codex` /
-`gemini` CLIs authenticated. Full prereqs, the three install paths,
-uninstall, and offline-model setup live in
-[`docs/install-deep.md`](docs/install-deep.md).
-
-To remove: `trinity-local uninstall --yes` (keeps `~/.trinity/` corpus by
-default; add `--include-data` to wipe).
-
-## What's new — v1.7 (2026-05-15)
-
-Returning from an earlier install? The big shifts since v1.6 are:
-
-- **`picks.json` + `routing.json` moved** from `~/.trinity/memories/` to
-  `~/.trinity/scoreboard/` (they're operational scoreboards, not
-  cognitive memory). Idempotent migration on first access; no action
-  needed. The chairman now reads only the three thinking memories
-  (lens, topics, vocabulary) for identity context.
-- **Launchpad "Your memories, raw" → "Your lens"** — 6-chip nav
-  collapses to a 4-chip card in chairman-read order. picks + routing
-  surface on the routing card where they belong.
-- **Cold-start auto-scan** — first MCP spawn scans your `~/.claude`,
-  `~/.codex`, `~/.gemini` (and cowork) CLI transcripts in the background.
-  Your first council is already personalized; no manual `seed-from-taste-
-  terminal` step needed.
-- **Cursor is a first-class harness** — `trinity-local install-mcp`
-  drops `~/.cursor/mcp.json` alongside Claude Code / Codex / Gemini CLI.
-- **Basin labels** — the topology graph no longer renders the largest
-  cluster as "Hello.". Substantive snippets picked across reps,
-  greetings skipped, in both Python (next `lens-build`) and the JS
-  viewer (existing on-disk data benefits at render-time).
-- **`mark_pick_wrong` actually fires** — the chip on the picks Reader
-  now fires the macOS Shortcut to run `cortex-override`, not just copy
-  the command to clipboard.
-- **Council failures feed `dispatch_health`** — rate-limited Codex in
-  a council now demotes the provider for the next ask. Rate-limit-
-  saves metric includes council saves.
-- **me-card share artifact** no longer drops orderings silently.
-
-Full log in [CHANGELOG.md](./CHANGELOG.md). 100-persona audit backlog
-in [docs/scale-plan.md §Phase 10](./docs/scale-plan.md).
+  use. Build the corpus now while inference is subsidized — the taste signal you capture
+  survives the subsidy ending.
 
 ## How is this different from \[X\]
 
@@ -168,25 +95,6 @@ in [docs/scale-plan.md §Phase 10](./docs/scale-plan.md).
 
 If you want "which model is best in general," LMArena. If you want "which model handles **this
 codebase / this voice / this trade-off you keep making**," Trinity.
-
-## What a council produces
-
-Every council writes:
-
-1. **Per-model answers** — Claude / Gemini / Codex each respond. Streamed as they finish; no
-   waiting on the slowest member to read the fastest.
-2. **Chairman synthesis** — *winner / runner-up / confidence / per-provider scores*, plus
-   structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `routing_lesson`, and
-   `eval_seed` (the deterministic test a future answer should pass).
-3. **A Routing JSON outcome** persisted to `~/.trinity/council_outcomes/<id>.json`. This is
-   the moat — cross-model preference data frontier providers can't see.
-
-After enough councils:
-
-- A **personal routing table** emerges: *"For code_refactor prompts, Claude wins 7.8 / 10."*
-- A **lens** distills your taste into paired tensions across domains, with the
-  failure mode of pure-A and pure-B explicit. Run `trinity-local me-card` to render it as a
-  shareable PNG.
 
 ## Demo
 
@@ -225,46 +133,6 @@ routing lesson that makes the next council pick the right chairman automatically
 ran this council against itself to ratify what would ship — the verdict drove the actual
 commit you see here.
 
-## How to use it inside Claude Code
-
-The MCP surface ships 11 tools — three of them are the load-bearing user-facing ones:
-
-**Run a council** (multi-model deliberation):
-
-```
-mcp__trinity-local__run_council(
-  task="Compare three database options for a 50M-row analytics workload: Postgres, SQLite, DuckDB",
-  members=["claude", "gemini", "codex"]
-)
-```
-
-After the council finishes, the user clicks the answer they preferred. That click feeds
-`record_outcome` and Trinity's chairman gets smarter at picking *the right model for this
-flavor of question* next time. Completed-but-unrated councils carry a `rate_action` hint
-in the MCP response so the agent surfaces the rating prompt inline — no launchpad detour.
-
-**Score any model against your actual taste** (empirical benchmarks):
-
-```bash
-trinity-local eval-build                       # build eval set from your rejections
-trinity-local eval-run --target gemini         # dispatch + score via judge
-```
-
-Trinity mines (prompt, rejected_response, rejection_type) triples from your transcripts
-— REFRAME / COMPRESSION / REDIRECT / SHARPENING. `eval-run` scores any candidate model
-against THOSE empirical rejections, using your `lens.md` as the judge rubric. The
-output is "Model X scored 0.73 on YOUR COMPRESSION-prone prompts, 0.91 on REDIRECT" —
-a per-axis benchmark no provider can build themselves (they can't see cross-provider
-rejection signal).
-
-Or via the CLI directly:
-
-```bash
-trinity-local council-launch --task "..." --members claude gemini codex
-trinity-local eval-run --target <model>    # score any model against your taste
-trinity-local doctor                       # health check; surfaces the next-step demo command
-```
-
 ## Architecture
 
 Chairman synthesizes member outputs into structured Routing JSON; members run in
@@ -273,56 +141,9 @@ pipeline ratifying tensions across ≥3 topical basins. Full wire diagram + desi
 rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
 [`claude.md`](claude.md); long-form roadmap in [`docs/scale-plan.md`](docs/scale-plan.md).
 
-## What's next — Trinity v1.5 (ships June 3, 2026)
+## What's next
 
-v1.0 ships the ledger; **v1.5 turns it into a routing product Claude Code reaches for.**
-Same data, MCP-primary surface. When Claude (the agent) hits a hard decision, needs a
-different provider, or hits a rate limit on its own subscription, it calls
-`mcp__trinity-local__ask` — Trinity routes to your empirically-best model for that
-flavor of question (kNN + cortex-extracted rules) and dispatches via the CLIs you
-already pay for. Local model fallback (Ollama / MLX) for cheap subtasks.
-
-Two-tier memory architecture (hippocampus + cortex) inspired by how brains
-consolidate — kNN over episodes plus flagship-extracted routing rules per basin.
-*Free, local, MIT.* Full spec: [`docs/spec-v1.5.md`](docs/spec-v1.5.md).
-
-The trained-coordinator path (former v2) is sunset — flagship prompt quality
-beats trained 7B routing, so v1.5 gets the same architecture via context
-engineering without paying for GPU training infrastructure. See the sunset
-header in [`docs/spec-v2.md`](docs/spec-v2.md) for the architectural-decision
-record.
-
-For the locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md).
-
-## Then — Trinity v1.6 (~ 2 weeks after v1.5)
-
-The wedge claim *"Trinity reads transcripts already on your machine"* works literally
-for CLI users today — Claude Code, Codex CLI, and Gemini CLI write session files to
-disk that Trinity ingests. For users who spend their day on **claude.ai chat**,
-**chatgpt.com**, or **gemini.google.com**, the chat UIs keep transcripts on the
-provider's servers — the export ritual (settings → Export data → email → tarball)
-is high enough friction that most users never do it. v1.6 closes that gap.
-
-**The mechanic:** one-time install of the Trinity browser extension. After that
-every conversation you have on the web lands in
-`~/.trinity/conversations/<provider>/<conv_id>.json` the moment it completes. No
-listening server, no daemon — Chrome spawns a local capture host on demand via
-Native Messaging (the same pattern 1Password / Bitwarden use to bridge their
-extensions to local apps), and the OS reaps the process when the extension
-disconnects. Files are atomic-write-by-overwrite keyed on the provider's stable
-conversation ID; the existing incremental-ingest pipeline picks them up and
-threads them into your cortex / lens / picks alongside your CLI sessions.
-
-Privacy invariants stay literal: `lsof -i | grep LISTEN` shows nothing related
-to Trinity, the host has no networking imports (enforced by AST scanner), the
-`allowed_origins` field in Chrome's native-messaging manifest restricts the host
-to invocations from *the* Trinity extension only.
-
-Full spec: [`docs/spec-v1.6.md`](docs/spec-v1.6.md). Install ritual:
-[`browser-extension/README.md`](browser-extension/README.md). Week 1 of the
-2-week ship plan has landed end-to-end for `claude.ai` and `chatgpt.com`;
-`gemini.google.com` ships in v1.7 (Google's RPC-over-JSON protocol is higher
-fragility per the spec's stability assessment).
+Trinity Local v1.7 ships today. Roadmap: [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (routing product Claude Code reaches for, June 3) and [`docs/spec-v1.6.md`](docs/spec-v1.6.md) (browser extension for web-chat capture). Locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md). CHANGELOG: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Help
 
@@ -341,25 +162,3 @@ fragility per the spec's stability assessment).
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
-
-## The deeper bet (philosophy, not pitch)
-
-The reason we built it: the AI you trained should outlive the provider. Today the labs are
-commercially prevented from helping you use a competitor — your accumulated context is locked
-to whichever subscription you stop paying for last. The cross-provider memory layer has to live
-*outside* the labs. That's what `~/.trinity/` is. The folder is the API; the lens is yours;
-switching providers tomorrow doesn't reset what they've learned about you.
-
-The copy-paste pain is the pain you have today. Memory portability is the freedom you'll want
-when one of the three labs starts charging triple. Trinity solves both — but leads with the one
-you already feel.
-
-## Building Trinity
-
-Issues, traces, weird outputs, lens shares — all welcome at the GitHub repo. The product
-gets better as more people run councils against their own taste; cross-pollinating outputs
-on socials is how the network effect compounds.
-
-If you want to read what Trinity thinks of itself, every architecture decision in this
-repo cites a council outcome ID. Examples in `claude.md`. Yes, it's councils all the way
-down.
