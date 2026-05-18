@@ -127,7 +127,10 @@ class TestViewerRebuildChip:
         for marker in (
             '"lens.md" || name === "topics.json") return "lens-build"',
             '"picks.json") return "consolidate"',
-            '"core.md") return "distill"',
+            # core.md was previously suggested via `distill`; flipped to
+            # `dream` 2026-05-18 (iter #11) when distill CLI was hidden
+            # but the rebuild chip was still emitting a now-dead command.
+            '"core.md") return "dream"',
         ):
             assert marker in html, f"suggestionFor mapping drifted: {marker}"
 

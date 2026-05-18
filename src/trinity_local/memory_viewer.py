@@ -1920,11 +1920,16 @@ def render_memory_viewer_html() -> str:
 
     function suggestionFor(name) {{
       // What to run to populate each memory if it's missing.
+      // core.md was historically rebuilt via `trinity-local distill`,
+      // but the distill CLI was hidden in commit c9b1f9d (it lives as
+      // an internal Phase-5 callable inside dream). For users clicking
+      // the rebuild chip, `dream` is the live path — heavier than
+      // pure distill but always works and ships in v1.7.4.
       if (name === "lens.md" || name === "topics.json") return "lens-build";
       if (name === "picks.json") return "consolidate";
       if (name === "routing.json") return "dream";
       if (name === "vocabulary.md") return "vocabulary";
-      if (name === "core.md") return "distill";
+      if (name === "core.md") return "dream";
       return "dream";
     }}
   </script>

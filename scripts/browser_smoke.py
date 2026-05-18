@@ -1253,7 +1253,10 @@ def main() -> int:
         rebuild_targets = [
             ("lens.md", "trinity-local lens-build"),
             ("picks.json", "trinity-local consolidate"),
-            ("core.md", "trinity-local distill"),
+            # core.md previously suggested `distill` but the CLI was
+            # hidden in commit c9b1f9d; the rebuild chip now points at
+            # the live path (dream Phase 5 handles distillation).
+            ("core.md", "trinity-local dream"),
         ]
         rebuild_results = []
         for file_name, expected_cmd in rebuild_targets:
