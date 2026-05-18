@@ -573,7 +573,7 @@ def _check_vendor_published() -> CheckResult:
 def _check_cortex_freshness() -> CheckResult:
     """Soft check: are cortex picks current relative to recent councils?
 
-    `picks.json` carries `consolidated_at` per task_kind. If any council
+    `picks.json` carries `consolidated_at` per task_type. If any council
     outcome on disk is newer than the freshest `consolidated_at`, the
     cortex layer's routing rules don't yet reflect the new training
     data — `ask()` will route based on stale signal until the user
