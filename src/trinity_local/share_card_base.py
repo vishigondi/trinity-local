@@ -31,8 +31,8 @@ COLOR_ACCENT = (37, 88, 71)       # sage green for accents
 # Single source of truth for the public landing URL and footer tagline
 # on share artifacts. Mirrored across all three cards by importing here
 # — any future brand pivot stays consistent.
-LANDING_URL = "vishigondi.github.io/trinity-local"
-FOOTER_TAGLINE = "trinity-local · your taste, ported"
+LANDING_URL = "keepwhatworks.com"
+FOOTER_TAGLINE = "Trinity · keepwhatworks.com"
 
 
 # Font path candidates — try macOS first, fall back to Linux DejaVu, then

@@ -138,10 +138,11 @@ def test_render_council_card_empty_state():
 # ── URL invariant — shared with eval-share ─────────────────────────
 
 
-def test_council_card_pins_github_pages_url():
+def test_council_card_pins_landing_url():
     """Same single-source-of-truth rule as eval_card: the CTA URL must
-    not drift into the H1-banned vanity domain shapes."""
-    assert CTA_LANDING_URL == "vishigondi.github.io/trinity-local"
+    not drift into the H1-banned vanity domain shapes. Brand URL flipped
+    2026-05-17 → keepwhatworks.com."""
+    assert CTA_LANDING_URL == "keepwhatworks.com"
     assert "trinity.local/" not in CTA_LANDING_URL
     assert CTA_HEADLINE.endswith(":")
 

@@ -145,10 +145,12 @@ def test_card_module_pins_github_pages_url():
     - the H1-banned `trinity.local/` vanity domain
     - the bare `trinity-local/install.sh` no-protocol form (also banned by H1)
     """
-    assert CTA_LANDING_URL == "vishigondi.github.io/trinity-local", (
-        "eval_card.CTA_LANDING_URL drifted. Sweep this in lockstep with "
-        "docs/REPO_PUBLIC_RUNBOOK and docs/_config.yml — the GH Pages site "
-        "host is the recipient's landing for the eval-share PNG."
+    assert CTA_LANDING_URL == "keepwhatworks.com", (
+        "eval_card.CTA_LANDING_URL drifted. Brand URL flipped 2026-05-17 "
+        "from vishigondi.github.io/trinity-local → keepwhatworks.com. "
+        "Sweep this in lockstep with docs/REPO_PUBLIC_RUNBOOK and "
+        "docs/_config.yml — the keepwhatworks.com CNAME is the recipient's "
+        "landing for the eval-share PNG."
     )
     assert "trinity.local/" not in CTA_LANDING_URL, (
         "CTA must not use the unregistered trinity.local vanity domain "
