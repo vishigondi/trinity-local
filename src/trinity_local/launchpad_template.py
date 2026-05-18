@@ -906,7 +906,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <!-- Handoff demo nudge — info-style banner that surfaces the
            60-second cross-provider continuity demo when conditions
            are met (≥2 providers + ≥1 indexed prompt). Mirrors the
-           CLI doctor 'try this next' hint. Silent when the install
+           CLI status 'try this next' hint. Silent when the install
            can't actually run the demo yet. Tick post-#115. -->
       <section
         class="card"
@@ -2604,7 +2604,12 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             return;
           }}
           const statusToken = `ingest_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
-          const command = `trinity-local watch-once --status-token ${{statusToken}}`;
+          // watch-once was retired 2026-05-18 (commit 07ea7da); the
+          // launchpad's "Scan recent transcripts" button now fires
+          // ingest-recent — the same passive cursor-based path MCP `ask`
+          // hits. status-token guard removed since ingest-recent doesn't
+          // write to ~/.trinity/portal_pages/status/.
+          const command = `trinity-local ingest-recent`;
           const payload = {{
             name: 'run_command',
             args: {{
