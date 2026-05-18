@@ -1,16 +1,25 @@
-"""Handler for the status command — one-shot system summary."""
+"""Handler for the status command — one-shot system summary + health check.
+
+`status` absorbed the role of the (former) `doctor` command pre-launch: it
+runs the same provider / MCP-dep / dir-writable pre-flight checks via
+`trinity_local.doctor.run_doctor()` and prints a one-line health verdict
+at the top of the human-readable output. JSON callers get the full report
+under `"health"`. The standalone `doctor` CLI was retired in favor of this
+single "tell me about Trinity" surface.
+"""
 from __future__ import annotations
 
 import json
 
 from ..adapters import check_all_adapters
 from ..action_runtime import list_actions
+from ..doctor import format_one_line, run_doctor
 from ..drift import check_drift
 from ..state_paths import state_dir, tasks_dir, analytics_dir
 
 
 def register(subparsers):
-    parser = subparsers.add_parser("status", help="Show Trinity system status summary")
+    parser = subparsers.add_parser("status", help="Show Trinity system status summary + health check")
     parser.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
     parser.set_defaults(handler=handle_status)
 
@@ -50,6 +59,9 @@ def _topics_summary(path) -> str:
 
 
 def handle_status(args):
+    # Health (absorbed from former `doctor` command).
+    health = run_doctor()
+
     # Adapters
     adapters = check_all_adapters()
     ready_adapters = [a for a in adapters if a.installed]
@@ -82,6 +94,7 @@ def handle_status(args):
     if args.as_json:
         print(json.dumps({
             "trinity_home": str(home),
+            "health": health.to_dict(),
             "adapters": {
                 "ready": len(ready_adapters),
                 "total": len(adapters),
@@ -111,6 +124,12 @@ def handle_status(args):
     print("┌─────────────────────────────────────────┐")
     print("│         Trinity Local — Status           │")
     print("└─────────────────────────────────────────┘")
+    print()
+
+    # Health (one-line verdict from doctor checks). Full per-check
+    # detail surfaces on health failure via `--json` or by calling
+    # run_doctor() / format_human() directly.
+    print(f"  Health:    {format_one_line(health)}")
     print()
 
     # Adapters

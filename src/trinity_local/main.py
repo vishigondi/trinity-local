@@ -37,7 +37,6 @@ CORE_COMMAND_MODULES = (
     "council_last",
     "depth",
     "distill",
-    "doctor",
     "dream",
     "eval",
     "handoff",

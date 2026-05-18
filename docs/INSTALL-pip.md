@@ -47,7 +47,7 @@ pip install -e .
 
 ```bash
 # Verify everything's wired:
-trinity-local doctor
+trinity-local status
 
 # Ingest existing CLI transcripts into ~/.trinity/prompts/
 # (auto-discovers ~/.claude/projects/, ~/.codex/sessions/, ~/.gemini/sessions/)

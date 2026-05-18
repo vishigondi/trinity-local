@@ -271,5 +271,5 @@ exactly what to fix.
 - `browser-extension/README.md` — extension architecture + Phase 4
   three-tier dispatch logic
 - `docs/spec-v1.6.md` — full extension transition spec
-- `trinity-local doctor` — pre-flight diagnostics + dispatch readiness
+- `trinity-local status` — pre-flight diagnostics + dispatch readiness
   check at session start

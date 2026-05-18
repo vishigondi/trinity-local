@@ -53,7 +53,7 @@ launch live.
       credibility section.
 - [ ] Consider running an end-to-end smoke on a fresh venv: `pip
       install -e .` from clean clone → `trinity-local install-mcp` →
-      `trinity-local doctor` → `trinity-local dream` → `trinity-local
+      `trinity-local status` → `trinity-local dream` → `trinity-local
       portal-html --open-browser`. Time it; if under 8 minutes, the
       "8-minute bar" promise in docs/spec-v1.md holds.
 - [ ] Real-Chrome smoke (the gated test): load the unpacked

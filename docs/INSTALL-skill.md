@@ -41,7 +41,7 @@ What the installer does:
 4. Runs `trinity-local install-mcp` to register the MCP server in
    Claude Code, Codex CLI, Gemini CLI, and Cursor (non-destructive
    edits to each harness's config)
-5. Runs `trinity-local doctor` to verify
+5. Runs `trinity-local status` to verify
 
 No PyPI, no npm. Updates: `trinity-local update` — pulls + refreshes.
 
@@ -49,7 +49,7 @@ No PyPI, no npm. Updates: `trinity-local update` — pulls + refreshes.
 
 ```bash
 # Verify everything's wired:
-trinity-local doctor
+trinity-local status
 
 # In Claude Code, the skill is now active:
 # /trinity

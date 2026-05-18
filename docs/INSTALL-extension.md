@@ -24,7 +24,7 @@ the engine via Native Messaging.
 
 ```bash
 trinity-local --version    # should print the wheel version
-trinity-local doctor       # should be mostly green
+trinity-local status       # should be mostly green
 ```
 
 ## Install the extension
@@ -65,7 +65,7 @@ not from the Chrome Web Store). Web Store publish is post-launch.
 7. Verify:
 
    ```bash
-   trinity-local doctor
+   trinity-local status
    # dispatch_ready should now be green
    ```
 

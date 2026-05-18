@@ -9,7 +9,7 @@
 # shell wrappers to ~/.local/bin/ so `trinity-local <cmd>` works without
 # pip-installing the wheel. Detects the harnesses you have (Claude Code,
 # Codex CLI, Gemini CLI, Cursor) and registers Trinity's MCP server in
-# each. Verifies with `trinity-local doctor`.
+# each. Verifies with `trinity-local status`.
 #
 # Architecture ratified by council_37eca30b6e7010df (see
 # docs/three-tier-architecture.md). Skill is primary; this script is the
@@ -166,7 +166,7 @@ fi
 # knn_analytics, vocabulary). We don't pip-install trinity-local itself
 # — the wrapper points at the cloned repo via PYTHONPATH. But the
 # runtime deps still have to be available to the system python; without
-# them, doctor's first run flags failures the user has to fix manually.
+# them, the status health check's first run flags failures the user has to fix manually.
 #
 # --user installs into ~/.local (or the venv if active) without touching
 # system site-packages. If pip is missing we surface a warning rather
@@ -191,7 +191,7 @@ if "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
        'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26' 2>/dev/null; then
     ok "Pillow + mcp + numpy installed ($PIP_MODE_LABEL)"
   else
-    warn "pip install reported issues (Pillow / mcp / numpy) — see 'trinity-local doctor'"
+    warn "pip install reported issues (Pillow / mcp / numpy) — see 'trinity-local status'"
   fi
 else
   warn "pip not available for $PYTHON_BIN — install pip and re-run, or:"
@@ -212,16 +212,16 @@ fi
 
 # ─── 5. Verify ─────────────────────────────────────────────────────
 
-step "Running doctor"
-"$TRINITY_BIN_DIR/trinity-local" doctor 2>&1 | sed 's/^/  /' || \
-  warn "doctor reported issues — fix what it surfaces, then 'trinity-local doctor' again"
+step "Running health check"
+"$TRINITY_BIN_DIR/trinity-local" status 2>&1 | sed 's/^/  /' || \
+  warn "health check reported issues — fix what it surfaces, then 'trinity-local status' again"
 
 # ─── 6. Done ───────────────────────────────────────────────────────
 
 echo ""
 printf "%sTrinity Local installed.%s\n" "$C_BOLD$C_GREEN" "$C_RESET"
 echo ""
-echo "Type /trinity in Claude Code to start. Or run 'trinity-local doctor'"
+echo "Type /trinity in Claude Code to start. Or run 'trinity-local status'"
 echo "to verify. Updates: 'trinity-local update' pulls the latest."
 echo ""
 echo "Skill:  $TRINITY_SKILL_DIR"

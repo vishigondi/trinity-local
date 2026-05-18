@@ -50,21 +50,22 @@ def _trinity_local(*args, isolated_home: Path, **extra_env):
     )
 
 
-def test_doctor_runs_on_fresh_home(isolated_home):
-    """A fresh TRINITY_HOME should not crash doctor. The doctor command
-    might return non-zero if optional providers are missing, but it
-    must NOT crash or produce malformed output."""
-    result = _trinity_local("doctor", isolated_home=isolated_home)
-    # Either green (everything wired) or yellow (something to fix) —
-    # both produce parseable output. We tolerate non-zero exit code
-    # because provider CLIs are typically absent in CI.
+def test_status_runs_on_fresh_home(isolated_home):
+    """A fresh TRINITY_HOME should not crash status (which absorbed the
+    former doctor command's pre-flight checks). The command might return
+    non-zero if optional providers are missing but must NOT crash or
+    produce malformed output."""
+    result = _trinity_local("status", isolated_home=isolated_home)
     assert result.returncode in (0, 1, 2), (
-        f"doctor crashed with unexpected exit code {result.returncode}: "
+        f"status crashed with unexpected exit code {result.returncode}: "
         f"{result.stderr!r}"
     )
-    # Doctor's output should include the home check + at least one
-    # other check (provider, MCP, etc.) — proves the harness ran.
+    # Status' output should include the health header + at least one
+    # adapter/memory row — proves the harness ran.
     assert "trinity" in result.stdout.lower() or "trinity" in result.stderr.lower()
+    assert "health" in result.stdout.lower(), (
+        "status output should carry the doctor-collapsed health header"
+    )
 
 
 def test_trust_init_and_trust_show_round_trip(isolated_home):

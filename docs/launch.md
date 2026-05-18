@@ -76,7 +76,7 @@ outcome is in the repo: [`docs/launch_councils/council_d55953003bb29f9d.json`](l
 Open-source the trail, not just the code.
 
 **Install (10/12).** `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash` — clones the skill into `~/.claude/skills/trinity/`, drops thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have. From a fresh terminal OR from inside Claude Code (`/trinity`), you're three commands from a council on your real work. Caveat: Trinity needs the
-Claude / Gemini / Codex CLIs authenticated. `trinity-local doctor` tells you which are
+Claude / Gemini / Codex CLIs authenticated. `trinity-local status` tells you which are
 missing.
 
 **The bigger thesis (11/12).** *Own your context now, because the next thing you'll need to
@@ -258,7 +258,7 @@ Routing JSON ledger, which the handoff demo doesn't show.
            (RECORDING NOTE: the installer clones the repo to ~/.claude/skills/
             trinity/, drops wrappers in ~/.local/bin/, registers MCP. No pip,
             no npm — just a git clone + shell wrappers.)
-0:08–0:15  CLI: trinity-local doctor   (green checks scroll)
+0:08–0:15  CLI: trinity-local status   (green checks scroll)
 0:15–0:23  Switch to Claude Code. Type /trinity. Show first-council prompt.
 0:23–0:38  Type real question (eg "Should I use SQLite or DuckDB for 50M-row analytics?")
            Three model headers stream answers in parallel.
@@ -325,6 +325,6 @@ reference directly when relevant:
 - [ ] me-card PNG attached (use `trinity-local me-card --out /tmp/me.png` to generate fresh)
 - [ ] Repo URL is current (post-pubic-push)
 - [ ] LICENSE link in footer of every artifact
-- [ ] `trinity-local doctor` output recorded for the demo
+- [ ] `trinity-local status` output recorded for the demo
 - [ ] One real council outcome JSON quoted (not synthetic)
 - [ ] Skill discoverability tested in a fresh Claude Code session

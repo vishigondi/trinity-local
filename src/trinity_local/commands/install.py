@@ -173,7 +173,7 @@ def handle_install_mcp(args):
         print(
             "\nNext: restart Claude Code / Codex / Gemini CLI / Cursor to pick "
             "up the new tools.\n"
-            "Then verify with:  trinity-local doctor   (or type /trinity in "
+            "Then verify with:  trinity-local status   (or type /trinity in "
             "Claude Code)\n"
             "On first MCP spawn, Trinity auto-scans ~/.claude, ~/.codex, "
             "~/.gemini, cowork in the background — your first council is "

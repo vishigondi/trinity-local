@@ -16,7 +16,7 @@ trinity-local council-launch --task "Should I use SQLite or DuckDB for this anal
 # → Verdict: winner, runner-up, agreed claims, where they split, why each split matters.
 ```
 
-**No new app. No service. No API key. Your transcripts never leave your machine.**
+**No new app. No service. No API key.** Your transcripts never leave your machine. Just an MCP server for Claude Code / Codex / Gemini / Cursor, plus a static HTML launchpad you open from a Chrome extension.
 
 ## Install
 
@@ -164,14 +164,13 @@ Trinity Local v1.7 ships today. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.
 
 | Command | What it does |
 |---|---|
-| `trinity-local doctor` | Pre-flight checks; surfaces a fix line per ✗ |
-| `trinity-local install-app` | Install or repair the Trinity desktop launcher |
+| `trinity-local status` | Health + scoreboard + recent councils (absorbed `doctor`) |
 | `trinity-local council-launch --task "..."` | Run a council from the terminal |
-| `trinity-local review-link <council_id> --json` | Generate mobile-safe review links |
 | `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
 | `trinity-local portal-html --open` | Open the launchpad |
-| `trinity-local status` | Aggregate scoreboard, recent councils |
+| `trinity-local install-app` | Install/repair the Trinity desktop launcher |
+| `trinity-local review-link <council_id> --json` | Mobile-safe review links |
 | `trinity-local --help` | Full command list |
 
 ## License

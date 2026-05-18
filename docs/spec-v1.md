@@ -78,7 +78,7 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local lens-build` — 4-stage lens-discovery pipeline (basins → decisions → pair-mining → basin post-filter) + Stage 0 turn-pair gaps
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
-- `trinity-local doctor` — pre-flight cold-install checks
+- `trinity-local status` — pre-flight cold-install checks
 - `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Gemini CLI + drops `/trinity` skill
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local watch-once` — incremental transcript ingest

@@ -19,10 +19,10 @@ labels: bug
 
 <!-- What you thought would happen if the code matched the docs. -->
 
-## What `doctor` says
+## What `status` says
 
 ```
-$ trinity-local doctor
+$ trinity-local status
 <paste output — feel free to redact `~` paths>
 ```
 

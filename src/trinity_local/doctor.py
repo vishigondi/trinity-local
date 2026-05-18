@@ -6,7 +6,8 @@ blaming Trinity. The eval seed: *"name a specific cold-install failure
 mode AND the exact CLI command that detects it before the user hits a
 live council."*
 
-`trinity-local doctor` is that command. Each check returns:
+`trinity-local status` runs these checks (the standalone `doctor`
+command was collapsed into `status` pre-launch). Each check returns:
 - ok: bool
 - name: short human label
 - detail: what it found
@@ -494,7 +495,7 @@ def _check_verdict_rate() -> CheckResult:
     personal ledger of cross-model preferences") is empty without
     user verdicts. Tick #69 found 16% on the dev install; ticks
     #70/#93/#94 surfaced the gap on launchpad / CLI / per-card.
-    This adds the same number to `trinity-local doctor` so the
+    This adds the same number to `trinity-local status` so the
     cold-install / launch-readiness path sees it too.
 
     Soft check (ok=True regardless) — low capture is the user's
@@ -922,6 +923,24 @@ def _check_browser_capture() -> CheckResult:
     )
 
 
+def format_one_line(report: DoctorReport) -> str:
+    """Terse one-line health verdict for the `status` command header.
+
+    `ready_for_council` is the launch bar (≥1 provider + writable home);
+    everything else is optional / informational.
+    """
+    ok_count = sum(1 for c in report.checks if c.ok)
+    total = len(report.checks)
+    failed = [c for c in report.checks if not c.ok]
+    if not report.ready_for_council:
+        # No usable provider OR home not writable — the user can't run
+        # a council until this is fixed.
+        return f"red — not ready for council ({len(failed)} checks failing); run `trinity-local status --json` for detail"
+    if failed:
+        return f"yellow — ready for council, {ok_count}/{total} green ({len(failed)} optional gaps)"
+    return f"green — {ok_count}/{total} checks pass"
+
+
 def run_doctor() -> DoctorReport:
     """Sequential checks — fast (<1s), no network, no chairman calls."""
     report = DoctorReport()
@@ -998,7 +1017,7 @@ def format_human(report: DoctorReport) -> str:
     elif report.ready_for_council:
         lines.append("Ready for your first council. Some optional checks failed (see above).")
     else:
-        lines.append("Trinity is NOT ready. Fix the ✗ items above, then re-run `trinity-local doctor`.")
+        lines.append("Trinity is NOT ready. Fix the ✗ items above, then re-run `trinity-local status`.")
     hint = _next_step_hint(report)
     if hint:
         lines.append("")

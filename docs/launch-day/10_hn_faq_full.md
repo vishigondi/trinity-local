@@ -72,7 +72,7 @@ Yes. v1.0 is MIT, no paid tier, no hosted controller. The cost model: Trinity di
 
 ### What's the story if I only have one Pro subscription?
 
-Trinity still works — councils degrade to whatever members you have authenticated. With one provider it's not a council, it's a chain-mode refinement loop against itself, and the chairman synthesis still emits Routing JSON over the rounds. The bigger value with one provider is the `/me` lens-build pipeline and the depth-score-ranked replay over your existing transcripts — the cross-provider continuity wedge (`handoff`) and the comparison benchmarks need two+ providers, but the corpus-grooming surface doesn't. `trinity-local doctor` tells you which CLIs are missing.
+Trinity still works — councils degrade to whatever members you have authenticated. With one provider it's not a council, it's a chain-mode refinement loop against itself, and the chairman synthesis still emits Routing JSON over the rounds. The bigger value with one provider is the `/me` lens-build pipeline and the depth-score-ranked replay over your existing transcripts — the cross-provider continuity wedge (`handoff`) and the comparison benchmarks need two+ providers, but the corpus-grooming surface doesn't. `trinity-local status` tells you which CLIs are missing.
 
 ---
 

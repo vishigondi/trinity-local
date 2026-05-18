@@ -45,7 +45,7 @@ The installer needs `git` + `python3.10+` on PATH. If Python is missing, recomme
 
 `doctor` verifies provider CLIs (Claude / Codex / Gemini) are installed + authenticated, the MCP dep is present, the Trinity home directory is writable, the launchpad dispatch tier is wired, and embeddings can run. Each ✗ surfaces a one-line fix.
 
-!`trinity-local doctor`
+!`trinity-local status`
 
 If any required check fails, walk the user through the surfaced fix. Don't proceed until `trinity_home_writeable`, `config_loadable`, and `mcp_available` are green. Provider CLIs are required for councils but not for setup itself.
 

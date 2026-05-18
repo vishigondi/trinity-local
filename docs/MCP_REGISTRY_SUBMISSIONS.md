@@ -195,7 +195,7 @@ Before submitting to any registry:
       Preference Corpus Spec — many registries care about this distinction)
 - [ ] Working install one-liner verified on a fresh macOS install
       (`curl -fsSL .../install.sh | bash` followed by
-      `trinity-local doctor`)
+      `trinity-local status`)
 - [ ] CHANGELOG entry noting the registry inclusion (so future
       contributors know it's listed)
 

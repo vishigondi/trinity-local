@@ -81,7 +81,7 @@ Create three pinned issues so the repo lands with first-class onboarding:
 gh issue create -R vishigondi/trinity-local \
   --title "Start here: install Trinity in 60 seconds" \
   --label "good-first-issue,documentation" \
-  --body "Run \`curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash\` then \`/trinity\` in Claude Code. If \`trinity-local doctor\` reports any failure, open an issue — that's the launch-feedback we most want."
+  --body "Run \`curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash\` then \`/trinity\` in Claude Code. If \`trinity-local status\` reports any failure, open an issue — that's the launch-feedback we most want."
 
 gh issue create -R vishigondi/trinity-local \
   --title "Share your first council" \

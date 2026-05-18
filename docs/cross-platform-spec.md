@@ -142,7 +142,7 @@ The terminal product must keep these as stable public entry points:
 |---|---|
 | `trinity-local install-mcp` | Register MCP and install the `/trinity` Claude Code skill |
 | `trinity-local install-app` | Install or repair the `Trinity.app` desktop launcher |
-| `trinity-local doctor` | Pre-flight provider, auth, schema, and writable-home checks |
+| `trinity-local status` | Pre-flight provider, auth, schema, and writable-home checks |
 | `trinity-local council-launch --task "..."` | Run a multi-provider council |
 | `trinity-local handoff <provider>` | Continue the latest thread in a different provider |
 | `trinity-local dream` | Build memories from the user's prompt corpus |
@@ -189,7 +189,7 @@ scraping human prose or importing internal Python modules.
 
 | Contract | Producer | Consumers |
 |---|---|---|
-| Provider/auth/setup status | `trinity-local doctor --json` | desktop setup, mobile pairing preflight |
+| Provider/auth/setup status | `trinity-local status --json` | desktop setup, mobile pairing preflight |
 | Active/recent/unrated councils | `trinity-local councils --json --status ...` | desktop home, mobile review queue |
 | One council run status | `trinity-local council-status <id> --json` | live progress, notifications |
 | Memory health | `trinity-local memory-health --json` | desktop memory screen, setup warnings |

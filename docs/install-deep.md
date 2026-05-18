@@ -15,7 +15,7 @@ brew install python   # 3.12 or newer
 ```
 
 Plus the provider CLIs you want in the council: `claude`, `codex`, and/or
-`gemini` — each authenticated to your subscription. `trinity-local doctor`
+`gemini` — each authenticated to your subscription. `trinity-local status`
 will tell you which are missing.
 
 ## Quickstart (desktop first)
@@ -68,7 +68,7 @@ lens, scoreboard, council outcomes) unless you explicitly pass
 `--include-data`. The wedge cuts both ways: own your data also means you
 decide when to delete it.
 
-`trinity-local doctor` checks each provider CLI is installed +
+`trinity-local status` checks each provider CLI is installed +
 authenticated, the MCP server dependency is present, and your Trinity
 directory is writable — surfaces a one-line fix for each ✗ before you hit
 a live council.

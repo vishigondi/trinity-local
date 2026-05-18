@@ -194,7 +194,7 @@ all point at the same architectural claim.
   #    docs/INSTALL-pip.md "Why no PyPI publish?" for the architectural reasons.)
   #    Verify the install.sh works end-to-end on a fresh machine:
   curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
-  trinity-local doctor    # everything green
+  trinity-local status    # everything green
 
   # 5. Verify the live state
   curl -sf -o /dev/null -w "%{http_code}\n" https://github.com/vishigondi/trinity-local # → 200
