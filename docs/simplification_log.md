@@ -193,3 +193,23 @@ caller sites). Until then, the off-by-default behavior costs nothing.
   `web_url` assertions from the privacy test). Tests: 1400 pass, 4
   skip (2 tests removed with the dead flag).
 
+- 2026-05-18 (iter 11): dream `--skip-consolidate` / `--skip-lens-build`
+  / `--skip-vocabulary` / `--skip-distill` flags → **KEEP**. Zero
+  user-facing documentation (no README/SKILL.md mention beyond
+  argparse help) AND each phase has a dedicated standalone command
+  (`consolidate`, `lens-build`, `vocabulary`, `distill`) — looked like
+  a clean kill candidate. But tests/test_dream.py uses them
+  extensively as test scaffolding: ~10+ test methods pass
+  `skip_consolidate=True, skip_me_build=True` to make dream
+  orchestration tests fast by skipping expensive phases. Removing
+  the flags would require a test refactor (replace flag-based
+  scaffolding with mocks/fixtures) that exceeds the loop's 200-line
+  cap. The flags earn their place via internal test affordance even
+  though user-facing audience is thin. Audit agent first picked
+  test_commands_review.py for kill (a test file, off-mission — loop
+  is for user-facing surfaces); pivoted to dream --skip-* and found
+  this KEEP rationale.
+  Also noted: dream.py:60 has `dest=skip_me_build` (back-compat with
+  pre-rename) on `--skip-lens-build`. Minor internal drift; not
+  worth fixing standalone since it affects no user surface.
+
