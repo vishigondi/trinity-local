@@ -210,20 +210,11 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 
 # Then, in Claude Code, just type:  /trinity
 # The skill walks you through doctor + ingest + dream + your first council.
-
-# Or use the CLI directly:
-trinity-local doctor                # verify providers + auth
-trinity-local council-launch --task "Should I use SQLite or DuckDB for analytics?"
-trinity-local lens-build            # surface your taste lenses (after a few councils)
-trinity-local me-card               # render your strongest lens as a 1200×630 PNG to share
-trinity-local install-extension     # optional: Chrome extension for claude.ai + chatgpt.com
-                                    #   browser capture (grows the corpus passively)
-trinity-local update                # pull latest + refresh MCP + verify
-trinity-local install-app           # macOS only: Trinity.app desktop wrapper for non-coders
-
-# Or, from inside Claude Code (after the curl-bash install above):
-/trinity                            # the bundled skill walks first-run + first-council
 ```
+
+The `/trinity` skill is the primary entry point; it teaches the full CLI
+after the first council. For the raw command reference, see the
+[Help](#help) section below or run `trinity-local --help`.
 
 **Three install paths, three audiences.** The CLI (`install-mcp`) is the
 engine — every other surface wraps it. `install-app` is the non-coder daily

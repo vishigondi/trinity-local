@@ -61,3 +61,12 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
 
 **Audited**: 2026-05-18, iteration 1.
 
+- 2026-05-18 (iter 2): README Quickstart `Or use the CLI directly:` +
+  `Or, from inside Claude Code:` alternative-path blocks →
+  **COLLAPSE-INTO-Help section**. The `/trinity` skill is the primary
+  entry point and teaches the full CLI after the first council; the
+  Help section already documents every command; offering CLI examples
+  as an "Or" alternative in the Quickstart is premature cognitive
+  loading for v1.0. Files touched: 1 (README.md, -15 lines).
+  Tests: 1402 pass, 4 skip (unchanged).
+
