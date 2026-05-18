@@ -1088,11 +1088,13 @@ def dispatch_readiness() -> dict:
 
 
 def _shortcut_status() -> dict:
-    """Retired 2026-05-17 with the macOS Shortcut dispatcher kill. Kept as
-    a stable shape so old test fixtures and downstream callers
-    (`page_data["shortcutStatus"]`, the JS `canUseShortcut()`) keep
-    working. Always reports `applicable: False` so the launchpad banner
-    stays hidden and the JS dispatch never tries the Shortcut tier.
+    """Retired 2026-05-17 with the macOS Shortcut dispatcher kill, then
+    deeper-cleaned in Pass B (commit 0555a25) when `canUseShortcut()`
+    and the JS Tier-2 branch went away. Kept as a stable empty payload
+    so `page_data["shortcutStatus"]` doesn't KeyError in any consumer.
+    Always reports `applicable: False`; the launchpad banner stays
+    hidden, and the JS dispatch path never tries the Shortcut tier
+    because that branch no longer exists in launchpad_runtime.js.
     """
     return {"ok": True, "applicable": False}
 
