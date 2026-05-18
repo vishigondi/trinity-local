@@ -11,7 +11,7 @@ the bytes to disk; the recipient sees:
 1. Headline — "[Winner] won" with the 3-model lineup
 2. 1-2 agreed_claims (where models converged)
 3. 1 disagreed_claim with its "why_matters" (where they fought + the stakes)
-4. Install CTA → vishigondi.github.io/trinity-local
+4. Install CTA → keepwhatworks.com
 
 Privacy mode is the default. The user's verbatim prompt is NEVER inlined
 on the card; the prompt may be present in the JSON outcome on disk but

@@ -182,9 +182,10 @@ def render_me_card(data: CardLensData) -> bytes:
 
     # Footer wordmark + install URL, bottom-right corner.
     # The URL is the SAME single-source-of-truth string used by eval_card
-    # and council_card (vishigondi.github.io/trinity-local). A recipient
-    # who sees this me-card on Twitter follows the URL to the GH Pages
-    # landing for the install one-liner.
+    # and council_card (keepwhatworks.com — single-sourced via
+    # share_card_base.LANDING_URL since commit 8c30538). A recipient
+    # who sees this me-card on Twitter follows the URL to the landing
+    # page for the install one-liner.
     footer_text = f"{ME_CARD_FOOTER_TAGLINE}   ·   {ME_CARD_LANDING_URL}"
     bbox = draw.textbbox((0, 0), footer_text, font=footer)
     fw = bbox[2] - bbox[0]

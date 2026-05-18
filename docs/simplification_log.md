@@ -581,14 +581,19 @@ and charge ahead". Six more cleanups shipped:
   actions don't set it). Tests swept: 5 test files updated, 1 deleted
   (test_phase7_deprecation.py).
 
-  **Pass B (follow-up — JS surgery)**: the consumer-side JS in
-  `launchpad_runtime.py`, `council_review.py`, `launchpad_template.py`
-  still references `buildShortcutUrl`, `_fireShortcut`,
-  `pageData.shortcutStatus`, and the tier-2-shortcut branch in
-  `__TRINITY_DISPATCH__.dispatch`. These render empty URLs at runtime
-  (Tier 2 silently fails through; Tier 1 Chrome extension is the live
-  path) so the launchpad is functional today. Pass B drops the dead
-  JS, removes `make_shortcut_invocation` calls from `council_review`
-  and `launchpad_data`, and deletes `shortcuts_integration.py` outright.
-  Scope: ~3 hours of mechanical surgery, tracked separately.
+  **Pass B (JS surgery)**: SHIPPED 2026-05-18 in commit 0555a25 —
+  dropped `canUseShortcut()` + Tier-2 shortcut branch in
+  `__TRINITY_DISPATCH__.dispatch`; reduced `buildShortcutUrl()` to a
+  `return ''` no-op so callsites in `launchpad_template.py` and
+  `council_review.py` keep parsing while passing empty strings.
+  Chrome extension is the only live dispatch path.
+
+  **Pass C (deferred to v1.7.5)**: the remaining mechanical surgery —
+  drop `make_shortcut_invocation` calls from `council_review.py` (3
+  callsites) + `launchpad_data.py` (4 callsites), strip
+  `buildShortcutUrl()` references from `launchpad_template.py` JS, and
+  delete `shortcuts_integration.py` outright. Today's state is
+  functionally correct — empty URLs flow through inert paths — but
+  the dead-code surface is real (~12 callsites + the shim module).
+  Scope: ~3h of mechanical edits with test sweeps.
 
