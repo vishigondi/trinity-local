@@ -28,26 +28,26 @@ from trinity_local.cortex import (
 
 
 def _has_semantic_embeddings() -> bool:
-    """True when the MLX/nomic embedding backend successfully INITIALIZED
-    (not just importable — runtime-ready). Falls back to False on CI
-    where only `[test]` is installed (no sentence_transformers /
-    torch). TF-IDF embeddings work for shape but not for semantic-
-    similarity assertions, so semantic-similarity tests skip when only
-    TF-IDF is available.
+    """True when sentence_transformers is importable (the actual
+    runtime gate that decides MLX vs TF-IDF). Falls back to False on
+    CI where only `[test]` is installed.
 
-    First version of this helper just checked `import MlxEmbedder`,
-    which succeeded even when sentence_transformers was missing
-    (MlxEmbedder is just a class def; the lazy `__init__` is what
-    needs sentence_transformers). On CI, that gave a false positive
-    and the test still ran on TF-IDF, failing on the semantic-
-    similarity assertion. Using the canonical
-    `embeddings.is_available()` which only returns True when MLX
-    successfully initialized at module-import time.
+    Three previous attempts got progressively closer:
+    - v1: `from ...backend_mlx import MlxEmbedder` → MlxEmbedder is
+          just a class def; import always succeeds.
+    - v2: `embeddings.is_available()` → MlxEmbedder() doesn't raise
+          either (it's lazy; self._model = None at construction).
+    - v3 (this): probe sentence_transformers directly — the actual
+          dependency MlxEmbedder._load() needs. If it's importable,
+          MLX can run; otherwise the embed() path falls back to
+          TF-IDF.
+
+    Same gate that backend_mlx.MlxEmbedder.is_ready() uses (line 81-85).
     """
     try:
-        from trinity_local.embeddings import is_available
-        return is_available()
-    except Exception:
+        __import__("sentence_transformers")
+        return True
+    except ImportError:
         return False
 
 
