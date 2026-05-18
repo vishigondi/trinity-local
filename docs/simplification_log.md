@@ -397,3 +397,45 @@ Cron `ce115b88` firing every 10m at :03/:13/:23/:33/:43/:53.
   pointer. README -3,200 bytes (28,360 → 25,156). 1400 tests still pass,
   37 doc-consistency guards green (no removed phrases were asserted).
 
+- 2026-05-18 (tick 2): created `docs/lens.md`. README's "Your lens, generated
+  from your prompts" section (4-row table + scoreboards table + launchpad
+  viewer paragraph) → docs/lens.md, replaced with 4-line pointer. README
+  25,439 → 23,977 (-1.5 KB). 1400 tests pass, 37 doc guards green.
+
+- 2026-05-18 (tick 3): created `docs/teams.md`. README's "For teams"
+  section (~25 lines) → docs/teams.md with the same content + waitlist
+  link preserved. README 23,977 → 22,619 (-1.3 KB). 1400 tests pass.
+
+- 2026-05-18 (tick 4): created `docs/install-deep.md`. README's Prereqs +
+  Quickstart + Three-install-paths + Removing-Trinity + Offline-by-default
+  + Drive-it-from-Claude-Code sections (~85 lines) → docs/install-deep.md.
+  README Install section collapsed to 1 curl|bash line + 2 sentences.
+  README 22,619 → 19,119 (-2.8 KB). 1400 tests pass.
+
+- 2026-05-18 (tick 5): batch cut 8 sections that don't earn README real
+  estate. CUT: "One answer that knows you" (hero says it), "Local, free,
+  your data" (folded into Privacy), "Build your corpus while it's cheap"
+  (became one-liner in Privacy: subsidy narrative preserved), "What's new
+  — v1.7" (CHANGELOG link in Help), "What's next — v1.5" + "Then — v1.6"
+  (collapsed to one "What's next" line linking the specs), "The deeper
+  bet" + "Building Trinity" (closing philosophy not driving conversion),
+  "What a council produces" (Demo shows it), "How to use it inside Claude
+  Code" (Help table covers it). Also tightened "For tool builders" 10
+  lines → 4. README 19,119 → 9,045 (-10 KB, -53% in one commit). 1400
+  tests pass, 39 guards (including subsidy narrative) green.
+
+- 2026-05-18 (tick 6): added Objections FAQ to README per user request.
+  Addresses 7 explicit pre-conversion frictions: another-UI / daemon
+  resources / data-to-server / subscription-utilization / copy-paste-pain
+  / new-model-evaluation / right-model-automation. Each Q in 1-3 lines.
+  Lives between Privacy and the comparison table — the conversion moment.
+  README 9,045 → 10,924 (+1.9 KB).
+
+## Cron ce115b88 deleted — README simplification complete
+
+Total impact: README **28,360 → 10,924 bytes (-61%)** across 6 ticks.
+4 new docs/ files (architecture / lens / teams / install-deep) absorb the
+extracted content. 14 top-level README sections remain, all earning their
+place. Objections FAQ is the new conversion lever the user added on top.
+1400 tests pass; 39 doc-consistency + narrative guards green.
+
