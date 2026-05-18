@@ -144,3 +144,39 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   model) that's not in install.sh. Verdict overridden; no code
   change.
 
+## PROPOSAL: `notifications-enable` / `notifications-disable` CLI
+
+**Verdict**: KILL the user-facing CLI toggle pair (audit) — escalated
+to PROPOSAL because it's a whole-feature decision
+
+**Why**: Audit agent argued these 2 subcommands have no audience —
+off-by-default, no launchpad toggle UI, ~nobody runs `trinity-local
+notifications-enable`. But killing them orphans the entire
+notifications feature: `notifications.py` is actively imported from
+7 modules (watch_runtime.py × 3, action_runtime.py, council.py,
+portal.py, review.py, me_card.py, capture_host.py). Without the CLI
+toggles, users have no way to flip the feature on, so this is a
+de-facto whole-feature kill, not a surface cleanup.
+
+**Blast radius (the surface cleanup, not the feature kill)**:
+- commands/telemetry.py: ~12 LOC (2 subparser blocks + 2 handlers)
+- Tests: 0 reference these specific subcommands
+- CHANGELOG.md mentions stay as historical record
+
+**Blast radius (if you also kill the feature)**:
+- notifications.py: ~150 LOC
+- 7 importing modules each need their `notify()` call removed or replaced with a no-op
+- Tests: light, mostly mocking notify
+
+**Risk**: Notifications are the load-bearing mechanism for the "council
+finished, check the result" UX path. Killing them silently removes a
+real (if minor) capability for users who'd benefit from system notifs.
+The decision isn't a launch-day cleanup; it's a v1.0 feature scope call.
+
+**Decision**: PENDING USER. My recommendation: KEEP for v1.0, revisit
+post-launch with telemetry data. If notification opt-in rate is <1%
+after a month, kill the whole feature (CLI + notifications.py +
+caller sites). Until then, the off-by-default behavior costs nothing.
+
+**Audited**: 2026-05-18, iteration 9.
+
