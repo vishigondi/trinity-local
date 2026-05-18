@@ -318,3 +318,18 @@ states aren't useful smoke surfaces anyway.
   shortened from 5 commands to 1). Tests: 1400 pass, 4 skip
   (unchanged).
 
+- 2026-05-18 (iter 18): final 3-check sweep on untouched single-
+  subcommand modules → **all KEEP**. Audit ran strict 3-check on:
+  - `commands/adapters.py` — has test_adapters.py (3 test classes)
+    + external imports (launchpad_data.py, status.py) + SKILL.md
+    mention. KEEP.
+  - `commands/update.py` — has test_install_sh_and_update.py
+    coverage + SKILL.md "trinity-local update" reference. KEEP.
+  - `commands/distill.py` — has test_distill.py + distill_via_chairman
+    called from cortex.py / dream.py. KEEP.
+  - `commands/cortex.py` — has test_cortex.py + extensive external
+    imports from the dream pipeline. KEEP.
+  All four are real, documented, tested infrastructure. The
+  "internal-only CLI" pattern is fully exhausted at 4 confirmed
+  kills (research / merges-show / actions / shortcuts). Convergence.
+
