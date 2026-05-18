@@ -15,18 +15,23 @@
 > **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
-> **MCP surface (v1.0 canonical 6 + v1.5 trio + launch-arc `handoff` +
-> `get_eval_summary`, 11 total):**
+> **MCP surface (v1.0 canonical 5 + v1.5 trio + launch-arc `handoff`,
+> 9 total):**
 > v1.0 ships `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
-> `record_outcome` / `search_prompts` / `get_persona` / `get_council_status`.
+> `record_outcome` / `get_persona` / `get_council_status`.
+> (`search_prompts` retired 2026-05-17 — replaced by substring+recency
+> heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —
+> agents ground via `ask` + picks.)
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
 > returns `escalate_hint=compare` when trust is low), `get_picks`
 > (agent-facing introspection into extracted routing patterns), and
 > `mark_pick_wrong` (harness-callable user veto; halves effective
 > trust per click, persists across consolidations). Launch-arc adds
-> `handoff` (cross-provider conversation continuity) and
-> `get_eval_summary` (latest empirical-benchmark result for the agent
-> surface). Hot-path
+> `handoff` (cross-provider conversation continuity). (Spec previously
+> listed `get_eval_summary` as a second launch-arc addition — retired
+> 2026-05-18 in the simplification pass; agents ground via `ask` + picks.)
+>
+> Hot-path
 > search/autofill/replay are **embedding-free** (substring + recency +
 > replay-value heuristics; no nomic on the read path). Personal routing
 > table is **computed on demand** from `council_outcomes/*.json` (mtime+size

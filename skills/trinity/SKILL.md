@@ -55,10 +55,11 @@ If any required check fails, walk the user through the surfaced fix. Don't proce
 
 The installer in section 2 already ran this. If MCP needs re-registration (after a `trinity-local update`, or to wire a newly-installed harness), run:
 
-v1.0 ships 11 MCP tools:
-- **canonical six** — `route`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`, `get_council_status`
+v1.7.4 ships 9 MCP tools:
+- **canonical five** — `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`
 - **v1.5 trio** — `ask` (cheap default), `get_picks` (introspection), `mark_pick_wrong` (user-veto)
-- **launch-arc pair** — `handoff` (cross-provider continuity), `get_eval_summary` (per-axis benchmark scores)
+- **launch-arc** — `handoff` (cross-provider continuity)
+  (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18 — agents ground via `ask` + picks)
 
 !`trinity-local install-mcp`
 
