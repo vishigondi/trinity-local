@@ -48,11 +48,7 @@ When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.
 
 ### Your lens, generated from your prompts.
 
-`trinity-local dream` synthesizes your prompts into **your lens** — a
-hierarchical artifact the chairman reads top-down on every council:
-`~/.trinity/core.md` (identity), `lens.md` (tensions), `topics.json`
-(basins), `vocabulary.md` (language). Inspect via the launchpad's lens
-card. Full schema in [`docs/lens.md`](docs/lens.md).
+`trinity-local dream` synthesizes transcripts into a hierarchical lens the chairman reads top-down on every council. Inspect via the launchpad's lens card; schema in [`docs/lens.md`](docs/lens.md).
 
 ## For teams
 
@@ -63,11 +59,7 @@ the offering + waitlist.
 
 ## For tool builders
 
-`~/.trinity/` ships a JSON-Schema-validated format for council outcomes,
-labeled rejections, and personalized eval sets — adoptable by other tools
-(Aider / Cline / Continue) under CC0. Contract:
-[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md); schemas
-in [`schemas/`](schemas/).
+`~/.trinity/` ships a CC0 JSON-Schema-validated format adoptable by other tools (Aider / Cline / Continue). Contract: [`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md).
 
 ## Privacy is the wedge
 
@@ -89,7 +81,7 @@ You don't. Trinity is an MCP server inside your existing harness (Claude Code, C
 Trinity isn't a daemon. The MCP server spawns when your harness opens, exits when it closes. ~62 MB resident while connected. `lsof -i | grep LISTEN` shows nothing — no listening port, no background process.
 
 **"I don't want my data sent to a server."**
-Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Telemetry is opt-in (default off) and even when on only sends categorical labels — no content.
+Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Telemetry is opt-in, default off, categorical labels only.
 
 **"I want my subscriptions actually used."**
 Trinity dispatches via your existing `claude` / `codex` / `gemini` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
@@ -101,7 +93,7 @@ That's the whole point. Every council runs all three in parallel from one prompt
 `trinity-local eval-run --target <new-model>` scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
 
 **"I want the right model picked for the right task, automatically."**
-Every council you rate teaches Trinity which model wins for which kind of question. The personal routing table surfaces on the launchpad; the cortex extracts the rules; chairman uses them on the next call. Visualization of "what Trinity has learned about you" lives on the launchpad's lens + routing cards.
+Every council you rate teaches Trinity which model wins for which kind of question. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
 
 **"How is this different from Anthropic's Dreaming?"**
 Dreaming consolidates sessions inside Anthropic's runtime — same lab. Trinity consolidates across `~/.claude/` + `~/.codex/` + `~/.gemini/` — three labs that can't read each other. Dreaming makes Claude smarter at being Claude; Trinity learns which model wins which kind of YOUR question.
@@ -133,13 +125,7 @@ codebase / this voice / this trade-off you keep making**," Trinity.
 
 ## Demo
 
-The launchpad lives at `~/.trinity/portal_pages/launchpad.html` — open it from `trinity-local
-portal-html --open` once you've installed:
-
-![the launchpad](docs/launchpad_example.png)
-
-A real council outcome — verbatim from `~/.trinity/council_outcomes/<id>.json` after the
-council ran *"name the single biggest remaining launch risk"* against itself:
+A real council outcome — verbatim from `~/.trinity/council_outcomes/<id>.json` after the council ran *"name the single biggest remaining launch risk"* against itself:
 
 ```json
 {
@@ -147,26 +133,20 @@ council ran *"name the single biggest remaining launch risk"* against itself:
   "runner_up": "codex",
   "confidence": "high",
   "agreed_claims": [
-    "The #1 risk is the /trinity skill not being installed by the pip path.",
-    "install-mcp must drop SKILL.md into ~/.claude/skills/trinity/ via package-data before ship.",
-    "The deterministic test must build a wheel, install in a fresh venv with isolated HOME, run install-mcp, and assert SKILL.md exists at the target path."
+    "The #1 risk is the /trinity skill not installing by the pip path.",
+    "install-mcp must drop SKILL.md into ~/.claude/skills/trinity/ before ship."
   ],
-  "disagreed_claims": [
-    {
-      "claim": "The post-validator must check for skill cache-staleness via a doctor --json skill_installed field.",
-      "providers_for": ["claude"],
-      "providers_against": ["gemini", "codex"],
-      "why_matters": "Without this check, install-mcp can succeed on disk but /trinity stays invisible in the user's open Claude Code session — exactly the silent-failure shape the fix was meant to eliminate."
-    }
-  ],
-  "routing_lesson": "For launch_readiness_decision, prefer claude — it consistently surfaces second-order failure modes (cache staleness, link rot) and writes layered post-validators."
+  "disagreed_claims": [{
+    "claim": "Post-validator must check for skill cache-staleness.",
+    "providers_for": ["claude"],
+    "providers_against": ["gemini", "codex"],
+    "why_matters": "install-mcp can succeed on disk but /trinity stays invisible to the open Claude Code session."
+  }],
+  "routing_lesson": "For launch_readiness_decision, prefer claude — surfaces second-order failure modes."
 }
 ```
 
-That's the moat: agreed claims you can lean on, disagreed claims with the *why*, and a
-routing lesson that makes the next council pick the right chairman automatically. Trinity
-ran this council against itself to ratify what would ship — the verdict drove the actual
-commit you see here.
+That's the moat: agreed claims you can lean on, disagreed claims with the *why*, and a routing lesson that makes the next council pick the right chairman automatically. Trinity ran this against itself to ratify what would ship.
 
 ## Architecture
 
@@ -178,7 +158,7 @@ rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives
 
 ## What's next
 
-Trinity Local v1.7 ships today. Roadmap: [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (routing product Claude Code reaches for, June 3) and [`docs/spec-v1.6.md`](docs/spec-v1.6.md) (browser extension for web-chat capture). Locked v1 launch spec: [`docs/spec-v1.md`](docs/spec-v1.md). CHANGELOG: [`CHANGELOG.md`](CHANGELOG.md).
+Trinity Local v1.7 ships today. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (June 3); CHANGELOG in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Help
 
