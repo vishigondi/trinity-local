@@ -25,47 +25,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-CARD_WIDTH = 1200
-CARD_HEIGHT = 630
+from .share_card_base import (
+    CARD_WIDTH,
+    CARD_HEIGHT,
+    COLOR_BG,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_ACCENT,
+    LANDING_URL as CTA_LANDING_URL,
+    FOOTER_TAGLINE,
+    load_font as _load_font,
+    blank_canvas,
+    save_png,
+)
 
-COLOR_BG = (252, 248, 239)
-COLOR_INK = (26, 26, 26)
-COLOR_MUTED = (95, 95, 95)
-COLOR_ACCENT = (37, 88, 71)
-COLOR_DISAGREE = (140, 60, 30)  # warm brown for the disagreement section
-
-_FONT_CANDIDATES = {
-    "regular": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ],
-    "bold": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ],
-    "serif": [
-        "/System/Library/Fonts/Times.ttc",
-        "/System/Library/Fonts/Charter.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-    ],
-    "mono": [
-        "/System/Library/Fonts/Menlo.ttc",
-        "/System/Library/Fonts/Monaco.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-    ],
-}
-
-
-def _load_font(kind: str, size: int):
-    from PIL import ImageFont
-    for path in _FONT_CANDIDATES.get(kind, []):
-        try:
-            return ImageFont.truetype(path, size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+# Card-specific accent — warm brown for the disagreement section that
+# contrasts against the sage agreement accent.
+COLOR_DISAGREE = (140, 60, 30)
 
 
 @dataclass
@@ -153,15 +129,13 @@ def _wrap(text: str, font, max_width: int, draw) -> list[str]:
 
 
 CTA_HEADLINE = "Run your own council:"
-CTA_LANDING_URL = "vishigondi.github.io/trinity-local"
-FOOTER_TAGLINE = "trinity-local · your taste, ported"
+# CTA_LANDING_URL / FOOTER_TAGLINE imported from share_card_base.
 
 
 def render_council_card(data: CouncilCardData) -> bytes:
     """Render the 1200×630 PNG. Returns bytes; caller writes to disk."""
-    from PIL import Image, ImageDraw
-
-    img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), COLOR_BG)
+    img, draw = blank_canvas()
+    from PIL import ImageDraw
     draw = ImageDraw.Draw(img, "RGBA")
 
     eyebrow = _load_font("bold", 22)
@@ -254,7 +228,4 @@ def render_council_card(data: CouncilCardData) -> bytes:
         fill=COLOR_MUTED,
     )
 
-    from io import BytesIO
-    buf = BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    return buf.getvalue()
+    return save_png(img)

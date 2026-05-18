@@ -476,6 +476,36 @@ and charge ahead". Six more cleanups shipped:
 
 ## Shipped 2026-05-17 (post-Trinity.app pass)
 
+- **Share-card structural collapse**: SHIPPED — extracted
+  `share_card_base.py` (~140 LOC) carrying the shared canvas dimensions,
+  color palette, font candidates + `load_font()`, `wrap_text()`,
+  `blank_canvas()`, `draw_footer()`, `save_png()`, and the brand
+  contract (`LANDING_URL`, `FOOTER_TAGLINE`). The three card modules
+  (`me_card.py`, `eval_card.py`, `council_card.py`) now import the
+  shared bits instead of each inlining them — drops ~60 LOC per module
+  + makes the doc-consistency invariant ("all three carry the same
+  install CTA + same landing URL") structurally enforceable rather
+  than triplicated.
+
+  Body rendering stays unique per card (lens/eval/council have
+  different data shapes); the *brand surface* is now single-source.
+  Tufte-style data-density iteration on each card body is queued as a
+  follow-up — visual design pass best done with eyeballs on the actual
+  PNGs, not in a structural refactor.
+
+- **Embedding cache retirement**: SHIPPED — see commit cc52b3b.
+  ~200 LOC + persistent state file + 2 CLI surfaces (`cache-stats`,
+  `cache-clear`) gone. Trade-off accepted: each offline rebuild pass
+  (`dream`, `lens-build`, `vocabulary`, `consolidate`) now re-encodes
+  its corpus from scratch (~2 min on 50k prompts, batched MLX). Cold-
+  start UX unchanged. The non-finite-vector sanitizer migrated from
+  the cache write boundary to the `embed()`/`embed_batch()` read
+  boundary (meta-principle #3 still upheld). Re-introducible as an
+  in-memory cache here if power-user perf complaints surface
+  post-launch.
+
+
+
 - **`features` CLI surface (commands/ingest.py)**: SHIPPED — module dropped
   from `main.py` CORE_COMMAND_MODULES. The library `extract_session_features`
   has multiple internal consumers (watch_runtime, research/) and stays

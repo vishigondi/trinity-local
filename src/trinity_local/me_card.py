@@ -15,60 +15,23 @@ from dataclasses import dataclass
 from typing import Any
 
 from .me.pair_mining import load_lenses, load_orderings
+from .share_card_base import (
+    CARD_WIDTH,
+    CARD_HEIGHT,
+    COLOR_BG,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_ACCENT,
+    LANDING_URL as ME_CARD_LANDING_URL,
+    FOOTER_TAGLINE as ME_CARD_FOOTER_TAGLINE,
+    load_font as _load_font,
+    wrap_text as _wrap,
+    blank_canvas,
+    save_png,
+)
 
-
-# OG card shape — 1200×630 is the Open Graph spec; renders cleanly on
-# Twitter, LinkedIn, Discord, Slack, iMessage previews.
-CARD_WIDTH = 1200
-CARD_HEIGHT = 630
-
-# Trinity colors — match the launchpad's earthy/sage palette.
-COLOR_BG = (252, 248, 239)        # cream
-COLOR_INK = (26, 26, 26)          # deep ink for headlines
-COLOR_MUTED = (95, 95, 95)        # muted ink for body
-COLOR_ACCENT = (37, 88, 71)       # sage green for accents
-COLOR_LENS_BG = (37, 88, 71, 12)  # subtle sage tint behind lens block
-
-# Single source of truth for the public landing URL on share artifacts.
-# Mirrors eval_card.CTA_LANDING_URL + council_card.CTA_LANDING_URL —
-# all three PNGs send recipients to the same GitHub Pages landing.
-# The shared brand line lives here so any future palette/footer tweak
-# stays consistent across the three card surfaces.
-ME_CARD_LANDING_URL = "vishigondi.github.io/trinity-local"
-ME_CARD_FOOTER_TAGLINE = "trinity-local · your taste, ported"
-
-
-# Font path candidates — try macOS first, fall back to PIL default.
-_FONT_CANDIDATES = {
-    "regular": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ],
-    "bold": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ],
-    "serif": [
-        "/System/Library/Fonts/Times.ttc",
-        "/System/Library/Fonts/Charter.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-    ],
-}
-
-
-def _load_font(kind: str, size: int):
-    """Best-effort font load with PIL default as a clean fallback. Pillow's
-    default is a bitmap font so it'll render at any size but doesn't look
-    great — the macOS path is the production path."""
-    from PIL import ImageFont
-    for path in _FONT_CANDIDATES.get(kind, []):
-        try:
-            return ImageFont.truetype(path, size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+# Card-specific accent — the sage tint behind the paired-tension block.
+COLOR_LENS_BG = (37, 88, 71, 12)
 
 
 @dataclass
@@ -114,35 +77,13 @@ def collect_card_data() -> CardLensData:
     )
 
 
-def _wrap(text: str, font, max_width: int, draw) -> list[str]:
-    """Greedy word-wrap that respects the font's measured width. Pillow's
-    textbbox gives pixel widths; we walk word-by-word."""
-    if not text:
-        return []
-    words = text.split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        candidate = (current + " " + word).strip()
-        bbox = draw.textbbox((0, 0), candidate, font=font)
-        if bbox[2] - bbox[0] <= max_width:
-            current = candidate
-        else:
-            if current:
-                lines.append(current)
-            current = word
-    if current:
-        lines.append(current)
-    return lines
-
-
 def render_me_card(data: CardLensData) -> bytes:
     """Render a 1200×630 PNG. Returns the bytes; caller writes to disk or
     pipes to stdout. Empty lens data still produces a card (fallback CTA
     "run `lens-build` to generate yours")."""
-    from PIL import Image, ImageDraw
-
-    img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), COLOR_BG)
+    img, draw = blank_canvas()
+    # Re-init with RGBA mode to enable alpha-tinted sage block fill
+    from PIL import ImageDraw
     draw = ImageDraw.Draw(img, "RGBA")
 
     eyebrow = _load_font("bold", 22)
@@ -288,9 +229,6 @@ def render_me_card(data: CardLensData) -> bytes:
                       font=ordering, fill=COLOR_INK)
             oy += 32
 
-    import io
-    buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    return buf.getvalue()
+    return save_png(img)
 
 

@@ -23,54 +23,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# OG card shape — same as me-card, renders cleanly on Twitter / LinkedIn /
-# Discord / Slack / iMessage previews.
-CARD_WIDTH = 1200
-CARD_HEIGHT = 630
+from .share_card_base import (
+    CARD_WIDTH,
+    CARD_HEIGHT,
+    COLOR_BG,
+    COLOR_INK,
+    COLOR_MUTED,
+    COLOR_ACCENT,
+    LANDING_URL as CTA_LANDING_URL,
+    FOOTER_TAGLINE,
+    load_font as _load_font,
+    blank_canvas,
+    save_png,
+)
 
-# Trinity palette — match me_card.py so the two share cards feel like the
-# same product.
-COLOR_BG = (252, 248, 239)        # cream
-COLOR_INK = (26, 26, 26)          # deep ink
-COLOR_MUTED = (95, 95, 95)        # muted ink
-COLOR_ACCENT = (37, 88, 71)       # sage green
-COLOR_BAR_FILL = (37, 88, 71)     # bar fill (solid sage)
-COLOR_BAR_TRACK = (37, 88, 71, 36)  # bar track (subtle sage tint)
-
-# Font candidates — same as me_card; macOS-first with PIL default
-# fallback so renders work on Linux too even if fonts are missing.
-_FONT_CANDIDATES = {
-    "regular": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ],
-    "bold": [
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ],
-    "serif": [
-        "/System/Library/Fonts/Times.ttc",
-        "/System/Library/Fonts/Charter.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-    ],
-    "mono": [
-        "/System/Library/Fonts/Menlo.ttc",
-        "/System/Library/Fonts/Monaco.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-    ],
-}
-
-
-def _load_font(kind: str, size: int):
-    from PIL import ImageFont
-    for path in _FONT_CANDIDATES.get(kind, []):
-        try:
-            return ImageFont.truetype(path, size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+# Card-specific accents — solid sage for the score bar, transparent
+# sage for the empty track behind it.
+COLOR_BAR_FILL = (37, 88, 71)
+COLOR_BAR_TRACK = (37, 88, 71, 36)
 
 
 @dataclass
@@ -143,8 +113,7 @@ def _provider_display_name(provider: str, model: str | None) -> str:
 # When the Pages URL moves, sweep this string AND update the same
 # reference in launch.md / REPO_PUBLIC_RUNBOOK.md.
 CTA_HEADLINE = "Run this eval against your own taste:"
-CTA_LANDING_URL = "vishigondi.github.io/trinity-local"
-FOOTER_TAGLINE = "trinity-local · your taste, ported"
+# CTA_LANDING_URL / FOOTER_TAGLINE imported from share_card_base.
 
 
 def render_eval_card(data: EvalCardData) -> bytes:
@@ -154,9 +123,8 @@ def render_eval_card(data: EvalCardData) -> bytes:
     minimal "run trinity-local eval-run to produce yours" message so the
     card always renders something coherent.
     """
-    from PIL import Image, ImageDraw
-
-    img = Image.new("RGB", (CARD_WIDTH, CARD_HEIGHT), COLOR_BG)
+    img, draw = blank_canvas()
+    from PIL import ImageDraw
     draw = ImageDraw.Draw(img, "RGBA")
 
     eyebrow = _load_font("bold", 22)
@@ -271,8 +239,4 @@ def render_eval_card(data: EvalCardData) -> bytes:
         fill=COLOR_MUTED,
     )
 
-    # Encode to PNG bytes
-    from io import BytesIO
-    buf = BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    return buf.getvalue()
+    return save_png(img)
