@@ -667,50 +667,67 @@ Internal helpers (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) 
 
 ### State layout
 
-Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
+Live state under `~/.trinity/` (overridable via `TRINITY_HOME`). Two
+conventions throughout: **entities** use JSON-per-file under a named
+directory; **event logs** use append-only JSONL. Anything not on this
+diagram is either retired or written by a feature you haven't run yet.
 
 ```
 ~/.trinity/
-├── todos/                          # Durable todo records (was `tasks/` pre-rename — disambiguates from `task_type` classifier label)
+│
+│  ── Entities (JSON-per-file) ────────────────────────────────────
+├── todos/                          # Durable todo records
 ├── actions/                        # Pending action records
 ├── prompt_bundles/                 # Saved prompt bundles
-├── council_outcomes/               # Council outcome JSON (with routing_label + chain_steps)
+├── council_outcomes/               # Council outcome JSON (routing_label + chain_steps)
 ├── council_progress/               # Live council progress (JSON + JS) for polling
 ├── reviews/                        # Post-hoc review JSON
 ├── review_pages/                   # Static HTML review pages
 ├── portal_pages/launchpad.html     # The launchpad (always file://)
-├── digest_pages/                   # Weekly digest HTML
 ├── task_sync/                      # Sync-safe task payloads
-├── watcher/                        # Cursor files for watch-loop resume
-├── shortcut_setup/                 # Legacy Shortcut installer recipe (retired 2026-05-17 — directory may exist on older installs)
 ├── settings/                       # Telemetry settings
-├── bin/trinity-dispatch            # Shell-launcher dispatch wrapper
-├── cache/embeddings.jsonl          # Persistent embedding cache (768d)
-├── memory/
-│   ├── prompt_nodes.jsonl          # PromptNode index (hierarchical memory tier 1)
-│   ├── turn_windows.jsonl          # TurnWindow index (tier 2 — local context)
-│   ├── cursors.json                # Per-source memory ingest cursors (consumed by tool-triggered `ingest_recent()`)
-│   └── embeddings_matrix.npy       # numpy fast-path matrix (lazy)
-├── memories/                       # Cognitive memories: the three thinking files that compose your lens
+│
+│  ── Prompt index + cognitive memories ──────────────────────────
+├── prompts/                        # Raw prompt index (renamed from memory/ per Tier 1 #1; legacy memory/ still readable on older installs)
+│   ├── prompt_nodes.jsonl          #   PromptNode index (hierarchical memory tier 1)
+│   ├── turn_windows.jsonl          #   TurnWindow index (tier 2 — local context)
+│   ├── cursors.json                #   Per-source ingest cursors (consumed by tool-triggered `ingest_recent()`)
+│   └── embeddings_matrix.npy       #   numpy fast-path matrix (lazy)
+├── memories/                       # Cognitive lens (the three thinking files)
 │   ├── lens.md                     #   paired tensions (value)
 │   ├── topics.json                 #   subject basins (semantic + lens evidence map)
 │   └── vocabulary.md               #   anchors + homonyms + synonyms (linguistic)
-├── core.md                         # Singular distillation of the three above (one paragraph manifesto)
-├── scoreboard/                     # Operational scoreboards: model-selection bookkeeping (NOT cognitive memory)
+├── core.md                         # Singular distillation of the three above
+├── scoreboard/                     # Operational scoreboards (NOT cognitive memory)
 │   ├── picks.json                  #   extracted model-selection rules per task_type
 │   └── routing.json                #   per-task-type provider track record
-├── cold_start_scan.json            # State file for first-spawn auto-scan (status, sources, added count)
-├── analytics/
-│   ├── routing_label_events.jsonl  # Chairman parse-success rate
-│   ├── knn_advisory.jsonl          # k-NN advisory log
-│   └── knn_advisory_report.json
-├── research/
-│   ├── hard_examples/              # Mined hard examples
-│   └── replay_examples/
+│
+│  ── Event logs (JSONL append-only) ─────────────────────────────
 ├── outcomes.jsonl                  # Per-session outcome records (drift)
 ├── council_runs.jsonl              # Council outcome log
-└── launch_events.jsonl             # Launch/handoff events
+├── launch_events.jsonl             # Launch/handoff events
+├── council_feedback.jsonl          # User verdicts feeding the personal routing table
+├── analytics/                      # Long-tail event logs
+│   ├── routing_label_events.jsonl  #   Chairman parse-success rate
+│   ├── knn_advisory.jsonl          #   k-NN advisory log
+│   └── knn_advisory_report.json    #   (entity exception: rolled-up snapshot)
+│
+│  ── First-run state ────────────────────────────────────────────
+├── cold_start_scan.json            # First-spawn auto-scan (status, sources, added count)
+│
+│  ── Optional / off-path ────────────────────────────────────────
+└── research/                       # Offline research outputs (not on the live product path)
+    ├── hard_examples/
+    └── replay_examples/
 ```
+
+Retired directories that may still exist on older installs (Trinity no
+longer reads or writes them): `tasks/` (→ `todos/`), `memory/` (→
+`prompts/`), `watcher/` (cursor files for watch-loop, retired with the
+watcher subsystem), `shortcut_setup/` + `bin/trinity-dispatch` (macOS
+Shortcut dispatcher, retired in favor of the Chrome extension),
+`cache/embeddings.jsonl` (offline rebuild passes re-encode now),
+`digest_pages/` (weekly digest feature deleted pre-launch).
 
 ## The closed loop (v1)
 
