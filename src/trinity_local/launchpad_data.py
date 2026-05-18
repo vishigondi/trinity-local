@@ -1725,6 +1725,32 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
             if seg_count > 1
             else ""
         )
+        # Iteration 7 of the share-workflow audit: "Share PNG" chip on
+        # each recent-council card. Closes the launchpad-side gap that
+        # design-12-share-buttons.png referenced but was never wired.
+        # Dispatches `trinity-local council-share --council <id> --open`
+        # via the macOS Shortcut; PNG lands at
+        # ~/.trinity/share/council_<id8>.png and opens in Preview.
+        share_chip = ""
+        council_id = item.get("council_id")
+        if council_id:
+            share_invocation = make_shortcut_invocation(
+                dispatch=make_dispatch_action(
+                    "run_command",
+                    args={
+                        "command": f"trinity-local council-share --council {council_id} --open",
+                    },
+                    metadata={"kind": "council_share"},
+                ),
+                shortcut_name=DEFAULT_SHORTCUT_NAME,
+            )
+            share_chip = (
+                f'<a href="{_esc(share_invocation.url)}" '
+                f'class="council-xlink cross-memory-chip cross-memory-chip--label cross-memory-chip--pill" '
+                f'title="Render this council as a 1200×630 PNG with install CTA — opens in Preview">'
+                f'→ share PNG</a>'
+            )
+
         # Cross-memory chips: when this council's chairman tagged a
         # task_type, render two ghost links that jump to picks.json
         # and routing.json for that same task. Sits OUTSIDE the main
@@ -1768,6 +1794,20 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
             xlinks = (
                 '<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
                 + "".join(chips)
+                + "</div>"
+            )
+        # Share chip renders on every card, whether or not the council has a
+        # task_type. When task_type chips exist (above) the share chip joins
+        # that row; otherwise it sits in its own row below the card so the
+        # share affordance is always present.
+        if share_chip and xlinks:
+            # Insert before the closing </div> so the share chip joins
+            # the existing cross-memory chip row.
+            xlinks = xlinks[:-len("</div>")] + share_chip + "</div>"
+        elif share_chip:
+            xlinks = (
+                '<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
+                + share_chip
                 + "</div>"
             )
         # Tick #94: "Unrated" badge on cards without user_verdict. The
