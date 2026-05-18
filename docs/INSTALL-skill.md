@@ -71,11 +71,11 @@ audit.log`) ships with v1.0. The skill respects it; every operation
 either prompts or pre-grants per the trust config. See
 [`TRUST-MODE.md`](TRUST-MODE.md) for the model.
 
-```bash
-trinity-local trust-init           # writes a default trust.toml
-trinity-local trust-show           # inspect the resolved config
-trinity-local audit-show --last 20 # grep the audit ledger
-```
+The trust+audit CLI (`trust-init` / `trust-show` / `audit-show`) is
+deferred to v1.1 — the library + audit log behavior ship in v1.7.4
+but the user-facing CLI surface was hidden in the pre-launch
+simplification pass. Inspect `~/.trinity/audit.log` directly until
+the CLI returns.
 
 ## What runs locally vs. what doesn't
 

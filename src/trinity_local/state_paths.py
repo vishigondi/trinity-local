@@ -95,22 +95,13 @@ def research_dir() -> Path:
     return path
 
 
-def shortcut_setup_dir() -> Path:
-    path = state_dir() / "shortcut_setup"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def shortcut_bin_dir() -> Path:
-    path = state_dir() / "bin"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def cache_dir() -> Path:
-    path = state_dir() / "cache"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+# shortcut_setup_dir() / shortcut_bin_dir() / cache_dir() retired
+# 2026-05-17. The macOS Shortcut dispatcher (`shortcut_setup/`,
+# `bin/trinity-dispatch`) and the persistent embedding cache
+# (`cache/embeddings.jsonl`) were killed in the pre-launch
+# simplification pass; helper functions had no remaining callers in
+# src/ or tests/ after the kill. Their directories may still exist on
+# older installs but Trinity no longer reads or writes them.
 
 
 def models_dir() -> Path:
@@ -175,10 +166,10 @@ def analytics_dir() -> Path:
     return path
 
 
-def watcher_dir() -> Path:
-    path = state_dir() / "watcher"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+# watcher_dir() retired 2026-05-17 with the watcher subsystem kill
+# (watch-once / watch-loop CLIs gone; MCP `ask` triggers ingestion
+# passively). The `~/.trinity/watcher/` cursor directory may still
+# exist on older installs.
 
 
 def prompts_dir() -> Path:

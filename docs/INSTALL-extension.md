@@ -103,12 +103,11 @@ with `tier=extension` so cross-tier provenance is preserved.
 
 See [`TRUST-MODE.md`](TRUST-MODE.md) for the full trust model.
 
-```bash
-# Check trust grants for extension-tier operations:
-trinity-local trust-show --tier extension --operation launch_council
+The trust+audit CLI is deferred to v1.1 — inspect `~/.trinity/audit.log`
+directly to grep for `tier=extension` entries:
 
-# See recent extension-tier operations:
-trinity-local audit-show --last 20 | grep extension
+```bash
+grep '"tier": "extension"' ~/.trinity/audit.log | tail -20
 ```
 
 ## Limitations and what to expect

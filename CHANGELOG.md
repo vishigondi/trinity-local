@@ -3,6 +3,164 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.4 — pre-launch simplification pass] — 2026-05-18
+
+Day-of-launch simplification: 17 commits removed ~5000 LOC across
+12 distinct kills. The goal was to land at a launch surface where a
+curious HN reader can clone the repo and read it end-to-end without
+chasing dead code paths or stale docs. The wedge (cross-provider
+councils + your-taste-distilled chairman) is unchanged; what's gone
+is everything that didn't earn its keep.
+
+**Structural kills (code + tests removed):**
+
+1. **`Trinity.app` osacompile wrapper retired (-839 LOC).** The
+   macOS-only .app bundle is gone; the Chrome extension is now the
+   cross-platform launchpad host. Single surface, no per-OS
+   maintenance. README dropped to "two install paths" (Skill /
+   Chrome extension).
+
+2. **macOS Shortcut dispatcher retired (-788 LOC, Pass A — structural).**
+   `shortcut_setup.py`, `dispatch_runner.py`, `commands/shortcuts.py`
+   deleted; `shortcuts_integration.py` kept as an inert shim so
+   consumer renderers don't break. The Chrome extension's Native
+   Messaging host (`capture_host.py`) is now the canonical dispatch
+   path. Pass B (JS surgery to drop the empty URL emission) tracked
+   in `docs/simplification_log.md` for v1.7.5+.
+
+3. **Watcher subsystem retired (-492 LOC).** `watch-once` / `watch-loop`
+   CLIs gone; `watch_runtime.py` slimmed from 515 → 115 LOC (only the
+   `_source_root` / `_iter_recent_paths` / `_parse_source_path`
+   utilities that `incremental_ingest` + `cold_start` still need).
+   MCP `ask` fires `ingest_recent()` on every call now with a 1s
+   deadline — ingestion is automatic and passive.
+
+4. **Persistent embedding cache retired (-284 LOC).** With search
+   already off the embeddings hot path (Tier 1 #4), the cache only
+   earned its keep for offline rebuild flows. Trade-off: each
+   `dream` / `lens-build` / `consolidate` pass now re-encodes
+   (~2 min on a 50k-prompt corpus, batched MLX). Cold-start UX
+   unchanged. `cache-stats` / `cache-clear` CLI surfaces deleted.
+
+5. **`research/` package deleted (-1500 LOC).** Offline research
+   tooling (replay, hard_mining, ranking_eval) that was explicitly
+   "not on the live product path" per CLAUDE.md. The eval harness
+   (`commands/eval.py` + `src/trinity_local/evals/`) covers the
+   shipped surface.
+
+6. **Share-card brand collapsed to a single base module (+43 LOC
+   net, single-source brand contract).** `share_card_base.py` carries
+   the canvas dimensions, color palette, font loader, wrap helper,
+   blank-canvas factory, footer/CTA renderer, and `LANDING_URL` +
+   `FOOTER_TAGLINE` constants. `me_card.py`, `eval_card.py`,
+   `council_card.py` import from it instead of triplicating.
+
+**CLI surfaces hidden or removed:**
+
+7. **`doctor` collapsed into `status`.** One health-check entry point
+   instead of two; the doctor library stays importable for the MCP
+   `rate_action` hint path.
+
+8. **`features` (`commands/ingest.py`) hidden from CLI.** Internal
+   dev tooling; the library `extract_session_features()` stays
+   importable for tests.
+
+9. **`distill` + `core-show` hidden from CLI.** `dream` Phase 5
+   refreshes `core.md` automatically; users can `cat ~/.trinity/core.md`
+   directly.
+
+10. **3 internal council subcommands removed.** `council-prompt`,
+    `council-run`, `council-outcome` — programmatic helpers with no
+    skill / launchpad / Native-Messaging-dispatch / test consumers.
+    Library functions (`run_council`, `create_council_outcome`,
+    `render_*_prompt`) remain on `council_runner` / `council_runtime`
+    imports.
+
+11. **`bootstrap-pairs` hidden from CLI.** Internal phase 1+2 of
+    `dream`; tests still import the handler.
+
+12. **`council-last` removed; launchpad gains filter chips.** Search
+    input + All / Unrated / Rated chips on the recent-councils card
+    cover the same affordance (find a previous council) with more
+    control. Pure JS over server-rendered `data-rated` / `data-title`
+    attrs.
+
+13. **`auto-chain-enable` / `auto-chain-disable` / `polish-auto-enable`
+    / `polish-auto-disable` retired.** Auto-chain is now exclusively
+    a per-council click on the review page (`council_auto_chain`
+    dispatch action). No global setting to hide behavior from new
+    users.
+
+14. **`get_eval_summary` MCP tool dropped.** Three-way DRY for eval
+    summary is overkill — agents ground via `ask` + the picks table;
+    the launchpad eval card + `eval-show` CLI cover human surfaces.
+
+15. **Trust+audit CLI deferred to v1.1.** `audit-show` / `trust-init`
+    / `trust-show` removed from the public CLI; the trust library
+    stays (council_runtime + dispatch paths still resolve trust
+    levels). v1.1 will re-expose the CLI surface.
+
+16. **`metric` + `stats` "marketing-voice" CLIs removed.** Aspirational
+    case-study commands that never had real data flow behind them.
+    Re-addable when actual launch metrics exist.
+
+17. **`task-create` / `task-show` / `task-sync` / `bundle-create` /
+    `launch-create` / `depth-show` hidden from CLI.** Internal-only;
+    no skill / launchpad / dispatch / test consumers.
+
+**Brand + UX:**
+
+18. **Brand URL flipped to `keepwhatworks.com`.** "Keep what works"
+    encodes the wedge (your lens = the pattern of what works for
+    *you*; rejection signal = what doesn't) in three words. Share
+    cards point at the new URL; binary stays `trinity-local`; rebrand
+    revisitable in v1.1 if "Dream" proves to be the magnet word.
+    Trinity is the first product under the keepwhatworks.com brand.
+
+19. **README objection FAQ sharpened on Dreaming.** The
+    "Anthropic-Dreaming-server-side" angle is the killer
+    differentiator: even if Anthropic moves Dreaming server-side,
+    that version still can't see OpenAI or Google transcripts. The
+    cross-lab dreaming has to come from outside the labs by
+    structural definition.
+
+20. **install-launcher gains macOS (.webloc).** `~/Applications/
+    Trinity Local.webloc` joins the existing Linux .desktop and
+    Windows .url shortcuts; the Chrome extension remains the
+    canonical launchpad host but the desktop shortcut now ships
+    cross-platform for users who skip the extension.
+
+**Docs + storage:**
+
+21. **State-layout doc grouped by convention.** CLAUDE.md state-layout
+    block rewritten into three sections: Entities (JSON-per-file),
+    Prompt index + cognitive memories, Event logs (JSONL). Retired
+    directories (`watcher/`, `shortcut_setup/`, `cache/`, etc.) moved
+    to a "may still exist on older installs" paragraph below the
+    diagram.
+
+22. **state_paths.py dead helpers deleted.** `shortcut_setup_dir()`,
+    `shortcut_bin_dir()`, `cache_dir()`, `watcher_dir()` had no
+    remaining src/ or tests/ consumers after the kills.
+
+23. **User-facing install docs swept.** `INSTALL-skill.md`,
+    `INSTALL-extension.md`, `INSTALL-pip.md`, `docs/index.md` updated
+    to drop references to the retired trust/audit CLI; inspection
+    instructions now point at `~/.trinity/audit.log` directly.
+
+**MCP tool count:** 10 → 9 (`get_eval_summary` dropped).
+**Public CLI surface:** ~30 → ~21 commands.
+**Tests:** 1402 → 1292 passing + 4 skipped (the drop is retired
+tests for retired features; coverage of live surfaces unchanged).
+**Net LOC:** -5000 across 17 commits.
+
+The pyproject version bumps 1.7.3 → 1.7.4. Semver-patch because
+the changes are non-breaking from a USE perspective — users who
+were typing the removed CLI subcommands weren't supposed to (and
+the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
+`dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
+the MCP tool list) are unchanged.
+
 ## [v1.7.3 — share-workflow end-to-end] — 2026-05-17
 
 Late-day audit caught that the share workflow — the artifact the

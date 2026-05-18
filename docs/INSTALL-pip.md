@@ -97,10 +97,11 @@ The pip tier respects the same `~/.trinity/trust.toml` and writes to
 the same `~/.trinity/audit.log` as the other tiers. See
 [`TRUST-MODE.md`](TRUST-MODE.md).
 
+The trust+audit CLI (`trust-init` / `trust-show` / `audit-show`) is
+deferred to v1.1 — inspect `~/.trinity/audit.log` directly:
+
 ```bash
-trinity-local trust-init
-trinity-local trust-show --operation embed_batch --tier pip
-trinity-local audit-show --last 20
+tail -20 ~/.trinity/audit.log
 ```
 
 ## Heavy ops as standalone scripts

@@ -75,11 +75,13 @@ Every Trinity operation either prompts you or is pre-granted via
 — you can `grep` it. See [TRUST-MODE]({{ '/TRUST-MODE/' | relative_url }}) for
 the model.
 
+The trust+audit CLI (`trust-init` / `trust-show` / `audit-show`) is
+deferred to v1.1 — the library + audit log behavior ship in v1.7.4,
+but inspect `~/.trinity/audit.log` directly until the CLI returns:
+
 ```bash
-trinity-local trust-init       # writes a starter trust.toml
-trinity-local trust-show       # inspect resolved levels
-trinity-local audit-show       # last 20 operations
-trinity-local update           # pull latest + refresh MCP + doctor
+tail -20 ~/.trinity/audit.log
+trinity-local update           # pull latest + refresh MCP + verify
 ```
 
 ## The wedge
