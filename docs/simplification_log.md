@@ -285,3 +285,20 @@ states aren't useful smoke surfaces anyway.
   Audit agent flagged this as "candidate for KILL" but hedged behind
   test verification — verified manually, no test coverage, clean ship.
 
+- 2026-05-18 (iter 16): `commands/bootstrap_pairs.py` — `bootstrap-pairs`
+  CLI command → **KEEP**. Audit agent flagged as "internal-only CLI"
+  pattern (same shape as iter 6/7/15 kills): zero docs, zero external
+  Python imports. But missed that tests/test_cross_provider_pairs.py
+  has 3 behavior tests directly calling `handle_bootstrap_pairs` to
+  verify the dry-run JSON contract (mode/clusters_found/providers)
+  and the empty-state error path. Killing the handler would require
+  rewriting those tests to verify the same behavior through library
+  functions (`find_cross_provider_clusters` + the synthesis path) —
+  ~30-50 lines of test refactor. Below the strict cap but
+  judgmental, and not the lowest-risk thing to ship at this point in
+  the loop. The handler also has standalone value: power users
+  wanting to inspect cross-provider clusters without running full
+  `dream` (Phase 3 consolidation + Phase 4 lens-build can be slow).
+  Verdict: KEEP. Differs from research/merges-show/actions which
+  all had zero behavior tests on the handlers.
+
