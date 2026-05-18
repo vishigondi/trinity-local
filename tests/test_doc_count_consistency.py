@@ -1812,3 +1812,96 @@ class TestNoBannedSynonyms:
                 "session-long drift hunt."
             )
             raise AssertionError("\n".join(msg_lines))
+
+
+class TestNoRetiredCliInSrcQuotedStrings:
+    """Permanent guard born of iterations #9 + #11 + #12 + #13 of the
+    pre-launch consistency-loop. The simplification pass on 2026-05-18
+    killed ~10 CLI subcommands; the kills left dead `trinity-local <name>`
+    quoted-string fragments in 5+ product code paths (launchpad buttons,
+    doctor fix hints, install-hooks templates, memory-viewer rebuild
+    suggestions, health-card chips). Each was a runtime bug — user
+    click would error with `unknown command: <name>`.
+
+    Guard shape: parse `mcp_server.py` + `main.py` for the live CLI
+    subcommands. Walk every `.py` file in `src/`. Fail if any quoted
+    string contains `"trinity-local <retired>"` where `<retired>` isn't
+    a live subcommand. Module-level docstrings + comments with explicit
+    "retired" annotations get a pass via the RETIREMENT_CONTEXT regex.
+
+    Why this matters: it catches the next CLI kill before it ships dead
+    button strings into production. Without this, the human (me)
+    became the regression guard, which iterations #9/#11/#12 showed is
+    insufficient — the haul each iteration was 1-3 missed cases.
+    """
+
+    # CLI subcommands KNOWN to be retired (extracted from this session's
+    # commit log). When adding a new retirement, add the bare subcommand
+    # name here in the same commit that drops it from CORE_COMMAND_MODULES.
+    RETIRED_CLI = frozenset({
+        "doctor",
+        "watch-once", "watch-loop",
+        "distill", "core-show",
+        "stats", "metric",
+        "depth-show",
+        "task-create", "task-show", "task-sync",
+        "bundle-create", "launch-create",
+        "council-last",
+        "trust-init", "trust-show", "audit-show",
+        "install-app", "shortcut-install",
+        "bootstrap-pairs",
+        "auto-chain-enable", "auto-chain-disable",
+        "polish-auto-enable", "polish-auto-disable",
+        "auto-open-enable", "auto-open-disable",
+        "cache-stats", "cache-clear",
+        "features",
+        "search-prompts",
+    })
+
+    # Files that legitimately reference retired CLIs in retirement-
+    # context strings (docstrings, comments, upgrade detection logic).
+    # The legitimate uses cluster in install.py (detects + removes stale
+    # `watch-once` hooks on re-install) and commands/trust.py (module
+    # docstring naming the retired CLI surface it's deferred to v1.1).
+    KNOWN_REFS_PATHS = frozenset({
+        "src/trinity_local/commands/install.py",   # stale-hook cleanup detection
+        "src/trinity_local/commands/trust.py",     # deferred-to-v1.1 docstring
+    })
+
+    def test_no_retired_cli_strings_in_src(self):
+        import re
+        repo = Path(__file__).resolve().parent.parent
+        src = repo / "src" / "trinity_local"
+        # Match `"trinity-local <subcommand>` or `'trinity-local <subcommand>`
+        # at a word boundary so `install-extension` doesn't match `install`.
+        retired_pattern = re.compile(
+            r"""['"]trinity-local\s+(""" + "|".join(re.escape(c) for c in self.RETIRED_CLI) + r""")\b"""
+        )
+        hits: list[tuple[str, int, str, str]] = []
+        for path in src.rglob("*.py"):
+            rel = path.relative_to(repo).as_posix()
+            if rel in self.KNOWN_REFS_PATHS:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                m = retired_pattern.search(line)
+                if m:
+                    hits.append((rel, lineno, m.group(1), line.strip()[:120]))
+        if hits:
+            msg = ["Retired CLI subcommands referenced in src/ quoted strings:"]
+            for rel, lineno, cli, snippet in hits:
+                msg.append(f"  {rel}:{lineno} mentions retired `trinity-local {cli}`")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "These would produce runtime errors when users click "
+                "buttons / paste fix hints / fire hook commands. Either "
+                "flip to the live CLI name, or add the file to "
+                "TestNoRetiredCliInSrcQuotedStrings.KNOWN_REFS_PATHS "
+                "with a one-line justification (legitimate retirement-"
+                "context use, e.g. stale-hook cleanup detection)."
+            )
+            raise AssertionError("\n".join(msg))

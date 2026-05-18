@@ -460,8 +460,22 @@ def handle_install_hooks(args):
     existing_hooks = existing.setdefault("hooks", {})
     stop_hooks = existing_hooks.setdefault("Stop", [])
     
-    # Check if already exists
-    exists = any("trinity-local watch-once" in str(h.get("command", "")) for h in stop_hooks)
+    # Detect existing Trinity hook + clean up the retired watch-once
+    # variant. Older Trinity versions installed `trinity-local watch-once
+    # --quiet ...`; the watch-once CLI was retired 2026-05-17 (commit
+    # 07ea7da). On re-install, strip the stale hook so the new
+    # ingest-recent shape lands cleanly.
+    stale_idx = [
+        i for i, h in enumerate(stop_hooks)
+        if "trinity-local watch-once" in str(h.get("command", ""))
+    ]
+    for i in reversed(stale_idx):
+        stop_hooks.pop(i)
+
+    exists = any(
+        "trinity-local ingest-recent" in str(h.get("command", ""))
+        for h in stop_hooks
+    )
     if not exists:
         stop_hooks.append(hooks_config["hooks"]["Stop"][0])
         
