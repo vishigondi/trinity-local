@@ -18,7 +18,6 @@ from .me.pair_mining import load_lenses, load_orderings
 from .share_card_base import (
     CARD_WIDTH,
     CARD_HEIGHT,
-    COLOR_BG,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_ACCENT,

@@ -263,7 +263,7 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     except subprocess.TimeoutExpired:
         return {
             "ok": False,
-            "error": f"timeout after 120s",
+            "error": "timeout after 120s",
             "argv": " ".join(shlex.quote(a) for a in argv),
         }
     except FileNotFoundError:

@@ -28,7 +28,6 @@ from typing import Any
 from .share_card_base import (
     CARD_WIDTH,
     CARD_HEIGHT,
-    COLOR_BG,
     COLOR_INK,
     COLOR_MUTED,
     COLOR_ACCENT,
@@ -140,7 +139,6 @@ def render_council_card(data: CouncilCardData) -> bytes:
 
     eyebrow = _load_font("bold", 22)
     headline = _load_font("serif", 48)
-    sub = _load_font("regular", 22)
     section_label = _load_font("bold", 18)
     claim_body = _load_font("regular", 20)
     cta_label = _load_font("bold", 20)
