@@ -1465,27 +1465,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
-      <section class="card eval-summary-card" v-if="pageData.evalSummary && !pageData.evalSummary.has_results">
-        <div class="eyebrow">Personalized benchmark</div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          Score any model against YOUR rejection signal
-        </h2>
-        <p class="meta" v-if="pageData.evalSummary.eval_set_available">
-          You've built an eval set from your rejections. Run it against a candidate provider
-          to see per-axis scores (REFRAME / COMPRESSION / REDIRECT / SHARPENING) and find out
-          which model handles YOUR kind of question.
-        </p>
-        <p class="meta" v-else>
-          Trinity can mine an eval set from your prompt rejections — 4 rejection-type axes
-          per item, scored by a judge model against your <code>lens.md</code>. The result is
-          a personal benchmark no provider can build themselves (they can't see cross-provider
-          rejection signal).
-        </p>
-        <pre class="md-code-block" v-if="pageData.evalSummary.eval_set_available"><code>trinity-local eval-run --target gemini</code></pre>
-        <pre class="md-code-block" v-else><code>trinity-local eval-build
-trinity-local eval-run --target gemini</code></pre>
-      </section>
-
       <section class="card taste-card" v-if="tasteLenses">
         <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
           <span>Your taste, distilled</span>

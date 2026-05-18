@@ -1880,16 +1880,16 @@ def main() -> int:
             }"""
         )
         page.screenshot(path=str(SHOTS_DIR / "30-eval-summary.png"))
-        if not eval_state.get("card_rendered"):
-            reason = "eval summary card missing — empty-state SHOULD still render to surface the CTA"
-            print(f"[ ✗ ] Surface 30 eval summary: {reason}")
-            fails.append((30, "eval summary card", reason))
-        elif eval_state.get("has_results"):
-            # Populated branch: axes rendered + target visible in headline
+        if eval_state.get("has_results"):
+            # Populated branch: axes rendered + target visible in headline.
             target = eval_state.get("target")
             target_ok = target and target in (eval_state.get("headline") or "")
             axes_ok = eval_state.get("axes_count", 0) > 0
-            if target_ok and axes_ok:
+            if not eval_state.get("card_rendered"):
+                reason = "eval summary card missing despite has_results=true"
+                print(f"[ ✗ ] Surface 30 eval summary: {reason}")
+                fails.append((30, "eval summary card", reason))
+            elif target_ok and axes_ok:
                 print(
                     f"[ ✓ ] Surface 30 eval summary: populated · target={target!r} "
                     f"axes={eval_state['axes_count']}"
@@ -1899,21 +1899,12 @@ def main() -> int:
                 print(f"[ ✗ ] Surface 30 eval summary: {reason}")
                 fails.append((30, "eval summary card", reason))
         else:
-            # Empty-state branch: CTA must include the right next command.
-            cta_text = " ".join(eval_state.get("cta_commands") or [])
-            expected_cmd = "eval-run --target" if eval_state.get("eval_set_available") else "eval-build"
-            if expected_cmd in cta_text:
-                print(
-                    f"[ ✓ ] Surface 30 eval summary: empty state · "
-                    f"eval_set_available={eval_state['eval_set_available']} CTA correct"
-                )
-            else:
-                reason = (
-                    f"empty state CTA missing expected command {expected_cmd!r}: "
-                    f"got {cta_text!r}"
-                )
-                print(f"[ ✗ ] Surface 30 eval summary: {reason}")
-                fails.append((30, "eval summary card", reason))
+            # No eval results yet — card is intentionally silent (the empty-
+            # state CTA branch was killed; users discover eval-run via README).
+            print(
+                "[ ✓ ] Surface 30 eval summary: silent (no results yet — "
+                "empty-state card retired)"
+            )
 
         # ─── Surface 32: Rate-limit-saves card (Day-1 launch metric) ──────────
         # docs/launch-package.md names rate-limit-saves as THE Day-1 number
