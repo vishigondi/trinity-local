@@ -66,7 +66,7 @@ v1.0 ships 11 MCP tools:
 
 If the user has CLI transcripts in `~/.claude/projects/`, `~/.codex/sessions/`, or `~/.gemini/sessions/` (likely — Trinity is for power users who already polyharness), the cheapest first-run is to seed from those:
 
-!`trinity-local seed-from-taste-terminal --limit 1000`
+!`trinity-local ingest-recent`
 
 That produces `~/.trinity/prompts/prompt_nodes.jsonl` — the indexed corpus. Then dream the core memories (one command, ~5-15 minutes depending on corpus size):
 

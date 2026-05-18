@@ -3,6 +3,56 @@
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.3 — share-workflow end-to-end] — 2026-05-17
+
+Late-day audit caught that the share workflow — the artifact the
+user's pitch produces — was broken or missing across 5 surfaces.
+4 commits closed all 5 gaps. pyproject bumped 1.7.2 → 1.7.3.
+
+**1. `eval-share` PNG renderer shipped (`fef3d91`).** New module
+`src/trinity_local/eval_card.py` (~170 LOC) renders an eval run
+result as a 1200×630 PNG with the headline score, per-axis bars
+(REFRAME / COMPRESSION / REDIRECT / SHARPENING), and the install
+CTA → `vishigondi.github.io/trinity-local`. The card is the
+artifact the user's pitch directly produces — *"Gemini scored 0.83
+on YOUR kind of question."* CLI: `trinity-local eval-share
+[--target <provider>] [--out <path>] [--open]`. 7 new tests.
+
+**2. `council-share` rewritten as PNG (`fe3b683`).** Prior impl
+produced a 379-byte useless HTML redirect to a relative path —
+unusable to any recipient. Pivoted to PNG card shape (matches
+eval-share + me-card visual language). Privacy-safe by
+construction: only chairman-extracted fields (`agreed_claims`,
+`disagreed_claims`, `winner`) cross to the card. The user's
+verbatim prompt + members' full responses NEVER touch the
+artifact. Filename `[:8]` slice bug fixed (was producing
+`trinity-council-council_-...`). New module
+`src/trinity_local/council_card.py` (~220 LOC). 6 new tests
+including a privacy-canary assertion.
+
+**3. me-card install URL footer + 4. `review-link` fake-URL fix
+(`20a0315`).** me-card PNG footer now embeds
+`vishigondi.github.io/trinity-local` so a Twitter viewer has a
+path forward. review-link no longer defaults to the unregistered
+`trinity.openclaw.ai/app/review/<id>` URL (which 404'd) — default
+is None; web_url only appears when caller passes explicit
+`--web-base`.
+
+**5. Launchpad "Share PNG" chip (`f33f9ec`).** Every recent-
+council card on the launchpad gains a `→ share PNG` chip in the
+existing cross-memory chip row. Click dispatches via macOS
+Shortcut to `trinity-local council-share --council <id> --open`.
+
+**Test count:** 1385 → 1398 (+13 net: 7 eval-share + 6 council-
+share). Swept across all 5 surfaces enforced by the 4-surfaces-
+agree guard.
+
+**Final state:** 3 PNG share artifacts (me-card / eval-card /
+council-card), one visual language, single-source-of-truth CTA
+URL `vishigondi.github.io/trinity-local`, privacy-safe by
+construction, launchpad UI wires recent councils to the share
+flow with one click.
+
 ## [v1.7.2 — final public-readiness verification + close] — 2026-05-17
 
 Loop-executed Tier 1–4 of `docs/PUBLIC_READINESS_PLAN.md`. 12 commits
