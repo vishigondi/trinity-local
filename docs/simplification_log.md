@@ -333,3 +333,21 @@ states aren't useful smoke surfaces anyway.
   "internal-only CLI" pattern is fully exhausted at 4 confirmed
   kills (research / merges-show / actions / shortcuts). Convergence.
 
+- 2026-05-18 (iter 19): `commands/tasks.py` 5 subcommands
+  (`task-create` / `task-show` / `task-sync` / `bundle-create` /
+  `launch-create`) → **KEEP**. Audit agent flagged as internal-only
+  CLI candidate (zero handler tests, zero external imports, only
+  claude.md table reference for user-facing-ish doc). But:
+  (a) docs/scale-plan.md:430 documents `trinity-local bundle-create`
+  + `trinity-local council-start` as the two-step workflow for
+  building custom Claude Code council skills — that's a real
+  documented audience (developers building skills);
+  (b) tasks.py manages durable `~/.trinity/todos/` records; killing
+  task-show means existing users can't read prior todos — regression
+  for any user who has run task-create historically;
+  (c) different shape from research/merges-show/actions/shortcuts —
+  those had NO user-facing audience; tasks has a documented (if
+  niche) skill-building flow.
+  Verdict: KEEP. Borderline call; if you decide custom-skill-author
+  audience is out of scope for v1, this becomes a PROPOSAL to KILL.
+
