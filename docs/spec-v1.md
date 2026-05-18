@@ -74,14 +74,13 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 ### Surfaces
 - `trinity-local council-launch` — fan out to Claude/Gemini/Codex CLIs, chairman synthesizes, returns Routing JSON outcome
-- `trinity-local council-last` — instant council on the last Claude Code prompt (zero-data onboarding)
 - `trinity-local lens-build` — 4-stage lens-discovery pipeline (basins → decisions → pair-mining → basin post-filter) + Stage 0 turn-pair gaps
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local status` — pre-flight cold-install checks
 - `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Gemini CLI + drops `/trinity` skill
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
-- `trinity-local watch-once` — incremental transcript ingest
+- `trinity-local ingest-recent` — incremental transcript ingest (replaces the retired watch-once / watch-loop CLIs; MCP `ask` also fires this passively on every call)
 - `trinity-local council-rate` — record user verdict; persists to `outcome.metadata.user_verdict` + `council_feedback.jsonl`
 - `trinity-local handoff <provider>` — cross-provider conversation continuity (the 60-second hero demo). Pulls recent (user, assistant) turns from the cross-provider prompt index, dispatches to a different provider with "continue this thread" context. Mirror of MCP `handoff` tool. Workstream #2 of the launch arc; tick #119.
 - `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.

@@ -145,7 +145,7 @@ For each basin in ~/.trinity/memories/topics.json:
 
 **Triggers:**
 - Every 10 new councils — light pass, only the affected basin
-- Nightly — full consolidation, via launchd or `trinity-local watch-loop`
+- Nightly — full consolidation, via launchd or a cron job invoking `trinity-local consolidate` directly (the watch-loop CLI was retired pre-launch)
 - On demand — `trinity-local consolidate`
 
 **Cost:** ~10–20 flagship calls per nightly pass. Pennies. Runs on user's sub.

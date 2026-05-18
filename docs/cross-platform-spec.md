@@ -188,9 +188,12 @@ The MCP surface remains the harness-facing mirror:
   consume without scraping prose.
 - All terminal actions are deterministic subprocesses. No desktop daemon is
   required for the CLI path.
-- `trinity-local install-app` can regenerate the launchpad and install
-  `Trinity.app` to the user's normal app locations without requiring a source
-  checkout script.
+- `trinity-local install-launcher` writes a per-OS desktop shortcut
+  (~/Applications/Trinity Local.webloc on macOS, .desktop on Linux,
+  .url on Windows) pointing at the file:// launchpad. The earlier
+  `Trinity.app` osacompile wrapper + `install-app` CLI were retired
+  pre-launch in favor of the Chrome extension as the cross-platform
+  launchpad host (commit 9c82ded).
 
 ### App-Facing Contracts
 

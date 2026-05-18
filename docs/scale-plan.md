@@ -237,6 +237,11 @@ Fix: make the wrapper do runtime venv detection rather than rely on the shebang:
 
 ## 14. Add operator surfaces for background behavior
 
+> Retired 2026-05-18 pre-launch. The watcher subsystem (commit 07ea7da)
+> and the embedding cache (commit cc52b3b) were both killed in the
+> simplification pass. The items below are preserved as historical
+> Phase 0 record only.
+
 1. Surface watch-loop error count in `trinity-local status` output — read `analytics/watch_errors.jsonl`, show count and last error timestamp.
 2. Add embedding cache commands:
    - `trinity-local cache-stats` — entries, size, path, backend
@@ -285,8 +290,8 @@ Fix: make the wrapper do runtime venv detection rather than rely on the shebang:
 - Subprocess calls use shared helpers with consistent PATH injection
 - Config/install/runtime behavior is consistent across commands
 - Dispatch wrapper resolution is deterministic and survives venv relocation
-- `trinity-local status` shows watch-loop error count and last error
-- `trinity-local cache-stats` and `cache-clear` work
+- ~~`trinity-local status` shows watch-loop error count and last error~~ (watcher retired pre-launch)
+- ~~`trinity-local cache-stats` and `cache-clear` work~~ (embedding cache retired pre-launch)
 
 ---
 
@@ -447,15 +452,16 @@ allowed-tools: Bash(trinity-local status) Bash(trinity-local telemetry-show)
 Summarize the provider rankings and any notable recent activity.
 ```
 
-**`.claude/skills/watch/SKILL.md`**
+**`.claude/skills/watch/SKILL.md`** *(retired 2026-05-18 with the
+watcher subsystem kill — MCP `ask` fires passive ingestion now)*
 ```yaml
 ---
 name: watch
-description: Trigger Trinity Local watcher — scan recent AI sessions and surface routing insights. Use when the user asks Trinity to analyze recent sessions or update recommendations.
-allowed-tools: Bash(trinity-local watch-once --notify)
+description: (retired) Trigger Trinity Local watcher — scan recent AI sessions and surface routing insights.
+allowed-tools: Bash(trinity-local ingest-recent)
 ---
 
-!`trinity-local watch-once --notify`
+!`trinity-local ingest-recent`
 ```
 
 ---
@@ -478,7 +484,7 @@ allowed-tools: Bash(trinity-local watch-once --notify)
         "hooks": [
           {
             "type": "command",
-            "command": "trinity-local watch-once --quiet 2>/dev/null || true",
+            "command": "trinity-local ingest-recent --deadline 1.0 2>/dev/null || true",
             "async": true
           }
         ]
@@ -694,12 +700,12 @@ Phase 5c — Leaderboard              ← needs telemetry critical mass + Worker
 
 ### Phase 0 exit
 - `pytest -q` passes (target: ~170+ tests after regression coverage)
-- `trinity-local watch-once` produces meaningful k-NN advisory output without `[mlx]` installed
+- ~~`trinity-local watch-once` produces meaningful k-NN advisory output without `[mlx]` installed~~ *(watcher retired pre-launch; MCP `ask` fires `ingest_recent()` passively now)*
 - `~/.trinity/council_runs/<token>.json` contains a single unified record per launch
 - Browser refresh during a running council preserves all state
 - No `localStorage.getItem(ACTIVE_OPERATION_KEY)` references in `portal_page.py` outputs
-- `trinity-local cache-stats` reports cache size and entry count
-- `trinity-local status` includes watch-loop error summary
+- ~~`trinity-local cache-stats` reports cache size and entry count~~ *(embedding cache retired pre-launch)*
+- ~~`trinity-local status` includes watch-loop error summary~~ *(watcher retired)*
 - Reinstalling Trinity to a different venv path doesn't break the dispatch wrapper
 
 ### Phase 1+ exit

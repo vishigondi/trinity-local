@@ -61,11 +61,10 @@ now ship with v1.0. Every Trinity operation either prompts (default)
 or pre-grants per config + writes an audit-log entry. See
 [`TRUST-MODE.md`](TRUST-MODE.md). Bootstrap with:
 
-```bash
-trinity-local trust-init
-trinity-local trust-show          # inspect resolved levels
-trinity-local audit-show --last 20
-```
+The trust+audit substrate (library + audit log) ships in v1.7.4; the
+user-facing CLI (`trust-init` / `trust-show` / `audit-show`) is
+deferred to v1.1. Until then, `tail -20 ~/.trinity/audit.log` for
+inspection.
 
 ---
 
@@ -140,8 +139,10 @@ trinity-local install-extension --extension-id <ID>
 trinity-local install-launcher
 ```
 
-The shortcut path was never functional on Linux. If you previously
-ran `trinity-local shortcut-install` on Linux, that was a no-op.
+The macOS Shortcut dispatcher was retired pre-launch (commit 53db635);
+the Chrome extension is now the canonical dispatch path on all OSes.
+If you previously ran `shortcut-install`, the CLI no longer exists —
+just install the Chrome extension instead.
 
 ### Windows
 

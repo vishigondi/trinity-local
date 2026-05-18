@@ -29,14 +29,14 @@ embed_batch = "trust"       # always proceed
 launch_council = "ask"      # always prompt
 ```
 
-Bootstrap a starter file with:
+Bootstrap a starter file by running the library helper or copying
+the example below. The `trust-init` CLI surface was deferred to v1.1
+in the pre-launch simplification pass (commit 47e8250) — the trust
+library at `trinity_local.trust` still ships in v1.7.4, but the user-
+facing CLI returns in v1.1.
 
-```bash
-trinity-local trust-init
-```
-
-This writes a default `~/.trinity/trust.toml` with all commented-out
-examples. Edit to taste; Trinity reads it on every operation.
+Until then, write `~/.trinity/trust.toml` manually with the structure
+shown above.
 
 ## Resolution order
 
@@ -50,11 +50,12 @@ Most specific wins:
 4. `[trust.tiers]` per-tier default
 5. `[trust]` global default (defaults to "ask")
 
-Inspect the resolved level for a specific operation:
+Inspect the resolved level programmatically until the v1.1 CLI returns:
 
-```bash
-trinity-local trust-show --operation embed_batch --tier pip
-# {"resolved": {"operation": "embed_batch", "tier": "pip", "level": "trust"}, ...}
+```python
+from trinity_local.trust import resolve_trust
+result = resolve_trust(operation="embed_batch", tier="pip")
+# {"operation": "embed_batch", "tier": "pip", "level": "trust", ...}
 ```
 
 ## --dangerously-trust-all
@@ -78,11 +79,11 @@ Every Trinity operation appends one JSONL line to
 {"ts":"2026-05-16T20:23:42","script":"embed","operation":"embed_batch","tier":"skill","trust_mode":"trust:toml:operation","outcome":"ok","args":{"n_texts":3}}
 ```
 
-Read it via:
+Read it directly (the `audit-show` CLI is deferred to v1.1):
 
 ```bash
-trinity-local audit-show --last 20       # human-readable
-trinity-local audit-show --last 50 --json   # machine-readable
+tail -20 ~/.trinity/audit.log         # raw JSONL
+tail -20 ~/.trinity/audit.log | jq    # pretty-printed
 ```
 
 The audit log is append-only. Atomic single-write per operation
@@ -113,7 +114,7 @@ operations, you see them as such regardless of where they ran.
 - `~/.trinity/trust.toml` schema (`schema_version = 1`)
 - `~/.trinity/audit.log` JSONL append + atomic single-write
 - `--dangerously-trust-all` flag + env var
-- `trinity-local trust-init / trust-show / audit-show` CLI surface
+- `trinity_local.trust` library (CLI surface deferred to v1.1)
 - Cross-tier `TRINITY_ORIGIN_TIER` env propagation
 - Loud-fail on audit-write errors (stderr warning, rate-limited)
 

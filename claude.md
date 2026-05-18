@@ -305,98 +305,89 @@ shapes that earned their rules by costing time:
 
 ## Forward arc
 
-What the commit volume + theme distribution suggests for the next 50–100
-commits. **Updated 2026-05-13** after ticks #69–80 shipped most of the
-original three pillars and surfaced a fourth.
+**Updated 2026-05-18 (v1.7.4 — post-launch).** The four-pillar
+forward arc (Action-from-view / Cross-memory navigation / Drift
+surfacing / Supervision-signal moat) shipped end-to-end pre-launch.
+The pre-launch simplification pass on 2026-05-18 then removed ~5000
+LOC of features that didn't earn their keep (Trinity.app, macOS
+Shortcut dispatcher, watcher subsystem, embedding cache, research/
+package, 10+ internal CLI commands — see CHANGELOG v1.7.4 entry).
 
-**Pillar 1 — Action-from-view.** Mostly shipped. The remaining bullet
-is the meaty one:
+What's next is **distribution + observability of real-corpus signal**.
+The product surface is stable; the unblocking work is making sure the
+shipped version reaches users and that the supervision-signal loop is
+actually firing on real installs.
 
-- ~~Click a basin → launch a council~~ ✓ Surface 19
-- ~~Cortex pick wrong → one-click veto from picks Reader~~ ✓ Surface 17
-- ~~See a rejected lens → "rebuild lens.md" link~~ ✓ Tick #76 chip
-- ~~Cortex/routing card → rebuild chip~~ ✓ Tick #77 chip
-- ~~Per-file rebuild on memory viewer~~ ✓ Surface 18
-- **Open**: click a turn in an expanded thread → "open the source
-  session" or "replay this through the council." Needs the turn UI
-  to carry source-prompt metadata and a `start_council` shortcut
-  call. Bigger than a single tick — split into "turn carries
-  source_id" + "replay button wired."
-- **Deferred**: per-pick regeneration. The current rebuild chips
-  fire the full `consolidate` / `lens-build` — granular per-pick
-  regeneration would need a different CLI surface.
+**Post-launch arc (v1.7.5 → v1.8):**
 
-**Pillar 2 — Cross-memory navigation.** Largely shipped via Surfaces
-21–27 (topology↔picks centroid match, picks↔topology with `?basin=`,
-routing→topology chip triangle, launchpad cards → topology, lens →
-basins_spanned chips). The remaining gap is the topic graph
-distinguishing picks-having basins from noise basins visually —
-data is there (Surface 22 styles `.pick-basin` nodes), the visual
-contrast could be tighter.
+1. **MCP-dropdown distribution (task #114, in_progress).** Submit
+   Trinity to curated MCP server lists: Claude Code's directory,
+   Codex CLI's registry, Cursor's MCP catalog, Cline + Continue
+   community indexes. Being in the dropdown beats being technically
+   perfect — discoverability is the only thing standing between the
+   shipped product and the user who needs it.
 
-**Pillar 3 — Drift surfacing.** Shipped via Surface 15 (memory health
-card on launchpad) + Surface 16 (per-file health banner inside
-viewer) + memoryHealth.issues structured payload with one-click
-command chips.
+2. **First-run wow demo (task #115, in_progress).** Cross-provider
+   continuity in 60s: ask Claude a hard question mid-conversation,
+   `trinity-local handoff gemini` continues the thread on Gemini with
+   the same context. The killer hook is the user's *"wait, how did
+   it know?"* moment — structurally non-refutable because only
+   Trinity has the cross-provider prompt index. The handoff CLI +
+   MCP tool shipped (task #119); what's queued is the screencast +
+   landing-page embed (task #120) and the Gemini-Google variant
+   (task #121, Gmail/Drive/Calendar inline).
 
-**Pillar 4 (NEW after ticks #69–74) — Supervision-signal moat.** Tick
-#69's real-corpus census found 3 of 19 outcomes carry verdicts (16%
-capture rate). Trinity's moat thesis ("the personal ledger of
-cross-model preferences other labs can't see") rests on this signal;
-84% silent means the ledger is mostly empty. 6-stage defense-in-depth
-shipped:
+3. **Real-corpus benchmarks on shipped installs (task #116).**
+   `eval-build` + `eval-run` ship in v1.7.4; the empirical-leaderboard
+   variant (Trinity vs Opus on design, vs GPT-5 on coding, vs Gemini
+   on long-context) lands when ≥10 install logs are available to
+   normalize against personal corpora. Per-axis bars on the eval
+   card + the launchpad's Personalized Benchmark card are the
+   surfaces; the harness is shipped.
 
-- Census (#69) — `~/.trinity/council_outcomes/*.json` walk surfaces
-  the real ratio
-- Visible (#70) — launchpad eyebrow "N of M rated" + accent prompt
-- Verify-after (#71) — 3s `loadOutcomeScript` re-fetch after click;
-  badge flips to "Save failed" when `user_verdict.user_winner` is
-  absent post-fire
-- Preempt-CLI (#72) — `doctor` flags missing macOS Shortcut + verdict_rate
-- Preempt-UI (#73) — launchpad top-banner mirrors the doctor check
-- **Active nudge (#107)** — MCP `run_council` and `get_council_status`
-  responses carry a structured `rate_action` field when an outcome is
-  completed-but-unrated. The agent (Claude Code / Codex CLI / Gemini
-  CLI) reads its own tool result, sees the hint, surfaces the rating
-  prompt to the user inline — no launchpad detour. `record_outcome`'s
-  MCP description was extended to teach the agent to fire it on
-  `rate_action`. The first five stages were *visibility* (passive
-  surfaces the user has to seek out); this one is *action at the
-  moment of decision* — the missing kind of pressure.
+4. **Supervision-signal uplift measurement.** The 6-stage rate-
+   capture defense shipped pre-launch (census → visible →
+   verify-after → preempt-CLI → preempt-UI → active nudge via MCP
+   `rate_action`). Pre-launch the real-corpus rate was 3/19 (16%);
+   the prediction is the active nudge through MCP `run_council` +
+   `get_council_status` lifts that to ≥50% within a week. If uplift
+   is <2× after a week, revisit by surfacing the nudge through the
+   macOS notification system (notifications.py exists) on council
+   completion. The personal ledger of cross-model preferences is the
+   moat — empty ledger = no moat.
 
-**Open under Pillar 4**: even with the active nudge, an agent that
-never calls `get_council_status` after a fire-and-forget `run_council`
-won't see the hint. Measuring real-corpus uplift requires waiting for
-the next consolidation pass — `rate_action` ships with no opt-out
-because abandoning a low-cost field through the MCP surface costs the
-agent nothing if it ignores the hint. If uplift is <2× after a week,
-revisit by surfacing the nudge through the macOS notification system
-(`notifications.py` already exists) on council completion.
+5. **`principles.md` pipeline (task #109).** Data-gated. Needs ≥100
+   council outcomes AND verdict rate ≥50% before k-means in 768-d
+   space is meaningful. Revisits after the rate-capture work in #4
+   produces enough signal.
 
-**What's NOT in the forward arc:**
+**What's NOT in the post-launch arc (deliberately):**
 
-- More rename churn. The cleanup discipline burned off the major
-  drift; future drift is bounded by the smoke selectors + the AST
-  scanner from tick #64.
-- More architectural pivots. The trained-coordinator path is sunset;
-  v1.5 spec is feature-complete; v2 reopens only if v1.5 hits a real
-  ceiling on user data.
-- More launchpad surfaces. The launchpad is the home. New artifacts
-  go to sub-pages with the `.trinity-topbar` shape, not as new
-  launchpad cards.
-- `principles.md` pipeline (task #109). Data-gated — 19 council
-  outcomes is too sparse for k-means clustering in 768-d space, and
-  the verdict capture rate has to climb first. Revisit when N≥100 AND
-  verdict rate ≥50%.
+- More CLI surface kills. The simplification pass is done; the
+  shipped 21-command surface is the v1.7.4 contract. Adding new
+  CLIs only when MCP isn't a better entry point.
+- Architectural pivots. The trained-coordinator path remains sunset
+  (per docs/spec-v2.md); the MCP-primary architecture is the
+  trajectory. Reopens only if user data shows a quality ceiling.
+- Trinity Pro hosted tier. v1 is free forever; pricing remains
+  deferred until ≥1k installs + measurable Pro-worthy value
+  (per docs/spec-v2.md).
+- Re-adding the dropped CLIs (trust-init/show, audit-show, stats,
+  metric, council-last, watch-once, etc.). Trust+audit CLI returns
+  in v1.1 per the deferral; the rest stay killed unless real user
+  data shows demand.
+- Pass B of the macOS Shortcut kill (JS-side cleanup to drop the
+  inert `shortcuts_integration` shim). Tracked in
+  `docs/simplification_log.md` for v1.7.5; the live product works
+  today because the JS Tier-1 (Chrome extension dispatch) is the
+  canonical path and Tier-2 (Shortcut) silently no-ops on empty URLs.
 
-**The unblocking question for v1 ship:** is the supervision-signal
-loop actually firing on real installs? The view side closes (user can
-see picks, rebuild memories, navigate cross-memory). The act side
-closes (rebuild chips, veto chips, launch chips). The remaining gate
-is the *learn* side — does the verdict from each council reach
-`user_verdict.user_winner`? The 6-stage arc (#106 active-nudge being
-the latest) made the failure mode loud and built the active prompt;
-measuring uplift is the next month's work.
+**The unblocking question for v1.7.4 stability:** does the active
+nudge actually pressure agents into surfacing the rate prompt? The
+mechanism shipped; the measurement is the next week's work via
+`compute_personal_routing_table()` walks over fresh council_outcomes
+on installs that opt into telemetry (anonymous categorical labels
+only — no prompt content ever leaves the user's machine).
 
 ## Launch arc (v1.0 → v1.1) — distribution beats elegance
 
