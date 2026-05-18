@@ -270,3 +270,18 @@ states aren't useful smoke surfaces anyway.
   is exhausted; what's left is the 4 open PROPOSALs queued for user
   decision.
 
+- 2026-05-18 (iter 15): `commands/actions.py` — 5 CLI handlers
+  (`action-list` / `action-suggest` / `action-council` / `action-notify`
+  / `action-complete`) → **KILL**. Same shape as iter 6 (research) and
+  iter 7 (merges-show). The actions FEATURE is real (watch_runtime,
+  council.py, status.py, shortcuts.py all use action_runtime
+  internally) but the CLI handlers are dead surface — the runtime
+  creates/reads actions via direct Python imports, never via the CLI
+  commands. Zero callers outside the module itself. Zero SKILL.md
+  refs. Zero README refs. Zero non-comment test refs (one test had a
+  regex example string in a comment). Files touched: 3 (deleted
+  commands/actions.py 87 LOC, main.py -1 line, claude.md table -1
+  row). Tests: 1400 pass, 4 skip (unchanged).
+  Audit agent flagged this as "candidate for KILL" but hedged behind
+  test verification — verified manually, no test coverage, clean ship.
+
