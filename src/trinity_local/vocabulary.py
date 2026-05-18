@@ -1,6 +1,6 @@
 """Phase 2.5 — vocabulary distillation.
 
-Reads ~/.trinity/memory/prompt_nodes.jsonl and emits
+Reads ~/.trinity/prompts/prompt_nodes.jsonl and emits
 ~/.trinity/memories/vocabulary.md — the user's terminology overlay.
 
 Three flavors of distinctive terminology surfaced (no LLM call):

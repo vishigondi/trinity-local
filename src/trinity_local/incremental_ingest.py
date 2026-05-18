@@ -1,10 +1,10 @@
 """Tool-triggered incremental ingest into the memory index.
 
 Runs on the MCP hot path (or from CLI). Walks transcripts newer than a
-per-source cursor at ``~/.trinity/memory/cursors.json`` and appends
+per-source cursor at ``~/.trinity/prompts/cursors.json`` and appends
 ``PromptNode`` records WITHOUT embeddings — embeddings are written by
 ``seed-from-taste-terminal`` (one-shot) or recomputed lazily by
-``me-build`` / ``consolidate``. Per ``claude.md``: the read path stays
+``lens-build`` / ``consolidate``. Per ``claude.md``: the read path stays
 embedding-free, only seed and consolidation pay the embed cost.
 
 Deadline-bounded: the caller passes ``deadline_s`` (default 2s) and we

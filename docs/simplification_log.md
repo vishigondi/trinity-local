@@ -92,3 +92,15 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   category 10 catch. Files touched: 1 (me_builder.py, 13 string
   replacements + 1 prefix addition). Tests: 1402 pass, 4 skip.
 
+- 2026-05-18 (iter 5): stale `~/.trinity/memory/` paths + `me-build`
+  command name in module docstrings → **KILL stale refs**. The
+  memory/ → prompts/ rename (task #90) and me-build → lens-build
+  rename (task #91) both missed two docstrings. Specifically:
+  vocabulary.py:3 said `~/.trinity/memory/prompt_nodes.jsonl`;
+  incremental_ingest.py:4 said `~/.trinity/memory/cursors.json` +
+  line 7 said `me-build`. Confirmed canonical via state_paths.py:196
+  (`path = state_dir() / "prompts"`); `memory_dir()` is now just a
+  back-compat function name aliasing the prompts/ directory. Files
+  touched: 2 (vocabulary.py, incremental_ingest.py — 3 string edits
+  total). Tests: 1402 pass, 4 skip.
+
