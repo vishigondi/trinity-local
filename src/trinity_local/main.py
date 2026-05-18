@@ -49,7 +49,6 @@ CORE_COMMAND_MODULES = (
     "metric",
     "portal",
     "replay",
-    "research",
     "review",
     "seed",
     "shortcuts",

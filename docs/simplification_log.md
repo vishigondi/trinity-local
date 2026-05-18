@@ -104,3 +104,15 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   touched: 2 (vocabulary.py, incremental_ingest.py — 3 string edits
   total). Tests: 1402 pass, 4 skip.
 
+- 2026-05-18 (iter 6): `commands/research.py` argparse registration
+  (6 user-facing CLI commands: `replay`, `embed`, `rank`, `hard`,
+  `hardeval`, `analytics`) → **KILL**. claude.md explicitly tags these
+  "off the live product path — research pipeline only"; they're not
+  in README, SKILL.md, or launchpad. Zero outside importers (the file
+  was only consumed by main.py registration). The internal
+  `research/*` package stays — tests still pass because they import
+  directly from `research/replay.py`, `research/embeddings.py`, etc.
+  Net: 6 commands disappear from `trinity-local --help`. Files
+  touched: 3 (deleted commands/research.py 431 LOC, main.py -1 line,
+  claude.md -1 table row). Tests: 1402 pass, 4 skip (unchanged).
+
