@@ -837,21 +837,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </label>
           </div>
 
-          <div class="sharing-toggle" style="margin-top: 0;">
-            <span class="meta">Auto-chain new councils (run consensus rounds until convergence, max 3)</span>
-            <label class="toggle-switch">
-              <input type="checkbox" :checked="telemetry.autoChainEnabled" @change="toggleAutoChain">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <div class="sharing-toggle" style="margin-top: 0;">
-            <span class="meta">Polish-only auto-iterate (consensus rounds fire only for "make this better" / "tighten this" tasks)</span>
-            <label class="toggle-switch">
-              <input type="checkbox" :checked="telemetry.polishAutoIterate" @change="togglePolishAutoIterate">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
+          <!-- Auto-chain + polish-auto-iterate toggles retired 2026-05-17.
+               Users click the auto-chain button on the council review page
+               when they want sequential refinement; no global setting. -->
 
           <section class="provider-health-list" v-if="providerHealth.hasMissing">
             <div class="eyebrow">Providers</div>
@@ -1027,8 +1015,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </div>
 
           <p class="meta" v-if="polishHintVisible" style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
-            <span v-if="polishAutoIterate">🔁 Polish task detected — this council will auto-iterate up to 3 rounds toward convergence (`polish-auto-iterate` is on).</span>
-            <span v-else>💡 Polish task detected. Iteration (3 rounds of consensus refinement) usually crystallizes the answer. <a href="#" @click.prevent="settingsOpen = true">Turn on polish auto-iterate</a> in settings.</span>
+            💡 Polish task detected. Click "Auto-chain" on the council page to iterate up to 3 rounds toward convergence.
           </p>
 
           <div class="actions" style="margin-top: 18px;">
@@ -1883,8 +1870,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           enabled: !!pageData.telemetry?.settings?.sharing_enabled,
           endpoint: pageData.telemetry?.settings?.endpoint || '',
           shareInstallId: pageData.telemetry?.settings?.share_install_id || '',
-          autoChainEnabled: !!pageData.telemetry?.settings?.auto_chain_enabled,
-          polishAutoIterate: !!pageData.telemetry?.settings?.polish_auto_iterate,
         }},
         coreStatus: pageData.coreStatus || {{ state: 'empty' }},
         memoryHealth: pageData.memoryHealth || {{ issues: [], ok_count: 0, total_count: 0 }},
@@ -2096,9 +2081,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // Only surface the hint once the user has actually typed something
           // and we recognized polish. No hint = no noise.
           return this.isPolishLike && (this.prompt || '').trim().length >= 8;
-        }},
-        get polishAutoIterate() {{
-          return !!this.telemetry?.polishAutoIterate;
         }},
         get heroTitle() {{
           if (this.operation?.kind === 'council' && this.busy) {{
@@ -2335,18 +2317,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           event.target.checked = this.telemetry.enabled;
           const isNowEnabled = !this.telemetry.enabled;
           const entry = isNowEnabled ? this.settingsLinks.enable : this.settingsLinks.disable;
-          this.triggerSettingsAction(entry);
-        }},
-        toggleAutoChain(event) {{
-          event.target.checked = this.telemetry.autoChainEnabled;
-          const isNowEnabled = !this.telemetry.autoChainEnabled;
-          const entry = isNowEnabled ? this.settingsLinks.autoChainEnable : this.settingsLinks.autoChainDisable;
-          this.triggerSettingsAction(entry);
-        }},
-        togglePolishAutoIterate(event) {{
-          event.target.checked = this.telemetry.polishAutoIterate;
-          const isNowEnabled = !this.telemetry.polishAutoIterate;
-          const entry = isNowEnabled ? this.settingsLinks.polishAutoEnable : this.settingsLinks.polishAutoDisable;
           this.triggerSettingsAction(entry);
         }},
         resetAnonymousId() {{

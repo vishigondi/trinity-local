@@ -503,124 +503,17 @@ class TestEvalShowCLI:
         assert "eval-show" in choices
 
 
-class TestGetEvalSummaryMCP:
-    """MCP tool for the empirical-benchmark surface (third entry point
-    after the CLI eval-show and the launchpad eval-summary card).
+class TestGetEvalSummaryMCPRetired:
+    """The `get_eval_summary` MCP tool was retired 2026-05-17 in the
+    pre-launch simplification pass. Agents ground "which model is best
+    for me at X" via `ask` + the picks table; the eval-summary surface
+    remains on the launchpad card and `eval-show` CLI for direct user
+    inspection. This single regression guard catches a future re-add
+    that bypasses the user's explicit "agents are smart enough" call."""
 
-    Same data path as launchpad_data._eval_summary + commands/eval.py's
-    handle_eval_show. Three-way DRY check: all three surfaces emit
-    the same shape, just framed for different consumers (JSON for MCP,
-    HTML for launchpad, human-readable for CLI)."""
-
-    def _call(self, args: dict):
-        import asyncio, json
-        from trinity_local.mcp_server import handle_call_tool
-        results = asyncio.run(handle_call_tool("get_eval_summary", args))
-        assert results, "tool returned no results"
-        first = results[0]
-        text = first["text"] if isinstance(first, dict) else getattr(first, "text", str(first))
-        return json.loads(text)
-
-    def _seed_run_result(self, home: Path, target="gemini", aggregate=0.65, mtime=None):
-        from trinity_local.evals.builder import results_dir
-        rd = results_dir()
-        payload = {
-            "eval_id": "eval_a1b2c3d4e5f6",
-            "target_provider": target,
-            "target_model": f"{target}-mock",
-            "started_at": "2026-05-14T15:00:00",
-            "completed_at": "2026-05-14T15:01:00",
-            "items_total": 2, "items_completed": 2, "items_failed": 0,
-            "items": [],
-            "aggregate_score": aggregate,
-            "by_rejection_type": {
-                "COMPRESSION": {"count": 1, "mean_score": 0.9, "min_score": 0.9, "max_score": 0.9},
-                "REFRAME": {"count": 1, "mean_score": 0.4, "min_score": 0.4, "max_score": 0.4},
-            },
-        }
-        path = rd / f"eval_a1b2c3d4e5f6__model_{target}__20260514150000.json"
-        path.write_text(json.dumps(payload), encoding="utf-8")
-        if mtime is not None:
-            import os
-            os.utime(path, (mtime, mtime))
-        return path
-
-    def test_empty_state_no_evals_dir(self, home):
-        """No evals dir → empty state with bootstrap CTA."""
-        result = self._call({})
-        assert result["ok"] is True
-        assert result["has_results"] is False
-        assert result["eval_set_available"] is False
-        # Bootstrap CTA — both eval-build AND eval-run since neither has happened
-        assert "eval-build" in result["empty_state"]["next_command"]
-
-    def test_empty_state_with_eval_set_no_runs(self, home):
-        """eval set built but never run → CTA points at eval-run only."""
-        evals = home / "evals"
-        evals.mkdir(parents=True, exist_ok=True)
-        (evals / "eval_a1b2c3d4e5f6.json").write_text(
-            json.dumps({"eval_id": "eval_a1b2c3d4e5f6", "items": []}),
-            encoding="utf-8",
-        )
-        result = self._call({})
-        assert result["has_results"] is False
-        assert result["eval_set_available"] is True
-        # eval-run, not eval-build (the set is already built)
-        cmd = result["empty_state"]["next_command"]
-        assert "eval-run" in cmd
-        assert "eval-build" not in cmd
-        # Message must say "on disk" (no filter passed), not "match the filter"
-        assert "match the filter" not in result["empty_state"]["message"]
-
-    def test_populated_state(self, home):
-        self._seed_run_result(home, target="gemini", aggregate=0.65)
-        result = self._call({})
-        assert result["ok"] is True
-        assert result["has_results"] is True
-        assert result["target_provider"] == "gemini"
-        assert result["target_model"] == "gemini-mock"
-        assert result["aggregate_score"] == pytest.approx(0.65)
-        assert "COMPRESSION" in result["by_rejection_type"]
-        assert "REFRAME" in result["by_rejection_type"]
-        assert result["total_runs_on_disk"] == 1
-        # Path is included so the agent can deep-link if needed
-        assert "evals/results" in result["result_path"]
-
-    def test_target_filter_picks_correct_run(self, home):
-        self._seed_run_result(home, target="gemini", aggregate=0.50, mtime=1000)
-        self._seed_run_result(home, target="claude", aggregate=0.80, mtime=2000)
-        # Newest is claude, but we filter to gemini
-        result = self._call({"target": "gemini"})
-        assert result["has_results"] is True
-        assert result["target_provider"] == "gemini"
-        assert result["aggregate_score"] == pytest.approx(0.50)
-
-    def test_target_filter_no_match_says_so_clearly(self, home):
-        """Filtering to a target that has no runs (but other targets DO
-        have runs) → message clearly identifies the filter mismatch.
-        Without this, the agent says "no benchmarks" when there ARE
-        benchmarks just for a different target."""
-        self._seed_run_result(home, target="gemini")
-        result = self._call({"target": "claude"})
-        assert result["has_results"] is False
-        assert "match the filter" in result["empty_state"]["message"]
-        assert "'claude'" in result["empty_state"]["message"]
-
-    def test_get_eval_summary_tool_listed(self):
-        """Schema check: the tool is in the MCP surface."""
+    def test_get_eval_summary_tool_is_gone(self):
         import asyncio
         from trinity_local.mcp_server import handle_list_tools
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        assert "get_eval_summary" in names
-
-    def test_tool_description_carries_use_when_guidance(self):
-        """The MCP tool description IS GTM — without it the agent
-        won't know when to fire the tool voluntarily."""
-        import asyncio
-        from trinity_local.mcp_server import handle_list_tools
-        tools = asyncio.run(handle_list_tools())
-        t = next(tool for tool in tools if tool.name == "get_eval_summary")
-        desc = (t.description or "").lower()
-        assert "use when" in desc
-        assert "rejection" in desc  # explains what the eval is built on
+        assert "get_eval_summary" not in names

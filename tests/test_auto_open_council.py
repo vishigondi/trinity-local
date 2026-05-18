@@ -134,22 +134,20 @@ def test_launcher_is_overwritten_per_council(isolated_home, monkeypatch):
     assert "/tmp/council_a.html" not in body  # overwritten, not appended
 
 
-def test_cli_enable_disable_toggles_setting(isolated_home, monkeypatch, capsys):
-    """The two CLI handlers flip the persisted flag."""
-    from types import SimpleNamespace
-    from trinity_local.commands.telemetry import (
-        handle_auto_open_enable,
-        handle_auto_open_disable,
-    )
-    from trinity_local.telemetry import load_telemetry_settings
+def test_auto_open_setting_persists(isolated_home):
+    """The auto_open_council setting still round-trips through the
+    settings file even after the CLI toggle commands were retired
+    (2026-05-17). Whoever flips the flag programmatically (config
+    overlay, future settings UI) gets the same persistence."""
+    from trinity_local.telemetry import load_telemetry_settings, save_telemetry_settings
 
-    # Default off
-    assert load_telemetry_settings().auto_open_council is False
+    settings = load_telemetry_settings()
+    assert settings.auto_open_council is False
 
-    handle_auto_open_enable(SimpleNamespace())
-    capsys.readouterr()
+    settings.auto_open_council = True
+    save_telemetry_settings(settings)
     assert load_telemetry_settings().auto_open_council is True
 
-    handle_auto_open_disable(SimpleNamespace())
-    capsys.readouterr()
+    settings.auto_open_council = False
+    save_telemetry_settings(settings)
     assert load_telemetry_settings().auto_open_council is False

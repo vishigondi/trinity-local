@@ -39,13 +39,15 @@ class TestToolList:
         # v1.5 adds: `ask` (single-call routing), `get_picks`
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
-        # Launch-arc adds: `handoff` (cross-provider conversation continuity)
-        # and `get_eval_summary` (latest empirical-benchmark result).
+        # Launch-arc adds: `handoff` (cross-provider conversation continuity).
+        # (`get_eval_summary` was retired 2026-05-17 — agents ground via
+        # `ask` + picks; the eval-summary surface remains in the launchpad
+        # card and the `eval-show` CLI for direct user inspection.)
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council", "record_outcome",
             "get_persona", "get_council_status",
-            "handoff", "get_eval_summary",
+            "handoff",
         }, f"unexpected tool list: {names}"
 
     def test_old_tools_dropped_from_public_surface(self):

@@ -352,26 +352,9 @@ class TestDispatchRegistryChainActions:
         assert command_for_dispatch(a2) is None
 
 
-class TestAutoChainSettings:
-    def test_setting_default_off(self, home: Path):
-        from trinity_local.telemetry import load_telemetry_settings
-        s = load_telemetry_settings()
-        assert s.auto_chain_enabled is False
-        assert s.max_chain_rounds == 3
-
-    def test_enable_disable_roundtrip(self, home: Path):
-        from trinity_local.commands.telemetry import (
-            handle_auto_chain_disable,
-            handle_auto_chain_enable,
-        )
-        from trinity_local.telemetry import load_telemetry_settings
-
-        handle_auto_chain_enable(SimpleNamespace(max_rounds=5))
-        assert load_telemetry_settings().auto_chain_enabled is True
-        assert load_telemetry_settings().max_chain_rounds == 5
-
-        handle_auto_chain_disable(SimpleNamespace())
-        assert load_telemetry_settings().auto_chain_enabled is False
+# TestAutoChainSettings was removed 2026-05-17 with the auto-chain
+# setting retirement. Users click the auto-chain button on the council
+# review page; no global setting to toggle.
 
 
 class TestCouncilReviewChainCard:

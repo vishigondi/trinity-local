@@ -411,38 +411,8 @@ def _settings_links() -> dict[str, str]:
         ),
         shortcut_name=DEFAULT_SHORTCUT_NAME,
     )
-    auto_chain_enable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local auto-chain-enable"},
-            metadata={"kind": "auto_chain_enable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
-    )
-    auto_chain_disable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local auto-chain-disable"},
-            metadata={"kind": "auto_chain_disable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
-    )
-    polish_auto_enable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local polish-auto-enable"},
-            metadata={"kind": "polish_auto_enable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
-    )
-    polish_auto_disable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local polish-auto-disable"},
-            metadata={"kind": "polish_auto_disable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
-    )
+    # auto-chain + polish-auto settings links retired 2026-05-17 — the
+    # toggles are gone; users click auto-chain on the council review page.
     # Phase 4b — each settings action surfaces its narrow extension-tier
     # `kind` alongside the legacy shortcut URL. The launchpad's dispatcher
     # picks the extension path when wired, falls back to the URL on
@@ -451,10 +421,6 @@ def _settings_links() -> dict[str, str]:
         "enable": {"shortcutUrl": enable.url, "extensionKind": "telemetry-enable"},
         "disable": {"shortcutUrl": disable.url, "extensionKind": "telemetry-disable"},
         "reset": {"shortcutUrl": reset.url, "extensionKind": "telemetry-reset-id"},
-        "autoChainEnable": {"shortcutUrl": auto_chain_enable.url, "extensionKind": "auto-chain-enable"},
-        "autoChainDisable": {"shortcutUrl": auto_chain_disable.url, "extensionKind": "auto-chain-disable"},
-        "polishAutoEnable": {"shortcutUrl": polish_auto_enable.url, "extensionKind": "polish-auto-enable"},
-        "polishAutoDisable": {"shortcutUrl": polish_auto_disable.url, "extensionKind": "polish-auto-disable"},
     }
 
 

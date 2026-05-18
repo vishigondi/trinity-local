@@ -28,22 +28,13 @@ class TelemetrySettings:
     last_elo_upload_at: str | None = None
     last_elo_hash: str | None = None
     last_upload_status: str | None = None
-    # Consensus-iteration chain mode (multi-round council).
-    # When True, a freshly-launched council automatically continues into
-    # consensus rounds until chairman declares convergence OR max rounds.
-    auto_chain_enabled: bool = False
-    max_chain_rounds: int = 3
-    # Targeted auto-chain: even when the global `auto_chain_enabled` is
-    # off, polish-shape tasks ("make this better", "tighten this", short
-    # imperative hints) auto-iterate to consensus_round. Off by default.
-    # Toggle via `trinity-local polish-auto-enable` / `polish-auto-disable`.
-    # See `is_polish_task` in task_types.py for the detection rules.
-    polish_auto_iterate: bool = False
+    # auto_chain_enabled / max_chain_rounds / polish_auto_iterate retired
+    # 2026-05-17 — auto-iterate is now a per-council click via the
+    # council-page button, not a global setting.
     # When True, council_runner shells out `open <review_path>` after
     # writing the final unified council page. macOS only — silently
     # no-ops elsewhere. Off by default (some users don't want a browser
-    # tab on every council). Toggled via `trinity-local auto-open-enable`
-    # / `auto-open-disable`.
+    # tab on every council).
     auto_open_council: bool = False
 
     def to_dict(self) -> dict[str, Any]:

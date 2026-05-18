@@ -282,66 +282,21 @@ def handle_council_start(args):
         )
     refresh_launchpad()
 
-    # Auto-chain: if user opted in, kick off consensus rounds until convergence
-    # OR max_chain_rounds. Chairman chairs the convergence call (chairman_says_converged).
-    auto_chain_summary: list[dict] | None = None
-    final_review_path = result.review_path
-    final_outcome = result.outcome
-    try:
-        from ..telemetry import load_telemetry_settings
-        from ..council_runner import auto_chain_council
-        from ..council_runtime import chairman_says_converged
+    # Auto-chain settings retired 2026-05-17: every-council auto-iterate
+    # was a power-user setting that hid behavior from new users. Users now
+    # click the auto-chain button on the council review page when they
+    # want sequential refinement — the `council_auto_chain` dispatch
+    # action wires that click to `council-iterate` programmatically.
 
-        settings = load_telemetry_settings()
-        # Two paths fire auto-chain:
-        #   (a) global `auto_chain_enabled` — auto-iterate every council
-        #   (b) targeted `polish_auto_iterate` — only when the task is
-        #       polish-shaped (make-this-better / tighten / etc.). Default
-        #       OFF; lets the user opt into iteration without blanket-
-        #       firing it on architecture or debugging questions.
-        from ..task_types import is_polish_task
-        should_auto_chain = bool(settings.auto_chain_enabled) or (
-            bool(settings.polish_auto_iterate) and is_polish_task(bundle.task_text)
-        )
-        if should_auto_chain:
-            chain_results = auto_chain_council(
-                config=config,
-                initial_outcome=result.outcome,
-                max_rounds=int(settings.max_chain_rounds or 3),
-                cwd=cwd,
-                # Reuse the original status token (or bundle id as token) so
-                # auto-chain rounds keep updating the same live launchpad page.
-                run_state_token=status_token or bundle.bundle_id,
-            )
-            auto_chain_summary = []
-            for r in chain_results:
-                lbl = r.outcome.routing_label
-                auto_chain_summary.append({
-                    "round_number": r.outcome.metadata.get("round_number"),
-                    "council_run_id": r.outcome.council_run_id,
-                    "review_path": str(r.review_path),
-                    "winner": lbl.winner if lbl else None,
-                    "converged": chairman_says_converged(lbl),
-                })
-            if chain_results:
-                final_review_path = chain_results[-1].review_path
-                final_outcome = chain_results[-1].outcome
-                refresh_launchpad()
-    except Exception as exc:
-        # Auto-chain failure must not crash the original council run.
-        auto_chain_summary = [{"error": f"{type(exc).__name__}: {exc}"}]
-
-    opened = open_path(final_review_path) if args.open_browser else False
+    opened = open_path(result.review_path) if args.open_browser else False
     payload = {
         "task_path": str(result.task_path or task_path),
         "sync_path": str(result.sync_path or sync_path),
-        "review_path": str(final_review_path),
+        "review_path": str(result.review_path),
         "review_action_path": str(review_action_path),
         "opened": opened,
-        "council_run_id": final_outcome.council_run_id,
+        "council_run_id": result.outcome.council_run_id,
     }
-    if auto_chain_summary is not None:
-        payload["auto_chain"] = auto_chain_summary
     print(json.dumps(payload, indent=2))
 
 

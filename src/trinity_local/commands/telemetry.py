@@ -36,42 +36,12 @@ def register(subparsers):
     endpoint.add_argument("--clear", action="store_true")
     endpoint.set_defaults(handler=handle_telemetry_endpoint)
 
-    auto_chain_enable = subparsers.add_parser(
-        "auto-chain-enable",
-        help="Auto-continue councils into consensus rounds until convergence (max 3 rounds by default)",
-    )
-    auto_chain_enable.add_argument("--max-rounds", type=int, default=3)
-    auto_chain_enable.set_defaults(handler=handle_auto_chain_enable)
-
-    auto_chain_disable = subparsers.add_parser(
-        "auto-chain-disable",
-        help="Disable auto-continuation; first round only unless user clicks Continue",
-    )
-    auto_chain_disable.set_defaults(handler=handle_auto_chain_disable)
-
-    auto_open_enable = subparsers.add_parser(
-        "auto-open-enable",
-        help="Open the council review page in the default browser as soon as it's written (macOS only)",
-    )
-    auto_open_enable.set_defaults(handler=handle_auto_open_enable)
-
-    auto_open_disable = subparsers.add_parser(
-        "auto-open-disable",
-        help="Disable auto-open; councils write the page but don't pop a browser tab",
-    )
-    auto_open_disable.set_defaults(handler=handle_auto_open_disable)
-
-    polish_enable = subparsers.add_parser(
-        "polish-auto-enable",
-        help="Auto-iterate (consensus_round x N) when a council's task looks like polish ('make this better', 'tighten this'). Targeted version of auto-chain-enable.",
-    )
-    polish_enable.set_defaults(handler=handle_polish_auto_enable)
-
-    polish_disable = subparsers.add_parser(
-        "polish-auto-disable",
-        help="Disable targeted polish auto-iterate (default — polish tasks run a single council unless --auto-chain-enable is on)",
-    )
-    polish_disable.set_defaults(handler=handle_polish_auto_disable)
+    # Auto-chain / polish-auto / auto-open settings retired 2026-05-17.
+    # The auto-chain "always iterate" setting was killed per the
+    # simplification arc — users click the auto-chain button on the
+    # council page when they want it, no global toggle. Auto-open
+    # (open council review page on completion) stays as default-on
+    # via the auto_open_council setting, no CLI to flip it.
 
 
 def handle_telemetry_show(args):
@@ -119,51 +89,3 @@ def handle_telemetry_endpoint(args):
 
 
 
-def handle_auto_chain_enable(args):
-    settings = load_telemetry_settings()
-    settings.auto_chain_enabled = True
-    if getattr(args, "max_rounds", None):
-        settings.max_chain_rounds = int(args.max_rounds)
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def handle_auto_chain_disable(args):
-    settings = load_telemetry_settings()
-    settings.auto_chain_enabled = False
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def handle_auto_open_enable(args):
-    settings = load_telemetry_settings()
-    settings.auto_open_council = True
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def handle_auto_open_disable(args):
-    settings = load_telemetry_settings()
-    settings.auto_open_council = False
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def handle_polish_auto_enable(args):
-    settings = load_telemetry_settings()
-    settings.polish_auto_iterate = True
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def handle_polish_auto_disable(args):
-    settings = load_telemetry_settings()
-    settings.polish_auto_iterate = False
-    save_telemetry_settings(settings)
-    portal_path = refresh_launchpad()
-    print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))

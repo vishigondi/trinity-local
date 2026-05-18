@@ -194,10 +194,6 @@ ACTION_ALLOWLIST: dict[str, tuple] = {
     "telemetry-enable":   ("telemetry-enable",   []),
     "telemetry-disable":  ("telemetry-disable",  []),
     "telemetry-reset-id": ("telemetry-reset-id", []),
-    "auto-chain-enable":  ("auto-chain-enable",  []),
-    "auto-chain-disable": ("auto-chain-disable", []),
-    "polish-auto-enable":  ("polish-auto-enable",  []),
-    "polish-auto-disable": ("polish-auto-disable", []),
     # render-me-card closes the last residual-drift gap from
     # council_bf1ab3f4dd70f75e. The CLI grew an `--open` flag (Phase 4b
     # follow-up) so the host doesn't need to shell-chain `open <path>`.
