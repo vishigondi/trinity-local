@@ -228,3 +228,37 @@ caller sites). Until then, the off-by-default behavior costs nothing.
   scope call, not pre-launch simplification. Verdict: KEEP. (Could
   reopen as PROPOSAL if you decide non-MCP is out of scope.)
 
+## PROPOSAL: Launchpad empty-state eval-summary card
+
+**Verdict**: KILL the empty-state branch (audit, escalated to PROPOSAL —
+launchpad UX touch shouldn't ship at 3am without sign-off)
+
+**Why**: Two eval-summary-card sections in launchpad_template.py:
+- Line 1296: `has_results` branch — shows actual per-axis scores. Earned.
+- Line 1468: `!has_results` empty-state branch — CTA to run `eval-build`
+  / `eval-run`. Hit by ~100% of Day-1 users (eval requires N rated
+  councils + mined rejections; only starts populating after a few rounds).
+
+The empty-state card is pure scaffolding for a workflow that hasn't
+started, doesn't drive any first-run action (the lens / picks empty
+states do — they push users into the core council loop), and crowds out
+useful cards on the home screen. The populated version stays as is.
+
+**Blast radius**: 1 file (launchpad_template.py, ~22 LOC for lines
+1468-1487). `_eval_summary()` in launchpad_data.py is reused by the
+populated branch — no data layer change.
+
+**Risk**: scripts/browser_smoke.py:1882 takes a screenshot named
+"30-eval-summary.png" — surface 30. If the smoke test runs on a
+fresh ~/.trinity (no eval results), the screenshot becomes empty
+after this kill. Need to verify what surface 30 actually asserts
+(existence of the card vs. text content) before shipping.
+
+**Decision**: PENDING USER. Recommendation: KILL the empty-state
+branch + audit surface 30 to either (a) skip if no eval results,
+or (b) seed a fake eval result in the smoke fixture so it always
+renders the populated card. Simpler choice is (a) — empty launchpad
+states aren't useful smoke surfaces anyway.
+
+**Audited**: 2026-05-18, iteration 13.
+
