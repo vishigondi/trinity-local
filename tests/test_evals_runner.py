@@ -431,7 +431,7 @@ class TestEvalShowCLI:
         # Two runs, second one newer
         self._seed_result(home, target="gemini", aggregate=0.65, mtime=1000)
         self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
-        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0, as_json=False)
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0)
         handle_eval_show(args)
         out = capsys.readouterr().out
         # Most-recent picked: target=claude, aggregate=0.80
@@ -444,7 +444,7 @@ class TestEvalShowCLI:
         self._seed_result(home, target="gemini", aggregate=0.55, mtime=1000)
         self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
         # Newest is claude, but we filter to gemini
-        args = SimpleNamespace(target="gemini", eval_id=None, limit_samples=0, as_json=False)
+        args = SimpleNamespace(target="gemini", eval_id=None, limit_samples=0)
         handle_eval_show(args)
         out = capsys.readouterr().out
         assert "gemini" in out
@@ -454,7 +454,7 @@ class TestEvalShowCLI:
         """No results → exit 1 with the runner command in the message."""
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
-        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0, as_json=False)
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=0)
         with pytest.raises(SystemExit) as exc:
             handle_eval_show(args)
         out = capsys.readouterr().out
@@ -467,7 +467,7 @@ class TestEvalShowCLI:
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
         self._seed_result(home, target="gemini")
-        args = SimpleNamespace(target="ollama", eval_id=None, limit_samples=0, as_json=False)
+        args = SimpleNamespace(target="ollama", eval_id=None, limit_samples=0)
         with pytest.raises(SystemExit):
             handle_eval_show(args)
         out = capsys.readouterr().out
@@ -481,7 +481,7 @@ class TestEvalShowCLI:
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
         self._seed_result(home, target="gemini")
-        args = SimpleNamespace(target=None, eval_id=None, limit_samples=2, as_json=False)
+        args = SimpleNamespace(target=None, eval_id=None, limit_samples=2)
         handle_eval_show(args)
         out = capsys.readouterr().out
         # Aggregate line

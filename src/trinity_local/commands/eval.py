@@ -2,7 +2,7 @@
 
 Four subcommands:
 
-  trinity-local eval-build [--limit N] [--source rejections] [--json]
+  trinity-local eval-build [--limit N] [--source rejections]
     Build an eval set from the user's rejections.jsonl + prompt index.
     Persists to ~/.trinity/evals/<eval_id>.json. Returns stats.
 
@@ -42,10 +42,6 @@ def register(subparsers):
         "--source", default="rejections",
         help="Eval source. MVP supports 'rejections'; cross_provider_pair lands in a follow-up.",
     )
-    build_p.add_argument(
-        "--json", dest="as_json", action="store_true",
-        help="Output the full eval set as JSON to stdout (in addition to the file).",
-    )
     build_p.set_defaults(handler=handle_eval_build)
 
     stats_p = subparsers.add_parser(
@@ -82,10 +78,6 @@ def register(subparsers):
         "--no-score", dest="skip_score", action="store_true",
         help="Skip the scorer step. Useful when you want to inspect raw responses before paying the judge dispatch cost.",
     )
-    run_p.add_argument(
-        "--json", dest="as_json", action="store_true",
-        help="Output the full result as JSON.",
-    )
     run_p.set_defaults(handler=handle_eval_run)
 
     show_p = subparsers.add_parser(
@@ -103,10 +95,6 @@ def register(subparsers):
     show_p.add_argument(
         "--limit-samples", type=int, default=3,
         help="How many per-item samples to render (default 3). Set to 0 to skip.",
-    )
-    show_p.add_argument(
-        "--json", dest="as_json", action="store_true",
-        help="Output the full run result as JSON.",
     )
     show_p.set_defaults(handler=handle_eval_show)
 
@@ -146,10 +134,6 @@ def handle_eval_build(args):
         raise SystemExit(2)
 
     path = save_eval_set(eval_set)
-
-    if args.as_json:
-        print(json.dumps(eval_set.to_dict(), indent=2, ensure_ascii=False))
-        return
 
     # Human-readable summary: stats first (the marketing-legible
     # artifact), then where it's written.
@@ -300,10 +284,6 @@ def handle_eval_run(args):
 
     path = save_run_result(run_result)
 
-    if args.as_json:
-        print(json.dumps(run_result.to_dict(), indent=2, ensure_ascii=False))
-        return
-
     print()
     print(f"  Eval run complete: {run_result.items_completed}/{run_result.items_total} dispatched, "
           f"{run_result.items_failed} failed")
@@ -361,10 +341,6 @@ def handle_eval_show(args):
     if result is None:
         print(f"✗ result at {path} unreadable")
         raise SystemExit(2)
-
-    if args.as_json:
-        print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
-        return
 
     # Header: which eval, which model, when
     print(f"  {result.eval_id}  →  {result.target_provider}"
