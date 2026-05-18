@@ -127,7 +127,7 @@ The marketing-headline form: "Model X scored 0.YZ on YOUR kind of question." Emp
 ## 9. Memory maintenance
 
 - `trinity-local lens-build` — rebuild paired-tension lenses from `me/rejections.jsonl`
-- `trinity-local distill` — refresh `~/.trinity/core.md` from `lens.md` + `topics.json` + `vocabulary.md`
+- `trinity-local dream` — full memory-rebuild pass (Phase 5 refreshes `~/.trinity/core.md` automatically)
 - `trinity-local consolidate` — extract cortex routing patterns from council outcomes (with `--audit` for second-flagship drift check)
 - `trinity-local cortex-override` — flag a routing rule wrong; halves effective trust per click
 - `trinity-local me-card --open` — render the strongest lens as a 1200×630 PNG for sharing

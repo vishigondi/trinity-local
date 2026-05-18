@@ -51,43 +51,13 @@ def _status_metadata(*, members: list[str], cwd: Path, pid: int | None = None, p
 
 
 def register(subparsers):
-    prompt_parser = subparsers.add_parser("council-prompt", help="Render a council member or primary prompt")
-    prompt_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    prompt_parser.add_argument("--kind", required=True, choices=["member", "primary"])
-    prompt_parser.add_argument("--members-json", default=None, help="JSON file with member results for primary prompt")
-    prompt_parser.set_defaults(handler=handle_council_prompt)
-
-    outcome_parser = subparsers.add_parser("council-outcome", help="Create and save a council outcome")
-    outcome_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    outcome_parser.add_argument("--primary-provider", required=True)
-    outcome_parser.add_argument("--primary-model", default=None)
-    outcome_parser.add_argument("--primary-session-id", default=None)
-    outcome_parser.add_argument("--members-json", required=True, help="JSON file with council member results")
-    outcome_parser.add_argument("--agreement-score", type=float, default=None)
-    outcome_parser.add_argument("--winner-provider", default=None)
-    outcome_parser.add_argument("--winner-model", default=None)
-    outcome_parser.add_argument("--needs-followup", choices=["true", "false"], default=None)
-    outcome_parser.add_argument("--difference", action="append", default=[], help="Repeatable difference bullet")
-    outcome_parser.add_argument("--synthesis-output-file", default=None)
-    outcome_parser.set_defaults(handler=handle_council_outcome)
-
-    council_run_parser = subparsers.add_parser("council-run", help="Launch member providers and synthesize a council result")
-    council_run_parser.add_argument("--bundle", required=True, help="Bundle id or path")
-    council_run_parser.add_argument("--members", nargs="+", required=True, help="Member providers to query")
-    council_run_parser.add_argument(
-        "--primary-provider",
-        default=None,
-        help="Chairman/synthesizer provider. If omitted, auto-selected as the strongest predicted model for the task.",
-    )
-    council_run_parser.add_argument("--cwd", default=".", help="Working directory for provider runs")
-    council_run_parser.add_argument(
-        "--member-model-override",
-        action="append",
-        default=[],
-        help="Repeatable provider=model override for council members",
-    )
-    council_run_parser.add_argument("--primary-model-override", default=None)
-    council_run_parser.set_defaults(handler=handle_council_run)
+    # Internal council subcommands (council-prompt / -run / -outcome) were
+    # retired from the public CLI on 2026-05-17. They were programmatic
+    # helpers used only by `council-launch` internally and had no skill /
+    # launchpad / Native-Messaging-dispatch callers. Their library shapes
+    # (run_council, create_council_outcome, render_*_prompt) remain
+    # importable from trinity_local.council_runner / council_runtime —
+    # nothing about the wire shape changed, only the user-facing CLI.
 
     council_start_parser = subparsers.add_parser("council-start", help="Create/update task, run council, and optionally open the review page")
     council_start_parser.add_argument("--bundle", required=True, help="Bundle id or path")
@@ -189,83 +159,6 @@ def register(subparsers):
     )
     council_iterate_parser.add_argument("--open-browser", action="store_true")
     council_iterate_parser.set_defaults(handler=handle_council_iterate)
-
-
-def handle_council_prompt(args):
-    bundle = load_prompt_bundle(args.bundle)
-    if args.kind == "member":
-        print(render_member_prompt(bundle))
-        return
-    members = load_member_results(args.members_json) if args.members_json else []
-    print(render_primary_council_prompt(bundle, members))
-
-
-def handle_council_outcome(args):
-    bundle = load_prompt_bundle(args.bundle)
-    members = load_member_results(args.members_json)
-    needs_followup = None
-    if args.needs_followup == "true":
-        needs_followup = True
-    elif args.needs_followup == "false":
-        needs_followup = False
-    outcome = create_council_outcome(
-        bundle=bundle,
-        primary_provider=args.primary_provider,
-        member_results=members,
-        primary_model=args.primary_model,
-        primary_session_id=args.primary_session_id,
-        agreement_score=args.agreement_score,
-        winner_provider=args.winner_provider,
-        winner_model=args.winner_model,
-        needs_followup=needs_followup,
-        differences=args.difference,
-        synthesis_output=read_text_file(args.synthesis_output_file) if args.synthesis_output_file else None,
-        metadata={"member_count": len(members)},
-    )
-    path = save_council_outcome(outcome)
-    print(json.dumps({"outcome": outcome.to_dict(), "path": str(path)}, indent=2))
-
-
-def handle_council_run(args):
-    config = load_config(args.config)
-    bundle = load_prompt_bundle(args.bundle)
-    overrides: dict[str, str] = {}
-    for item in args.member_model_override:
-        if "=" not in item:
-            raise SystemExit("error: --member-model-override must look like provider=model")
-        provider_name, model_name = item.split("=", 1)
-        overrides[provider_name.strip()] = model_name.strip()
-    primary_provider = args.primary_provider
-    if not primary_provider:
-        from ..ranker import predict_strongest_chairman
-
-        primary_provider = predict_strongest_chairman(
-            bundle.task_text,
-            available_providers=list(args.members),
-        )
-    result = run_council(
-        config=config,
-        bundle=bundle,
-        member_providers=args.members,
-        primary_provider=primary_provider,
-        cwd=Path(args.cwd).expanduser().resolve(),
-        member_model_overrides=overrides,
-        primary_model_override=args.primary_model_override,
-        run_state_token=bundle.bundle_id,
-    )
-    print(
-        json.dumps(
-            {
-                "outcome": result.outcome.to_dict(),
-                "outcome_path": str(result.outcome_path),
-                "review_path": str(result.review_path),
-                "task_path": str(result.task_path) if result.task_path else None,
-                "sync_path": str(result.sync_path) if result.sync_path else None,
-                "launches": [launch.to_dict() for launch in result.launches],
-            },
-            indent=2,
-        )
-    )
 
 
 def handle_council_start(args):

@@ -474,6 +474,48 @@ and charge ahead". Six more cleanups shipped:
   5 files (cold_start.py + 3 tests + state_paths.py itself). prompts_dir
   is now the canonical name; legacy alias deleted. (Commit: 5ce4168)
 
+## Shipped 2026-05-17 (post-Trinity.app pass)
+
+- **`features` CLI surface (commands/ingest.py)**: SHIPPED — module dropped
+  from `main.py` CORE_COMMAND_MODULES. The library `extract_session_features`
+  has multiple internal consumers (watch_runtime, research/) and stays
+  importable; only the `trinity-local features` CLI surface goes. Brings
+  the public CLI list in line with what users actually run; the import-
+  from-chatbot-export feature can resurface here later if it's ever
+  needed end-user-facing.
+
+- **`distill` + `core-show` CLI surfaces (commands/distill.py)**: SHIPPED —
+  `distill` dropped from `main.py` CORE_COMMAND_MODULES. `dream` Phase 5
+  refreshes core.md automatically; users can `cat ~/.trinity/core.md`
+  if they want to see it. The library `distill_via_chairman` (separate
+  module at `src/trinity_local/distill.py`) stays importable for dream
+  + tests. SKILL.md updated to point at `dream` instead of `distill`.
+
+- **Council subparser audit (commands/council.py)**: SHIPPED — dropped
+  3 internal-only subparsers + their handlers (`council-prompt`,
+  `council-run`, `council-outcome`). No skill / launchpad / NM dispatch
+  / test callers. Kept: `council-launch` + `council-share` +
+  `council-iterate` + `council-stop` + `council-rate` + `council-start`
+  (the last two are fired by the dispatch registry via the Chrome
+  extension's Native Messaging host, even though users don't type
+  them). Library shapes (`run_council`, `create_council_outcome`,
+  `render_*_prompt`) remain on the council_runner / council_runtime
+  imports — the wire shape is unchanged, only the user-facing CLI.
+
+- **FAQ sharpened on Anthropic-Dreaming**: SHIPPED — README "How is
+  this different from Anthropic's Dreaming?" + "Won't Anthropic just
+  build cross-provider memory themselves?" rewritten to lead with the
+  killer point: *even if Anthropic moves Dreaming server-side, the
+  server-side version still can't see OpenAI or Google transcripts —
+  the labs are commercially prevented from reading each other.
+  Cross-lab dreaming has to come from outside the labs, by definition.*
+  This was important enough that the user proposed renaming the binary
+  to `trinity-dream`; rejected on launch-day rebrand cost (~50 surfaces,
+  37 doc guards, Chrome ext NM host) but the marketing voice now leads
+  with "Trinity dreams across the labs." Binary stays `trinity-local`
+  for launch stability; rebrand revisitable in v1.1 if "Dream" proves
+  to be the magnet word.
+
 ## Open simplifications (analyzed but not shipped)
 
 - **doctor → collapse**: still PROPOSAL iter-1. Scope analyzed:

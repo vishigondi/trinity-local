@@ -96,10 +96,10 @@ That's the whole point. Every council runs all three in parallel from one prompt
 Every council you rate teaches Trinity which model wins for which kind of question. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
 
 **"How is this different from Anthropic's Dreaming?"**
-Dreaming consolidates sessions inside Anthropic's runtime — same lab. Trinity consolidates across `~/.claude/` + `~/.codex/` + `~/.gemini/` — three labs that can't read each other. Dreaming makes Claude smarter at being Claude; Trinity learns which model wins which kind of YOUR question.
+Same verb, different domain. Dreaming consolidates Claude sessions inside Anthropic's runtime — single-lab. Trinity dreams *across the labs*: `~/.claude/` + `~/.codex/` + `~/.gemini/` + claude.ai + ChatGPT + Gemini exports, on your machine. Even if Anthropic moves Dreaming server-side tomorrow, the server-side version still can't see OpenAI or Google transcripts — the labs are commercially prevented from reading each other. Cross-lab dreaming has to come from outside the labs, by definition. Dreaming makes Claude smarter at being Claude; Trinity learns which model wins which kind of YOUR question.
 
 **"Won't Anthropic just build cross-provider memory themselves?"**
-They're commercially prevented from helping you use a competitor. Anthropic can't recommend ChatGPT; OpenAI can't recommend Claude. The layer above the labs has to come from outside the labs.
+They literally can't. Anthropic can't recommend ChatGPT; OpenAI can't recommend Claude; Google can't recommend either. The competitive constraint is structural, not technical. The cross-provider layer has to come from outside the labs — that's the whole wedge.
 
 **"Who's behind this? Why trust a random repo with my transcripts?"**
 Single developer, MIT, public source — small enough to audit in an evening. Trinity reads transcripts already on your machine, doesn't fetch or upload them. If you stop using it, `~/.trinity/` is plain JSON you can `cat | jq` without us.
