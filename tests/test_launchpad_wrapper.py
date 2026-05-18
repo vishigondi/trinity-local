@@ -243,6 +243,10 @@ class TestInstallAppPlatformGate:
 
 
 class TestInstallAppCommand:
+    @pytest.mark.skipif(
+        sys.platform != "darwin",
+        reason="install-app is macOS-only (Trinity.app bundle). Linux/Windows skip; handle_install_app short-circuits on non-darwin and prints nothing, so the JSON assertion would fail with an empty-stdout decode error.",
+    )
     def test_install_app_command_prints_installed_paths(
         self,
         tmp_path: Path,

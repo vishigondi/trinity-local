@@ -19,6 +19,12 @@ jobs:
         python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so commit-hash-resolution tests can resolve
+          # historical hashes cited in docs/spec-v1.6.md and elsewhere.
+          # actions/checkout's default is shallow (depth 1) which makes
+          # `git cat-file -e <old-sha>` fail.
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5

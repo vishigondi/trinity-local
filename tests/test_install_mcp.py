@@ -360,11 +360,18 @@ class TestInstallAppChain:
 
 def test_local_repo_skill_matches_packaged_skill():
     """Repo .claude/skills/trinity/SKILL.md and src/trinity_local/data/skills/trinity/SKILL.md
-    must stay in sync — both copies serve the same skill, drift is silent failure."""
+    must stay in sync — both copies serve the same skill, drift is silent failure.
+
+    .claude/ is gitignored (dev-convenience copy). On CI checkouts it
+    doesn't exist; skip there. On a developer's machine the file is
+    present and the parity check fires."""
     repo_root = Path(__file__).resolve().parent.parent
     repo_copy = repo_root / ".claude" / "skills" / "trinity" / "SKILL.md"
     pkg_copy = repo_root / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md"
-    assert repo_copy.exists() and pkg_copy.exists()
+    if not repo_copy.exists():
+        import pytest
+        pytest.skip(".claude/skills/trinity/SKILL.md absent — likely CI checkout or fresh clone; canonical copies are skills/ + src/.../data/skills/ (both gitignored .claude/ is dev-only)")
+    assert pkg_copy.exists()
     assert repo_copy.read_text() == pkg_copy.read_text(), (
         "skill drift: .claude/skills/trinity/SKILL.md and src/trinity_local/data/skills/trinity/SKILL.md "
         "must be byte-identical (sync the .claude/ copy from the package data after edits)"
