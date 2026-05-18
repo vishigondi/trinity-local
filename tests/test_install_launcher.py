@@ -2,7 +2,7 @@
 
 `install-launcher` writes a per-platform desktop entry that opens the
 local file:// launchpad:
-  - macOS  → points at install-extension (Chrome ext is the launchpad host)
+  - macOS  → ~/Applications/Trinity Local.webloc
   - Linux  → ~/.local/share/applications/trinity-local.desktop
   - Win    → Start Menu/Programs/Trinity Local.url
 
@@ -167,26 +167,53 @@ def test_handle_install_launcher_linux_emits_json(
     assert written.name == "trinity-local.desktop"
 
 
-def test_handle_install_launcher_bails_on_macos(
+def test_install_macos_webloc_writes_internet_location(isolated_home, tmp_path):
+    """The .webloc file is a tiny plist; double-clicking it in Finder
+    opens the URL in the user's default browser. Pin the format so a
+    future refactor doesn't silently break Finder's launch path."""
+    from trinity_local.commands.install import _install_macos_webloc
+
+    launchpad = tmp_path / "launchpad.html"
+    launchpad.write_text("<html/>")
+
+    target = _install_macos_webloc(launchpad, destination=tmp_path / "Applications")
+    assert target.name == "Trinity Local.webloc"
+    assert target.exists()
+
+    content = target.read_text(encoding="utf-8")
+    assert "<plist" in content
+    assert "<key>URL</key>" in content
+    assert launchpad.resolve().as_uri() in content
+
+
+def test_handle_install_launcher_macos_writes_webloc(
     isolated_home, tmp_path, monkeypatch, capsys
 ):
-    """On macOS the launchpad lives in the Chrome extension; the launcher
-    installer points users at install-extension instead of writing a
-    desktop shortcut (Trinity.app retired pre-launch)."""
+    """End-to-end on macOS: handle_install_launcher writes a .webloc
+    AND prints the per-platform JSON shape."""
+    import json
     from trinity_local.commands import install as install_mod
 
     monkeypatch.setattr(install_mod.sys, "platform", "darwin")
+    launchpad = tmp_path / "launchpad.html"
+    launchpad.write_text("<html/>")
     monkeypatch.setattr(
         "trinity_local.refresh.refresh_launchpad",
-        lambda *a, **kw: tmp_path / "launchpad.html",
+        lambda *a, **kw: launchpad,
     )
-    (tmp_path / "launchpad.html").write_text("<html/>")
 
-    args = SimpleNamespace(destination=None)
+    apps_dir = tmp_path / "fake-Applications"
+    args = SimpleNamespace(destination=[str(apps_dir)])
     rc = install_mod.handle_install_launcher(args)
-    assert rc == 1
-    err = capsys.readouterr().err
-    assert "install-extension" in err
+    assert rc == 0
+
+    out, _ = capsys.readouterr()
+    payload = json.loads(out)
+    assert payload["platform"] == "darwin"
+    assert len(payload["launcher_paths"]) == 1
+    written = Path(payload["launcher_paths"][0])
+    assert written.exists()
+    assert written.name == "Trinity Local.webloc"
 
 
 def test_handle_install_launcher_registered_in_parser():

@@ -181,6 +181,39 @@ def _install_linux_desktop_entry(launchpad_path: Path,
     return target
 
 
+def _install_macos_webloc(launchpad_path: Path,
+                          destination: Path | None = None) -> Path:
+    """Write a macOS Internet location (.webloc) pointing at the launchpad.
+
+    `.webloc` is a tiny XML plist; double-clicking it in Finder opens the
+    URL in the user's default browser. Works for file:// URIs without
+    any signing or osacompile gymnastics — the cross-platform analog to
+    the Linux .desktop entry and the Windows .url shortcut.
+
+    Default location: ~/Applications (per-user app directory; surfaces in
+    Spotlight + Launchpad). Falls back to /Applications-equivalent path
+    only when the caller passes an explicit destination.
+    """
+    if destination is None:
+        destination = Path.home() / "Applications"
+    destination.mkdir(parents=True, exist_ok=True)
+    target = destination / "Trinity Local.webloc"
+    uri = launchpad_path.expanduser().resolve().as_uri()
+    webloc = "\n".join([
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+        '<plist version="1.0">',
+        '<dict>',
+        '\t<key>URL</key>',
+        f'\t<string>{uri}</string>',
+        '</dict>',
+        '</plist>',
+        '',
+    ])
+    target.write_text(webloc, encoding="utf-8")
+    return target
+
+
 def _install_windows_url_shortcut(launchpad_path: Path,
                                   destination: Path | None = None) -> Path:
     """Write a Windows Internet Shortcut (.url) to the Start Menu.
@@ -214,26 +247,21 @@ def _install_windows_url_shortcut(launchpad_path: Path,
 
 
 def handle_install_launcher(args) -> int:
-    """Cross-platform desktop launcher installer (Linux + Windows).
+    """Cross-platform desktop launcher installer (macOS + Linux + Windows).
 
     Dispatches by platform:
+      macOS   → ~/Applications/Trinity Local.webloc
       Linux   → ~/.local/share/applications/trinity-local.desktop
       Windows → Start Menu/Programs/Trinity Local.url
-      macOS   → install the Chrome extension instead (the launchpad
-                lives there); print a one-line hint and bail.
       Other   → loud failure with a hint pointing at the extension.
+
+    The Chrome extension remains the canonical launchpad host (works on
+    every OS, gets you the Native Messaging dispatch); the launcher just
+    writes a desktop shortcut that opens the file:// launchpad in the
+    user's default browser for users who don't want the extension.
     """
     from ..refresh import refresh_launchpad
     launchpad_path = refresh_launchpad()
-
-    if sys.platform == "darwin":
-        print(
-            "install-launcher: on macOS the launchpad lives in the Chrome\n"
-            "extension. Run `trinity-local install-extension` to wire it up;\n"
-            "the extension's popup opens the launchpad in a new tab.",
-            file=sys.stderr,
-        )
-        return 1
 
     destinations = None
     if getattr(args, "destination", None):
@@ -241,7 +269,11 @@ def handle_install_launcher(args) -> int:
 
     paths: list[Path] = []
     try:
-        if sys.platform.startswith("linux"):
+        if sys.platform == "darwin":
+            targets = destinations or [None]
+            for dest in targets:
+                paths.append(_install_macos_webloc(launchpad_path, dest))
+        elif sys.platform.startswith("linux"):
             targets = destinations or [None]
             for dest in targets:
                 paths.append(_install_linux_desktop_entry(launchpad_path, dest))
