@@ -5,7 +5,7 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Your taste, ported. Score any model against the prompts *you've* rejected.
+## Your taste, ported. Distilled from your transcripts — used to score any model.
 
 ```bash
 trinity-local eval-run --target gemini
@@ -13,7 +13,7 @@ trinity-local eval-run --target gemini
 #   Claude 0.91.  GPT-5 0.77.
 ```
 
-A headline number no lab can produce — because only the layer above the labs sees your prompts across all three.
+A headline number no lab can produce — because only the layer above the labs sees your transcripts across all three.
 
 **No new app. No service. No API key. Your transcripts never leave your machine.**
 
