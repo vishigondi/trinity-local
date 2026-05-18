@@ -1043,7 +1043,6 @@ async def _run_council(args: dict) -> list[Any]:
         cwd=".",
         status_token=None,
         open_browser=False,
-        notify=False,
     )
 
     # handle_council_launch prints a JSON record with both the council_run_id

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 
 from ..config import load_config
-from ..notifications import notify, open_path
+from ..notifications import open_path
 from ..review import render_review_html, run_review, save_review
 from ..task_runtime import load_task_record
 
@@ -32,7 +32,6 @@ def register(subparsers):
     parser.add_argument("--task", required=True, help="Task ID to review")
     parser.add_argument("--reviewer", required=True, help="Provider to use as reviewer (e.g. gemini, codex)")
     parser.add_argument("--cwd", default=".", help="Working directory for the reviewer")
-    parser.add_argument("--notify", dest="do_notify", action="store_true", help="Send macOS notification")
     parser.add_argument("--open-browser", action="store_true", help="Open review in browser")
     parser.set_defaults(handler=handle_review)
 
@@ -77,12 +76,6 @@ def handle_review(args):
         "html_path": str(html_path),
     }
     print(json.dumps(output, indent=2))
-
-    if args.do_notify:
-        summary = f"Review by {result.reviewer_provider}: {result.verdict or 'done'}"
-        if result.issues:
-            summary += f" ({len(result.issues)} issues)"
-        notify(title="Trinity Post-Hoc Review", message=summary)
 
     if args.open_browser:
         open_path(html_path)

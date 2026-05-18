@@ -93,8 +93,6 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
         status_token = args.get("status_token")
         if status_token:
             parts.append(f"--status-token {shlex.quote(str(status_token))}")
-        if args.get("notify", True):
-            parts.append("--notify")
         if args.get("open_browser", True):
             parts.append("--open-browser")
         return " ".join(parts)

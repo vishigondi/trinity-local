@@ -29,7 +29,7 @@ from ..council_status import (
     load_council_status,
     write_council_status,
 )
-from ..action_runtime import create_review_ready_action, notify_action, save_action
+from ..action_runtime import create_review_ready_action, save_action
 from ..notifications import open_path
 from ..refresh import refresh_launchpad
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
@@ -100,7 +100,6 @@ def register(subparsers):
     council_start_parser.add_argument("--cwd", default=".", help="Working directory for provider runs")
     council_start_parser.add_argument("--status-token", default=None, help="Launchpad status token for same-tab council tracking")
     council_start_parser.add_argument("--open-browser", action="store_true")
-    council_start_parser.add_argument("--notify", action="store_true")
     council_start_parser.set_defaults(handler=handle_council_start)
 
     council_launch_parser = subparsers.add_parser(
@@ -126,7 +125,6 @@ def register(subparsers):
     council_launch_parser.add_argument("--cwd", default=".")
     council_launch_parser.add_argument("--status-token", default=None)
     council_launch_parser.add_argument("--open-browser", action="store_true")
-    council_launch_parser.add_argument("--notify", action="store_true")
     council_launch_parser.set_defaults(handler=handle_council_launch)
 
     council_rate_parser = subparsers.add_parser(
@@ -390,8 +388,6 @@ def handle_council_start(args):
             metadata=completed_metadata,
         )
     refresh_launchpad()
-    if args.notify:
-        notify_action(review_action)
 
     # Auto-chain: if user opted in, kick off consensus rounds until convergence
     # OR max_chain_rounds. Chairman chairs the convergence call (chairman_says_converged).
@@ -487,7 +483,6 @@ def handle_council_launch(args):
         cwd=args.cwd,
         status_token=status_token,
         open_browser=args.open_browser,
-        notify=args.notify,
         # Thread chain-mode params through to run_council. Before this fix,
         # handle_council_start dropped them and silently ran parallel even
         # when the caller (MCP `run_council(mode='chain')`) reported chain.

@@ -11,7 +11,6 @@ from .action_runtime import (
     create_council_start_action,
     create_recommendation_action,
     find_action,
-    notify_action,
     save_action,
 )
 from .council_runtime import create_prompt_bundle, save_prompt_bundle
@@ -305,18 +304,12 @@ def _detect_provider_switch(
     return None, None
 
 
-def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
+def watch_once(*, sources: list[str]) -> WatchResult:
     # --- Adapter validation at startup ---
     validated_sources: list[str] = []
     for source in sources:
         root = _source_root(source)
         if not root.exists():
-            if notify:
-                from .notifications import notify as _notify
-                _notify(
-                    title="Trinity Watcher",
-                    message=f"Skipping {source}: transcript directory not found at {root}",
-                )
             continue
         validated_sources.append(source)
 
@@ -465,16 +458,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
             if action is not None:
                 save_action(action)
                 actions_written += 1
-                if notify:
-                    notify_action(action)
         _save_cursor(source, max_mtime)
-
-    # --- Drift check (runs once per watch_once pass) ---
-    if notify:
-        from .notifications import notify as _notify
-        alerts = check_drift()
-        for alert in alerts:
-            _notify(title="Trinity Drift Alert", message=alert.message)
 
     portal_path = str(refresh_launchpad())
     return WatchResult(
@@ -485,7 +469,7 @@ def watch_once(*, sources: list[str], notify: bool = False) -> WatchResult:
     )
 
 
-def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: int = 30) -> None:
+def watch_loop(*, sources: list[str], interval_seconds: int = 30) -> None:
     """Run watch_once in a loop with graceful shutdown on SIGINT/SIGTERM.
 
     Continuously scans transcript directories at interval_seconds. Safe to run in
@@ -504,13 +488,13 @@ def watch_loop(*, sources: list[str], notify: bool = False, interval_seconds: in
 
     while not stop_event.is_set():
         try:
-            watch_once(sources=sources, notify=notify)
+            watch_once(sources=sources)
         except Exception as exc:
-            _log_watch_error(exc, notify=notify)
+            _log_watch_error(exc)
         stop_event.wait(timeout=interval_seconds)
 
 
-def _log_watch_error(exc: Exception, *, notify: bool = False) -> None:
+def _log_watch_error(exc: Exception) -> None:
     """Best-effort error logging for watch_loop pass failures."""
     import traceback
 
@@ -527,15 +511,5 @@ def _log_watch_error(exc: Exception, *, notify: bool = False) -> None:
             f.write(json.dumps(error_record) + "\n")
     except Exception:
         pass  # If we can't even log, don't crash the loop
-
-    if notify:
-        try:
-            from .notifications import notify as _notify
-            _notify(
-                title="Trinity Watcher Error",
-                message=f"Watch pass failed: {type(exc).__name__}: {exc}",
-            )
-        except Exception:
-            pass
 
 

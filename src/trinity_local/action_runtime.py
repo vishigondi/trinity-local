@@ -5,7 +5,6 @@ from pathlib import Path
 
 from .action_schema import PendingAction
 from .dispatch_registry import command_for_dispatch, make_dispatch_action
-from .notifications import notify
 from .state_paths import actions_dir
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .task_schema import TaskRecord
@@ -195,5 +194,3 @@ def mark_action_status(action: PendingAction, status: str) -> PendingAction:
     return action
 
 
-def notify_action(action: PendingAction) -> None:
-    notify(action.title, action.message)

@@ -10,13 +10,11 @@ from ..watch_runtime import watch_loop, watch_once
 def register(subparsers):
     wp = subparsers.add_parser("watch-once", help="Scan recent transcript changes and emit tasks/actions")
     wp.add_argument("--source", action="append", dest="sources", choices=["claude", "codex", "gemini", "cowork"], default=[])
-    wp.add_argument("--notify", action="store_true")
     wp.add_argument("--status-token", default=None, help="Launchpad status token for one-shot ingest progress")
     wp.set_defaults(handler=handle_watch_once)
 
     wlp = subparsers.add_parser("watch-loop", help="Poll transcript sources and keep emitting tasks/actions")
     wlp.add_argument("--source", action="append", dest="sources", choices=["claude", "codex", "gemini", "cowork"], default=[])
-    wlp.add_argument("--notify", action="store_true")
     wlp.add_argument("--interval", type=int, default=30)
     wlp.set_defaults(handler=handle_watch_loop)
 
@@ -40,7 +38,7 @@ def handle_watch_once(args):
             metadata={"kind": "ingest", "sources": sources},
         )
     try:
-        result = watch_once(sources=sources, notify=args.notify)
+        result = watch_once(sources=sources)
     except Exception as exc:
         if status_token:
             write_council_status(
@@ -77,7 +75,7 @@ def handle_watch_once(args):
 
 def handle_watch_loop(args):
     sources = args.sources or ["cowork", "claude", "gemini", "codex"]
-    watch_loop(sources=sources, notify=args.notify, interval_seconds=args.interval)
+    watch_loop(sources=sources, interval_seconds=args.interval)
 
 
 def handle_ingest_recent(args):

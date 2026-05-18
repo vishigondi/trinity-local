@@ -320,7 +320,6 @@ class TestDispatchFlow:
         assert "--members claude gemini codex" in command
         assert "--primary-provider claude" in command
         assert "--cwd /tmp/project" in command
-        assert "--notify" in command
         assert "--open-browser" in command
 
     def test_stop_council_dispatch_maps_to_command(self):
@@ -347,7 +346,6 @@ class TestCouncilLaunchCommand:
             captured["members"] = args.members
             captured["primary_provider"] = args.primary_provider
             captured["cwd"] = args.cwd
-            captured["notify"] = args.notify
             captured["open_browser"] = args.open_browser
 
         monkeypatch.setattr("trinity_local.commands.council.handle_council_start", fake_start)
@@ -362,7 +360,6 @@ class TestCouncilLaunchCommand:
             primary_provider="claude",
             cwd=".",
             open_browser=True,
-            notify=True,
             config=None,
             status_token="launch_token_123",
         )
@@ -382,7 +379,6 @@ class TestCouncilLaunchCommand:
         assert raw["metadata"]["project_hint"] == "marketing"
         assert captured["members"] == ["claude", "gemini"]
         assert captured["primary_provider"] == "claude"
-        assert captured["notify"] is True
         assert captured["open_browser"] is True
         assert (patch_trinity_home / "review_pages" / "live_council.html").exists()
 
@@ -476,7 +472,7 @@ class TestWatchStatusFlow:
         def fake_write_status(token, **payload):
             captured.append({"token": token, **payload})
 
-        def fake_watch_once(*, sources, notify):
+        def fake_watch_once(*, sources):
             return SimpleNamespace(
                 scanned=3,
                 tasks_written=1,
@@ -489,7 +485,6 @@ class TestWatchStatusFlow:
 
         args = SimpleNamespace(
             sources=["claude", "codex"],
-            notify=True,
             status_token="ingest_test_token",
         )
 

@@ -2609,7 +2609,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             return;
           }}
           const statusToken = `ingest_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
-          const command = `trinity-local watch-once --notify --status-token ${{statusToken}}`;
+          const command = `trinity-local watch-once --status-token ${{statusToken}}`;
           const payload = {{
             name: 'run_command',
             args: {{

@@ -61,18 +61,6 @@ def register(subparsers):
     )
     auto_open_disable.set_defaults(handler=handle_auto_open_disable)
 
-    notif_enable = subparsers.add_parser(
-        "notifications-enable",
-        help="Show macOS/Linux/Windows system notifications when councils suggest actions or finish",
-    )
-    notif_enable.set_defaults(handler=handle_notifications_enable)
-
-    notif_disable = subparsers.add_parser(
-        "notifications-disable",
-        help="Suppress all system notifications (default — councils + ratings still work, just quiet)",
-    )
-    notif_disable.set_defaults(handler=handle_notifications_disable)
-
     polish_enable = subparsers.add_parser(
         "polish-auto-enable",
         help="Auto-iterate (consensus_round x N) when a council's task looks like polish ('make this better', 'tighten this'). Targeted version of auto-chain-enable.",
@@ -163,26 +151,6 @@ def handle_auto_open_disable(args):
     save_telemetry_settings(settings)
     portal_path = refresh_launchpad()
     print(json.dumps({"settings": settings.to_dict(), "portal_path": str(portal_path)}, indent=2))
-
-
-def _write_notifications_setting(enabled: bool) -> dict:
-    import json as _json
-    from ..state_paths import state_dir
-    path = state_dir() / "settings" / "notifications.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"enabled": enabled}
-    path.write_text(_json.dumps(payload, indent=2), encoding="utf-8")
-    return payload
-
-
-def handle_notifications_enable(args):
-    payload = _write_notifications_setting(True)
-    print(json.dumps({"notifications": payload}, indent=2))
-
-
-def handle_notifications_disable(args):
-    payload = _write_notifications_setting(False)
-    print(json.dumps({"notifications": payload}, indent=2))
 
 
 def handle_polish_auto_enable(args):
