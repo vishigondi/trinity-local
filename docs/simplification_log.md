@@ -351,3 +351,36 @@ states aren't useful smoke surfaces anyway.
   Verdict: KEEP. Borderline call; if you decide custom-skill-author
   audience is out of scope for v1, this becomes a PROPOSAL to KILL.
 
+- 2026-05-18 (iter 20, FINAL): final-pass 3-check across remaining
+  multi-subcommand modules → **all KEEP**. commands/watch.py has
+  test_frontend_flow + test_incremental_ingest coverage and
+  ingest-recent is in SKILL.md. commands/telemetry.py has 3 test
+  files + 11 SKILL.md/launchpad refs (telemetry-enable, etc.).
+  README v1.6 "Then" section is roadmap copy, no surface impact.
+  No SKILL.md step duplicates install.sh. Loop converged. The
+  20-iteration cap stops the loop after this entry.
+
+## Final summary
+
+- **Killed: 8** (eval `--json` × 3; me-build strings; memory/+me-build
+  docstrings; 6 research CLI commands; merges-show; review-link
+  --web-base/--no-web; 5 action-* CLI handlers; 4 shortcuts CLI
+  subcommands). Net: 16 CLI command names removed from
+  `trinity-local --help`, ~630 LOC deleted across kills.
+- **Collapsed: 1** (README Quickstart CLI alternative paths → Help section).
+- **Kept: 8** with documented rationale (SKILL.md § 3, dream --skip-*
+  flags, install-hooks, bootstrap-pairs, final 3-check sweep on
+  adapters/update/distill/cortex, tasks.py, no-actionable-surface
+  sweep, final-pass watch/telemetry sweep).
+- **Open proposals: 4**, pending user decision:
+  - PROPOSAL: `doctor` → COLLAPSE-INTO-status + install.sh inline (seed)
+  - PROPOSAL: `search_prompts` MCP tool → KILL or defer to v1.1
+  - PROPOSAL: `notifications-enable/disable` → KILL (whole-feature)
+  - PROPOSAL: Launchpad empty-state eval card → KILL (needs smoke audit)
+- **Tests**: 1400 pass, 4 skip (was 1402 pre-loop; 2 tests removed
+  alongside the dead surfaces they exercised).
+
+The 4 proposals are queued for your morning review. Each carries
+specific blast radius + risk analysis above. Approving any of them
+ships another structural simplification before launch.
+
