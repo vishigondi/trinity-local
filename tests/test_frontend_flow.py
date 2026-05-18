@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 from trinity_local.adapters import AdapterStatus
 from trinity_local.commands.council import handle_council_launch, handle_council_start
-from trinity_local.commands.watch import handle_watch_once
 from trinity_local.config import AppConfig, ProviderConfig
 from trinity_local.council_feedback import append_council_feedback
 from trinity_local.council_runner import run_council
@@ -428,36 +427,10 @@ class TestCouncilLaunchCommand:
         assert status["metadata"]["members"] == ["claude", "gemini", "codex"]
 
 
-class TestWatchStatusFlow:
-    def test_watch_once_with_status_token_writes_completion_status(self, monkeypatch):
-        captured: list[dict] = []
-
-        def fake_write_status(token, **payload):
-            captured.append({"token": token, **payload})
-
-        def fake_watch_once(*, sources):
-            return SimpleNamespace(
-                scanned=3,
-                tasks_written=1,
-                actions_written=2,
-                portal_path="/tmp/launchpad.html",
-            )
-
-        monkeypatch.setattr("trinity_local.commands.watch.write_council_status", fake_write_status)
-        monkeypatch.setattr("trinity_local.commands.watch.watch_once", fake_watch_once)
-
-        args = SimpleNamespace(
-            sources=["claude", "codex"],
-            status_token="ingest_test_token",
-        )
-
-        handle_watch_once(args)
-
-        assert captured[0]["status"] == "running"
-        assert captured[0]["metadata"]["kind"] == "ingest"
-        assert captured[-1]["status"] == "completed"
-        assert captured[-1]["review_path"] == "/tmp/launchpad.html"
-        assert captured[-1]["metadata"]["actions_written"] == 2
+# TestWatchStatusFlow retired 2026-05-17: the watch-once CLI + its
+# watch_once() runtime were dropped along with the rest of the watcher
+# subsystem. MCP `ask` fires incremental_ingest.ingest_recent() on
+# every call now; ingest-recent CLI covers the manual case.
 
 
 class TestCouncilFailureMetadata:
