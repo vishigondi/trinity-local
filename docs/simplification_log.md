@@ -302,3 +302,19 @@ states aren't useful smoke surfaces anyway.
   Verdict: KEEP. Differs from research/merges-show/actions which
   all had zero behavior tests on the handlers.
 
+- 2026-05-18 (iter 17): 4 of 5 subcommands in `commands/shortcuts.py`
+  (`shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`)
+  → **KILL**. Same internal-only-CLI shape as iter 6/7/15: zero
+  external Python handler callers, zero user-facing docs (README/
+  SKILL.md/scripts), zero CLI-handler tests. Tests that reference
+  shortcut-related names hit `trinity_local.shortcut_setup` (the
+  underlying module, kept) or `shortcut_url` UI-firing on the
+  launchpad — NOT the CLI handlers. `shortcut-install` stays
+  (legacy tier-2 fallback per Phase 7 deprecation notice; documented
+  in MIGRATION.md). The other 4 were inspector/debug commands that
+  built dispatch URLs or wrote setup recipes — internal plumbing
+  with no user audience. Files touched: 2 (rewrote commands/
+  shortcuts.py from 128 LOC to 46 LOC; claude.md table entry
+  shortened from 5 commands to 1). Tests: 1400 pass, 4 skip
+  (unchanged).
+

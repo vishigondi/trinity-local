@@ -572,7 +572,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | `commands/replay.py` | `replay-history` |
 | `commands/me.py` | `lens-build` (chairman-driven), `lens-show` |
 | `commands/me_card.py` | `me-card` (render a paired-tension lens as a 1200×630 PNG) |
-| `commands/shortcuts.py` | `shortcut-url`, `shortcut-run`, `action-shortcut`, `shortcut-setup`, `shortcut-install` |
+| `commands/shortcuts.py` | `shortcut-install` |
 | `commands/watch.py` | `watch-once`, `watch-loop`, `ingest-recent` |
 | `commands/review.py` | `review` |
 | `commands/adapters.py` | `adapters` |
