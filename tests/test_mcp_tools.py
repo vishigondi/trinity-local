@@ -34,23 +34,17 @@ class TestToolList:
 
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        # v1.0 canonical 6: route, run_council (subsumes judge via responses=[...]),
-        # record_outcome, search_prompts, get_persona, get_council_status.
+        # v1.0 canonical 5: route, run_council (subsumes judge via responses=[...]),
+        # record_outcome, get_persona, get_council_status.
         # v1.5 adds: `ask` (single-call routing), `get_picks`
         # (introspection for the agent into the user's extracted routing
-        # patterns), `mark_pick_wrong` (user-veto on a cortex rule;
-        # spec-v1.5 Week 5).
-        # Launch-arc adds (tick #119): `handoff` (cross-provider
-        # conversation continuity — the killer-hook mechanism for the
-        # 60-second demo).
-        # Launch-arc adds (post-#119): `get_eval_summary` (read the
-        # latest eval-run benchmark — third entry point for the
-        # empirical-benchmark surface alongside the CLI eval-show and
-        # the launchpad Personalized Benchmark card).
+        # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
+        # Launch-arc adds: `handoff` (cross-provider conversation continuity)
+        # and `get_eval_summary` (latest empirical-benchmark result).
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council", "record_outcome",
-            "search_prompts", "get_persona", "get_council_status",
+            "get_persona", "get_council_status",
             "handoff", "get_eval_summary",
         }, f"unexpected tool list: {names}"
 
@@ -165,31 +159,6 @@ class TestRunCouncilChainPropagation:
         # so the downstream chain dispatch actually triggers.
         assert captured["mode"] == "chain"
         assert captured["sequence"] == ["claude", "codex", "claude"]
-
-
-class TestSearchPrompts:
-    def test_returns_empty_when_index_empty(self, home: Path):
-        result = _call_tool_sync("search_prompts", {"query": "anything"})
-        assert result["results"] == []
-
-    def test_returns_ranked_results(self, home: Path):
-        from trinity_local.embeddings import embed
-        from trinity_local.memory import PromptNode, upsert_prompt_node
-        from trinity_local.utils import now_iso
-
-        upsert_prompt_node(PromptNode(
-            id="p1",
-            transcript_id="t1",
-            provider="claude_ai",
-            source_path="/tmp/x",
-            turn_index=0,
-            text="design a model router for trinity",
-            embedding=embed("search_document: design a model router for trinity"),
-            created_at=now_iso(),
-        ))
-        result = _call_tool_sync("search_prompts", {"query": "trinity router design", "top_k": 3})
-        assert "results" in result
-        assert any(r["prompt_id"] == "p1" for r in result["results"])
 
 
 class TestRecordOutcome:

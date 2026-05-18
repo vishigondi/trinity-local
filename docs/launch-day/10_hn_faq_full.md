@@ -16,7 +16,7 @@ The chairman is whichever model synthesizes member outputs into a Routing JSON v
 
 ### Why MCP instead of a wrapper CLI?
 
-Three reasons. (1) Agents already inside Claude Code / Codex CLI / Gemini CLI / Cursor reach for tools the harness exposes — MCP is the dropdown. (2) The MCP server is a stdio child of the user's harness — no listening port, `lsof -i | grep LISTEN` shows nothing related to Trinity. (3) `run_council` returns a `rate_action` hint when a council completes unrated, so the agent surfaces the rating prompt inline without a launchpad detour. `trinity-local install-mcp` writes `~/.claude.json`, `~/.gemini.json`, `~/.codex/config.toml`, `~/.cursor/mcp.json`. 11 tools total (`mcp_server.py`).
+Three reasons. (1) Agents already inside Claude Code / Codex CLI / Gemini CLI / Cursor reach for tools the harness exposes — MCP is the dropdown. (2) The MCP server is a stdio child of the user's harness — no listening port, `lsof -i | grep LISTEN` shows nothing related to Trinity. (3) `run_council` returns a `rate_action` hint when a council completes unrated, so the agent surfaces the rating prompt inline without a launchpad detour. `trinity-local install-mcp` writes `~/.claude.json`, `~/.gemini.json`, `~/.codex/config.toml`, `~/.cursor/mcp.json`. 10 tools total (`mcp_server.py`).
 
 ### How does the personal routing table get computed?
 

@@ -10,8 +10,6 @@ Public tools, in lifecycle order:
       verdict path: agreed_claims, disagreed_claims, winner, routing_lesson.
   - record_outcome(council_run_id, user_winner, accepted, edited, ...)
       "Trinity, here's what actually happened." — closes the supervision loop.
-  - search_prompts(query, top_k)
-      "Find similar past prompts worth replaying." — memory search.
   - get_persona()
       "Return the user's /me document." — chairman context for any harness.
   - get_council_status(council_run_id)
@@ -189,25 +187,6 @@ async def handle_list_tools() -> list[Tool]:
                     "abandonment_reason": {"type": "string", "description": "Optional: why the user didn't pick a winner (e.g. 'codex hung', 'lost interest')"},
                 },
                 "required": ["council_run_id"],
-            },
-        ),
-        Tool(
-            name="search_prompts",
-            description=(
-                "Find past prompts worth replaying. Ranks by substring/token overlap with the "
-                "query plus replay-value heuristics (recency, theme tags, prior council count, "
-                "user-override signal). No embedding model is loaded — this is a fast, "
-                "deterministic keyword + recency match across the user's full AI history "
-                "(Claude Code, Codex, Gemini, ChatGPT, Claude.ai). Use when the user starts "
-                "typing and you want to suggest replay candidates."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string"},
-                    "top_k": {"type": "integer", "default": 8},
-                },
-                "required": ["query"],
             },
         ),
         Tool(
@@ -389,8 +368,6 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _run_council(arguments)
         if name == "record_outcome":
             return await _record_outcome(arguments)
-        if name == "search_prompts":
-            return await _search_prompts(arguments)
         if name == "get_persona":
             return await _get_persona(arguments)
         if name == "get_council_status":
@@ -486,11 +463,11 @@ def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
 
 def _trigger_incremental_ingest() -> None:
     """Fire-and-forget: scan transcripts newer than the per-source memory
-    cursor and append fresh ``PromptNode``s. Runs at the start of ``ask`` /
-    ``search_prompts`` so MCP-driven flows pick up new conversations
-    without a manual ``seed-from-taste-terminal`` rerun. Bounded at 1s so
-    it cannot dominate user-facing latency; errors are swallowed so a
-    parser breakage cannot take down the tool surface.
+    cursor and append fresh ``PromptNode``s. Runs at the start of ``ask``
+    so MCP-driven flows pick up new conversations without a manual
+    ``seed-from-taste-terminal`` rerun. Bounded at 1s so it cannot dominate
+    user-facing latency; errors are swallowed so a parser breakage cannot
+    take down the tool surface.
     """
     try:
         from .incremental_ingest import ingest_recent
@@ -1259,64 +1236,6 @@ async def _record_outcome(args: dict) -> list[Any]:
             f"({outcome_load_error}). The personal routing table may not "
             f"reflect this verdict until the outcome file is restored."
         )
-    return [_text(payload)]
-
-
-async def _search_prompts(args: dict) -> list[Any]:
-    from .memory import search_prompt_nodes
-
-    query = args["query"]
-    top_k = int(args.get("top_k") or 8)
-    _trigger_incremental_ingest()
-    raw_results = search_prompt_nodes(query, top_k=top_k)
-
-    # Confidence + filtering at the API level. Surface tokens like "MCP" or
-    # "cursor" can produce 0.5-0.6 prompt_similarity for prompts that are
-    # totally off-topic. The harness shouldn't have to filter; we know
-    # enough to filter for them.
-    sims = [float(r.prompt_similarity or 0.0) for r in raw_results]
-    top_sim = max(sims) if sims else 0.0
-    if top_sim >= 0.78:
-        confidence = "high"
-        # Keep everything when the top match is solid — even 0.5 results
-        # may have value in this case (related but not duplicate).
-        threshold = 0.55
-    elif top_sim >= 0.65:
-        confidence = "medium"
-        threshold = 0.65
-    else:
-        confidence = "low"
-        threshold = 999.0  # drop everything; the query has no good match
-
-    filtered = [r for r in raw_results if float(r.prompt_similarity or 0.0) >= threshold]
-    dropped_count = len(raw_results) - len(filtered)
-
-    payload = {
-        "query": query,
-        "confidence": confidence,
-        "top_similarity": round(top_sim, 3),
-        "results_filtered_out": dropped_count,
-        "guidance": (
-            "high → safe to suggest as replay candidates; "
-            "medium → results above 0.65 similarity returned; "
-            "low → no results meet the relevance bar; do not inject anything as context"
-        ),
-        "results": [
-            {
-                "prompt_id": r.prompt_id,
-                "text": r.text,
-                "score": r.score,
-                "prompt_similarity": r.prompt_similarity,
-                "reasons": list(r.reasons or []),
-                "chairman_winner": r.chairman_winner,
-                "user_winner": r.user_winner,
-                "council_count": r.council_count,
-                "provider": r.provider,
-                "timestamp": r.timestamp,
-            }
-            for r in filtered
-        ],
-    }
     return [_text(payload)]
 
 
