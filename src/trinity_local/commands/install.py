@@ -440,7 +440,7 @@ def handle_install_hooks(args):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "trinity-local watch-once --quiet 2>/dev/null || true",
+                            "command": "trinity-local ingest-recent --deadline 1.0 2>/dev/null || true",
                             "async": True
                         }
                     ]

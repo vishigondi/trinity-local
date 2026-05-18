@@ -440,7 +440,7 @@ def _check_core_distilled() -> CheckResult:
             name="core_distilled",
             ok=True,
             detail="core.md not distilled yet (chairman falls through to full lens)",
-            fix="trinity-local distill   # writes ~/.trinity/core.md — the singular paragraph chairman reads first",
+            fix="trinity-local dream   # rebuild memories; Phase 5 writes ~/.trinity/core.md (distill CLI was hidden 2026-05-17 — dream is the live path)",
         )
     size = core.stat().st_size
     return CheckResult(

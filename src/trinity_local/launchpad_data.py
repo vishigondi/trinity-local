@@ -1236,7 +1236,7 @@ def _memory_health() -> dict:
             "name": "core.md",
             "status": "stale",
             "hint": f"{src} is newer than the distillation.",
-            "command": "trinity-local distill",
+            "command": "trinity-local dream",
             "href": None,
         })
     elif state == "missing":
@@ -1244,7 +1244,7 @@ def _memory_health() -> dict:
             "name": "core.md",
             "status": "missing",
             "hint": "The singular core memory has not been compiled.",
-            "command": "trinity-local distill",
+            "command": "trinity-local dream",
             "href": None,
         })
 
