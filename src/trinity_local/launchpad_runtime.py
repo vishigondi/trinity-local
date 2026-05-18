@@ -15,13 +15,14 @@ window.addEventListener('pageshow', (event) => {
   }
 });
 
-function buildShortcutUrl(payload) {
-  const name = encodeURIComponent(
-    (typeof pageData !== 'undefined' && pageData.shortcutName) || 'Trinity Dispatch'
-  );
-  const text = encodeURIComponent(JSON.stringify(payload));
-  return `shortcuts://run-shortcut?name=${name}&input=text&text=${text}`;
-}
+// buildShortcutUrl: retired no-op as of 2026-05-18 (W — Pass B JS).
+// The macOS Shortcut dispatcher was killed in Pass A (commit 53db635);
+// Tier-2 branch in __TRINITY_DISPATCH__.dispatch is gone (Chrome
+// extension is the only live dispatch path). buildShortcutUrl()
+// survives as a no-op that returns '' so that callsites in
+// launchpad_template.py and council_review.py keep parsing — they
+// pass the empty string into dispatch() which now ignores it.
+function buildShortcutUrl(payload) { return ''; }
 
 function navigateToReviewPath(path) {
   if (!path) {
@@ -131,11 +132,6 @@ window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
     listeners.forEach((cb) => { try { cb(state); } catch (_) {} });
   }
 
-  function canUseShortcut() {
-    const s = (typeof pageData !== 'undefined') ? pageData.shortcutStatus : null;
-    return !!(s && s.applicable && s.ok);
-  }
-
   function sendExt(message) {
     return new Promise((resolve, reject) => {
       if (!extensionId || !window.chrome?.runtime?.sendMessage) {
@@ -176,8 +172,9 @@ window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
     return state;
   }
 
-  async function dispatch({ extensionAction, shortcutUrl, onResult }) {
-    // Tier 1 — try the extension unless we already know it's absent.
+  async function dispatch({ extensionAction, onResult }) {
+    // Tier 1 — Chrome extension Native Messaging. Tier-2 macOS Shortcut
+    // was retired pre-launch (commit 53db635 + this commit's JS cleanup).
     if (state !== 'absent' && extensionId && extensionAction) {
       try {
         const r = await sendExt({ type: 'action', ...extensionAction });
@@ -186,9 +183,9 @@ window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
           onResult && onResult({ tier: 'extension', ok: true, response: r });
           return { tier: 'extension', ok: true, response: r };
         }
-        // Extension reached the host but action failed. Surface the error;
-        // never silently fall through to Shortcuts when the host returned
-        // native-host-unavailable — that's a broken setup the user must fix.
+        // Extension reached the host but action failed. Surface the error
+        // — never silently swallow native-host-unavailable; the user
+        // needs to fix the install.
         if (r && r.error === 'native-host-unavailable') {
           setState('native-missing');
           onResult && onResult({ tier: 'extension', ok: false, response: r,
@@ -202,18 +199,7 @@ window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
         setState('absent');
       }
     }
-    // Tier 2 — macOS Shortcut, if registered.
-    if (shortcutUrl && canUseShortcut()) {
-      const link = document.createElement('a');
-      link.href = shortcutUrl;
-      link.rel = 'noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      onResult && onResult({ tier: 'shortcut', ok: true });
-      return { tier: 'shortcut', ok: true };
-    }
-    // Tier 3 — neither path available.
+    // Tier 2 (install prompt) — neither path available.
     onResult && onResult({ tier: 'install-prompt', ok: false });
     return { tier: 'install-prompt', ok: false };
   }

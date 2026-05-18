@@ -141,12 +141,20 @@ def test_launchpad_runtime_js_emits_dispatch_contract():
     assert "dispatch" in js
     assert "trinity-ping" in js
     assert "sessionStorage" in js
-    # The three tier names must appear so the result handler in Vue can
-    # branch on them — change any of these and tests should fail loudly.
+    # The two live tier names must appear so the result handler in Vue
+    # can branch on them. (Tier-2 'shortcut' was retired 2026-05-18 with
+    # the macOS Shortcut dispatcher kill — only extension + install-prompt
+    # remain on the live dispatch path.)
     assert "'extension'" in js
-    assert "'shortcut'" in js
     assert "'install-prompt'" in js
     assert "native-host-unavailable" in js
+    # Tier-2 shortcut branch is GONE — Chrome extension is the only
+    # live dispatch path. Regression guard against accidental re-add.
+    # buildShortcutUrl() survives as a `return ''` no-op (callsites in
+    # launchpad_template + council_review still reference the function
+    # name; they pass '' into dispatch which ignores it).
+    assert "'shortcut'" not in js
+    assert "shortcuts://run-shortcut" not in js
 
 
 def test_launchpad_runtime_js_uses_pageData_for_extension_id():
