@@ -555,6 +555,10 @@ class TestArchitectureTableModulesExist:
         # didn't materialize" — claude.md narrates this directly
         # near the runtime_env row.
         "subprocess_utils.py",
+        # Retired 2026-05-17 with the macOS Shortcut dispatcher kill
+        # — claude.md's Dispatch row narrates the retirement directly.
+        "dispatch_runner.py",
+        "shortcut_setup.py",
     }
 
     def test_no_phantom_py_files_in_claude_md(self):

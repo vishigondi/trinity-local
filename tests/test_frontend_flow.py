@@ -16,7 +16,6 @@ from trinity_local.council_status import load_council_status, write_council_stat
 from trinity_local.dispatch_registry import command_for_dispatch, make_dispatch_action
 from trinity_local.launchpad_page import write_portal_html
 from trinity_local.providers import ProviderError, ProviderResult
-from trinity_local.shortcut_setup import _render_dispatch_wrapper
 from trinity_local.telemetry import (
     build_elo_snapshot,
     disable_telemetry,
@@ -459,26 +458,6 @@ class TestWatchStatusFlow:
         assert captured[-1]["status"] == "completed"
         assert captured[-1]["review_path"] == "/tmp/launchpad.html"
         assert captured[-1]["metadata"]["actions_written"] == 2
-
-
-class TestDispatchWrapper:
-    def test_render_dispatch_wrapper_includes_common_bin_paths(self):
-        # Compute the expected venv root the same way the renderer does
-        # (`.resolve()` follows symlinks like /tmp → /private/tmp on
-        # macOS) so the assertion is portable across hosts. Using a
-        # placeholder path keeps the developer's personal $HOME out of a
-        # public-repo test.
-        input_python = "/tmp/trinity-test-venv/bin/python3"
-        expected_root = str(Path(input_python).parent.parent.resolve())
-
-        script = _render_dispatch_wrapper(input_python)
-
-        assert f'TRINITY_VENV_ROOT="{expected_root}"' in script
-        assert "/opt/homebrew/bin" in script
-        assert "/usr/local/bin" in script
-        assert "TRINITY_VENV_ROOT" in script
-        assert "TRINITY_PATH_PREFIX" in script
-        assert "-m trinity_local.dispatch_runner" in script
 
 
 class TestCouncilFailureMetadata:

@@ -48,7 +48,6 @@ CORE_COMMAND_MODULES = (
     "replay",
     "review",
     "seed",
-    "shortcuts",
     "stats",
     "status",
     "tasks",

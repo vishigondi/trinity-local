@@ -6,7 +6,6 @@ from pathlib import Path
 from .action_schema import PendingAction
 from .dispatch_registry import command_for_dispatch, make_dispatch_action
 from .state_paths import actions_dir
-from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .task_schema import TaskRecord
 from .utils import now_iso, stable_id
 
@@ -16,7 +15,6 @@ def create_recommendation_action(
     task: TaskRecord,
     bundle_id: str | None = None,
     command_hint: str | None = None,
-    shortcut_name: str = DEFAULT_SHORTCUT_NAME,
 ) -> PendingAction:
     recommendation = task.recommendation
     provider = recommendation.recommended_provider if recommendation else None
@@ -37,7 +35,6 @@ def create_recommendation_action(
         task.updated_at or now_iso(),
     )
     dispatch = None
-    shortcut = None
     if command_hint:
         dispatch = make_dispatch_action(
             "run_command",
@@ -45,7 +42,6 @@ def create_recommendation_action(
             task_id=task.task_id,
             metadata={"kind": "recommendation"},
         )
-        shortcut = make_shortcut_invocation(dispatch=dispatch, shortcut_name=shortcut_name)
     return PendingAction(
         action_id=action_id,
         task_id=task.task_id,
@@ -60,7 +56,6 @@ def create_recommendation_action(
         recommended_provider=provider,
         recommended_mode=mode,
         command_hint=command_hint or (command_for_dispatch(dispatch) if dispatch else None),
-        shortcut_url=shortcut.url if shortcut else None,
         dispatch_action=dispatch.to_dict() if dispatch else {},
         metadata={"source_provider": task.source_provider, "confidence": recommendation.confidence if recommendation else None},
     )
@@ -73,7 +68,6 @@ def create_council_start_action(
     members: list[str],
     primary_provider: str,
     cwd: str = ".",
-    shortcut_name: str = DEFAULT_SHORTCUT_NAME,
 ) -> PendingAction:
     action_id = stable_id(
         "action",
@@ -93,7 +87,6 @@ def create_council_start_action(
         metadata={"kind": "start_council"},
     )
     command_hint = command_for_dispatch(dispatch)
-    shortcut = make_shortcut_invocation(dispatch=dispatch, shortcut_name=shortcut_name)
     provider_copy = ", ".join(members)
     return PendingAction(
         action_id=action_id,
@@ -109,7 +102,6 @@ def create_council_start_action(
         recommended_provider=primary_provider,
         recommended_mode="council",
         command_hint=command_hint,
-        shortcut_url=shortcut.url,
         dispatch_action=dispatch.to_dict(),
         metadata={"members": members, "primary_provider": primary_provider, "cwd": cwd},
     )
@@ -119,7 +111,6 @@ def create_review_ready_action(
     *,
     task: TaskRecord,
     command_hint: str | None = None,
-    shortcut_name: str = DEFAULT_SHORTCUT_NAME,
 ) -> PendingAction:
     action_id = stable_id(
         "action",
@@ -128,7 +119,6 @@ def create_review_ready_action(
         "review",
     )
     dispatch = None
-    shortcut = None
     if task.review_page_path or command_hint:
         dispatch = make_dispatch_action(
             "open_review",
@@ -136,7 +126,6 @@ def create_review_ready_action(
             task_id=task.task_id,
             metadata={"kind": "review_ready"},
         )
-        shortcut = make_shortcut_invocation(dispatch=dispatch, shortcut_name=shortcut_name)
     return PendingAction(
         action_id=action_id,
         task_id=task.task_id,
@@ -149,7 +138,6 @@ def create_review_ready_action(
         updated_at=now_iso(),
         review_page_path=task.review_page_path,
         command_hint=command_hint or (command_for_dispatch(dispatch) if dispatch else None),
-        shortcut_url=shortcut.url if shortcut else None,
         dispatch_action=dispatch.to_dict() if dispatch else {},
         metadata={"winner_provider": task.winner_provider, "needs_followup": task.needs_followup},
     )
@@ -192,5 +180,3 @@ def mark_action_status(action: PendingAction, status: str) -> PendingAction:
     action.status = status
     action.updated_at = now_iso()
     return action
-
-

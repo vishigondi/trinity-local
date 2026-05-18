@@ -619,7 +619,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules und
 | Runtime env | `runtime_env.py` | PATH-injection env builder + `run_with_runtime_env()` (both helpers live in one module — `subprocess_utils.py` was the original plan but the split didn't materialize) |
 | Task kinds | `task_types.py` | Single `guess_task_type()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
-| Dispatch | `dispatch_runner.py`, `dispatch_registry.py`, `shortcut_setup.py`, `shortcuts_integration.py` | macOS Shortcuts bridge + dispatch wrapper |
+| Dispatch | `dispatch_registry.py`, `capture_host.py`, `shortcuts_integration.py` (inert shim) | Chrome extension Native Messaging bridge — canonical dispatch path. The macOS Shortcuts wrapper (`shortcut_setup.py` + `dispatch_runner.py` + `commands/shortcuts.py`) was retired 2026-05-17; `shortcuts_integration.py` survives only as a backward-compat stub so old renderers don't break before their JS surgery lands. |
 | MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` (see below) |
 | Launchpad | `launchpad_data.py`, `launchpad_template.py`, `launchpad_runtime.py`, `launchpad_page.py`, `memory_viewer.py` | Static HTML launchpad + memory viewer (memory.html with inlined memory contents) — autofill, personal routing table, council suggestions, 4-chip lens card (core / lens / topics / vocabulary) — picks + routing surface on the routing card |
 | Share cards | `me_card.py`, `eval_card.py`, `council_card.py` | Three 1200×630 PNG renderers, one visual language (cream BG + sage accent + serif headline). `me_card` renders the strongest lens, `eval_card` renders an eval run's per-axis bars, `council_card` renders a council outcome's chairman-extracted agreed/disagreed claims. All three carry the same install CTA + `vishigondi.github.io/trinity-local` landing URL; council_card is privacy-safe by construction (chairman fields only, no user prompt or member text) |
@@ -682,7 +682,7 @@ Live state under `~/.trinity/` (overridable via `TRINITY_HOME`):
 ├── digest_pages/                   # Weekly digest HTML
 ├── task_sync/                      # Sync-safe task payloads
 ├── watcher/                        # Cursor files for watch-loop resume
-├── shortcut_setup/                 # Shortcut installer recipe
+├── shortcut_setup/                 # Legacy Shortcut installer recipe (retired 2026-05-17 — directory may exist on older installs)
 ├── settings/                       # Telemetry settings
 ├── bin/trinity-dispatch            # Shell-launcher dispatch wrapper
 ├── cache/embeddings.jsonl          # Persistent embedding cache (768d)

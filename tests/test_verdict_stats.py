@@ -155,37 +155,16 @@ class TestPageDataVerdictStats:
 
 
 class TestShortcutStatus:
-    """Tick #73 — launchpad surfaces the macOS Shortcut registration
-    status. Banner renders only when applicable AND missing; on Linux
-    or unknown-check states the banner stays hidden."""
+    """The macOS Shortcut dispatcher was retired 2026-05-17. `_shortcut_status`
+    survives only as a backward-compat stub so old payload consumers don't
+    crash — it always reports applicable=False. The banner that used to
+    surface a missing-Shortcut warning is gone; the dispatch-readiness
+    banner (Phase 7 doctor check) is the canonical surface."""
 
-    def test_non_macos_returns_not_applicable(self, monkeypatch):
-        """On Linux/Windows, the Shortcut isn't applicable — the banner
-        must NOT show. Returns applicable=False so the v-if hides."""
-        monkeypatch.setattr("sys.platform", "linux")
+    def test_always_returns_not_applicable(self):
         from trinity_local.launchpad_data import _shortcut_status
         result = _shortcut_status()
         assert result == {"ok": True, "applicable": False}
-
-    def test_macos_shortcut_installed_returns_ok(self, monkeypatch):
-        monkeypatch.setattr("sys.platform", "darwin")
-        import trinity_local.shortcut_setup as setup
-        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_a, **_kw: True)
-        from trinity_local.launchpad_data import _shortcut_status
-        result = _shortcut_status()
-        assert result["ok"] is True
-        assert result["applicable"] is True
-
-    def test_macos_shortcut_missing_returns_not_ok(self, monkeypatch):
-        """The banner-triggering case — applicable AND not ok."""
-        monkeypatch.setattr("sys.platform", "darwin")
-        import trinity_local.shortcut_setup as setup
-        monkeypatch.setattr(setup, "_shortcut_installed", lambda *_a, **_kw: False)
-        from trinity_local.launchpad_data import _shortcut_status
-        result = _shortcut_status()
-        assert result["ok"] is False
-        assert result["applicable"] is True
-        assert "name" in result  # banner uses the configured Shortcut name
 
     def test_page_data_contains_shortcut_status(self, isolated_home, tmp_path):
         from trinity_local.launchpad_data import build_page_data
@@ -194,24 +173,7 @@ class TestShortcutStatus:
             recent_councils=[],
         )
         assert "shortcutStatus" in data
-        assert "ok" in data["shortcutStatus"]
-        assert "applicable" in data["shortcutStatus"]
-
-    def test_launchpad_html_contains_banner_template(self, isolated_home):
-        """Per meta-principle #14: every shipped feature gets a smoke
-        regression guard within one tick. The banner only renders at
-        runtime when pageData.shortcutStatus.applicable && !ok — but
-        the template DOM exists in source regardless of runtime state.
-        Catches a future refactor that drops the banner element."""
-        from trinity_local.launchpad_page import render_launchpad_html
-        html = render_launchpad_html()
-        # The v-if guard that gates banner visibility
-        assert "pageData.shortcutStatus" in html
-        assert "shortcutStatus.applicable" in html
-        # The remediation copy points users at the right CLI command
-        assert "trinity-local shortcut-install" in html
-        # The marketing-load-bearing phrase that explains the cost
-        assert "moat stays empty" in html
+        assert data["shortcutStatus"]["applicable"] is False
 
     def test_launchpad_html_contains_lens_rebuild_chip(self, isolated_home):
         """Tick #76 — lens card gets a rebuild chip when lens exists.

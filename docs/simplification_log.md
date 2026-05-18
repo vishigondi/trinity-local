@@ -496,10 +496,27 @@ and charge ahead". Six more cleanups shipped:
   extension is now the cross-platform launchpad host — single surface,
   no per-OS .app maintenance.
 
-- **macOS Shortcut dispatcher → Chrome extension only**: ~700 LOC
-  killable but requires wiring launchpad dispatch through the Chrome
-  extension's Native Messaging host first. Authorized by the same user
-  directive ("Chrome extension where it lives") — queued as the next
-  kill after the Trinity.app sweep lands clean. Not a 1-day cleanup;
-  separated to keep the diff reviewable.
+- **macOS Shortcut dispatcher**: SHIPPED 2026-05-17 — structural pass
+  (Pass A). Deleted `shortcut_setup.py` (-325), `dispatch_runner.py`
+  (-60), `commands/shortcuts.py` (-46); kept `shortcuts_integration.py`
+  as a thin inert shim (`make_shortcut_invocation` returns empty URLs)
+  so downstream renderers don't break. `doctor._check_shortcut_installed`
+  removed; `_check_dispatch_ready` simplified to extension-only.
+  `launchpad_data._shortcut_status` reduced to always-False stub;
+  `dispatch_readiness` cleaned up. Launchpad template "macOS Shortcut
+  not installed" banner deleted. PendingAction.shortcut_url kept on
+  the dataclass as backward-compat for old saved JSON files (new
+  actions don't set it). Tests swept: 5 test files updated, 1 deleted
+  (test_phase7_deprecation.py).
+
+  **Pass B (follow-up — JS surgery)**: the consumer-side JS in
+  `launchpad_runtime.py`, `council_review.py`, `launchpad_template.py`
+  still references `buildShortcutUrl`, `_fireShortcut`,
+  `pageData.shortcutStatus`, and the tier-2-shortcut branch in
+  `__TRINITY_DISPATCH__.dispatch`. These render empty URLs at runtime
+  (Tier 2 silently fails through; Tier 1 Chrome extension is the live
+  path) so the launchpad is functional today. Pass B drops the dead
+  JS, removes `make_shortcut_invocation` calls from `council_review`
+  and `launchpad_data`, and deletes `shortcuts_integration.py` outright.
+  Scope: ~3 hours of mechanical surgery, tracked separately.
 

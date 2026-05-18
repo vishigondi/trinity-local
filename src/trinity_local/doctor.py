@@ -339,14 +339,12 @@ def _check_skill_freshness() -> CheckResult:
 
 
 def _check_dispatch_ready() -> CheckResult:
-    """Phase 7: any-tier dispatch readiness — at least one of the two
-    dispatch paths (extension, Shortcut) must be wired for the launchpad
-    to actually do anything.
+    """Extension dispatch readiness — the Chrome extension's Native
+    Messaging host must be reachable for the launchpad to do anything.
 
-    On macOS this is broader than `_check_shortcut_installed`: a user
-    who installed the extension instead of (or before) the Shortcut is
-    fine. On Linux/Windows this is the only relevant check — the
-    Shortcut path was never functional there.
+    The macOS Shortcut tier was retired 2026-05-17 (Chrome extension is
+    now the cross-platform launchpad host); this check covers macOS,
+    Linux, and Windows with the same shape.
 
     Surfaces the same `recommended_action` hint the launchpad shows in
     its inline banner so the doctor and the launchpad agree.
@@ -361,11 +359,10 @@ def _check_dispatch_ready() -> CheckResult:
         )
     readiness = dispatch_readiness()
     if readiness["ready"]:
-        tier = "extension" if readiness["extension_configured"] and readiness["host_on_path"] else "macOS Shortcut"
         return CheckResult(
             name="dispatch_ready",
             ok=True,
-            detail=f"launchpad dispatch ready via {tier}",
+            detail="launchpad dispatch ready via Chrome extension",
         )
     fix_command = (
         "trinity-local install-extension --extension-id <ID>   "
@@ -376,41 +373,6 @@ def _check_dispatch_ready() -> CheckResult:
         ok=False,
         detail=readiness["recommended_action"] or "no dispatch path wired",
         fix=fix_command,
-    )
-
-
-def _check_shortcut_installed() -> CheckResult:
-    """Macros Shortcut named "Trinity Dispatch" must be in the user's library.
-
-    This was the silent-failure root cause behind tick #69's 3-of-19
-    (16%) verdict-capture rate: every "Preferred" click in the launchpad
-    fires a `shortcut://` URL that goes nowhere when the Shortcut isn't
-    installed, and the UI lied about success until tick #71's verify
-    path landed. The doctor now surfaces this preemptively so cold
-    installs never reach the rating step blind.
-    """
-    try:
-        from .shortcut_setup import _shortcut_installed, DEFAULT_SHORTCUT_NAME
-    except Exception as exc:
-        return CheckResult(
-            name="shortcut_installed",
-            ok=False,
-            detail=f"could not import shortcut_setup: {exc}",
-        )
-    if _shortcut_installed():
-        return CheckResult(
-            name="shortcut_installed",
-            ok=True,
-            detail=f"'{DEFAULT_SHORTCUT_NAME}' Shortcut is registered",
-        )
-    return CheckResult(
-        name="shortcut_installed",
-        ok=False,
-        detail=(
-            f"'{DEFAULT_SHORTCUT_NAME}' Shortcut missing — launchpad ratings, "
-            f"council launches, and refinements will silently fail to fire"
-        ),
-        fix="trinity-local shortcut-install   # adds the macOS Shortcut",
     )
 
 
@@ -949,7 +911,6 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_mcp_available())
     report.checks.append(_check_skill_freshness())
     report.checks.append(_check_dispatch_ready())
-    report.checks.append(_check_shortcut_installed())
     report.checks.append(_check_feedback_consistency())
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))

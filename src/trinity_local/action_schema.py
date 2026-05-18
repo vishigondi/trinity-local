@@ -20,6 +20,9 @@ class PendingAction:
     recommended_mode: str | None = None
     review_page_path: str | None = None
     command_hint: str | None = None
+    # Retired 2026-05-17 with the macOS Shortcut dispatcher; kept on the
+    # dataclass so saved JSON files written before the kill still load
+    # (`PendingAction(**raw)` would otherwise raise on unexpected kwargs).
     shortcut_url: str | None = None
     dispatch_action: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)

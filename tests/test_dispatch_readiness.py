@@ -98,37 +98,17 @@ def test_dispatch_readiness_extension_id_but_host_missing(
     assert "trinity-local-capture-host" in result["recommended_action"]
 
 
-def test_dispatch_readiness_shortcut_only(isolated_home, monkeypatch):
-    """macOS user with the Shortcut registered but no extension — still
-    ready (tier 2 works), no hint."""
+def test_dispatch_readiness_legacy_shortcut_fields_present(isolated_home, monkeypatch):
+    """After the macOS Shortcut dispatcher retirement (2026-05-17), the
+    Shortcut tier is gone — `shortcut_applicable` and `shortcut_installed`
+    survive as always-False fields on the return dict so callers that read
+    them don't crash. This pins the schema."""
     monkeypatch.setattr("shutil.which", lambda name: None)
-    monkeypatch.setattr(
-        "trinity_local.launchpad_data._shortcut_status",
-        lambda: {"ok": True, "applicable": True, "name": "Trinity Dispatch"},
-    )
     from trinity_local.launchpad_data import dispatch_readiness
 
     result = dispatch_readiness()
-    assert result["ready"] is True
-    assert result["recommended_action"] is None
-    assert result["shortcut_installed"] is True
-
-
-def test_dispatch_readiness_mac_no_shortcut(isolated_home, monkeypatch):
-    """macOS user, applicable Shortcut, but NOT installed AND no
-    extension. Hint should mention both paths — extension is the
-    forward path, shortcut-install is the legacy macOS-only fallback."""
-    monkeypatch.setattr("shutil.which", lambda name: None)
-    monkeypatch.setattr(
-        "trinity_local.launchpad_data._shortcut_status",
-        lambda: {"ok": False, "applicable": True, "name": "Trinity Dispatch"},
-    )
-    from trinity_local.launchpad_data import dispatch_readiness
-
-    result = dispatch_readiness()
-    assert result["ready"] is False
-    assert "install-extension" in result["recommended_action"]
-    assert "shortcut-install" in result["recommended_action"]
+    assert result["shortcut_applicable"] is False
+    assert result["shortcut_installed"] is False
 
 
 def test_portal_html_includes_dispatch_readiness(
@@ -185,14 +165,20 @@ def test_portal_html_emits_hint_on_open_when_not_ready(
 
 
 def test_portal_html_silent_on_open_when_ready(
-    isolated_home, monkeypatch, capsys
+    isolated_home, monkeypatch, capsys, tmp_path
 ):
-    """When dispatch is wired (here: shortcut applicable + ok), the
-    CLI must NOT print a noisy hint. Silence is the success signal."""
-    monkeypatch.setattr("shutil.which", lambda name: None)
+    """When dispatch is wired (extension configured + capture host on
+    PATH), the CLI must NOT print a noisy hint. Silence is the success
+    signal."""
+    # Simulate a configured extension by stubbing _browser_extension.
     monkeypatch.setattr(
-        "trinity_local.launchpad_data._shortcut_status",
-        lambda: {"ok": True, "applicable": True, "name": "Trinity Dispatch"},
+        "trinity_local.launchpad_data._browser_extension",
+        lambda: {"extensionId": "abcdef0123456789", "configured": True},
+    )
+    # And put trinity-local-capture-host on PATH.
+    monkeypatch.setattr(
+        "shutil.which",
+        lambda name: "/fake/bin/trinity-local-capture-host" if name == "trinity-local-capture-host" else None,
     )
     monkeypatch.setattr(
         "trinity_local.commands.portal.open_path", lambda path: True
