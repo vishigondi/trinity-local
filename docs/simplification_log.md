@@ -134,3 +134,13 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   TestMergesShowCLI class in test_merges_log.py -18 LOC). Tests:
   1401 pass, 4 skip (1 test removed with the dead class).
 
+- 2026-05-18 (iter 8): SKILL.md § 3 ("Pre-flight checks") → **KEEP**.
+  Audit agent wanted to KILL it as redundant-with-install.sh-doctor,
+  but missed that line 26 explicitly routes already-installed users
+  directly to § 3 (skipping § 2 install). For re-invocations days/
+  weeks after install, § 3 is the user's only verification surface
+  (auth expiry, missing CLI, fresh env). Section also carries the
+  unique cold-start callout (first-embed downloads ~250MB nomic
+  model) that's not in install.sh. Verdict overridden; no code
+  change.
+
