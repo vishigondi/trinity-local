@@ -556,36 +556,29 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Command modules under `commands/` (30 modules in the table below; 3 more — `distill`, `stats`, `trust` — are ancillary maintenance/debug tools intentionally off the user-surface table):
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface after pre-launch simplification (Passes A–BB collapsed task/bundle/launch/watch/distill/cache/depth/metric/trust/shortcut/council-last/auto-chain/auto-open). 16 user-facing command modules; 10 more (`bootstrap_pairs`, `depth`, `distill`, `helpers`, `ingest`, `tasks`, `trust`, `watch`'s legacy entry points, `shortcuts_integration`) survive as importable utilities for tests + internal callers but no longer register CLIs:
 
 | Module | Key commands |
 |--------|-------------|
-| `commands/ingest.py` | `features`, `examples` |
-| `commands/tasks.py` | `task-create`, `task-show`, `task-sync`, `bundle-create`, `launch-create` |
-| `commands/council.py` | `council-start`, `council-run`, `council-prompt`, `council-outcome`, `council-launch`, `council-rate`, `council-stop`, `council-share`, `council-iterate` (replaces former `auto-chain`; `--rounds N` for sequential refinement) |
-| `commands/council_last.py` | `council-last` (rerun the most recent council bundle against the current model lineup) |
-| `commands/portal.py` | `portal-html`, `open-review`, `serve` (local HTTP server for launchpad — alternative to file://) |
-| `commands/seed.py` | `seed-from-taste-terminal` |
-| `commands/replay.py` | `replay-history` |
+| `commands/adapters.py` | `adapters` |
+| `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
+| `commands/council.py` | `council-start`, `council-launch`, `council-rate`, `council-stop`, `council-share`, `council-iterate` (sequential refinement via `--rounds N`; replaces former `auto-chain`) |
+| `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data — subsumes the retired `distill` and `bootstrap-pairs` CLIs) |
+| `commands/eval.py` | `eval-build` / `eval-stats` / `eval-run` / `eval-show` / `eval-share` (corpus-based eval harness — task #122; `eval-build` produces the suite from `me/rejections.jsonl`, `eval-run --target <provider>` dispatches each prompt + scores via judge against `lens.md`, `eval-show` renders a past run with per-axis bars + top/bottom samples without re-dispatch. `eval-share` renders the result as a 1200×630 PNG share card with install CTA + GH Pages URL — the tweet-shaped artifact for "Gemini scored 0.83 on YOUR kind of question.") |
+| `commands/handoff.py` | `handoff <provider>` (cross-provider conversation continuity — task #119, launch-arc workstream #2; pulls recent turns from `~/.trinity/prompts/` index, dispatches to target provider with "continue this thread" frame; mirror of `mcp__trinity-local__handoff`) |
+| `commands/install.py` | `install-mcp`, `install-hooks`, `install-extension` (Chrome Native Messaging manifest), `install-launcher` (Linux .desktop / Windows Start Menu .url), `uninstall` |
 | `commands/me.py` | `lens-build` (chairman-driven), `lens-show` |
 | `commands/me_card.py` | `me-card` (render a paired-tension lens as a 1200×630 PNG) |
-| `commands/shortcuts.py` | `shortcut-install` |
-| `commands/watch.py` | `watch-once`, `watch-loop`, `ingest-recent` |
+| `commands/portal.py` | `portal-html`, `open-review`, `review-link`, `serve` (local HTTP server for launchpad — alternative to file://) |
+| `commands/replay.py` | `replay-history` |
 | `commands/review.py` | `review` |
-| `commands/adapters.py` | `adapters` |
+| `commands/seed.py` | `seed-from-taste-terminal` |
 | `commands/status.py` | `status` |
-| `commands/cortex.py` | `consolidate` (extract routing patterns; supports `--audit` for independent-chairman drift check), `cortex-override` (user-veto on a rule; halves effective trust per click; `--reset` clears) |
+| `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint` |
+| `commands/unrated.py` | `unrated` (list councils without user verdict; Pillar 4 funnel-widening — one-line-per-council with chairman pick + copy-paste rate command) |
+| `commands/update.py` | `update` (pull latest, refresh MCP configs, verify with status — the post-curl-bash self-update mechanism) |
 | `commands/vocabulary.py` | `vocabulary` (scan prompts for terminology overloads — one word ↔ two meanings; two words ↔ one meaning. Emits `~/.trinity/memories/vocabulary.md`; load-bearing Stage 4 of the lens pipeline) |
-| `commands/dream.py` | `dream` (the one-command cold-start: discover cross-provider pairs across ALL embedded transcripts → synthesize each as a virtual council → consolidate cortex → rebuild /me lenses; Anthropic's *Dreaming* on the user's own data) |
-| `commands/bootstrap_pairs.py` | `bootstrap-pairs` (internal; phase 1+2 of `dream` exposed for tests/lens_build callers — CLI registration removed 2026-05-17 since `dream` covers the user-facing path) |
-| `commands/depth.py` | `depth-show` (top-N threads by depth-score composite: corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10); LID gated to N≥5 turns by default, `TRINITY_LID_MIN_TURNS` env tunes) |
-| `commands/unrated.py` | `unrated` (list councils without user verdict; Pillar 4 funnel-widening — gives the user their rating backlog one-line-per-council with chairman pick + copy-paste rate command) |
-| `commands/handoff.py` | `handoff <provider>` (cross-provider conversation continuity — task #119, launch-arc workstream #2; pulls recent turns from `~/.trinity/prompts/` index, dispatches to target provider with "continue this thread" frame; mirror of `mcp__trinity-local__handoff`) |
-| `commands/eval.py` | `eval-build` / `eval-stats` / `eval-run` / `eval-show` / `eval-share` (corpus-based eval harness — task #122; `eval-build` produces the suite from `me/rejections.jsonl`, `eval-run --target <provider>` dispatches each prompt + scores via judge against `lens.md`, `eval-show` renders a past run with per-axis bars + top/bottom samples without re-dispatch. `eval-share` renders the result as a 1200×630 PNG share card with install CTA + GH Pages URL — the tweet-shaped artifact for "Gemini scored 0.83 on YOUR kind of question.") |
-| `commands/metric.py` | `metric rate-limit-saves`, `metric dispatch-summary` (read aggregated dispatch metrics from `~/.trinity/analytics/`) |
-| `commands/install.py` | `install-mcp`, `install-hooks` |
-| `commands/update.py` | `update` (pull latest, refresh MCP configs, verify with doctor — the post-curl-bash self-update mechanism; ships the staleness check `doctor` surfaces) |
-| `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint`, `auto-chain-enable`, `auto-chain-disable`, `auto-open-enable` (post-council `open <review_path>` on macOS), `auto-open-disable` |
+| `commands/watch.py` | `ingest-recent` (cursor-based incremental ingest; Chrome ext + MCP `ask` fire this same path. Legacy `watch-once`/`watch-loop` CLIs retired pre-launch — tool-triggered ingest replaces the daemon model) |
 
 ### Core layers
 
