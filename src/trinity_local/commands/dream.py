@@ -98,6 +98,18 @@ def _all_prompt_nodes_uncapped() -> list:
 
 def handle_dream(args):
     started = time.monotonic()
+
+    # Fail fast if the embedder model isn't downloaded — dream uses
+    # embeddings end-to-end (cross-provider pair discovery, basin
+    # k-means, lens distillation). Without this gate the user would
+    # discover the 700MB requirement mid-Phase-1.
+    from ..embeddings import EmbedderNotReadyError, require_embedder_ready
+    try:
+        require_embedder_ready()
+    except EmbedderNotReadyError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+
     from ..cross_provider_pairs import find_cross_provider_clusters
 
     report = {

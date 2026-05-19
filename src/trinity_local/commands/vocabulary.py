@@ -46,6 +46,18 @@ def register(subparsers):
 
 
 def handle_vocabulary(args):
+    # Fail fast if the embedder model isn't downloaded — vocabulary
+    # distillation uses synonym embeddings to cluster anchor terms.
+    # Without this gate the user gets a multi-minute startup followed
+    # by an HF_HUB_OFFLINE error.
+    import sys
+    from ..embeddings import EmbedderNotReadyError, require_embedder_ready
+    try:
+        require_embedder_ready()
+    except EmbedderNotReadyError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+
     from ..vocabulary import distill_vocabulary
 
     report = distill_vocabulary(

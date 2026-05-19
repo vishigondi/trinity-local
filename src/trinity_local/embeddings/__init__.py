@@ -163,6 +163,69 @@ def setup_model(*, force: bool = False) -> str:
     return download_model(force=force)
 
 
+class EmbedderNotReadyError(RuntimeError):
+    """Raised by ``require_embedder_ready`` when the nomic-embed
+    weights aren't in the local HF cache. CLI handlers catch this
+    and surface an actionable message + exit cleanly — much better
+    than letting the user discover the 700MB requirement mid-command.
+
+    The exception message is already user-readable so handlers can
+    print it directly.
+    """
+
+
+def require_embedder_ready() -> None:
+    """Cheap filesystem probe — fails fast if the embedder model isn't
+    downloaded. Call BEFORE starting any heavy CLI work (lens-build,
+    dream, vocabulary) so the user gets a clear "download required"
+    signal instead of a multi-minute CLI startup followed by an
+    HF_HUB_OFFLINE error mid-call.
+
+    Same source-of-truth as the launchpad's "Build deeper memory"
+    card (launchpad_data._embedder_status). The check is a single
+    directory probe — no torch / transformers import, no network call.
+    """
+    from pathlib import Path
+
+    # Probe the canonical HF cache layout. SentenceTransformer caches
+    # models under ~/.cache/huggingface/hub/models--<org>--<name>/snapshots/<hash>/.
+    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
+    model_cache_dir = hf_cache / "models--nomic-ai--nomic-embed-text-v1.5"
+    if model_cache_dir.exists():
+        snapshots = model_cache_dir / "snapshots"
+        if snapshots.exists():
+            for snapshot in snapshots.iterdir():
+                if snapshot.is_dir() and any(snapshot.iterdir()):
+                    return  # at least one populated snapshot → ready
+
+    # Also check whether sentence-transformers libs are present —
+    # without those, even after the model download the embedder won't
+    # work, so the error message must mention pip install too.
+    try:
+        __import__("sentence_transformers")
+        libs_present = True
+    except ImportError:
+        libs_present = False
+
+    if libs_present:
+        command = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+    else:
+        command = (
+            "pip install 'trinity-local[mlx]' && "
+            "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        )
+
+    raise EmbedderNotReadyError(
+        f"Trinity's embedding model (nomic-embed-text-v1.5, ~700MB) isn't "
+        f"in your HuggingFace cache. This command needs it for topic "
+        f"basins / lens-build / vocabulary distillation.\n\n"
+        f"Download once with:\n"
+        f"  {command}\n\n"
+        f"Then re-run this command. The model lands at "
+        f"~/.cache/huggingface/hub/ and never re-downloads."
+    )
+
+
 def model_status() -> dict:
     """Return model status."""
     return {

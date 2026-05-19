@@ -62,6 +62,18 @@ def register(subparsers):
 
 
 def handle_me_build(args):
+    # Fail fast if the embedder model isn't downloaded — lens-build
+    # uses embeddings for assistant-text reranking + basin clustering.
+    # Without this gate the user gets a multi-minute startup followed
+    # by an HF_HUB_OFFLINE error mid-call.
+    import sys
+    from ..embeddings import EmbedderNotReadyError, require_embedder_ready
+    try:
+        require_embedder_ready()
+    except EmbedderNotReadyError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+
     if args.legacy:
         path, summary = build_me_via_council(
             budget_chars=args.budget_chars,
