@@ -4,7 +4,7 @@ Read pace: 145 wpm (~2.4 words/sec). Each line is sized for its segment with a b
 
 | Timecode | Screen action | Voiceover |
 |---|---|---|
-| 0:00–0:08 | CLI: `pip install` + `trinity-local install-mcp`. Overlay: "rides Claude / Gemini / Codex subs you already have." | "Trinity Local installs in one line and registers itself with the three CLIs you already pay for. No new subscription." |
+| 0:00–0:08 | CLI: `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh \| bash`. Overlay: "rides Claude / Gemini / Codex subs you already have." | "Trinity Local installs in one line and registers itself with the three CLIs you already pay for. No new subscription." |
 | 0:08–0:17 | Claude Code open. Vishi types a substantive multi-turn question about a codebase's architecture. | "Here's a real question for Claude — explain this codebase's architecture and what I'd refactor first. Claude answers." |
 | 0:17–0:25 | Claude finishes turn 2-3. Conversation visibly develops. | "Two more turns. Claude is doing real work now — building on its own answer, not starting over." |
 | 0:25–0:32 | Cut to terminal. Command: `trinity-local handoff gemini`. Header: "→ handed off to gemini — 3 prior turns from claude, 1.4s." | "Now watch this. One command. Hand the conversation to Gemini. Three prior turns travel across in under two seconds." |
