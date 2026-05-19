@@ -11,6 +11,12 @@
   cream BG, sage action color, Iowan Old Style serif headline,
   SF Pro Text body. Council input is a multi-line textarea so a
   real question fits.
+
+  When the user fires a council, the popup transitions to a status
+  panel that mirrors the launchpad's running-council surface:
+  rotating loading copy + per-member status chips + synthesis row,
+  fed by polling capture_host's in-process `get-council-status`
+  handler. See popup.js for the polling loop.
 -->
 <html lang="en">
 <head>
@@ -42,7 +48,7 @@
       font-size: 14px;
     }
     body {
-      width: 380px;
+      width: 440px;
       padding: 18px 18px 16px;
     }
     h1 {
@@ -54,9 +60,7 @@
       color: var(--text-primary);
       letter-spacing: -0.01em;
     }
-    .field-group {
-      margin-bottom: 14px;
-    }
+    .field-group { margin-bottom: 14px; }
     .field-group label {
       display: block;
       font-size: 12px;
@@ -84,9 +88,7 @@
       border-color: var(--action);
       box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.12);
     }
-    textarea#task::placeholder {
-      color: var(--text-muted);
-    }
+    textarea#task::placeholder { color: var(--text-muted); }
     .btn {
       display: inline-block;
       width: 100%;
@@ -104,6 +106,11 @@
     }
     .btn:hover { background: var(--action-hover); }
     .btn:disabled { opacity: 0.55; cursor: default; }
+    /* Panel-action buttons must not wrap their label mid-button —
+       "Open council page" is two words too long for the 380px popup
+       when split across two flex children, so the popup is widened
+       to 440px AND labels are kept single-line. */
+    .panel-actions .btn { white-space: nowrap; }
     .btn.secondary {
       background: transparent;
       color: var(--action);
@@ -131,6 +138,91 @@
       opacity: 0.6;
     }
 
+    /* Running-council status panel — mirrors the launchpad's running
+       surface inside the 380px popup. Rotating tip line on top, then a
+       row per member with a colored status dot, then the synthesis row.
+       Same vocabulary as the launchpad (Queued/Running/Done/Failed). */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 14px 12px;
+      position: relative;
+    }
+    .panel-close {
+      position: absolute;
+      top: 6px; right: 8px;
+      width: 24px; height: 24px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .panel-close:hover {
+      background: var(--bg-wash);
+      color: var(--text-primary);
+    }
+    .panel-title {
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.005em;
+    }
+    .panel-tip {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0 0 12px 0;
+      min-height: 18px;
+      font-style: italic;
+    }
+    .member-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      border-top: 1px solid rgba(215, 204, 185, 0.5);
+    }
+    .member-row:first-of-type { border-top: none; }
+    .member-row .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex: 0 0 8px;
+      background: var(--text-muted);
+    }
+    .member-row .dot.pending { background: #c8bca8; }
+    .member-row .dot.running {
+      background: var(--info);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .member-row .dot.done    { background: var(--success); }
+    .member-row .dot.failed  { background: var(--warning); }
+    .member-row .name { flex: 1 1 auto; color: var(--text-primary); }
+    .member-row .pill {
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .member-row .pill.done   { color: var(--success); }
+    .member-row .pill.failed { color: var(--warning); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.35; }
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .panel-actions .btn { flex: 1 1 0; }
+
     /* Setup card — shown when Native Messaging host missing or
        CLI not on PATH. Same visual language as the rest of the popup
        so the install-first experience doesn't feel like a different
@@ -151,6 +243,7 @@
       color: var(--text-primary);
       line-height: 1.45;
     }
+    #copy-setup-brief,
     #copy-setup-cmds { margin: 4px 0 0 0; }
     .setup-footer {
       font-size: 12px;
@@ -163,20 +256,40 @@
   </style>
 </head>
 <body>
-  <h1>Trinity Local</h1>
+  <div id="compose">
+    <h1>Trinity Local</h1>
 
-  <div class="field-group">
-    <label for="task">Run a quick council</label>
-    <textarea id="task" rows="2"
-              placeholder="Ask the same question across Claude, Codex, and Gemini. Chairman synthesizes in your voice."
-              autofocus></textarea>
+    <div class="field-group">
+      <label for="task">Run a quick council</label>
+      <textarea id="task" rows="2"
+                placeholder="Ask the same question across Claude, Codex, and Gemini. Chairman synthesizes in your voice."
+                autofocus></textarea>
+    </div>
+    <button class="btn" id="run-btn">Send to council</button>
+    <div class="status" id="status"></div>
+
+    <div class="divider"></div>
+
+    <button class="btn secondary" id="open-launchpad-btn">Open Trinity launchpad →</button>
   </div>
-  <button class="btn" id="run-btn">Send to council</button>
-  <div class="status" id="status"></div>
 
-  <div class="divider"></div>
-
-  <button class="btn secondary" id="open-launchpad-btn">Open Trinity launchpad →</button>
+  <!-- Status panel — hidden until a council launches. Replaces #compose.
+       Button labels mirror the launchpad's operation-actions exactly
+       (Open council page / Stop council / Dismiss when finished). The
+       ✕ in the corner is a popup-specific affordance — closes the
+       popup without stopping the council (which keeps running headless,
+       since we Popen'd with start_new_session). -->
+  <div id="status-panel" class="panel" style="display:none">
+    <button class="panel-close" id="panel-close-btn" title="Close popup (council keeps running)">×</button>
+    <div class="panel-title" id="panel-title">Council running</div>
+    <div class="panel-tip" id="panel-tip">Reticulating splines...</div>
+    <div id="member-rows"></div>
+    <div class="panel-actions">
+      <button class="btn secondary" id="panel-open-btn">Open council page</button>
+      <button class="btn secondary" id="panel-stop-btn">Stop council</button>
+      <button class="btn secondary" id="panel-dismiss-btn" style="display:none">Dismiss</button>
+    </div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

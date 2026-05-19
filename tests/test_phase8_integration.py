@@ -311,3 +311,50 @@ def test_chrome_extension_popup_action_kinds_match_allowlist():
             f"allowlist does not include it. "
             f"Allowlist: {sorted(ACTION_ALLOWLIST.keys())!r}"
         )
+
+
+def test_popup_setup_card_offers_paste_into_agent_brief():
+    """The popup's setup card (shown when Native Messaging isn't wired)
+    must offer a paste-into-Claude-Code / Claude-Desktop brief as the
+    PRIMARY install path — that's the non-technical-user entry point
+    the audience-expansion claim depends on.
+
+    Pins:
+      - "Copy install brief" button exists and is primary (not .secondary)
+      - "Copy shell commands" button exists for terminal users (secondary)
+      - The brief mentions Claude Code or Claude Desktop by name
+      - The brief includes the three install steps and the extension ID
+        placeholder so the agent has everything it needs
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    popup_js = (repo_root / "browser-extension" / "popup.js").read_text()
+
+    # Primary brief button (paste-into-agent path).
+    assert 'id: "copy-setup-brief"' in popup_js, (
+        "popup.js must define the 'copy-setup-brief' button — primary "
+        "non-technical-user install path."
+    )
+    # Secondary shell-commands button still available for terminal users.
+    assert 'id: "copy-setup-cmds"' in popup_js, (
+        "popup.js must keep the 'copy-setup-cmds' button as a secondary "
+        "affordance for terminal-native users."
+    )
+    # The shell button must be marked secondary so the brief is visibly
+    # the primary action.
+    assert 'class: "btn secondary",\n    id: "copy-setup-cmds"' in popup_js, (
+        "'copy-setup-cmds' must be styled as a secondary button so the "
+        "brief reads as the primary action."
+    )
+    # Brief content must reference Claude Code / Desktop explicitly so
+    # the user knows where to paste, and must include the three install
+    # steps the agent needs to run.
+    for required in (
+        "Claude Code",
+        "Claude Desktop",
+        "install-extension",
+        "trinity-local status",
+    ):
+        assert required in popup_js, (
+            f"Install brief missing {required!r} — agent or user can't "
+            f"complete setup without it."
+        )
