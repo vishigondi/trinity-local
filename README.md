@@ -7,7 +7,7 @@
 
 ## Your taste, ported.
 
-Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through your taste lens — distilled from your local transcripts (CLI sessions on disk plus web chats the Chrome extension captures *to* your machine from claude.ai / chatgpt.com / gemini.google.com) — and picks the answer YOU would have picked, not the generic one.
+Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through your taste lens — distilled from your own transcripts, on your machine — and picks the answer YOU would have picked, not the generic one.
 
 ![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
