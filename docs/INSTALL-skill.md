@@ -7,17 +7,18 @@
 ## What you get
 
 Type `/trinity` in Claude Code. The skill walks the install (if
-needed), runs `doctor`, registers the MCP server, ingests your
-existing CLI transcripts, dreams your core memories, and dispatches
-your first council. Every command Trinity runs is visible (Claude
-Code shows the bash invocations) and audited (`~/.trinity/audit.log`).
+needed), runs `status` (the pre-flight checks formerly in `doctor`),
+registers the MCP server, ingests your existing CLI transcripts,
+dreams your core memories, and dispatches your first council. Every
+command Trinity runs is visible (Claude Code shows the bash
+invocations) and audited (`~/.trinity/audit.log`).
 
 ## Install path
 
 One curl-bash. Trinity is a git clone, not a published package. The
 installer drops the skill at `~/.claude/skills/trinity/`, writes thin
 shell wrappers in `~/.local/bin/`, registers MCP in every harness it
-finds, and runs `doctor`:
+finds, and runs `status` to verify:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash

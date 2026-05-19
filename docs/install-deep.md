@@ -22,11 +22,11 @@ will tell you which are missing.
 
 ```bash
 # One-liner — clones to ~/.claude/skills/trinity/, drops wrappers in
-# ~/.local/bin/, registers MCP in every harness you have, runs doctor.
+# ~/.local/bin/, registers MCP in every harness you have, runs status.
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
 # Then, in Claude Code, just type:  /trinity
-# The skill walks you through doctor + ingest + dream + your first council.
+# The skill walks you through status + ingest + dream + your first council.
 ```
 
 The `/trinity` skill is the primary entry point; it teaches the full CLI
@@ -90,6 +90,6 @@ child process.
 `trinity-local install-mcp` also drops a `/trinity` skill into
 `~/.claude/skills/trinity/` (no curl, no clone — it's bundled in the
 wheel). Once the install-mcp step above ran, type `/trinity` at the Claude
-Code prompt to redo the install + doctor + first-council on a fresh
+Code prompt to redo the install + status + first-council on a fresh
 machine without touching your shell. The skill respects local edits — if
 you've customized the file, future `install-mcp` runs leave it alone.
