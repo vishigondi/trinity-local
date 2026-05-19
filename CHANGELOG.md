@@ -166,7 +166,7 @@ the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
 `dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
 the MCP tool list) are unchanged.
 
-**Pre-launch consistency sweep (iters #15-#79, 69 follow-on commits):**
+**Pre-launch consistency sweep (iters #15-#80, 70 follow-on commits):**
 
 The simplification pass above retired ~10 CLIs, renamed paths, and
 flipped brand framing — each of which scatters stale references
@@ -216,8 +216,42 @@ shape of drift recurring. Iters #62/#67/#71 added permanent guards
 for the iter #61/#65/#70 catch shapes (canonical-N subset, 6-surface
 test-count agreement, hero+sub across 5 surfaces). Iters #76/#77
 extracted meta-patterns + 3 higher-level architectural gaps into
-`docs/sweep-patterns.md` + `docs/architectural-gaps.md` for v1.7.5
-follow-up.
+`docs/sweep-patterns.md` + `docs/architectural-gaps.md`.
+
+**Architectural Gaps A/B/C shipped (commit eb0c06d, ahead of v1.7.5):**
+
+After iter #77's meta-analysis surfaced 3 structural fixes for the
+drift classes the 70-iter sweep was catching one-by-one, all three
+shipped pre-launch:
+
+- **Gap C — Doc-class frontmatter.** 55 classifiable docs now carry
+  `class: live | aspirational | historical | reference` YAML
+  frontmatter. `scripts/add_doc_class_frontmatter.py` bootstraps;
+  `tests/test_doc_class_frontmatter.py` validates (111 parametric
+  assertions). Implicit doc hierarchy → queryable property.
+- **Gap B — Retirement registry.** `src/trinity_local/retired_names.py`
+  declares 17 retirements as structured RetirementRecord data
+  (name, retired_at, commit, replacement, reason, kind,
+  artifact_persists). `tests/test_retired_names_registry.py` includes
+  a present-tense guard scanning 26 live docs for retired-name
+  references in code-context markers — the iter #68/#69 catch shape
+  promoted from manual review to automated guard.
+- **Gap A — Canonical-source renderer.** `scripts/render_docs.py`
+  extracts 5 canonical values (test_count, skipped_count,
+  mcp_tool_count, doc_consistency_guards, version) from authoritative
+  sources (pytest, mcp_server.py, pyproject.toml), then templates
+  them into docs via HTML-comment block syntax:
+  `<!-- canonical:test_count -->1431<!-- /canonical -->`. 7 surfaces
+  migrated to placeholders (claude.md ×3 + product-spec +
+  10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
+  scripts/render_docs.py` auto-syncs all surfaces from one
+  command — the 6-surfaces-agree guard becomes "did the placeholder
+  expand correctly" instead of multi-surface agreement.
+
+Per `docs/design-frame.md`, these are the structural answers to
+*"put signal in its channel"* (Gap A), *"enforce the boundaries"*
+(Gaps B + C), and *"self-correction built in"* (Gap A auto-bump).
+The 70-iter sweep was the cost of NOT having these.
 
 ## [v1.7.3 — share-workflow end-to-end] — 2026-05-17
 
