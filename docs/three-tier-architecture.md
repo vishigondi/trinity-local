@@ -95,7 +95,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. 1290 tests stay green.
+- `src/trinity_local/` unchanged. 1294 tests stay green (was 1290 at the floor's ratification; the consistency sweep added 4 net new tests through iter #58).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
