@@ -41,42 +41,54 @@ function el(tag, attrs = {}, ...children) {
 }
 
 function showSetupCard(reason) {
-  // Replace the action surface with first-run guidance. Build via
-  // safe DOM construction (no innerHTML) so the chrome.runtime.id
-  // string can never be interpolated as markup.
+  // Replace the action surface with first-run guidance. The popup is
+  // 320px wide — too narrow for shell commands inline. Solution: a
+  // single Copy button that puts both commands on the clipboard.
   const body = document.querySelector("body");
   while (body.firstChild) body.removeChild(body.firstChild);
 
   const extensionId = chrome.runtime.id;
-  const installCmd = "curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash";
+  const installCmd =
+    "curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash";
   const registerCmd = `trinity-local install-extension --extension-id ${extensionId}`;
+  const bothCmds = installCmd + "\n" + registerCmd;
 
   body.appendChild(el("h1", { text: "Trinity Local — setup needed" }));
   body.appendChild(el("p", { class: "setup-reason", text: reason }));
 
-  body.appendChild(el("p", { class: "setup-step" },
-    el("strong", { text: "1." }), " Install Trinity Local:"));
-  body.appendChild(el("pre", { class: "setup-cmd", text: installCmd }));
+  body.appendChild(el("p", { class: "setup-step", text:
+    "Install Trinity's CLI, then register this extension with it. " +
+    "Copy both commands and paste them in your terminal:"
+  }));
 
-  body.appendChild(el("p", { class: "setup-step" },
-    el("strong", { text: "2." }), " Register this Chrome extension with the local host:"));
-  body.appendChild(el("pre", { class: "setup-cmd", text: registerCmd }));
+  const copyBtn = el("button", {
+    class: "btn",
+    id: "copy-setup-cmds",
+    text: "Copy install commands",
+  });
+  body.appendChild(copyBtn);
 
-  body.appendChild(el("p", { class: "setup-step" },
-    el("strong", { text: "3." }), " Reload this popup. The launchpad opens after that."));
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(bothCmds);
+      copyBtn.textContent = "✓ Copied — paste in terminal";
+      copyBtn.disabled = true;
+    } catch {
+      copyBtn.textContent = "Clipboard blocked — see Setup link below";
+    }
+  });
+
+  body.appendChild(el("p", { class: "setup-step", text:
+    "After installing, reload this popup."
+  }));
 
   const footer = el("p", { class: "setup-footer" });
-  footer.appendChild(document.createTextNode(
-    "Trinity is local-first — the extension dispatches to a CLI on your " +
-    "machine via Native Messaging. No server, no listening port. See "
-  ));
   const link = el("a", {
     href: "https://github.com/vishigondi/trinity-local#install",
     target: "_blank",
-    text: "README",
+    text: "Setup details →",
   });
   footer.appendChild(link);
-  footer.appendChild(document.createTextNode(" for the full flow."));
   body.appendChild(footer);
 }
 
