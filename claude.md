@@ -659,6 +659,10 @@ diagram is either retired or written by a feature you haven't run yet.
 ```
 ~/.trinity/
 │
+│  ── Captured web chats (Chrome extension writes; ingest reads) ──
+├── conversations/                  # Native-Messaging captures from
+│   └── <provider>/<conv_id>.json   #   claude.ai / chatgpt.com / gemini.google.com
+│
 │  ── Entities (JSON-per-file) ────────────────────────────────────
 ├── todos/                          # Durable todo records
 ├── actions/                        # Pending action records
