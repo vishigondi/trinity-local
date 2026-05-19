@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 | | Trinity Local | promptfoo / Claude evals | OpenRouter | LangChain | LiteLLM | Continue.dev | Karpathy LLM Council |
 |---|---|---|---|---|---|---|---|
 | Data source | Your own prompts | Test fixtures you write | Your prompt per call | Code you wire up | Your prompt per call | IDE buffer + retrieval | Your prompt, not stored |

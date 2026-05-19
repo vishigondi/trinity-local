@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Show HN: Trinity Local
 
 ## TITLE

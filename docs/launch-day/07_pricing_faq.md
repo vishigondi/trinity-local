@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local — Pricing FAQ
 
 The five questions every HN reader is going to ask before they install. Honest answers, no hand-waving.

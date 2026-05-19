@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Trinity Frontend Architecture
 
 ## One-Liner

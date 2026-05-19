@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Launch copy — Trinity Local v1
 
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero

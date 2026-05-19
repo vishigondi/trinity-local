@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local — HN FAQ (launch tab, paste-ready)
 
 Twenty anticipated HN questions, ordered by axis. Each answer is 50–100 words and cites the actual file paths, council outcomes, or test counts you can verify in the repo.
@@ -104,4 +108,4 @@ Caught and fixed in v1.7 (P53). Real-corpus largest cluster of 3,408 prompts was
 
 ### Isn't this just a wrapper around three CLIs?
 
-The CLIs are the substrate — yes, Trinity dispatches via `claude`, `codex`, `gemini` subprocesses. The product is what gets *written back*: every council emits structured Routing JSON to `~/.trinity/council_outcomes/<id>.json` with `agreed_claims`, `disagreed_claims` (with `why_matters`), `provider_scores`, `routing_lesson`. That's a labeled training example the frontier labs *can't see* — Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. The personal routing table, the `/me` lens, the corpus-based eval harness all compound on this ledger. The wrapper does dispatch; the moat is the ledger. 1296 tests, 41 doc-consistency guards.
+The CLIs are the substrate — yes, Trinity dispatches via `claude`, `codex`, `gemini` subprocesses. The product is what gets *written back*: every council emits structured Routing JSON to `~/.trinity/council_outcomes/<id>.json` with `agreed_claims`, `disagreed_claims` (with `why_matters`), `provider_scores`, `routing_lesson`. That's a labeled training example the frontier labs *can't see* — Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. The personal routing table, the `/me` lens, the corpus-based eval harness all compound on this ledger. The wrapper does dispatch; the moat is the ledger. <!-- canonical:test_count -->1431<!-- /canonical --> tests, <!-- canonical:doc_consistency_guards -->41<!-- /canonical --> doc-consistency guards.

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Personalized Benchmark · YOUR corpus (v1.7 launch leaderboard)
 
 Generated 2026-05-15, judged against the rejection-signal corpus in

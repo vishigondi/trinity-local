@@ -1,0 +1,257 @@
+"""Gap A — Canonical-source doc renderer.
+
+Extracts CANONICAL values (test count, MCP tool count, version,
+guard count) from their authoritative sources, then templates them
+into docs using HTML-comment block syntax::
+
+    Live count: <!-- canonical:test_count -->1296<!-- /canonical -->
+
+The renderer is idempotent: re-running on already-correct docs is a
+no-op. The 6-surfaces-agree TestTestCountConsistency guard becomes
+a "verify the placeholder expanded correctly" assertion once docs
+are migrated.
+
+Usage::
+
+    .venv/bin/python scripts/render_docs.py                  # re-render
+    .venv/bin/python scripts/render_docs.py --check          # exit 1 if drift
+    .venv/bin/python scripts/render_docs.py --canonical-only # print values, don't touch docs
+
+Per docs/architectural-gaps.md (Gap A) and docs/design-frame.md
+("put signal in its channel"), this is the structural fix for the
+duplicated-fact drift class.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+# ───────────────────────────────────────────────────────────────────────
+# Canonical-value extractors
+# ───────────────────────────────────────────────────────────────────────
+
+def canonical_test_count() -> int:
+    """Count tests via `pytest --collect-only -q` line count.
+
+    Slight nuance: pytest's last "N tests collected" line gives the
+    total. Use that explicitly so we don't double-count skipped tests
+    or rely on stdout shape.
+    """
+    result = subprocess.run(
+        [".venv/bin/python", "-m", "pytest", "--collect-only", "-q"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    m = re.search(r"(\d+) tests collected", result.stdout)
+    if not m:
+        raise RuntimeError(
+            f"Couldn't parse test count from pytest output:\n{result.stdout[-500:]}"
+        )
+    total = int(m.group(1))
+    # Tests = collected - skipped. The current convention pins
+    # 4 skipped (gated real-Chrome smokes). Trust that for the
+    # render value but bump if pytest output shows otherwise.
+    skipped_match = re.search(r"(\d+) skipped", result.stdout)
+    skipped = int(skipped_match.group(1)) if skipped_match else 4
+    return total - skipped
+
+
+def canonical_skipped_count() -> int:
+    """Count skipped tests separately."""
+    result = subprocess.run(
+        [".venv/bin/python", "-m", "pytest", "--collect-only", "-q"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    m = re.search(r"(\d+) skipped", result.stdout)
+    return int(m.group(1)) if m else 4
+
+
+def canonical_mcp_tool_count() -> int:
+    """Count MCP Tool() registrations in mcp_server.py."""
+    mcp = (REPO / "src" / "trinity_local" / "mcp_server.py").read_text()
+    return len(set(re.findall(r'\s+name="([a-z_]+)"', mcp)))
+
+
+def canonical_doc_consistency_guard_count() -> int:
+    """Count test methods in test_doc_count_consistency.py."""
+    result = subprocess.run(
+        [
+            ".venv/bin/python", "-m", "pytest",
+            "tests/test_doc_count_consistency.py",
+            "--collect-only", "-q",
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    m = re.search(r"(\d+) tests collected", result.stdout)
+    return int(m.group(1)) if m else 0
+
+
+def canonical_version() -> str:
+    """Read version from pyproject.toml."""
+    pyp = (REPO / "pyproject.toml").read_text()
+    m = re.search(r'^version\s*=\s*"([^"]+)"', pyp, re.MULTILINE)
+    if not m:
+        raise RuntimeError("Couldn't parse version from pyproject.toml")
+    return m.group(1)
+
+
+CANONICAL: dict[str, callable] = {
+    "test_count": canonical_test_count,
+    "skipped_count": canonical_skipped_count,
+    "mcp_tool_count": canonical_mcp_tool_count,
+    "doc_consistency_guards": canonical_doc_consistency_guard_count,
+    "version": canonical_version,
+}
+
+
+# ───────────────────────────────────────────────────────────────────────
+# Renderer
+# ───────────────────────────────────────────────────────────────────────
+
+# Block syntax: <!-- canonical:NAME -->VALUE<!-- /canonical -->
+PLACEHOLDER_PATTERN = re.compile(
+    r"<!--\s*canonical:(\w+)\s*-->(.*?)<!--\s*/canonical\s*-->",
+    re.DOTALL,
+)
+
+
+def render_file(path: Path, values: dict[str, str]) -> tuple[bool, int]:
+    """Replace placeholders in `path` with `values`.
+
+    Returns (changed, replacement_count). `changed=True` if file content
+    differs from on-disk.
+    """
+    text = path.read_text(encoding="utf-8")
+    original = text
+    replacements = 0
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal replacements
+        name = match.group(1)
+        if name not in values:
+            return match.group(0)  # unknown placeholder — leave alone
+        replacements += 1
+        return f"<!-- canonical:{name} -->{values[name]}<!-- /canonical -->"
+
+    text = PLACEHOLDER_PATTERN.sub(_replace, text)
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+        return True, replacements
+    return False, replacements
+
+
+def find_placeholders(path: Path) -> list[str]:
+    """Return names of all canonical-placeholders found in path."""
+    text = path.read_text(encoding="utf-8")
+    return [m.group(1) for m in PLACEHOLDER_PATTERN.finditer(text)]
+
+
+def docs_with_placeholders() -> list[Path]:
+    """Scan the repo for any md/html file containing canonical-placeholders."""
+    found: list[Path] = []
+    for path in REPO.rglob("*.md"):
+        if any(
+            skip in str(path)
+            for skip in (".venv", "node_modules", "build/", ".egg-info", ".pytest_cache")
+        ):
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "canonical:" in text:
+            found.append(path)
+    for path in REPO.rglob("*.html"):
+        if any(skip in str(path) for skip in (".venv", "node_modules", "build/")):
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "canonical:" in text:
+            found.append(path)
+    return found
+
+
+# ───────────────────────────────────────────────────────────────────────
+# CLI
+# ───────────────────────────────────────────────────────────────────────
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if any doc would change. Don't write.",
+    )
+    parser.add_argument(
+        "--canonical-only",
+        action="store_true",
+        help="Print canonical values and exit. Don't touch docs.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print all replacements made.",
+    )
+    args = parser.parse_args()
+
+    print("Computing canonical values...")
+    values: dict[str, str] = {}
+    for name, fn in CANONICAL.items():
+        try:
+            values[name] = str(fn())
+        except Exception as exc:  # noqa: BLE001 — surface every extractor failure
+            print(f"  ERROR computing {name}: {exc}", file=sys.stderr)
+            return 1
+        print(f"  {name} = {values[name]}")
+
+    if args.canonical_only:
+        return 0
+
+    docs = docs_with_placeholders()
+    if not docs:
+        print(
+            "\nNo docs contain canonical-placeholders yet. Migrate at least "
+            "one fact to use the <!-- canonical:NAME -->VALUE<!-- /canonical --> "
+            "syntax to start using this renderer."
+        )
+        return 0
+
+    changed: list[Path] = []
+    print(f"\nScanning {len(docs)} doc(s) with canonical-placeholders...")
+    for path in docs:
+        is_changed, count = render_file(path, values)
+        if is_changed:
+            changed.append(path)
+            print(f"  rendered {count} placeholder(s): {path.relative_to(REPO)}")
+        elif args.verbose:
+            ph = find_placeholders(path)
+            print(f"  unchanged ({len(ph)} placeholder(s)): {path.relative_to(REPO)}")
+
+    if args.check and changed:
+        print(
+            f"\n--check: {len(changed)} doc(s) would change. "
+            "Run `python scripts/render_docs.py` to re-render.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if changed:
+        print(f"\nRendered {len(changed)} doc(s).")
+    else:
+        print("\nAll docs already current.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

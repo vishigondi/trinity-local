@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trust mode + audit log
 
 > Council-ratified by `council_c18f739a0234aa58` (2026-05-16). Phase 6

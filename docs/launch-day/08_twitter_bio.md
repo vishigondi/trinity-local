@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local — Twitter Bio Candidates
 
 ## Candidate 1

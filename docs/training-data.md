@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Training Data
 
 This file's content has moved to [`scale-plan.md` § Phase 9](./scale-plan.md#phase-9--tiny-coordinator-the-learned-router) — specifically §9.2 *Training data shape* and §9.3 *Training objective*.

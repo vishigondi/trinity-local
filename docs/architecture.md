@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local — architecture
 
 > Long-form companion to the README. The README covers what Trinity does

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Install Trinity (Skill tier — primary)
 
 > The skill IS the spec. `~/.claude/skills/trinity/SKILL.md` drives the

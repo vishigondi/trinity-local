@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Public-readiness execution plan
 
 > **Loop-executable.** Each item is one self-contained tick. Pick the

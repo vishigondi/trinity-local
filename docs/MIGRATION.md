@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Migration
 
 > Effective with the v1.0 launch wave. Existing installs keep working;

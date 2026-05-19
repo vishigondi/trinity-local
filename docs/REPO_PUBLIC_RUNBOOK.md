@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Repo-flip-public runbook
 
 > Status: ready to execute. Run top-to-bottom on T-0 morning. Everything

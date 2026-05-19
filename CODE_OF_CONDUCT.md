@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Code of Conduct
 
 Trinity Local is a small, focused open-source project. Our code of conduct is short:

@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # A design frame for Trinity's drift-resistance work
 
 > Applied to Trinity 2026-05-19 after iter #77's architectural-gaps

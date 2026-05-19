@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity for Teams — vendor-neutral agent memory
 
 > Private beta. The single-user Trinity Local is MIT and free forever; this

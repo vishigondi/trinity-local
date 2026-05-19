@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Install Trinity (Python library access — power-user path)
 
 > The primary install path is the curl-bash installer in

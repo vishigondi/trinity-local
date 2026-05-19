@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Contributing to Trinity Local
 
 Welcome. Trinity is local-first by architecture and PR-driven by community. The most

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local
 
 [![tests](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml/badge.svg)](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml)

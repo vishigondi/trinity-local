@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # AGENTS.md
 
 This project uses [`claude.md`](./claude.md) as the canonical agent context.

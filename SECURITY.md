@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Security policy
 
 Trinity Local is local-first by architecture. Most "security" in our threat model is

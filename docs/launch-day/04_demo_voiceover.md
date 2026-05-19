@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # 60-second handoff demo — voiceover script
 
 Read pace: 145 wpm (~2.4 words/sec). Each line is sized for its segment with a beat of silence at start and end. Read flat and confident — let the terminal do the drama.

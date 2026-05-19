@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Your lens — what `dream` generates from your prompts
 
 > Long-form companion to the README. The README's "Your taste, ported"

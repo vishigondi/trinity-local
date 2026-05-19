@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Trinity v1.5 — locked next-trajectory spec
 
 > Status: **spec only, follows v1.0 ship.** Target: **ship June 3, 2026.**

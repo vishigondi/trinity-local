@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Install — deep dive
 
 > The README has the one-line install. This file is the long-form

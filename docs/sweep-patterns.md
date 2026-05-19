@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Meta-patterns from the pre-launch consistency sweep
 
 > Extracted 2026-05-19 across iters #15–#75 (62 commits, 41 doc-consistency

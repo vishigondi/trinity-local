@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local v1.7 — Launch Tweet Thread
 
 1. Tweet 1 (272/280):

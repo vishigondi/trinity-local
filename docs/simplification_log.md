@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Simplification log
 
 Working memory for the simplify-app loop. Each entry records one

@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Launcher Patterns
 
 This note captures the closest product patterns to `trinity-local`'s planned
@@ -103,24 +107,29 @@ What to copy:
 
 ## Conclusion
 
-The shipped architecture is:
+The shipped v1 bridge and the next launch target are:
 
-1. **Chrome-extension launch is the non-coder path:** the Trinity Chrome
+1. **Chrome-extension launch is the v1 bridge:** the Trinity Chrome
    extension hosts the launchpad — click the toolbar icon to open the
    local launchpad/review cockpit without a terminal window. Native
    Messaging carries launchpad button clicks back to `trinity-local`.
    The earlier `Trinity.app` osacompile wrapper was retired pre-launch
    in favor of the cross-platform Chrome extension.
-2. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click dispatches `launch_council` through the Chrome extension's Native Messaging host.
-3. Trinity writes `PromptBundle` and `CouncilOutcome` files.
-4. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
-5. Launch actions post a JSON message to `trinity-local-capture-host` (the Native Messaging endpoint registered by `install-extension`).
-6. The capture host spawns the local CLI as a one-shot subprocess and exits when the council completes — no persistent process. (The earlier macOS Shortcut path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
-7. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
-8. **Mobile starts as review links**: the phone opens a web/deep link to a
+2. **Cowork-style desktop launch is the non-coder target:** the durable
+   acquisition surface is a real desktop app with an app icon, menu bar,
+   hotkey, first-run setup/status UI, and a local cockpit over
+   `~/.trinity/`. The extension remains browser capture and dispatch
+   plumbing; it is not the long-term app shell.
+3. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click dispatches `launch_council` through the Chrome extension's Native Messaging host.
+4. Trinity writes `PromptBundle` and `CouncilOutcome` files.
+5. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
+6. Launch actions post a JSON message to `trinity-local-capture-host` (the Native Messaging endpoint registered by `install-extension`).
+7. The capture host spawns the local CLI as a one-shot subprocess and exits when the council completes — no persistent process. (The earlier macOS Shortcut path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
+8. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
+9. **Mobile starts as review links**: the phone opens a web/deep link to a
    council review page, then writes ratings through the paired desktop when
    available.
-9. **Tool-triggered ingest replaces watchers**: `ingest-recent` is fired by the Chrome extension and by MCP `ask` with a 1s deadline; the legacy `watch-once`/`watch-loop` CLIs were retired pre-launch with the daemon subsystem.
+10. **Tool-triggered ingest replaces watchers**: `ingest-recent` is fired by the Chrome extension and by MCP `ask` with a 1s deadline; the legacy `watch-once`/`watch-loop` CLIs were retired pre-launch with the daemon subsystem.
 
 ## Watcher layer (optional)
 

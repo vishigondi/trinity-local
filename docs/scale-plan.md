@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Trinity Local: Scale to Every Claude Code User
 
 > **Status (2026-05-11):** v1.0 ships May 13–15 — see [`../CHANGELOG.md`](../CHANGELOG.md)

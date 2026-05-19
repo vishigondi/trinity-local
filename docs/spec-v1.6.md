@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Trinity v1.6 — Browser-side conversation capture (no server, no daemon)
 
 > Status: **spec only, follows v1.5 ship.** Target: **2-week implementation

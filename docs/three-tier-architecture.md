@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Three-tier architecture
 
 > Ratified 2026-05-16 by `council_ff3da1fa84906791` (chairman codex, winner claude).

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # MCP Registry Submission Packets
 
 > **Status:** ready-to-use marketing copy for task #114 (Launch-arc

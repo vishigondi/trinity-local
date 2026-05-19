@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Why I stopped trusting any one AI lab with my context
 
 > **Pre-publication draft. NOT a repo deliverable.** Lives here for collaborative

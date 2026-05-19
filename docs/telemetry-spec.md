@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Trinity Telemetry Spec
 
 ## Goal

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # HN First-Comment FAQ — anticipated top 5 objections
 
 Voice: technical, concrete, file paths and numbers over claims. Vishi pastes one or more of these as replies inline.

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Preference Corpus Spec (v1)
 
 > **Status:** v1 — locked May 14, 2026. Other tools (Aider, Cline, Continue, custom MCP servers) can adopt this schema to interoperate with Trinity's preference-corpus surface. The format is JSON-Schema-validated; canonical schemas live under [`schemas/`](../schemas/).

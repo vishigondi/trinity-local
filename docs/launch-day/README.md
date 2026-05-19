@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Launch-day artifacts (Trinity v1.7)
 
 Paste-ready text for the v1.7 launch — generated 2026-05-15 by 10

@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Changelog
 
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);

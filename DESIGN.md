@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Design System
 
 ## Overview

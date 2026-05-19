@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity v1.0 — locked launch spec
 
 > Status: **locked for May 13–15 ship.** Schema, tagline, MCP surface, and folder layout all

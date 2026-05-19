@@ -64,41 +64,49 @@ class TestTestCountConsistency:
     """
 
     def test_four_surfaces_agree(self):
+        # The patterns tolerate both:
+        #   (a) bare digits  "1296 tests passing"
+        #   (b) canonical placeholders "<!-- canonical:test_count -->1296<!-- /canonical --> tests passing"
+        # Gap A's render_docs.py auto-syncs (b). Existing surfaces still
+        # using (a) keep working until they're migrated.
+        CANON = r"(?:<!--\s*canonical:\w+\s*-->)?"
+        ENDCANON = r"(?:<!--\s*/canonical\s*-->)?"
+
         # Surface A: claude.md Status block — "N tests passing"
         status_count = _extract(
             CLAUDE_MD,
-            r"(\d+) tests passing",
+            rf"{CANON}(\d+){ENDCANON}\s*tests passing",
         )
         # Surface B: claude.md Verified status — "pytest -q — **N passed**"
         verified_count = _extract(
             CLAUDE_MD,
-            r"pytest -q.{0,5}\*\*(\d+) passed\*\*",
+            rf"pytest -q.{{0,5}}\*\*{CANON}(\d+){ENDCANON}\s*passed\*\*",
         )
         # Surface C: docs/product-spec.md item 11 — "Test suite: N passing"
         spec_count = _extract(
             PRODUCT_SPEC,
-            r"Test suite:\s*(\d+) passing",
+            rf"Test suite:\s*{CANON}(\d+){ENDCANON}\s*passing",
         )
         # Surface D: docs/launch-day/10_hn_faq_full.md closing claim —
         # "N tests, M doc-consistency guards" (the launch-day "trust us"
         # numbers a reader sees on the HN FAQ page).
         hn_faq_count = _extract(
             REPO / "docs" / "launch-day" / "10_hn_faq_full.md",
-            r"(\d+) tests,\s*\d+ doc-consistency guards",
+            rf"{CANON}(\d+){ENDCANON}\s*tests,\s*{CANON}\d+{ENDCANON}\s*doc-consistency guards",
         )
         # Surface E: docs/launch-package.md T-0 runbook — "pytest -q
         # # ~N tests". The literal copy-paste runbook a launch operator
         # follows. Caught in iter #65 (was 1402, real was 1294 → 1296).
         launch_package_count = _extract(
             REPO / "docs" / "launch-package.md",
-            r"pytest -q\s+#\s*~(\d+) tests",
+            rf"pytest -q\s+#\s*~{CANON}(\d+){ENDCANON}\s*tests",
         )
         # Surface F: docs/LAUNCH_CHECKLIST.md "Done — ready to ship"
         # header — "(N tests passing + 4 skipped, M doc-consistency
         # guards green". Caught in iter #66 (was 1372, real was 1296).
         launch_checklist_count = _extract(
             REPO / "docs" / "LAUNCH_CHECKLIST.md",
-            r"\((\d+) tests passing \+ 4 skipped",
+            rf"\({CANON}(\d+){ENDCANON}\s*tests passing \+\s*{CANON}\d+{ENDCANON}\s*skipped",
         )
 
         # All six must be present.
@@ -142,7 +150,11 @@ class TestTestCountConsistency:
         when convenient — that's the load-bearing assertion.
         """
         FLOOR = 1280  # current count is 1293 after Pass A-BB simplification; floor allows ≤13 deletions
-        status_count = _extract(CLAUDE_MD, r"(\d+) tests passing")
+        # Tolerate canonical-placeholder wrapping (per Gap A renderer).
+        status_count = _extract(
+            CLAUDE_MD,
+            r"(?:<!--\s*canonical:\w+\s*-->)?(\d+)(?:<!--\s*/canonical\s*-->)?\s*tests passing",
+        )
         assert status_count is not None
         assert int(status_count) >= FLOOR, (
             f"claude.md status block claims '{status_count} tests passing' "

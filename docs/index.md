@@ -1,6 +1,7 @@
 ---
 layout: home
 title: "Trinity Local — your taste, ported"
+class: live
 ---
 
 # Trinity Local

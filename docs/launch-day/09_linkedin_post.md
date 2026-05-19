@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 A few months ago I caught myself doing the same thing for the fourth time in an hour: pasting a long context block from Claude Code into a ChatGPT tab, then into a Gemini tab, then triangulating which answer to trust. I have three subscriptions and I was still acting as the integration layer between them. That stopped feeling like a workflow problem and started feeling like a structural one.
 
 The structural part is the interesting bit for anyone building agents right now. Anthropic isn't allowed to recommend ChatGPT. OpenAI isn't allowed to recommend Claude. Google can't read either of their transcripts. The three labs you trust most are commercially prevented from helping you use a competitor — which means cross-provider continuity, cross-provider memory, cross-provider routing can only ship from a layer that sits *above* the labs. Not as a research opinion. As a contract law observation.

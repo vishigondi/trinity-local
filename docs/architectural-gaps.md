@@ -1,3 +1,7 @@
+---
+class: aspirational
+---
+
 # Architectural gaps surfaced by the 62-iter doc sweep
 
 > Higher-level observations from looking at claude.md's principles #1–#21

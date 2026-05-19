@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Trinity v2 — SUNSET (superseded by v1.5)
 
 > ## ⚠️ Status: superseded by `docs/spec-v1.5.md` as of 2026-05-11.

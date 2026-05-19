@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Install Trinity (Chrome Extension — Tier 3, optional)
 
 > The Chrome extension is the optional third tier. It does two things
