@@ -5,7 +5,12 @@ import json
 from .design_system import render_html_footer, render_html_head
 from .launchpad_runtime import launchpad_runtime_js
 
-PETITE_VUE_MODULE = "./vendor/petite-vue.es.js"
+# IIFE build (derived at vendor-publish time). The ES module form
+# (`type="module"` + `import { createApp }`) silently breaks on file://
+# in Chrome — every file URL is its own origin so the import fails CORS
+# and the page renders raw `{{ }}` Vue templates. See
+# trinity_local.vendor._wrap_petite_vue_as_iife for the transformation.
+PETITE_VUE_IIFE = "./vendor/petite-vue.iife.js"
 CHART_JS_SRC = "./vendor/chart.umd.min.js"
 
 
@@ -930,6 +935,48 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Council tier card — surfaces the 1 → 2 → 3 upsell.
+           "Works with one provider, adds disagreement with two, full
+           council with three." Dismisses when all three are installed
+           (tier == 3). Mirrors the audience-expansion claim landed in
+           the PATH-filter commit: the user can start a council with
+           whichever providers they have, and the card pitches the next
+           free-tier add. -->
+      <section
+        class="card"
+        v-if="pageData.councilTier && pageData.councilTier.show && pageData.councilTier.nextStep"
+        style="border-left: 3px solid #2d6a4f; background: rgba(45, 106, 79, 0.05);"
+      >
+        <div class="eyebrow" style="color: #2d6a4f;">
+          <span v-if="pageData.councilTier.tier === 1">Add a 2nd provider</span>
+          <span v-else-if="pageData.councilTier.tier === 2">Complete the council</span>
+          <span v-else>Install a council provider</span>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          {{{{ pageData.councilTier.headline }}}}
+        </h2>
+        <p class="meta" style="margin-top: 8px;">
+          {{{{ pageData.councilTier.nextStep.value }}}}
+          Every council provider has a free tier — no extra credits required.
+        </p>
+        <div class="provider-command" style="margin-top: 10px;">
+          <code>{{{{ pageData.councilTier.nextStep.installCommand }}}}</code>
+          <button
+            type="button"
+            class="icon-action"
+            @click="copyText(pageData.councilTier.nextStep.installCommand, 'tier-' + pageData.councilTier.nextStep.provider)"
+            title="Copy install command"
+            aria-label="Copy install command"
+          >
+            <span v-if="copiedKey === 'tier-' + pageData.councilTier.nextStep.provider">✓</span>
+            <span v-else>⧉</span>
+          </button>
+        </div>
+        <p class="meta" style="margin-top: 8px; font-size: 12px; opacity: 0.7;">
+          After installing, reload this page — Trinity picks up new providers automatically.
+        </p>
+      </section>
+
       <!-- Phase 4 dispatch banner — single global banner that opens
            when a click hits tier 3 (no extension + no Shortcut) or when
            the extension is present but install-extension wasn't run.
@@ -1664,8 +1711,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
   </main>
 
   <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
-  <script type="module">
-    import {{ createApp }} from '{PETITE_VUE_MODULE}';
+  <script src="{PETITE_VUE_IIFE}"></script>
+  <script>
+    const {{ createApp }} = window.__TRINITY_VUE__;
 
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 

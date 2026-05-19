@@ -334,6 +334,98 @@ def _provider_health_data() -> dict[str, object]:
     }
 
 
+# Canonical council providers, in chairman-preference order. Mirror of
+# config.CANONICAL_COUNCIL_PROVIDERS — re-declared at module level so
+# the tier-card renderer doesn't reach into config every render.
+_TIER_PROVIDERS: tuple[str, ...] = ("claude", "codex", "gemini")
+
+_TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
+    # provider -> (display name, install command, value proposition)
+    "claude": (
+        "Claude Code",
+        "curl -fsSL https://claude.ai/install.sh | bash",
+        "Anchor voice — drives the chairman synthesis by default.",
+    ),
+    "codex": (
+        "Codex CLI",
+        "npm install -g @openai/codex && codex --login",
+        "Adversarial second voice — surfaces real disagreement.",
+    ),
+    "gemini": (
+        "Gemini CLI",
+        "npm install -g @google/gemini-cli && gemini",
+        "Long-context third voice — completes the canonical council.",
+    ),
+}
+
+
+def _council_tier_status() -> dict[str, object]:
+    """The audience-expansion tier card data.
+
+    Pillar of the "works with 1, sells the other two" pitch: shows the
+    user where they are on the 1 → 2 → 3 ladder and what the next
+    free-tier add unlocks.
+
+    Returned shape:
+      tier:           1 | 2 | 3  — number of canonical providers on PATH
+      installed:      [provider names that have a binary on PATH]
+      missing:        [{provider, label, installCommand, value} for missing]
+      headline:       short status line for the card header
+      nextStep:       single next provider to pitch, None when tier == 3
+
+    Tier card UI:
+      tier 0 → "Install a Claude-compatible CLI to start" (rare; cold install)
+      tier 1 → "You have <X>. Add <Y> for a 2nd voice."
+      tier 2 → "You have <X> + <Y>. Add <Z> for the full council."
+      tier 3 → card hidden (all installed).
+    """
+    import shutil
+
+    installed: list[str] = []
+    missing: list[dict[str, str]] = []
+    for provider in _TIER_PROVIDERS:
+        # Each canonical provider's binary name matches the provider key
+        # by convention. shutil.which is fast and what the council
+        # runner uses too — same source of truth.
+        if shutil.which(provider) is not None:
+            installed.append(provider)
+        else:
+            label, cmd, value = _TIER_INSTALL_HELP[provider]
+            missing.append({
+                "provider": provider,
+                "label": label,
+                "installCommand": cmd,
+                "value": value,
+            })
+
+    tier = len(installed)
+    next_step = missing[0] if missing else None
+
+    installed_labels = [_TIER_INSTALL_HELP[p][0] for p in installed]
+    if tier == 0:
+        headline = "Install a council provider to get started."
+    elif tier == 1:
+        headline = f"You have {installed_labels[0]}. Add one more for cross-model disagreement."
+    elif tier == 2:
+        joined = " + ".join(installed_labels)
+        headline = f"You have {joined}. One more provider completes the canonical council."
+    else:
+        headline = "Full canonical council — all three providers installed."
+
+    return {
+        "tier": tier,
+        "installed": installed,
+        "missing": missing,
+        "headline": headline,
+        "nextStep": next_step,
+        # The card renders only when 0 < tier < 3. Tier 0 is rare
+        # (truly cold install) — surfacing the message is still
+        # useful but uses a different visual treatment. Tier 3
+        # hides the card entirely.
+        "show": 0 <= tier < 3,
+    }
+
+
 def _active_launchpad_operation() -> dict[str, object] | None:
     candidates: list[dict[str, object]] = []
     for path in council_status_dir().glob("council_status_*.json"):
@@ -475,6 +567,7 @@ def build_page_data(
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
     provider_health = _provider_health_data()
+    council_tier = _council_tier_status()
     active_operation = _active_launchpad_operation()
     personal_routing = _load_personal_routing_table()
     benchmark_providers = list(next(iter(global_benchmarks.values()))["models"].keys()) if global_benchmarks else []
@@ -498,6 +591,7 @@ def build_page_data(
         "telemetry": telemetry,
         "settingsLinks": settings_links,
         "providerHealth": provider_health,
+        "councilTier": council_tier,
         "eloChart": chart_data,
         "globalBenchmarks": global_benchmarks,
         "benchmarkProviders": benchmark_providers,
