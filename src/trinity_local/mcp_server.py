@@ -192,11 +192,12 @@ async def handle_list_tools() -> list[Tool]:
         Tool(
             name="get_persona",
             description=(
-                "Return the user's /me profile — a markdown doc built by a chairman call over "
-                "sampled prompt history (the user's actual conversations across providers). Pull "
-                "this once at session start and use it as latent context to tailor responses, "
+                "Return the user's lens — paired tensions distilled by a chairman call over "
+                "the user's prompt history across providers (lives at `~/.trinity/memories/lens.md`). "
+                "Pull this once at session start and use it as latent context to tailor responses, "
                 "terseness, vocabulary, and standing decisions to THIS user. Empty string when not "
-                "built — run `trinity-local me-build` to (re)build."
+                "built — run `trinity-local lens-build` to (re)build, or `trinity-local dream` for "
+                "the full memory-rebuild pass."
             ),
             inputSchema={"type": "object", "properties": {}},
         ),
@@ -204,7 +205,7 @@ async def handle_list_tools() -> list[Tool]:
             name="get_picks",
             description=(
                 "Return the user's extracted routing patterns from "
-                "`~/.trinity/cortex/routing_patterns.json` — the cortex layer's "
+                "`~/.trinity/scoreboard/picks.json` — the cortex layer's "
                 "consolidated knowledge across past councils. Per-basin: which "
                 "provider wins, why, failure modes per loser, successful prompt "
                 "templates, and a system-computed trust_score (6 components, "
