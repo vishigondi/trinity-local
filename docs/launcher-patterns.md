@@ -111,16 +111,16 @@ The shipped architecture is:
    Messaging carries launchpad button clicks back to `trinity-local`.
    The earlier `Trinity.app` osacompile wrapper was retired pre-launch
    in favor of the cross-platform Chrome extension.
-2. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click fires `launch_council` via Shortcut.
-3. Trinity writes `TaskRecord`, `PromptBundle`, and `CouncilOutcome` files.
+2. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click dispatches `launch_council` through the Chrome extension's Native Messaging host.
+3. Trinity writes `PromptBundle` and `CouncilOutcome` files.
 4. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
-5. Launch actions use `shortcuts://run-shortcut?...`.
-6. A single macOS Shortcut named `Trinity Dispatch` executes the local command via `~/.trinity/bin/trinity-dispatch`.
+5. Launch actions post a JSON message to `trinity-local-capture-host` (the Native Messaging endpoint registered by `install-extension`).
+6. The capture host spawns the local CLI as a one-shot subprocess and exits when the council completes — no persistent process. (The earlier macOS Shortcut path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
 7. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).
 8. **Mobile starts as review links**: the phone opens a web/deep link to a
    council review page, then writes ratings through the paired desktop when
    available.
-9. **Watchers are secondary** (`watch-once`, `watch-loop`) — opt-in for users who want background suggestion of council-worthy prompts. The primary path doesn't require them.
+9. **Tool-triggered ingest replaces watchers**: `ingest-recent` is fired by the Chrome extension and by MCP `ask` with a 1s deadline; the legacy `watch-once`/`watch-loop` CLIs were retired pre-launch with the daemon subsystem.
 
 ## Watcher layer (optional)
 

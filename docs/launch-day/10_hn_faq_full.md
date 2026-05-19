@@ -80,7 +80,7 @@ Trinity still works — councils degrade to whatever members you have authentica
 
 ### Windows / Linux support?
 
-macOS is the v1.0 supported surface for the legacy macOS Shortcuts dispatch path (`~/.trinity/bin/trinity-dispatch`) and the demo screencast. The Python core is platform-agnostic and runs on Linux today (CLI commands, MCP server, embeddings, lens-build all work). The cross-platform launchpad host is the **Chrome extension** — `install-extension` works on macOS, Linux, and Windows; Chrome's Native Messaging spawns `trinity-local-capture-host` on demand, same shape on all three OSes. (Earlier plan named `Trinity.app` / `install-app` as the macOS launchpad host; retired pre-launch in favor of the Chrome extension so non-coders on every OS get the same surface.)
+The Python core is platform-agnostic and runs on macOS + Linux today (CLI commands, MCP server, embeddings, lens-build all work). The cross-platform launchpad host is the **Chrome extension** — `install-extension` works on macOS, Linux, and Windows; Chrome's Native Messaging spawns `trinity-local-capture-host` on demand, same shape on all three OSes. The demo screencast was recorded on macOS but every step works identically on Linux through the same extension. (Earlier plans named `Trinity.app` / `install-app` as the macOS launchpad host and used a macOS Shortcut → `~/.trinity/bin/trinity-dispatch` dispatch path; both retired pre-launch in favor of the Chrome extension so non-coders on every OS get the same surface.)
 
 ### Single-user vs teams — what changes?
 
