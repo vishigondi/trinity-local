@@ -208,7 +208,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 8. **`lens-build` IS a council.** Embedding-MMR sampling picks ~80 quality-weighted diverse prompts; chairman synthesizes 5-section `/lens.md` (recurring topics, vocabulary, implicit rejections, cross-domain analogies, abstract lenses).
 9. **Streaming live council page + cherry-pick chips.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing. Refinement directive ("↳ <text>") surfaces in the eyebrow row for any round carrying `outcome.metadata.user_refinement`. Each completed member card carries a `Quote ↓` chip that appends `> [Provider]: <text>` to the refinement input — multi-quote stacks, the user types the merge directive on top; chairman still does synthesis, only the input UX changes. Solves the hand-rolled cherry-pick flow observed on `bundle_42f8cea9c9e705e5` (Gemini's "Own your context" merged with Claude's response).
 10. **v1.5 cortex layer (Week 2 shipped, refined post-launch).** `trinity-local consolidate` extracts routing patterns per basin (chairman-classified `task_type`) via flagship call → writes `~/.trinity/cortex/routing_patterns.json`. Each pattern carries a **structured geometric prior** of the basin: geometric median (Weiszfeld iteration, robust under L1), coherence score, manifold dim, bimodality flag (excess kurtosis on first-PC, requires N≥10), and typicality-ordered outcomes. The flagship extraction prompt is *prepended* with a one-paragraph shape description so the LLM does rule-extraction on structure instead of geometry-in-language. `trust_score` has 5 components (n_episodes / consistency / recency / diversity / coherence; weighted geometric mean) — coherence catches "confident rule on noisy basin." Wires into `ask` query hot-path in Week 3 after human calibration gate.
-11. **Test suite: 1294 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib) with direct property-based regression tests in `test_cortex_geometry.py` covering Weiszfeld L1-outlier robustness, mean-cosine identity/antipodal, participation-ratio dimensionality, and excess-kurtosis bimodality thresholds. `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 33-surface browser smoke gate green (includes the memory viewer surfaces 14a/14b — chip-link presence + click-through render — the memory-health drift-surfacing row at Surface 15, the per-file health banner that travels into the viewer at Surface 16, the picks-Reader one-click veto chip at Surface 17, the persistent rebuild chip in viewer headers at Surface 18, the topic-graph launch-council chip at Surface 19, the per-representative replay chip at Surface 20, the topology→picks centroid-matched cross-link at Surface 21, the pick-basin SVG node styling at Surface 22, the picks→topology cross-link with ?basin= deep-link handling at Surface 23, the routing→topology chip that completes the routing/picks/topology cross-link triangle at Surface 24, the launchpad recent-card → topology chip at Surface 25, the cortex picks card → topology chip at Surface 26, the lens card → basins_spanned chips at Surface 27, and the stale-basin banner for `?basin=` mismatches at Surface 28).
+11. **Test suite: 1296 passing.** Cortex consolidation (geometric median + coherence + bimodality + bimodal cortex fall-through + chairman-audit-mode); cortex math factored into `cortex_geometry.py` (dependency-free stdlib) with direct property-based regression tests in `test_cortex_geometry.py` covering Weiszfeld L1-outlier robustness, mean-cosine identity/antipodal, participation-ratio dimensionality, and excess-kurtosis bimodality thresholds. `ask` orchestration + MCP handler, tool-triggered incremental ingest, HF offline pinning, user-verdict-weighted personal routing table, sigmoid-blended chairman picker (cold start → personalization), launchpad personalization-% + Health columns. Plus the v1.0 base. 33-surface browser smoke gate green (includes the memory viewer surfaces 14a/14b — chip-link presence + click-through render — the memory-health drift-surfacing row at Surface 15, the per-file health banner that travels into the viewer at Surface 16, the picks-Reader one-click veto chip at Surface 17, the persistent rebuild chip in viewer headers at Surface 18, the topic-graph launch-council chip at Surface 19, the per-representative replay chip at Surface 20, the topology→picks centroid-matched cross-link at Surface 21, the pick-basin SVG node styling at Surface 22, the picks→topology cross-link with ?basin= deep-link handling at Surface 23, the routing→topology chip that completes the routing/picks/topology cross-link triangle at Surface 24, the launchpad recent-card → topology chip at Surface 25, the cortex picks card → topology chip at Surface 26, the lens card → basins_spanned chips at Surface 27, and the stale-basin banner for `?basin=` mismatches at Surface 28).
 
 ---
 
@@ -254,11 +254,11 @@ Why this order:
 
 ### Distribution
 
-1. **Chrome-extension launch for non-coders** — the Trinity Chrome extension is
-   the visible launchpad host after setup: click the toolbar icon, ask, review,
-   rate. The CLI remains the engine, not the required daily launch gesture.
-   (Earlier plan named `Trinity.app`; retired pre-launch in favor of the
-   cross-platform Chrome extension.)
+1. **Cowork-style desktop launch for non-coders** — the durable acquisition
+   surface is a real desktop app with an app icon, menu bar entry, hotkey, and
+   setup/status UI. The CLI remains the engine, not the required daily launch
+   gesture. The Chrome extension is the v1 bridge for browser capture and
+   launchpad dispatch while the desktop cockpit is built.
 2. **GitHub repo** — `curl -fsSL .../install.sh | bash` clones the repo into `~/.claude/skills/trinity/` and wires everything. Contributors `pip install -e .` from a clone for the editable dev path.
 3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
 4. **Word of mouth** — the multi-CLI power-user community is small and tight.
@@ -295,9 +295,12 @@ Five workstreams that compound during the consumer-AI land-grab phase
    today has lifetime value once subscriptions tighten. Legitimate
    FOMO because it's true.
 
-Distribution correction (2026-05-14): for non-coders, Trinity must feel like a
-desktop app, not a terminal tool. Mobile should start as a review-link companion:
-open the web review page, rate the winner, and feed the same ledger.
+Distribution correction (2026-05-14, revised 2026-05-19): for non-coders,
+Trinity must launch like a desktop app, Cowork-style: app icon, menu bar entry,
+hotkey, and setup/status UI over the same local engine. The Chrome extension is
+the v1 bridge for capture and launchpad dispatch, not the long-term cockpit.
+Mobile starts as a review-link companion: open the web/deep review link, rate the
+winner, mark bad picks, and feed the same ledger through the paired desktop.
 
 The cron loop should prefer ticks that advance one of these workstreams
 over internal refactoring during the launch phase.
