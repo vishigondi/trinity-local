@@ -122,8 +122,11 @@ trinity-local install-extension --extension-id <ID>
 ```
 
 After step 2 every click goes through tier 1. The Shortcut never
-fires unless the extension fails. You can keep `shortcut-install` as
-a safety net or drop it.
+fires unless the extension fails. You can keep your existing macOS
+Shortcut around as a safety net — but note that the `shortcut-install`
+CLI no longer exists (retired pre-launch in commit 53db635, per the
+section below); you can't reinstall the Shortcut from scratch, only
+preserve what's already there.
 
 ### Linux
 
