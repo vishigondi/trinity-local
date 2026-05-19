@@ -560,7 +560,7 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface after pre-launch simplification (Passes A–BB collapsed task/bundle/launch/watch/distill/cache/depth/metric/trust/shortcut/council-last/auto-chain/auto-open). 16 user-facing command modules; 10 more (`bootstrap_pairs`, `depth`, `distill`, `helpers`, `ingest`, `tasks`, `trust`, `watch`'s legacy entry points, `shortcuts_integration`) survive as importable utilities for tests + internal callers but no longer register CLIs:
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface after pre-launch simplification (Passes A–BB collapsed task/bundle/launch/watch/distill/cache/depth/metric/trust/shortcut/council-last/auto-chain/auto-open). 19 user-facing command modules (18 in `CORE_COMMAND_MODULES` + `install` in `OPTIONAL_COMMAND_MODULES`); 8 more (`bootstrap_pairs`, `depth`, `distill`, `helpers`, `ingest`, `tasks`, `trust`, plus the `shortcuts_integration` inert shim at the package root) survive as importable utilities for tests + internal callers but no longer register CLIs:
 
 | Module | Key commands |
 |--------|-------------|
