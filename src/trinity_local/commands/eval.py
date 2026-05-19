@@ -26,7 +26,6 @@ Four subcommands:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 
 def register(subparsers):
@@ -404,7 +403,6 @@ def handle_eval_share(args):
     Defaults to ~/.trinity/share/eval_card.png to match the me-card
     convention. Prints a small JSON summary to stdout for scriptability.
     """
-    import os
     from pathlib import Path
     from ..evals.runner import load_run_result
     from ..eval_card import collect_card_data_from_result, render_eval_card
