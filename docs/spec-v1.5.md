@@ -267,9 +267,18 @@ mcp__trinity-local__compare(query, members=[claude, codex, gemini])
   structured synthesis (~200 words max).
 ```
 
-Existing tools that stay: `record_outcome`, `search_prompts`, `get_persona`,
+Existing tools that stay: `record_outcome`, `get_persona`,
 `get_council_status`. `route` (advice-only) is **deprecated** — it's useless
 when Claude can't shell out to dispatch.
+
+(Spec drift note 2026-05-19: `search_prompts` was listed here as "stays" but
+retired 2026-05-17 in the pre-launch simplification — replaced by substring +
+recency + replay-value heuristics on the hot path. `get_eval_summary`,
+referenced elsewhere in earlier drafts, retired 2026-05-18. The v1.5 live
+surface as Trinity ships today is: `route`, `ask`, `run_council`,
+`record_outcome`, `get_persona`, `get_picks`, `mark_pick_wrong`,
+`get_council_status`, `handoff` — 9 total. See claude.md "The nine MCP tools"
+section for canonical current shape.)
 
 ```
 mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
