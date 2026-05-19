@@ -369,24 +369,94 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
 def _text(payload: dict | str) -> dict:
     """Wrap a JSON-serializable result as an MCP text response.
 
-    If the payload is a dict and the cold-start auto-scan is currently
-    running (or just finished), inject the hint under ``cold_start`` so
-    the agent surfaces "Trinity is ingesting your CLI history…" inline.
-    Strings pass through unchanged; the hint only attaches to structured
-    responses where the agent can pluck the field.
-    """
-    if isinstance(payload, dict) and "cold_start" not in payload:
-        try:
-            from .cold_start import cold_start_hint
+    Two optional hints get injected into dict payloads so agents can
+    surface them inline:
 
-            hint = cold_start_hint()
-            if hint is not None:
-                payload = dict(payload)
-                payload["cold_start"] = hint
-        except Exception:
-            pass
+    * ``cold_start`` — "Trinity is ingesting your CLI history…" when
+      the first-run auto-scan is running or just finished.
+    * ``extension_status`` — "Chrome extension not configured — install
+      it for browser capture + auto-update." when the user installed
+      via curl|bash and never wired the extension. Closes the cross-
+      bootstrap loop from the agent side (the launchpad and install.sh
+      already surface this; agents calling MCP tools see it too).
+
+    Strings pass through unchanged — hints only attach to structured
+    responses where the agent can pluck a field.
+    """
+    if isinstance(payload, dict):
+        if "cold_start" not in payload:
+            try:
+                from .cold_start import cold_start_hint
+
+                hint = cold_start_hint()
+                if hint is not None:
+                    payload = dict(payload)
+                    payload["cold_start"] = hint
+            except Exception:
+                pass
+        if "extension_status" not in payload:
+            try:
+                hint = _extension_status_hint()
+                if hint is not None:
+                    payload = dict(payload)
+                    payload["extension_status"] = hint
+            except Exception:
+                pass
     body = payload if isinstance(payload, str) else json.dumps(payload, indent=2, default=str)
     return {"type": "text", "text": body}
+
+
+# Cached at module level so we don't hit the filesystem on every MCP
+# response. The extension config is set by `install-extension` and
+# doesn't change mid-process — a process-lifetime cache is correct.
+# `_NOT_COMPUTED` is the sentinel for "we haven't asked yet." Critical
+# detail: `is not object()` would create a FRESH sentinel each call
+# and always read as "not computed" — the cache would never hit. Use
+# a stable module-level singleton.
+_NOT_COMPUTED = object()
+_EXTENSION_HINT_CACHED: dict | None | object = _NOT_COMPUTED
+
+
+def _extension_status_hint() -> dict | None:
+    """Return an extension-status hint dict when the Chrome extension
+    isn't wired, else None. Cached for the process lifetime.
+
+    Hint shape:
+      {
+        "configured": False,
+        "message": str,           # human-readable, agent surfaces inline
+        "install_doc": str,       # URL to the install instructions
+      }
+
+    When the extension IS configured, returns None so agents don't
+    see a "your extension is fine, by the way" hint on every call.
+    """
+    global _EXTENSION_HINT_CACHED
+    if _EXTENSION_HINT_CACHED is not _NOT_COMPUTED:
+        return _EXTENSION_HINT_CACHED  # type: ignore[return-value]
+
+    try:
+        from .launchpad_data import dispatch_readiness
+
+        readiness = dispatch_readiness()
+    except Exception:
+        _EXTENSION_HINT_CACHED = None
+        return None
+
+    if readiness.get("extension_configured"):
+        _EXTENSION_HINT_CACHED = None
+        return None
+
+    _EXTENSION_HINT_CACHED = {
+        "configured": False,
+        "message": (
+            "Chrome extension not wired — install it for browser "
+            "capture (claude.ai / chatgpt.com / gemini.google.com) + "
+            "Web Store auto-update."
+        ),
+        "install_doc": "https://github.com/vishigondi/trinity-local/blob/main/docs/INSTALL-extension.md",
+    }
+    return _EXTENSION_HINT_CACHED
 
 
 def _dispatch_via_config(provider_name: str, prompt: str) -> str:
