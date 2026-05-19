@@ -1816,23 +1816,34 @@ class TestNoBannedSynonyms:
 
 class TestNoRetiredCliInSrcQuotedStrings:
     """Permanent guard born of iterations #9 + #11 + #12 + #13 of the
-    pre-launch consistency-loop. The simplification pass on 2026-05-18
-    killed ~10 CLI subcommands; the kills left dead `trinity-local <name>`
-    quoted-string fragments in 5+ product code paths (launchpad buttons,
-    doctor fix hints, install-hooks templates, memory-viewer rebuild
-    suggestions, health-card chips). Each was a runtime bug — user
-    click would error with `unknown command: <name>`.
+    pre-launch consistency-loop, EXTENDED in iter #32 after iters
+    #30 + #31 found 4 more retired-CLI runtime bugs in HTML-wrapped
+    form that the original quoted-string regex didn't catch.
+
+    The simplification pass on 2026-05-18 killed ~10 CLI subcommands;
+    the kills left dead `trinity-local <name>` fragments in 9+ product
+    code paths (launchpad buttons, doctor fix hints, install-hooks
+    templates, memory-viewer rebuild suggestions, health-card chips,
+    review-page error panels, rate-limit-saves CTA, core-memory empty
+    state hint). Each was a runtime bug — user click / copy-paste
+    would error with `unknown command: <name>`.
 
     Guard shape: parse `mcp_server.py` + `main.py` for the live CLI
-    subcommands. Walk every `.py` file in `src/`. Fail if any quoted
-    string contains `"trinity-local <retired>"` where `<retired>` isn't
-    a live subcommand. Module-level docstrings + comments with explicit
-    "retired" annotations get a pass via the RETIREMENT_CONTEXT regex.
+    subcommands. Walk every `.py` file in `src/`. Fail if any
+    `trinity-local <retired>` appears in EITHER form:
+      - Quoted string:    `"trinity-local distill"` / `'trinity-local distill'`
+      - HTML-wrapped:     `<code>trinity-local distill</code>`
+    where `<retired>` isn't a live subcommand. Files in KNOWN_REFS_PATHS
+    get a pass (legitimate retirement-context uses).
 
     Why this matters: it catches the next CLI kill before it ships dead
-    button strings into production. Without this, the human (me)
-    became the regression guard, which iterations #9/#11/#12 showed is
-    insufficient — the haul each iteration was 1-3 missed cases.
+    button strings into production. Without this, the human (me) became
+    the regression guard — iters #9/#11/#12 caught 5 such bugs, iter #13
+    installed the quoted-string guard, then iters #30+#31 caught 4 MORE
+    in HTML-wrapped form because the original regex's `['"]trinity-local`
+    prefix didn't match `<code>trinity-local`. The HTML form is the
+    Vue-template idiom; missing it left every empty-state hint and error
+    panel unprotected.
     """
 
     # CLI subcommands KNOWN to be retired (extracted from this session's
@@ -1872,10 +1883,17 @@ class TestNoRetiredCliInSrcQuotedStrings:
         import re
         repo = Path(__file__).resolve().parent.parent
         src = repo / "src" / "trinity_local"
-        # Match `"trinity-local <subcommand>` or `'trinity-local <subcommand>`
-        # at a word boundary so `install-extension` doesn't match `install`.
+        # Match `trinity-local <retired-subcommand>` when preceded by
+        # EITHER a Python quote char (`"` / `'`) OR an HTML open-code
+        # tag (`<code>`). Word boundary after the subcommand so
+        # `install-extension` doesn't match `install`. The HTML form
+        # is the Vue-template idiom used in launchpad_template.py,
+        # council_review.py, memory_viewer.py — every empty-state hint
+        # and error panel relies on it.
         retired_pattern = re.compile(
-            r"""['"]trinity-local\s+(""" + "|".join(re.escape(c) for c in self.RETIRED_CLI) + r""")\b"""
+            r"""(?:['"]|<code>)trinity-local\s+("""
+            + "|".join(re.escape(c) for c in self.RETIRED_CLI)
+            + r""")\b"""
         )
         hits: list[tuple[str, int, str, str]] = []
         for path in src.rglob("*.py"):
