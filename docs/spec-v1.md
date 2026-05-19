@@ -166,7 +166,7 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 
 ```bash
 # One curl-bash. Clones the skill, drops shell wrappers, registers MCP,
-# verifies with doctor. No PyPI, no npm — Trinity is a git clone.
+# verifies with status. No PyPI, no npm — Trinity is a git clone.
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
 # Then from inside Claude Code:

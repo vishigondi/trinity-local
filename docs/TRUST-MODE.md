@@ -122,7 +122,7 @@ operations, you see them as such regardless of where they ran.
 
 Per the council verdict (`council_c18f739a0234aa58`):
 
-- Automatic audit rotation (v1.0 warns above 50 MB in `doctor`)
+- Automatic audit rotation (v1.0 warns above 50 MB in `status`)
 - Visible trust indicators in launchpad header + extension popup
 - `--tier`, `--operation`, `--outcome` filter flags on audit-show
 - Global `--dangerously-trust-all` flag on `trinity-local` (v1.0

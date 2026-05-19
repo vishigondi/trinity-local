@@ -83,7 +83,7 @@ Three reasons (per the launch architecture decision; see
 
 2. **Distribution simplicity**. One channel (GitHub) — not two
    (GitHub + PyPI). Updates: `trinity-local update` does
-   `git pull` + MCP refresh + doctor. No "is the pip cache
+   `git pull` + MCP refresh + status. No "is the pip cache
    stale" confusion.
 
 3. **No launch-day gate**. PyPI publish is a slow human-in-the-loop
