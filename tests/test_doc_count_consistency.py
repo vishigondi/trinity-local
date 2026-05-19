@@ -1030,8 +1030,8 @@ class TestNoUnregisteredVanityDomains:
     links in launch copy would 404 for readers — same shape as the
     schema $id catch.
 
-    T-1 catch: README line 137 had \`[trinity.local/teams](https://
-    trinity.local/teams)\` as the Teams waitlist link. Verified
+    T-1 catch: README line 137 had ``[trinity.local/teams](https://
+    trinity.local/teams)`` as the Teams waitlist link. Verified
     trinity.local is NXDOMAIN. Replaced with GitHub Discussions link
     (which works the moment the repo flips public).
 
