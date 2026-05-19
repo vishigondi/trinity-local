@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -141,27 +142,63 @@ def _empty_config() -> AppConfig:
 CANONICAL_COUNCIL_PROVIDERS: tuple[str, ...] = ("claude", "gemini", "codex")
 
 
-def default_council_members(explicit: str | None = None) -> list[str]:
-    """Return the canonical 3-provider council lineup filtered to whatever
-    the user has actually enabled in config.json. Preserves canonical order.
+def installed_council_providers(explicit: str | None = None) -> list[str]:
+    """Return the canonical lineup filtered to providers whose CLI binary
+    is actually on PATH.
 
-    When config can't be loaded (cold install, malformed file) OR no
-    cloud providers are enabled, returns the full canonical list — the
-    caller's existing "Provider missing or disabled" error path is the
-    right thing to surface.
+    The audience-expansion claim is "Trinity works with one provider —
+    add the other two for richer disagreement signal." Today's default
+    lineup ignores binary availability, so a user with only Claude
+    installed gets a 3-member council that fails 2 of 3. Pre-filter to
+    only the providers whose CLI we can actually invoke; the launchpad
+    tip card surfaces the missing ones as a free-tier upsell.
 
-    Use this as the default whenever a CLI / MCP / launchpad surface
-    would otherwise hardcode ``["claude", "gemini", "codex"]``. Honors
-    user override (--members on CLI, members= on MCP) unchanged.
+    Fallback: if NO canonical providers have binaries on PATH, return
+    the full canonical list. Caller's existing "Provider binary not
+    found" error path becomes the diagnostic (the council fails
+    clearly with a list of what to install, instead of silently
+    rendering an empty council page).
     """
     try:
         config = load_config(explicit, required=False)
     except Exception:
+        config = None
+
+    enabled: set[str] = set(CANONICAL_COUNCIL_PROVIDERS)
+    if config is not None:
+        enabled = {
+            name for name, p in config.providers.items()
+            if getattr(p, "enabled", True) and name in CANONICAL_COUNCIL_PROVIDERS
+        }
+        if not enabled:
+            enabled = set(CANONICAL_COUNCIL_PROVIDERS)
+
+    available: list[str] = []
+    for name in CANONICAL_COUNCIL_PROVIDERS:
+        if name not in enabled:
+            continue
+        provider_config = (
+            config.providers.get(name) if config is not None else None
+        )
+        binary = (
+            provider_config.command[0]
+            if provider_config and provider_config.command
+            else name
+        )
+        if shutil.which(binary) is not None:
+            available.append(name)
+    if not available:
         return list(CANONICAL_COUNCIL_PROVIDERS)
-    enabled = {
-        name for name, p in config.providers.items()
-        if getattr(p, "enabled", True) and name in CANONICAL_COUNCIL_PROVIDERS
-    }
-    if not enabled:
-        return list(CANONICAL_COUNCIL_PROVIDERS)
-    return [name for name in CANONICAL_COUNCIL_PROVIDERS if name in enabled]
+    return available
+
+
+def default_council_members(explicit: str | None = None) -> list[str]:
+    """Return the canonical lineup filtered by enable+install status.
+
+    Alias for ``installed_council_providers`` — kept as the public
+    name every CLI / MCP / launchpad caller already uses. The PATH
+    filter (added 2026-05-19) makes the 1-member council case the
+    natural default for users who haven't installed all three CLIs,
+    rather than a 3-member council that fails 2 of 3.
+    """
+    return installed_council_providers(explicit)

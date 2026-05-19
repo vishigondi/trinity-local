@@ -143,3 +143,107 @@ class TestDefaultCouncilMembers:
         # Should not raise; should return safe canonical fallback.
         result = default_council_members()
         assert set(result) <= {"claude", "gemini", "codex"}
+
+
+class TestProviderBinaryAvailabilityFilter:
+    """The 2026-05-19 audience-expansion change: `default_council_members`
+    additionally filters by `shutil.which(binary)`. A user with only
+    Claude installed gets a 1-member council that succeeds, not a
+    3-member council that fails 2 of 3.
+
+    The PATH filter happens AFTER the enabled filter — both gates must
+    pass. The launchpad tip card surfaces the missing providers as a
+    free-tier upsell.
+    """
+
+    def test_only_claude_on_path_returns_just_claude(
+        self, isolated_config, monkeypatch
+    ):
+        """Three providers enabled, but only `claude` binary on PATH →
+        the council default should drop down to [claude]. This is the
+        core 1-member-council case."""
+        from trinity_local.config import default_council_members
+        _write_config(isolated_config, {
+            "claude": {"command": ["claude-bin"]},
+            "gemini": {"command": ["gemini-bin"]},
+            "codex":  {"command": ["codex-bin"]},
+        })
+        # Only the claude binary exists on PATH.
+        def fake_which(name):
+            return "/usr/local/bin/claude-bin" if name == "claude-bin" else None
+        monkeypatch.setattr("trinity_local.config.shutil.which", fake_which)
+        assert default_council_members() == ["claude"]
+
+    def test_two_on_path_preserves_canonical_order(
+        self, isolated_config, monkeypatch
+    ):
+        """claude + gemini on PATH (codex missing) → [claude, gemini]
+        in canonical order. The PATH filter does not reshuffle."""
+        from trinity_local.config import default_council_members
+        _write_config(isolated_config, {
+            "claude": {"command": ["claude-bin"]},
+            "gemini": {"command": ["gemini-bin"]},
+            "codex":  {"command": ["codex-bin"]},
+        })
+        present = {"claude-bin", "gemini-bin"}
+        monkeypatch.setattr(
+            "trinity_local.config.shutil.which",
+            lambda name: f"/usr/local/bin/{name}" if name in present else None,
+        )
+        assert default_council_members() == ["claude", "gemini"]
+
+    def test_none_on_path_falls_back_to_canonical(
+        self, isolated_config, monkeypatch
+    ):
+        """No CLIs installed → return the full canonical list so the
+        caller's existing 'Provider binary not found' error path is the
+        diagnostic. A silently empty council would be worse — the user
+        wouldn't know WHICH binaries are missing."""
+        from trinity_local.config import default_council_members
+        _write_config(isolated_config, {
+            "claude": {"command": ["claude-bin"]},
+            "gemini": {"command": ["gemini-bin"]},
+            "codex":  {"command": ["codex-bin"]},
+        })
+        monkeypatch.setattr("trinity_local.config.shutil.which", lambda _: None)
+        assert default_council_members() == ["claude", "gemini", "codex"]
+
+    def test_disabled_provider_skipped_even_if_binary_present(
+        self, isolated_config, monkeypatch
+    ):
+        """The enable + PATH gates compose. A disabled provider whose
+        binary IS on PATH must still be filtered out."""
+        from trinity_local.config import default_council_members
+        _write_config(isolated_config, {
+            "claude": {"command": ["claude-bin"]},
+            "gemini": {"command": ["gemini-bin"], "enabled": False},
+            "codex":  {"command": ["codex-bin"]},
+        })
+        # All three binaries on PATH...
+        monkeypatch.setattr(
+            "trinity_local.config.shutil.which",
+            lambda name: f"/usr/local/bin/{name}",
+        )
+        # ...but gemini is disabled, so result is [claude, codex].
+        assert default_council_members() == ["claude", "codex"]
+
+
+class TestInstalledCouncilProviders:
+    """`installed_council_providers` is the public name for the new
+    PATH-filter helper. `default_council_members` is the alias kept for
+    every existing caller. Both must agree."""
+
+    def test_aliases_agree(self, isolated_config, monkeypatch):
+        from trinity_local.config import (
+            default_council_members,
+            installed_council_providers,
+        )
+        _write_config(isolated_config, {
+            "claude": {"command": ["claude-bin"]},
+            "codex":  {"command": ["codex-bin"]},
+        })
+        monkeypatch.setattr(
+            "trinity_local.config.shutil.which",
+            lambda name: "/usr/local/bin/x" if name == "claude-bin" else None,
+        )
+        assert default_council_members() == installed_council_providers()
