@@ -116,7 +116,7 @@ class TestTestCountConsistency:
         If the real test count grows (good), keep the floor in step
         when convenient — that's the load-bearing assertion.
         """
-        FLOOR = 1300  # current count is 1372; floor allows ≤72 deletions
+        FLOOR = 1280  # current count is 1293 after Pass A-BB simplification; floor allows ≤13 deletions
         status_count = _extract(CLAUDE_MD, r"(\d+) tests passing")
         assert status_count is not None
         assert int(status_count) >= FLOOR, (
