@@ -132,38 +132,62 @@ class TestNoPresentTenseInDocs:
         "removed",
     )
 
-    # Docs to scan. Skip historical-class docs (the simplification log,
-    # spec-v2 sunset doc, etc.) — they DO narrate retirements in
-    # present-tense + that's correct for them.
-    DOCS_TO_SCAN: list[str] = [
-        "README.md",
-        "claude.md",
-        "AGENTS.md",
-        "CONTRIBUTING.md",
-        "DESIGN.md",
-        "docs/architecture.md",
-        "docs/INSTALL-skill.md",
-        "docs/INSTALL-pip.md",
-        "docs/INSTALL-extension.md",
-        "docs/install-deep.md",
-        "docs/launch.md",
-        "docs/launch-package.md",
-        "docs/LAUNCH_CHECKLIST.md",
-        "docs/MIGRATION.md",
-        "docs/spec-v1.md",
-        "docs/three-tier-architecture.md",
-        "docs/launch-day/00_leaderboard.md",
-        "docs/launch-day/01_tweet_thread.md",
-        "docs/launch-day/02_show_hn_post.md",
-        "docs/launch-day/03_hn_objection_faq.md",
-        "docs/launch-day/04_demo_voiceover.md",
-        "docs/launch-day/05_comparison_table.md",
-        "docs/launch-day/06_founder_narrative.md",
-        "docs/launch-day/07_pricing_faq.md",
-        "docs/launch-day/08_twitter_bio.md",
-        "docs/launch-day/09_linkedin_post.md",
-        "docs/launch-day/10_hn_faq_full.md",
-    ]
+    # Docs to scan = every doc with `class: live` in its Gap C
+    # frontmatter. Skip historical-class docs (simplification_log.md,
+    # spec-v2 sunset, etc.) — they DO narrate retirements in
+    # present-tense + that's correct for them. Skip aspirational-class
+    # docs too (spec-v1.5, scale-plan future sections) — they may
+    # forecast retirement of things that aren't yet retired.
+    #
+    # Auto-deriving from frontmatter (rather than a hardcoded list)
+    # means: when iter #N adds a new live doc, it's automatically
+    # covered by this guard via the doc's `class: live` declaration.
+    # Pattern #29 (bilateral sync for duplicated artifacts) applied
+    # cross-test: the doc-class list lives in ONE place (the
+    # frontmatter), not duplicated in N test files.
+    # Live-class docs that are EXCLUDED from the scan despite their
+    # class label. CHANGELOG.md is `class: live` (it's the active
+    # release-notes file) but its individual ENTRIES are timestamped
+    # to past releases — per principle #8, CHANGELOG entries are
+    # stale-OK. A retired CLI mentioned in a 2026-05-12 entry was
+    # current AT THAT ENTRY's release date.
+    EXCLUDE_LIVE_DOCS = (
+        "CHANGELOG.md",
+    )
+
+    @staticmethod
+    def _live_class_docs() -> list[Path]:
+        """All md files in the repo declaring `class: live`, minus the
+        EXCLUDE_LIVE_DOCS that have a timestamped-entries shape."""
+        live: list[Path] = []
+        frontmatter_re = re.compile(r"^---\n(.*?\n)?---\n", re.DOTALL)
+        for path in REPO.rglob("*.md"):
+            # Skip artifact / vendored / build dirs.
+            if any(
+                skip in str(path)
+                for skip in (
+                    ".venv", "node_modules", "build/", ".egg-info",
+                    ".pytest_cache", ".playwright-mcp", "state/",
+                    "/skills/", "/data/skills/", ".github/",
+                )
+            ):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            m = frontmatter_re.match(text)
+            if not m:
+                continue
+            front = m.group(1) or ""
+            if not re.search(r"^class:\s*live\s*$", front, re.MULTILINE):
+                continue
+            # Skip per-doc exclusions (e.g. CHANGELOG.md, see above).
+            rel = str(path.relative_to(REPO))
+            if rel in TestNoPresentTenseInDocs.EXCLUDE_LIVE_DOCS:
+                continue
+            live.append(path)
+        return sorted(live)
 
     def test_no_present_tense_for_retired_names(self):
         """For each (retired-name, live-doc) pair, find lines that
@@ -183,11 +207,9 @@ class TestNoPresentTenseInDocs:
         """
         violations: list[str] = []
 
-        for rel in self.DOCS_TO_SCAN:
-            path = REPO / rel
-            if not path.exists():
-                continue
+        for path in self._live_class_docs():
             text = path.read_text(encoding="utf-8")
+            rel = str(path.relative_to(REPO))
             # Paragraph-split: any blank-line-separated block is a unit.
             paragraphs = re.split(r"\n\s*\n", text)
             for paragraph in paragraphs:
