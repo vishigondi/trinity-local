@@ -6,7 +6,7 @@
 
 ## Done — v1.0 ready to ship
 
-**Code (1372 tests passing + 4 skipped, 36 doc-consistency guards green)**
+**Code (1296 tests passing + 4 skipped, 41 doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62)**
 - 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
   (commits d56cffc → ebc212a). Every launchpad button works
   cross-platform via the extension; macOS Shortcut as tier-2 fallback.
