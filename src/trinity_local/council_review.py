@@ -1114,11 +1114,12 @@ def render_live_council_page() -> str:
           <div class="eyebrow">Rating didn't save</div>
           <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} verdict not persisted to outcome JSON</h2>
           <p class="meta">
-            The macOS Shortcut may not be installed. Run
-            <code>trinity-local shortcut-install</code>
-            and re-click the answer. Tick #69 found this silent-failure mode
-            accounts for the bulk of unrated councils — make sure to install
-            the Shortcut before rating again.
+            The Chrome extension's Native Messaging host may not be wired up.
+            Run <code>trinity-local install-extension --extension-id &lt;your-extension-id&gt;</code>
+            (find the ID on chrome://extensions) and re-click the answer.
+            Tick #69 found this silent-failure mode accounts for the bulk of
+            unrated councils — make sure the dispatch host is registered
+            before rating again.
           </p>
         </section>
       </div>

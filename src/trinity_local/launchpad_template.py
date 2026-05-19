@@ -1384,8 +1384,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </li>
         </ul>
         <p class="meta" style="margin-top: 12px;">
-          The Day-1 case-study number. Run <code>trinity-local metric rate-limit-saves</code>
-          for the JSON, or watch this card grow as you use Trinity through real rate-limit hits.
+          The Day-1 case-study number. Raw events live in
+          <code>~/.trinity/analytics/dispatch_outcomes.jsonl</code>; this
+          card grows as you use Trinity through real rate-limit hits.
         </p>
       </section>
 
