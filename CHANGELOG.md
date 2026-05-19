@@ -162,12 +162,12 @@ the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
 `dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
 the MCP tool list) are unchanged.
 
-**Pre-launch consistency sweep (iters #15-#77, 63 follow-on commits):**
+**Pre-launch consistency sweep (iters #15-#79, 69 follow-on commits):**
 
 The simplification pass above retired ~10 CLIs, renamed paths, and
 flipped brand framing — each of which scatters stale references
-across docs + UI strings + tests. A 63-iter consistency loop on top
-of the simplification swept 55+ launch-credibility drifts in surfaces
+across docs + UI strings + tests. A 69-iter consistency loop on top
+of the simplification swept 60+ launch-credibility drifts in surfaces
 including:
 
 - 8 live runtime/UI bugs (most notably the launchpad's actual
