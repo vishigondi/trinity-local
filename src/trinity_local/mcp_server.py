@@ -322,6 +322,24 @@ async def handle_list_tools() -> list[Tool]:
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     arguments = arguments or {}
+    # Register the active MCP server session so providers running in
+    # worker threads can find it (via mcp_sampling.request_claude_sample).
+    # When Trinity-MCP is loaded inside Claude Desktop and the client
+    # advertised sampling capability, the Claude provider routes through
+    # sampling instead of `claude -p` subprocess — sidestepping the
+    # post-2026-06-15 Agent SDK credit pool. ContextVar set here
+    # propagates to the ThreadPoolExecutor workers in council_runner
+    # via copy_context().
+    from .mcp_sampling import clear_active_session, set_active_session
+    try:
+        session = server.request_context.session
+        set_active_session(session)
+    except (AttributeError, LookupError):
+        # Defensive: if the SDK version lacks request_context.session,
+        # or this is invoked outside a real MCP request (e.g., tests),
+        # skip session registration and let sampling auto-decline.
+        pass
+
     try:
         if name == "ask":
             return await _ask(arguments)
@@ -344,6 +362,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
         return [ErrorData(code=404, message=f"Tool not found: {name}")]
     except Exception as exc:
         return [ErrorData(code=500, message=f"{type(exc).__name__}: {exc}")]
+    finally:
+        clear_active_session()
 
 
 def _text(payload: dict | str) -> dict:

@@ -633,9 +633,18 @@ def run_council(
         )
 
     executions: dict[str, MemberExecutionResult] = {}
+    # ContextVar propagation so the MCP active-sampling session set
+    # in mcp_server.handle_call_tool reaches the worker threads.
+    # Python's ThreadPoolExecutor doesn't propagate ContextVars to
+    # workers by default. Each submit needs its OWN fresh context
+    # copy — a single Context can only be entered once (ctx.run()
+    # raises 'cannot enter context: already entered' if reused).
+    import contextvars
     with ThreadPoolExecutor(max_workers=max(1, len(member_providers))) as executor:
         future_map = {
-            executor.submit(_run_member, provider_name): provider_name
+            executor.submit(
+                contextvars.copy_context().run, _run_member, provider_name
+            ): provider_name
             for provider_name in member_providers
         }
         for future in as_completed(future_map):
@@ -1035,9 +1044,18 @@ def run_consensus_round(
         )
 
     executions: dict[str, MemberExecutionResult] = {}
+    # ContextVar propagation so the MCP active-sampling session set
+    # in mcp_server.handle_call_tool reaches the worker threads.
+    # Python's ThreadPoolExecutor doesn't propagate ContextVars to
+    # workers by default. Each submit needs its OWN fresh context
+    # copy — a single Context can only be entered once (ctx.run()
+    # raises 'cannot enter context: already entered' if reused).
+    import contextvars
     with ThreadPoolExecutor(max_workers=max(1, len(member_providers))) as executor:
         future_map = {
-            executor.submit(_run_member, provider_name): provider_name
+            executor.submit(
+                contextvars.copy_context().run, _run_member, provider_name
+            ): provider_name
             for provider_name in member_providers
         }
         for future in as_completed(future_map):

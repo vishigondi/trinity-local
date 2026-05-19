@@ -96,6 +96,21 @@ def _effective_model(config: ProviderConfig) -> str | None:
 
 class CLIProvider(BaseProvider):
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
+        # MCP host sampling — preferred path for the Claude voice when
+        # Trinity-MCP is loaded inside a chat client (Claude Desktop)
+        # that advertised the `sampling` capability. Counts against
+        # the user's regular Claude plan, NOT the post-2026-06-15 Agent
+        # SDK credit pool.
+        #
+        # Other CLI-shaped providers (gemini-cli, etc.) don't go through
+        # sampling — they don't have the billing problem `claude -p`
+        # has, and the host can't promise to route to a non-Claude
+        # model anyway. Gate on the provider name.
+        if self.config.name == "claude":
+            sampled = self._try_sampling(prompt)
+            if sampled is not None:
+                return sampled
+
         command = [*self.config.command]
         # Inject --model BEFORE the prompt-consuming flag (e.g. -p, --prompt).
         # If the last token of `command` is a flag, --model goes in front of it
@@ -111,6 +126,30 @@ class CLIProvider(BaseProvider):
         command.append(prompt)
         command.extend(self.config.args)
         return self._run_command(command, cwd)
+
+    def _try_sampling(self, prompt: str) -> ProviderResult | None:
+        """Attempt MCP host sampling for this Claude invocation.
+
+        Returns a ProviderResult wrapping the sampled text on success,
+        or None to signal the caller to fall through to the
+        subprocess path. Never raises — the contract is "quietly
+        degrade if sampling isn't available."
+        """
+        try:
+            from .mcp_sampling import request_claude_sample
+        except ImportError:
+            return None
+        t0 = time.monotonic()
+        text = request_claude_sample(prompt)
+        if text is None:
+            return None
+        return ProviderResult(
+            provider=self.config.name,
+            stdout=text.strip(),
+            stderr="",
+            returncode=0,
+            elapsed_seconds=time.monotonic() - t0,
+        )
 
 
 class CodexProvider(BaseProvider):
