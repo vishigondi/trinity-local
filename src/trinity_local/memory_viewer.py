@@ -810,7 +810,7 @@ def render_memory_viewer_html() -> str:
     .json-key {{ color: #255847; }}
     .json-str {{ color: #166534; }}
     .json-num {{ color: #b45309; }}
-    .json-bool {{ color: #be185d; }}
+    .json-bool {{ color: #315c85; }}
     .json-null {{ color: var(--meta); }}
     /* View toggle */
     .view-toggle {{

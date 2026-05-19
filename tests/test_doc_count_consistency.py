@@ -1922,3 +1922,117 @@ class TestNoRetiredCliInSrcQuotedStrings:
                 "context use, e.g. stale-hook cleanup detection)."
             )
             raise AssertionError("\n".join(msg))
+
+
+class TestNoForbiddenColorsInLaunchpadTemplates:
+    """Permanent guard born of iter #37 of the consistency-loop.
+    DESIGN.md is explicit: lines 297 + 343 forbid indigo, violet,
+    tailwind-blue, purple, and neon accents. Principle #13 in
+    claude.md narrates the prior violation: "Memory viewer's first
+    cut shipped #6366f1 indigo + #8b5cf6 violet anyway, because
+    nothing enforced the palette."
+
+    Iter #37 found the same violation still live across 5 places
+    in launchpad_template.py + memory_viewer.py:
+      - #6366f1 (Tailwind indigo-500) × 2 — empty-state hints
+      - #3b6bd6 (Tailwind-blue) × 3 — handoff demo + eval card
+      - #4a90e2 (corporate blue) × 6 — browser-capture card
+      - #f59e0b (Tailwind amber-500) × 1 — stale-core warning
+      - #be185d (Tailwind pink-700, purple-adjacent) × 1 — JSON bool
+
+    All flipped to in-palette `design_system.COLORS` values. The
+    guard below enforces that future UI edits don't reintroduce a
+    forbidden hex.
+
+    Approach: scan launchpad_template / council_review / memory_viewer
+    / launchpad_data for hex literals. Compare against a forbidden
+    set extracted from common Tailwind / indigo / violet / pink /
+    saturated palettes that DESIGN.md rules out. Any hit raises.
+
+    If you legitimately need a NEW color (e.g. for a chart or topic-
+    graph dark canvas), add it to design_system.COLORS and remove
+    from the FORBIDDEN_HEXES set in the same commit.
+    """
+
+    # Hex codes DESIGN.md lines 297 + 343 explicitly rule out, plus
+    # the specific past-violation hexes from this session (locked so
+    # they can't sneak back in). Bare `#` followed by 3-or-6 hex chars
+    # matched case-insensitively.
+    FORBIDDEN_HEXES = frozenset({
+        # Indigo (Tailwind 400-700 range + the prior-violation hex):
+        "#6366f1",  # Tailwind indigo-500 (the principle #13 hex)
+        "#818cf8",  # indigo-400
+        "#4f46e5",  # indigo-600
+        "#4338ca",  # indigo-700
+        "#8b5cf6",  # Tailwind violet-500 (the OTHER principle #13 hex)
+        "#a78bfa",  # violet-400
+        "#7c3aed",  # violet-600
+        # Tailwind blue (DESIGN.md "no tailwind-blue"):
+        "#3b82f6",  # blue-500
+        "#3b6bd6",  # an off-Tailwind blue used in handoff card
+        "#4a90e2",  # corporate-blue used in browser-capture card
+        "#2563eb",  # blue-600
+        # Pink / fuchsia (purple-adjacent):
+        "#be185d",  # pink-700 (was on .json-bool)
+        "#ec4899",  # pink-500
+        "#d946ef",  # fuchsia-500
+        # Tailwind amber-500 (out-of-palette; warm-brown #b26a1f
+        # is the in-palette warning color):
+        "#f59e0b",
+    })
+
+    # Files that legitimately reference these hexes in retirement-
+    # context (e.g. test-cases that assert a forbidden color is
+    # absent, or DESIGN.md's own "no indigo" list). Empty for now;
+    # add files with one-line justification if a real exception
+    # surfaces.
+    KNOWN_REFS_PATHS = frozenset()
+
+    SCAN_PATHS = (
+        "src/trinity_local/launchpad_template.py",
+        "src/trinity_local/launchpad_data.py",
+        "src/trinity_local/council_review.py",
+        "src/trinity_local/memory_viewer.py",
+    )
+
+    def test_no_forbidden_hex_colors(self):
+        repo = Path(__file__).resolve().parent.parent
+        # Match `#XXXXXX` or `#XXX` case-insensitively at word
+        # boundaries. The forbidden-set comparison is also case-
+        # insensitive (DESIGN.md uses lowercase; code might use any).
+        hex_re = re.compile(r"(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b")
+        forbidden_lower = {h.lower() for h in self.FORBIDDEN_HEXES}
+        hits: list[tuple[str, int, str, str]] = []
+        for rel in self.SCAN_PATHS:
+            if rel in self.KNOWN_REFS_PATHS:
+                continue
+            path = repo / rel
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for m in hex_re.finditer(line):
+                    hex_val = m.group(1).lower()
+                    if hex_val in forbidden_lower:
+                        hits.append((rel, lineno, hex_val, line.strip()[:140]))
+        if hits:
+            msg = [
+                "DESIGN.md-forbidden hex colors found in launchpad UI source.",
+                "Lines 297 + 343 of DESIGN.md forbid: no indigo, no violet,",
+                "no tailwind-blue, no purple, no neon. Use in-palette colors",
+                "from `design_system.COLORS` (info=#315c85 for slate-blue",
+                "callouts, warning=#b26a1f for amber callouts).",
+                "",
+            ]
+            for rel, lineno, hex_val, snippet in hits:
+                msg.append(f"  {rel}:{lineno} uses forbidden {hex_val}")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "Per principle #13: 'design system is a contract, not a "
+                "suggestion.' If a new color is truly needed, add it to "
+                "design_system.COLORS and remove from FORBIDDEN_HEXES in "
+                "the same commit."
+            )
+            raise AssertionError("\n".join(msg))

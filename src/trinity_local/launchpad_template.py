@@ -911,9 +911,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       <section
         class="card"
         v-if="pageData.handoffNudge && pageData.handoffNudge.applicable"
-        style="border-left: 3px solid #3b6bd6; background: rgba(59, 107, 214, 0.04);"
+        style="border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);"
       >
-        <div class="eyebrow" style="color: #3b6bd6;">Try the 60-second demo</div>
+        <div class="eyebrow" style="color: #315c85;">Try the 60-second demo</div>
         <h2 style="margin-top: 4px; font-size: 18px;">
           Hand off a conversation across models — no copy-paste
         </h2>
@@ -1044,7 +1044,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </button>
           </div>
 
-          <p class="meta" v-if="polishHintVisible" style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+          <p class="meta" v-if="polishHintVisible" style="background: rgba(49, 92, 133, 0.08); border-left: 3px solid #315c85; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
             💡 Polish task detected. Click "Auto-chain" on the council page to iterate up to 3 rounds toward convergence.
           </p>
 
@@ -1218,10 +1218,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <p class="meta">
           Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman blends your data with global benchmarks — the personalization % below shows how much your data drives the pick today.
         </p>
-        <p class="meta" v-if="coreStatus.state === 'stale'" style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+        <p class="meta" v-if="coreStatus.state === 'stale'" style="background: rgba(178, 106, 31, 0.08); border-left: 3px solid #b26a1f; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
           ⚠️ Your <code>core.md</code> is stale — a memory file was updated since the last dream. Run <code>trinity-local dream</code> so the chairman reads the freshest synthesis on the next council.
         </p>
-        <p class="meta" v-if="coreStatus.state === 'missing'" style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
+        <p class="meta" v-if="coreStatus.state === 'missing'" style="background: rgba(49, 92, 133, 0.08); border-left: 3px solid #315c85; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
           💡 You have core memories but no distillation yet. Run <code>trinity-local dream</code> to produce <code>~/.trinity/core.md</code> — the one paragraph chairmen read first.
         </p>
         <table class="routing-table">
@@ -1306,7 +1306,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span>{{{{ axis.name }}}}</span>
             <span class="meta">n={{{{ axis.count }}}}</span>
             <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
-              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (axis.mean * 100) + '%; background: #3b6bd6; border-radius: 3px;'"></span>
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (axis.mean * 100) + '%; background: #315c85; border-radius: 3px;'"></span>
             </span>
             <span style="text-align: right;">{{{{ axis.mean.toFixed(2) }}}}</span>
           </li>
@@ -1396,8 +1396,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            silent-breakage signal when last capture > 24h ago. -->
       <section class="card browser-capture-card"
                v-if="pageData.browserCapture && pageData.browserCapture.has_data"
-               :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #4a90e2; background: rgba(74, 144, 226, 0.04);'">
-        <div class="eyebrow" :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #4a90e2;'">
+               :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);'">
+        <div class="eyebrow" :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
           Browser capture<span v-if="pageData.browserCapture.captured_24h > 0"> · last 24h</span>
         </div>
         <h2 style="margin-top: 4px; font-size: 18px;">
@@ -1409,7 +1409,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span class="meta" style="font-weight: normal;">(none in last 24h)</span>
           </span>
           <span style="float: right; font-variant-numeric: tabular-nums;"
-                :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #4a90e2;'">
+                :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
             {{{{ pageData.browserCapture.providers.length }}}} provider<span v-if="pageData.browserCapture.providers.length !== 1">s</span>
           </span>
         </h2>
@@ -1419,7 +1419,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span>{{{{ row.provider }}}}</span>
             <span class="meta">{{{{ row.count }}}}</span>
             <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
-              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#4a90e2') + '; border-radius: 3px;'"></span>
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#315c85') + '; border-radius: 3px;'"></span>
             </span>
           </li>
         </ul>
@@ -1437,8 +1437,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card browser-capture-card"
                v-if="pageData.browserCapture && !pageData.browserCapture.has_data"
-               style="border-left: 3px dashed rgba(74, 144, 226, 0.4); background: rgba(74, 144, 226, 0.02);">
-        <div class="eyebrow" style="color: #4a90e2;">Browser capture</div>
+               style="border-left: 3px dashed rgba(49, 92, 133, 0.4); background: rgba(49, 92, 133, 0.02);">
+        <div class="eyebrow" style="color: #315c85;">Browser capture</div>
         <h2 style="margin-top: 4px; font-size: 18px;">
           Capture every Claude / ChatGPT conversation automatically
         </h2>
