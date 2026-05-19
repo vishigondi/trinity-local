@@ -956,20 +956,19 @@ class TestBrandAxisConsistency:
     (em-dashes, periods, capitalization).
     """
 
-    # During a brand transition (e.g. 2026-05-16: hero shift to
-    # "Your taste, ported.") each surface may carry EITHER the old
-    # hero OR the new one. Once propagation is complete (user
-    # commits to one direction), drop the old entry to lock the
-    # new framing in.
+    # Brand pivot 2026-05-16 → "Your taste, ported." Iter #33 swept
+    # the live launchpad UI (the last surface carrying the old hero
+    # in product code); iter #34 verified zero pre-pivot tagline
+    # fragments remain anywhere in src/. Locked the new framing here
+    # — guard now FAILS if any launch surface reverts to the old
+    # hero or invents a third one. Historical references in claude.md
+    # / CHANGELOG / docs/launch_councils/ are unaffected (they don't
+    # need to carry an accepted hero verbatim; they just describe
+    # the history).
     ACCEPTED_HEROES: list[str] = [
-        "Stop copy-pasting prompts. Own your context. Dream your core memories.",
-        # New direction (README rolled 2026-05-16; other surfaces pending):
         "Your taste, ported.",
     ]
     ACCEPTED_SUBS: list[str] = [
-        "One question. Every model you use. One answer that knows you.",
-        # New direction privacy closer (functions as the sub for the
-        # new framing — the four-noun negation that answers "can I use it"):
         "No new app. No service. No API key.",
     ]
 

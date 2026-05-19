@@ -521,7 +521,7 @@ A few words do specific work; they get conflated otherwise:
 - **chairman** — the synthesis model in a single council. Reads `core.md`, emits structured Routing JSON. Per-call role.
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
 - **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cursor, Cowork). Trinity registers as an MCP server inside each.
-- **seat / member** — a provider acting as one voice in a council. Code uses `members=[...]`; marketing copy will use `seat` (table metaphor).
+- **member** — a provider acting as one voice in a council. Canonical term across code AND marketing copy (the Tier 2 #6 "rename to seat" was unwound; "seat" was tried as a table metaphor but never caught on, and code structures like `members=[...]` made the rename costly without payoff).
 - **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
 
 The map mirrors the tagline: prompts (what you own) → dream (the verb) → core memories (what dream creates, plural) → core (the distillation, singular). When in doubt about a name, look at the brain analog and pick the one that matches what the file actually stores.

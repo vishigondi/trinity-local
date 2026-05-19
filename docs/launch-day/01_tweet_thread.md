@@ -26,10 +26,8 @@ Why no provider can build that: Anthropic can't read OpenAI's transcripts. OpenA
 
 That's not a feature gap. It's structural. Someone outside the labs has to ship the layer above them.
 
-5. Tweet 5 (268/280):
-First MCP spawn auto-scans the CLI history already on your machine — ~/.claude, ~/.codex, ~/.gemini. Your first council is personalized before you type anything.
-
-The wedge claim "Trinity reads transcripts already on your machine" is literal, not aspirational.
+5. Tweet 5 (265/280):
+First MCP spawn auto-scans CLI history on disk — ~/.claude, ~/.codex, ~/.gemini. The Chrome extension captures claude.ai / chatgpt.com / gemini.google.com to ~/.trinity/conversations/ locally — no upload. Your first council is personalized before you type anything.
 
 6. Tweet 6 (270/280):
 After ~10 councils, `trinity-local dream` synthesizes your prompts into a four-level lens:
