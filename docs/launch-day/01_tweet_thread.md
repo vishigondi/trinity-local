@@ -10,7 +10,7 @@ Trinity Local v1.7 — a cross-provider memory layer that lives in your folder, 
 
   curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
-One command. Registers Trinity in Claude Code, Codex CLI, Gemini CLI, and Cursor. macOS today.
+One command. Registers Trinity in Claude Code, Codex CLI, Gemini CLI, and Cursor. macOS + Linux today.
 
 3. Tweet 3 (271/280):
 The 60-second demo:
@@ -67,7 +67,7 @@ AI credits are priced below cost right now. Every provider is racing to be the d
 The cross-provider corpus you build today keeps working when the subsidy ends.
 
 12. Tweet 12 (245/280):
-Trinity Local v1.7 ships today. Open source, MIT, macOS.
+Trinity Local v1.7 ships today. Open source, MIT, macOS + Linux.
 
   curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 

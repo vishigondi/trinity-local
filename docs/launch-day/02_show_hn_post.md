@@ -14,7 +14,7 @@ So I built Trinity Local. It reads `~/.claude/`, `~/.codex/`, and `~/.gemini/` â
 
 What ships today (v1.7, MIT): multi-model councils with a chairman that reads your lens before synthesizing, a `dream` command that distills your transcripts into the lens, an `eval-run` that scores any new model against that distilled taste, a personal routing table that learns which model wins for *your* kind of question, and structured Routing JSON (`agreed_claims`, `disagreed_claims`, `routing_lesson`) persisted to `~/.trinity/`. MCP server registers into Claude Code, Codex, Gemini CLI, and Cursor. Prompts never upload. No hosted controller, no per-call billing â€” Trinity rides the subscriptions you already pay for.
 
-Install (macOS, Python 3.10+):
+Install (macOS or Linux, Python 3.10+):
 
     curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
