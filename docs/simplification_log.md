@@ -629,3 +629,19 @@ and charge ahead". Six more cleanups shipped:
   resurfaces the field. Safe at T-0 in principle (no live reads),
   but skipped pre-launch to avoid surgery-on-config-shape on the
   day of public flip.
+
+- 2026-05-19 (iter #52): config.json **`task_preferences` is also
+  dead code** — same shape as #51. The top-level `"task_preferences":
+  {"coding": [...], "debugging": [...], "reasoning": [...], ...}` is
+  loaded into `Config.task_preferences` (config.py:29) but no
+  downstream caller reads it. The live ranker uses heuristic +
+  k-NN + chairman_picker (none consult `task_preferences`). Worse,
+  the keys have drifted from the guesser's vocabulary:
+  `task_preferences` has `"reasoning"` which `guess_task_type()`
+  never returns, while the guesser's `"writing"` and
+  `"cowork_general"` outputs have no entry. The mismatch would
+  bite immediately IF any code path queried task_preferences —
+  but nothing does, so it sits as silent drift. Fold into the
+  v1.7.5 cleanup alongside the role taxonomy: drop the block from
+  both JSONs, drop `task_preferences` from the dataclass + loader,
+  add the same regression guard to lock it shut.
