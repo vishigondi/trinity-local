@@ -287,6 +287,90 @@ class TestMcpToolNameConsistency:
         )
 
 
+class TestMcpCanonicalSubsetCountClaims:
+    """Iter #61 caught 4 separate stale claims about the **canonical v1.0
+    subset** of MCP tools clustered in one section of claude.md:
+    - Line 610 table cell: \"v1.0 canonical 6\" (actual: 5)
+    - Section header line 617: \"### The eleven MCP tools\" (actual: 9)
+    - Line 619 math: \"5 + 3 + 2 = 9\" with stale \"2 launch-arc\"
+    - Line 626 lifecycle header: \"v1.0 canonical six\"
+
+    The existing TestMcpToolNameConsistency guard pins TOTAL tool counts
+    against mcp_server.py but doesn't catch claims about the CANONICAL
+    SUBSET (5 v1.0 tools) or the \"eleven MCP tools\" section-header
+    drift. Future contributors could re-introduce \"canonical 6\" or
+    \"canonical seven\" without any guard catching it.
+
+    Principle #21: every fixed drift gets a regression guard at the
+    surface it ships from. The canonical-5 claim is load-bearing in
+    claude.md (lifecycle order + section structure); locking it shut
+    means no future numeric drift in that section can ship silently.
+    """
+
+    def test_no_stale_canonical_count_phrasings_in_docs(self):
+        # Drift-known-bad phrasings that should NEVER appear (these were
+        # the iter #61 stale values + their plural-word forms).
+        forbidden = [
+            "canonical 6",  # iter #61 fix
+            "canonical six",  # iter #61 fix
+            "canonical 7",  # would mean we re-added a tool to the v1.0 subset
+            "canonical seven",
+            "canonical 4",  # would mean we lost a v1.0 tool
+            "canonical four",
+            "### The eleven MCP",  # iter #61 fix (section header)
+            "### The ten MCP",
+            "### The eight MCP",
+            "1 launch-arc additions",  # singular/plural mismatch — "1 addition"
+            "2 launch-arc addition",
+            "0 launch-arc addition",
+        ]
+        docs_to_check = [
+            REPO / "claude.md",
+            REPO / "docs" / "spec-v1.md",
+            REPO / "docs" / "product-spec.md",
+        ]
+        violations: list[str] = []
+        for path in docs_to_check:
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8")
+            for phrase in forbidden:
+                if phrase in text:
+                    line = text[: text.index(phrase)].count("\n") + 1
+                    violations.append(
+                        f"{path.relative_to(REPO)}:{line} contains "
+                        f"forbidden stale phrasing {phrase!r}"
+                    )
+        assert not violations, (
+            "MCP canonical-subset claims drifted to known-bad values "
+            "(iter #61 catch shape):\n  " + "\n  ".join(violations)
+            + "\n\nThe canonical v1.0 subset is 5 tools (route, "
+            "run_council, record_outcome, get_persona, get_council_status). "
+            "Total MCP surface is 9. If either changed, update both this "
+            "test and the docs."
+        )
+
+    def test_canonical_count_claims_in_claude_md_agree(self):
+        # All "v1.0 canonical (\d+)" claims in claude.md must agree
+        # with each other AND with the literal "five" lifecycle header.
+        claude = (REPO / "claude.md").read_text(encoding="utf-8")
+        numeric_claims = re.findall(r"v1\.0 canonical (\d+)", claude)
+        word_claims = re.findall(r"v1\.0 canonical (five|six|seven|eight)", claude)
+        assert numeric_claims, (
+            "claude.md has no 'v1.0 canonical (\\d+)' claims — did the "
+            "MCP section get restructured? Update this test."
+        )
+        word_to_num = {"five": 5, "six": 6, "seven": 7, "eight": 8}
+        nums = {int(n) for n in numeric_claims} | {
+            word_to_num[w] for w in word_claims
+        }
+        assert nums == {5}, (
+            f"claude.md has mixed 'v1.0 canonical' counts: {sorted(nums)}. "
+            "All must agree on 5 (the v1.0 canonical subset size). "
+            "Same shape as iter #61 catch — drift between adjacent lines."
+        )
+
+
 class TestCitedCouncilArtifactsExistInRepo:
     """Launch-artifact integrity guard. docs/launch.md and the README
     cite specific council_<hex>.json files as proof artifacts ("the
