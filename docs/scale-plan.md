@@ -792,7 +792,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: 1294 + 4 skipped.
+>   tests after dead-code removal." Live: 1296 + 4 skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.
@@ -1322,11 +1322,18 @@ so the evidence trail survives the temp-file cleanup.
 Severity counts: **39 HIGH · 45 MED · 16 LOW** across 100 personas.
 The META-auditor (persona #100) named the unifying pattern:
 **Trinity's README is a single-audience funnel for CLI-coder users, but
-multi-audience features (`install-app`, `install-extension`, single-
-provider councils, Ollama dispatch) already exist in code — they're
-just invisible above the fold.** Highest-leverage fix is restaging the
-README around three audience-tagged install paths plus a visible
-"Remove" section. Most of the other themes follow from that frame.
+multi-audience surfaces (`install-extension`, desktop launch, single-
+provider councils, Ollama dispatch) are either already present or
+strategically required — they're just invisible above the fold.**
+Highest-leverage fix is restaging the README around audience-tagged
+entry paths plus a visible "Remove" section. Most of the other themes
+follow from that frame.
+
+2026-05-19 supersession: references below to `Trinity.app` / `install-app`
+mean the retired osacompile wrapper unless explicitly revised. The current
+directive is a real Cowork-style desktop cockpit over `~/.trinity/`; the Chrome
+extension remains the v1 bridge for capture and launchpad dispatch, not the
+long-term non-coder app shell.
 
 ### Theme A — Acquisition path is single-audience (CLI-coder only)
 
@@ -1342,13 +1349,15 @@ councils because launchpad/MCP/CLI/skill hardcode `["claude","gemini","codex"]`.
 
 **Fixes (priority order):**
 
-1. **Three audience-tagged install paths above the fold** in README
-   (`Trinity.app` .dmg / Chrome Web Store / `pip install`). The CLI
-   block stays; the other two land first.
+1. **Audience-tagged entry paths above the fold** in README: desktop app for
+   non-coders, Chrome extension for browser capture/launchpad dispatch, and
+   CLI/MCP for power users. The CLI block stays, but it stops being the only
+   visible path.
 2. **Chrome Web Store listing for the extension** decoupled from CLI
    install — let claude.ai-only users install JUST the extension.
-3. **Signed `.dmg` for `Trinity.app`** as the non-coder acquisition
-   surface, paired with download button above the fold.
+3. **Signed desktop app** as the non-coder acquisition surface, paired with a
+   download button above the fold. Do not revive the old bookmark-shaped
+   `Trinity.app` wrapper; this has to be a real local cockpit.
 4. **`install-mcp` adds Cursor** to its harness list (P16: 30-line fix;
    P92: same conclusion).
 5. **Single-provider council mode** — when only one of claude/gemini/
@@ -1391,17 +1400,18 @@ filter (P50).
 **Evidence**: personas 17 (Linux), 18 (Windows/WSL), 22 (headless),
 23 (iPad), 66 (Firefox), 92 (Cursor). HIGH on Linux + headless.
 
-**Symptoms**: `install-app` crashes with raw `FileNotFoundError:
-osacompile` on Linux (P17). `setup.sh` shebangs `zsh` with macOS
-`shortcuts` CLI calls. `doctor` recommends installing the macOS
-Shortcut on Linux. pyproject claims Linux support, README is silent.
-iPad-only dev (P23) has zero entry point — mobile spec only ships
-review-link companion requiring a paired Mac he doesn't own.
+**Symptoms**: the retired `install-app` wrapper crashed with raw
+`FileNotFoundError: osacompile` on Linux (P17). `setup.sh` shebangs `zsh` with
+macOS `shortcuts` CLI calls. `doctor` recommends installing the macOS Shortcut
+on Linux. pyproject claims Linux support, README is silent. iPad-only dev (P23)
+has zero entry point — mobile spec only ships review-link companion requiring a
+paired desktop he doesn't own.
 
 **Fixes**:
 
-1. **Platform-gate `install-app`** — bail loudly on non-macOS with a
-   one-line message linking to the Linux/headless story.
+1. **Platform-gate the future desktop installer** — bail loudly on unsupported
+   OSes with a one-line message linking to the Linux/headless story. The retired
+   `install-app` wrapper should not come back.
 2. **`#!/usr/bin/env bash`** + macOS-only sections gated in `setup.sh`.
 3. **Document the headless story** (P22): engine runs on Linux, no
    GUI needed; use `trinity-local serve` for the local launchpad
@@ -1424,17 +1434,17 @@ skips disk check.
 
 **Fixes**:
 
-1. **`trinity-local uninstall`** — removes MCP entries, Trinity.app,
-   Chrome Native Messaging manifest, skill file, optionally `~/.trinity/`
-   and the HF model cache. Inverse of `install-mcp` + `install-app` +
-   `install-extension`. Prints what it'll delete with a single `--yes`
-   confirmation.
+1. **`trinity-local uninstall`** — removes MCP entries, desktop launcher/app
+   entries, Chrome Native Messaging manifest, skill file, optionally
+   `~/.trinity/` and the HF model cache. Inverse of `install-mcp`, the desktop
+   installer, and `install-extension`. Prints what it'll delete with a single
+   `--yes` confirmation.
 2. **`trinity-local export [--anonymize]`** — tar of `~/.trinity/`
    with optional pii scrub on prompt content (anchors, code blocks,
    file paths). Schema doc already exists at PREFERENCE_CORPUS_SPEC.md.
 3. **`trinity-local restore <archive>`** — inverse of export.
 4. **Migration doc** in README: "rsync `~/.trinity/` is necessary but
-   not sufficient; also re-run install-mcp + install-app".
+   not sufficient; also re-run install-mcp + the desktop installer".
 5. **Retention story**: doctor reports `~/.trinity/` size; soft warning
    above 5GB; optional `trinity-local prune --older-than 90d`.
 
@@ -1535,21 +1545,21 @@ Chart palette has protan/deutan confusion axis (P74).
 (shared dev machine), 70 (pair-programming), 80 (system-wide
 install).
 
-**Symptoms**: `install-app` writes `/Applications/Trinity.app` with
-the installer's absolute launchpad path baked in — every other user
-opens user-1's lens (P38 — real cross-user leak). `~/.trinity/` is
-one lens per OS user; multi-account users have no scoping (P26).
-Pair-programmers pollute each other's lens silently (P70). System-
-wide install undocumented; install-mcp hard-codes `$HOME` (P80).
+**Symptoms**: the retired `install-app` wrapper wrote
+`/Applications/Trinity.app` with the installer's absolute launchpad path baked
+in — every other user opened user-1's lens (P38 — real cross-user leak).
+`~/.trinity/` is one lens per OS user; multi-account users have no scoping
+(P26). Pair-programmers pollute each other's lens silently (P70). System-wide
+install undocumented; install-mcp hard-codes `$HOME` (P80).
 
 **Fixes**:
 
-1. **`install-app` resolves paths per-user at launch** — don't bake
-   the installer's path into the .app's Info.plist / launcher.
+1. **Desktop resolves paths per-user at launch** — don't bake the installer's
+   path into app metadata or launcher config.
 2. **Per-context lens scoping**: `TRINITY_PROFILE=work` env or
    `--profile work` flag selects a subdir under `~/.trinity/<profile>/`.
-3. **`doctor` warns on shared-machine install** when other users
-   exist on the box AND `Trinity.app` is in `/Applications/`.
+3. **`doctor` warns on shared-machine install** when other users exist on the
+   box and a shared desktop install could expose one user's lens to another.
 4. **Document system-wide install** OR loudly deny it (current state
    is silent half-broken).
 
@@ -1642,5 +1652,4 @@ effort. Top candidates (one each from Themes A-F):
 | 7 | A | `install-mcp` adds Cursor | XS | 30-line fix per persona 16 |
 | 8 | J | "What's new" section in README + version anchor | S | Returning users (P40, P91) can't bridge |
 | 9 | K | Bundle marked/d3/Vue locally | M | Removes the only credible privacy attack on the wedge |
-| 10 | I | `install-app` resolves paths per-user at launch | S | Real cross-user leak on shared machines |
-
+| 10 | I | Desktop resolves paths/profile per-user at launch | S | Real cross-user leak on shared machines |
