@@ -162,12 +162,12 @@ the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
 `dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
 the MCP tool list) are unchanged.
 
-**Pre-launch consistency sweep (iters #15-#48, 40 follow-on commits):**
+**Pre-launch consistency sweep (iters #15-#77, 63 follow-on commits):**
 
 The simplification pass above retired ~10 CLIs, renamed paths, and
 flipped brand framing — each of which scatters stale references
-across docs + UI strings + tests. A 40-iter consistency loop on top
-of the simplification swept 48 launch-credibility drifts in surfaces
+across docs + UI strings + tests. A 63-iter consistency loop on top
+of the simplification swept 55+ launch-credibility drifts in surfaces
 including:
 
 - 8 live runtime/UI bugs (most notably the launchpad's actual
@@ -206,9 +206,14 @@ fails the suite).
 
 Net result: launch-day surface is internally consistent across
 README + CLAUDE.md + launch-day docs + live UI + MCP descriptions.
-The doc-consistency suite (now 39 guards in
+The doc-consistency suite (now 41 guards in
 `tests/test_doc_count_consistency.py`) defends against the same
-shape of drift recurring.
+shape of drift recurring. Iters #62/#67/#71 added permanent guards
+for the iter #61/#65/#70 catch shapes (canonical-N subset, 6-surface
+test-count agreement, hero+sub across 5 surfaces). Iters #76/#77
+extracted meta-patterns + 3 higher-level architectural gaps into
+`docs/sweep-patterns.md` + `docs/architectural-gaps.md` for v1.7.5
+follow-up.
 
 ## [v1.7.3 — share-workflow end-to-end] — 2026-05-17
 
