@@ -150,8 +150,9 @@ is everything that didn't earn its keep.
 
 **MCP tool count:** 10 → 9 (`get_eval_summary` dropped).
 **Public CLI surface:** ~30 → ~21 commands.
-**Tests:** 1402 → 1292 passing + 4 skipped (the drop is retired
-tests for retired features; coverage of live surfaces unchanged).
+**Tests:** 1402 → 1294 passing + 4 skipped (the drop is retired
+tests for retired features; coverage of live surfaces unchanged
+— two iters of consistency-sweep guards rebuilt some headroom).
 **Net LOC:** -5000 across 17 commits.
 
 The pyproject version bumps 1.7.3 → 1.7.4. Semver-patch because
@@ -160,6 +161,51 @@ were typing the removed CLI subcommands weren't supposed to (and
 the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
 `dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
 the MCP tool list) are unchanged.
+
+**Pre-launch consistency sweep (iters #15-#39, 25 follow-on commits):**
+
+The simplification pass above retired ~10 CLIs, renamed paths, and
+flipped brand framing — each of which scatters stale references
+across docs + UI strings + tests. A 25-iter consistency loop on top
+of the simplification swept 47 launch-credibility drifts in surfaces
+including:
+
+- 7 live runtime/UI bugs (most notably the launchpad's actual
+  hero text still showing the pre-pivot tagline; #6366f1 indigo
+  in empty-state hints despite DESIGN.md forbidding it; retired
+  CLIs in user-visible HTML `<code>` blocks that would have errored
+  "unknown command" on click)
+- 2 MCP tool description strings telling agents to run retired
+  CLIs (`trinity-local me-build` instead of `lens-build`, stale
+  path for the cortex picks file)
+- 5-surface numeric/version drift (test count 1402 vs reality;
+  v1.7.3 vs pyproject 1.7.4; doc-consistency guard count 37 vs 39)
+- Cursor incorrectly listed as a transcript source (it's a harness)
+- ~/.trinity/conversations/ (Chrome extension's capture
+  destination) missing from the state-layout diagram even though
+  the README hero made the extension load-bearing
+
+Two permanent regression guards landed:
+
+- `TestNoRetiredCliInSrcQuotedStrings` (iter #13, extended #32):
+  scans all .py files in src/ for Python-quoted OR HTML-wrapped
+  `trinity-local <retired-cli>` strings. Locks 28 retired CLI names.
+- `TestNoForbiddenColorsInLaunchpadTemplates` (iter #37): scans
+  launchpad UI source for DESIGN.md-forbidden hexes (Tailwind
+  indigo / violet / blue / pink / amber). Locks the prior-violation
+  `#6366f1` indigo that principle #13 in CLAUDE.md narrated.
+
+The sweep also locked the brand-pivot to "Your taste, ported." (iter
+#33 swept the live launchpad hero — the most user-visible surface
+that had quietly missed the pivot; iter #36 dropped both old hero +
+old sub from `ACCEPTED_HEROES`/`ACCEPTED_SUBS` so a re-introduction
+fails the suite).
+
+Net result: launch-day surface is internally consistent across
+README + CLAUDE.md + launch-day docs + live UI + MCP descriptions.
+The doc-consistency suite (now 39 guards in
+`tests/test_doc_count_consistency.py`) defends against the same
+shape of drift recurring.
 
 ## [v1.7.3 — share-workflow end-to-end] — 2026-05-17
 
