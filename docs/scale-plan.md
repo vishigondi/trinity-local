@@ -420,6 +420,14 @@ One command after `setup.sh` — Trinity tools appear in Claude Code and Gemini 
 
 ## Phase 3 — Skills (Slash Commands)
 
+> Shipped pre-launch (different shape than this plan). The live
+> canonical skill is at `skills/trinity/SKILL.md` (one bundled
+> `/trinity` skill rather than three separate skills). The shape
+> below is preserved as Phase 3 design history; the example commands
+> reference retired CLIs (`bundle-create`, `install-skills`) and
+> won't parse against the live CLI surface — refer to the live
+> SKILL.md for current install/dispatch wiring.
+
 **Why**: Skills are Claude Code's slash command system — separate from MCP. They give users discoverable `/<name>` commands that wrap multi-step Trinity workflows. Skills + MCP are complementary, not coupled: MCP gives Claude tools to call autonomously; skills give the user explicit, documented commands.
 
 **Scope**: Claude Code only. Gemini CLI does not have an equivalent slash command system at the user-skill level. Codex CLI similarly lacks this surface. Trinity's CLI commands remain the cross-provider fallback.
