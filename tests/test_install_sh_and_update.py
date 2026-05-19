@@ -167,7 +167,7 @@ def test_update_emits_error_when_skill_dir_missing(tmp_path, capsys):
 
 
 def test_update_emits_error_when_skill_dir_not_a_git_checkout(
-    tmp_path, capsys
+    tmp_path, capsys, monkeypatch
 ):
     """Pointing update at a directory that exists but isn't a git
     checkout must error cleanly — that means the skill was installed
@@ -178,6 +178,14 @@ def test_update_emits_error_when_skill_dir_not_a_git_checkout(
     # Create the dir but no .git/
     (tmp_path / "fake_skill").mkdir()
 
+    # Force the "not a Chrome extension install" branch so the error
+    # message references the curl|bash install path, not the Chrome
+    # auto-update one.
+    monkeypatch.setattr(
+        "trinity_local.launchpad_data.dispatch_readiness",
+        lambda: {"ready": False, "extension_configured": False},
+    )
+
     args = SimpleNamespace(
         skill_dir=str(tmp_path / "fake_skill"),
         check=False, json=False,
@@ -186,6 +194,73 @@ def test_update_emits_error_when_skill_dir_not_a_git_checkout(
     assert rc == 1
     err = capsys.readouterr().err
     assert "not a git checkout" in err
+
+
+def test_update_skill_dir_prefers_canonical_when_present(tmp_path, monkeypatch):
+    """Post-2026-05-19 pivot: ~/.trinity/code/ is the canonical install
+    location. _skill_dir() must prefer it over the legacy
+    ~/.claude/skills/trinity/ when both could exist."""
+    from trinity_local.commands.update import _skill_dir
+
+    # Patch Path.home to point at tmp_path.
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    # Seed both the canonical location and the legacy location,
+    # with .git/ markers so the canonical-preferred check fires.
+    canonical = tmp_path / ".trinity" / "code"
+    canonical.mkdir(parents=True)
+    (canonical / ".git").mkdir()
+    legacy = tmp_path / ".claude" / "skills" / "trinity"
+    legacy.mkdir(parents=True)
+    (legacy / ".git").mkdir()
+
+    resolved = _skill_dir(None)
+    assert resolved == canonical, (
+        f"_skill_dir() must prefer ~/.trinity/code/ over legacy when "
+        f"both have .git/; got {resolved}"
+    )
+
+
+def test_update_skill_dir_falls_back_to_legacy(tmp_path, monkeypatch):
+    """When ~/.trinity/code/ doesn't exist (or isn't a git checkout),
+    _skill_dir falls back to the legacy ~/.claude/skills/trinity/
+    path — for pre-pivot users mid-migration."""
+    from trinity_local.commands.update import _skill_dir
+
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    # NO ~/.trinity/code/.git — only legacy.
+    legacy = tmp_path / ".claude" / "skills" / "trinity"
+    legacy.mkdir(parents=True)
+    (legacy / ".git").mkdir()
+
+    resolved = _skill_dir(None)
+    assert resolved == legacy
+
+
+def test_update_explains_chrome_auto_update_when_not_git(
+    tmp_path, capsys, monkeypatch
+):
+    """If the user's source dir isn't a git checkout AND the Chrome
+    extension is wired, the error should explain that Chrome auto-
+    updates the extension and no manual update is needed for the
+    Python side — NOT scold them to re-install."""
+    from trinity_local.commands.update import handle_update
+
+    (tmp_path / "fake_source").mkdir()
+    monkeypatch.setattr(
+        "trinity_local.launchpad_data.dispatch_readiness",
+        lambda: {"ready": True, "extension_configured": True},
+    )
+
+    args = SimpleNamespace(
+        skill_dir=str(tmp_path / "fake_source"),
+        check=False, json=False,
+    )
+    rc = handle_update(args)
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "Chrome" in err or "auto-update" in err, (
+        f"Update must explain Chrome auto-update for extension users; got: {err}"
+    )
 
 
 def test_update_check_on_real_repo_returns_up_to_date_or_lag(capsys):

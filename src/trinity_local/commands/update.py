@@ -53,8 +53,24 @@ def register(subparsers) -> None:
 
 
 def _skill_dir(override: str | None) -> Path:
+    """Locate the Trinity Python source dir for update purposes.
+
+    Lookup order:
+      1. Explicit override (--skill-dir) — for tests and custom installs.
+      2. ~/.trinity/code/ — the post-2026-05-19-pivot canonical location.
+      3. ~/.claude/skills/trinity/ — pre-pivot legacy.
+
+    Chrome Web Store extension installs are intentionally NOT probed here
+    — Chrome auto-updates the extension dir on its own ~5h cadence; the
+    user shouldn't (and can't) git pull inside an Extensions/ subdir.
+    The `update` command short-circuits with a clear message in that
+    case via the _is_git_checkout() check downstream.
+    """
     if override:
         return Path(override).expanduser().resolve()
+    canonical = Path.home() / ".trinity" / "code"
+    if (canonical / ".git").exists():
+        return canonical
     return Path.home() / ".claude" / "skills" / "trinity"
 
 
@@ -105,9 +121,30 @@ def handle_update(args: SimpleNamespace) -> int:
         msg = f"skill directory not found at {skill_dir}"
         return _emit_error(msg, json_mode)
     if not _is_git_checkout(skill_dir):
-        msg = (f"{skill_dir} is not a git checkout — update requires the "
-               "skill to be installed via scripts/install.sh (which clones "
-               "the repo).")
+        # Two cases to disambiguate for the user:
+        # (a) Trinity is running from inside a Chrome extension dir,
+        #     in which case Chrome auto-update handles refresh.
+        # (b) Partial install — no git checkout anywhere.
+        from ..launchpad_data import dispatch_readiness
+        try:
+            extension_ready = dispatch_readiness().get("ready", False)
+        except Exception:
+            extension_ready = False
+        if extension_ready:
+            msg = (
+                f"{skill_dir} is not a git checkout — Trinity may be "
+                f"running from the Chrome extension package, which "
+                f"auto-updates via the Web Store every ~5h. No manual "
+                f"update needed for the Python side. To verify the "
+                f"resolver picks the right source, run "
+                f"`~/.local/bin/trinity-path-resolver.sh`."
+            )
+        else:
+            msg = (
+                f"{skill_dir} is not a git checkout — update requires the "
+                f"source to be installed via scripts/install.sh (which "
+                f"clones the repo to ~/.trinity/code/)."
+            )
         return _emit_error(msg, json_mode)
 
     behind, ahead, fetch_err = _fetch_and_compute_lag(skill_dir)
