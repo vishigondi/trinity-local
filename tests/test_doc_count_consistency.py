@@ -47,13 +47,20 @@ def _extract(path: Path, pattern: str) -> str | None:
 
 
 class TestTestCountConsistency:
-    """Four surfaces pin the pytest count. They must agree.
+    """Six surfaces pin the pytest count. They must agree.
 
     CHANGELOG.md is intentionally NOT in the guard set — per Principle
     #8, CHANGELOG entries are timestamped and allowed to be stale.
     Current-state surfaces (claude.md status, claude.md verified,
-    product-spec item 11, 10_hn_faq_full.md launch FAQ closing claim)
-    are not — they describe what's true *now*, so they drift loudly.
+    product-spec item 11, 10_hn_faq_full.md launch FAQ closing claim,
+    launch-package.md T-0 runbook, LAUNCH_CHECKLIST.md \"Done — ready
+    to ship\" header) are not — they describe what's true *now*, so
+    they drift loudly.
+
+    The 4→6 extension landed in iter #67 after iters #65/#66 caught
+    launch-package.md (1402 → 1296) and LAUNCH_CHECKLIST.md (1372 →
+    1296) drifting silently because they weren't in the guard set.
+    Adding both surfaces converts that drift into commit-time work.
     """
 
     def test_four_surfaces_agree(self):
@@ -79,25 +86,43 @@ class TestTestCountConsistency:
             REPO / "docs" / "launch-day" / "10_hn_faq_full.md",
             r"(\d+) tests,\s*\d+ doc-consistency guards",
         )
+        # Surface E: docs/launch-package.md T-0 runbook — "pytest -q
+        # # ~N tests". The literal copy-paste runbook a launch operator
+        # follows. Caught in iter #65 (was 1402, real was 1294 → 1296).
+        launch_package_count = _extract(
+            REPO / "docs" / "launch-package.md",
+            r"pytest -q\s+#\s*~(\d+) tests",
+        )
+        # Surface F: docs/LAUNCH_CHECKLIST.md "Done — ready to ship"
+        # header — "(N tests passing + 4 skipped, M doc-consistency
+        # guards green". Caught in iter #66 (was 1372, real was 1296).
+        launch_checklist_count = _extract(
+            REPO / "docs" / "LAUNCH_CHECKLIST.md",
+            r"\((\d+) tests passing \+ 4 skipped",
+        )
 
-        # All four must be present.
+        # All six must be present.
         assert status_count, "claude.md Status block lost the 'N tests passing' marker"
         assert verified_count, "claude.md Verified status lost the 'pytest -q — **N passed**' marker"
         assert spec_count, "product-spec.md item 11 lost the 'Test suite: N passing' marker"
         assert hn_faq_count, "10_hn_faq_full.md lost the 'N tests, M doc-consistency guards' closing marker"
+        assert launch_package_count, "launch-package.md lost the 'pytest -q # ~N tests' runbook marker"
+        assert launch_checklist_count, "LAUNCH_CHECKLIST.md lost the '(N tests passing + 4 skipped' header marker"
 
-        # All four numbers must agree.
+        # All six numbers must agree.
         counts = {
             "claude.md status": status_count,
             "claude.md verified": verified_count,
             "product-spec item 11": spec_count,
             "10_hn_faq_full closing": hn_faq_count,
+            "launch-package T-0 runbook": launch_package_count,
+            "LAUNCH_CHECKLIST Done header": launch_checklist_count,
         }
         unique = set(counts.values())
         assert len(unique) == 1, (
             f"Test count drifted across surfaces: {counts}. "
             f"Principle #20: when you bump the test count, bump it in "
-            f"ALL four places in the same commit. Single-source-of-truth "
+            f"ALL six places in the same commit. Single-source-of-truth "
             f"would be cleaner long-term."
         )
 
