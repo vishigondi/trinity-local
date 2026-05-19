@@ -19,7 +19,13 @@
 set -euo pipefail
 
 TRINITY_REPO_URL="${TRINITY_REPO_URL:-https://github.com/vishigondi/trinity-local}"
-TRINITY_SKILL_DIR="${TRINITY_SKILL_DIR:-$HOME/.claude/skills/trinity}"
+# Post-2026-05-19 pivot: ~/.trinity/code/ is the canonical install
+# location. Old default ~/.claude/skills/trinity/ becomes a back-compat
+# symlink (created below) so /trinity in Claude Code keeps working.
+# Override via $TRINITY_SKILL_DIR if needed — name kept for back-compat
+# with users / docs that already reference the env var.
+TRINITY_SKILL_DIR="${TRINITY_SKILL_DIR:-$HOME/.trinity/code}"
+TRINITY_SKILL_LEGACY="$HOME/.claude/skills/trinity"
 TRINITY_BIN_DIR="${TRINITY_BIN_DIR:-$HOME/.local/bin}"
 TRINITY_BRANCH="${TRINITY_BRANCH:-main}"
 
@@ -105,6 +111,26 @@ else
   git clone --quiet --depth 1 --branch "$TRINITY_BRANCH" \
       "$TRINITY_REPO_URL" "$TRINITY_SKILL_DIR"
   ok "Cloned to $TRINITY_SKILL_DIR"
+fi
+
+# ─── 2b. Skill back-compat symlink ─────────────────────────────────
+# Keep /trinity in Claude Code working without forcing two copies of
+# the repo on disk. If the legacy skill location at
+# ~/.claude/skills/trinity/ doesn't exist (or is already a symlink we
+# manage), create a symlink to the canonical install. If it's a real
+# directory (existing pre-pivot install), leave it alone — overwriting
+# would silently lose the user's own git checkout.
+if [[ "$TRINITY_SKILL_DIR" != "$TRINITY_SKILL_LEGACY" ]]; then
+  if [[ -L "$TRINITY_SKILL_LEGACY" ]] || [[ ! -e "$TRINITY_SKILL_LEGACY" ]]; then
+    mkdir -p "$(dirname "$TRINITY_SKILL_LEGACY")"
+    rm -f "$TRINITY_SKILL_LEGACY"
+    ln -s "$TRINITY_SKILL_DIR" "$TRINITY_SKILL_LEGACY"
+    ok "Symlinked $TRINITY_SKILL_LEGACY → $TRINITY_SKILL_DIR (Claude Code /trinity alias)"
+  else
+    warn "$TRINITY_SKILL_LEGACY exists as a real directory — leaving it alone."
+    warn "Migrate manually if you want a single canonical install:"
+    warn "  rm -rf $TRINITY_SKILL_LEGACY && ln -s $TRINITY_SKILL_DIR $TRINITY_SKILL_LEGACY"
+  fi
 fi
 
 # ─── 3. Install CLI wrappers in ~/.local/bin/ ──────────────────────
@@ -270,8 +296,9 @@ echo ""
 echo "Type /trinity in Claude Code to start. Or run 'trinity-local status'"
 echo "to verify. Updates: 'trinity-local update' pulls the latest."
 echo ""
-echo "Skill:  $TRINITY_SKILL_DIR"
+echo "Source: $TRINITY_SKILL_DIR"
 echo "CLI:    $TRINITY_BIN_DIR/trinity-local"
+echo "Data:   $HOME/.trinity/ (prompts, council outcomes, lens)"
 echo "Docs:   $TRINITY_SKILL_DIR/docs/INSTALL-skill.md"
 echo ""
 printf "%sOptional next step — install the Chrome extension:%s\n" "$C_BOLD" "$C_RESET"

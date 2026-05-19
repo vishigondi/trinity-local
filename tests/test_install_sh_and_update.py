@@ -46,9 +46,12 @@ def test_install_sh_passes_bash_syntax_check():
 
 
 def test_install_sh_references_canonical_paths():
-    """The installer must point at the canonical skill directory and
+    """The installer must point at the canonical install directory and
     bin directory. Drift here means the docs and the script diverge —
     user gets one path from README, installer puts files elsewhere.
+
+    Post-2026-05-19 pivot: canonical install lives at ~/.trinity/code/.
+    Legacy ~/.claude/skills/trinity/ is kept as a back-compat symlink.
 
     Distribution invariant: Trinity itself is NOT installed via pip/npm
     (the script clones the repo and writes shell wrappers). Runtime
@@ -56,12 +59,66 @@ def test_install_sh_references_canonical_paths():
     party and we don't vendor them. The forbidden form is specifically
     `pip install trinity-local` / `pipx install trinity-local`."""
     content = INSTALL_SH.read_text()
-    assert ".claude/skills/trinity" in content
+    # Canonical post-pivot path must be referenced.
+    assert ".trinity/code" in content, (
+        "install.sh must reference ~/.trinity/code/ (post-2026-05-19 pivot "
+        "canonical install location)."
+    )
+    # Legacy still referenced as symlink target.
+    assert ".claude/skills/trinity" in content, (
+        "install.sh must still reference ~/.claude/skills/trinity/ for the "
+        "back-compat symlink (Claude Code /trinity skill alias)."
+    )
     assert ".local/bin" in content
     assert "pip install trinity-local" not in content
     assert "pipx install trinity-local" not in content
     assert "npm install trinity-local" not in content
     assert "npm install -g trinity-local" not in content
+
+
+def test_install_sh_default_install_target_is_canonical():
+    """The TRINITY_SKILL_DIR default value must be ~/.trinity/code (the
+    canonical post-pivot location), NOT ~/.claude/skills/trinity. New
+    installs land at the clean footprint; the legacy path becomes a
+    symlink alias."""
+    content = INSTALL_SH.read_text()
+    # Match the assignment line specifically.
+    import re
+    match = re.search(
+        r'TRINITY_SKILL_DIR=\s*"\$\{TRINITY_SKILL_DIR:-(\$HOME[^}"]+)\}"',
+        content,
+    )
+    assert match is not None, (
+        "install.sh must define TRINITY_SKILL_DIR with an explicit default."
+    )
+    default = match.group(1)
+    assert default == "$HOME/.trinity/code", (
+        f"TRINITY_SKILL_DIR default must be $HOME/.trinity/code (canonical "
+        f"post-2026-05-19 location); got {default!r}. New installs landing at "
+        f"the legacy location would silently regress the footprint collapse."
+    )
+
+
+def test_install_sh_creates_legacy_symlink():
+    """For new installs, the legacy ~/.claude/skills/trinity/ path must
+    be created as a symlink to the canonical install — so Claude Code's
+    `/trinity` skill alias keeps working without forcing two copies of
+    the repo. The script must NOT clobber an existing real directory."""
+    content = INSTALL_SH.read_text()
+    # Symlink creation must happen.
+    assert "ln -s" in content, (
+        "install.sh must `ln -s` the legacy skill path to the canonical "
+        "install when the legacy path doesn't exist (or is already a symlink)."
+    )
+    # Must guard against clobbering an existing real dir.
+    assert (
+        "exists as a real directory" in content
+        or "leaving it alone" in content
+    ), (
+        "install.sh must NOT overwrite ~/.claude/skills/trinity/ if it's a "
+        "real directory (existing pre-pivot install) — that would silently "
+        "destroy the user's checkout."
+    )
 
 
 def test_install_sh_writes_two_wrappers():
