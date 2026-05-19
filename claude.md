@@ -607,23 +607,23 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface af
 | Task kinds | `task_types.py` | Single `guess_task_type()` heuristic classifier (no LLM) |
 | Refresh | `refresh.py` | `refresh_launchpad()` — single entry for portal regeneration |
 | Dispatch | `dispatch_registry.py`, `capture_host.py`, `shortcuts_integration.py` (inert shim) | Chrome extension Native Messaging bridge — canonical dispatch path. The macOS Shortcuts wrapper (`shortcut_setup.py` + `dispatch_runner.py` + `commands/shortcuts.py`) was retired 2026-05-17; `shortcuts_integration.py` survives only as a backward-compat stub so old renderers don't break before their JS surgery lands. |
-| MCP | `mcp_server.py` | v1.0 canonical 6 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` (see below) |
+| MCP | `mcp_server.py` | v1.0 canonical 5 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` + launch-arc `handoff` (see below) |
 | Launchpad | `launchpad_data.py`, `launchpad_template.py`, `launchpad_runtime.py`, `launchpad_page.py`, `memory_viewer.py` | Static HTML launchpad + memory viewer (memory.html with inlined memory contents) — autofill, personal routing table, council suggestions, 4-chip lens card (core / lens / topics / vocabulary) — picks + routing surface on the routing card |
 | Share cards | `share_card_base.py`, `me_card.py`, `eval_card.py`, `council_card.py` | Three 1200×630 PNG renderers + a shared base module (canvas, fonts, palette, footer/CTA). One visual language (cream BG + sage accent + serif headline). `me_card` renders the strongest lens, `eval_card` renders an eval run's per-axis bars, `council_card` renders a council outcome's chairman-extracted agreed/disagreed claims. All three carry the same install CTA + `keepwhatworks.com` landing URL (brand flipped 2026-05-17 from `vishigondi.github.io/trinity-local`); council_card is privacy-safe by construction (chairman fields only, no user prompt or member text) |
 | Telemetry | `telemetry.py`, `notifications.py` | Opt-in telemetry settings (privacy-clean), system notifications |
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |
 | Research | `research/` package | Offline research pipeline (replay, hard mining, ranking eval) — not on the live product path |
 
-### The eleven MCP tools (`mcp_server.py`)
+### The nine MCP tools (`mcp_server.py`)
 
 The full public surface is **9 tools** — 5 canonical (v1.0) + 3 v1.5
-additions + 2 launch-arc additions (`handoff`, tick #119, 2026-05-14;
-post-#122 then retired 2026-05-17). The canonical 5 are the lifecycle
-order; the v1.5 trio sits adjacent to the v1.0 supervision loop; the
-launch-arc pair surfaces the cross-provider continuity demo and the
-empirical-benchmark surface to agents inline.
+additions + 1 launch-arc addition (`handoff`, tick #119, 2026-05-14).
+The canonical 5 are the lifecycle order; the v1.5 trio sits adjacent
+to the v1.0 supervision loop; `handoff` surfaces the cross-provider
+continuity demo to agents inline. (`get_eval_summary` shipped post-#122
+then retired 2026-05-17 — agents ground via `ask` + `get_picks`.)
 
-**v1.0 canonical six (lifecycle order):**
+**v1.0 canonical five (lifecycle order):**
 
 1. **`route(task, harness, available_models, budget, latency)`** → `{mode, primary, challenger, confidence, reason, fallback}`. No model calls — heuristic + k-NN + chairman picker. Cheap, called before the harness picks a model.
 
@@ -631,22 +631,21 @@ empirical-benchmark surface to agents inline.
 
 3. **`record_outcome(council_run_id, user_winner, accepted, edited, tests_passed, cost_usd, latency_sec, answer_label)`** → closes the supervision loop. Updates `council_feedback`, `CouncilOutcome.metadata.user_verdict`, and the originating `PromptNode` via `memory.record_council_outcome`. **The most important tool** — without it Trinity is a switchboard.
 
+4. **`get_persona()`** → returns `~/.trinity/memories/lens.md`. The chairman already loads this internally, but exposing it lets *any* harness (Claude Code, Codex, Gemini CLI) pull the persona once at session start and tailor responses without an MCP round trip per call.
 
-5. **`get_persona()`** → returns `~/.trinity/memories/lens.md`. The chairman already loads this internally, but exposing it lets *any* harness (Claude Code, Codex, Gemini CLI) pull the persona once at session start and tailor responses without an MCP round trip per call.
-
-6. **`get_council_status(council_run_id)`** → in-protocol polling for async councils. Returns status (running/completed/failed/canceled), per-member progress, synthesis state, and outcome summary (winner, agreed/disagreed claims, routing_lesson) when complete. Required for harnesses without filesystem access; also the only way to detect a stuck member without watching `~/.trinity/portal_pages/status/`.
+5. **`get_council_status(council_run_id)`** → in-protocol polling for async councils. Returns status (running/completed/failed/canceled), per-member progress, synthesis state, and outcome summary (winner, agreed/disagreed claims, routing_lesson) when complete. Required for harnesses without filesystem access; also the only way to detect a stuck member without watching `~/.trinity/portal_pages/status/`.
 
 **v1.5 trio:**
 
-7. **`ask(task, harness, available_models, budget)`** → cheap single-call default routing. The 90% case: harness has a question, wants one model's answer with a chairman-blessed verdict, doesn't need a full council. Pulls from cortex picks first (high-trust rule → use directly), falls back to k-NN advisory, finally to heuristic.
+6. **`ask(task, harness, available_models, budget)`** → cheap single-call default routing. The 90% case: harness has a question, wants one model's answer with a chairman-blessed verdict, doesn't need a full council. Pulls from cortex picks first (high-trust rule → use directly), falls back to k-NN advisory, finally to heuristic.
 
-8. **`get_picks(basin_id?, min_trust?)`** → agent-facing introspection into extracted cortex routing patterns. Returns `{rules: {basin_id: pattern}, total_basins, returned}` — patterns are keyed by basin_id (cortex consolidation is per-basin, not per-task_type), each carrying provider/reasoning/trust score/source councils inside the pattern dict. `basin_id` filter narrows to one basin; `min_trust` floor filters by `trust_score.value`. Empty cortex returns `{rules: {}, note: "..."}`. Lets a harness inspect what Trinity has learned about which model wins for which basin without firing route().
+7. **`get_picks(basin_id?, min_trust?)`** → agent-facing introspection into extracted cortex routing patterns. Returns `{rules: {basin_id: pattern}, total_basins, returned}` — patterns are keyed by basin_id (cortex consolidation is per-basin, not per-task_type), each carrying provider/reasoning/trust score/source councils inside the pattern dict. `basin_id` filter narrows to one basin; `min_trust` floor filters by `trust_score.value`. Empty cortex returns `{rules: {}, note: "..."}`. Lets a harness inspect what Trinity has learned about which model wins for which basin without firing route().
 
-9. **`mark_pick_wrong(task_type)`** → user-veto on an extracted pick. Halves effective trust per click, persists across consolidations. Same shape as the launchpad's pick-veto chip (Surface 17) but from the agent side.
+8. **`mark_pick_wrong(task_type)`** → user-veto on an extracted pick. Halves effective trust per click, persists across consolidations. Same shape as the launchpad's pick-veto chip (Surface 17) but from the agent side.
 
 **Launch-arc addition (tick #119, 2026-05-14):**
 
-10. **`handoff(target_provider, continuation?, num_turns?)`** → cross-provider conversation continuity. Pulls the user's most-recent (user, assistant) turns from the cross-provider prompt index, packages them as "continuing this thread" context, dispatches to a DIFFERENT provider. Target picks up exactly where the prior model left off — no re-context, no copy-paste. This is the mechanism behind the 60-second hero demo (#115/#120). Structurally non-refutable: only Trinity has the cross-provider index. CLI mirror: `trinity-local handoff <provider>`.
+9. **`handoff(target_provider, continuation?, num_turns?)`** → cross-provider conversation continuity. Pulls the user's most-recent (user, assistant) turns from the cross-provider prompt index, packages them as "continuing this thread" context, dispatches to a DIFFERENT provider. Target picks up exactly where the prior model left off — no re-context, no copy-paste. This is the mechanism behind the 60-second hero demo (#115/#120). Structurally non-refutable: only Trinity has the cross-provider index. CLI mirror: `trinity-local handoff <provider>`.
 
 <!-- get_eval_summary retired 2026-05-17 — agents ground via `ask` + picks;
 the eval-summary surface remains on the launchpad card and `eval-show`. -->
