@@ -10,7 +10,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["launchpad.html", "launchpad.css", "launchpad.js"],
+      "resources": ["popup.html"],
       "matches": ["<all_urls>"]
     }
   ],

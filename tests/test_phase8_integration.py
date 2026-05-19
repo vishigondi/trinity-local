@@ -285,29 +285,29 @@ def test_background_sender_gate_rejects_path_spoof():
     )
 
 
-def test_chrome_extension_manifest_action_kinds_match_allowlist():
-    """The capture_host action allowlist and the bundled launchpad's
-    button data-action attributes must agree on the set of kinds.
+def test_chrome_extension_popup_action_kinds_match_allowlist():
+    """The capture_host action allowlist and the extension popup's
+    action kinds must agree.
 
-    browser-extension/launchpad.html is the chrome-extension:// launchpad
-    Phase 3 shipped; it has its own buttons that emit action kinds.
-    Those must match capture_host's ACTION_ALLOWLIST for the bundled
-    launchpad to work.
+    The extension's duplicate launchpad.html was removed (2026-05-19)
+    in favor of a single canonical file:// launchpad — the popup
+    now dispatches `open-launchpad` to open that. popup.js is the
+    only extension-specific UI; its dispatch() calls must reference
+    kinds in capture_host's ACTION_ALLOWLIST.
     """
     from trinity_local.capture_host import ACTION_ALLOWLIST
 
     repo_root = Path(__file__).resolve().parents[1]
-    bundled_html = repo_root / "browser-extension" / "launchpad.html"
-    assert bundled_html.exists(), "browser-extension/launchpad.html missing"
-    html_src = bundled_html.read_text()
-    # Each `data-action="<kind>"` value the bundled launchpad emits must
-    # be in the allowlist.
+    popup_js = repo_root / "browser-extension" / "popup.js"
+    assert popup_js.exists(), "browser-extension/popup.js missing"
+    js_src = popup_js.read_text()
+    # The popup dispatches via `dispatch("kind", ...)` calls.
     import re
-    kinds = set(re.findall(r'data-action="([^"]+)"', html_src))
-    assert kinds, "No data-action attributes found in bundled launchpad.html"
+    kinds = set(re.findall(r'dispatch\("([^"]+)"', js_src))
+    assert kinds, "No dispatch() calls found in popup.js"
     for kind in kinds:
         assert kind in ACTION_ALLOWLIST, (
-            f"Bundled launchpad emits kind={kind!r} but capture_host "
+            f"popup.js dispatches kind={kind!r} but capture_host "
             f"allowlist does not include it. "
             f"Allowlist: {sorted(ACTION_ALLOWLIST.keys())!r}"
         )

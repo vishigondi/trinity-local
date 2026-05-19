@@ -206,6 +206,16 @@ ACTION_ALLOWLIST: dict[str, tuple] = {
                      # launchpad button means by "render". The CLI honors
                      # --open via notifications.open_path (cross-platform).
     ),
+    # open-launchpad regenerates ~/.trinity/portal_pages/launchpad.html
+    # and opens it in the user's default browser. The extension popup
+    # uses this as the single "Open Trinity launchpad" entry point —
+    # the extension's own launchpad.html duplicate was removed in
+    # favor of one canonical file:// surface.
+    "open-launchpad": (
+        "portal-html",
+        [],
+        ["--open-browser"],
+    ),
 }
 
 
