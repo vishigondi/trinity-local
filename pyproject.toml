@@ -25,6 +25,12 @@ dependencies = [
     "numpy>=1.26",  # Embedding matmul fast-path, k-means clustering, vocabulary stats — used across src/trinity_local/{embeddings,memory,me/basins,knn_analytics,vocabulary}
 ]
 
+[project.urls]
+Homepage = "https://keepwhatworks.com"
+Source = "https://github.com/vishigondi/trinity-local"
+Issues = "https://github.com/vishigondi/trinity-local/issues"
+Changelog = "https://github.com/vishigondi/trinity-local/blob/main/CHANGELOG.md"
+
 [project.scripts]
 trinity-local = "trinity_local.main:main"
 trinity-local-capture-host = "trinity_local.capture_host:main"
