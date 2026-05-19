@@ -433,7 +433,7 @@ trinity-local-capture-host
   # Installed as a separate console_script entry in pyproject.toml.
 ```
 
-The MCP tool surface stays at 11 (no new MCP tools needed for v1.6).
+The MCP tool surface stays at 9 (no new MCP tools needed for v1.6 — `search_prompts` retired 2026-05-17 + `get_eval_summary` retired 2026-05-18 dropped it from 11 to 9 during pre-launch simplification).
 The launchpad gains one card: "Browser capture (N conversations
 captured today)" — surfaces the rate at which the extension is
 landing data so the user notices if it stops working.
