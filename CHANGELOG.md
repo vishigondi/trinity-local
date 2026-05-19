@@ -162,19 +162,22 @@ the load-bearing surfaces — `council-launch`, `ask`, `record_outcome`,
 `dream`, `eval-*`, `handoff`, `me-card`, `lens-build`, `consolidate`,
 the MCP tool list) are unchanged.
 
-**Pre-launch consistency sweep (iters #15-#39, 25 follow-on commits):**
+**Pre-launch consistency sweep (iters #15-#48, 40 follow-on commits):**
 
 The simplification pass above retired ~10 CLIs, renamed paths, and
 flipped brand framing — each of which scatters stale references
-across docs + UI strings + tests. A 25-iter consistency loop on top
-of the simplification swept 47 launch-credibility drifts in surfaces
+across docs + UI strings + tests. A 40-iter consistency loop on top
+of the simplification swept 48 launch-credibility drifts in surfaces
 including:
 
-- 7 live runtime/UI bugs (most notably the launchpad's actual
+- 8 live runtime/UI bugs (most notably the launchpad's actual
   hero text still showing the pre-pivot tagline; #6366f1 indigo
   in empty-state hints despite DESIGN.md forbidding it; retired
   CLIs in user-visible HTML `<code>` blocks that would have errored
-  "unknown command" on click)
+  "unknown command" on click; the memory viewer's veto button
+  firing the retired `shortcuts://run-shortcut?` URL after the
+  Pass B sweep should have made the Chrome extension the only
+  live dispatch path — iter #48 fixed + added a regression guard)
 - 2 MCP tool description strings telling agents to run retired
   CLIs (`trinity-local me-build` instead of `lens-build`, stale
   path for the cortex picks file)
