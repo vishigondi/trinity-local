@@ -612,3 +612,20 @@ and charge ahead". Six more cleanups shipped:
     Copied — paste & run" feedback, no dead URL fire. Test rewritten
     to assert the new contract + guard against shortcuts:// regression.
 
+- 2026-05-19 (iter #51): config.json **role taxonomy fields are dead
+  code**. The provider-level `"roles": ["thinker", "verifier"]` arrays
+  on each provider and the top-level `"role_preferences": {...}` block
+  are not read anywhere in src/trinity_local/. Only `Config.role_preferences`
+  on the dataclass exists, populated by `raw.get("role_preferences", {})`
+  in `config.py:115`, but no downstream caller indexes into it. Grep
+  finds zero `.roles` / `role_preferences[...]` accesses; the role
+  labels survived as historical residue from when the trained-
+  coordinator path was active (see docs/spec-v2.md sunset, 2026-05-11).
+  Flagged for v1.7.5 cleanup — three-step delete: (a) drop `roles[]`
+  from every provider in `config.json` + `data/config.example.json`,
+  (b) drop the top-level `role_preferences` block from both, (c)
+  drop `role_preferences` from the `Config` dataclass + loader in
+  `config.py`. ~20 LOC + a regression guard ensuring no caller
+  resurfaces the field. Safe at T-0 in principle (no live reads),
+  but skipped pre-launch to avoid surgery-on-config-shape on the
+  day of public flip.
