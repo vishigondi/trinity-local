@@ -27,7 +27,7 @@ If `NOT_INSTALLED`, run section 2. Otherwise skip to section 3.
 
 ## 2. Install
 
-Trinity ships as a git clone, not a published package. The installer drops the skill in `~/.claude/skills/trinity/`, writes thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have, and runs `doctor`.
+Trinity ships as a git clone, not a published package. The installer drops the skill in `~/.claude/skills/trinity/`, writes thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have, and runs `status`.
 
 !`curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash`
 
@@ -43,7 +43,7 @@ The installer needs `git` + `python3.10+` on PATH. If Python is missing, recomme
 
 ## 3. Pre-flight checks
 
-`doctor` verifies provider CLIs (Claude / Codex / Gemini) are installed + authenticated, the MCP dep is present, the Trinity home directory is writable, the launchpad dispatch tier is wired, and embeddings can run. Each ✗ surfaces a one-line fix.
+`status` verifies provider CLIs (Claude / Codex / Gemini) are installed + authenticated, the MCP dep is present, the Trinity home directory is writable, the launchpad dispatch tier is wired, and embeddings can run. Each ✗ surfaces a one-line fix. (The legacy `doctor` CLI was collapsed into `status` pre-launch — `status` is the single health-check entry point.)
 
 !`trinity-local status`
 

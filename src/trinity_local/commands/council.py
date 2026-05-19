@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
-import shutil
 import signal
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,11 +13,8 @@ from ..council_review import write_live_council_page, write_unified_council_page
 from ..council_runner import run_council
 from ..council_runtime import (
     create_prompt_bundle,
-    create_council_outcome,
     load_council_outcome,
     load_prompt_bundle,
-    render_member_prompt,
-    render_primary_council_prompt,
     save_prompt_bundle,
     save_council_outcome,
 )
@@ -34,7 +29,7 @@ from ..notifications import open_path
 from ..refresh import refresh_launchpad
 from ..task_runtime import ensure_task_record, load_task_record, save_sync_record, save_task_record
 from ..utils import stable_id
-from .helpers import load_member_results, read_text_file
+from .helpers import read_text_file
 
 
 def _status_metadata(*, members: list[str], cwd: Path, pid: int | None = None, process_group_id: int | None = None) -> dict[str, object]:
@@ -364,7 +359,6 @@ def handle_council_rate(args):
     })
     if args.answer_label:
         outcome.metadata["user_verdict"]["answer_label"] = args.answer_label
-    from ..council_runtime import save_council_outcome  # local import; keeps top of file unchanged
     save_council_outcome(outcome)
 
     # Propagate the user's verdict to the originating PromptNode so the
