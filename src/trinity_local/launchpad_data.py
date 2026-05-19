@@ -18,7 +18,7 @@ from .dispatch_registry import make_dispatch_action
 from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
 from .memory.store import iter_prompt_nodes
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
-from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir
+from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir, trinity_home
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
 from .utils import now_iso
 
@@ -359,6 +359,85 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
 }
 
 
+def _embedder_status() -> dict[str, object]:
+    """Surface the deeper-memory opt-in state on the launchpad.
+
+    The nomic-embed-text-v1.5 weights are ~700MB. They aren't bundled
+    with Trinity — first lens-build / dream / vocabulary call triggers
+    a HuggingFace Hub download. The CLAUDE.md status block describes
+    this; the user encounters it as a RuntimeError the first time they
+    run lens-build, which is jarring.
+
+    Better: surface the state on the launchpad ON FIRST PAINT, with a
+    clear "Build deeper memory" CTA showing the exact download
+    command. The card is gated on a real signal — only show when the
+    user has prompts indexed (so they'd actually benefit). Cold
+    install with no prompts shows nothing; user has bigger things to
+    do first.
+
+    Returns:
+      modelDownloaded:    True if HF cache contains the weights
+      promptsIndexed:     True if prompt_nodes.jsonl has content
+      mlxAvailable:       True if sentence-transformers is importable
+      downloadCommand:    shell command to fetch the model
+      show:               True only when prompts are indexed AND model
+                          isn't downloaded; everything else hides the
+                          card (cold install → nothing to embed yet;
+                          everything wired → nothing to do)
+    """
+    # Model weights live in HuggingFace cache, NOT in ~/.trinity/models/
+    # (sentence-transformers writes there, not the path returned by
+    # `backend_mlx.model_path()` — a known mismatch we just stop
+    # papering over here by reading the real cache).
+    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
+    model_cache_dir = hf_cache / "models--nomic-ai--nomic-embed-text-v1.5"
+    model_downloaded = False
+    if model_cache_dir.exists():
+        # snapshots/<commit-hash>/ holds the weight files. Any non-empty
+        # snapshot directory means the model was at least partly fetched.
+        snapshots = model_cache_dir / "snapshots"
+        if snapshots.exists():
+            for snapshot in snapshots.iterdir():
+                if snapshot.is_dir() and any(snapshot.iterdir()):
+                    model_downloaded = True
+                    break
+
+    # Prompts indexed = user has data that would benefit from embeddings.
+    # Empty install → no upsell.
+    prompt_nodes_file = trinity_home() / "prompts" / "prompt_nodes.jsonl"
+    prompts_indexed = (
+        prompt_nodes_file.exists()
+        and prompt_nodes_file.stat().st_size > 100  # 100 bytes = at least one record
+    )
+
+    # mlxAvailable tracks whether the LIBS (sentence-transformers + torch)
+    # are importable. Without these, even running the download command
+    # won't help — the user needs `pip install trinity-local[mlx]` first.
+    try:
+        from . import embeddings
+        mlx_available = embeddings.is_available()
+    except Exception:
+        mlx_available = False
+
+    download_command = (
+        "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        if mlx_available
+        else "pip install 'trinity-local[mlx]' && huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+    )
+
+    return {
+        "modelDownloaded": model_downloaded,
+        "promptsIndexed": prompts_indexed,
+        "mlxAvailable": mlx_available,
+        "downloadCommand": download_command,
+        # Show the card only when we have signal (prompts indexed) AND
+        # the model is missing. Avoids nagging cold-install users with
+        # zero prompts, and hides the card entirely when everything's
+        # already wired.
+        "show": prompts_indexed and not model_downloaded,
+    }
+
+
 def _council_tier_status() -> dict[str, object]:
     """The audience-expansion tier card data.
 
@@ -568,6 +647,7 @@ def build_page_data(
     global_benchmarks = get_global_benchmarks()
     provider_health = _provider_health_data()
     council_tier = _council_tier_status()
+    embedder_status = _embedder_status()
     active_operation = _active_launchpad_operation()
     personal_routing = _load_personal_routing_table()
     benchmark_providers = list(next(iter(global_benchmarks.values()))["models"].keys()) if global_benchmarks else []
@@ -592,6 +672,7 @@ def build_page_data(
         "settingsLinks": settings_links,
         "providerHealth": provider_health,
         "councilTier": council_tier,
+        "embedderStatus": embedder_status,
         "eloChart": chart_data,
         "globalBenchmarks": global_benchmarks,
         "benchmarkProviders": benchmark_providers,

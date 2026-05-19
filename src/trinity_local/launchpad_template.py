@@ -977,6 +977,45 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Build-deeper-memory card — surfaces ONLY when the user has
+           prompts indexed (has signal that would benefit) but the
+           nomic-embed model isn't in their HF cache. Cold install with
+           zero prompts shows nothing; everything-wired shows nothing.
+           The card hands off a download command — explicit opt-in to
+           the 700MB pull rather than a surprise mid-lens-build crash. -->
+      <section
+        class="card"
+        v-if="pageData.embedderStatus && pageData.embedderStatus.show"
+        style="border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.04);"
+      >
+        <div class="eyebrow" style="color: #b57438;">Optional · deeper memory</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Build deeper memory (700MB download)
+        </h2>
+        <p class="meta" style="margin-top: 8px;">
+          Trinity's lens-build, dream, and vocabulary commands use a
+          local embedding model (nomic-embed-text-v1.5, 700MB) to find
+          topic basins in your prompts. Replay history and the council
+          launchpad already work without it.
+        </p>
+        <div class="provider-command" style="margin-top: 10px;">
+          <code>{{{{ pageData.embedderStatus.downloadCommand }}}}</code>
+          <button
+            type="button"
+            class="icon-action"
+            @click="copyText(pageData.embedderStatus.downloadCommand, 'embedder-download')"
+            title="Copy download command"
+            aria-label="Copy download command"
+          >
+            <span v-if="copiedKey === 'embedder-download'">✓</span>
+            <span v-else>⧉</span>
+          </button>
+        </div>
+        <p class="meta" style="margin-top: 8px; font-size: 12px; opacity: 0.7;">
+          One-time download. Reload this page after the command finishes.
+        </p>
+      </section>
+
       <!-- Phase 4 dispatch banner — single global banner that opens
            when a click hits tier 3 (no extension + no Shortcut) or when
            the extension is present but install-extension wasn't run.
