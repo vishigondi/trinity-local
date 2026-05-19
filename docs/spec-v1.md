@@ -5,9 +5,13 @@
 > for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
 > **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
-> lens, and the personal routing table. The pitch users land on is *"Stop copy-pasting
+> lens, and the personal routing table. The pitch users land on is *"Your taste, ported.
+> Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor."* with sub *"No new app.
+> No service. No API key. Your transcripts never leave your machine."* — the cross-provider
+> memory layer the labs can't build. (Pitch pivoted 2026-05-16 from "Stop copy-pasting
 > prompts. Own your context. Dream your core memories. One question. Every model you use.
-> One answer that knows you."* — the cross-provider memory layer the labs can't build.
+> One answer that knows you." — see "## The brand" section below for the full pivot
+> narrative.)
 >
 > **v1.5 is the routing product** that makes the full "SOTA + your taste + your subs +
 > saves cost" pitch literally true. It's MCP-primary, adds the cortex consolidation layer,
