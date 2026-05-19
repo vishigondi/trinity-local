@@ -7,16 +7,19 @@
 
 ## Your taste, ported.
 
-Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through the taste distilled from transcripts already on your machine — and picks the answer YOU would have picked, not the generic one.
+Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through your taste lens — distilled from your local transcripts (CLI sessions on disk plus web chats the Chrome extension captures *to* your machine from claude.ai / chatgpt.com / gemini.google.com) — and picks the answer YOU would have picked, not the generic one.
 
-```bash
-trinity-local council-launch --task "Should I use SQLite or DuckDB for this analytics workload?"
-# → Claude, Codex, and Gemini answer in parallel.
-# → Chairman synthesizes through your taste lens (distilled from your transcripts).
-# → Verdict: winner, runner-up, agreed claims, where they split, why each split matters.
-```
+![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
-**No new app. No service. No API key.** Your transcripts never leave your machine. Just an MCP server for Claude Code / Codex / Gemini / Cursor, plus a static HTML launchpad you open from a Chrome extension.
+Inside Claude Code (or Codex CLI / Gemini CLI / Cursor) — just ask:
+
+> Run a Trinity council on whether to use SQLite or DuckDB for this analytics workload.
+
+The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel. The chairman synthesizes through your lens and returns the verdict inline: winner, runner-up, agreed claims, where they split, why each split matters. The launchpad above is the same surface in a browser tab — open it from the Chrome extension when you want to scan recent councils, your `/me` lens, and the topic graph without leaving the keyboard for a chat window.
+
+**The Chrome extension does two things.** As you chat on claude.ai / chatgpt.com / gemini.google.com, it captures each conversation to `~/.trinity/conversations/` on your machine — no listening port, no upload; Chrome's Native Messaging spawns a local capture host on demand. And it hosts the launchpad you click open from the toolbar. Together with the CLI sessions on disk (`~/.claude/`, `~/.codex/`, `~/.gemini/`), the extension's captures are what your lens distills from.
+
+**No new app. No service. No API key.** Captures flow *to* your machine; prompts never leave it. Everything else is an MCP server inside the harnesses you already use.
 
 ## Install
 
@@ -27,8 +30,6 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 Then type `/trinity` in Claude Code. The skill walks the rest — `status`, ingest, dream, first eval. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end (`ls ~/.claude/skills/trinity/`).
 
 Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated. Full prereqs, the two install paths (Skill / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
-
-![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
 
 ## How it works
 
