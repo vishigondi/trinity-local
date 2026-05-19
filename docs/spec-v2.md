@@ -75,7 +75,7 @@
 
 | Version | Pitch in one line | Status |
 |---|---|---|
-| v1.0 | *Stop copy-pasting prompts. Own your context. Dream your core memories.* | Ships May 13–15 |
+| v1.0 | *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.* | Ships May 13–15 (pivoted 2026-05-16 from "Stop copy-pasting prompts. Own your context. Dream your core memories.") |
 | v1.5 | *Trinity is what Claude Code reaches for* | **Ships June 3, 2026 (active spec)** |
 | v1.1 (narrative video) | n/a | **deprecated** (me-card PNG is the v1 social object) |
 | v1.2 (Coach Lens) | n/a | **absorbed into v1.5 cortex layer** |
@@ -89,7 +89,7 @@ it into a *learned coordinator* via local DPO fine-tune.
 
 | Version | Pitch in one line | Status |
 |---|---|---|
-| v1.0 | *Stop copy-pasting prompts. Own your context. Dream your core memories.* | Ships May 13–15 |
+| v1.0 | *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.* | Ships May 13–15 (pivoted 2026-05-16 — see above table footnote) |
 | v1.1 | *Your taste becomes a story you can share* (narrative video pipeline) | Week 8 |
 | v1.2 | *Trinity tells you what to learn next* (Coach Lens / `trinity evolve`) | Week 12 |
 | v2.0 | *Your local chairman replaces the frontier one for your kinds of questions* | Month 4–6 |
