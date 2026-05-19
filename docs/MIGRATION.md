@@ -196,8 +196,11 @@ dispatch-tier usage and (b) that release shows the extension carrying
 the dispatch load on macOS for an extended sample. One release after
 the warning lands, the path goes away.
 
-Until then: it's a load-bearing fallback. The note printed by
-`shortcut-install` (Phase 7) is friendly, not nagging.
+Until then: it's a load-bearing fallback for the installs that already
+have the Shortcut wired. The `shortcut-install` CLI was retired
+pre-launch (commit 53db635); existing macOS users keep their Shortcut
+where it already lives in macOS Shortcuts.app, but no new installs can
+be bootstrapped via Trinity itself.
 
 ## FAQ
 
