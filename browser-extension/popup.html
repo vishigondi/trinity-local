@@ -5,64 +5,178 @@
   The ONLY extension-specific UI. The extension's duplicate
   launchpad.html was removed; the popup dispatches `open-launchpad`
   via Native Messaging, which runs `trinity-local portal-html
-  --open-browser` and opens the single canonical file:// launchpad
-  in the user's default browser.
+  --open-browser` and opens the single canonical file:// launchpad.
 
-  Two affordances: quick-council + open-launchpad. Setup card shown
-  when Native Messaging isn't wired (extension installed before CLI).
+  Visual language matches src/trinity_local/design_system.py:
+  cream BG, sage action color, Iowan Old Style serif headline,
+  SF Pro Text body. Council input is a multi-line textarea so a
+  real question fits.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Trinity</title>
   <style>
-    body { width: 320px; padding: 14px; font-family: -apple-system, system-ui, sans-serif; background: #f5efe3; color: #1f1a17; }
-    h1 { margin: 0 0 12px 0; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
-    .row { margin-bottom: 10px; }
-    .row label { display: block; font-size: 11px; color: #5f554d; margin-bottom: 4px; }
-    .row input { width: 100%; padding: 6px 8px; border: 1px solid #d7ccb9; border-radius: 4px; background: #fbf8f2; font-size: 12px; font-family: inherit; box-sizing: border-box; }
-    .row .btn { width: 100%; padding: 8px 10px; border: none; border-radius: 4px; background: #255847; color: #f7f3ea; font-size: 12px; font-weight: 500; cursor: pointer; }
-    .row .btn:hover { background: #1d4638; }
-    .row .btn:disabled { opacity: 0.55; cursor: default; }
-    .row .btn.secondary { background: transparent; color: #255847; border: 1px solid #d7ccb9; }
-    .row .btn.secondary:hover { background: rgba(37, 88, 71, 0.06); }
-    .status { font-size: 11px; color: #86796d; margin-top: 6px; min-height: 14px; white-space: pre-wrap; }
-    .status.error { color: #b26a1f; }
-    .status.ok { color: #255847; }
-
-    /* Setup card — shown when Native Messaging host is missing or
-       CLI not on PATH. Replaces the action surface with curl-bash
-       install + extension-register commands. */
-    .setup-reason {
-      font-size: 12px; color: #6a5a4d; margin: 0 0 12px 0;
-      padding: 8px 10px; background: #faf3e6;
-      border-left: 3px solid #b26a1f; border-radius: 2px;
+    :root {
+      --bg-base: #f5efe3;
+      --bg-wash: #ece4d6;
+      --surface: #fbf8f2;
+      --border: #d7ccb9;
+      --text-primary: #1f1a17;
+      --text-secondary: #5f554d;
+      --text-muted: #86796d;
+      --action: #255847;
+      --action-hover: #1d4638;
+      --action-text: #f7f3ea;
+      --success: #2d6a4f;
+      --warning: #b26a1f;
+      --info: #315c85;
     }
-    .setup-step { font-size: 12px; margin: 10px 0 4px 0; color: #1f1a17; }
-    .setup-step strong { color: #315c85; }
-    #copy-setup-cmds { margin: 8px 0 4px 0; width: 100%; padding: 9px 10px; font-size: 12px; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    body {
+      width: 380px;
+      padding: 18px 18px 16px;
+    }
+    h1 {
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin: 0 0 14px 0;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .field-group {
+      margin-bottom: 14px;
+    }
+    .field-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    textarea#task {
+      width: 100%;
+      min-height: 64px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      resize: vertical;
+    }
+    textarea#task:focus {
+      outline: none;
+      border-color: var(--action);
+      box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.12);
+    }
+    textarea#task::placeholder {
+      color: var(--text-muted);
+    }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 5px;
+      background: var(--action);
+      color: var(--action-text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+    .btn:hover { background: var(--action-hover); }
+    .btn:disabled { opacity: 0.55; cursor: default; }
+    .btn.secondary {
+      background: transparent;
+      color: var(--action);
+      border: 1px solid var(--border);
+    }
+    .btn.secondary:hover {
+      background: rgba(37, 88, 71, 0.06);
+      border-color: var(--action);
+    }
+    .status {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin: 8px 0 0 0;
+      min-height: 16px;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+    .status.error { color: var(--warning); }
+    .status.ok    { color: var(--success); }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 18px 0 16px;
+      opacity: 0.6;
+    }
+
+    /* Setup card — shown when Native Messaging host missing or
+       CLI not on PATH. Same visual language as the rest of the popup
+       so the install-first experience doesn't feel like a different
+       app. */
+    .setup-reason {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0 0 14px 0;
+      padding: 10px 12px;
+      background: var(--bg-wash);
+      border-left: 3px solid var(--warning);
+      border-radius: 3px;
+      line-height: 1.45;
+    }
+    .setup-step {
+      font-size: 13.5px;
+      margin: 12px 0 6px 0;
+      color: var(--text-primary);
+      line-height: 1.45;
+    }
+    #copy-setup-cmds { margin: 4px 0 0 0; }
     .setup-footer {
-      font-size: 11px; color: #86796d; margin-top: 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 16px;
       text-align: right;
     }
-    .setup-footer a { color: #315c85; }
+    .setup-footer a { color: var(--info); text-decoration: none; }
+    .setup-footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <h1>Trinity Local</h1>
 
-  <div class="row">
+  <div class="field-group">
     <label for="task">Run a quick council</label>
-    <input id="task" type="text" placeholder="What should I ask three models at once?" autofocus>
+    <textarea id="task" rows="2"
+              placeholder="Ask the same question across Claude, Codex, and Gemini. Chairman synthesizes in your voice."
+              autofocus></textarea>
   </div>
-  <div class="row">
-    <button class="btn" id="run-btn">Send to council</button>
-  </div>
+  <button class="btn" id="run-btn">Send to council</button>
   <div class="status" id="status"></div>
 
-  <div class="row" style="margin-top: 14px;">
-    <button class="btn secondary" id="open-launchpad-btn">Open Trinity launchpad →</button>
-  </div>
+  <div class="divider"></div>
+
+  <button class="btn secondary" id="open-launchpad-btn">Open Trinity launchpad →</button>
 
   <script src="popup.js"></script>
 </body>
