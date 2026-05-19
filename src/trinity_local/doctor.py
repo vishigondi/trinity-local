@@ -612,7 +612,7 @@ def _check_cortex_freshness() -> CheckResult:
         return CheckResult(
             name="cortex_freshness",
             ok=True,
-            detail="picks.json has no task_kinds yet — re-run `trinity-local consolidate`",
+            detail="picks.json has no task_types yet — re-run `trinity-local consolidate`",
         )
     freshest_picks = max(consolidated_ats)
     # Find newer outcomes on disk.
