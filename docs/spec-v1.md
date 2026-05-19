@@ -34,26 +34,32 @@ Anthropic just ship this?*
 
 ## The brand
 
-**Hero:** *Stop copy-pasting prompts. Own your context. Dream your core memories.*
-**Sub:** *One question. Every model you use. One answer that knows you.*
+**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.*
+**Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
+
+(Brand axis pivoted 2026-05-16 from the prior "Stop copy-pasting prompts. Own
+your context. Dream your core memories." / "One question. Every model you use.
+One answer that knows you." framing. Reason: the polyharness power user reads
+"councils" as another tool to learn; reads "your taste, ported" as something
+working FOR them. The mechanism — councils synthesizing through the lens — is
+unchanged; only the surface framing flipped from mechanic-first to user-direct.
+See claude.md status block for the full pivot narrative.)
 
 The brand axis splits cleanly into three load-bearing words:
-- **prompts** — what you own (raw, today scattered across browser tabs)
-- **dream** — the verb only Trinity has (synthesizes prompts → core memories, offline, your data)
-- **core memories** — what dream creates: a four-level lens hierarchy (`core.md` → `lens.md` → `topics.json` → `vocabulary.md`). Cognitive shape — what you think and how. The three thinking files live under `~/.trinity/memories/`; `core.md` is the distillation at `~/.trinity/core.md`. Model-selection scoreboards (`picks.json`, `routing.json`) live separately under `~/.trinity/scoreboard/` — operational bookkeeping, not cognition. See the lens-hierarchy mapping in claude.md.
+- **transcripts** — what's already on your machine (claude_ai exports, codex sessions, gemini takeout, plus what the Chrome extension captures from web chats)
+- **lens** — the pattern of how you rephrase, judge, and decide, extracted offline. Lives as `~/.trinity/memories/lens.md` (paired tensions) + `~/.trinity/memories/topics.json` (basins) + `~/.trinity/memories/vocabulary.md` (anchors) + `~/.trinity/core.md` (distillation). Cognitive shape — what you think and how. Model-selection scoreboards (`picks.json`, `routing.json`) live separately under `~/.trinity/scoreboard/` — operational bookkeeping, not cognition.
+- **twin** — Trinity acting in your voice when you ask hard questions. Councils dispatch through all three providers in parallel; chairman condenses members' answers through the lens; you get the answer you would have picked.
 
 Three concrete pains underneath, each with a direct Trinity answer:
 
 | Pain | Trinity's answer |
 |---|---|
 | You copy-paste prompts between chatbots. | Trinity asks all three at once. |
-| Each chatbot only knows its slice of your thinking. | `dream` synthesizes your prompts into memory. |
+| Each chatbot only knows its slice of your thinking. | `dream` synthesizes your transcripts into the lens. |
 | Each chatbot over-engineers the same problem differently. | The lens learns your COMPRESSION rejections. The routing table de-weights over-engineers in your categories. |
 
 These go in the README H1, the HN title, the Twitter hook, and the homepage hero. Every
-piece of launch copy threads back to one of them. The old standalone tagline *"Own your
-memories"* is retired — its meaning is now distributed across the prompts/dream/memory axis,
-where each word does distinct work instead of one phrase carrying ambiguity.
+piece of launch copy threads back to one of them.
 
 ## The magic moment
 
