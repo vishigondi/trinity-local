@@ -1016,6 +1016,40 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- Proactive "Install Chrome extension" CTA — visible on first
+           paint when the user installed via curl|bash (terminal-first
+           path) and never wired the extension. Closes the cross-
+           bootstrap: the extension popup tells users to "paste install
+           brief into Claude Code" (tick c797c64); this card is the
+           reciprocal — tells curl-bash users to grab the extension for
+           browser capture + auto-updates.
+
+           Different from `dispatchBannerOpen` below: that banner is
+           REACTIVE (fires only after a dispatch attempt fails). This
+           card is PROACTIVE — surfaces the gap before the user hits
+           it. -->
+      <section
+        class="card"
+        v-if="pageData.browserExtension && !pageData.browserExtension.configured"
+        style="border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);"
+      >
+        <div class="eyebrow" style="color: #315c85;">Cross-bootstrap · optional</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Install the Chrome extension for browser capture + auto-update
+        </h2>
+        <p class="meta" style="margin-top: 8px;">
+          The extension captures conversations from claude.ai / chatgpt.com /
+          gemini.google.com into <code>~/.trinity/conversations/</code>, and
+          ships Trinity's Python via Chrome's Web Store auto-update path so
+          you don't have to manually <code>git pull</code> for new versions.
+        </p>
+        <p class="meta" style="margin-top: 8px;">
+          See <a href="https://github.com/vishigondi/trinity-local/blob/main/docs/INSTALL-extension.md"
+            target="_blank" style="color: #315c85;">docs/INSTALL-extension.md</a>
+          for the sideload steps (Web Store publish is post-launch).
+        </p>
+      </section>
+
       <!-- Phase 4 dispatch banner — single global banner that opens
            when a click hits tier 3 (no extension + no Shortcut) or when
            the extension is present but install-extension wasn't run.
