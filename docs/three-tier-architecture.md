@@ -67,7 +67,7 @@ same files with the same schemas:
 | `~/.trinity/memories/lens.md` | paired tensions (in-tree) | lens-build |
 | `~/.trinity/memories/topics.json` | basins (in-tree) | basins |
 | `~/.trinity/memories/vocabulary.md` | anchors (in-tree) | vocabulary |
-| `~/.trinity/core.md` | distillation (in-tree) | distill |
+| `~/.trinity/core.md` | distillation (in-tree) | dream (Phase 5 — the standalone `distill` CLI was retired pre-launch) |
 | `~/.trinity/scoreboard/picks.json` | picks (in-tree) | consolidate |
 | `~/.trinity/scoreboard/routing.json` | routing (in-tree) | aggregation |
 | `~/.trinity/me/rejections.jsonl` | `schemas/rejection_signal.schema.json` | turn_pairs |
