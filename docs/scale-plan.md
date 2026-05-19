@@ -769,6 +769,34 @@ For Trinity Local that means:
 
 ## 8.0 Architectural commitments
 
+> Shipped pre-launch (different shape than this plan). Phase 0
+> sections 8.x below are preserved as design history; the example
+> tool list + state paths + module names reference the design's
+> original shape, not what shipped. Translations:
+>
+> - **MCP surface** (8.1): plan said 6 tools (`route`, `judge`,
+>   `run_council`, `record_outcome`, `search_prompts`, `get_persona`).
+>   Live ships 9: canonical 5 (`route`, `run_council`,
+>   `record_outcome`, `get_persona`, `get_council_status`) + v1.5
+>   trio (`ask`, `get_picks`, `mark_pick_wrong`) + launch-arc
+>   `handoff`. `judge` collapsed into `run_council(responses=[...])`
+>   (Tier 1 #2); `search_prompts` dropped pre-launch.
+> - **State paths** (8.4): plan said `~/.trinity/memory/...`. Live
+>   ships `~/.trinity/prompts/...` (Tier 1 #1 rename, task #90).
+>   `TranscriptNode` tier was dropped (Tier 2 #5, task #51).
+>   `embeddings.bin` → `embeddings_matrix.npy`. Per-transcript
+>   sharding collapsed into single JSONL files.
+> - **Dual dispatch** (8.0 #3): plan said "MCP server + macOS
+>   Shortcuts." Live dispatch is MCP + Chrome extension Native
+>   Messaging; the Shortcut path was retired in Pass A (2026-05-17).
+> - **Module names** (8.11 + Critical Files): plan said
+>   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
+> - **Test count target** (8.13 exit criteria): plan said "~150
+>   tests after dead-code removal." Live: 1293 + 4 skipped.
+>
+> Refer to claude.md's Architecture section + state-layout diagram
+> for canonical current state.
+
 1. **Invisible-first.** The harness-facing API is the real product. The Launchpad dashboard is secondary — Datadog for model choice, not another IDE.
 2. **Tool-triggered ingestion.** No daemons. When an MCP tool is called or the Launchpad is opened, run an incremental cursor-based ingest. Bounded freshness without background processes.
 3. **Dual dispatch stays.** MCP server (cross-CLI) and macOS Shortcuts (power users) both route through `dispatch_registry.command_for_dispatch`. One source of truth for actions, two acquisition channels.
