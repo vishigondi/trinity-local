@@ -1417,7 +1417,7 @@ def _load_taste_lenses() -> dict | None:
     parse when the pipeline hasn't run yet.
 
     Returns None when neither source has data — the launchpad shows
-    an empty-state CTA pointing at `trinity-local me-build`.
+    an empty-state CTA pointing at `trinity-local lens-build`.
     """
     from .me.pair_mining import load_lenses, load_orderings
     from .me_lenses import parse_taste_lenses

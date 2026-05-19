@@ -1,7 +1,7 @@
 """Pre-flight cold-install checks for Trinity.
 
 Per `council_35b2ae198a65b349`: the audit-missed launch blocker is a fresh
-user running `me-build` without provider auth, hanging silently, and
+user running `lens-build` without provider auth, hanging silently, and
 blaming Trinity. The eval seed: *"name a specific cold-install failure
 mode AND the exact CLI command that detects it before the user hits a
 live council."*

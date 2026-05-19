@@ -91,7 +91,7 @@ class TasteLenses:
 
         Vocabulary is intentionally left out: phrases without their why
         read as inside-baseball on socials. Anyone curious enough to ask
-        about the vocabulary can run /me-build themselves.
+        about the vocabulary can run `trinity-local lens-build` themselves.
         """
         parts: list[str] = ["The patterns Trinity found in how I think:"]
         if self.rejections:
