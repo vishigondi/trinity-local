@@ -113,37 +113,83 @@ step "Installing CLI wrappers to $TRINITY_BIN_DIR"
 
 mkdir -p "$TRINITY_BIN_DIR"
 
-# Write the trinity-local wrapper. Stable file — points at the skill
-# directory via env var so the wrapper survives the user moving the
-# skill if they want to. The resolved Python binary is baked in so the
-# wrapper doesn't drift if the user later installs a stale `python3`
-# symlink ahead of the one we validated.
-cat > "$TRINITY_BIN_DIR/trinity-local" <<WRAPPER_EOF
+# Path resolver — used by both wrappers below. Copying it to
+# ~/.local/bin/ instead of leaving it inside the skill dir avoids a
+# chicken-and-egg lookup (the wrappers need it to find the skill dir).
+# The resolver script is small + self-contained; this copy gets
+# overwritten on every install so it tracks the source.
+RESOLVER_SRC="$TRINITY_SKILL_DIR/scripts/launcher_path_resolver.sh"
+RESOLVER_DST="$TRINITY_BIN_DIR/trinity-path-resolver.sh"
+if [[ -f "$RESOLVER_SRC" ]]; then
+  cp "$RESOLVER_SRC" "$RESOLVER_DST"
+  chmod +x "$RESOLVER_DST"
+  ok "trinity-path-resolver.sh"
+else
+  warn "launcher_path_resolver.sh not in skill repo — wrappers will use legacy direct-path mode"
+  RESOLVER_DST=""
+fi
+
+# Write the trinity-local wrapper. With the resolver in place, the
+# wrapper probes Chrome / Brave / Edge / Arc extension dirs first
+# (Web Store auto-update path), then ~/.trinity/code/ (sideload /
+# `trinity-local update`), then ~/.claude/skills/trinity/ (legacy).
+# Without the resolver (defensive fallback for partial installs),
+# uses the legacy direct-path approach.
+if [[ -n "$RESOLVER_DST" ]]; then
+  cat > "$TRINITY_BIN_DIR/trinity-local" <<WRAPPER_EOF
 #!/usr/bin/env bash
 # Trinity Local CLI wrapper — installed by scripts/install.sh.
-# Resolves to the cloned skill repo via \$TRINITY_SKILL_DIR (default
-# ~/.claude/skills/trinity/).
+# Resolves the Python source dir via launcher_path_resolver.sh so
+# Chrome Web Store auto-updates flow through to the CLI.
+set -e
+RESOLVER="$RESOLVER_DST"
+SOURCE_DIR=\$("\$RESOLVER" 2>/dev/null) || {
+  echo "error: Trinity source not found in any browser extension dir," >&2
+  echo "  ~/.trinity/code/, or ~/.claude/skills/trinity/." >&2
+  echo "Re-install: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash" >&2
+  exit 1
+}
+export PYTHONPATH="\$SOURCE_DIR/src:\${PYTHONPATH:-}"
+exec "$PYTHON_BIN" -m trinity_local.main "\$@"
+WRAPPER_EOF
+else
+  # Legacy fallback wrapper (partial install / resolver missing).
+  cat > "$TRINITY_BIN_DIR/trinity-local" <<LEGACY_EOF
+#!/usr/bin/env bash
 TRINITY_SKILL_DIR="\${TRINITY_SKILL_DIR:-\$HOME/.claude/skills/trinity}"
 if [[ ! -d "\$TRINITY_SKILL_DIR/src/trinity_local" ]]; then
   echo "error: Trinity skill not found at \$TRINITY_SKILL_DIR" >&2
-  echo "Re-install: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash" >&2
   exit 1
 fi
 export PYTHONPATH="\$TRINITY_SKILL_DIR/src:\${PYTHONPATH:-}"
 exec "$PYTHON_BIN" -m trinity_local.main "\$@"
-WRAPPER_EOF
+LEGACY_EOF
+fi
 chmod +x "$TRINITY_BIN_DIR/trinity-local"
 ok "trinity-local"
 
-# Native Messaging host wrapper — same pattern, points at capture_host.py.
-cat > "$TRINITY_BIN_DIR/trinity-local-capture-host" <<CAPTURE_EOF
+# Native Messaging host wrapper — same resolver pattern.
+if [[ -n "$RESOLVER_DST" ]]; then
+  cat > "$TRINITY_BIN_DIR/trinity-local-capture-host" <<CAPTURE_EOF
 #!/usr/bin/env bash
-# Trinity Local Native Messaging host wrapper — installed by scripts/
-# install.sh. Chrome / Edge talk to this via stdio.
+# Trinity Local Native Messaging host wrapper — installed by
+# scripts/install.sh. Chrome / Edge talk to this via stdio.
+set -e
+SOURCE_DIR=\$("$RESOLVER_DST" 2>/dev/null) || {
+  echo "error: Trinity source not found" >&2
+  exit 1
+}
+export PYTHONPATH="\$SOURCE_DIR/src:\${PYTHONPATH:-}"
+exec "$PYTHON_BIN" "\$SOURCE_DIR/src/trinity_local/capture_host.py" "\$@"
+CAPTURE_EOF
+else
+  cat > "$TRINITY_BIN_DIR/trinity-local-capture-host" <<CAPTURE_LEGACY_EOF
+#!/usr/bin/env bash
 TRINITY_SKILL_DIR="\${TRINITY_SKILL_DIR:-\$HOME/.claude/skills/trinity}"
 export PYTHONPATH="\$TRINITY_SKILL_DIR/src:\${PYTHONPATH:-}"
 exec "$PYTHON_BIN" "\$TRINITY_SKILL_DIR/src/trinity_local/capture_host.py" "\$@"
-CAPTURE_EOF
+CAPTURE_LEGACY_EOF
+fi
 chmod +x "$TRINITY_BIN_DIR/trinity-local-capture-host"
 ok "trinity-local-capture-host"
 
