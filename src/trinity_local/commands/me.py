@@ -1,6 +1,18 @@
-"""/me — build the user's persona document via a single chairman call
-over sampled prompt history. The chairman of every Trinity council reads it
-to score council outputs against THIS user's taste, not the world's."""
+"""`lens-build` + `lens-show` — build / inspect the user's lens via a single
+chairman call over sampled prompt history. The chairman of every Trinity
+council reads `~/.trinity/memories/lens.md` to score council outputs
+against THIS user's taste, not the world's.
+
+Tier 1 #2 rename history (task #91): the CLI + MCP + file paths renamed
+me/persona → lens pre-launch. Internal symbols (`me_builder`, `me_path`,
+`build_me_via_council`, `ME_BUDGET_CHARS`) kept their me_ prefix per the
+"code uses internal names; user-facing copy uses canonical name"
+convention (same shape as glossary entry for member vs seat). The LLM
+prompt that builds the lens (in `me_builder._render_me_build_prompt`)
+still instructs the chairman to produce a `/me document` with `# /me`
+heading — this gets rendered in the launchpad memory viewer; the
+prompt-template rewrite to use "lens" framing is a deferred content-shape
+change."""
 from __future__ import annotations
 
 import json
