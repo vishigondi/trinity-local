@@ -31,9 +31,11 @@ The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Ge
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 ```
 
-Then type `/trinity` in Claude Code. The skill walks the rest — `status`, ingest, dream, first eval. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end (`ls ~/.claude/skills/trinity/`).
+**Easiest** — install the Chrome extension first, then paste its setup brief into Claude Code or Claude Desktop. The agent runs the rest. No terminal expertise required. See [docs/INSTALL-extension.md](docs/INSTALL-extension.md).
 
-Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated. Full prereqs, the two install paths (Skill / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
+Once installed, just ask the agent: *"Run a Trinity council on …"* — Trinity registers as an MCP server in Claude Code / Codex CLI / Gemini CLI / Cursor, so the tools are visible inline. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end.
+
+Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated — Trinity works with just one (chairman synthesis + your lens), gets stronger with two (real disagreement), full canonical council with three. Full prereqs, the two install paths (terminal / Chrome extension), uninstall, and offline-model setup live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
 
 ## How it works
 

@@ -12,50 +12,66 @@ Trinity ships as three tiers, each fully functional standalone. The data
 format in `~/.trinity/` is invariant across tiers; the tiers differ in
 *how* you invoke Trinity, not *what* Trinity computes.
 
-## Tier 1 — Skill (primary)
+## Tier 1 — MCP server (primary, 2026-05-19 pivot)
 
-Markdown + JSON + tiny scripts at `~/.claude/skills/trinity/`. Maximum
-trust: the user can read every file Trinity invokes.
+Trinity registers as an MCP server in every harness that supports MCP
+(Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop). The
+agent calls tools like `mcp__trinity-local__run_council` inline —
+no separate UI, no `/skill` invocation needed. The tool docstrings
+ARE the contract; the agent reads them at MCP handshake and dispatches
+based on the user's natural-language ask.
 
-When you type `/trinity` in Claude Code, Claude Code reads
-`SKILL.md` and runs the shell commands it specifies. No daemon, no
-listening port, no hidden state.
+**Why MCP-first** (was: skill-first). The Chrome extension first-run UX
+is "paste this brief into Claude Code / Claude Desktop." The agent
+reads MCP tools, not a markdown skill file, when it decides what to
+call. Anyone with one MCP-capable harness gets Trinity; skill files
+require Claude Code specifically. Audience expansion + simpler mental
+model + one source of truth (the docstrings, no SKILL.md drift).
 
-**v1.0 shape**: SKILL.md orchestrates the existing `trinity-local` CLI
-(Tier 2). The skill IS the spec; the CLI is the engine the skill calls.
-
-**v1.1 shape** (deferred): SKILL.md will orchestrate standalone shebang
-scripts at `scripts/` with on-demand venv-scoped dependencies. The pip
-package's role narrows to ergonomic wrapping; the engine sits in
-`scripts/` and both tiers import from there.
+The skill at `~/.claude/skills/trinity/` is **kept as a back-compat
+alias** for users who already type `/trinity` in Claude Code — it
+now points at the same MCP tools. New users never have to know it
+exists.
 
 ## Tier 2 — Engine
 
-The Python engine the skill calls. Lives in `~/.claude/skills/trinity/src/trinity_local/`
-after the curl-bash installer clones it. The `trinity-local` shell wrapper at
+The Python engine MCP tools call. Lives in
+`~/.claude/skills/trinity/src/trinity_local/` after the curl-bash
+installer clones it. The `trinity-local` shell wrapper at
 `~/.local/bin/trinity-local` resolves to this engine via PYTHONPATH.
 
-In v1.0 the engine contains both the CLI ergonomics AND the heavy ops
-(embeddings, k-means, geometric median, descriptor pipeline, etc.). In v1.1,
-the heavy ops fully invert into `scripts/` and the engine becomes a thin
-wrapper around them.
+The engine contains both the CLI ergonomics (`trinity-local status`,
+`dream`, `update`, …) AND the heavy ops (embeddings, k-means,
+geometric median, descriptor pipeline). The MCP server (Tier 1) imports
+from here too — same code path, different surface.
 
 **No PyPI publish.** Python-library users who want
 `from trinity_local import council_runtime` in their own code do
 `pip install -e ~/.claude/skills/trinity/` from the cloned repo — see
 [`INSTALL-pip.md`](INSTALL-pip.md) for the rationale.
 
-## Tier 3 — Chrome Extension (optional)
+## Tier 3 — Chrome Extension (discovery + capture sidecar)
 
-Cross-surface capture (web chats at claude.ai / chatgpt.com /
-gemini.google.com) + one-click launchpad UI. Native Messaging bridges
-the extension to `trinity-local-capture-host` — no localhost server.
+The extension is the **non-technical-user entry point**. From the
+Web Store install, the popup's setup card copies a paste-into-agent
+brief that runs `install.sh` end-to-end — the user never touches a
+terminal. Once installed:
 
-Phase 4b (committed 2026-05-16) wires the extension as the
-cross-platform launchpad dispatcher via narrow action-allowlist
-entries (`launch-council`, `ingest-recent`, `stop-council`,
-`render-me-card`, seven settings toggles). See
-[`MIGRATION.md`](MIGRATION.md).
+* **Browser capture**: streams web chats from claude.ai / chatgpt.com
+  / gemini.google.com into `~/.trinity/conversations/` via Native
+  Messaging. No listening port, no upload — Chrome spawns a local
+  capture host on demand.
+* **Dispatcher**: narrow action-allowlist (`launch-council`,
+  `ingest-recent`, `stop-council`, `render-me-card`, settings
+  toggles) plus `open-council-page` and `get-council-status` for the
+  popup status panel. Cross-platform — replaces the macOS Shortcut
+  dispatcher retired 2026-05-17.
+* **Auto-update channel** (2026-05-19): planned to bundle the Python
+  source inside the extension package so Chrome's ~5h Web Store
+  update cadence delivers Python updates too. Today: curl-bash users
+  run `trinity-local update` (git pull).
+
+See [`MIGRATION.md`](MIGRATION.md) for the dispatcher migration.
 
 ---
 
