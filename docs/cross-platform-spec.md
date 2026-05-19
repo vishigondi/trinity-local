@@ -157,7 +157,7 @@ The terminal product must keep these as stable public entry points:
 | `trinity-local council-launch --task "..."` | Run a multi-provider council |
 | `trinity-local handoff <provider>` | Continue the latest thread in a different provider |
 | `trinity-local dream` | Build memories from the user's prompt corpus |
-| `trinity-local portal-html --open` | Regenerate and open the local launchpad |
+| `trinity-local portal-html --open-browser` | Regenerate and open the local launchpad |
 | `trinity-local unrated` | Show councils that still need user verdicts |
 | `trinity-local consolidate` | Rebuild cortex routing patterns |
 | `trinity-local eval-build` / `eval-run` / `eval-show` | Score providers against the user's rejections |

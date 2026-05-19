@@ -168,7 +168,7 @@ Trinity Local v1.7 ships today. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.
 | `trinity-local council-launch --task "..."` | Run a council from the terminal |
 | `trinity-local lens-build` | Build your lens from prompt history |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
-| `trinity-local portal-html --open` | Open the launchpad |
+| `trinity-local portal-html --open-browser` | Open the launchpad |
 | `trinity-local review-link <council_id> --json` | Mobile-safe review links |
 | `trinity-local --help` | Full command list |
 
