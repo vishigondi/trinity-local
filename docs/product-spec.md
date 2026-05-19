@@ -146,19 +146,20 @@ The chairman reads `/me` (composed by `lens-build` from sampled diverse prompts)
 
 ```
 ~/.trinity/
-├── tasks/                          # Durable task records
+├── todos/                          # Durable todo records (renamed from tasks/)
 ├── council_outcomes/               # Council outcome JSON (structured routing_label + chain_steps) — CANONICAL store
-├── council_progress/               # Live council progress (JSON + JS) for polling
 ├── reviews/                        # Post-hoc review JSON
 ├── review_pages/                   # Static HTML review pages
-├── portal_pages/launchpad.html     # The launchpad (always file://)
+├── portal_pages/                   # Static launchpad surface (always file://)
+│   ├── launchpad.html              #   The launchpad
+│   └── status/                     #   Live council progress (JSON + JS) for polling
 ├── settings/                       # Telemetry settings
-├── bin/trinity-dispatch            # Shell-launcher dispatch wrapper
-├── memory/
-│   ├── prompt_nodes.jsonl          # PromptNode index (atomic retrieval unit)
-│   ├── turn_windows.jsonl          # TurnWindow index (local context)
-│   └── cursors.json                # Per-source ingest cursors
-├── lens.md                         # Built by `lens-build` via chairman call
+├── prompts/                        # Raw prompt index (renamed from memory/)
+│   ├── prompt_nodes.jsonl          #   PromptNode index (atomic retrieval unit)
+│   ├── turn_windows.jsonl          #   TurnWindow index (local context)
+│   └── cursors.json                #   Per-source ingest cursors
+├── memories/
+│   └── lens.md                     # Built by `lens-build` via chairman call
 ├── analytics/
 │   └── routing_label_events.jsonl  # Chairman parse-success rate
 ├── outcomes.jsonl                  # Per-session outcome records (drift)

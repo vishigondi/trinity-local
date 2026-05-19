@@ -544,7 +544,7 @@ After a council, treat the chairman's synthesis (especially `agreed_claims` / `d
 
 Run `trinity-local install-mcp` once to register Trinity's MCP server with Claude Code (`~/.claude.json`), Gemini CLI (`~/.gemini.json`), and Codex CLI (`~/.codex/config.toml`). Each harness spawns `trinity-local --mcp` as a stdio child when it starts; it lives until the harness exits. ~62MB resident while connected.
 
-The launchpad → macOS Shortcuts → `~/.trinity/bin/trinity-dispatch` → CLI pipeline is independent of MCP — it's one-shot subprocess at every step, no persistent process required. So the launchpad keeps working even if MCP is disabled.
+The launchpad → Chrome extension → Native Messaging → `trinity-local-capture-host` → CLI pipeline is independent of MCP — it's one-shot subprocess at every step, no persistent process required. So the launchpad keeps working even if MCP is disabled. (The earlier macOS Shortcut dispatch path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch in favor of the cross-platform Chrome extension; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
 
 ## MCP server hot-reload (development only)
 
@@ -664,10 +664,11 @@ diagram is either retired or written by a feature you haven't run yet.
 ├── actions/                        # Pending action records
 ├── prompt_bundles/                 # Saved prompt bundles
 ├── council_outcomes/               # Council outcome JSON (routing_label + chain_steps)
-├── council_progress/               # Live council progress (JSON + JS) for polling
 ├── reviews/                        # Post-hoc review JSON
 ├── review_pages/                   # Static HTML review pages
-├── portal_pages/launchpad.html     # The launchpad (always file://)
+├── portal_pages/                   # Static launchpad surface (always file://)
+│   ├── launchpad.html              #   The launchpad
+│   └── status/                     #   Live council progress (JSON + JS) for polling
 ├── task_sync/                      # Sync-safe task payloads
 ├── settings/                       # Telemetry settings
 │
