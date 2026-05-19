@@ -12,10 +12,14 @@ to every model you use in parallel and runs a synthesis pass that returns one
 verdict — what they agreed on, where they disagreed and why it matters, which
 one was right.
 
-It also looks back: Trinity scans the transcripts already on your machine, finds
-questions you asked multiple providers separately, and turns each cross-provider
-pair into a synthetic council — bootstrapping your context from your own history
-before you run a single fresh council.
+It also looks back. Two transcript sources feed Trinity's lens: CLI sessions
+that live on disk by default (`~/.claude/`, `~/.codex/`, `~/.gemini/`,
+`~/.cursor/`) and web chats the Chrome extension auto-captures locally to
+`~/.trinity/conversations/` as you use claude.ai / chatgpt.com /
+gemini.google.com. Trinity finds questions you asked multiple providers
+separately, turns each cross-provider pair into a synthetic council, and
+bootstraps your context from your own history before you run a single fresh
+council.
 
 ## Councils are a GPS — broad when you need coverage, deep when you need conviction
 

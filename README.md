@@ -33,7 +33,7 @@ Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini`
 
 ## How it works
 
-Trinity reads the transcripts already on your machine — Claude Code, Codex CLI, Gemini CLI, Cursor, claude.ai exports, ChatGPT exports, Gemini Takeout — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
+Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Gemini CLI, Cursor), web chats the Chrome extension auto-captures locally (claude.ai, chatgpt.com, gemini.google.com), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
 
 ### And — when a new model lands, score it against your taste
 
@@ -103,7 +103,7 @@ Same verb, different domain. Dreaming consolidates Claude sessions inside Anthro
 They literally can't. Anthropic can't recommend ChatGPT; OpenAI can't recommend Claude; Google can't recommend either. The competitive constraint is structural, not technical. The cross-provider layer has to come from outside the labs — that's the whole wedge.
 
 **"Who's behind this? Why trust a random repo with my transcripts?"**
-Single developer, MIT, public source — small enough to audit in an evening. Trinity reads transcripts already on your machine, doesn't fetch or upload them. If you stop using it, `~/.trinity/` is plain JSON you can `cat | jq` without us.
+Single developer, MIT, public source — small enough to audit in an evening. Trinity reads transcripts on your machine — written there either by your CLI sessions or by the Chrome extension's local capture host. Nothing leaves the machine. If you stop using it, `~/.trinity/` is plain JSON you can `cat | jq` without us.
 
 **"What happens if you abandon this project?"**
 The folder is the API. `~/.trinity/memories/lens.md` is Markdown; council outcomes are human-readable JSON; the schema is at [`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md). Your taste capture survives Trinity disappearing.
