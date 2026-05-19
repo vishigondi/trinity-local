@@ -88,10 +88,10 @@ class TestLaunchpadFlow:
 
         assert path.exists()
         html = path.read_text(encoding="utf-8")
-        # Hero copy for cold-start users (no recent councils) — updated
-        # from "Run Your First Council" to the locked tagline per the brand
-        # pivot. Returning users see "Run a Council" instead.
-        assert "Dream your core memories" in html
+        # Hero copy for cold-start users (no recent councils) — locked
+        # to the post-2026-05-16 brand axis hero. Returning users see
+        # "Run a Council" instead.
+        assert "Your taste, ported." in html
         assert "launch_council" in html
         assert "Launchpad controls" in html
         assert "petite-vue.es.js" in html
@@ -162,7 +162,7 @@ class TestLaunchpadFlow:
         html = path.read_text(encoding="utf-8")
         # Hero copy + brand tagline must render even with zero data — these
         # are the FIRST thing a new user sees and they can't be data-gated.
-        assert "Dream your core memories" in html
+        assert "Your taste, ported." in html
         # Petite-vue + Chart.js must load — the JS deps aren't data-conditional.
         assert "petite-vue.es.js" in html
         # Empty-state copy for the recent-councils card — exact string

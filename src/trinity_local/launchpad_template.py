@@ -2167,13 +2167,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
           }}
-          return 'Stop copy-pasting prompts. Own your context. Dream your core memories.';
+          return 'Your taste, ported.';
         }},
         get heroMechanism() {{
           if (this.busy) {{
             return '';
           }}
-          return 'One question. Every model you use. One answer that knows you.';
+          return 'No new app. No service. No API key.';
         }},
         get operationHeading() {{
           if (!this.operation) {{
