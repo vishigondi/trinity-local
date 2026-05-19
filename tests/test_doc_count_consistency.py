@@ -1086,6 +1086,12 @@ class TestBrandAxisConsistency:
         REPO / "docs" / "launch.md",
         REPO / "docs" / "launch-package.md",
         REPO / "claude.md",
+        # Added 2026-05-19 (iter #71) after iter #70 caught spec-v1.md
+        # still carrying pre-pivot hero+sub three days post-pivot. The
+        # spec doc is the load-bearing v1 contract; a careful HN reader
+        # following links from launch copy lands here. Locking it shut
+        # converts that drift into commit-time work.
+        REPO / "docs" / "spec-v1.md",
     ]
 
     SURFACES_CARRYING_SUB = [
@@ -1093,6 +1099,8 @@ class TestBrandAxisConsistency:
         REPO / "docs" / "launch.md",
         REPO / "docs" / "launch-package.md",
         REPO / "claude.md",
+        # Same shape as the hero list — added 2026-05-19 (iter #71).
+        REPO / "docs" / "spec-v1.md",
     ]
 
     def test_hero_appears_verbatim_in_each_launch_surface(self):
