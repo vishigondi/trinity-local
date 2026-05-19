@@ -597,3 +597,18 @@ and charge ahead". Six more cleanups shipped:
   the dead-code surface is real (~12 callsites + the shim module).
   Scope: ~3h of mechanical edits with test sweeps.
 
+  **Pass C addendum (consistency iter #48, 2026-05-18)**: two JS-side
+  surfaces escaped Pass B because they construct their own
+  `shortcuts://run-shortcut?...` URL string in template literals
+  instead of going through the inert `buildShortcutUrl()` helper.
+  Both need the same Pass-B-equivalent surgery in v1.7.5:
+  - `council_review.py` `_startChainAction()` (lines 501–522) — builds
+    `shortcutsUrl` for continue/refine chain actions; click currently
+    flips `chainBusy = true` and polls forever because the URL fires
+    nothing. Workaround for users: re-launch a council from the
+    launchpad rather than chaining from the review page.
+  - `memory_viewer.py` `renderPicksReader` veto button — FIXED in
+    iter #48; the click now copies CLI to clipboard with visible "✓
+    Copied — paste & run" feedback, no dead URL fire. Test rewritten
+    to assert the new contract + guard against shortcuts:// regression.
+

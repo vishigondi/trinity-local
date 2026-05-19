@@ -1243,47 +1243,25 @@ def render_memory_viewer_html() -> str:
           tlink.title = basinHoverTitle(topologyBasinId, basinLabels);
           actions.appendChild(tlink);
         }}
-        // One-click veto: fires the cortex-override CLI via the macOS
-        // Shortcut already wired for dispatch (same shortcuts:// URL
-        // pattern the launchpad uses for council-launch). The button
-        // ALSO copies the equivalent CLI to clipboard as a fallback
-        // when the Shortcut isn't installed (run-mode falls back to
-        // paste-in-terminal). 100-persona audit P63 catch: the prior
-        // implementation was clipboard-only — clicked, copied, never
-        // ran. Now click → veto fires + 'Veto sent ✓' chip → on next
-        // page reload the picks Reader reflects the new effective
-        // trust. Shortcut not installed? Banner already nudges the
-        // user (#install-shortcut-banner); fallback keeps the loop
-        // closeable manually.
+        // One-click veto: copies the cortex-override CLI to clipboard
+        // so the user can paste-and-run in their terminal. The Pass B
+        // sweep (commit 0555a25) made the Chrome extension the only
+        // live dispatch path; the memory viewer renders via file:// and
+        // can't reach the extension's Native Messaging host directly,
+        // so clipboard + paste is the safe path here. The button chip
+        // flips to "✓ Copied — paste & run" for 3s so the click has
+        // visible feedback (100-persona audit P63 catch).
         const vetoCmd = "trinity-local cortex-override --basin " + basinId;
         const veto = el("button", "pick-veto", "Mark wrong");
         veto.type = "button";
-        veto.title = "Fire veto (one-tap macOS Shortcut), or copy CLI as fallback";
+        veto.title = "Copy cortex-override CLI to clipboard — paste in your terminal to fire the veto";
         veto.dataset.basin = basinId;
         veto.addEventListener("click", () => {{
-          // Build the same {{action: "run_command", args: {{command}}}} payload
-          // launchpad council-launch uses; the dispatch wrapper at
-          // ~/.trinity/bin/trinity-dispatch runs it as a subprocess.
-          const shortcutName = (typeof pageData !== "undefined" && pageData.shortcutName) || "Trinity Dispatch";
-          const payload = {{
-            action: "run_command",
-            args: {{ command: vetoCmd }},
-          }};
-          const url = "shortcuts://run-shortcut?name=" +
-            encodeURIComponent(shortcutName) +
-            "&input=text&text=" +
-            encodeURIComponent(JSON.stringify(payload));
-          // Fallback: also copy the CLI in case the Shortcut isn't
-          // installed yet — the user can paste manually.
           if (navigator.clipboard?.writeText) {{
             navigator.clipboard.writeText(vetoCmd).catch(() => null);
           }}
-          // Fire the Shortcut. macOS shows a one-tap "Allow" prompt
-          // for shortcuts:// links the first time; subsequent fires
-          // are silent if the user picks "always allow."
-          window.location.href = url;
           const original = veto.textContent;
-          veto.textContent = "✓ Veto firing…";
+          veto.textContent = "✓ Copied — paste & run";
           setTimeout(() => {{ veto.textContent = original; }}, 3000);
         }});
         actions.appendChild(veto);

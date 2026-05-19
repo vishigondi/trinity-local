@@ -48,28 +48,30 @@ class TestPickVetoChip:
             "pick-veto chip no longer references cortex-override — template drift"
         )
 
-    def test_pick_veto_fires_shortcut_url_not_just_clipboard(self, isolated_home):
-        """100-persona audit P63: the veto chip used to ONLY copy the CLI
-        to clipboard — visible feedback-loop break. Now it fires the
-        macOS Shortcut directly (same shortcuts:// URL pattern as
-        launchpad council-launch); clipboard is fallback. Guard against
-        regression to clipboard-only."""
+    def test_pick_veto_gives_visible_click_feedback(self, isolated_home):
+        """100-persona audit P63: the veto chip used to copy silently
+        — clicked, copied, no visible feedback. Pass B (commit 0555a25)
+        retired the macOS Shortcut dispatch path; memory.html renders
+        via file:// and can't reach the Chrome extension's Native
+        Messaging host directly, so clipboard + paste is the safe path.
+        The chip text must flip on click so the user sees the click
+        landed. Guard against (a) regression to silent copy and (b)
+        re-introduction of the dead shortcuts:// URL fire."""
         html = _render()
-        # Must build a shortcuts:// URL with the run_command action
-        assert "shortcuts://run-shortcut?name=" in html, (
-            "pick-veto no longer fires the macOS Shortcut — regressed to "
-            "clipboard-only per persona audit P63"
+        # Click must write the CLI to the clipboard
+        assert "navigator.clipboard" in html, (
+            "pick-veto no longer writes to clipboard — silent click regression"
         )
-        assert '"run_command"' in html, (
-            "pick-veto payload doesn't use the run_command dispatch action"
+        # Click must flip the button text for visible feedback
+        assert "✓ Copied" in html, (
+            "pick-veto chip no longer shows visible click feedback — "
+            "regressed to silent-copy state per persona audit P63"
         )
-        # JS object literal — unquoted key, quoted value
-        assert "action: " in html, (
-            "pick-veto payload missing the action: field in the JS object literal"
-        )
-        # Must still set window.location.href to trigger the URL handler
-        assert "window.location.href" in html, (
-            "pick-veto doesn't navigate to the shortcuts:// URL — won't actually fire"
+        # Dead shortcuts:// URL fire must NOT come back — Pass B retired it
+        assert "shortcuts://run-shortcut" not in html, (
+            "pick-veto re-introduced retired macOS Shortcut URL fire — "
+            "Pass B (commit 0555a25) made Chrome extension the only "
+            "live dispatch path"
         )
 
     def test_pick_actions_wrapper_present(self, isolated_home):
