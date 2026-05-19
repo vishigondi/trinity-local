@@ -19,7 +19,7 @@ from pathlib import Path
 
 from ..config import ProviderConfig
 from ..providers import make_provider, ProviderResult
-from .runner import EvalRunResult, EvalItemRun
+from .runner import EvalRunResult
 
 
 # Per-rejection-type rubric the chairman gets in the judge prompt.

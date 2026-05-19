@@ -145,7 +145,6 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
     than silently returning an empty set, which would mask a misconfig.
     """
     from ..me.turn_pairs import rejections_path
-    from ..me.turn_pairs import RejectionSignal
 
     if source != "rejections":
         raise NotImplementedError(
