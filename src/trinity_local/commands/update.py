@@ -49,6 +49,15 @@ def register(subparsers) -> None:
         "--json", action="store_true",
         help="Emit machine-readable JSON instead of a human-readable report.",
     )
+    parser.add_argument(
+        "--deps", action="store_true",
+        help=(
+            "Refresh pip-installed runtime deps (Pillow, mcp, numpy) via "
+            "pip install --upgrade. Use after a Trinity upgrade that requires "
+            "newer dep versions — the rare case; deps are stable across most "
+            "releases."
+        ),
+    )
     parser.set_defaults(handler=handle_update)
 
 
@@ -112,10 +121,56 @@ def _fetch_and_compute_lag(skill_dir: Path) -> tuple[int, int, str | None]:
     return behind, ahead, None
 
 
+def _refresh_pip_deps(json_mode: bool) -> int:
+    """Re-install Pillow / mcp / numpy via pip --upgrade. Same packages
+    install.sh writes; the user runs this on the rare upgrade that
+    requires newer dep versions.
+
+    Uses --user when running outside a venv (matching install.sh's
+    behavior) so we don't touch system site-packages. Inside a venv,
+    plain --upgrade — that's what the developer expects.
+    """
+    in_venv = sys.prefix != sys.base_prefix
+    pip_args = [
+        sys.executable, "-m", "pip", "install", "--quiet", "--upgrade",
+    ]
+    if not in_venv:
+        pip_args.append("--user")
+    pip_args.extend(["Pillow>=10", "mcp>=1.0", "numpy>=1.26"])
+
+    result = subprocess.run(pip_args, capture_output=True, text=True, check=False)
+    ok = result.returncode == 0
+    if json_mode:
+        print(json.dumps({
+            "deps_updated": ok,
+            "venv": in_venv,
+            "returncode": result.returncode,
+            "stderr": result.stderr.strip(),
+        }, indent=2))
+    else:
+        target = "venv" if in_venv else "user site-packages"
+        if ok:
+            print(f"✓ Refreshed pip deps (Pillow + mcp + numpy) in {target}.")
+        else:
+            print(
+                f"✗ pip install --upgrade failed (returncode "
+                f"{result.returncode}). stderr:\n{result.stderr}",
+                file=sys.stderr,
+            )
+    return 0 if ok else 1
+
+
 def handle_update(args: SimpleNamespace) -> int:
     skill_dir = _skill_dir(getattr(args, "skill_dir", None))
     json_mode = bool(getattr(args, "json", False))
     check_only = bool(getattr(args, "check", False))
+    deps_only = bool(getattr(args, "deps", False))
+
+    # --deps short-circuits the git-pull path. Pip-dep refresh is
+    # decoupled from source updates; the user can refresh deps without
+    # touching the source dir at all.
+    if deps_only:
+        return _refresh_pip_deps(json_mode)
 
     if not skill_dir.exists():
         msg = f"skill directory not found at {skill_dir}"

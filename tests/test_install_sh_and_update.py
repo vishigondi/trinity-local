@@ -293,6 +293,128 @@ def test_update_skill_dir_falls_back_to_legacy(tmp_path, monkeypatch):
     assert resolved == legacy
 
 
+class TestUpdateDepsFlag:
+    """`trinity-local update --deps` refreshes pip-installed runtime
+    deps (Pillow, mcp, numpy) without touching the git source. Used
+    on the rare upgrade where dep versions need to advance — most
+    Trinity bumps don't.
+    """
+
+    def test_deps_flag_registered(self):
+        """The --deps flag must be on the argparse surface so users
+        can discover it via --help."""
+        import argparse
+        from trinity_local.commands.update import register
+
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        register(subparsers)
+        args = parser.parse_args(["update", "--deps"])
+        assert getattr(args, "deps", False) is True
+
+    def test_deps_flag_short_circuits_git_pull(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """When --deps is set, the handler must NOT touch the git
+        source — pip-dep refresh is decoupled from source updates."""
+        from trinity_local.commands.update import handle_update
+        import subprocess as real_subprocess
+
+        # Spy: track which subprocess calls fire.
+        calls: list[list[str]] = []
+
+        def _fake_run(argv, **kwargs):
+            calls.append(list(argv))
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(real_subprocess, "run", _fake_run)
+        args = SimpleNamespace(
+            deps=True, check=False, json=False, skill_dir=None,
+        )
+        rc = handle_update(args)
+        assert rc == 0
+        # No `git ...` calls fired — proves we short-circuited.
+        assert not any(c and c[0] == "git" for c in calls), (
+            f"--deps path must NOT shell out to git; got: {calls}"
+        )
+        # Did fire a pip install.
+        assert any(
+            "pip" in c and "install" in c for c in calls
+        ), f"--deps path must call pip install; got: {calls}"
+
+    def test_deps_refreshes_expected_packages(
+        self, tmp_path, monkeypatch
+    ):
+        """The pip install argv must include Pillow, mcp, and numpy —
+        same packages install.sh installs, with the same version pins."""
+        from trinity_local.commands.update import handle_update
+        import subprocess as real_subprocess
+
+        captured_argv: list[list[str]] = []
+
+        def _fake_run(argv, **kwargs):
+            captured_argv.append(list(argv))
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(real_subprocess, "run", _fake_run)
+        args = SimpleNamespace(
+            deps=True, check=False, json=False, skill_dir=None,
+        )
+        handle_update(args)
+        assert captured_argv, "pip install must fire"
+        argv = captured_argv[0]
+        joined = " ".join(argv)
+        for required_pkg in ("Pillow>=10", "mcp>=1.0", "numpy>=1.26"):
+            assert required_pkg in joined, (
+                f"`update --deps` must install {required_pkg!r} (matching "
+                f"install.sh's pin); got argv: {argv}"
+            )
+
+    def test_deps_emits_json_when_requested(self, monkeypatch, capsys):
+        """--deps --json emits a machine-readable result for agent
+        consumption (Claude Code can parse it inline)."""
+        from trinity_local.commands.update import handle_update
+        import json
+        import subprocess as real_subprocess
+
+        def _fake_run(argv, **kwargs):
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(real_subprocess, "run", _fake_run)
+        args = SimpleNamespace(
+            deps=True, check=False, json=True, skill_dir=None,
+        )
+        rc = handle_update(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert parsed["deps_updated"] is True
+        assert "venv" in parsed
+        assert parsed["returncode"] == 0
+
+    def test_deps_failure_returns_nonzero(self, monkeypatch, capsys):
+        """If pip itself fails, --deps must return rc=1 + report the
+        error (NOT crash, NOT pretend success)."""
+        from trinity_local.commands.update import handle_update
+        import subprocess as real_subprocess
+
+        def _fake_run(argv, **kwargs):
+            from types import SimpleNamespace
+            return SimpleNamespace(returncode=1, stdout="", stderr="network down")
+
+        monkeypatch.setattr(real_subprocess, "run", _fake_run)
+        args = SimpleNamespace(
+            deps=True, check=False, json=False, skill_dir=None,
+        )
+        rc = handle_update(args)
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "pip install" in err or "failed" in err.lower()
+
+
 def test_update_explains_chrome_auto_update_when_not_git(
     tmp_path, capsys, monkeypatch
 ):
