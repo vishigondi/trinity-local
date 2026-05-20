@@ -104,7 +104,14 @@ def handle_install_mcp(args):
         # already being compatible.
         json_targets = (
             Path.home() / ".claude.json",
-            Path.home() / ".gemini.json",
+            # Gemini CLI / Antigravity (`agy`) both read MCP servers from
+            # ~/.gemini/settings.json's `mcpServers` key — NOT the top-level
+            # ~/.gemini.json that Trinity used to write to. The flat file
+            # was a silent no-op for the interactive `gemini`/`agy` session
+            # path (council dispatch via `-p` doesn't read MCP config, so
+            # the bug only bit users who tried to call mcp__trinity-local__*
+            # from inside the Gemini CLI agent).
+            Path.home() / ".gemini" / "settings.json",
             Path.home() / ".cursor" / "mcp.json",
         )
         for target in json_targets:
@@ -887,6 +894,10 @@ def handle_uninstall(args) -> int:
     # Always: configs + ext manifest + skill (the things install-* wrote).
     for target in (
         Path.home() / ".claude.json",
+        # Current canonical path agy/gemini read from.
+        Path.home() / ".gemini" / "settings.json",
+        # Legacy path Trinity wrote to before the fix — clean up on
+        # uninstall so reinstall doesn't re-orphan it.
         Path.home() / ".gemini.json",
         Path.home() / ".cursor" / "mcp.json",
         Path(".mcp.json"),

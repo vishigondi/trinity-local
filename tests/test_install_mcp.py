@@ -26,7 +26,7 @@ class TestInstallMcp:
         _run_install(monkeypatch, home)
 
         claude_path = home / ".claude.json"
-        gemini_path = home / ".gemini.json"
+        gemini_path = home / ".gemini" / "settings.json"
         assert claude_path.exists()
         assert gemini_path.exists()
 
@@ -35,6 +35,33 @@ class TestInstallMcp:
         assert claude_cfg["mcpServers"]["trinity-local"]["args"] == [
             "-m", "trinity_local.main", "--mcp",
         ]
+        gemini_cfg = json.loads(gemini_path.read_text())
+        assert "trinity-local" in gemini_cfg["mcpServers"]
+
+    def test_gemini_install_preserves_existing_mcpservers_and_auth(
+        self, home: Path, monkeypatch, capsys,
+    ):
+        """A real user's ~/.gemini/settings.json carries auth, model, and
+        OTHER mcpServers. install-mcp must deep-merge — never trample."""
+        gemini_path = home / ".gemini" / "settings.json"
+        gemini_path.parent.mkdir(parents=True, exist_ok=True)
+        gemini_path.write_text(json.dumps({
+            "auth": {"method": "api-key", "apiKey": "REDACTED"},
+            "model": {"name": "gemini-2.5-flash"},
+            "mcpServers": {
+                "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]},
+                "github": {"command": "github-mcp"},
+            },
+        }))
+
+        _run_install(monkeypatch, home)
+
+        merged = json.loads(gemini_path.read_text())
+        assert merged["auth"]["apiKey"] == "REDACTED", "auth must survive"
+        assert merged["model"]["name"] == "gemini-2.5-flash", "model setting must survive"
+        assert "playwright" in merged["mcpServers"], "other mcpServers must survive"
+        assert "github" in merged["mcpServers"]
+        assert "trinity-local" in merged["mcpServers"], "trinity-local was added"
 
     def test_writes_cursor_mcp_config(self, home: Path, monkeypatch, capsys):
         """100-persona audit P16/P92 fix: install-mcp must drop a config
@@ -222,7 +249,7 @@ class TestUninstall:
         _run_install(monkeypatch, home)
         out = capsys.readouterr().out
         assert ".claude.json" in out
-        assert ".gemini.json" in out
+        assert ".gemini/settings.json" in out
         assert "config.toml" in out
 
 

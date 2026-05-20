@@ -61,7 +61,8 @@ trinity-local uninstall --yes --include-data   # also delete ~/.trinity/ (irreve
 ```
 
 The default uninstall removes Trinity from `~/.claude.json`,
-`~/.gemini.json`, `~/.cursor/mcp.json`, the `[mcp_servers.trinity-local]`
+`~/.gemini/settings.json` (and the legacy `~/.gemini.json` if it exists
+from an older install), `~/.cursor/mcp.json`, the `[mcp_servers.trinity-local]`
 block from `~/.codex/config.toml`, the Chrome Native Messaging manifest,
 and the bundled `/trinity` skill — but **preserves `~/.trinity/`** (your
 corpus, lens, scoreboard, council outcomes) unless you explicitly pass
