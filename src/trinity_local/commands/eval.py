@@ -274,8 +274,8 @@ def handle_eval_run(args):
             raise SystemExit(2)
         if judge == args.target:
             print(f"⚠  judge ({judge}) is the same as target ({args.target}) — bias-trap warning.")
-        from ..state_paths import state_dir
-        lens_md = state_dir() / "memories" / "lens.md"
+        from ..state_paths import lens_path
+        lens_md = lens_path()
         lens_text = lens_md.read_text(encoding="utf-8") if lens_md.exists() else ""
         print(f"Scoring with judge={judge}...")
         score_run(run_result, lens_text, judge, provider_configs,

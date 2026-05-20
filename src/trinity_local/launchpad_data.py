@@ -979,7 +979,7 @@ def _rate_limit_saves() -> dict:
 
     Per "Analytics never crash": any failure returns the empty shape.
     """
-    from .state_paths import state_dir
+    from .state_paths import dispatch_outcomes_path
     empty = {
         "has_data": False,
         "total_saves": 0,
@@ -989,7 +989,7 @@ def _rate_limit_saves() -> dict:
         "by_failure_kind": [],
         "by_primary_provider": [],
     }
-    path = state_dir() / "analytics" / "dispatch_outcomes.jsonl"
+    path = dispatch_outcomes_path()
     if not path.exists():
         return empty
     try:
