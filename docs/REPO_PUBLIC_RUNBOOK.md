@@ -65,7 +65,7 @@ GitHub's social-card slot accepts 1280×640 PNGs (≤1MB). Trinity renders
 exactly this shape via `me-card.py`. Generate one from your own lens:
 
 ```bash
-trinity-local me-card --open --output /tmp/trinity-social-card.png
+trinity-local me-card --open --out /tmp/trinity-social-card.png
 ```
 
 Then upload via the **Settings → General → Social preview** page in the
@@ -90,7 +90,7 @@ gh issue create -R vishigondi/trinity-local \
 gh issue create -R vishigondi/trinity-local \
   --title "Share your first council" \
   --label "feedback" \
-  --body "Run \`trinity-local council-share --safe <council_id>\` and paste the share link in this issue. We learn which question shapes are most useful — and you get a marketing-legible record of when Trinity helped."
+  --body "Run \`trinity-local council-share --council <council_id>\` (privacy-safe by construction — no user prompts inlined) and paste the share link in this issue. We learn which question shapes are most useful — and you get a marketing-legible record of when Trinity helped."
 
 # Then pin them via the UI (gh CLI doesn't support pin):
 # https://github.com/vishigondi/trinity-local/issues
