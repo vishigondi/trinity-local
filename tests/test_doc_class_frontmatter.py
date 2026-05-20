@@ -48,7 +48,6 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/INSTALL-pip.md",
     "docs/INSTALL-extension.md",
     "docs/install-deep.md",
-    "docs/index.md",
     "docs/launch.md",
     "docs/launch-package.md",
     "docs/LAUNCH_CHECKLIST.md",

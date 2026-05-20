@@ -45,7 +45,6 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/INSTALL-pip.md": "live",
     "docs/INSTALL-extension.md": "live",
     "docs/install-deep.md": "live",
-    "docs/index.md": "live",
     "docs/launch.md": "live",
     "docs/launch-package.md": "live",
     "docs/LAUNCH_CHECKLIST.md": "live",
