@@ -61,10 +61,13 @@ html, body {
   letter-spacing: -0.01em;
 }
 .topbar a.brand::before {
-  content: "❉";
-  color: var(--action-primary);
-  font-size: 16px;
+  content: "🌊";
+  font-size: 18px;
   margin-right: 8px;
+  /* Color emoji renders natively; no color filter so the wave keeps
+     its glyph palette. Slightly larger than the ❉ asterisk it
+     replaced (16→18px) so it sits visually balanced with the serif
+     wordmark. */
 }
 .topbar nav { display: flex; gap: 28px; }
 .topbar nav a {
