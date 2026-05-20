@@ -736,6 +736,9 @@ longer reads or writes them): `tasks/` (→ `todos/`), `memory/` (→
 watcher subsystem), `shortcut_setup/` + `bin/trinity-dispatch` (macOS
 Shortcut dispatcher, retired in favor of the Chrome extension),
 `cache/embeddings.jsonl` (offline rebuild passes re-encode now),
+`models/` (was created as a side-effect of the retired `models_dir()`
+helper but never written to; actual nomic weights live in
+`~/.cache/huggingface/hub/` — retired 2026-05-20, tick 28),
 `digest_pages/` (weekly digest feature deleted pre-launch).
 
 ## The closed loop (v1)
