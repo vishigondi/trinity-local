@@ -203,13 +203,13 @@ Add missing paths to `state_paths.py` (analytics dir, telemetry settings dir, wa
 
 ## 10. Harden council output parsing
 
-`council_runtime.py:315` and `:331` — `parse_synthesis_sections()` and `parse_peer_review_sections()` use brittle header matching that collapses silently on minor LLM wording variation.
-
-Add:
-- Case-insensitive header matching
-- Optional numbering (`## 1. Differences` vs `## Differences`)
-- Minor wording variation tolerance
-- Fallback: if section parse fails, return the full text in a `"raw"` key rather than returning empty
+✅ **done (Phase 0 #10).** `council_runtime.parse_synthesis_sections()`
+is the surviving parser — `parse_peer_review_sections` was retired
+along with the peer-review terminology (Tier 2 #5: "drop verifier
+terminology; use Synthesis JSON"). Regression cases in
+`tests/test_council_runtime.py` cover case-insensitive headers,
+numbered variants, and the `"raw"` fallback when section parse
+fails. See Phase 0 Status table above for the canonical record.
 
 ## 11. Normalize config loading
 
@@ -623,13 +623,13 @@ On `portal-html` generation, check if `last_update_check` in telemetry settings 
 | `src/trinity_local/council_status.py` | **Delete** after migration |
 | `src/trinity_local/state_paths.py` | Add missing dirs (analytics, telemetry settings, watcher, research, council_runs) |
 | `src/trinity_local/process.py` | **New** — `run_checked`, `run_captured`, `run_background`, `build_subprocess_env` |
-| `src/trinity_local/portal_page.py` | Split into `portal_data.py` / `portal_template.py` / `portal_js.py` / `portal_install.py` |
-| `src/trinity_local/portal_runtime.py` | **New** — shared client JS runtime (polling, stop, completion) |
-| `src/trinity_local/council_runtime.py` | Harden `parse_synthesis_sections` and `parse_peer_review_sections`; remove duplicate path helpers |
+| ~~`src/trinity_local/portal_page.py`~~ | ✅ done — split into `launchpad_page.py` / `launchpad_data.py` / `launchpad_template.py` / `launchpad_install.py` (Tier 2 #4 rename `portal_*` → `launchpad_*`). |
+| `src/trinity_local/launchpad_runtime.py` | ✅ done — shared client JS runtime (polling, stop, completion). |
+| `src/trinity_local/council_runtime.py` | ✅ done — `parse_synthesis_sections` hardened (case-insensitive, numbered variants, `"raw"` fallback). `parse_peer_review_sections` retired with the verifier→synthesis rename (Tier 2 #5). |
 | `src/trinity_local/config.py` | Soft-fail for read-only commands; add explicit per-command annotation |
 | `src/trinity_local/task_types.py` | ✅ done — single `guess_task_type()` (renamed from `task_kind` per Tier 1 #3). |
 | `src/trinity_local/research/replay.py` | ✅ done — drifted duplicate removed; imports from `task_types`. |
-| `src/trinity_local/shortcut_setup.py` | Runtime venv detection in wrapper body, not shebang |
+| ~~`src/trinity_local/shortcut_setup.py`~~ | ✅ retired pre-launch (commit 53db635) — Chrome extension Native Messaging replaced the macOS Shortcut dispatcher. |
 | `src/trinity_local/commands/status.py` | Add watch-loop error count + last error |
 | `src/trinity_local/commands/cache.py` | **New** — `cache-stats`, `cache-clear` subcommands |
 | `src/trinity_local/commands/council.py` | Route `council-html` through `write_unified_council_page` |
