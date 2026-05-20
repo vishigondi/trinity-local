@@ -101,7 +101,7 @@ class TestClaudeMdStatus:
         """CLAUDE.md is loaded into every agent session. The status
         block / architecture block must reflect MCP-first; otherwise
         agents reading CLAUDE.md will think skill is still primary."""
-        claude_md = (repo_root / "CLAUDE.md").read_text()
+        claude_md = (repo_root / "claude.md").read_text()
         # Check the architecture line mentions MCP-first explicitly.
         assert "MCP-first" in claude_md or "MCP server (primary)" in claude_md, (
             "CLAUDE.md must mention MCP-first explicitly so the agent's "
@@ -113,7 +113,7 @@ class TestClaudeMdStatus:
         exists for users who already use it, but the doc must frame
         it as back-compat / alias, not primary. Drift here = new
         users discover the skill and assume it's the recommended path."""
-        claude_md = (repo_root / "CLAUDE.md").read_text()
+        claude_md = (repo_root / "claude.md").read_text()
         # Look for the framing — either "back-compat" or "alias" near
         # a mention of the skill dir.
         skill_mention_idx = claude_md.find("~/.claude/skills/trinity")

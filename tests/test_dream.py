@@ -21,6 +21,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _bypass_embedder_gate(monkeypatch):
+    """Dream's handler gates on the 700MB nomic model being present in
+    the HF cache (`require_embedder_ready`). These tests stub Phase 1
+    discovery + Phase 2 synthesis directly with MagicMock; they never
+    touch the real embedder, so the gate is just noise here. CI runs
+    without the HF cache and fails-closed otherwise.
+
+    The dedicated gate behavior lives in test_embedder_cli_gate.py;
+    this fixture is bypass-only and does not erode that coverage."""
+    from trinity_local import embeddings
+    monkeypatch.setattr(embeddings, "require_embedder_ready", lambda: None)
+
+
 def _args(**overrides) -> SimpleNamespace:
     base = {
         "similarity_threshold": 0.85,

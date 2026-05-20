@@ -207,13 +207,13 @@ def require_embedder_ready() -> None:
     except ImportError:
         libs_present = False
 
+    fallback = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
     if libs_present:
         # Preferred: Trinity verb (wraps huggingface-cli download with
         # in-product messaging + idempotency). Falls back to the raw
         # huggingface-cli command for users who don't have trinity-local
         # on PATH yet (mid-install).
         command = "trinity-local download-embedder"
-        fallback = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
         download_block = (
             f"Download once with:\n"
             f"  {command}\n"
@@ -226,7 +226,8 @@ def require_embedder_ready() -> None:
         )
         download_block = (
             f"Install the MLX extras + download the model with:\n"
-            f"  {command}\n\n"
+            f"  {command}\n"
+            f"(under the hood: {fallback})\n\n"
         )
 
     raise EmbedderNotReadyError(

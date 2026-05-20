@@ -22,6 +22,18 @@ def isolated_home(tmp_path, monkeypatch):
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def _bypass_embedder_gate(monkeypatch):
+    """TestAutoDistillHooks exercises handle_me_build, which gates on
+    the 700MB nomic model being in the HF cache. These tests stub the
+    lens pipeline entirely; the gate is irrelevant noise. CI runs
+    without the HF cache, so the gate would otherwise fail-closed.
+
+    Dedicated gate coverage lives in test_embedder_cli_gate.py."""
+    from trinity_local import embeddings
+    monkeypatch.setattr(embeddings, "require_embedder_ready", lambda: None)
+
+
 def _seed_memory(path: Path, content: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")

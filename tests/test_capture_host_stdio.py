@@ -293,7 +293,11 @@ def test_launch_council_action_dispatches_to_cli(monkeypatch, tmp_path):
 
     assert captured_argv, "_run_action did not invoke subprocess.Popen"
     argv = captured_argv[0]
-    assert argv[0] == "trinity-local"
+    # capture_host._trinity_local_bin() resolves to either the bare name
+    # (PATH lookup path) or an absolute sibling path (Chrome minimal-PATH
+    # workaround — the production path on real installs). Both are
+    # correct; pin the basename so the test passes under both.
+    assert Path(argv[0]).name == "trinity-local"
     assert argv[1] == "council-launch"
     assert "--task" in argv
     assert argv[argv.index("--task") + 1] == "Compare Rust vs Go for a CLI"
