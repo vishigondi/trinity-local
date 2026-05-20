@@ -110,11 +110,48 @@ def canonical_version() -> str:
     return m.group(1)
 
 
+def canonical_cli_command_count() -> int:
+    """Count user-facing CLI subcommands by introspecting the live
+    argparse surface.
+
+    Builds the same parser main.py builds at runtime via its
+    `_iter_command_modules` iterator (the single source of truth for
+    which command modules register subparsers). Counts the
+    `subparsers.add_parser(...)` registrations. Drift between docs
+    and reality auto-corrects: when a future tick (Area 5 — CLI
+    consolidation 21→5) drops commands, the count auto-decreases in
+    every canonical-rendered doc surface.
+    """
+    import argparse
+    import importlib
+
+    parser = argparse.ArgumentParser(prog="trinity-local")
+    subparsers = parser.add_subparsers(dest="command")
+    main_mod = importlib.import_module("trinity_local.main")
+    # main._iter_command_modules() yields the actual module objects;
+    # CORE/OPTIONAL_COMMAND_MODULES are name strings only.
+    for module in main_mod._iter_command_modules():
+        register = getattr(module, "register", None)
+        if register is None:
+            continue
+        try:
+            register(subparsers)
+        except Exception:
+            # A command module that fails to register shouldn't poison
+            # the count for the rest.
+            continue
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return len(action.choices)
+    return 0
+
+
 CANONICAL: dict[str, callable] = {
     "test_count": canonical_test_count,
     "skipped_count": canonical_skipped_count,
     "mcp_tool_count": canonical_mcp_tool_count,
     "doc_consistency_guards": canonical_doc_consistency_guard_count,
+    "cli_command_count": canonical_cli_command_count,
     "version": canonical_version,
 }
 
