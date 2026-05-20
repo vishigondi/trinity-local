@@ -111,7 +111,10 @@ framework points hardest.
 
 **At the product level:**
 - Cheap path after a council: **close tab**. Right path: **record_outcome**.
-  The 16% verdict capture rate (task #110) is the cheap path winning.
+  The 13% verdict capture rate (4/31 on the dev install as of
+  2026-05-20; was 3/19 = 16% pre-nudge; task #110) is the cheap path
+  winning — the active-nudge mechanism shipped but the proportion
+  hasn't moved meaningfully at n=31.
   Until the launchpad redesigns the council-result page so the
   rate-the-winner button is the MOST PROMINENT action (and closing
   costs an extra click), the gap won't close. Note: this isn't a
@@ -228,7 +231,8 @@ them but doesn't surface new work.
 
 2. **Redesign the council-result page so rate-the-winner is the
    cheapest action** — this is "cheap path = right path" applied at
-   the product level. Closes the 16% verdict capture problem
+   the product level. Closes the verdict-capture-gap problem (13%
+   at n=31; was 3/19 = 16% pre-nudge)
    structurally instead of with reminders.
 
 3. **`scripts/retire_cli.py` helper** — "cheap path = right path" for

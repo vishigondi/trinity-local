@@ -321,12 +321,13 @@ thing should have a name in code, not just in marketing.
 
 ```
 ask question → dispatch council → chairman synthesizes →
-user verdict (16% of the time) → cortex consolidates →
+user verdict (13% of the time as of 2026-05-20; was 16% pre-nudge) → cortex consolidates →
 picks update routing → next ask is better
 ```
 
 This loop IS the moat. But it's not represented in code. Each stage
-is independent. The 16% verdict-capture rate (task #110) is the
+is independent. The 13% verdict-capture rate (4/31 on the dev
+install; was 3/19 = 16% pre-nudge; task #110) is the
 only loop-health metric — and it requires hand-aggregation from
 `council_feedback.jsonl`.
 
@@ -346,7 +347,7 @@ because there's no stage-aware abstraction.
 
 **Why this matters architecturally:** Until the loop is structural,
 "improve verdict capture" is a vague ask. Once the loop is a named
-thing, "stage 3 conversion rate is 16%, target 50%" becomes a
+thing, "stage 3 conversion rate is 13% (was 16% pre-nudge), target 50%" becomes a
 ratchetable goal. Right now the loop is invisible to the dashboard
 that's supposed to measure it.
 
@@ -440,7 +441,8 @@ becomes load-bearing only when verdict-revision is a feature.
 Same triage shape as Round 1 (cost vs leverage):
 
 1. **Gap E (product-loop abstraction)** — highest Trinity-specific
-   leverage. Closes the 16% verdict-capture measurement gap
+   leverage. Closes the verdict-capture measurement gap (13% at
+   n=31 as of 2026-05-20)
    structurally. ~3h for the first cut (LoopHealth dataclass +
    launchpad card). Unblocks "is verdict capture improving?" as
    a first-class question.

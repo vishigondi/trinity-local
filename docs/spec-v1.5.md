@@ -506,9 +506,12 @@ the pipeline is premature:
   shape").
 
 Gates for revisiting:
-1. **Verdict capture rate ≥ 50%** (currently 16%). Trinity's moat
-   thesis rests on this signal — at 16%, 84% of councils contribute
-   zero supervision data. Task #110 is the investigation.
+1. **Verdict capture rate ≥ 50%** (currently 13%, 4/31 on the dev
+   install as of 2026-05-20; baseline was 3/19 = 16% pre-nudge).
+   Trinity's moat thesis rests on this signal — at 13%, 87% of
+   councils contribute zero supervision data. The active-nudge
+   mechanism shipped pre-launch but the proportion hasn't moved
+   meaningfully at this sample size. Task #110 is the investigation.
 2. **N ≥ 100 councils** with routing_lessons before any k-means
    clustering in 768-d embedding space is meaningful.
 3. **A different signal source** may be more appropriate for

@@ -353,12 +353,15 @@ actually firing on real installs.
    capture defense shipped pre-launch (census → visible →
    verify-after → preempt-CLI → preempt-UI → active nudge via MCP
    `rate_action`). Pre-launch the real-corpus rate was 3/19 (16%);
-   the prediction is the active nudge through MCP `run_council` +
-   `get_council_status` lifts that to ≥50% within a week. If uplift
-   is <2× after a week, revisit by surfacing the nudge through the
-   macOS notification system (notifications.py exists) on council
-   completion. The personal ledger of cross-model preferences is the
-   moat — empty ledger = no moat.
+   first post-launch measurement (2026-05-20) on the same install:
+   4/31 (13%). Council count grew faster than verdict count, so the
+   proportion slipped slightly — the active nudge shipped but n=31
+   is too small to conclude (binomial noise dominates). Prediction
+   was ≥50% within a week. If still <2× the baseline at n≥50,
+   revisit by surfacing the nudge through the macOS notification
+   system (notifications.py exists) on council completion. The
+   personal ledger of cross-model preferences is the moat — empty
+   ledger = no moat.
 
 5. **`principles.md` pipeline (task #109).** Data-gated. Needs ≥100
    council outcomes AND verdict rate ≥50% before k-means in 768-d
