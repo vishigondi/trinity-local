@@ -263,7 +263,7 @@ Why this order:
    setup/status UI. The CLI remains the engine, not the required daily launch
    gesture. The Chrome extension is the v1 bridge for browser capture and
    launchpad dispatch while the desktop cockpit is built.
-2. **GitHub repo** — `curl -fsSL .../install.sh | bash` clones the repo into `~/.claude/skills/trinity/` and wires everything. Contributors `pip install -e .` from a clone for the editable dev path.
+2. **GitHub repo** — `curl -fsSL .../install.sh | bash` clones the repo into `~/.trinity/code/` (with a back-compat symlink at `~/.claude/skills/trinity/` for users on the pre-2026-05-19 path) and wires everything. Contributors `pip install -e .` from a clone for the editable dev path.
 3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
 4. **Word of mouth** — the multi-CLI power-user community is small and tight.
 5. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."

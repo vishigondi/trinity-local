@@ -79,7 +79,7 @@ It exposed the failure mode, named the deterministic test, drove the commit. The
 outcome is in the repo: [`docs/launch_councils/council_d55953003bb29f9d.json`](launch_councils/council_d55953003bb29f9d.json).
 Open-source the trail, not just the code.
 
-**Install (10/12).** `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash` — clones the skill into `~/.claude/skills/trinity/`, drops thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have. From a fresh terminal OR from inside Claude Code (`/trinity`), you're three commands from a council on your real work. Caveat: Trinity needs the
+**Install (10/12).** `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash` — clones the engine into `~/.trinity/code/` (with a back-compat symlink at `~/.claude/skills/trinity/` so existing `/trinity` users keep working), drops thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have. From a fresh terminal OR from inside Claude Code (`/trinity`), you're three commands from a council on your real work. Caveat: Trinity needs the
 Claude / Gemini / Codex CLIs authenticated. `trinity-local status` tells you which are
 missing.
 

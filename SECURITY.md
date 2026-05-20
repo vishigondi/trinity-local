@@ -37,7 +37,9 @@ What Trinity defends against (in priority order):
    clobber the on-disk launchpad with stale templates.
 
 3. **Folder ownership.** The installer (`scripts/install.sh`) creates
-   `~/.claude/skills/trinity/` and `~/.local/bin/` wrappers with default umask. Trinity's
+   `~/.trinity/code/` (with a back-compat symlink at `~/.claude/skills/trinity/`
+   for users on the pre-2026-05-19 path) and `~/.local/bin/` wrappers with
+   default umask. Trinity's
    own state directory (`~/.trinity/`) is created on first invocation; permissions
    inherit from the user's umask. Set umask 077 or `chmod 700 ~/.trinity/` if you want
    tighter isolation from other local users.

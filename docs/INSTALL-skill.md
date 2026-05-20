@@ -4,9 +4,11 @@ class: live
 
 # Install Trinity (Skill tier — primary)
 
-> The skill IS the spec. `~/.claude/skills/trinity/SKILL.md` drives the
+> The skill IS the spec. `~/.trinity/code/skills/trinity/SKILL.md` drives the
 > `trinity-local` CLI from inside Claude Code via the bash tool. This
 > is the primary tier — what you interact with when you type `/trinity`.
+> (`~/.claude/skills/trinity/` is a back-compat symlink for users who
+> already typed `/trinity` before the 2026-05-19 path canonicalization.)
 
 ## What you get
 
@@ -20,7 +22,9 @@ invocations) and audited (`~/.trinity/audit.log`).
 ## Install path
 
 One curl-bash. Trinity is a git clone, not a published package. The
-installer drops the skill at `~/.claude/skills/trinity/`, writes thin
+installer drops the code at `~/.trinity/code/` (with a back-compat
+symlink at `~/.claude/skills/trinity/` so `/trinity` in Claude Code
+keeps working for users who already had it wired), writes thin
 shell wrappers in `~/.local/bin/`, registers MCP in every harness it
 finds, and runs `status` to verify:
 
@@ -39,8 +43,10 @@ bash install.sh
 What the installer does:
 1. Verifies Python 3.10+ is on PATH (doesn't try to install Python
    for you — too many opinions on how it should be managed)
-2. `git clone` the repo to `~/.claude/skills/trinity/` (or `git pull`
-   if already present — idempotent)
+2. `git clone` the repo to `~/.trinity/code/` (or `git pull` if
+   already present — idempotent). Creates `~/.claude/skills/trinity/`
+   as a symlink to that path so `/trinity` in Claude Code keeps
+   resolving for users who had the legacy install location.
 3. Drops `~/.local/bin/trinity-local` + `~/.local/bin/trinity-local-capture-host`
    as thin shell wrappers (~5 lines each; PYTHONPATH-set + exec)
 4. Runs `trinity-local install-mcp` to register the MCP server in

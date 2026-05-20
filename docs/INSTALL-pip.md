@@ -40,10 +40,11 @@ pip install .
 ```
 
 If you already installed via the curl-bash, the same source is at
-`~/.claude/skills/trinity/`:
+`~/.trinity/code/` (with `~/.claude/skills/trinity/` as a back-compat
+symlink that resolves to the same place):
 
 ```bash
-cd ~/.claude/skills/trinity/
+cd ~/.trinity/code/
 pip install -e .
 ```
 

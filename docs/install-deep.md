@@ -25,8 +25,9 @@ will tell you which are missing.
 ## Quickstart (desktop first)
 
 ```bash
-# One-liner — clones to ~/.claude/skills/trinity/, drops wrappers in
-# ~/.local/bin/, registers MCP in every harness you have, runs status.
+# One-liner — clones to ~/.trinity/code/ (with a back-compat symlink
+# at ~/.claude/skills/trinity/), drops wrappers in ~/.local/bin/,
+# registers MCP in every harness you have, runs status.
 curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
 # Then, in Claude Code, just type:  /trinity
@@ -92,8 +93,9 @@ child process.
 ## Drive it from inside Claude Code
 
 `trinity-local install-mcp` also drops a `/trinity` skill into
-`~/.claude/skills/trinity/` (no curl, no clone — it's bundled in the
-wheel). Once the install-mcp step above ran, type `/trinity` at the Claude
+`~/.trinity/code/skills/trinity/` (resolved through the back-compat
+symlink at `~/.claude/skills/trinity/` so Claude Code's skill loader
+finds it). Once the install-mcp step above ran, type `/trinity` at the Claude
 Code prompt to redo the install + status + first-council on a fresh
 machine without touching your shell. The skill respects local edits — if
 you've customized the file, future `install-mcp` runs leave it alone.
