@@ -68,8 +68,8 @@ AI credits are priced below cost right now. Every provider is racing to be the d
 
 The cross-provider corpus you build today keeps working when the subsidy ends.
 
-12. Tweet 12 (245/280):
-Trinity Local v1.7 ships today. Open source, MIT, macOS + Linux.
+12. Tweet 12 (177/280):
+Trinity Local v1.7 shipped May 13–15, 2026. Open source, MIT, macOS + Linux.
 
   curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
