@@ -633,7 +633,8 @@ additions + 1 launch-arc addition (`handoff`, tick #119, 2026-05-14).
 The canonical 5 are the lifecycle order; the v1.5 trio sits adjacent
 to the v1.0 supervision loop; `handoff` surfaces the cross-provider
 continuity demo to agents inline. (`get_eval_summary` shipped post-#122
-then retired 2026-05-17 — agents ground via `ask` + `get_picks`.)
+then retired 2026-05-18 in commit `1fed7fc` — agents ground via
+`ask` + `get_picks`.)
 
 **v1.0 canonical five (lifecycle order — note: this is the *teaching* order, "what you call when, and why"; mcp_server.py registers tools in a UX order that interleaves the v1.5 trio for `tools/list` discoverability — cheap+common first: `route`, `ask`, then `run_council`, etc. Both orderings are correct for their purpose):**
 
@@ -659,8 +660,9 @@ then retired 2026-05-17 — agents ground via `ask` + `get_picks`.)
 
 9. **`handoff(target_provider, continuation?, num_turns?)`** → cross-provider conversation continuity. Pulls the user's most-recent (user, assistant) turns from the cross-provider prompt index, packages them as "continuing this thread" context, dispatches to a DIFFERENT provider. Target picks up exactly where the prior model left off — no re-context, no copy-paste. This is the mechanism behind the 60-second hero demo (#115/#120). Structurally non-refutable: only Trinity has the cross-provider index. CLI mirror: `trinity-local handoff <provider>`.
 
-<!-- get_eval_summary retired 2026-05-17 — agents ground via `ask` + picks;
-the eval-summary surface remains on the launchpad card and `eval-show`. -->
+<!-- get_eval_summary retired 2026-05-18 (commit 1fed7fc) — agents ground
+via `ask` + picks; the eval-summary surface remains on the launchpad
+card and `eval-show`. -->
 
 Internal helpers (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) remain importable for the launchpad but are NOT exposed via MCP.
 
@@ -789,7 +791,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 3. **Chairman auto-selection.** `predict_strongest_chairman(task)` runs a sigmoid blend of personal routing table + global benchmarks (per task #52 / Tier 2 #7): `alpha = sigmoid((n - 5) / steepness)`, where n is the personal-council count for the task_type. At n=0 the chairman pick is ~100% global priors; at n≈5 the blend is ~50/50; at n≈10 the personal table dominates (~99%). When both signals are empty, falls back to `available_providers[0]` (default order). Manual `--primary-provider` always wins.
 4. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`. Parse-success tracked in `analytics/routing_label_events.jsonl`.
 5. **Chain mode.** `run_council(mode="chain", sequence=[...])` runs sequential refinement; chain steps persisted on `CouncilOutcome.chain_steps`.
-6. **MCP tool surface (v1.0 canonical 5 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` + launch-arc `handoff`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_picks` (agent-facing introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick; halves effective trust per click) — 8 total before launch-arc. Launch-arc adds `handoff`. (`get_eval_summary` shipped then retired 2026-05-17 — agents ground via `ask` + picks.) The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
+6. **MCP tool surface (v1.0 canonical 5 + v1.5 `ask` + `get_picks` + `mark_pick_wrong` + launch-arc `handoff`).** v1.0: `route`, `run_council` (subsumes `judge` via `responses=[...]`), `record_outcome`, `get_persona`, `get_council_status`. v1.5 adds `ask` (cheap default single-call routing — the 90% case), `get_picks` (agent-facing introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick; halves effective trust per click) — 8 total before launch-arc. Launch-arc adds `handoff`. (`get_eval_summary` shipped then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks.) The five legacy tools (get_status/get_elo/get_recent_councils/watch_once/judge) are dropped from the public MCP surface.
 7. **Streaming live council page.** Member responses render full markdown as soon as their status flips to `done`, while chairman is still synthesizing.
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.

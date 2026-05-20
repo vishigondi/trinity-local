@@ -504,7 +504,8 @@ class TestEvalShowCLI:
 
 
 class TestGetEvalSummaryMCPRetired:
-    """The `get_eval_summary` MCP tool was retired 2026-05-17 in the
+    """The `get_eval_summary` MCP tool was retired 2026-05-18 (commit
+    `1fed7fc`) in the
     pre-launch simplification pass. Agents ground "which model is best
     for me at X" via `ask` + the picks table; the eval-summary surface
     remains on the launchpad card and `eval-show` CLI for direct user

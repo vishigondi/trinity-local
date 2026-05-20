@@ -188,6 +188,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Embedding-free hot path; ranker/heuristic.py replaces it",
         kind="mcp_tool",
     ),
+    "get_eval_summary": RetirementRecord(
+        name="get_eval_summary",
+        retired_at="2026-05-18",
+        commit="1fed7fc",
+        replacement="ask + get_picks",
+        reason="Agents ground 'which model is best for me at X' via the v1.5 trio (ask + picks); the eval-summary surface remains on the launchpad card and `eval-show` CLI for direct user inspection. Bundled into the auto-chain settings retirement (commit 1fed7fc).",
+        kind="mcp_tool",
+    ),
     "trinity-dispatch": RetirementRecord(
         name="trinity-dispatch",
         retired_at="2026-05-17",

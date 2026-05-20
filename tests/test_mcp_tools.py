@@ -46,7 +46,8 @@ class TestToolList:
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
         # Launch-arc adds: `handoff` (cross-provider conversation continuity).
-        # (`get_eval_summary` was retired 2026-05-17 — agents ground via
+        # (`get_eval_summary` was retired 2026-05-18 in commit `1fed7fc`
+        # — agents ground via
         # `ask` + picks; the eval-summary surface remains in the launchpad
         # card and the `eval-show` CLI for direct user inspection.)
         assert names == {
