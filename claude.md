@@ -836,7 +836,7 @@ preserves the prior implementation if v1.6 wants to study it.
 - `trinity-local --mcp` exposes 9 tools: the v1.0 canonical 5 (`route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`) + v1.5 `ask` (cheap single-call routing) + v1.5 `get_picks` (agent-facing introspection into extracted picks) + v1.5 `mark_pick_wrong` (user-veto on a pick; halves effective trust per click) + launch-arc `handoff` (cross-provider conversation continuity).
 - `trinity-local ingest-recent` runs end-to-end against `~/.claude/` / `~/.codex/` / `~/.gemini/` transcripts (auto-discovers; no required flags). `seed-from-taste-terminal --path <export-dir> --limit 10` ingests claude.ai / chatgpt / Gemini-Takeout exports — `--path` is required.
 - `trinity-local replay-history --dry-run` lists ranked candidates with `task_type` / source-provider / existing-council-count / prompt excerpt per row. (The "reason chips" affordance is a launchpad UI concept on the autofill card, not a CLI column.)
-- `trinity-local portal-html` renders the launchpad with autofill chips, personal routing table card (or empty-state CTA), and global benchmarks.
+- `trinity-local portal-html` renders the launchpad with autofill chips, personal routing table card (or empty-state CTA), and the Personalized Benchmark card (which blends `globalBenchmarks` data into the user's per-provider scoreboard — the user-visible card label is "Personalized benchmark," not "Global benchmarks").
 - Live council page streams full member responses while chairman is synthesizing.
 - Chairman prompt emits valid Routing JSON with `agreed_claims` / `disagreed_claims`.
 - Chairman auto-selection: personal routing table → global benchmarks → default order.
