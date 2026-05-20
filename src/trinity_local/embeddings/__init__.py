@@ -208,19 +208,32 @@ def require_embedder_ready() -> None:
         libs_present = False
 
     if libs_present:
-        command = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        # Preferred: Trinity verb (wraps huggingface-cli download with
+        # in-product messaging + idempotency). Falls back to the raw
+        # huggingface-cli command for users who don't have trinity-local
+        # on PATH yet (mid-install).
+        command = "trinity-local download-embedder"
+        fallback = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        download_block = (
+            f"Download once with:\n"
+            f"  {command}\n"
+            f"(or directly: {fallback})\n\n"
+        )
     else:
         command = (
             "pip install 'trinity-local[mlx]' && "
-            "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+            "trinity-local download-embedder"
+        )
+        download_block = (
+            f"Install the MLX extras + download the model with:\n"
+            f"  {command}\n\n"
         )
 
     raise EmbedderNotReadyError(
         f"Trinity's embedding model (nomic-embed-text-v1.5, ~700MB) isn't "
         f"in your HuggingFace cache. This command needs it for topic "
         f"basins / lens-build / vocabulary distillation.\n\n"
-        f"Download once with:\n"
-        f"  {command}\n\n"
+        f"{download_block}"
         f"Then re-run this command. The model lands at "
         f"~/.cache/huggingface/hub/ and never re-downloads."
     )

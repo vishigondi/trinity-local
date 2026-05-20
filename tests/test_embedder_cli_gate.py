@@ -41,7 +41,10 @@ class TestRequireEmbedderReady:
 
     def test_raises_when_model_missing(self, tmp_path, monkeypatch):
         """The actual gating behavior: model isn't in HF cache → raise
-        EmbedderNotReadyError with the download command in the message."""
+        EmbedderNotReadyError with the Trinity download verb in the
+        message. Updated 2026-05-19 to prefer the in-product
+        `trinity-local download-embedder` verb over the raw
+        `huggingface-cli download` command (still mentioned as fallback)."""
         from trinity_local.embeddings import (
             EmbedderNotReadyError, require_embedder_ready,
         )
@@ -51,12 +54,13 @@ class TestRequireEmbedderReady:
             require_embedder_ready()
 
         msg = str(exc_info.value)
-        # The actionable bits must be in the message:
-        assert "huggingface-cli download" in msg, (
-            "Error must include the download command verbatim — the "
-            "whole point of the gate is to hand the user a runnable fix."
+        # Preferred: the in-product Trinity verb.
+        assert "trinity-local download-embedder" in msg, (
+            "Error must surface the Trinity verb — agents in Claude Code "
+            "can run it inline without the user needing to know HF cli syntax."
         )
-        assert "nomic-ai/nomic-embed-text-v1.5" in msg
+        # Model id should still be discoverable (in the fallback command).
+        assert "nomic-ai/nomic-embed-text-v1.5" in msg or "huggingface-cli" in msg
         # And the why ("this command needs it for ..."):
         assert "700MB" in msg or "lens" in msg or "basins" in msg
 
@@ -66,7 +70,7 @@ class TestRequireEmbedderReady:
         """If sentence-transformers isn't installed, even running the
         download command won't help — the message must prepend
         `pip install 'trinity-local[mlx]'` so the user pastes ONE
-        runnable line."""
+        runnable line that chains both steps."""
         from trinity_local.embeddings import (
             EmbedderNotReadyError, require_embedder_ready,
         )
@@ -92,6 +96,10 @@ class TestRequireEmbedderReady:
             "command and still can't use the embedder."
         )
         assert "trinity-local[mlx]" in msg
+        # Even in the libs-missing case, the chained one-liner should
+        # use the Trinity download verb (after pip install) so the
+        # in-product narrative stays consistent.
+        assert "trinity-local download-embedder" in msg
 
     def test_empty_snapshot_dir_does_not_count_as_ready(
         self, tmp_path, monkeypatch

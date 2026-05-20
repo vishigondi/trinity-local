@@ -32,6 +32,7 @@ CORE_COMMAND_MODULES = (
     "adapters",
     "cortex",
     "council",
+    "download_embedder",
     "dream",
     "eval",
     "handoff",
