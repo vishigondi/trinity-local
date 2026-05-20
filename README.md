@@ -13,7 +13,7 @@ class: live
 
 Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through your taste lens — distilled from your own transcripts, on your machine — and picks the answer YOU would have picked, not the generic one.
 
-![the launchpad — real Trinity install, 51k indexed prompts](docs/launchpad_example.png)
+![the launchpad — what a brand-new install opens to on first run](docs/launchpad_example.png)
 
 Inside Claude Code (or Codex CLI / Gemini CLI / Cursor) — just ask:
 
