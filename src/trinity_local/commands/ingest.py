@@ -1,8 +1,11 @@
-"""Handler for the `features` command — extracts compact session features
-from the user's local transcripts (Claude Code, Codex, Gemini CLI, Cowork).
-Used for offline debugging / analysis; not on the live product path.
+"""Importable utility — compact session feature extractor (CLI retired pre-launch).
 
-The companion `examples` command was removed alongside v2 trained-coordinator
+`extract_session_features` is used for offline debugging / analysis;
+not on the live product path. The standalone `trinity-local features`
+CLI was retired in the pre-launch simplification — handler stays
+importable, but main.py doesn't register it.
+
+The earlier `examples` command was removed alongside v2 trained-coordinator
 sunset — it produced training data for a coordinator we're no longer training.
 """
 from __future__ import annotations
@@ -35,13 +38,6 @@ def _load_sessions(source: str) -> list:
         sessions.extend(iter_cowork_sessions())
         return list(sessions)
     raise ValueError(f"Unknown source: {source}")
-
-
-def register(subparsers):
-    features_parser = subparsers.add_parser("features", help="Extract compact session features")
-    features_parser.add_argument("--source", default="all", choices=["all", "claude", "codex", "gemini", "cowork"])
-    features_parser.add_argument("--limit", type=int, default=10)
-    features_parser.set_defaults(handler=handle_features)
 
 
 def handle_features(args):

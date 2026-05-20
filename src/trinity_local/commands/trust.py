@@ -1,8 +1,10 @@
-"""trinity-local audit-show / trust-init / trust-show — Phase 6 CLI surface.
+"""Importable utility — trust + audit-log handlers (CLI deferred to v1.1).
 
-Council-mandated (Phase 6). Audit log readability is the user-visible
-half of the trust+audit substrate; without it the trust mode is
-write-only and users can't grep what Trinity did.
+The standalone `trinity-local audit-show / trust-init / trust-show`
+CLIs are deferred to v1.1 per the pre-launch simplification. The
+trust + audit substrate ships in v1.0 as a library — `trinity_local.trust`
+remains importable, the handlers below stay reachable by tests, but
+main.py doesn't register them into the CLI surface yet.
 """
 from __future__ import annotations
 
@@ -15,37 +17,6 @@ from ..trust import (
     resolve_trust,
     write_default_trust_toml,
 )
-
-
-def register(subparsers) -> None:
-    asp = subparsers.add_parser(
-        "audit-show",
-        help="Show the last N entries from ~/.trinity/audit.log (most-recent first).",
-    )
-    asp.add_argument("--last", type=int, default=20,
-                     help="Number of entries to show (default: 20).")
-    asp.add_argument("--since", default=None,
-                     help="ISO 8601 timestamp; only entries on/after this fire.")
-    asp.add_argument("--json", action="store_true",
-                     help="Emit JSON (default: human-readable table).")
-    asp.set_defaults(handler=handle_audit_show)
-
-    tip = subparsers.add_parser(
-        "trust-init",
-        help="Write a default ~/.trinity/trust.toml if missing (idempotent).",
-    )
-    tip.set_defaults(handler=handle_trust_init)
-
-    tsp = subparsers.add_parser(
-        "trust-show",
-        help="Show the current trust configuration and resolved levels.",
-    )
-    tsp.add_argument("--operation", default=None,
-                     help="Resolve trust level for a specific operation.")
-    tsp.add_argument("--tier", default="pip",
-                     choices=["skill", "pip", "extension"],
-                     help="Tier for the resolution check.")
-    tsp.set_defaults(handler=handle_trust_show)
 
 
 def handle_audit_show(args: SimpleNamespace) -> int:

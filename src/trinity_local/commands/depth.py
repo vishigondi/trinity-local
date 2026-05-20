@@ -1,4 +1,8 @@
-"""Handler for `depth-show` — surface the top depth-ranked threads.
+"""Importable utility — depth-ranked thread inspector (CLI retired pre-launch).
+
+The standalone `trinity-local depth-show` CLI was retired in the
+pre-launch simplification. Tests still import `handle_depth_show`
+for coverage; main.py doesn't register this into the CLI surface.
 
 Inspector for the pure-geometry depth signal from src/trinity_local/me/depth.py:
 
@@ -23,16 +27,6 @@ Re-run after a fresh `seed-from-taste-terminal` to verify.
 from __future__ import annotations
 
 import json
-
-
-def register(subparsers):
-    sp = subparsers.add_parser(
-        "depth-show",
-        help="Show top-N most-surprising conversations from your prompt history (depth score: corpus_distance + 0.5·log(1+inter_turn) + 0.5·tanh(LID/10))",
-    )
-    sp.add_argument("--top", type=int, default=10, help="Number of conversations to show (default 10)")
-    sp.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
-    sp.set_defaults(handler=handle_depth_show)
 
 
 def handle_depth_show(args):

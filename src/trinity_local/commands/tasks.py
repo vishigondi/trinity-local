@@ -1,4 +1,11 @@
-"""Handlers for bundle-create, launch-create, task-create, task-show, task-sync."""
+"""Importable utility — task / bundle / launch-event handlers (CLIs retired pre-launch).
+
+The standalone `trinity-local bundle-create / launch-create /
+task-create / task-show / task-sync` CLIs were retired in the
+pre-launch simplification (council scope folded these flows inline).
+Tests still import `handle_*` for handler-level coverage; main.py
+doesn't register this module into the CLI surface.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -19,48 +26,6 @@ from .helpers import read_text_file
 def _derive_task_cluster_id(task_text: str, project_hint: str = "") -> str:
     digest = hashlib.sha1(f"{project_hint}|{task_text}".encode("utf-8")).hexdigest()
     return digest[:16]
-
-
-def register(subparsers):
-    bp = subparsers.add_parser("bundle-create", help="Create and save a prompt bundle")
-    bp.add_argument("task", help="Task text for the bundle")
-    bp.add_argument("--project-hint", default="")
-    bp.add_argument("--context-file", default=None)
-    bp.add_argument("--goal", default="")
-    bp.add_argument("--instructions", default="")
-    bp.add_argument("--origin-session-id", default=None)
-    bp.add_argument("--origin-provider", default=None)
-    bp.set_defaults(handler=handle_bundle_create)
-
-    lp = subparsers.add_parser("launch-create", help="Record a launch event")
-    lp.add_argument("--bundle", required=True)
-    lp.add_argument("--mode", required=True, choices=["route", "handoff", "council"])
-    lp.add_argument("--source-provider", default=None)
-    lp.add_argument("--target-provider", default=None)
-    lp.add_argument("--target-model", default=None)
-    lp.add_argument("--handoff-reason", default=None)
-    lp.add_argument("--source-session-id", default=None)
-    lp.add_argument("--target-session-id", default=None)
-    lp.set_defaults(handler=handle_launch_create)
-
-    tp = subparsers.add_parser("task-create", help="Create or update a durable task record")
-    tp.add_argument("--bundle", required=True)
-    tp.add_argument("--status", default="suggested")
-    tp.add_argument("--title", default=None)
-    tp.add_argument("--recommended-provider", default=None)
-    tp.add_argument("--recommended-mode", default=None)
-    tp.add_argument("--reason", default=None)
-    tp.add_argument("--confidence", type=float, default=None)
-    tp.add_argument("--tag", action="append", default=[])
-    tp.set_defaults(handler=handle_task_create)
-
-    tsp = subparsers.add_parser("task-show", help="Show a saved task record")
-    tsp.add_argument("--task", required=True)
-    tsp.set_defaults(handler=handle_task_show)
-
-    tsyncp = subparsers.add_parser("task-sync", help="Write a sync-safe task payload")
-    tsyncp.add_argument("--task", required=True)
-    tsyncp.set_defaults(handler=handle_task_sync)
 
 
 def handle_bundle_create(args):

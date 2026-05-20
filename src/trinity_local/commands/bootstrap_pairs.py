@@ -1,62 +1,16 @@
-"""`trinity-local bootstrap-pairs` — cold-start personal routing without
-running fresh councils.
+"""Importable utility — cross-provider cluster synthesis handler.
 
-The user's transcript exports already contain pairs: same question, asked
-to claude vs gpt vs gemini, with each provider's answer on disk. Trinity
-finds those pairs via embedding similarity and turns each cluster into a
-synthetic council (one chairman synth call per cluster) — bootstrapping
-the personal routing table from data Trinity already has, before the user
-runs a single fresh council.
-
-Cost model:
-  - Zero member-dispatch calls (responses are on disk)
-  - One chairman call per cluster (cheap)
-  - Typical bootstrap: ~10-30 clusters → ~10-30 flagship calls → ~$1-3 in
-    user's subscription credits
-
-Compared to `replay-history`, which RE-RUNS each prompt against the
-current lineup (3 member calls + 1 chairman = 4× the cost per prompt).
+The standalone `trinity-local bootstrap-pairs` CLI was retired in the
+pre-launch simplification (2026-05-18, retirement registry). `dream`
+Phase 2.5 subsumes pair-mining; tests still import
+`handle_bootstrap_pairs` for handler-level coverage. No
+`register(subparsers)` here — main.py doesn't import this module into
+the CLI surface.
 """
 from __future__ import annotations
 
 import json
 import sys
-
-
-def register(subparsers):
-    sp = subparsers.add_parser(
-        "bootstrap-pairs",
-        help="Discover cross-provider question pairs in your existing transcripts and synthesize them into virtual councils — cold-starts personal routing without fresh dispatch.",
-    )
-    sp.add_argument(
-        "--similarity-threshold",
-        type=float,
-        default=0.85,
-        help="Cosine similarity floor for two prompts to count as 'the same question' (default: 0.85)",
-    )
-    sp.add_argument(
-        "--min-providers",
-        type=int,
-        default=2,
-        help="Only synthesize clusters spanning at least N distinct providers (default: 2)",
-    )
-    sp.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Cap the number of clusters to synthesize. Default: all discovered.",
-    )
-    sp.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Discover and print clusters but don't call any flagship.",
-    )
-    sp.add_argument(
-        "--primary-provider",
-        default=None,
-        help="Force a specific chairman provider for every synthesis. Default: per-cluster pick.",
-    )
-    sp.set_defaults(handler=handle_bootstrap_pairs)
 
 
 def handle_bootstrap_pairs(args):

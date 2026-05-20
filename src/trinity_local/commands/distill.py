@@ -1,39 +1,15 @@
-"""`trinity-local distill` — Phase 5 stand-alone.
+"""Importable utility — Phase 5 distillation handlers.
 
-Reads the three thinking core memories (lens, topics, vocabulary) under `~/.trinity/memories/` and emits a
-one-paragraph distillation to `~/.trinity/core.md`. The chairman reads
-`core.md` first on every council; this command keeps that summary fresh.
-
-Also runs as Phase 5 of `trinity-local dream`. Use standalone when you've
-updated the lens or cortex manually and don't need a full dream pass.
+The standalone `trinity-local distill` and `core-show` CLIs were retired
+in the pre-launch simplification (2026-05-18, retirement registry).
+`dream` Phase 5 calls `distill_via_chairman` directly; tests still import
+`handle_distill` / `handle_core_show` for handler-level coverage. No
+`register(subparsers)` here — main.py doesn't import this module into
+the CLI surface.
 """
 from __future__ import annotations
 
 import json
-
-
-def register(subparsers):
-    sp = subparsers.add_parser(
-        "distill",
-        help="Distill the three thinking core memories (lens, topics, vocabulary) into ~/.trinity/core.md (one paragraph the chairman reads first on every council).",
-    )
-    sp.add_argument(
-        "--provider",
-        default="claude",
-        help="Chairman provider for the distillation pass (default: claude).",
-    )
-    sp.add_argument(
-        "--force",
-        action="store_true",
-        help="Re-distill even if core.md is already newer than every source memory.",
-    )
-    sp.set_defaults(handler=handle_distill)
-
-    show = subparsers.add_parser(
-        "core-show",
-        help="Print the current ~/.trinity/core.md content (the singular distilled identity the chairman reads first).",
-    )
-    show.set_defaults(handler=handle_core_show)
 
 
 def handle_distill(args):
