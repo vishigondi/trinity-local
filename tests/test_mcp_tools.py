@@ -1,4 +1,10 @@
-"""Tests for the canonical 5 MCP tools (§8.1) and chain-mode council."""
+"""Tests for the 9 MCP tools (v1.0 canonical 5 + v1.5 trio + launch-arc handoff) and chain-mode council.
+
+v1.0 canonical 5: route, run_council (subsumes judge via responses=[...]),
+record_outcome, get_persona, get_council_status (§8.1).
+v1.5 trio: ask, get_picks, mark_pick_wrong.
+Launch-arc: handoff (tick #119, cross-provider conversation continuity).
+"""
 from __future__ import annotations
 
 import asyncio
