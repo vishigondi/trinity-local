@@ -356,13 +356,3 @@ def ingest_cursors_path() -> Path:
     return prompts_dir() / "cursors.json"
 
 
-def hard_examples_dir() -> Path:
-    path = research_dir() / "hard_examples"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def replay_examples_dir() -> Path:
-    path = research_dir() / "examples"
-    path.mkdir(parents=True, exist_ok=True)
-    return path

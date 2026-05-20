@@ -220,6 +220,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
     ),
+    "hard_examples_dir": RetirementRecord(
+        name="hard_examples_dir",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(inlined as `research_dir() / 'hard_examples'`)",
+        reason="Same Pattern #4 shape as cortex_dir / models_dir — mkdir'd `~/.trinity/research/hard_examples/` on every call but zero callers. The single consumer (knn_advisor.py L60-61) constructs the path inline from `research_dir()`. Tick 52 deleted the helper.",
+        kind="module",
+    ),
+    "replay_examples_dir": RetirementRecord(
+        name="replay_examples_dir",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(inlined as `research_dir() / 'examples'`)",
+        reason="Misleading name: returned `research_dir() / 'examples'` (NOT 'replay_examples'). Zero callers; knn_advisor.py L60-61 inlines the path string. Tick 52 deleted alongside hard_examples_dir.",
+        kind="module",
+    ),
     "cortex_dir": RetirementRecord(
         name="cortex_dir",
         retired_at="2026-05-20",
