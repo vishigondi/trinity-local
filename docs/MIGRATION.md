@@ -27,19 +27,28 @@ into one shape.
 
 v1.0 splits this into three tiers, each independently functional:
 
-- **Tier 1 — Skill** (`~/.claude/skills/trinity/`): the primary surface.
-  When you type `/trinity` in Claude Code, the skill drives the engine
-  for you. SKILL.md IS the spec — the user-facing contract.
-- **Tier 2 — Engine** (`~/.claude/skills/trinity/src/trinity_local/`):
-  the Python engine the skill calls. The `trinity-local` shell wrapper
-  at `~/.local/bin/` (dropped by the installer) routes to it. Same CLI
-  surface you had before. Imports from `scripts/` for the heavy
-  operations (embeddings, clustering, geometric primitives, descriptor /
-  signature / anchor extraction). No PyPI publish — installer clones
-  the repo.
-- **Tier 3 — Chrome extension** (optional): cross-surface UI +
-  web-chat capture. Was already there pre-v1.0 for capture; now also
-  carries the cross-platform launchpad dispatcher (see Arc 2).
+- **Tier 1 — MCP server** (primary, 2026-05-19 pivot). Trinity
+  registers as an MCP server in every harness that supports MCP
+  (Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop). The
+  agent calls tools like `mcp__trinity-local__run_council` inline.
+  Tool docstrings are the contract — no `/skill` invocation required.
+  The skill at `~/.claude/skills/trinity/` is kept as a **back-compat
+  symlink alias** so users who already type `/trinity` in Claude Code
+  keep working; new users never need to know it exists.
+- **Tier 2 — Engine** (`~/.trinity/code/src/trinity_local/`): the
+  Python engine MCP tools (and the legacy skill) call. The
+  `trinity-local` shell wrapper at `~/.local/bin/` resolves to it via
+  `launcher_path_resolver.sh` — probes browser extension dirs first
+  (Web Store auto-update path), then `~/.trinity/code/`, then the
+  legacy skill location.
+- **Tier 3 — Chrome extension** (discovery + capture sidecar). Two
+  jobs: (1) browser capture — streams web chats from claude.ai /
+  chatgpt.com / gemini.google.com into `~/.trinity/conversations/`
+  via Native Messaging, (2) cross-platform launchpad dispatcher.
+  The popup's "Copy install brief" button is the **non-technical-user
+  entry point**: install the extension → paste brief into Claude
+  Code / Desktop → agent runs install.sh + register-extension +
+  install-mcp end-to-end. Zero terminal expertise required.
 
 Data in `~/.trinity/` is invariant across tiers — same files, same
 schemas. The tiers differ in *how you invoke Trinity*, not *what
