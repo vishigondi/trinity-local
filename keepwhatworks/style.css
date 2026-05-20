@@ -1,0 +1,387 @@
+/* keepwhatworks.com — shared stylesheet
+ * Palette + typography matched to trinity-local's design_system.py so the
+ * site visually descends from the launchpad. Iowan Old Style serif for
+ * headlines, SF Pro Text for body, JetBrains Mono for code/inline.
+ */
+
+:root {
+  --bg-base: #f5efe3;
+  --bg-wash: #ece4d6;
+  --surface: #fbf8f2;
+  --surface-muted: #f1eadf;
+  --border: #d7ccb9;
+  --text-primary: #1f1a17;
+  --text-secondary: #5f554d;
+  --text-muted: #86796d;
+  --action-primary: #255847;
+  --action-primary-hover: #1d4638;
+  --action-text: #f7f3ea;
+  --success: #2d6a4f;
+  --warning: #b26a1f;
+  --danger: #a33c2f;
+  --info: #315c85;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --sans: "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+.container.wide { max-width: 960px; }
+
+/* — Topbar — */
+.topbar {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.topbar a.brand {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--text-primary);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.topbar a.brand::before {
+  content: "❉";
+  color: var(--action-primary);
+  font-size: 16px;
+  margin-right: 8px;
+}
+.topbar nav { display: flex; gap: 28px; }
+.topbar nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.topbar nav a:hover { color: var(--text-primary); }
+
+/* — Hero — */
+.hero {
+  padding: 80px 0 56px;
+}
+.hero .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--action-primary);
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(40px, 6.5vw, 64px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--action-primary);
+}
+.hero .sub {
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 580px;
+}
+
+/* — Section headers — */
+.section-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--action-primary);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--serif);
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.section-sub {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 36px;
+  max-width: 560px;
+}
+
+section { padding: 56px 0; }
+section + section { border-top: 1px solid var(--border); }
+
+/* — Article cards — */
+.articles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.article-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 30px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.article-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--action-primary);
+}
+.article-card .meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.article-card h3 {
+  font-family: var(--serif);
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+}
+.article-card p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* — Product card (Trinity) — */
+.product-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  position: relative;
+}
+.product-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 16px 0 0 16px;
+  background: var(--action-primary);
+}
+.product-card .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--action-primary);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.product-card h2 {
+  font-family: var(--serif);
+  font-size: 36px;
+  letter-spacing: -0.015em;
+  margin-bottom: 14px;
+}
+.product-card .tagline {
+  font-size: 17px;
+  color: var(--text-secondary);
+  margin-bottom: 22px;
+}
+.product-card .install {
+  background: var(--bg-wash);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  user-select: all;
+}
+.product-card .features {
+  list-style: none;
+  margin: 22px 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 28px;
+}
+.product-card .features li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding-left: 22px;
+  position: relative;
+}
+.product-card .features li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--action-primary);
+  font-weight: 600;
+}
+.btn {
+  display: inline-block;
+  background: var(--action-primary);
+  color: var(--action-text);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background .15s ease;
+}
+.btn:hover { background: var(--action-primary-hover); }
+.btn.ghost {
+  background: transparent;
+  color: var(--action-primary);
+  border: 1px solid var(--action-primary);
+  margin-left: 10px;
+}
+
+/* — Article (long-form) — */
+article.essay {
+  max-width: 680px;
+  margin: 0 auto;
+}
+article.essay header {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+article.essay header .meta {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+article.essay header h1 {
+  font-family: var(--serif);
+  font-size: clamp(36px, 5.5vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+article.essay header .dek {
+  font-size: 18px;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.5;
+}
+article.essay h2 {
+  font-family: var(--serif);
+  font-size: 28px;
+  margin: 48px 0 16px;
+  letter-spacing: -0.01em;
+}
+article.essay h3 {
+  font-family: var(--serif);
+  font-size: 22px;
+  margin: 36px 0 12px;
+}
+article.essay p {
+  font-size: 17px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+  color: var(--text-primary);
+}
+article.essay p em { color: var(--text-secondary); }
+article.essay blockquote {
+  border-left: 3px solid var(--action-primary);
+  padding: 6px 0 6px 20px;
+  margin: 28px 0;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 18px;
+}
+article.essay ul, article.essay ol {
+  margin: 8px 0 22px 26px;
+}
+article.essay li {
+  font-size: 17px;
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+article.essay hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+/* — Trinity callout inside articles — */
+.trinity-callout {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--action-primary);
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin: 40px 0;
+}
+.trinity-callout .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--action-primary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.trinity-callout h4 {
+  font-family: var(--serif);
+  font-size: 20px;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.trinity-callout p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+.trinity-callout a {
+  color: var(--action-primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+}
+.trinity-callout a:hover { text-decoration: underline; }
+
+/* — Footer — */
+footer {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 24px 56px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+footer a { color: var(--text-secondary); text-decoration: none; }
+footer a:hover { color: var(--text-primary); }
+
+/* — Responsive — */
+@media (max-width: 640px) {
+  .container { padding: 32px 18px 64px; }
+  .topbar { padding: 24px 18px 0; }
+  .topbar nav { gap: 18px; }
+  .product-card { padding: 28px 22px; }
+  .product-card .features { grid-template-columns: 1fr; }
+}
