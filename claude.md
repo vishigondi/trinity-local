@@ -690,6 +690,9 @@ diagram is either retired or written by a feature you haven't run yet.
 │   └── status/                     #   Live council progress (JSON + JS) for polling
 ├── task_sync/                      # Sync-safe task payloads
 ├── share/                          # PNG share-card outputs (me-card / council-share / eval-share defaults)
+├── evals/                          # Eval sets (`eval-build`) + per-run results (`eval-run`)
+│   ├── <eval_id>.json              #   built suite of (prompt, rejection_type) items
+│   └── results/                    #   eval_<id>__model_<provider>__<ts>.json
 ├── settings/                       # Telemetry settings
 │
 │  ── Prompt index + cognitive memories ──────────────────────────

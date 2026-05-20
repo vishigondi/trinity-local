@@ -156,8 +156,9 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 │   └── decisions.jsonl
 ├── portal_pages/launchpad.html  ← the conversion event
 ├── review_pages/             ← per-council review HTML
+├── evals/                    ← eval-build suites + evals/results/ per-run scores
 ├── settings/telemetry.json   ← opt-in only, default off
-├── analytics/                ← routing_label_events.jsonl, knn_advisory.jsonl
+├── analytics/                ← routing_label_events.jsonl, knn_advisory.jsonl, dispatch_outcomes.jsonl
 ├── todos/, actions/, prompt_bundles/, task_sync/, share/  ← runtime state (share/ holds me-card / council-share / eval-share PNG outputs)
 └── (config layered: source-tree config.json + user-overlay env vars; trinity.toml v1.1+)
 ```
