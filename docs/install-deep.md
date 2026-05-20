@@ -22,6 +22,34 @@ Plus the provider CLIs you want in the council: `claude`, `codex`, and/or
 `gemini` — each authenticated to your subscription. `trinity-local status`
 will tell you which are missing.
 
+## Local models — free, optional, auto-discovered
+
+Any model you've pulled with [Ollama](https://ollama.com) appears in
+Trinity's routing pool automatically. No config edit required, no MCP
+tools to install per model — Trinity probes `ollama list` every 30
+seconds and adds detected models as candidates named
+`ollama:<model>` (e.g. `ollama:qwen3:32b`, `ollama:deepseek-r1`).
+
+```bash
+ollama pull qwen3:32b      # pull whatever you want to run locally
+ollama pull deepseek-r1    # multiple is fine — Trinity sees them all
+```
+
+Now ask in Claude Code:
+
+> Run a Trinity council on X with claude, codex, and ollama:qwen3:32b.
+
+Cost for the Ollama member: $0. The chairman still synthesizes through
+your lens. MLX-on-mac models are also detected (provider name
+`mlx:<model>`) if you have the runtime installed. Local models are
+graceful-degrade — if the Ollama daemon isn't running, Trinity silently
+skips them and the council runs with the cloud members alone.
+
+The MCP surface stays at 9 tools regardless of how many local models
+you pull. Providers are *parameters* to `ask` / `run_council`, not
+their own tools — the architecture scales to dozens of locals without
+bloating the agent's tool list.
+
 ## Quickstart (desktop first)
 
 ```bash

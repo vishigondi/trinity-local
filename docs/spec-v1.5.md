@@ -99,6 +99,21 @@ promising it; the HN demo will be where we find out. "Your work continues on
 Codex when Claude is rate-limited" is itself unbeatable even without the
 local-model angle. Re-add to the pitch in v1.6 once stable.
 
+**Status update 2026-05-20 (post-launch):** Ollama + MLX dispatch
+*shipped* with the local-models detection layer (`local_models.py` —
+`ollama list` probe with 30s cache + `mlx` filesystem detection). Any
+model the user has pulled via `ollama pull <name>` appears in the
+routing pool as `ollama:<model>` automatically, no config edit. Tests
+cover the auto-discovery path + graceful degradation when the Ollama
+daemon is offline. The architectural commitment ("providers are
+parameters to `ask`/`run_council`, not their own MCP tools") means
+the 9-tool MCP surface stays constant regardless of how many local
+models the user has pulled. Documented in
+[`docs/install-deep.md`](install-deep.md) "Local models" section.
+Re-add to the pitch held until the HN demo confirms dispatch
+resilience in the wild — the code is there; the wild test is what
+remains.
+
 ## Architecture
 
 ### Two-tier memory (the hippocampus / cortex insight)
