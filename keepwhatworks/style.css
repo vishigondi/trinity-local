@@ -265,6 +265,20 @@ article.essay header {
   border-bottom: 1px solid var(--border);
   margin-bottom: 40px;
 }
+article.essay figure.hero {
+  margin: 0 -20px 28px;
+  padding: 0;
+}
+article.essay figure.hero img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+@media (max-width: 640px) {
+  article.essay figure.hero { margin-left: -8px; margin-right: -8px; }
+  article.essay figure.hero img { border-radius: 6px; }
+}
 article.essay header .meta {
   font-size: 12px;
   letter-spacing: 0.18em;
