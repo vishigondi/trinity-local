@@ -63,6 +63,27 @@ class TestInstallScriptTail:
             "so the user has a single canonical install path."
         )
 
+    def test_mentions_embedder_prefetch_verb(self, install_script):
+        """The tail must point at `trinity-local download-embedder` so
+        users can pre-fetch the 700MB model before they hit the gate
+        in lens-build / dream / vocabulary. Closes the loop between
+        the install step and the embedder-gated commands."""
+        tail = "\n".join(install_script.splitlines()[-30:])
+        assert "download-embedder" in tail, (
+            "install.sh tail must mention the download-embedder verb so "
+            "new installs can pre-fetch the model — otherwise the user's "
+            "first encounter with the requirement is mid-command via "
+            "the embedder gate."
+        )
+        # The optional-step framing must NOT make the verb sound required —
+        # the embedder is genuinely optional (councils + launchpad work
+        # without it; only lens-build/dream/vocabulary need it).
+        assert "Optional" in tail or "optional" in tail, (
+            "The embedder pre-fetch must be framed as optional — only "
+            "deeper-memory commands need it. Mis-framing it as required "
+            "would scare users off the install."
+        )
+
 
 # ─── Launchpad proactive CTA ────────────────────────────────────────
 
