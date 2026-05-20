@@ -23,15 +23,17 @@ def handle_distill(args):
 def handle_core_show(args):
     """Print core.md verbatim. Symmetric with `lens-show` for the lens.
 
-    Cold-install path: print a hint pointing at `distill` rather than an
-    empty file.
+    Cold-install path: print a hint pointing at `dream` rather than an
+    empty file. The standalone `distill` CLI was retired pre-launch; the
+    rebuild path is now `trinity-local dream` (Phase 5 of dream runs
+    distill_via_chairman over the three thinking memories).
     """
     import sys
     from ..state_paths import core_path
     path = core_path()
     if not path.exists():
         print(
-            "# core.md not distilled yet — run `trinity-local distill`",
+            "# core.md not distilled yet — run `trinity-local dream`",
             file=sys.stderr,
         )
         print(f"# expected at: {path}", file=sys.stderr)
@@ -39,7 +41,7 @@ def handle_core_show(args):
     text = path.read_text(encoding="utf-8").strip()
     if not text:
         print(
-            "# core.md is empty — run `trinity-local distill --force`",
+            "# core.md is empty — run `trinity-local dream`",
             file=sys.stderr,
         )
         return 1

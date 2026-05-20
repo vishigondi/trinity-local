@@ -1,8 +1,12 @@
-"""Auto-open-council gate: ship Way 3 — after every council writes, if
-the user has run `trinity-local auto-open-enable`, shell out `open
-<review_path>` so the harness doesn't need to know. The hook lives in
-council_runner._maybe_auto_open. These tests cover the gating logic
-WITHOUT actually spawning `open` (we monkeypatch subprocess.Popen).
+"""Auto-open-council gate: after every council writes, if
+`telemetry.auto_open_council` is True, shell out `open <review_path>` so
+the harness doesn't need to know. The CLI toggle commands
+(`auto-open-enable`/`auto-open-disable`) were retired 2026-05-17; the
+underlying setting still round-trips through the settings file (see
+test_auto_open_setting_persists below) and the hook still fires when
+the flag is True. The hook lives in council_runner._maybe_auto_open.
+These tests cover the gating logic WITHOUT actually spawning `open` (we
+monkeypatch subprocess.Popen).
 """
 from __future__ import annotations
 
