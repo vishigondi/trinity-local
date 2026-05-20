@@ -415,8 +415,10 @@ def build_me_via_lens_pipeline(
              with deterministic post-validators in me/turn_pairs.py)
     Stage 1: numpy k-means basins (no LLM)
     Stage 2: chairman extracts decisions.jsonl
-    Stage 3: 3-member council mines candidate pairs; chairman applies
-             three tests + verifier contract
+    Stage 3: chairman applies the three tests + JSON verifier contract
+             over decisions.jsonl (single chairman call for the first
+             cut; the wrapping 3-member council via run_council is a
+             forward-arc item — see inline comment at the call site)
     Stage 4: deterministic basin post-filter — drops single-basin pairs
 
     `dry_run=True` runs Stage 1 + sampling only (no LLM calls), useful
