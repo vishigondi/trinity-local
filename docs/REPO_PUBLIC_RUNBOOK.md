@@ -56,7 +56,7 @@ gh repo edit vishigondi/trinity-local \
   --add-topic privacy \
   --add-topic benchmarks \
   --add-topic preference-learning \
-  --homepage "https://vishigondi.github.io/trinity-local"
+  --homepage "https://keepwhatworks.com"
 ```
 
 ## 4. Upload the social card
@@ -132,9 +132,11 @@ bash -n /tmp/trinity-install.sh && echo "INSTALL.SH OK"
 curl -fsSL https://github.com/vishigondi/trinity-local | grep -q "Your taste, ported" \
   && echo "README HERO OK" || echo "README HERO MISSING"
 
-# Pages landing reachable
-curl -fsSL https://vishigondi.github.io/trinity-local/ | grep -q "Trinity" \
-  && echo "PAGES OK" || echo "PAGES NOT YET LIVE (give it 2-5 minutes)"
+# Pages landing reachable (post-2026-05-17 brand flip: site lives at
+# the custom keepwhatworks.com domain; the github.io subpath may
+# redirect but is no longer the canonical URL).
+curl -fsSL https://keepwhatworks.com/ | grep -q "keepwhatworks" \
+  && echo "PAGES OK" || echo "PAGES NOT YET LIVE (give it 2-5 minutes — DNS + GH Pages SSL provisioning)"
 ```
 
 ## Rollback (if the launch tweet goes sideways)
