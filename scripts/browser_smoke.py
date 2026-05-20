@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """scripts/browser_smoke.py — v1 launch-day UI smoke.
 
-Drives Trinity's launchpad through 31 testable surfaces via headless playwright,
-asserts on DOM + console, saves a screenshot per surface to docs/smoke/, exits
-non-zero if any surface fails.
+Drives Trinity's launchpad through ~34 testable surfaces via headless
+playwright, asserts on DOM + console, saves a screenshot per surface to
+docs/smoke/, exits non-zero if any surface fails.
+
+The exact surface count is derived at render time by
+`scripts/render_docs.canonical_smoke_surface_count()` (it counts distinct
+"Surface NN" labels printed below) and pinned across claude.md /
+product-spec.md / CONTRIBUTING.md via canonical placeholders. Do NOT
+hardcode the count in this docstring; if you add or remove a surface,
+the doc surfaces auto-update on the next render_docs pass.
 
 Cheaper than Autobrowse (no per-page API token cost) and deterministic — same
 result every run unless the underlying data changes. This is the launch gate

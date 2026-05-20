@@ -132,7 +132,7 @@ cd trinity-local
 python3 -m venv .venv               # contributors use a venv for the dev install
 .venv/bin/pip install -e ".[test]"  # editable install + test deps (pytest, etc.)
 .venv/bin/python -m pytest -q       # ~1382 tests, ~140s; gate must stay green
-python scripts/browser_smoke.py     # 33-surface UI verification (Playwright)
+python scripts/browser_smoke.py     # <!-- canonical:smoke_surface_count -->34<!-- /canonical -->-surface UI verification (Playwright)
 ```
 
 End-users install Trinity via the curl-bash flow

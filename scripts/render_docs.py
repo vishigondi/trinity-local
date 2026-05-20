@@ -146,12 +146,32 @@ def canonical_cli_command_count() -> int:
     return 0
 
 
+def canonical_smoke_surface_count() -> int:
+    """Count the distinct surface labels printed by scripts/browser_smoke.py.
+
+    Surface labels travel through the script as printable lines like
+    ``[ ✓ ] Surface 14a memory chips`` — that's the user-facing
+    inventory the script delivers. Each label (counting "1b" and
+    "14a" as distinct from "1" and "14") is one surface. Drift
+    between docs ("33-surface") and the live script auto-corrects
+    when surfaces land or retire; we just pin the prose against the
+    source of truth.
+    """
+    smoke_py = REPO / "scripts" / "browser_smoke.py"
+    src = smoke_py.read_text(encoding="utf-8")
+    ids: set[str] = set()
+    for m in re.finditer(r'"\[[^\]]+\]\s+Surface\s+([0-9]+[ab]?)', src):
+        ids.add(m.group(1))
+    return len(ids)
+
+
 CANONICAL: dict[str, callable] = {
     "test_count": canonical_test_count,
     "skipped_count": canonical_skipped_count,
     "mcp_tool_count": canonical_mcp_tool_count,
     "doc_consistency_guards": canonical_doc_consistency_guard_count,
     "cli_command_count": canonical_cli_command_count,
+    "smoke_surface_count": canonical_smoke_surface_count,
     "version": canonical_version,
 }
 

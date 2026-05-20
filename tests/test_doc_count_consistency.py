@@ -37,11 +37,23 @@ PRODUCT_SPEC = REPO / "docs" / "product-spec.md"
 
 
 def _extract(path: Path, pattern: str) -> str | None:
-    """Return the first regex group match in `path`, or None if not found."""
+    """Return the first regex group match in `path`, or None if not found.
+
+    Strips canonical-placeholder markup before matching so callers can
+    keep using simple regexes (e.g. ``r"(\\d+)-surface"``) without
+    knowing about ``<!-- canonical:NAME -->VALUE<!-- /canonical -->``
+    wrapping. The renderer's markup is invisible to consumers."""
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return None
+    # Strip canonical placeholders down to just their VALUE so regex
+    # callers don't need to care about the wrapping.
+    text = re.sub(
+        r"<!--\s*canonical:[a-z_]+\s*-->([^<]*)<!--\s*/canonical\s*-->",
+        r"\1",
+        text,
+    )
     m = re.search(pattern, text)
     return m.group(1) if m else None
 
@@ -166,8 +178,14 @@ class TestTestCountConsistency:
 
 
 class TestSmokeSurfaceCountConsistency:
-    """The smoke-surface count claim appears in claude.md status + the
-    product-spec. Same shape; same regression guard."""
+    """The smoke-surface count claim appears in claude.md status +
+    product-spec + CONTRIBUTING. All three must agree with EACH OTHER
+    (principle #20) AND with the actual surface count in
+    scripts/browser_smoke.py (principle #21). The earlier two-doc
+    guard caught mutual drift but missed the bigger leak: both docs
+    drifted together away from the script (33 vs 34). The script is
+    now the source of truth; render_docs.canonical_smoke_surface_count
+    derives the live count from the printed Surface labels."""
 
     def test_two_surfaces_agree(self):
         status_count = _extract(
@@ -184,6 +202,28 @@ class TestSmokeSurfaceCountConsistency:
             f"Smoke-surface count drift: claude.md says {status_count}, "
             f"product-spec says {spec_count}. Per principle #20, pin both "
             f"in the same commit."
+        )
+
+    def test_claim_matches_actual_script_count(self):
+        """Principle #21: the public claim ('N-surface smoke') must be
+        derivable from the source of truth (the script itself). If a
+        surface lands but the doc isn't re-rendered, this fails."""
+        import sys
+        sys.path.insert(0, str(REPO / "scripts"))
+        try:
+            from render_docs import canonical_smoke_surface_count
+        finally:
+            sys.path.pop(0)
+
+        actual = canonical_smoke_surface_count()
+        claim = _extract(CLAUDE_MD, r"(\d+)-surface browser smoke")
+        assert claim, "claude.md Status block lost the 'N-surface browser smoke' marker"
+        assert int(claim) == actual, (
+            f"Smoke-surface count drift: claude.md claims {claim}-surface, "
+            f"scripts/browser_smoke.py prints {actual} distinct surface labels. "
+            f"Re-render via `python scripts/render_docs.py` after adding "
+            f"or removing surfaces; the canonical placeholder "
+            f"<!-- canonical:smoke_surface_count --> auto-fills."
         )
 
 
