@@ -297,9 +297,14 @@ mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
   rules (e.g. 0.75+ for production routing decisions).
 ```
 
-8 tools total: `ask`, `compare` (aliased to `run_council`), `record_outcome`,
-`search_prompts`, `get_persona`, `get_council_status`, `get_picks`,
-`route` (deprecated but retained).
+9 tools shipped: `route`, `ask`, `run_council`, `record_outcome`,
+`get_persona`, `get_picks`, `mark_pick_wrong`, `get_council_status`, `handoff`.
+(Spec divergence — preserved here for the audit trail: the original v1.5 spec
+proposed `compare` as an alias for `run_council`; Tier 1 #2 (task #48) collapsed
+that into `run_council(responses=[...])` instead. `search_prompts` was retired
+2026-05-17 — agents ground via `ask` + `get_picks` now. `mark_pick_wrong` was
+added as the user-veto surface, and the launch-arc tick added `handoff` —
+neither was in the original spec list.)
 
 **Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (three-role
 multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
