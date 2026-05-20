@@ -104,11 +104,14 @@ def research_dir() -> Path:
 # older installs but Trinity no longer reads or writes them.
 
 
-def models_dir() -> Path:
-    path = state_dir() / "models"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
+# `models_dir()` was retired 2026-05-20 (tick 28). It built
+# `~/.trinity/models/nomic-embed-text-v1.5` and was stored on
+# `MlxEmbedder.model_path` — but the attribute was never read.
+# The actual model lives in HF cache (`~/.cache/huggingface/hub/`)
+# via `SentenceTransformer(MODEL_ID)`. The dir-create side effect
+# spawned an empty `~/.trinity/models/` directory on every embedder
+# instantiation. May exist on older installs but Trinity no longer
+# writes or reads it.
 
 # `embeddings_cache_path()` was retired 2026-05-17 with the embedding
 # cache kill. The persistent cache file at `~/.trinity/cache/embeddings.jsonl`

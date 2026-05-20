@@ -385,10 +385,11 @@ def _embedder_status() -> dict[str, object]:
                           card (cold install → nothing to embed yet;
                           everything wired → nothing to do)
     """
-    # Model weights live in HuggingFace cache, NOT in ~/.trinity/models/
-    # (sentence-transformers writes there, not the path returned by
-    # `backend_mlx.model_path()` — a known mismatch we just stop
-    # papering over here by reading the real cache).
+    # Model weights live in HuggingFace cache, NOT in ~/.trinity/models/.
+    # sentence-transformers writes to the HF cache; backend_mlx.py used
+    # to expose a `model_path()` helper that pointed at ~/.trinity/models/
+    # but nothing read it, and the helper was retired 2026-05-20 (tick 28).
+    # We read the real cache directly here.
     hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
     model_cache_dir = hf_cache / "models--nomic-ai--nomic-embed-text-v1.5"
     model_downloaded = False

@@ -11,12 +11,22 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from ..state_paths import models_dir
 
 MODEL_ID = "nomic-ai/nomic-embed-text-v1.5"
-MODEL_DIR_NAME = "nomic-embed-text-v1.5"
 MAX_TOKENS = 8192
 DEFAULT_DIM = 768
+
+
+def hf_cache_model_path() -> Path:
+    """Where sentence-transformers actually caches the nomic model.
+
+    HF cache dir name is derived from MODEL_ID with `/` → `--`. Returned
+    by `model_status()` for diagnostics so a user inspecting the dict
+    sees the real on-disk location (the previous \`~/.trinity/models/\`
+    path was misleading — that dir was created but unused).
+    """
+    safe = MODEL_ID.replace("/", "--")
+    return Path.home() / ".cache" / "huggingface" / "hub" / f"models--{safe}"
 
 # Nomic task prefixes — if the caller already prepended one, don't double-prefix.
 NOMIC_PREFIXES = ("search_document:", "search_query:", "clustering:", "classification:")
@@ -28,10 +38,6 @@ def _ensure_nomic_prefix(text: str) -> str:
         if stripped.startswith(prefix):
             return text
     return f"search_document: {text}"
-
-def model_path() -> Path:
-    return models_dir() / MODEL_DIR_NAME
-
 
 def download_model(*, force: bool = False) -> str:
     """Download/verify the model. Returns status message."""
@@ -66,7 +72,7 @@ class MlxEmbedder:
     def __init__(self):
         self._model = None
         self._loaded = False
-        self.model_path = model_path()
+        self.model_path = hf_cache_model_path()
 
     def is_ready(self) -> bool:
         """Check if sentence-transformers is importable.
