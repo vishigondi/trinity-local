@@ -362,7 +362,7 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
 def _embedder_status() -> dict[str, object]:
     """Surface the deeper-memory opt-in state on the launchpad.
 
-    The nomic-embed-text-v1.5 weights are ~700MB. They aren't bundled
+    The nomic-embed-text-v1.5 weights are ~600 MB. They aren't bundled
     with Trinity — first lens-build / dream / vocabulary call triggers
     a HuggingFace Hub download. The CLAUDE.md status block describes
     this; the user encounters it as a RuntimeError the first time they

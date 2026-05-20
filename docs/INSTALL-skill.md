@@ -88,7 +88,7 @@ the CLI returns.
   descriptor extraction, signature distillation, and audit-log write
   runs on your machine. Trinity never makes outbound HTTP except for
   the one-time `nomic-embed-text-v1.5` download from Hugging Face on
-  first run (~250 MB; afterwards `HF_HUB_OFFLINE=1` is pinned).
+  first run (~600 MB; afterwards `HF_HUB_OFFLINE=1` is pinned).
 - **Provider CLIs**: council dispatches ride your existing Claude /
   Codex / Gemini CLI subscriptions. Trinity calls those CLIs as
   subprocesses — your credentials never leave your machine via

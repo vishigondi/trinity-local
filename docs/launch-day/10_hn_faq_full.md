@@ -52,7 +52,7 @@ Same mechanic (learning from past sessions → consolidated routing patterns), d
 
 ### What actually leaves my machine?
 
-Nothing by default. Prompts, answers, council outcomes, lens.md, picks, routing table — all stay in `~/.trinity/`. The MCP server is a stdio child of your harness (no listening port). `HF_HUB_OFFLINE=1` is pinned at `main()` startup so HuggingFace gets no outbound calls during normal operation. The embedding model is pulled exactly once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5` (~270MB). Model dispatches go through your authenticated CLI subprocesses (`claude`, `codex`, `gemini`) — the provider sees the prompt because *you* asked them; Trinity adds no relay.
+Nothing by default. Prompts, answers, council outcomes, lens.md, picks, routing table — all stay in `~/.trinity/`. The MCP server is a stdio child of your harness (no listening port). `HF_HUB_OFFLINE=1` is pinned at `main()` startup so HuggingFace gets no outbound calls during normal operation. The embedding model is pulled exactly once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5` (~600 MB). Model dispatches go through your authenticated CLI subprocesses (`claude`, `codex`, `gemini`) — the provider sees the prompt because *you* asked them; Trinity adds no relay.
 
 ### What about the opt-in telemetry?
 

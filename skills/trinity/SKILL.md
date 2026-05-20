@@ -49,7 +49,7 @@ The installer needs `git` + `python3.10+` on PATH. If Python is missing, recomme
 
 If any required check fails, walk the user through the surfaced fix. Don't proceed until `trinity_home_writeable`, `config_loadable`, and `mcp_available` are green. Provider CLIs are required for councils but not for setup itself.
 
-**Cold-start callout**: the first embedding call downloads `nomic-embed-text-v1.5` from Hugging Face (~250 MB, one-time, ~3 minutes on a fast connection). Mention this if the user is about to run their first ingest.
+**Cold-start callout**: the first embedding call downloads `nomic-embed-text-v1.5` from Hugging Face (~600 MB, one-time, ~3 minutes on a fast connection). Mention this if the user is about to run their first ingest.
 
 ## 4. Register the MCP server in every harness
 

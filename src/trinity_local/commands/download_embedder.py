@@ -11,7 +11,7 @@ require_embedder_ready() now points users at this command instead of
 the raw huggingface-cli line. Same on-disk result; in-product story.
 
 Status messages match the CLI gate's framing:
-  - Pre-download: "Trinity is downloading the memory model (~700MB)…"
+  - Pre-download: "Trinity is downloading the memory model (~600 MB)…"
   - Post-download: "Model ready. Re-run your previous command."
 
 Idempotent: re-running on an already-downloaded model is a fast no-op
@@ -27,7 +27,7 @@ from types import SimpleNamespace
 def register(subparsers) -> None:
     parser = subparsers.add_parser(
         "download-embedder",
-        help="Download the nomic-embed-text-v1.5 memory model (~700MB). "
+        help="Download the nomic-embed-text-v1.5 memory model (~600 MB). "
              "Required for lens-build / dream / vocabulary.",
     )
     parser.add_argument(
@@ -54,7 +54,7 @@ def handle_download_embedder(args: SimpleNamespace) -> int:
 
     if not json_mode:
         print(
-            "Downloading nomic-embed-text-v1.5 (~700MB) to "
+            "Downloading nomic-embed-text-v1.5 (~600 MB) to "
             "~/.cache/huggingface/hub/ — this is a one-time download. "
             "Trinity won't contact the Hub again once it's cached.",
             file=sys.stderr,

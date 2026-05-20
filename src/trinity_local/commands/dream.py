@@ -102,7 +102,7 @@ def handle_dream(args):
     # Fail fast if the embedder model isn't downloaded — dream uses
     # embeddings end-to-end (cross-provider pair discovery, basin
     # k-means, lens distillation). Without this gate the user would
-    # discover the 700MB requirement mid-Phase-1.
+    # discover the ~600 MB requirement mid-Phase-1.
     from ..embeddings import EmbedderNotReadyError, require_embedder_ready
     try:
         require_embedder_ready()

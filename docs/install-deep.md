@@ -76,7 +76,7 @@ a live council.
 
 Trinity pins `HF_HUB_OFFLINE=1` at startup, so the running system never
 makes outbound HuggingFace calls during normal operation. The embedding
-model (`nomic-embed-text-v1.5`, ~270MB) ships once via an explicit, opt-in
+model (`nomic-embed-text-v1.5`, ~600 MB) ships once via an explicit, opt-in
 download:
 
 ```bash

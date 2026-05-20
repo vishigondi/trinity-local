@@ -167,7 +167,7 @@ class EmbedderNotReadyError(RuntimeError):
     """Raised by ``require_embedder_ready`` when the nomic-embed
     weights aren't in the local HF cache. CLI handlers catch this
     and surface an actionable message + exit cleanly — much better
-    than letting the user discover the 700MB requirement mid-command.
+    than letting the user discover the ~600 MB requirement mid-command.
 
     The exception message is already user-readable so handlers can
     print it directly.
@@ -231,7 +231,7 @@ def require_embedder_ready() -> None:
         )
 
     raise EmbedderNotReadyError(
-        f"Trinity's embedding model (nomic-embed-text-v1.5, ~700MB) isn't "
+        f"Trinity's embedding model (nomic-embed-text-v1.5, ~600 MB) isn't"
         f"in your HuggingFace cache. This command needs it for topic "
         f"basins / lens-build / vocabulary distillation.\n\n"
         f"{download_block}"

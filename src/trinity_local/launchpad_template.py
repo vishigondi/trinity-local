@@ -982,7 +982,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            nomic-embed model isn't in their HF cache. Cold install with
            zero prompts shows nothing; everything-wired shows nothing.
            The card hands off a download command — explicit opt-in to
-           the 700MB pull rather than a surprise mid-lens-build crash. -->
+           the ~600 MB pull rather than a surprise mid-lens-build crash. -->
       <section
         class="card"
         v-if="pageData.embedderStatus && pageData.embedderStatus.show"
@@ -990,11 +990,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       >
         <div class="eyebrow" style="color: #b57438;">Optional · deeper memory</div>
         <h2 style="margin-top: 4px; font-size: 18px;">
-          Build deeper memory (700MB download)
+          Build deeper memory (~600 MB download)
         </h2>
         <p class="meta" style="margin-top: 8px;">
           Trinity's lens-build, dream, and vocabulary commands use a
-          local embedding model (nomic-embed-text-v1.5, 700MB) to find
+          local embedding model (nomic-embed-text-v1.5, ~600 MB) to find
           topic basins in your prompts. Replay history and the council
           launchpad already work without it.
         </p>
