@@ -102,8 +102,12 @@ class TestBasins:
 
 class TestDecisionParser:
     def test_valence_enum_includes_correction_and_cost(self):
-        # Per council_c63fa273bdc2ed21 — correction/cost added so real
-        # lenses don't get rejected for lacking literal regret quotes.
+        # correction/cost are in the valence enum so real lenses don't
+        # get rejected for lacking literal regret quotes. (The earlier
+        # citation to a council ID that never landed was removed in
+        # commit a6a8a11 — same phantom shape caught in claude.md.
+        # The enum itself is load-bearing in me/decisions.py; that's
+        # what this test pins.)
         from trinity_local.me.decisions import VALID_VALENCES
         assert "correction" in VALID_VALENCES
         assert "cost" in VALID_VALENCES

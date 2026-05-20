@@ -220,7 +220,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 - **Tier 2 #7 — merge global_benchmarks + personal table into one read-time blend.** Currently two launchpad cards; collapse to one with sigmoid-alpha confidence as personal `n` grows.
 - **Aggregation endpoint (§8.9).** Cloudflare Worker for live global priors + public leaderboard. Read access free for all; upload opt-in only with anonymous categorical labels (no prompt content). Ship after Routing JSON parse-success ≥85% sustained and ≥50 opt-in users.
-- **Profile-DB / shared personas (v1.2).** Architecture D from `council_ab29d9e1fbd0ed50` — opt-in registry of metadata + curated famous-person personas built from public sources. **Never** hosts ordinary user `/lens.md`.
+- **Profile-DB / shared personas (v1.2).** Architecture D — opt-in registry of metadata + curated famous-person personas built from public sources. **Never** hosts ordinary user `/lens.md`. (Originally cited a council outcome that doesn't survive in any artifact; citation dropped per the phantom-citation sweep — claim itself is unchanged.)
 - **Harness auto-invocation.** `route()` returns `should_auto_council: bool` based on 5 trigger conditions (irreversible state, multi-architecture choice, load-bearing commitment edits, low confidence, user-override history). Rate-limited at 1 per 10 user turns / 1 per 20 min.
 - **Tool-triggered cursor-based incremental ingest.** Cursors live at `~/.trinity/prompts/cursors.json`; fires on MCP tool invocation rather than the existing one-off `seed-from-taste-terminal`.
 - **Phase 9 learned tiny coordinator.** v1 collects the personal data; Phase 9 trains a per-user adapter against it.
