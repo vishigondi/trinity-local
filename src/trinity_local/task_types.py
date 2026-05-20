@@ -21,11 +21,6 @@ def guess_task_type(text: str, provider: str | None = None) -> str:
     return "general"
 
 
-# Back-compat shim — external callers (and a handful of tests) still import
-# guess_task_kind. New code should call guess_task_type directly.
-guess_task_kind = guess_task_type
-
-
 # Polish-shape tasks benefit from consensus_round iteration — the user
 # typed "make this better", "tighten this", "is this clearer?" The
 # council's first pass usually catches the obvious; the value comes from

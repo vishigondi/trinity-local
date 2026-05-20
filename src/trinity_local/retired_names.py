@@ -204,6 +204,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Chrome extension Native Messaging replaces the macOS Shortcut dispatcher",
         kind="file",
     ),
+    "guess_task_kind": RetirementRecord(
+        name="guess_task_kind",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="guess_task_type",
+        reason="Back-compat alias from task #92 (Tier 1 #3 task_kind → task_type rename). Tick 48 audit found ZERO callers in src/ or tests/ — the comment claiming 'external callers (and a handful of tests) still import' was already untrue at the time of writing. Trinity has no external SDK consumers; internal callers all use guess_task_type directly. Pure dead aliasing.",
+        kind="module",
+    ),
     "default_task_kind": RetirementRecord(
         name="default_task_kind",
         retired_at="2026-05-20",
