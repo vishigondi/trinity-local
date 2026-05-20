@@ -98,8 +98,11 @@ gh issue create -R vishigondi/trinity-local \
 
 ## 6. Enable GitHub Pages
 
-Pages serves `/docs` from the `main` branch — content already lives at
-`docs/index.md` with `_config.yml` set up.
+Pages serves `/docs` from the `main` branch. Content lives at
+`docs/index.html` (the keepwhatworks static site moved in on
+2026-05-20); `docs/.nojekyll` disables Jekyll so the ~35 internal
+`.md` specs in the same directory don't auto-render as public
+pages. `docs/CNAME` pins the custom domain.
 
 ```bash
 gh api repos/vishigondi/trinity-local/pages -X POST \
