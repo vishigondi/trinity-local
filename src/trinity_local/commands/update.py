@@ -47,7 +47,12 @@ def register(subparsers) -> None:
     )
     parser.add_argument(
         "--skill-dir", default=None,
-        help="Override skill directory (default: ~/.claude/skills/trinity).",
+        help=(
+            "Override skill directory. Default lookup: ~/.trinity/code/ "
+            "(post-2026-05-19 canonical), then ~/.claude/skills/trinity/ "
+            "(pre-pivot legacy). The actual resolution lives in _skill_dir() "
+            "below."
+        ),
     )
     parser.add_argument(
         "--json", action="store_true",

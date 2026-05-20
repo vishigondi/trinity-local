@@ -303,6 +303,14 @@ def handle_install_launcher(args) -> int:
 def _install_trinity_skill() -> str | None:
     """Drop the bundled /trinity skill into ~/.claude/skills/trinity/SKILL.md.
 
+    Path note (2026-05-19+): on installs where scripts/install.sh ran the
+    repo clone, ~/.claude/skills/trinity/ is a symlink to ~/.trinity/code/
+    (the canonical post-pivot location); the file written here resolves
+    through the symlink. On pip-install-only installs (no curl-bash), the
+    legacy path is the canonical write target — Claude Code's skill loader
+    reads from ~/.claude/skills/<name>/SKILL.md regardless. We write to
+    the legacy path because it works in both shapes.
+
     Idempotent: writes when the target is missing OR matches the bundled
     content exactly (so re-runs are no-ops). If a user has edited the file,
     leaves it alone and reports the skip — protects user customizations
