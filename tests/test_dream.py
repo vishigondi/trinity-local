@@ -23,7 +23,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _bypass_embedder_gate(monkeypatch):
-    """Dream's handler gates on the 700MB nomic model being present in
+    """Dream's handler gates on the ~600 MB nomic model being present in
     the HF cache (`require_embedder_ready`). These tests stub Phase 1
     discovery + Phase 2 synthesis directly with MagicMock; they never
     touch the real embedder, so the gate is just noise here. CI runs

@@ -25,7 +25,7 @@ def isolated_home(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _bypass_embedder_gate(monkeypatch):
     """TestAutoDistillHooks exercises handle_me_build, which gates on
-    the 700MB nomic model being in the HF cache. These tests stub the
+    the ~600 MB nomic model being in the HF cache. These tests stub the
     lens pipeline entirely; the gate is irrelevant noise. CI runs
     without the HF cache, so the gate would otherwise fail-closed.
 

@@ -1,4 +1,4 @@
-"""Tests for the CLI-side embedder gate that surfaces the 700MB model
+"""Tests for the CLI-side embedder gate that surfaces the ~600 MB model
 download as an upfront actionable message instead of a mid-command
 surprise.
 
@@ -62,7 +62,11 @@ class TestRequireEmbedderReady:
         # Model id should still be discoverable (in the fallback command).
         assert "nomic-ai/nomic-embed-text-v1.5" in msg or "huggingface-cli" in msg
         # And the why ("this command needs it for ..."):
-        assert "700MB" in msg or "lens" in msg or "basins" in msg
+        # Tolerant size check: gate message may mention any size string
+        # (currently "~600 MB"; was "~700MB" pre-2026-05-20 re-measure).
+        # The OR clauses catch the why ("lens"/"basins") even if the
+        # size phrasing evolves.
+        assert "600" in msg or "lens" in msg or "basins" in msg
 
     def test_raises_with_pip_install_when_libs_missing(
         self, tmp_path, monkeypatch
@@ -128,7 +132,7 @@ class TestRequireEmbedderReady:
 class TestCLIHandlersUseGate:
     """All three embedder-using commands must call require_embedder_ready
     before doing any heavy work. Drift here = the user discovers the
-    700MB requirement mid-command."""
+    ~600 MB requirement mid-command."""
 
     def test_dream_handler_imports_gate(self):
         """Source-level grep — handle_dream must import and call

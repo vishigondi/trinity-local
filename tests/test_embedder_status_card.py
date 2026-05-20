@@ -1,6 +1,6 @@
 """Tests for the launchpad "Build deeper memory" card.
 
-Surfaces the 700MB nomic-embed model as an explicit opt-in instead of
+Surfaces the ~600 MB nomic-embed model as an explicit opt-in instead of
 a surprise mid-lens-build crash. Card only shows when the user has
 PROMPTS INDEXED (has signal that would benefit from embeddings) AND
 the model isn't already in HF cache. Cold install → no card.
@@ -53,7 +53,7 @@ def _seed_hf_cache(tmp_home: Path, monkeypatch, model_present: bool) -> None:
 class TestEmbedderStatus:
     def test_no_prompts_no_card(self, isolated_home, monkeypatch):
         """Cold install: no prompts indexed → don't surface the card.
-        The user has nothing to embed yet; nagging them about a 700MB
+        The user has nothing to embed yet; nagging them about a ~600 MB
         download is noise."""
         from trinity_local.launchpad_data import _embedder_status
         _seed_hf_cache(isolated_home, monkeypatch, model_present=False)

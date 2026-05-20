@@ -65,7 +65,7 @@ class TestInstallScriptTail:
 
     def test_mentions_embedder_prefetch_verb(self, install_script):
         """The tail must point at `trinity-local download-embedder` so
-        users can pre-fetch the 700MB model before they hit the gate
+        users can pre-fetch the ~600 MB model before they hit the gate
         in lens-build / dream / vocabulary. Closes the loop between
         the install step and the embedder-gated commands."""
         tail = "\n".join(install_script.splitlines()[-30:])
