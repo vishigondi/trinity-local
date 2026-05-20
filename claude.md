@@ -635,7 +635,7 @@ to the v1.0 supervision loop; `handoff` surfaces the cross-provider
 continuity demo to agents inline. (`get_eval_summary` shipped post-#122
 then retired 2026-05-17 — agents ground via `ask` + `get_picks`.)
 
-**v1.0 canonical five (lifecycle order):**
+**v1.0 canonical five (lifecycle order — note: this is the *teaching* order, "what you call when, and why"; mcp_server.py registers tools in a UX order that interleaves the v1.5 trio for `tools/list` discoverability — cheap+common first: `route`, `ask`, then `run_council`, etc. Both orderings are correct for their purpose):**
 
 1. **`route(task, harness, available_models, budget, latency)`** → `{mode, primary, challenger, confidence, reason, fallback}`. No model calls — heuristic + k-NN + chairman picker. Cheap, called before the harness picks a model.
 
