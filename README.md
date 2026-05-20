@@ -45,11 +45,11 @@ Trinity reads the transcripts on your machine — CLI sessions on disk (Claude C
 
 ```bash
 trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/rejections.jsonl)
-trinity-local eval-run --target claude-5    # re-target whenever a new model lands
+trinity-local eval-run --target claude    # re-target whenever a new model lands (provider name: claude / codex / gemini)
 trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT / SHARPENING
 ```
 
-When Claude 5 lands: *"Claude 5 scored 0.88 on my taste — beats Claude 4 by 0.05."* A headline number no lab can produce — because only the layer above the labs sees your transcripts across all three.
+When Claude 5 lands: *"Claude provider scored 0.88 on my taste — beats last release by 0.05."* A headline number no lab can produce — because only the layer above the labs sees your transcripts across all three.
 
 ---
 
@@ -97,7 +97,7 @@ Trinity dispatches via your existing `claude` / `codex` / `gemini` CLIs — usin
 That's the whole point. Every council runs all three in parallel from one prompt. `handoff` hands a thread between providers without re-pasting context.
 
 **"I want to know if a new model release is actually better for me."**
-`trinity-local eval-run --target <new-model>` scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
+`trinity-local eval-run --target <provider>` (claude / codex / gemini — the provider you want to benchmark; the underlying model is whatever that provider currently ships) scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
 
 **"I want the right model picked for the right task, automatically."**
 Every council you rate teaches Trinity which model wins for which kind of question. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
