@@ -21,8 +21,8 @@ def hf_cache_model_path() -> Path:
     """Where sentence-transformers actually caches the nomic model.
 
     HF cache dir name is derived from MODEL_ID with `/` → `--`. Returned
-    by `model_status()` for diagnostics so a user inspecting the dict
-    sees the real on-disk location (the previous \`~/.trinity/models/\`
+    by ``model_status()`` for diagnostics so a user inspecting the dict
+    sees the real on-disk location (the previous ``~/.trinity/models/``
     path was misleading — that dir was created but unused).
     """
     safe = MODEL_ID.replace("/", "--")

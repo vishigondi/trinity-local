@@ -76,18 +76,17 @@ AUDIT_SCORE_MAP = {
 def audit_score_for(status: str) -> float:
     return AUDIT_SCORE_MAP.get(status, 0.5)
 
-# Geometric helpers + basin-shape constants live in ``cortex_geometry.py``.
-# Re-exported here so existing `from .cortex import _xxx` imports (incl.
-# tests) keep working without churn. See cortex_geometry.py for docs.
+# Geometric helpers live in ``cortex_geometry.py``. Re-exported here for
+# the back-compat aliases that tests still consume (`from .cortex import
+# _xxx`). Tick 54 trimmed 5 zero-caller re-exports
+# (BIMODALITY_KURTOSIS_THRESHOLD, MANIFOLD_DIM_SATURATION, euclid,
+# mean_cosine_to, project_onto_first_pc) — those constants/helpers stay
+# in cortex_geometry.py, just not aliased through here. See
+# cortex_geometry.py for docs.
 from .cortex_geometry import (  # noqa: F401 — re-export for back-compat
-    BIMODALITY_KURTOSIS_THRESHOLD as _BIMODALITY_KURTOSIS_THRESHOLD,
-    MANIFOLD_DIM_SATURATION as _MANIFOLD_DIM_SATURATION,
     compute_basin_geometry as _compute_basin_geometry,
-    euclid as _euclid,
     excess_kurtosis as _excess_kurtosis,
-    mean_cosine_to as _mean_cosine_to,
     participation_ratio as _participation_ratio,
-    project_onto_first_pc as _project_onto_first_pc,
     weiszfeld_median as _weiszfeld_median,
 )
 
