@@ -216,7 +216,9 @@ shapes that earned their rules by costing time:
 
 17. **Three inline shapes of the same check means a missing helper.**
     Tick #56 found the NaN filter inlined three different ways —
-    `_embedding_is_finite()` in `me/depth.py`, inline
+    `_embedding_is_finite()` in `me/depth.py` (since extracted to
+    `is_finite_embedding` in `embeddings/__init__.py` — exactly the
+    promotion this principle prescribes), inline
     `any(v != v or v == inf …)` in `me/basins.py`,
     `_valid_embedding()` (bundled with a dim check) in `me_builder.py`.
     Two more consumers (`cross_provider_pairs`, `vocabulary`) had
@@ -490,7 +492,7 @@ these. Tasks #114–118 break out one per workstream.
 
 A few words do specific work; they get conflated otherwise:
 
-- **prompts** — what the user owns (raw, indexed in `~/.trinity/prompts/`; renamed from `memory/` per Tier 1 #1, automatic one-time migration in `memory_dir()`). Inputs to dream.
+- **prompts** — what the user owns (raw, indexed in `~/.trinity/prompts/`; renamed from `memory/` per Tier 1 #1, automatic one-time migration inside `prompts_dir()` itself, see `state_paths.py:175`). Inputs to dream.
 - **dream** — the verb only Trinity has. Reads prompts, emits core memories (offline, your data).
 - **core memories** — the three *thinking* memories that compose your lens. The four-level hierarchy chairman reads top-down (drill only when needed):
 
