@@ -113,7 +113,7 @@ Trinity's `audit_log()` reads these and stamps the record
 accordingly. So when you grep `audit.log` for extension-originated
 operations, you see them as such regardless of where they ran.
 
-## What v1.0 ships
+## What v1.0 shipped
 
 - `~/.trinity/trust.toml` schema (`schema_version = 1`)
 - `~/.trinity/audit.log` JSONL append + atomic single-write

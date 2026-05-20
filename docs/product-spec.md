@@ -134,7 +134,7 @@ The chairman reads `/me` (composed by `lens-build` from sampled diverse prompts)
 
 ### MCP — v1.0 canonical 5 + v1.5 trio + launch-arc `handoff`
 
-`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Gemini CLI, Cursor). v1.0 ships 5; v1.5 adds three — `ask` for cheap single-call routing, `get_picks` for agent-facing introspection, `mark_pick_wrong` for the harness-callable user veto; launch-arc adds `handoff` (cross-provider conversation continuity) — for 9 total. (`get_eval_summary` shipped post-#122 then retired 2026-05-17 — agents ground via `ask` + picks.)
+`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Gemini CLI, Cursor). v1.0 shipped 5; v1.5 adds three — `ask` for cheap single-call routing, `get_picks` for agent-facing introspection, `mark_pick_wrong` for the harness-callable user veto; launch-arc adds `handoff` (cross-provider conversation continuity) — for 9 total. (`get_eval_summary` shipped post-#122 then retired 2026-05-17 — agents ground via `ask` + picks.)
 
 1. **`ask(query, available_providers?, thread_id?, top_k?)`** *(v1.5)* — kNN + cortex match → single dispatched call → concise structured return `{answer, routed_to, trust_score, latency_ms, escalate_hint?}`. The 90%-of-consults tool. Returns `escalate_hint=compare` when trust < 0.55 so the calling agent can choose to fan out instead.
 2. **`route(task, ...)`** — heuristic + k-NN; returns `{mode, primary, challenger, confidence, reason, shape_signals}`. No model calls. Deprecated in v1.5 in favor of `ask` for in-harness use (the calling agent can't shell out to dispatch via `route`'s advice alone); kept for backwards compatibility.

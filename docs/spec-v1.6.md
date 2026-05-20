@@ -106,7 +106,7 @@ deferred to v1.7 per the spec's stability assessment.
 
 ## The reframe
 
-v1.0 ships with this gap quietly papered over: the seed-from-taste-terminal
+v1.0 shipped with this gap quietly papered over: the seed-from-taste-terminal
 pipeline reads only what already lives on disk. For the user with
 heavy claude.ai or chatgpt.com chat usage, "already on disk" means
 **nothing** — those conversations live on Anthropic's / OpenAI's

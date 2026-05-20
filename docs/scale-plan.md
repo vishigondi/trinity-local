@@ -21,7 +21,7 @@ class: aspirational
 >
 > **MCP surface (v1.0 canonical 5 + v1.5 trio + launch-arc `handoff`,
 > 9 total):**
-> v1.0 ships `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
+> v1.0 shipped `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
 > `record_outcome` / `get_persona` / `get_council_status`.
 > (`search_prompts` retired 2026-05-17 — replaced by substring+recency
 > heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —

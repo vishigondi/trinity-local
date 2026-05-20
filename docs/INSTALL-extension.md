@@ -125,7 +125,7 @@ grep '"tier": "extension"' ~/.trinity/audit.log | tail -20
   the provider UI.
 - **Real-Chrome smoke test is gated**: see
   `tests/test_chrome_extension_smoke.py` — set `TRINITY_CHROME_SMOKE=1`
-  + load the extension manually before running it. v1.0 ships the
+  + load the extension manually before running it. v1.0 shipped the
   scaffold; the puppeteer driver is post-launch.
 
 ## See also

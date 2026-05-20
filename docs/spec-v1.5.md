@@ -7,7 +7,7 @@ class: aspirational
 > Status: **spec only, follows v1.0 ship.** Target: **ship June 3, 2026.**
 >
 > v1.5 is where the "SOTA for you + your taste + your subs + saves cost" pitch
-> becomes literally true. v1.0 ships the data pipe; v1.5 turns it into a routing
+> becomes literally true. v1.0 shipped the data pipe; v1.5 turns it into a routing
 > product Claude Code reaches for.
 >
 > This spec supersedes the v1.1 / v1.2 / v2.0 trajectory in `docs/spec-v2.md`.
@@ -17,7 +17,7 @@ class: aspirational
 
 ## The reframe
 
-v1.0 ships a launchpad-centric council product. **v1.5 inverts the primary
+v1.0 shipped a launchpad-centric council product. **v1.5 inverts the primary
 surface from launchpad to MCP.** Most real users won't open the launchpad —
 they'll work inside Claude Code (or Codex CLI, or Gemini CLI) and the agent
 will call Trinity when it needs:
