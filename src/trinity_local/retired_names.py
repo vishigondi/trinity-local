@@ -196,6 +196,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Chrome extension Native Messaging replaces the macOS Shortcut dispatcher",
         kind="file",
     ),
+    "~/.trinity/analytics/watch_errors.jsonl": RetirementRecord(
+        name="~/.trinity/analytics/watch_errors.jsonl",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(none)",
+        reason="Watcher subsystem retired 2026-05-17; no writer remains. Tick 44 swept the dead `_watch_error_summary` reader + status CLI surface that read the never-written file.",
+        kind="file",
+    ),
     # ── Earlier renames (Tier 1/2 simplification) ──
     "task_kind": RetirementRecord(
         name="task_kind",

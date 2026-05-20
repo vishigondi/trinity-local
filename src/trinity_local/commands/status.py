@@ -15,7 +15,7 @@ from ..adapters import check_all_adapters
 from ..action_runtime import list_actions
 from ..doctor import format_one_line, run_doctor
 from ..drift import check_drift
-from ..state_paths import state_dir, tasks_dir, analytics_dir
+from ..state_paths import state_dir, tasks_dir
 
 
 def register(subparsers):
@@ -88,9 +88,6 @@ def handle_status(args):
     council_dir = home / "council_outcomes"
     council_count = _count_files(council_dir) if council_dir.exists() else 0
 
-    # Watch errors
-    watch_error_count, last_watch_error = _watch_error_summary()
-
     if args.as_json:
         print(json.dumps({
             "trinity_home": str(home),
@@ -113,10 +110,6 @@ def handle_status(args):
             "reviews": review_count,
             "councils": council_count,
             "drift_alerts": len(drift_alerts),
-            "watch_errors": {
-                "count": watch_error_count,
-                "last_error_at": last_watch_error,
-            },
         }, indent=2))
         return
 
@@ -201,39 +194,8 @@ def handle_status(args):
         print("  Drift:     no alerts")
     print()
 
-    # Watch errors
-    if watch_error_count > 0:
-        print(f"  ⚠  {watch_error_count} watch-loop error(s)")
-        if last_watch_error:
-            print(f"    Last error: {last_watch_error}")
-    else:
-        print("  Watch:     no errors")
-    print()
-
     # State location
     print(f"  State:     {home}")
     print()
-
-
-def _watch_error_summary() -> tuple[int, str | None]:
-    """Return (error_count, last_error_timestamp) from watch_errors.jsonl."""
-    error_log = analytics_dir() / "watch_errors.jsonl"
-    if not error_log.exists():
-        return 0, None
-    count = 0
-    last_ts: str | None = None
-    try:
-        for line in error_log.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            count += 1
-            try:
-                record = json.loads(line)
-                last_ts = record.get("timestamp", last_ts)
-            except json.JSONDecodeError:
-                continue
-    except OSError:
-        pass
-    return count, last_ts
 
 
