@@ -220,6 +220,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
     ),
+    "cortex_dir": RetirementRecord(
+        name="cortex_dir",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(none — picks.json carries failure_modes + successful_prompts inline)",
+        reason="Spec-v1.5 originally described a `~/.trinity/cortex/` subdirectory with separate failure_modes.json + successful_prompts.json files. The shipped architecture embeds those fields INSIDE each RoutingPattern entry in scoreboard/picks.json — no separate cortex/ directory was ever needed. `cortex_dir()` survived as a state_paths helper that mkdir'd an empty `~/.trinity/cortex/` on every call (same ghost-dir shape as the retired `models_dir()` from tick 28). Zero callers in src/ or tests/. Tick 51 deleted the helper.",
+        kind="module",
+    ),
+    "~/.trinity/cortex/": RetirementRecord(
+        name="~/.trinity/cortex/",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="~/.trinity/scoreboard/picks.json (inline failure_modes / successful_prompts)",
+        reason="Spec-v1.5 § L133-134 described `~/.trinity/cortex/failure_modes.json` + `~/.trinity/cortex/successful_prompts.json` as v1.5 NEW files. The shipped architecture put both fields inline in scoreboard/picks.json's RoutingPattern records. The cortex/ subdirectory was never written by any code path beyond the (zero-caller) `cortex_dir()` helper. Tick 51 sunset both.",
+        kind="file",
+    ),
     "~/.trinity/analytics/watch_errors.jsonl": RetirementRecord(
         name="~/.trinity/analytics/watch_errors.jsonl",
         retired_at="2026-05-20",

@@ -324,16 +324,6 @@ def core_path() -> Path:
     return state_dir() / "core.md"
 
 
-def cortex_dir() -> Path:
-    """v1.5 cortex layer — extracted routing patterns per basin, model-version
-    checkpoints, per-provider failure modes. Written by `trinity-local
-    consolidate`; read by `ask` at query time. See `docs/spec-v1.5.md`.
-    """
-    path = state_dir() / "cortex"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def dispatch_outcomes_path() -> Path:
     """JSONL log of `ask` dispatch outcomes — one line per call. Tracks the
     rate-limit-saves metric named in docs/launch-package.md as the day-1
