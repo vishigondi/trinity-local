@@ -2,7 +2,11 @@
 
 Walks ~/.trinity/council_outcomes/, groups by basin (chairman-classified
 task_type for v1.5 Week 2), calls the flagship extractor per basin, computes
-system trust_score, writes ~/.trinity/cortex/routing_patterns.json.
+system trust_score, writes ~/.trinity/scoreboard/picks.json (the picks
+scoreboard; the underlying function `cortex_routing_patterns_path()` is now
+a back-compat alias for `picks_path()` — data lineage was
+`cortex/routing_patterns.json` → `memories/picks.json` → `scoreboard/picks.json`,
+auto-migrated by `_migrate_legacy_memory_paths` + `_migrate_legacy_scoreboard_paths`).
 
 Per spec-v1.5.md: human calibration checkpoint required before Week 3 wires
 this into the query hot-path. Run this CLI, then read 30 extracted rules and
@@ -19,7 +23,7 @@ from pathlib import Path
 def register(subparsers):
     cp = subparsers.add_parser(
         "consolidate",
-        help="Extract routing patterns from council outcomes into ~/.trinity/cortex/",
+        help="Extract routing patterns from council outcomes into ~/.trinity/scoreboard/picks.json",
     )
     cp.add_argument(
         "--min-basin-size",

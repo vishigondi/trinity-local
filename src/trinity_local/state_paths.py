@@ -342,10 +342,12 @@ def dispatch_outcomes_path() -> Path:
 
 
 def cortex_routing_patterns_path() -> Path:
-    """Back-compat alias: returns the new picks.json path. Existing callers
-    that import this function keep working; new code should call picks_path()
-    directly. The migration into ~/.trinity/memories/ runs automatically
-    on first call to memories_dir()."""
+    """Back-compat alias: returns the new picks.json path (now in
+    ``~/.trinity/scoreboard/``). Existing callers that import this function
+    keep working; new code should call ``picks_path()`` directly. Data
+    lineage was ``cortex/routing_patterns.json`` → ``memories/picks.json``
+    → ``scoreboard/picks.json``; both migration steps run automatically
+    on first call to ``memories_dir()`` and ``scoreboard_dir()``."""
     return picks_path()
 
 
