@@ -689,6 +689,7 @@ diagram is either retired or written by a feature you haven't run yet.
 │   ├── launchpad.html              #   The launchpad
 │   └── status/                     #   Live council progress (JSON + JS) for polling
 ├── task_sync/                      # Sync-safe task payloads
+├── share/                          # PNG share-card outputs (me-card / council-share / eval-share defaults)
 ├── settings/                       # Telemetry settings
 │
 │  ── Prompt index + cognitive memories ──────────────────────────
