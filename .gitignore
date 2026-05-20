@@ -26,4 +26,5 @@ mock_gen.py
 node_modules/
 .agents/
 launch_councils/
+.antigravitycli/
 

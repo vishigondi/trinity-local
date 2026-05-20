@@ -17,7 +17,7 @@ def test_render_missing_provider_guidance_includes_copy_paste_commands():
     assert guidance is not None
     assert "npm install -g @anthropic-ai/claude-code" in guidance
     assert "npm install -g @openai/codex && codex --login" in guidance
-    assert "npm install -g @google/gemini-cli && gemini" in guidance
+    assert "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy" in guidance
     assert "Install Claude Desktop, then open Local Agent Mode once." in guidance
     assert "Trinity will pick up newly installed providers automatically." in guidance
 

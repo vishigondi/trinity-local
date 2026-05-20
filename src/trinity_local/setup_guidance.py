@@ -17,8 +17,8 @@ def _provider_install_block(status: AdapterStatus) -> list[str]:
         ]
     if status.provider == "gemini":
         return [
-            "Gemini CLI",
-            "  npm install -g @google/gemini-cli && gemini",
+            "Antigravity CLI (Gemini)",
+            "  curl -fsSL https://antigravity.google/cli/install.sh | bash && agy",
         ]
     if status.provider == "cowork":
         return [

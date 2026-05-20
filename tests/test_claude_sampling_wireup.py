@@ -39,7 +39,7 @@ def _gemini_config():
         type="cli",
         enabled=True,
         label="Gemini",
-        command=["gemini", "-p"],
+        command=["agy", "-p"],
         args=[],
         roles=set(),
         task_types=set(),

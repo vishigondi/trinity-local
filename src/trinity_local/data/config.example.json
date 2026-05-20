@@ -58,15 +58,12 @@
         "type": "cli",
         "enabled": true,
         "label": "Gemini",
-        "model": "gemini-2.5-pro",
+        "model": "gemini-3.1-pro-preview",
         "command": [
-          "gemini",
+          "agy",
           "-p"
         ],
-        "args": [
-          "--model",
-          "gemini-2.5-pro"
-        ],
+        "args": [],
         "roles": [
           "thinker",
           "verifier"

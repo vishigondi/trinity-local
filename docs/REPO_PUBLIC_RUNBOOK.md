@@ -47,6 +47,7 @@ gh repo edit vishigondi/trinity-local \
   --add-topic claude-code \
   --add-topic codex-cli \
   --add-topic gemini-cli \
+  --add-topic antigravity-cli \
   --add-topic cursor \
   --add-topic local-first \
   --add-topic multi-provider \

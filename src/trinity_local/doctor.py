@@ -154,7 +154,7 @@ def _install_command_for(provider: str) -> str:
     return {
         "claude": "Install Claude Code: https://docs.claude.com/en/docs/claude-code",
         "codex": "npm install -g @openai/codex   # or: brew install codex",
-        "gemini": "npm install -g @google/gemini-cli",
+        "gemini": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     }.get(provider, f"install the {provider} CLI")
 
 

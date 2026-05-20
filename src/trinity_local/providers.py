@@ -102,7 +102,7 @@ class CLIProvider(BaseProvider):
         # the user's regular Claude plan, NOT the post-2026-06-15 Agent
         # SDK credit pool.
         #
-        # Other CLI-shaped providers (gemini-cli, etc.) don't go through
+        # Other CLI-shaped providers (agy/Antigravity, etc.) don't go through
         # sampling — they don't have the billing problem `claude -p`
         # has, and the host can't promise to route to a non-Claude
         # model anyway. Gate on the provider name.

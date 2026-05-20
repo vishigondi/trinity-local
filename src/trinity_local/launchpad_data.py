@@ -297,7 +297,7 @@ def _provider_install_help(provider: str) -> tuple[str, str]:
     if provider == "codex":
         return ("Codex CLI", "npm install -g @openai/codex && codex --login")
     if provider == "gemini":
-        return ("Gemini CLI", "npm install -g @google/gemini-cli && gemini")
+        return ("Antigravity CLI (Gemini)", "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy")
     if provider == "cowork":
         return ("Cowork / Claude Desktop", "Install Claude Desktop, then open Local Agent Mode once.")
     pretty = provider.replace("_", " ").title()
@@ -352,8 +352,8 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
         "Adversarial second voice — surfaces real disagreement.",
     ),
     "gemini": (
-        "Gemini CLI",
-        "npm install -g @google/gemini-cli && gemini",
+        "Antigravity CLI (Gemini)",
+        "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy",
         "Long-context third voice — completes the canonical council.",
     ),
 }
