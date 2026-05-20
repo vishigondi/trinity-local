@@ -853,6 +853,11 @@ def _eval_summary() -> dict:
         # empty state CTA points at `eval-build` or `eval-run`.
         "eval_set_available": False,
     }
+    # NOTE: hardcoded path on purpose — `evals.builder.evals_dir()` mkdir-
+    # creates the directory as a side effect, which would surface an empty
+    # `~/.trinity/evals/` on every launchpad render for users who haven't
+    # run eval-build yet. Same anti-ghost-dir reason as tick 28's
+    # models_dir() sunset. Read-only check: just stat for existence.
     evals_dir = state_dir() / "evals"
     if not evals_dir.is_dir():
         return empty
