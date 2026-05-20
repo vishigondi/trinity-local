@@ -138,7 +138,7 @@ def test_render_eval_card_produces_valid_png_empty_state():
 def test_card_module_pins_github_pages_url():
     """The GH Pages URL is the single source of truth for where the
     eval-card recipient lands. If this string drifts from the URL
-    GitHub Pages actually serves (per docs/_config.yml +
+    GitHub Pages actually serves (per docs/CNAME + docs/.nojekyll +
     docs/REPO_PUBLIC_RUNBOOK), the share workflow ships broken.
 
     Loud-fail on the obvious wrong shapes:
@@ -149,7 +149,7 @@ def test_card_module_pins_github_pages_url():
         "eval_card.CTA_LANDING_URL drifted. Brand URL flipped 2026-05-17 "
         "from vishigondi.github.io/trinity-local → keepwhatworks.com. "
         "Sweep this in lockstep with docs/REPO_PUBLIC_RUNBOOK and "
-        "docs/_config.yml — the keepwhatworks.com CNAME is the recipient's "
+        "docs/CNAME — the keepwhatworks.com CNAME is the recipient's "
         "landing for the eval-share PNG."
     )
     assert "trinity.local/" not in CTA_LANDING_URL, (

@@ -103,14 +103,14 @@ def _provider_display_name(provider: str, model: str | None) -> str:
 
 
 # Public landing URL — single source of truth here. Points at the
-# GitHub Pages site (matches docs/REPO_PUBLIC_RUNBOOK + docs/_config.yml),
+# GitHub Pages site (matches docs/REPO_PUBLIC_RUNBOOK + docs/CNAME),
 # which has the full curl|sh install one-liner on its hero page. Doing
 # it this way (Pages URL on the card, install one-liner on the Pages
 # landing) keeps the PNG legible at 1200×630 — the full raw.github URL
 # is too long for the card without wrapping.
 #
 # When the Pages URL moves, sweep this string AND update the same
-# reference in launch.md / REPO_PUBLIC_RUNBOOK.md.
+# reference in launch.md / REPO_PUBLIC_RUNBOOK.md / docs/CNAME.
 CTA_HEADLINE = "Run this eval against your own taste:"
 # CTA_LANDING_URL / FOOTER_TAGLINE imported from share_card_base.
 
