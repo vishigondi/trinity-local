@@ -299,7 +299,7 @@ class TestHandoffNudge:
         """Empty config → no providers → no nudge."""
         from trinity_local.config import AppConfig
         empty_cfg = AppConfig(
-            max_turns=4, default_task_kind="general", notifications=True,
+            max_turns=4, notifications=True,
             providers={},
             role_preferences={}, task_preferences={},
         )
@@ -316,7 +316,7 @@ class TestHandoffNudge:
         don't suggest it."""
         from trinity_local.config import AppConfig, ProviderConfig
         cfg = AppConfig(
-            max_turns=4, default_task_kind="general", notifications=True,
+            max_turns=4, notifications=True,
             providers={"claude": ProviderConfig(
                 name="claude", type="cli", enabled=True, label="Claude",
                 command=["claude"], args=[], roles={"thinker"},
@@ -333,7 +333,7 @@ class TestHandoffNudge:
         context to package. Don't suggest until seed has run."""
         from trinity_local.config import AppConfig, ProviderConfig
         cfg = AppConfig(
-            max_turns=4, default_task_kind="general", notifications=True,
+            max_turns=4, notifications=True,
             providers={
                 "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
                     command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
@@ -359,7 +359,7 @@ class TestHandoffNudge:
         from trinity_local.memory.store import upsert_prompt_node
 
         cfg = AppConfig(
-            max_turns=4, default_task_kind="general", notifications=True,
+            max_turns=4, notifications=True,
             providers={
                 "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
                     command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
@@ -389,7 +389,7 @@ class TestHandoffNudge:
         from the target list so we don't suggest `handoff mlx`."""
         from trinity_local.config import AppConfig, ProviderConfig
         cfg = AppConfig(
-            max_turns=4, default_task_kind="general", notifications=True,
+            max_turns=4, notifications=True,
             providers={
                 "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
                     command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),

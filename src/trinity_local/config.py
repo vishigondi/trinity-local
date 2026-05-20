@@ -23,7 +23,6 @@ class ProviderConfig:
 @dataclass(frozen=True)
 class AppConfig:
     max_turns: int
-    default_task_kind: str
     notifications: bool
     providers: dict[str, ProviderConfig]
     role_preferences: dict[str, list[str]]
@@ -110,7 +109,6 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
 
     return AppConfig(
         max_turns=int(raw.get("max_turns", 4)),
-        default_task_kind=raw.get("default_task_kind", "general"),
         notifications=bool(raw.get("notifications", True)),
         providers=providers,
         role_preferences={
@@ -126,7 +124,6 @@ def _empty_config() -> AppConfig:
     """Return a minimal config with no providers — used when config is optional."""
     return AppConfig(
         max_turns=4,
-        default_task_kind="general",
         notifications=False,
         providers={},
         role_preferences={},

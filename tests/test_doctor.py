@@ -470,7 +470,7 @@ class TestHandoffReadyCheck:
         monkeypatch.setattr(
             "trinity_local.config.load_config",
             lambda required=False: AppConfig(
-                max_turns=10, default_task_kind="default", notifications=True,
+                max_turns=10, notifications=True,
                 providers=providers, role_preferences={}, task_preferences={},
             ),
         )

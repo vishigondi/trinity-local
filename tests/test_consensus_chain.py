@@ -188,7 +188,6 @@ class TestRunConsensusRound:
 
         config = AppConfig(
             max_turns=10,
-            default_task_kind="general",
             notifications=False,
             providers={"claude": _pc("claude", "claude-x"), "gemini": _pc("gemini", "gemini-x")},
             role_preferences={},
@@ -233,7 +232,6 @@ class TestRunConsensusRound:
 
         config = AppConfig(
             max_turns=10,
-            default_task_kind="general",
             notifications=False,
             providers={"claude": _pc("claude", "claude-x"), "gemini": _pc("gemini", "gemini-x")},
             role_preferences={},

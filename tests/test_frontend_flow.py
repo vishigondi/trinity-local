@@ -445,7 +445,6 @@ class TestCouncilFailureMetadata:
     ):
         config = AppConfig(
             max_turns=4,
-            default_task_kind="general",
             notifications=False,
             providers={
                 "claude": ProviderConfig(

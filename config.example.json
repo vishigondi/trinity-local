@@ -1,6 +1,5 @@
 {
     "max_turns": 4,
-    "default_task_kind": "general",
     "notifications": true,
     "providers": {
       "mlx": {

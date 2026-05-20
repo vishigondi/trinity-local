@@ -204,6 +204,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Chrome extension Native Messaging replaces the macOS Shortcut dispatcher",
         kind="file",
     ),
+    "default_task_kind": RetirementRecord(
+        name="default_task_kind",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(removed, never consumed downstream)",
+        reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
+        kind="config_field",
+    ),
     "~/.trinity/analytics/watch_errors.jsonl": RetirementRecord(
         name="~/.trinity/analytics/watch_errors.jsonl",
         retired_at="2026-05-20",
