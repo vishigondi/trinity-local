@@ -1,4 +1,4 @@
-"""trinity-local update — pull latest, re-register MCP, run doctor.
+"""trinity-local update — pull latest, re-register MCP, run status check.
 
 The git-clone-led distribution model (no PyPI, no npm; council
 `37eca30b6e7010df` ratified shape) makes updates a `git pull` away.
@@ -14,10 +14,14 @@ Side-effects on every update:
   3. `trinity-local install-extension --extension-id <prior-id>`
      re-runs if the user previously configured the Chrome extension
      (Native Messaging manifest may need refresh)
-  4. `trinity-local doctor` to verify the new state
+  4. `trinity-local status` to verify the new state (the former
+     `doctor` command was retired 2026-05-18; its health checks live
+     under `status` now — `commands/status.handle_status` calls
+     `doctor.run_doctor()` internally and surfaces the one-line
+     verdict)
 
 Trust positioning: explicit user invocation only. v1.0 does NOT
-auto-pull. `trinity-local doctor` runs a cached staleness check
+auto-pull. `trinity-local status` runs a cached staleness check
 (_check_skill_freshness) on every invocation and surfaces a stderr
 banner when behind origin/main — that's the only "automatic"
 notification surface. No background processes, no scheduled jobs.
@@ -35,7 +39,7 @@ from types import SimpleNamespace
 def register(subparsers) -> None:
     parser = subparsers.add_parser(
         "update",
-        help="Pull latest, refresh MCP configs, verify with doctor.",
+        help="Pull latest, refresh MCP configs, verify with status check.",
     )
     parser.add_argument(
         "--check", action="store_true",
@@ -235,13 +239,15 @@ def handle_update(args: SimpleNamespace) -> int:
         capture_output=True, text=True, check=False,
     ).returncode
 
-    # Re-run doctor to verify.
-    doctor_rc = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "doctor"],
+    # Re-run status (former `doctor` command) to verify. `doctor` was
+    # retired 2026-05-18; its health checks live under `status` now —
+    # invoking the old name here would error with "invalid choice".
+    status_rc = subprocess.run(
+        [sys.executable, "-m", "trinity_local.main", "status"],
         capture_output=True, text=True, check=False,
     ).returncode
 
-    return _emit_updated(behind, mcp_rc, doctor_rc, json_mode)
+    return _emit_updated(behind, mcp_rc, status_rc, json_mode)
 
 
 def _emit_check(behind: int, ahead: int, skill_dir: Path,
@@ -274,14 +280,14 @@ def _emit_already_up_to_date(ahead: int, json_mode: bool) -> int:
     return 0
 
 
-def _emit_updated(applied: int, mcp_rc: int, doctor_rc: int,
+def _emit_updated(applied: int, mcp_rc: int, status_rc: int,
                   json_mode: bool) -> int:
     if json_mode:
         print(json.dumps({
             "updated": True,
             "commits_applied": applied,
             "install_mcp_returncode": mcp_rc,
-            "doctor_returncode": doctor_rc,
+            "status_returncode": status_rc,
         }, indent=2))
         return 0
 
@@ -291,11 +297,11 @@ def _emit_updated(applied: int, mcp_rc: int, doctor_rc: int,
     else:
         print(f"⚠ install-mcp returned {mcp_rc} — "
               "run `trinity-local install-mcp` to debug")
-    if doctor_rc == 0:
-        print("✓ doctor green")
+    if status_rc == 0:
+        print("✓ status green")
     else:
-        print(f"⚠ doctor returned {doctor_rc} — "
-              "run `trinity-local doctor` to see what's wrong")
+        print(f"⚠ status returned {status_rc} — "
+              "run `trinity-local status` to see what's wrong")
     print()
     print("Note: Claude Code / Codex CLI / Gemini CLI / Cursor may need a "
           "restart to pick up new MCP tools.")
