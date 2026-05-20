@@ -715,7 +715,8 @@ diagram is either retired or written by a feature you haven't run yet.
 ├── analytics/                      # Long-tail event logs
 │   ├── routing_label_events.jsonl  #   Chairman parse-success rate
 │   ├── knn_advisory.jsonl          #   k-NN advisory log
-│   └── knn_advisory_report.json    #   (entity exception: rolled-up snapshot)
+│   ├── knn_advisory_report.json    #   (entity exception: rolled-up snapshot)
+│   └── dispatch_outcomes.jsonl     #   `ask` dispatch outcomes — Day-1 rate-limit-saves metric
 │
 │  ── First-run state ────────────────────────────────────────────
 ├── cold_start_scan.json            # First-spawn auto-scan (status, sources, added count)
