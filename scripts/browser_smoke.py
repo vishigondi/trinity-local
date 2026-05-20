@@ -1925,6 +1925,13 @@ def main() -> int:
                 "empty-state card retired)"
             )
 
+        # ─── (Surface 31 reserved — never shipped) ────────────────────────────
+        # The IDs are stable across releases; nothing was numbered 31. Gap
+        # preserved so existing references to Surface 32/33 don't shift.
+        # `scripts/render_docs.canonical_smoke_surface_count()` counts what
+        # exists (34 distinct labels: 1, 1b, 2–13, 14a, 14b, 15–30, 32, 33),
+        # which is correct — the count tracks reality, not ID density.
+
         # ─── Surface 32: Rate-limit-saves card (Day-1 launch metric) ──────────
         # docs/launch-package.md names rate-limit-saves as THE Day-1 number
         # for the launch case study. The card surfaces it on the launchpad
