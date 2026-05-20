@@ -13,7 +13,7 @@ def register(subparsers):
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
     imp.set_defaults(handler=handle_install_mcp)
 
-    ihp = subparsers.add_parser("install-hooks", help="Install Trinity Stop hook (calls watch-once after each Claude turn)")
+    ihp = subparsers.add_parser("install-hooks", help="Install Trinity Stop hook (calls `trinity-local ingest-recent --deadline 1.0` after each Claude turn for tool-triggered incremental ingest)")
     ihp.add_argument("--path", default=".", help="Project directory to install hooks into")
     ihp.set_defaults(handler=handle_install_hooks)
 
