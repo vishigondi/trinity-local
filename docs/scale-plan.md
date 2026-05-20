@@ -806,31 +806,26 @@ For Trinity Local that means:
 3. **Dual dispatch stays.** MCP server (cross-CLI) and macOS Shortcuts (power users) both route through `dispatch_registry.command_for_dispatch`. One source of truth for actions, two acquisition channels.
 4. **Local + global blend.** Personal Elo from this user's outcomes, layered on top of an anonymous global routing prior. Cold-start works on day 1; personalization compounds.
 
-## 8.1 The six MCP tools (the product)
+## 8.1 The MCP tool surface
 
-These are the only public surface. Everything else is plumbing.
-
-| Tool | Purpose | When the harness calls it |
-|---|---|---|
-| `route(prompt, context, available_models, budget, latency)` | Returns `{mode: single\|top_2\|council, primary, challenger, confidence, reason, fallback}` | Before the harness picks a model for a turn |
-| `judge(task, responses[])` | Harness already has multiple candidate outputs; returns winner + tradeoffs + routing lesson | Post-hoc selection without re-running |
-| `run_council(task, models, rubric)` | Multi-provider comparison with chairman synthesis; returns winner + stage_winners + recommendation + learning | Harness uncertain or user explicitly asks |
-| `record_outcome(task_id, model_used, mode, user_selected, accepted, edited, tests_passed, cost_usd, latency_sec)` | The most important call — closes the loop. Without it Trinity is a switchboard. With it, Trinity learns. | After the user acts |
-| `search_prompts(query)` | Returns ranked prior hard prompts (autofill from inside the harness) | User starts typing; harness offers replay candidates |
-| `get_persona()` | Returns `~/.trinity/memories/lens.md` (composed from taste-terminal's diarized memories). Lets harnesses load /me once at session start so every response is tailored to the user without an MCP round-trip per call. | Once at session start |
-
-These map onto existing internals:
-
-| MCP tool | Backed by |
-|---|---|
-| `route` | `ranker/` (heuristic + k-NN advisor blend) + global prior layer |
-| `judge` | `council_runtime.create_council_outcome` with pre-supplied responses (no provider calls) |
-| `run_council` | `council_runner.run_council` |
-| `record_outcome` | `council_feedback.record_user_verdict` + new `outcome_recorder` |
-| `search_prompts` | New hierarchical memory index (8.4) |
-| `get_persona` | `me_builder.load_me()` reading `~/.trinity/memories/lens.md` (refreshed via `trinity-local lens-build`) |
-
-The current MCP server already exposes `route`, `judge`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`. The four legacy tools (`get_status`, `get_elo`, `get_recent_councils`, `watch_once`) have been dropped from the public surface — they're dashboard reads, not routing primitives.
+> **Superseded — shipped state is 9 tools, not 6.** This section's
+> pre-launch snapshot listed `route` / `judge` / `run_council` /
+> `record_outcome` / `search_prompts` / `get_persona` as the product
+> surface. Since then: `judge` was collapsed into
+> `run_council(responses=[...])` (Tier 1 #2) and `search_prompts` was
+> retired in the 2026-05-17 simplification pass (substring + recency
+> heuristics replaced the embedding-search hot path). Four tools were
+> added: `get_council_status` rounding out the canonical lifecycle to
+> 5, plus v1.5 trio (`ask` cheap default routing, `get_picks` agent
+> introspection, `mark_pick_wrong` user-veto), plus launch-arc
+> `handoff` for cross-provider continuity. Total: **9 tools**.
+>
+> Canonical current surface lives in
+> [`../claude.md`](../claude.md#the-nine-mcp-tools-mcp_serverpy) and
+> [`product-spec.md`](product-spec.md). The
+> `TestMcpToolNameConsistency` / `TestMcpCanonicalSubsetCountClaims`
+> guards in `tests/test_doc_count_consistency.py` pin the count
+> against `src/trinity_local/mcp_server.py`.
 
 ## 8.2 Tool-triggered ingestion (replaces daemon)
 
@@ -1151,7 +1146,7 @@ portal_data / portal_template (Launchpad, autofill UI, dashboard)
 
 ## 8.13 Phase 8 exit criteria
 
-- The six MCP tools (`route`, `judge`, `run_council`, `record_outcome`, `search_prompts`, `get_persona`) respond correctly via stdio
+- The nine MCP tools (canonical 5 — `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`; v1.5 trio — `ask`, `get_picks`, `mark_pick_wrong`; launch-arc — `handoff`) respond correctly via stdio
 - No daemon process is created by `install-mcp`
 - `~/Library/LaunchAgents/` is untouched after install
 - `ingest.parse_claude_code_session` correctly excludes sidechain turns and synthetic-error assistant messages
