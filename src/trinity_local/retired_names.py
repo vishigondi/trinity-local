@@ -23,7 +23,7 @@ registry — the registry IS the source of truth.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 
@@ -149,9 +149,9 @@ RETIRED: dict[str, RetirementRecord] = {
     "get_eval_summary": RetirementRecord(
         name="get_eval_summary",
         retired_at="2026-05-18",
-        commit="",
+        commit="1fed7fc",
         replacement="ask + get_picks",
-        reason="Agents ground via ask + picks; eval-summary surface remains on launchpad",
+        reason="Agents ground 'which model is best for me at X' via the v1.5 trio (ask + picks); the eval-summary surface remains on the launchpad card and `eval-show` CLI for direct user inspection. Bundled into the auto-chain settings retirement (commit 1fed7fc).",
         kind="mcp_tool",
     ),
     # ── 2026-05-17 macOS Shortcut + Trinity.app retirement ──
@@ -186,14 +186,6 @@ RETIRED: dict[str, RetirementRecord] = {
         commit="",
         replacement="substring + recency + replay-value heuristics",
         reason="Embedding-free hot path; ranker/heuristic.py replaces it",
-        kind="mcp_tool",
-    ),
-    "get_eval_summary": RetirementRecord(
-        name="get_eval_summary",
-        retired_at="2026-05-18",
-        commit="1fed7fc",
-        replacement="ask + get_picks",
-        reason="Agents ground 'which model is best for me at X' via the v1.5 trio (ask + picks); the eval-summary surface remains on the launchpad card and `eval-show` CLI for direct user inspection. Bundled into the auto-chain settings retirement (commit 1fed7fc).",
         kind="mcp_tool",
     ),
     "trinity-dispatch": RetirementRecord(

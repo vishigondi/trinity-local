@@ -52,6 +52,30 @@ class TestRegistryIntegrity:
             "cli", "mcp_tool", "module", "file", "config_field", "concept"
         ), f"{name}: invalid kind {record.kind!r}"
 
+    def test_no_duplicate_keys_in_dict_literal(self):
+        """Python dict literals silently keep the last value for repeated keys,
+        which would erase earlier registry entries on a copy-paste mistake.
+        Born of tick 53 — pyflakes caught two `get_eval_summary` entries
+        (the tick-46 add silently overwrote the older bare entry; the
+        registry effectively had 1 entry, not 2). Parse retired_names.py
+        as text and assert no key string appears more than once at the
+        top-level of the RETIRED dict literal.
+        """
+        import re
+        text = (REPO / "src/trinity_local/retired_names.py").read_text(encoding="utf-8")
+        # Match `    "key": RetirementRecord(` — top-level dict items use
+        # 4-space indentation in this file. Excludes nested RetirementRecord
+        # field assignments (deeper indent or `name=`).
+        keys = re.findall(r'^    "([^"]+)": RetirementRecord\(', text, re.MULTILINE)
+        from collections import Counter
+        counts = Counter(keys)
+        dupes = [k for k, n in counts.items() if n > 1]
+        assert not dupes, (
+            f"Duplicate keys in RETIRED dict literal: {dupes}. "
+            "Python silently keeps only the last value; earlier entries "
+            "are erased. Consolidate the duplicates into one entry."
+        )
+
 
 class TestRegistryLookups:
     """The convenience helpers work as documented."""
