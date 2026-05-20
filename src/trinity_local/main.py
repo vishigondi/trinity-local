@@ -32,10 +32,12 @@ CORE_COMMAND_MODULES = (
     "adapters",
     "cortex",
     "council",
+    "debug",
     "download_embedder",
     "dream",
     "eval",
     "handoff",
+    "install_umbrella",
     "me",
     "me_card",
     "portal",
@@ -90,12 +92,62 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="trinity-local")
     parser.add_argument("--config", help="Path to config.json", default=None)
 
-    subparsers = parser.add_subparsers(dest="command", required=False)
+    # `metavar` overrides argparse's auto-generated choice list (which
+    # would print all 40+ registered subparsers in both the usage line
+    # AND the descriptive table heading). The {install,status,...}
+    # form gives the user the canonical 5 verbs at a glance.
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=False,
+        metavar="{install,status,update,dream,debug}",
+    )
 
     for module in _iter_command_modules():
         module.register(subparsers)
 
+    _hide_non_canonical_from_help(subparsers)
     return parser
+
+
+# Area 5: CLI consolidation. The user-visible surface is exactly these
+# five verbs; everything else stays registered (the launchpad's Native
+# Messaging dispatch and the Chrome extension's action allowlist both
+# call subparsers by name — dropping the registrations would break
+# real flows) but gets `help=argparse.SUPPRESS`'d so it doesn't appear
+# in `trinity-local --help`. Power-user verbs are reachable both by
+# their original names AND under `trinity-local debug <subcmd>` for
+# discoverability.
+USER_FACING_COMMANDS = frozenset({
+    "install",
+    "status",
+    "update",
+    "dream",
+    "debug",
+})
+
+
+def _hide_non_canonical_from_help(subparsers: argparse._SubParsersAction) -> None:
+    """Suppress non-canonical subparsers from `--help` output without
+    dropping them from the live argparse surface.
+
+    Two reasons subparsers stay registered:
+      - Launchpad dispatch fires `trinity-local council-launch …` via
+        Chrome Native Messaging. Dropping the registration breaks the
+        dispatcher.
+      - Power users may still type the bare names. They keep working;
+        they're just no longer advertised.
+
+    Mechanism: argparse formats subparser help by iterating
+    `subparsers._choices_actions`. Setting `help = argparse.SUPPRESS`
+    leaks the literal "==SUPPRESS==" string into the output (it's
+    only honored for argument actions, not subparser choices), so we
+    remove the entries entirely. The parsers stay in `subparsers.choices`
+    — still callable, just no longer advertised in `--help`.
+    """
+    subparsers._choices_actions = [
+        action for action in subparsers._choices_actions
+        if action.dest in USER_FACING_COMMANDS
+    ]
 
 
 def main() -> None:

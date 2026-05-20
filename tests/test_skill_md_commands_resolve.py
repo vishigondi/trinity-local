@@ -27,23 +27,27 @@ SKILL_PATH = Path(__file__).resolve().parents[1] / "skills" / "trinity" / "SKILL
 
 @pytest.fixture(scope="module")
 def cli_subcommands() -> set[str]:
-    """Pull the full subcommand set from `trinity-local --help`. We grep
-    out the positional argument list because argparse prints it in
-    curly-braced csv form: `{cmd1,cmd2,cmd3,...}`."""
-    result = subprocess.run(
-        [sys.executable, "-m", "trinity_local.main", "--help"],
-        capture_output=True, text=True, check=False, timeout=15,
-    )
-    out = result.stdout
-    # argparse prints the positional choices on one or more lines like
-    # `{action-suggest,action-council,...}` — collect everything inside
-    # the first top-level `{...}` block.
-    matches = re.findall(r"\{([^{}]+)\}", out)
-    if not matches:
-        pytest.fail(f"Could not parse subcommands from --help output:\n{out[:500]}")
-    # The largest match is the full positional choices.
-    longest = max(matches, key=len)
-    return set(cmd.strip() for cmd in longest.split(","))
+    """The full set of subcommands the CLI exposes — including those
+    hidden from `--help` after the Area 5 consolidation.
+
+    Was: parsed `trinity-local --help` for the {cmd1,cmd2,...} metavar.
+    That broke when CLI consolidation collapsed the help-visible
+    surface to 5 verbs (install, status, update, dream, debug). The
+    hidden subparsers (council-launch, install-mcp, ingest-recent,
+    etc.) stay registered, stay callable, and are LEGITIMATELY
+    referenced in SKILL.md and other docs.
+
+    Now: build the parser in-process and read `subparsers.choices`
+    directly. Same shape the launchpad dispatch uses when it fires
+    subparsers by name via Native Messaging."""
+    import argparse
+    from trinity_local.main import build_parser
+
+    parser = build_parser()
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return set(action.choices.keys())
+    pytest.fail("trinity-local.main.build_parser() has no subparsers action")
 
 
 def test_skill_md_exists():

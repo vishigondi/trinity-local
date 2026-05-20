@@ -585,25 +585,34 @@ class TestCliCommandsReferencedExistInCli:
 
     @staticmethod
     def _real_subcommands() -> set[str]:
-        import subprocess
+        """The live argparse surface, including subparsers hidden from
+        `--help` via Area 5 CLI consolidation.
+
+        Was: parsed `trinity-local --help` for the {cmd1,cmd2,...}
+        metavar. That broke when CLI consolidation collapsed the help-
+        visible surface to {install,status,update,dream,debug} — the
+        hidden commands (council-launch, install-mcp, ingest-recent,
+        etc.) stay registered + callable + LEGITIMATELY referenced in
+        docs, but `--help` no longer lists them.
+
+        Now: build the parser in-process and read `subparsers.choices`
+        directly. That's the full set of registered subparsers — same
+        thing the launchpad and the Chrome extension dispatch by name."""
+        import argparse
         try:
-            result = subprocess.run(
-                ["trinity-local", "--help"],
-                capture_output=True, text=True, check=False,
-            )
-        except FileNotFoundError:
-            # CLI not on PATH (CI env without venv activation) — return
-            # empty set and let the test skip via early-return.
+            from trinity_local.main import build_parser
+        except ImportError:
+            # Package not importable in this env — return empty set
+            # and let the test skip via early-return.
             return set()
-        if result.returncode != 0:
+        try:
+            parser = build_parser()
+        except Exception:
             return set()
-        # The argparse help output shows the subparser choices inside
-        # `{cmd1,cmd2,...}`. Pull the first occurrence (the
-        # top-level subparser).
-        m = re.search(r"\{([a-z][^}]+)\}", result.stdout)
-        if not m:
-            return set()
-        return {c.strip() for c in m.group(1).split(",") if c.strip()}
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                return set(action.choices.keys())
+        return set()
 
     def test_subcommands_in_launch_docs_resolve(self):
         real = self._real_subcommands()
