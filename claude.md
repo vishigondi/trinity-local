@@ -6,7 +6,7 @@ class: live
 
 > Agent-facing project context. Companions:
 > - [`docs/spec-v1.md`](docs/spec-v1.md) — locked v1.0 launch spec (shipped May 13–15, 2026)
-> - [`docs/spec-v1.5.md`](docs/spec-v1.5.md) — **active next-trajectory spec** (target June 3, 2026): MCP-primary, hippocampus+cortex memory, local model dispatch, rate-limit dodge, flagship-as-Conductor (no training)
+> - [`docs/spec-v1.5.md`](docs/spec-v1.5.md) — **active next-trajectory spec** (target June 3, 2026): MCP-primary, hippocampus+cortex memory, ~~local model dispatch~~ (shipped 2026-05-20 pre-v1.5), rate-limit dodge, flagship-as-Conductor (no training)
 > - [`docs/spec-v1.6.md`](docs/spec-v1.6.md) — **post-v1.5 spec** (~2 weeks after June 3): browser extension + Native Messaging host that captures claude.ai / chatgpt.com / gemini.google.com conversations to `~/.trinity/conversations/`. No server, no daemon, no listening port. Closes the corpus-acquisition gap for web-chat users; the "Trinity reads transcripts already on your machine" claim becomes literal for everyone, not just CLI power users. **The same extension now also serves as the cross-platform launchpad dispatcher** (Phase 4b, 2026-05-16) — see [`docs/MIGRATION.md`](docs/MIGRATION.md) for the upgrade path from the macOS-only Shortcut. 10 narrow action-allowlist entries cover every launchpad button cross-platform; the Shortcut remains as tier-2 fallback.
 > - [`docs/spec-v2.md`](docs/spec-v2.md) — sunset (trained-coordinator path). Preserved as architectural-decision history; reopens only if v1.5 hits a quality ceiling.
 > - [`docs/cross-platform-spec.md`](docs/cross-platform-spec.md) — surface-expansion spec: terminal → desktop → mobile, Claude-Code-shaped phasing. Same `~/.trinity/` corpus everywhere; no hosted controller.

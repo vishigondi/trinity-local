@@ -19,8 +19,9 @@ class: live
 >
 > **v1.5 is the routing product** that makes the full "SOTA + your taste + your subs +
 > saves cost" pitch literally true. It's MCP-primary, adds the cortex consolidation layer,
-> ships local model dispatch, and inverts the surface from launchpad to harness-call. See
-> `docs/spec-v1.5.md`. Target: June 3, 2026.
+> and inverts the surface from launchpad to harness-call. (Local model dispatch already
+> landed pre-v1.5 on 2026-05-20 — see `docs/spec-v1.5.md` § "Status update 2026-05-20".)
+> See `docs/spec-v1.5.md`. Target: June 3, 2026.
 >
 > **v2.0 (trained-coordinator) is sunset.** A Conductor's value sits in the prompt-engineering
 > quality of the routing prompts it writes, not in the routing decision itself — and a flagship

@@ -19,7 +19,7 @@ class: aspirational
 
 Trinity is a **routing substrate** — the layer underneath every AI harness that decides which model to call, runs a structured council when uncertainty about model choice is itself the problem, and learns the user's taste from the picks they actually make.
 
-**The wedge is trust calibration, not cost optimization.** Cost savings become a real claim in v1.5 once local model dispatch (Ollama + MLX) lands. The consumer-visible primitive is *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."*
+**The wedge is trust calibration, not cost optimization.** Cost savings become a real claim with local model dispatch — *which shipped as of 2026-05-20*: any Ollama / MLX model the user has pulled appears in the routing pool automatically as `ollama:<model>` / `mlx:<model>` via `local_models.py`'s auto-discovery probe. The consumer-visible primitive remains *"these models agreed on these claims, disagreed on these, here's why the disagreement matters."* The cost-savings narrative is now claimable post-2026-05-20, pending HN-demo-day resilience verification (see `docs/spec-v1.5.md` § "Status update 2026-05-20").
 
 **Product hierarchy** (consumer pitch order):
 
