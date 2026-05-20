@@ -109,7 +109,7 @@ essay, every social post that includes a diagram.
 
 | What Anthropic shipped | What Trinity does | What's different |
 |---|---|---|
-| **Dreaming** — agents extract lessons from past sessions, improve over time. Harvey: 6× task completion. | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes. System-computed trust score gates which patterns drive decisions. | Anthropic-hosted vs. runs on YOUR subscription. Single-provider vs. across Claude / GPT / Gemini / local. Memory in Anthropic's infra vs. `~/.trinity/cortex/routing_patterns.json` you can open in any text editor. |
+| **Dreaming** — agents extract lessons from past sessions, improve over time. Harvey: 6× task completion. | **Cortex consolidation** — flagship extracts routing patterns per basin from accumulated council outcomes. System-computed trust score gates which patterns drive decisions. | Anthropic-hosted vs. runs on YOUR subscription. Single-provider vs. across Claude / GPT / Gemini / local. Memory in Anthropic's infra vs. `~/.trinity/scoreboard/picks.json` you can open in any text editor. |
 | **Outcomes** — rubric-based eval by a separate grader agent. | **Lens** — paired-tension evaluation from `me/lenses.json`; pre-fan-out routing + post-fan-out scoring against your taste. | Anthropic-defined rubric vs. your own taste extracted from where you pushed back on a model. |
 | **Multi-Agent Orchestration (MAO)** — specialist sub-agents with independent contexts. | **Council** — Claude / GPT / Gemini in parallel; local chairman synthesizes. | Same-lab specialists vs. cross-lab council. Anthropic-owned vs. you-own-the-subs. |
 
