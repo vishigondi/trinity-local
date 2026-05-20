@@ -1793,6 +1793,9 @@ class TestNoBrokenSeedCommandInUserFacingDocs:
     def test_user_facing_docs_dont_show_broken_seed_cmd(self):
         user_facing_paths = [
             REPO / "README.md",
+            REPO / "claude.md",  # tick 24: closed the gap that let
+                                 # claude.md L830 drift past the original
+                                 # 9-path guard
             REPO / "skills" / "trinity" / "SKILL.md",
             REPO / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md",
             REPO / "docs" / "INSTALL-pip.md",
