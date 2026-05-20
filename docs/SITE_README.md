@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # keepwhatworks.com — static site
 
 Marketing site for the products + essays that come out of this repo.

@@ -61,6 +61,9 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/three-tier-architecture.md",
     "docs/training-data.md",
     "docs/TRUST-MODE.md",
+    "docs/SITE_README.md",
+    # ── Other tracked user-facing READMEs ──
+    "browser-extension/README.md",
     # ── docs/launch-day/ ──
     "docs/launch-day/README.md",
     "docs/launch-day/00_leaderboard.md",

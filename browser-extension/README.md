@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Trinity Local — browser extension
 
 Captures `claude.ai`, `chatgpt.com`, and `gemini.google.com` conversations
