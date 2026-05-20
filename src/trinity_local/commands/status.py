@@ -179,7 +179,7 @@ def handle_status(args):
         marker = "⚠️ stale" if stale else "✅ fresh"
         print(f"    {marker} core.md       {core.stat().st_size:>8,} bytes — chairman reads this first")
     else:
-        print("    · core.md       not distilled — run `trinity-local distill`")
+        print("    · core.md       not distilled — run `trinity-local dream` (Phase 5 distills core.md)")
     print()
     print("  Scoreboards:  (operational model-selection bookkeeping)")
     for label, path in [
