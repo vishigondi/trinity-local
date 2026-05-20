@@ -233,6 +233,56 @@ tools (`mcp_server.py`)" sections.
 
 ---
 
+## Pattern 33: Regression guards with under-scoped allowlists
+
+A guard exists for the load-bearing fact, but its `paths_to_scan` list
+misses the most prominent surface — so a known-bad pattern silently
+recurs in the un-watched doc. Post-launch tick 24 caught
+`seed-from-taste-terminal --limit 10` (a command that crashes because
+`--path` is required) in claude.md L830, even though
+`TestNoBrokenSeedCommandInUserFacingDocs` had been catching that exact
+shape across 9 other surfaces since the launch-eve sweep. claude.md
+wasn't in the guard's path list.
+
+**Symptoms:** "we already have a guard for that" + the bug still showed up.
+
+**Extraction:** every doc-consistency guard reviews its allowlist
+against the full launch-facing surface set when it's authored. Same
+rule applies on every doc-list rename (e.g., new doc added →
+re-audit which guards should scan it). Cheap to fix: add the path
++ an inline comment with the tick number that caught the gap, so
+future readers see the scaffolding-gap shape (not just the
+post-fix line in the list).
+
+---
+
+## Pattern 34: Canonical-renderer placeholder under-coverage
+
+The canonical-source-of-truth renderer (scripts/render_docs.py) keeps
+N surfaces auto-synced via `<!-- canonical:KEY -->VAL<!-- /canonical -->`
+placeholders. Sometimes a surface carrying the same load-bearing fact
+hardcodes the value instead of wrapping it in a placeholder — silent
+drift opportunity when KEY changes (e.g., a new MCP tool ships and
+`mcp_tool_count` bumps).
+
+Tick 25 caught both `SKILL.md` copies hardcoding `"ships 9 MCP tools"`
+when every other doc in the corpus wrapped that 9 in
+`<!-- canonical:mcp_tool_count -->9<!-- /canonical -->`. The renderer's
+rglob auto-scan picks up files that USE the placeholder syntax;
+surfaces that don't use it are invisible to the auto-sync machinery.
+
+**Symptoms:** a fact's canonical value changes, the renderer
+re-flows 8 surfaces, two more silently stay stale.
+
+**Extraction:** when adding a `canonical:KEY` placeholder for the
+first time, grep for the literal value of KEY across the entire
+repo. Any hits in user-facing docs/code that aren't in a placeholder
+get either (a) wrapped in the placeholder, or (b) documented as
+deliberately frozen (e.g., changelog entries reference a count at
+that point in time).
+
+---
+
 ## Patterns the sweep DIDN'T find new evidence for (but bear watching)
 
 These appear in claude.md principles #1–#21 and continue to apply, but
@@ -251,7 +301,7 @@ the sweep didn't surface any new examples worth promoting:
 
 ## How to extract these into guards
 
-Of the 11 patterns (22–32), here's a rough ranking of extractable-now
+Of the 13 patterns (22–34), here's a rough ranking of extractable-now
 vs. process-shift vs. tooling:
 
 **Extractable as test guards now:**
