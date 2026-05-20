@@ -320,7 +320,11 @@ def effective_trust(pattern: "RoutingPattern") -> float:
 
 
 def load_routing_patterns() -> dict[str, RoutingPattern]:
-    """Read the cortex routing_patterns.json. Empty dict if file doesn't exist."""
+    """Read the cortex routing patterns from `~/.trinity/scoreboard/picks.json`.
+    Empty dict if file doesn't exist. (Resolves via the back-compat
+    `cortex_routing_patterns_path()` alias — function name preserved for
+    backward compatibility; on-disk file moved cortex/ → memories/ →
+    scoreboard/ in pre-launch migrations.)"""
     path = cortex_routing_patterns_path()
     if not path.exists():
         return {}
@@ -338,7 +342,9 @@ def load_routing_patterns() -> dict[str, RoutingPattern]:
 
 
 def save_routing_patterns(patterns: dict[str, RoutingPattern]) -> None:
-    """Write the cortex routing_patterns.json atomically."""
+    """Write the cortex routing patterns to `~/.trinity/scoreboard/picks.json`
+    atomically. (Function name preserved; file path moved during pre-launch
+    migrations — see `load_routing_patterns()` for lineage.)"""
     from .utils import atomic_write_text
     path = cortex_routing_patterns_path()
     serialized = {basin_id: p.to_dict() for basin_id, p in patterns.items()}
