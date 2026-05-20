@@ -111,7 +111,7 @@ OR the launch hook. Mapping:
 | Spec tool | v1 tool | Status |
 |---|---|---|
 | `council` | `run_council` | Stable contract |
-| `query_lens` | `search_prompts` | Stable contract |
+| `query_lens` | ~~`search_prompts`~~ retired 2026-05-17 | Substring + recency + replay-value heuristics replaced embedding search on the hot path. Querying the lens now happens implicitly — every council loads `~/.trinity/memories/lens.md` via `get_persona`. |
 | `add_pair` | `record_outcome` | Stable contract |
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |

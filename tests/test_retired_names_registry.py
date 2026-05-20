@@ -110,6 +110,19 @@ class TestNoPresentTenseInDocs:
         r"creates?",
         r"calls?",
         r"invokes?",
+        # Container verbs added 2026-05-19 after MCP_REGISTRY_SUBMISSIONS
+        # leaked "Comes with the standard `search_prompts` tool" without
+        # tripping the prior verb set. These framings present the retired
+        # name as still part of the live surface ("ships with X",
+        # "exposes X", "supports X tool"), so they're equivalent
+        # falsifications of the retirement claim.
+        r"comes\s+with",
+        r"ships?\s+with",
+        r"exposes?",
+        r"supports?",
+        r"includes?",
+        r"offers?",
+        r"provides?",
     )
 
     # Phrases that explicitly mark a retired-name reference as

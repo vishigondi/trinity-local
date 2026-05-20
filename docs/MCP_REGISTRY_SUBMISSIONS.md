@@ -68,10 +68,10 @@ users already trust Claude):
 > the user can pivot to Gemini or GPT and the next model receives
 > Claude's prior turns as context — no copy-paste. The wedge: only the
 > layer above the labs can pull context across competitors' transcripts,
-> and Trinity is open-source on your machine. Comes with the standard
-> `run_council` / `record_outcome` / `search_prompts` tools, plus a
-> personalized eval harness that benchmarks any provider against the
-> user's empirical rejection signal.
+> and Trinity is open-source on your machine. Comes with the canonical
+> supervision-loop tools (`route` / `run_council` / `record_outcome`)
+> plus a personalized eval harness that benchmarks any provider against
+> the user's empirical rejection signal.
 
 **Required artifacts:**
 - 1024×1024 icon (use `docs/icon.png` if present, or `me-card.png`)
