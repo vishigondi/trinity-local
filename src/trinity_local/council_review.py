@@ -89,7 +89,12 @@ def _render_routing_label_section(outcome: CouncilOutcome) -> str:
 
 
 
-PETITE_VUE_MODULE = "../portal_pages/vendor/petite-vue.es.js"
+# IIFE build (derived at vendor-publish time). See
+# trinity_local.launchpad_template:PETITE_VUE_IIFE for the rationale —
+# Chrome treats every file:// URL as a unique origin, so the ES module
+# `import` form silently fails CORS and the page renders raw `{{ }}`
+# templates. The IIFE form loads via plain <script src> with no CORS.
+PETITE_VUE_IIFE = "../portal_pages/vendor/petite-vue.iife.js"
 LIVE_COUNCIL_LOADING_MESSAGES = [
     "Reticulating splines...",
     "Generating witty dialog...",
@@ -442,8 +447,9 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
   </div>
 
   <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
-  <script type="module">
-    import {{ createApp }} from '{PETITE_VUE_MODULE}';
+  <script src="{PETITE_VUE_IIFE}"></script>
+  <script>
+    const {{ createApp }} = window.__TRINITY_VUE__;
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
     {launchpad_runtime_js()}
@@ -1155,8 +1161,9 @@ def render_live_council_page() -> str:
   </div>
 
   <script type="application/json" id="page-data">{json.dumps(page_data, separators=(",", ":"), ensure_ascii=True)}</script>
-  <script type="module">
-    import {{ createApp }} from '{PETITE_VUE_MODULE}';
+  <script src="{PETITE_VUE_IIFE}"></script>
+  <script>
+    const {{ createApp }} = window.__TRINITY_VUE__;
     const pageData = JSON.parse(document.getElementById('page-data').textContent);
 
     {launchpad_runtime_js()}

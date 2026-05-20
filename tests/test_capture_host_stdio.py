@@ -256,38 +256,42 @@ def test_valid_uuid_passes(tmp_path, monkeypatch):
 
 def test_launch_council_action_dispatches_to_cli(monkeypatch, tmp_path):
     """An action message with kind=launch-council must dispatch via
-    subprocess to `trinity-local council-launch --task <task>`. The host
-    builds the argv from the ACTION_ALLOWLIST spec; this test verifies
-    the argv shape without actually invoking the CLI."""
+    subprocess.Popen to `trinity-local council-launch --task <task>` and
+    return immediately (fire-and-forget). The host builds the argv from
+    the ACTION_ALLOWLIST spec — this test verifies the argv shape, the
+    detached response contract, AND the status_token passthrough
+    introduced for the popup's incremental status polling.
+    """
     from trinity_local import capture_host
 
     captured_argv: list[list[str]] = []
+    captured_kwargs: list[dict] = []
 
-    class _FakeCompletedProcess:
-        returncode = 0
-        stdout = '{"ok": true, "council_run_id": "council_test123"}'
-        stderr = ""
+    class _FakePopen:
+        def __init__(self, argv, **kwargs):
+            captured_argv.append(list(argv))
+            captured_kwargs.append(kwargs)
+            self.pid = 4242
 
-    def _fake_run(argv, **kwargs):
-        captured_argv.append(list(argv))
-        return _FakeCompletedProcess()
-
-    monkeypatch.setattr(capture_host.subprocess if hasattr(capture_host, "subprocess") else __import__("subprocess"), "run", _fake_run, raising=False)
-    # _run_action imports subprocess locally, so we patch the module:
     import subprocess as real_subprocess
-    monkeypatch.setattr(real_subprocess, "run", _fake_run)
+    monkeypatch.setattr(real_subprocess, "Popen", _FakePopen)
 
     result = capture_host._run_action({
         "kind": "launch-council",
         "task": "Compare Rust vs Go for a CLI",
         "primary_provider": "codex",
+        "status_token": "launch_abc_123def",
     })
 
+    # Detached contract: ok:true with detached:true + pid + status_token
+    # echo. No `returncode` / `stdout` because the child is still running.
     assert result["ok"] is True
-    assert result["returncode"] == 0
+    assert result["detached"] is True
+    assert result["pid"] == 4242
     assert result["action"] == "launch-council"
-    assert "council_run_id" in result["stdout"]
-    assert captured_argv, "_run_action did not invoke subprocess.run"
+    assert result["status_token"] == "launch_abc_123def"
+
+    assert captured_argv, "_run_action did not invoke subprocess.Popen"
     argv = captured_argv[0]
     assert argv[0] == "trinity-local"
     assert argv[1] == "council-launch"
@@ -295,6 +299,117 @@ def test_launch_council_action_dispatches_to_cli(monkeypatch, tmp_path):
     assert argv[argv.index("--task") + 1] == "Compare Rust vs Go for a CLI"
     assert "--primary-provider" in argv
     assert argv[argv.index("--primary-provider") + 1] == "codex"
+    assert "--status-token" in argv
+    assert argv[argv.index("--status-token") + 1] == "launch_abc_123def"
+
+    # Popen must redirect stdio + start a new session so Chrome closing
+    # the Native Messaging pipe (and SIGHUP'ing capture_host) doesn't
+    # take the council child down with it.
+    kwargs = captured_kwargs[0]
+    assert kwargs.get("start_new_session") is True
+    assert kwargs.get("stdout") == real_subprocess.DEVNULL
+    assert kwargs.get("stderr") == real_subprocess.DEVNULL
+    assert kwargs.get("stdin") == real_subprocess.DEVNULL
+
+    # PATH augmentation — without this the spawned `trinity-local
+    # council-launch` inherits Chrome's minimal PATH and can't find
+    # `claude` / `codex` / `gemini` in ~/.local/bin or Homebrew dirs.
+    # First real council from the popup failed with "Provider binary
+    # not found: claude" within 10s before this guard.
+    env = kwargs.get("env")
+    assert env is not None, "Popen must pass an augmented env, not inherit Chrome's"
+    path = env.get("PATH", "")
+    expected_bins = ["/usr/local/bin", "/opt/homebrew/bin"]
+    found = [b for b in expected_bins if b in path]
+    assert found, (
+        f"PATH must include Homebrew + /usr/local/bin so provider "
+        f"binaries resolve. Got PATH={path!r}"
+    )
+
+
+def test_get_council_status_reads_status_json_in_process(monkeypatch, tmp_path):
+    """The popup polls every ~1.5s; subprocess startup per poll is
+    wasteful. capture_host handles `get-council-status` in-process by
+    calling council_status.load_council_status directly."""
+    from trinity_local import capture_host
+
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    # No status written yet — should return ok:true with status:null,
+    # NOT an error (the runner may not have flushed the first record).
+    r = capture_host._run_action({
+        "kind": "get-council-status",
+        "status_token": "launch_xyz_999",
+    })
+    assert r["ok"] is True
+    assert r["status"] is None
+    assert r["status_token"] == "launch_xyz_999"
+
+    # Now write a status JSON the way the runner would and verify
+    # the in-process reader picks it up. Pass our own pid as runner_pid
+    # so the staleness coercion (running + dead runner → failed) doesn't
+    # rewrite the record before we read it.
+    import os
+    from trinity_local.council_status import init_council_run_state
+    init_council_run_state(
+        "launch_xyz_999",
+        task_text="hello",
+        bundle_id="b1",
+        council_id="b1",
+        members=["claude", "codex", "gemini"],
+        metadata={},
+        runner_pid=os.getpid(),
+    )
+    r = capture_host._run_action({
+        "kind": "get-council-status",
+        "status_token": "launch_xyz_999",
+    })
+    assert r["ok"] is True
+    assert r["status"] is not None
+    assert r["status"]["status"] == "running"
+    assert set(r["status"]["members"].keys()) == {"claude", "codex", "gemini"}
+
+
+def test_get_council_status_rejects_unsafe_token():
+    """status_token must match _SAFE_ID_RX — defense against path
+    traversal even though the consumer is in-process (the same id
+    feeds load_council_status → trinity_home() / 'portal_pages' /
+    'status' / f'{token}.json')."""
+    from trinity_local import capture_host
+
+    for bad in ["../etc/passwd", "a/b", "x" * 200, "", None, 42]:
+        r = capture_host._run_action({
+            "kind": "get-council-status",
+            "status_token": bad,
+        })
+        assert r["ok"] is False, f"expected reject for {bad!r}"
+
+
+def test_launch_council_non_zero_exit_surfaces_real_error(monkeypatch):
+    """Pre-fix: capture_host returned `ok:false` with no `error` field
+    when the CLI exited non-zero, so the popup rendered 'Failed: unknown
+    error'. Post-fix: error == last line of stderr (or 'exit code N')."""
+    from trinity_local import capture_host
+
+    # Disable the detached path for this test so we exercise the
+    # synchronous error-surface branch. The simplest hook: monkeypatch
+    # the detached set to be empty.
+    monkeypatch.setattr(capture_host, "_DETACHED_ACTIONS", set())
+
+    class _FakeCompletedProcess:
+        returncode = 2
+        stdout = ""
+        stderr = "first line\nERROR: bundle not found\n"
+
+    import subprocess as real_subprocess
+    monkeypatch.setattr(real_subprocess, "run", lambda *a, **k: _FakeCompletedProcess())
+
+    result = capture_host._run_action({
+        "kind": "launch-council",
+        "task": "hi",
+    })
+    assert result["ok"] is False
+    assert result["returncode"] == 2
+    assert result["error"] == "ERROR: bundle not found"
 
 
 def test_action_missing_required_field_rejected(monkeypatch):

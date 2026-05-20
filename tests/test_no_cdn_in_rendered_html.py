@@ -55,18 +55,25 @@ class TestNoCdnReferences:
 
     def test_council_review_module_constants(self):
         """Direct check on the module string — catches regress even
-        before render. The PETITE_VUE_MODULE constant must point to a
-        local path, not a CDN URL."""
+        before render. The PETITE_VUE_IIFE constant must point to a
+        local path, not a CDN URL.
+
+        Renamed from PETITE_VUE_MODULE (2026-05-19) when the launchpad
+        switched from `<script type="module"> + import` to the IIFE
+        build because Chrome blocks ES module imports on file://.
+        See trinity_local.vendor._wrap_petite_vue_as_iife.
+        """
         from trinity_local import council_review, launchpad_template
 
         for module, name in (
             (council_review, "council_review"),
             (launchpad_template, "launchpad_template"),
         ):
-            ptv = getattr(module, "PETITE_VUE_MODULE", "")
+            ptv = getattr(module, "PETITE_VUE_IIFE", "")
+            assert ptv, f"{name}.PETITE_VUE_IIFE missing or empty"
             for domain in _CDN_DOMAINS:
                 assert domain not in ptv, (
-                    f"{name}.PETITE_VUE_MODULE references {domain} — must be ./vendor/"
+                    f"{name}.PETITE_VUE_IIFE references {domain} — must be ./vendor/"
                 )
 
 

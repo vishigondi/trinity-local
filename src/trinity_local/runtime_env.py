@@ -47,6 +47,12 @@ def build_runtime_env(
     if current_path:
         parts.append(current_path)
     merged["PATH"] = ":".join(part for part in parts if part)
+    # Some entry points (notably the Chrome Native Messaging host) are
+    # spawned with a minimal env that omits TERM. Provider CLIs like
+    # Gemini sniff TERM to decide color support and print
+    # "Warning: 256-color support not detected" when it's missing. Use
+    # setdefault so anything the caller already set wins.
+    merged.setdefault("TERM", "xterm-256color")
     return merged
 
 

@@ -161,15 +161,51 @@ def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) ->
 # Args are passed as `--<arg_name> <value>`; missing required → reject.
 # The allowlist intentionally lists only the buttons the launchpad UI
 # exposes today — not the full CLI surface.
-ACTION_ALLOWLIST: dict[str, tuple] = {
+# Action kinds in this set are fire-and-forget: capture_host spawns the
+# CLI via Popen with stdio redirected to /dev/null and a fresh session
+# (so it survives Chrome closing the Native Messaging pipe) and returns
+# immediately with `{ok: true, detached: true, pid, status_token?}`.
+# The caller is expected to poll via `get-council-status` using the
+# status_token it generated.
+#
+# Without this, council-launch blocks the popup for the full council
+# duration (30-90s) and times out at 120s with "Failed: unknown error".
+_DETACHED_ACTIONS = {"launch-council"}
+
+# Action kinds handled in-process (no subprocess). The popup uses
+# `get-council-status` to poll a council's status JSON without the
+# ~150ms-per-call subprocess startup cost — capture_host has direct
+# filesystem access so it just reads the JSON.
+#
+# `open-launchpad` is in-process when launchpad.html already exists —
+# the old path (`trinity-local portal-html --open-browser`) ran a full
+# refresh_launchpad rebuild on every click (~3-10s on real corpora).
+# The static file is kept fresh by council/ingest callbacks, so a
+# bare-open is correct in the steady state. Falls through to the
+# subprocess regen path only when the file is missing (first install).
+_INPROCESS_ACTIONS = {"get-council-status", "open-launchpad", "open-council-page"}
+
+ACTION_ALLOWLIST: dict[str, tuple | None] = {
     "launch-council": (
         "council-launch",
         [
             ("task", "task", True),
             ("goal", "goal", False),
             ("primary-provider", "primary_provider", False),
+            # status-token threads through to the council runner so the
+            # status JSON at ~/.trinity/portal_pages/status/<token>.json
+            # is written under a token the caller chose, not the bundle_id.
+            # The popup uses this for its incremental status display.
+            ("status-token", "status_token", False),
         ],
     ),
+    # In-process: reads ~/.trinity/portal_pages/status/<token>.json
+    # directly via council_status.load_council_status. No CLI subcommand.
+    "get-council-status": None,
+    # In-process when live_council.html exists; falls back to portal-html
+    # regen via the open-launchpad entry below (which writes both pages
+    # as a side effect) on first install.
+    "open-council-page": None,
     "ingest-recent": (
         "ingest-recent",
         [],
@@ -219,13 +255,157 @@ ACTION_ALLOWLIST: dict[str, tuple] = {
 }
 
 
-def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch an action message to a trinity-local CLI subcommand.
+def _trinity_local_bin() -> str:
+    """Locate the ``trinity-local`` CLI.
 
-    Subprocess (not in-process) so capture_host stays small + the action
-    runs in a fresh interpreter with the user's full env. Output streamed
-    back as a single response message — no partial streaming yet, but the
-    message shape leaves room for it later via a `stream_id` field.
+    Chrome launches Native Messaging hosts with a minimal PATH that
+    typically excludes ``~/.local/bin`` / user-installed pip script
+    dirs. Bare ``subprocess.run(["trinity-local", ...])`` PATH lookup
+    fails under that env. But ``trinity-local`` and
+    ``trinity-local-capture-host`` are installed by pip as siblings in
+    the same ``bin/`` directory — we can resolve the CLI relative to
+    THIS process's own binary path and skip PATH lookup entirely.
+
+    Falls back to the bare name for the PATH-lookup path if the
+    sibling isn't found (e.g., editable installs with unusual
+    layouts) — that branch then surfaces the FileNotFoundError →
+    "CLI not on PATH" error to the user, which is still informative.
+    """
+    try:
+        host_bin = Path(sys.argv[0]).resolve()
+        sibling = host_bin.parent / "trinity-local"
+        if sibling.exists():
+            return str(sibling)
+    except (OSError, ValueError):
+        pass
+    return "trinity-local"
+
+
+def _open_council_page(payload: dict[str, Any]) -> dict[str, Any]:
+    """In-process handler for `open-council-page`.
+
+    Opens the live council review page for a specific status_token —
+    not the launchpad. URL shape mirrors the launchpad's
+    liveCouncilUrl computed property: live_council.html with
+    status_token + task + members as query params.
+
+    The popup uses this both for the "Open council page" button and
+    for the auto-open-on-completion handoff (so the user lands on
+    the specific council that just finished, not the launchpad).
+    """
+    import webbrowser
+    from .state_paths import review_pages_dir
+
+    token = payload.get("status_token") or payload.get("status-token")
+    if not isinstance(token, str) or not _SAFE_ID_RX.match(token):
+        return {"ok": False, "error": "invalid status_token"}
+
+    live = review_pages_dir() / "live_council.html"
+    if not live.exists():
+        # First-install fallback — fall through to portal-html regen so
+        # live_council.html gets written, then re-open.
+        return {"ok": False, "needs_regen": True}
+
+    params: list[tuple[str, str]] = [("status_token", token)]
+    task = payload.get("task")
+    if isinstance(task, str) and task.strip():
+        params.append(("task", task.strip()))
+    members = payload.get("members")
+    if isinstance(members, list) and members:
+        params.append(("members", ",".join(str(m) for m in members)))
+
+    # Inline %-encoder: the no-network regression guard bans `urllib`
+    # at the namespace level (whole-stdlib safety net — see
+    # tests/test_capture_host_no_network.py). The CGI rules for query
+    # values are simple enough to do here without pulling in urllib.parse.
+    _SAFE = frozenset(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-~"
+    )
+    def _q(s: str) -> str:
+        out = []
+        for ch in s:
+            if ch in _SAFE:
+                out.append(ch)
+            else:
+                for byte in ch.encode("utf-8"):
+                    out.append(f"%{byte:02X}")
+        return "".join(out)
+    query = "&".join(f"{_q(k)}={_q(v)}" for k, v in params)
+    url = live.as_uri() + "?" + query
+    try:
+        opened = webbrowser.open(url)
+    except Exception as exc:
+        return {"ok": False, "error": f"open_failed: {exc}"}
+    return {
+        "ok": bool(opened),
+        "action": "open-council-page",
+        "url": url,
+        "opened": bool(opened),
+    }
+
+
+def _open_launchpad(payload: dict[str, Any]) -> dict[str, Any]:
+    """In-process handler for `open-launchpad`.
+
+    Fast path: if ~/.trinity/portal_pages/launchpad.html already exists,
+    just open it. The launchpad is regenerated as a side effect of every
+    council/ingest run via refresh_launchpad, so the static file is
+    fresh in the steady state.
+
+    Slow path: file missing → fall back to running `trinity-local
+    portal-html --open-browser` which writes + opens. Returns a sentinel
+    {"ok": False, "needs_regen": True} so _run_action's caller layer
+    re-dispatches via the subprocess branch.
+    """
+    from .notifications import open_path
+    from .state_paths import trinity_home
+    launchpad_path = trinity_home() / "portal_pages" / "launchpad.html"
+    if not launchpad_path.exists():
+        return {"ok": False, "needs_regen": True}
+    opened = open_path(str(launchpad_path))
+    return {
+        "ok": bool(opened),
+        "action": "open-launchpad",
+        "path": str(launchpad_path),
+        "opened": bool(opened),
+    }
+
+
+def _read_council_status(payload: dict[str, Any]) -> dict[str, Any]:
+    """In-process handler for `get-council-status` polling.
+
+    Reads ~/.trinity/portal_pages/status/<token>.json directly rather
+    than shelling out — saves ~150ms per poll, which matters when the
+    popup polls every 1.5s.
+    """
+    token = payload.get("status_token") or payload.get("status-token")
+    if not isinstance(token, str) or not _SAFE_ID_RX.match(token):
+        return {"ok": False, "error": "invalid status_token"}
+    try:
+        from .council_status import load_council_status
+        status = load_council_status(token)
+    except Exception as exc:
+        return {"ok": False, "error": f"status_read_failed: {exc}"}
+    # status is None until the runner writes the first record. That's
+    # the normal early-poll case — return ok:true with status:null so
+    # the popup can keep rotating its loading copy without flashing
+    # an error.
+    return {"ok": True, "status": status, "status_token": token}
+
+
+def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch an action message.
+
+    Three paths:
+
+    * In-process (``_INPROCESS_ACTIONS``) — handled by a dedicated
+      function. Used for tight-loop polling like `get-council-status`
+      where a 150ms subprocess startup per call is wasteful.
+    * Detached (``_DETACHED_ACTIONS``) — subprocess.Popen with stdio
+      redirected and a new session, returns immediately. Used for
+      `launch-council` so the popup doesn't block 30-90s on a council.
+    * Default — ``subprocess.run`` with capture_output, blocks until
+      the CLI exits, returns stdout/stderr/returncode.
     """
     import shlex
     import subprocess
@@ -233,14 +413,36 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     kind = payload.get("kind")
     if kind not in ACTION_ALLOWLIST:
         return {"ok": False, "error": f"action {kind!r} not in allowlist"}
+
+    # In-process fast paths. Each returns early on success; on a
+    # `needs_regen` sentinel, we fall through to the subprocess regen
+    # path below by re-binding `kind` to `open-launchpad` (which the
+    # allowlist maps to `portal-html --open-browser` — that subcommand
+    # writes BOTH launchpad.html and live_council.html so the next click
+    # gets the fast path).
+    if kind == "get-council-status":
+        return _read_council_status(payload)
+    if kind == "open-council-page":
+        result = _open_council_page(payload)
+        if result.get("needs_regen") is not True:
+            return result
+        kind = "open-launchpad"  # fall through to regen
+    if kind == "open-launchpad":
+        result = _open_launchpad(payload)
+        if result.get("needs_regen") is not True:
+            return result
+        # First-install: portal-html regen writes the file then opens.
+
     entry = ACTION_ALLOWLIST[kind]
+    if entry is None:
+        return {"ok": False, "error": f"action {kind!r} has no CLI binding"}
     if len(entry) == 2:
         cli_subcommand, arg_spec = entry
         constant_flags: list[str] = []
     else:
         cli_subcommand, arg_spec, constant_flags = entry
 
-    argv: list[str] = ["trinity-local", cli_subcommand]
+    argv: list[str] = [_trinity_local_bin(), cli_subcommand]
     for arg_name, json_field, required in arg_spec:
         value = payload.get(json_field)
         if value is None or value == "":
@@ -262,6 +464,46 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     # cannot influence them, so they're safe to append unconditionally.
     argv.extend(constant_flags)
 
+    # Detached path — fire-and-forget. Child inherits NOTHING from the
+    # host's stdio (Chrome owns those FDs as the Native Messaging wire),
+    # and runs in a new session so SIGHUP to the host doesn't take it
+    # down. Caller polls status via `get-council-status`.
+    #
+    # Pass build_runtime_env() so the child can find provider binaries
+    # (claude, codex, gemini) — Chrome's spawn env strips ~/.local/bin
+    # and Homebrew dirs, which is where those CLIs live. Without this,
+    # every council launched from the popup fails with "Provider
+    # binary not found: claude" within ~10s.
+    from .runtime_env import build_runtime_env
+    if kind in _DETACHED_ACTIONS:
+        try:
+            child = subprocess.Popen(
+                argv,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+                close_fds=True,
+                env=build_runtime_env(),
+            )
+        except FileNotFoundError:
+            return {
+                "ok": False,
+                "error": "trinity-local CLI not on PATH; install via `pip install trinity-local`",
+            }
+        response: dict[str, Any] = {
+            "ok": True,
+            "action": kind,
+            "detached": True,
+            "pid": child.pid,
+        }
+        # Echo the status_token back so the popup doesn't have to remember
+        # what it sent (and so a misroute is visible).
+        token = payload.get("status_token")
+        if token:
+            response["status_token"] = token
+        return response
+
     try:
         result = subprocess.run(
             argv,
@@ -269,6 +511,11 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             text=True,
             check=False,
             timeout=120,
+            # Same PATH augmentation rationale as the detached branch
+            # above — every CLI we dispatch may itself shell out to
+            # claude / codex / gemini binaries, which Chrome's minimal
+            # PATH doesn't see.
+            env=build_runtime_env(),
         )
     except subprocess.TimeoutExpired:
         return {
@@ -281,13 +528,24 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "error": "trinity-local CLI not on PATH; install via `pip install trinity-local`",
         }
-    return {
-        "ok": result.returncode == 0,
+    # Real error message when the CLI exited non-zero. Previously the
+    # popup got `ok: false` with no `error` field and rendered "Failed:
+    # unknown error". Surface returncode + the last useful line of stderr
+    # so the popup can show something diagnosable.
+    ok = result.returncode == 0
+    response = {
+        "ok": ok,
         "returncode": result.returncode,
         "stdout": result.stdout,
         "stderr": result.stderr,
         "action": kind,
     }
+    if not ok:
+        last_stderr = (result.stderr or "").strip().splitlines()
+        response["error"] = (
+            last_stderr[-1] if last_stderr else f"exit code {result.returncode}"
+        )
+    return response
 
 
 def _is_action_message(msg: dict[str, Any]) -> bool:
