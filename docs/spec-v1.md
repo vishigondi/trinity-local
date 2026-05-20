@@ -88,7 +88,7 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 ### Surfaces
 - `trinity-local council-launch` — fan out to Claude/Gemini/Codex CLIs, chairman synthesizes, returns Routing JSON outcome
-- `trinity-local lens-build` — 4-stage lens-discovery pipeline (basins → decisions → pair-mining → basin post-filter) + Stage 0 turn-pair gaps
+- `trinity-local lens-build` — 5-stage lens-discovery pipeline (Stage 0 turn-pair rejections → basins → decisions → pair-mining → basin post-filter)
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local status` — pre-flight cold-install checks

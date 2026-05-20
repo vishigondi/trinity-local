@@ -158,8 +158,8 @@ That's the moat: agreed claims you can lean on, disagreed claims with the *why*,
 ## Architecture
 
 Chairman synthesizes member outputs into structured Routing JSON; members run in
-parallel (or `chain` mode for sequential refinement); lens-discovery is a 4-stage
-pipeline ratifying tensions across ≥3 topical basins. Full wire diagram + design
+parallel (or `chain` mode for sequential refinement); lens-discovery is a 5-stage
+pipeline (Stage 0 turn-pair rejections + Stages 1-4 basins→decisions→pair-mining→post-filter) ratifying tensions across ≥3 topical basins. Full wire diagram + design
 rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
 [`claude.md`](claude.md); long-form roadmap in [`docs/scale-plan.md`](docs/scale-plan.md).
 

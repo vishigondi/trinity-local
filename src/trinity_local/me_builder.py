@@ -408,8 +408,11 @@ def build_me_via_lens_pipeline(
     seed: int = 42,
     dry_run: bool = False,
 ) -> tuple[Path, dict]:
-    """Run the 3-stage lens-discovery pipeline (Option C).
+    """Run the 5-stage lens-discovery pipeline (Option C + Stage 0).
 
+    Stage 0: turn-pair gap extraction (chairman batch call; rejection
+             signals — REFRAME / COMPRESSION / REDIRECT / SHARPENING —
+             with deterministic post-validators in me/turn_pairs.py)
     Stage 1: numpy k-means basins (no LLM)
     Stage 2: chairman extracts decisions.jsonl
     Stage 3: 3-member council mines candidate pairs; chairman applies
@@ -418,6 +421,10 @@ def build_me_via_lens_pipeline(
 
     `dry_run=True` runs Stage 1 + sampling only (no LLM calls), useful
     to inspect the corpus topology before committing to a full rebuild.
+
+    Stage 0 was ratified into the pipeline by council_6892781d06ac3fa8
+    (highest-leverage import from taste-terminal) + council_e7560934cb1f1d72
+    (Option A with deterministic post-validators); see me/turn_pairs.py.
     """
     from .config import load_config
     from .me.pipeline import (
