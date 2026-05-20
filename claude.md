@@ -64,7 +64,7 @@ silently doesn't fire today.
 1. **No LLM calls outside councils.** Ingest, embedding, theme assignment, search ranking, clustering — pure embeddings + heuristics + metadata. The only LLM invocations Trinity makes are council member calls and chairman synthesis calls, both riding user subscriptions.
 2. **Prompt content never uploads.** Even with v1.1 aggregation enabled, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. Anonymous, opt-in only.
 3. **Local-first inference.** Phase 9's learned router runs on the user's hardware. No hosted controller. No per-call API billing.
-4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own CLI subscriptions (Claude Code, Codex, Gemini / Antigravity CLI). If anyone proposes a hosted API tier, push back hard — that destroys both cost basis and privacy.
+4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own CLI subscriptions (Claude Code, Codex, Gemini CLI). If anyone proposes a hosted API tier, push back hard — that destroys both cost basis and privacy.
 5. **HF Hub offline by default.** `main()` pins `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` via `setdefault` at startup. The embedding model is pulled once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`; after that Trinity loads from `~/.cache/huggingface/hub/` and never contacts the Hub during normal operation. Privacy + reliability invariant — no surprise outbound calls from the running system, no telemetry to upstream model hosts, MCP child processes inherit the env so the guarantee propagates through every spawn.
 
 ## Patterns extracted from the fixes (meta-principles)
@@ -531,7 +531,7 @@ A few words do specific work; they get conflated otherwise:
 - **council** — multi-model deliberation (parallel or chain) ending in chairman synthesis.
 - **chairman** — the synthesis model in a single council. Reads `core.md`, emits structured Routing JSON. Per-call role.
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
-- **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini / Antigravity CLI, Cursor). Trinity registers as an MCP server inside each via `install-mcp`. (Cowork — Anthropic Managed Agents — is an ingest source via `parse_cowork_session`, not a dispatch target or MCP harness; adapter wanted but blocked on Anthropic's stable API, see `CONTRIBUTING.md`.)
+- **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Gemini CLI, Cursor). Trinity registers as an MCP server inside each via `install-mcp`. (The Gemini CLI binary moved from `gemini` to `agy` via the Antigravity transition pre-June 18, 2026 — both read MCP servers from the same `~/.gemini/settings.json`, so the harness brand label stays "Gemini CLI" in user-facing copy. Cowork — Anthropic Managed Agents — is an ingest source via `parse_cowork_session`, not a dispatch target or MCP harness; adapter wanted but blocked on Anthropic's stable API, see `CONTRIBUTING.md`.)
 - **member** — a provider acting as one voice in a council. Canonical term across code AND marketing copy (the Tier 2 #6 "rename to seat" was unwound; "seat" was tried as a table metaphor but never caught on, and code structures like `members=[...]` made the rename costly without payoff).
 - **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
 
@@ -553,7 +553,7 @@ After a council, treat the chairman's synthesis (especially `agreed_claims` / `d
 
 ## Install / surface notes
 
-Run `trinity-local install-mcp` once to register Trinity's MCP server with Claude Code (`~/.claude.json`), Gemini / Antigravity CLI (`~/.gemini/settings.json` — merges into existing `mcpServers`), and Codex CLI (`~/.codex/config.toml`). Each harness spawns `trinity-local --mcp` as a stdio child when it starts; it lives until the harness exits. ~62MB resident while connected.
+Run `trinity-local install-mcp` once to register Trinity's MCP server with Claude Code (`~/.claude.json`), Gemini CLI (`~/.gemini/settings.json` — merges into existing `mcpServers`; the same file is read by the `agy` binary after Google's June-18 Antigravity transition), and Codex CLI (`~/.codex/config.toml`). Each harness spawns `trinity-local --mcp` as a stdio child when it starts; it lives until the harness exits. ~62MB resident while connected.
 
 The launchpad → Chrome extension → Native Messaging → `trinity-local-capture-host` → CLI pipeline is independent of MCP — it's one-shot subprocess at every step, no persistent process required. So the launchpad keeps working even if MCP is disabled. (The earlier macOS Shortcut dispatch path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch in favor of the cross-platform Chrome extension; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
 
