@@ -2293,3 +2293,45 @@ class TestPostLaunchTenseConsistency:
                 "records that legitimately quote prior state)."
             )
             raise AssertionError("\n".join(msg))
+
+
+class TestCanonicalPlaceholdersAreRendered:
+    """Catch the meta-drift class: 'someone added/removed tests but
+    didn't re-run scripts/render_docs.py.'
+
+    Earlier this session the canonical placeholders sat at 1560 while
+    the live count was 1558 — the renderer had run in a prior tick
+    when the test set was different, then test_doc_class_frontmatter
+    lost 2 parametrized cases (docs/index.md deletion) without the
+    renderer being re-invoked. The N=6 four-surfaces-agree test
+    passed because all six surfaces drifted in lockstep — they all
+    said 1560.
+
+    `scripts/render_docs.py --check` exits 1 if any canonical
+    placeholder is out-of-date relative to its derivation function.
+    Spawning it from pytest catches this exact shape without
+    duplicating the canonical-computation logic here.
+
+    Cost: ~5s (renderer spawns pytest --collect-only internally).
+    Acceptable for a single-test guard that closes the meta-loop.
+    """
+
+    def test_render_docs_check_exits_clean(self):
+        import subprocess
+        result = subprocess.run(
+            [".venv/bin/python", "scripts/render_docs.py", "--check"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            raise AssertionError(
+                "scripts/render_docs.py --check reports canonical-placeholder "
+                "drift. The likely cause: tests/CLI/MCP-tools/etc changed but "
+                "the canonical-rendered docs weren't re-flowed. Run:\n\n"
+                "    python scripts/render_docs.py\n\n"
+                "to update the placeholders, then commit. Stdout:\n"
+                f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
+            )
