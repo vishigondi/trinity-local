@@ -64,6 +64,31 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-20 consistency-sweep retirement ──
+    "models_dir": RetirementRecord(
+        name="models_dir",
+        retired_at="2026-05-20",
+        commit="0ae3a40",
+        replacement="hf_cache_model_path() in backend_mlx (reports HF cache)",
+        reason="state_paths helper built ~/.trinity/models/<name>/ but nothing "
+               "read the resulting path; the actual model lives in HF cache. "
+               "Tick 28 dropped the dead helper + the misleading model_path() "
+               "wrapper in backend_mlx; MlxEmbedder.model_path now points at "
+               "the real ~/.cache/huggingface/hub/ location.",
+        kind="module",
+        artifact_persists=True,  # empty ~/.trinity/models/ may exist on older installs
+    ),
+    "~/.trinity/models/": RetirementRecord(
+        name="~/.trinity/models/",
+        retired_at="2026-05-20",
+        commit="0ae3a40",
+        replacement="~/.cache/huggingface/hub/models--nomic-ai--nomic-embed-text-v1.5",
+        reason="Directory created as side-effect of the unused models_dir() "
+               "helper. Actual nomic weights cached by sentence-transformers "
+               "in HF cache, not here. Safe to delete on user systems.",
+        kind="file",
+        artifact_persists=True,
+    ),
     # ── 2026-05-18 simplification pass ──
     "doctor": RetirementRecord(
         name="doctor",
