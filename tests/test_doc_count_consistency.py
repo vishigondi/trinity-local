@@ -2105,6 +2105,97 @@ class TestNoRetiredCliInSrcQuotedStrings:
             raise AssertionError("\n".join(msg))
 
 
+class TestNoRetiredMcpToolEnumeratedAsLive:
+    """Permanent guard born of tick 45 of the post-launch sweep.
+    `search_prompts` was retired 2026-05-17 (per the registry +
+    SKILL.md), but product-spec.md kept it in its numbered MCP-tool
+    enumeration as tool #5 — and the same enumeration was missing
+    `handoff`, which had been added as the launch-arc tool #9. The
+    header said "9 total" but the body still enumerated the pre-
+    retirement 9. spec-v1.5.md's "MCP stable contract" table had
+    the same drift, contradicting its own L278 drift note.
+
+    Guard shape: for every retired MCP tool from the registry, walk
+    user-facing long-form docs and fail if the tool name appears in
+    a numbered-enumeration position (`N. **\\`tool_name\\`** ...` or
+    `N. **\\`tool_name(...)\\`** ...`). Historical-context mentions
+    in prose ("formerly", "retired", "deliberately deleted") stay
+    legal because they don't fit the enumeration regex.
+
+    Why this matters: a doc reader scanning for "what MCP tools
+    exist" lands on numbered lists first. A retired tool listed
+    there is a credibility loss + a literal misdirection — an LLM
+    agent reading the doc would call a tool that doesn't exist.
+    Same shape as TestNoRetiredCliInSrcQuotedStrings, one layer up.
+    """
+
+    # User-facing long-form docs where MCP tools get enumerated.
+    # Excluded: CHANGELOG (frozen history), simplification_log
+    # (historical decision log), sweep-patterns (pattern catalog,
+    # legitimately names the retired tool to illustrate the pattern),
+    # scale-plan (class: aspirational), spec-v2 (sunset), spec-v1.6
+    # (forward-trajectory aspirational doc), architectural-gaps
+    # (literally contains the registry entries).
+    DOCS_TO_CHECK = (
+        "claude.md",
+        "README.md",
+        "docs/product-spec.md",
+        "docs/spec-v1.md",
+        "docs/spec-v1.5.md",
+        "docs/architecture.md",
+        "skills/trinity/SKILL.md",
+    )
+
+    def test_no_retired_mcp_tool_in_numbered_enumeration(self):
+        import re
+        from trinity_local.retired_names import RETIRED
+        repo = Path(__file__).resolve().parent.parent
+        retired_mcp_tools = [
+            name for name, rec in RETIRED.items()
+            if rec.kind == "mcp_tool"
+        ]
+        assert retired_mcp_tools, "Registry has no MCP-tool entries — guard would silently pass"
+
+        # Numbered enumeration line:
+        #   N. **`tool_name`** ...
+        #   N. **`tool_name(args)`** ...
+        # `N` is 1-99 (decimal). The bold-backtick pattern is the
+        # MCP-tool-enumeration idiom across all long-form docs.
+        def pattern_for(tool: str) -> re.Pattern:
+            return re.compile(
+                r"^\s*\d+\.\s+\*\*`" + re.escape(tool) + r"(\(|`)",
+            )
+
+        hits: list[tuple[str, int, str, str]] = []
+        for doc in self.DOCS_TO_CHECK:
+            path = repo / doc
+            if not path.exists():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for tool in retired_mcp_tools:
+                    if pattern_for(tool).search(line):
+                        hits.append((doc, lineno, tool, line.strip()[:120]))
+        if hits:
+            msg = ["Retired MCP tools enumerated as live in user-facing docs:"]
+            for doc, lineno, tool, snippet in hits:
+                msg.append(f"  {doc}:{lineno} enumerates retired `{tool}`")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "Update the enumeration to drop the retired tool and "
+                "add a one-line drift note if the surrounding count "
+                "claim ('N total') needs reconciling. Historical-context "
+                "mentions outside numbered-enumeration syntax are still "
+                "legal — this guard only fires on the `N. **`tool`**` "
+                "MCP-tool enumeration idiom."
+            )
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoForbiddenColorsInLaunchpadTemplates:
     """Permanent guard born of iter #37 of the consistency-loop.
     DESIGN.md is explicit: lines 297 + 343 forbid indigo, violet,

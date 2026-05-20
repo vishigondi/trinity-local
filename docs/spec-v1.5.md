@@ -795,7 +795,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 |---|---|
 | `~/.trinity/SCHEMA_VERSION` lock | v1.5 adds `cortex/` subdir without renaming existing |
 | Routing JSON ledger canonical fields | v1.5 cortex extracts patterns from these — schema is the training data shape |
-| MCP stable contract | `record_outcome`, `search_prompts`, `get_persona`, `get_council_status` unchanged; `run_council` aliased to `compare`; `route` deprecated |
+| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` aliased to `compare`; `route` deprecated. (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
 | Embeddings pipeline (nomic 768d) | v1.5 uses same index — no re-embedding required |
 | Lens-discovery outputs (basins, lenses, rejections) | topics.json is the cortex consolidation key; lenses are the eval set |
 | Privacy posture (prompts never upload) | unchanged. Cortex consolidation runs on user's flagship sub — local dispatch, not hosted. |
