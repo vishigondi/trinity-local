@@ -131,7 +131,8 @@ def render_member_prompt(bundle: PromptBundle) -> str:
            low — don't pivot the question, answer it."
 
     Inputs already on disk: ~/.trinity/me/rejections.jsonl (per-axis
-    rejection signal), ~/.trinity/me/lens.md (paired tensions),
+    rejection signal — lens-pipeline internals dir), ~/.trinity/memories/lens.md
+    (paired tensions — cognitive-lens artifact the chairman reads),
     ~/.trinity/scoreboard/picks.json (per-task_type winner rules).
 
     Not implemented yet. When implemented, callers in council_runner.py
