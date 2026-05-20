@@ -2174,3 +2174,82 @@ class TestNoForbiddenColorsInLaunchpadTemplates:
                 "the same commit."
             )
             raise AssertionError("\n".join(msg))
+
+
+class TestPostLaunchTenseConsistency:
+    """Today is post-launch (v1.0 shipped 2026-05-14). Public-facing
+    docs must not describe the launch in future tense ("ships May
+    13–15"), or visitors arriving from keepwhatworks.com / GitHub
+    read it as if the project hasn't launched yet.
+
+    Two exceptions are intentional:
+      - CHANGELOG.md — historical record; the "ship window" entries
+        are quoting state at the time and SHOULD stay future-tense.
+      - PUBLIC_READINESS_PLAN.md — audit log with literal quotes of
+        prior doc state ("status block still said …"); those quoted
+        strings are evidence, not claims.
+
+    Guard added 2026-05-19 after a consistency-sweep grep found 8
+    surfaces (claude.md, docs/spec-v1.md, docs/spec-v1.5.md,
+    docs/product-spec.md ×2, docs/launch-package.md, docs/scale-plan.md,
+    docs/spec-v1.md launch-day line) all reading "ships May 13–15" in
+    present/future tense. Per principle #21 ("public claims need
+    regression guards at the surface that ships them"), the tense
+    consistency now has its own guard.
+    """
+
+    FUTURE_TENSE_PATTERNS = [
+        # The specific dated phrase that was scattered across docs.
+        "ships May 13–15",
+        "will ship May 13–15",
+        "ship for May 13–15",
+        "May 13–15 ship",
+    ]
+
+    EXEMPT_FILES = {
+        # Historical records; future-tense framing belongs there.
+        "CHANGELOG.md",
+        "docs/PUBLIC_READINESS_PLAN.md",
+    }
+
+    def test_no_future_tense_launch_framing_in_public_docs(self):
+        repo = Path(__file__).resolve().parents[1]
+        hits: list[tuple[str, int, str]] = []
+        for md in sorted(repo.rglob("*.md")):
+            rel = md.relative_to(repo).as_posix()
+            if rel in self.EXEMPT_FILES:
+                continue
+            # Skip vendored/node_modules/etc
+            if any(part.startswith(".") for part in md.parts):
+                continue
+            if "node_modules" in md.parts or ".venv" in md.parts:
+                continue
+            # Skip the in-repo memory dir if it ever ends up here
+            if "memory" in md.parts and md.parts.index("memory") == 0:
+                continue
+            try:
+                text = md.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, line in enumerate(text.splitlines(), 1):
+                for pat in self.FUTURE_TENSE_PATTERNS:
+                    if pat in line:
+                        hits.append((rel, lineno, line.strip()[:160]))
+        if hits:
+            msg = [
+                "Future-tense launch framing found in public docs after "
+                "v1.0 already shipped (2026-05-14):",
+                "",
+            ]
+            for rel, lineno, snippet in hits:
+                msg.append(f"  {rel}:{lineno}")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "Replace future-tense ('ships May 13–15') with past-tense "
+                "('shipped May 13–15, 2026') so visitors to public docs "
+                "don't read the project as pre-launch. Exemptions live in "
+                "EXEMPT_FILES (CHANGELOG, PUBLIC_READINESS_PLAN — historical "
+                "records that legitimately quote prior state)."
+            )
+            raise AssertionError("\n".join(msg))

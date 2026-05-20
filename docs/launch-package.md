@@ -181,8 +181,8 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~<!-- canonical:test_count -->1545<!-- /canonical --> tests
-  #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->41<!-- /canonical --> doc-consistency guards
+  #   pytest -q                                  # ~<!-- canonical:test_count -->1557<!-- /canonical --> tests
+  #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->42<!-- /canonical --> doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check
 
@@ -191,7 +191,7 @@ all point at the same architectural claim.
   # → every github.com/vishigondi/trinity-local URL in launch copy goes 200
 
   # 3. Tag v1.7.4 (matches pyproject.toml version)
-  git tag -a v1.7.4 -m "Trinity Local v1.7 — ships May 13–15, 2026"
+  git tag -a v1.7.4 -m "Trinity Local v1.7 — shipped May 13–15, 2026"
   git push origin v1.7.4
 
   # 4. (No PyPI publish — Trinity ships as a git clone via curl-bash; see

@@ -4,7 +4,7 @@ class: aspirational
 
 # Trinity Local: Scale to Every Claude Code User
 
-> **Status (2026-05-11):** v1.0 ships May 13–15 — see [`../CHANGELOG.md`](../CHANGELOG.md)
+> **Status (2026-05-19):** v1.0 shipped May 13–15, 2026 — see [`../CHANGELOG.md`](../CHANGELOG.md)
 > and [`spec-v1.md`](spec-v1.md). Phases 0–8 below describe the v1 substrate (lens
 > pipeline, ledger, embeddings, MCP server). All accurate as v1 reference.
 >
@@ -796,7 +796,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: <!-- canonical:test_count -->1545<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
+>   tests after dead-code removal." Live: <!-- canonical:test_count -->1557<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.

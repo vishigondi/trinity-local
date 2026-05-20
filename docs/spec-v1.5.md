@@ -804,7 +804,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 - **Phone home.** Same privacy posture as v1. Cortex consolidation runs locally
   on the user's own subscription.
 - **Charge.** Free-forever stays.
-- **Ship before v1.0.** v1.5 follows v1.0. v1.0 ships May 13–15 as planned.
+- **Ship before v1.0.** v1.5 follows v1.0. v1.0 shipped May 13–15, 2026 as planned.
 
 ## Path past v1.5 (when / if needed)
 

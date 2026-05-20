@@ -4,7 +4,7 @@ class: live
 
 # Trinity v1.0 — locked launch spec
 
-> Status: **locked for May 13–15 ship.** Schema, tagline, MCP surface, and folder layout all
+> Status: **shipped May 13–15, 2026.** Schema, tagline, MCP surface, and folder layout all
 > frozen at v1. Changes to anything in this file are breaking-API changes and need to wait
 > for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
@@ -230,7 +230,7 @@ unmeasurable without telemetry that violates the privacy posture (see disagreeme
 | Day 6 | HN post drafted, Twitter thread polished, Product Hunt assets prepped |
 | Day 7 | Final dry-run; ship trigger |
 
-Launch day = May 13–15 per the multiple councils that ratified the conditional ship.
+Launch day = May 13–15, 2026 per the multiple councils that ratified the conditional ship.
 
 ## Disagreements applied (the pushback from the original spec)
 
