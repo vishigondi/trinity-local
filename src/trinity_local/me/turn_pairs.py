@@ -10,7 +10,11 @@ is **deterministic post-validators** that drop chairman-emitted labels
 when they fail simple structural checks. Without those validators, A is
 just chairman skimming with nice JSON — net negative.
 
-Four implicit rejection signal types from TASTE_WIKI_SCHEMA.md:
+Four implicit rejection signal types — adapted from the external
+taste-terminal spec, ratified into Trinity's pipeline by
+`council_6892781d06ac3fa8` (Stage 0 as the highest-leverage import)
+and `council_e7560934cb1f1d72` (Option A with deterministic
+post-validators):
 
 - REFRAME: human accepted facts, rejected frame; substituted frame holds 2+ turns
 - COMPRESSION: model gave N words, human responded with ≤N/10 — what survived is wanted

@@ -204,19 +204,26 @@ def parse_pair_mining_output(raw: str) -> list[LensPair]:
 
 
 _MIN_BASINS_FOR_LENS = 3
-"""Spec threshold: TASTE_WIKI_SCHEMA.md mandates ≥3 domains supporting
-each lens. Trinity's basins are functionally equivalent to taste-terminal's
-domains (k-means topological clusters over PromptNode embeddings). Anything
-under 3 basins is a topic-bound preference — keep as ordering, not lens."""
+"""Spec threshold: ≥3 domains supporting each lens.
+
+Adapted from the external taste-terminal project's spec (no longer a
+Trinity runtime dependency — see claude.md "What was deliberately
+deleted" / `~/.taste/`). Trinity's basins are functionally equivalent
+to taste-terminal's domains: k-means topological clusters over
+PromptNode embeddings. Anything under 3 basins is a topic-bound
+preference — keep as ordering, not lens. Ratified into Trinity's
+lens pipeline by council `council_70eaf228d7753074` (Option C —
+basins as verifier, not chairman input)."""
 
 
 def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[LensPair]:
     """Stage 4: drop tension evidence that doesn't span enough basins.
 
-    Per spec (TASTE_WIKI_SCHEMA.md): "Minimum 3 domains supporting an
-    entry." Tension that sits in <3 basins is a domain-local virtue or
-    a stable preference, not a lens that two strangers would converge
-    on across unrelated topics.
+    Rule: minimum 3 domains supporting an entry. Tension that sits in
+    <3 basins is a domain-local virtue or a stable preference, not a
+    lens that two strangers would converge on across unrelated topics.
+    Adapted from the external taste-terminal spec; ratified into
+    Trinity by `council_70eaf228d7753074`.
 
     Verdicts:
     - accepted: ≥3 basins
