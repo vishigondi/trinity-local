@@ -126,7 +126,10 @@ class TestCouncilReviewMarkdown:
         assert "formatProviderLabel" in html
         assert "label: analysisLabel" in html
         assert "progressScriptBaseUrl" not in html
-        assert "stop_council" in html
+        # Stop button now dispatches via the Chrome extension instead
+        # of the retired shortcuts:// path — assert the dispatcher
+        # kind ('stop-council' per capture_host.ACTION_ALLOWLIST).
+        assert "'stop-council'" in html
         assert "fallbackMembers" in html
         assert "members: params.fallbackMembers" in html
         assert "Object.keys(memberMap).length ? Object.keys(memberMap) : (seg.runState?.memberOrder || [])" in html

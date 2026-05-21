@@ -222,6 +222,25 @@ ACTION_ALLOWLIST: dict[str, tuple | None] = {
             ("status-token", "status_token", True),
         ],
     ),
+    # Refine / iterate / auto-chain / continue all dispatch to
+    # `trinity-local council-iterate`. The legacy alias names
+    # (council_refine / council_continue / council_auto_chain) map
+    # to council_iterate per dispatch_registry.py L145, so a single
+    # extension allowlist entry covers all four buttons on the
+    # council-review page. council_review.py L519 was firing
+    # shortcuts:// for this until tick 140 — the macOS Shortcut
+    # dispatcher was retired pre-launch (claude.md L578), so the
+    # supervision loop's only signal path was silently dead. This
+    # entry restores it via the Chrome extension dispatch tier.
+    "council-iterate": (
+        "council-iterate",
+        [
+            ("council", "council", True),
+            ("prompt", "prompt", False),
+            ("rounds", "rounds", False),
+            ("status-token", "status_token", False),
+        ],
+    ),
     # Phase 4b (council_bf1ab3f4dd70f75e residual-drift cleanup): the seven
     # settings toggles. Each is a no-arg CLI subcommand — the narrowest
     # possible allowlist surface, satisfying the council's "do NOT add

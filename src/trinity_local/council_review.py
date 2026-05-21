@@ -210,12 +210,20 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     # file:///Users/.../trinity/... and http://localhost:PORT/... (when serving
     # ~/.trinity via `python -m http.server`). Absolute file:// hardcodes broke
     # the localhost dev path; relative paths resolve correctly in both contexts.
+    # Thread the Chrome extension ID into pageData so __TRINITY_DISPATCH__
+    # (loaded from launchpad_runtime_js below) can route refine/iterate
+    # clicks through chrome.runtime.sendMessage. Without this, the
+    # dispatcher sees `extensionId=null`, sets state='absent', and the
+    # refine button silently fails (the shortcuts:// fallback was
+    # retired pre-launch — see claude.md L578).
+    from .launchpad_data import _browser_extension as _ext_config
     page_data = {
         "councilId": council_id,
         "answers": answers_payload,
         "launchpadUrl": "../portal_pages/launchpad.html",
         "statusScriptBaseUrl": "../portal_pages/status",
         "shortcutName": DEFAULT_SHORTCUT_NAME,
+        "browserExtension": _ext_config(),
         "initialSelection": {
             "provider": selected_provider or "",
             "label": selected_label or "",
@@ -506,26 +514,49 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         }},
         _startChainAction(actionName, additionalArgs, heading, detail) {{
           const statusToken = this._newStatusToken();
-          const payload = {{
-            name: actionName,
-            args: Object.assign(
-              {{ council_id: pageData.councilId, status_token: statusToken }},
-              additionalArgs || {{}},
-            ),
-            metadata: {{ kind: actionName }},
-          }};
-          const encoded = encodeURIComponent(JSON.stringify(payload));
-          const shortcutName = encodeURIComponent(this.chain.shortcutName || 'Trinity Dispatch');
-          const shortcutsUrl = `shortcuts://run-shortcut?name=${{shortcutName}}&input=text&text=${{encoded}}`;
+          const args = additionalArgs || {{}};
 
           this.chainBusy = true;
           this.chainStatusHeading = heading;
           this.chainStatusDetail = detail;
 
-          // Fire the shortcut, then poll the new status_token in-place.
-          // When the new round completes, navigate to its review page.
-          this._fireShortcut(shortcutsUrl);
-          this._pollChainStatus(statusToken);
+          // All chain actions (council_continue / council_refine /
+          // council_auto_chain) map to `council-iterate` per
+          // dispatch_registry.py L145 — single CLI under the hood.
+          // The Chrome-extension allowlist (capture_host.py
+          // ACTION_ALLOWLIST['council-iterate']) accepts council,
+          // prompt, rounds, status-token. Previously this fired
+          // shortcuts://run-shortcut?name=Trinity%20Dispatch which
+          // silently no-op'd post-2026-05-17 Shortcut retirement —
+          // see claude.md L578. Now it goes through the canonical
+          // dispatcher.
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const extensionAction = {{
+            kind: 'council-iterate',
+            council: pageData.councilId,
+            'status-token': statusToken,
+          }};
+          if (args.prompt) extensionAction.prompt = args.prompt;
+          if (args.max_rounds) extensionAction.rounds = String(args.max_rounds);
+
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction,
+              onResult: (r) => {{
+                if (!r || !r.ok) {{
+                  this.chainBusy = false;
+                  this.chainStatusDetail = (r && r.reason) || (r && r.response && r.response.error) || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                  return;
+                }}
+                // Dispatch succeeded; the new round runs server-side.
+                // Poll the status_token to detect completion.
+                this._pollChainStatus(statusToken);
+              }},
+            }});
+          }} else {{
+            this.chainBusy = false;
+            this.chainStatusDetail = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
+          }}
         }},
         _pollChainStatus(statusToken) {{
           if (this._chainPollHandle) clearInterval(this._chainPollHandle);
@@ -617,6 +648,7 @@ def write_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) ->
 
 
 def render_live_council_page() -> str:
+    from .launchpad_data import _browser_extension as _ext_config
     head = render_html_head("Trinity — Council")
     footer = render_html_footer()
     page_data = {
@@ -628,6 +660,11 @@ def render_live_council_page() -> str:
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "launchpadUrl": "../portal_pages/launchpad.html",
         "reviewPagesBaseUrl": ".",
+        # Threaded so __TRINITY_DISPATCH__ on this page can route
+        # refine/iterate clicks through the Chrome extension. Without
+        # this, dispatcher.state='absent' and the refine button can't
+        # find a path to actually run council-iterate.
+        "browserExtension": _ext_config(),
     }
     return f"""{head}
   <style>
@@ -1635,40 +1672,57 @@ def render_live_council_page() -> str:
         stopCouncil() {{
           const last = this.segments[this.segments.length - 1];
           if (!last?.statusToken) return;
-          const payload = {{
-            name: 'stop_council',
-            args: {{ status_token: last.statusToken }},
-            metadata: {{ kind: 'stop_council', source: 'live_review' }},
-          }};
-          window.location.href = buildShortcutUrl(payload);
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'stop-council', 'status-token': last.statusToken }},
+              onResult: () => {{}},
+            }});
+          }}
         }},
         _newStatusToken() {{
           return 'chain_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-        }},
-        _fireShortcut(shortcutsUrl) {{
-          const a = document.createElement('a');
-          a.href = shortcutsUrl;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
         }},
         _startChainAction(actionName, additionalArgs, refinementText, heading, detail) {{
           const last = this.segments[this.segments.length - 1];
           if (!last?.councilId) return;
           const newToken = this._newStatusToken();
-          const payload = {{
-            name: actionName,
-            args: Object.assign(
-              {{ council_id: last.councilId, status_token: newToken }},
-              additionalArgs || {{}},
-            ),
-            metadata: {{ kind: actionName, source: 'live_council' }},
-          }};
+          const args = additionalArgs || {{}};
           this.chainBusy = true;
           this.chainStatusHeading = heading;
           this.chainStatusDetail = detail;
-          this._fireShortcut(buildShortcutUrl(payload));
+
+          // Same migration as the council-review page above: all
+          // chain actions (refine / continue / auto-chain) route to
+          // `trinity-local council-iterate` via the Chrome extension
+          // dispatcher. Shortcuts:// path retired pre-launch.
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const extensionAction = {{
+            kind: 'council-iterate',
+            council: last.councilId,
+            'status-token': newToken,
+          }};
+          if (args.prompt) extensionAction.prompt = args.prompt;
+          if (args.max_rounds) extensionAction.rounds = String(args.max_rounds);
+
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction,
+              onResult: (r) => {{
+                if (!r || !r.ok) {{
+                  this.chainBusy = false;
+                  this.chainStatusDetail = (r && r.reason) || (r && r.response && r.response.error) || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                  // Roll back the optimistic new segment we'd otherwise append.
+                  return;
+                }}
+              }},
+            }});
+          }} else {{
+            this.chainBusy = false;
+            this.chainStatusDetail = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
+            return;
+          }}
+
           this.clearPolling();
           this.refinePrompt = '';
           // Append a NEW segment for the next round; prior rounds stay
