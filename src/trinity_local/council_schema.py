@@ -19,7 +19,7 @@ _LEGACY_PROVIDER_ALIASES: dict[str, str] = {
 }
 
 
-def _normalize_provider_slug(slug: Any) -> Any:
+def normalize_provider_slug(slug: Any) -> Any:
     """Canonicalize a provider slug at the JSON-on-disk → Python boundary.
 
     Non-str values pass through unchanged (preserves None and any future
@@ -126,7 +126,7 @@ class CouncilChainStep:
         # load_council_outcome (tick 97). Closes the rename-arc gap on
         # chain-mode council steps.
         if "model_provider" in filtered:
-            filtered["model_provider"] = _normalize_provider_slug(filtered["model_provider"])
+            filtered["model_provider"] = normalize_provider_slug(filtered["model_provider"])
         return cls(**filtered)
 
 
@@ -196,14 +196,14 @@ class CouncilRoutingLabel:
         # downstream consumers (personal_routing aggregator, chairman
         # picker, launchpad) see the canonical slug only. See
         # _LEGACY_PROVIDER_ALIASES at the module top for the mapping.
-        filtered["winner"] = _normalize_provider_slug(filtered.get("winner", ""))
+        filtered["winner"] = normalize_provider_slug(filtered.get("winner", ""))
         if "runner_up" in filtered:
-            filtered["runner_up"] = _normalize_provider_slug(filtered["runner_up"])
+            filtered["runner_up"] = normalize_provider_slug(filtered["runner_up"])
         provider_scores = filtered.get("provider_scores")
         if isinstance(provider_scores, dict):
             normalized_scores: dict[str, Any] = {}
             for provider, sub in provider_scores.items():
-                key = _normalize_provider_slug(provider)
+                key = normalize_provider_slug(provider)
                 # If both legacy + canonical keys exist on disk, prefer
                 # the canonical (newest); legacy is silently overwritten.
                 # No outcome should carry both, so the conflict is rare.

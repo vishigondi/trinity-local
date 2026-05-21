@@ -61,7 +61,7 @@ def save_prompt_bundle(bundle: PromptBundle) -> Path:
 
 
 def load_prompt_bundle(path_or_bundle_id: str) -> PromptBundle:
-    from .council_schema import _normalize_provider_slug
+    from .council_schema import normalize_provider_slug
 
     path = Path(path_or_bundle_id)
     if not path.exists():
@@ -73,7 +73,7 @@ def load_prompt_bundle(path_or_bundle_id: str) -> PromptBundle:
     # Same pattern as load_council_outcome (tick 97) and
     # CouncilRoutingLabel.from_dict (tick 96).
     if "origin_provider" in raw:
-        raw["origin_provider"] = _normalize_provider_slug(raw["origin_provider"])
+        raw["origin_provider"] = normalize_provider_slug(raw["origin_provider"])
     return PromptBundle(**raw)
 
 
@@ -660,7 +660,7 @@ def register_pending_round(
 
 
 def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
-    from .council_schema import _normalize_provider_slug
+    from .council_schema import normalize_provider_slug
 
     path = Path(path_or_run_id)
     if not path.exists():
@@ -674,14 +674,14 @@ def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
     # same fix to the per-outcome provider fields + each member's
     # provider. See _LEGACY_PROVIDER_ALIASES in council_schema.py.
     if "primary_provider" in raw:
-        raw["primary_provider"] = _normalize_provider_slug(raw["primary_provider"])
+        raw["primary_provider"] = normalize_provider_slug(raw["primary_provider"])
     if "winner_provider" in raw:
-        raw["winner_provider"] = _normalize_provider_slug(raw["winner_provider"])
+        raw["winner_provider"] = normalize_provider_slug(raw["winner_provider"])
     normalized_members = []
     for member in raw.get("member_results", []):
         if isinstance(member, dict) and "provider" in member:
             member = dict(member)
-            member["provider"] = _normalize_provider_slug(member["provider"])
+            member["provider"] = normalize_provider_slug(member["provider"])
         normalized_members.append(member)
     members = [CouncilMemberResult(**member) for member in normalized_members]
     raw["member_results"] = members
