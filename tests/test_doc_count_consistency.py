@@ -2521,3 +2521,53 @@ class TestCanonicalPlaceholdersAreRendered:
                 "fall back to via config.py:76-82. Re-sync with:\n\n"
                 "    cp config.example.json src/trinity_local/data/config.example.json\n"
             )
+
+    def test_install_curl_commands_use_fsSL(self):
+        """Every `curl … install.sh | bash` form across the repo must use
+        `-fsSL` (or equivalent flags including `-f`). The `-f` flag makes
+        curl exit non-zero on HTTP errors — without it, a 4xx/5xx response
+        body (an HTML error page from CDN) gets piped directly into bash.
+        The landing page at docs/index.html shipped briefly with `-sSL`
+        before tick 88 caught it; this guard pins every install-command
+        surface to the safer flag set so the same drift can't recur.
+
+        Catches: `curl -sSL …install.sh | bash`, `curl -sL …install.sh | bash`,
+        any other form missing -f when piping into bash.
+        Excludes: prose narration of the form, comment lines, test fixtures.
+        """
+        import re
+        # Pattern: curl <flags> <url with install.sh> | bash
+        # Flags must include 'f' (in any order with s/S/L).
+        bad_pattern = re.compile(
+            r"curl\s+(-[sSL]+)\s+https?://\S+install\.sh\b[^\n]*\|\s*bash",
+            re.MULTILINE,
+        )
+        bad_hits: list[tuple[str, int, str]] = []
+        for ext in ("md", "html", "py", "sh", "toml"):
+            for f in REPO.rglob(f"*.{ext}"):
+                if ".venv" in str(f) or "node_modules" in str(f) or ".git/" in str(f):
+                    continue
+                if "launch_councils/" in str(f):
+                    continue
+                # Skip THIS test file (it contains the pattern in error messages)
+                if f.resolve() == Path(__file__).resolve():
+                    continue
+                try:
+                    text = f.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    continue
+                for m in bad_pattern.finditer(text):
+                    flags = m.group(1)
+                    if "f" in flags:
+                        continue  # has -f, safe
+                    line_no = text[:m.start()].count("\n") + 1
+                    bad_hits.append((str(f.relative_to(REPO)), line_no, m.group(0)))
+        if bad_hits:
+            details = "\n".join(f"  {p}:{ln}  {snip}" for p, ln, snip in bad_hits)
+            raise AssertionError(
+                "Install curl command missing -f flag (would pipe HTTP "
+                "error bodies into bash):\n\n" + details +
+                "\n\nFix: use `curl -fsSL …` (the -f makes curl exit "
+                "non-zero on 4xx/5xx instead of dumping the error page "
+                "into the shell)."
+            )
