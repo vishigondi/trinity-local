@@ -1865,10 +1865,23 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         }});
       }}
 
+      // Provider slug normalizer — the harness rename gemini → antigravity
+      // happened 2026-05-20, but historical council_outcomes/*.json files on
+      // disk still carry provider="gemini". This helper centralizes the
+      // alias at the read boundary so all downstream maps key on the
+      // canonical "antigravity" slug. When the historical outcomes are far
+      // enough in the past to stop caring (or a one-time batch migration
+      // ships), delete this function — the maps stay clean. (Per Trinity
+      // ask council 2026-05-21: "maps encode what's canonical; normalization
+      // encodes what's historical.")
+      function normalizeProviderSlug(slug) {{
+        return slug === 'gemini' ? 'antigravity' : slug;
+      }}
+
       // Provider color palette shared across both /100 charts.
       const palette = {{
         claude: 'rgba(213, 130, 79, 0.85)',
-        gemini: 'rgba(86, 120, 156, 0.85)',
+        antigravity: 'rgba(86, 120, 156, 0.85)',
         codex: 'rgba(78, 138, 109, 0.85)',
         mlx: 'rgba(124, 96, 130, 0.85)',
       }};
@@ -1912,7 +1925,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             const v = benchmarks[cat]?.models?.[provider];
             return (v === null || v === undefined) ? null : v;
           }}),
-          backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
+          backgroundColor: palette[normalizeProviderSlug(provider)] || 'rgba(120, 120, 120, 0.85)',
           borderRadius: 4,
         }}));
         buildGroupedBar('reference-evals-chart', datasets);
@@ -1946,7 +1959,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
             return Math.round(mean * 10 * 10) / 10;  // 0-10 → 0-100, 1 decimal
           }}),
-          backgroundColor: palette[provider] || 'rgba(120, 120, 120, 0.85)',
+          backgroundColor: palette[normalizeProviderSlug(provider)] || 'rgba(120, 120, 120, 0.85)',
           borderRadius: 4,
         }}));
         // Only render if at least one bar has data.
@@ -2002,10 +2015,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       if (!provider) {{
         return '';
       }}
-      const normalized = String(provider).trim().toLowerCase();
+      // Normalize before lookup — gemini → antigravity per the 2026-05-20
+      // harness rename. Historical outcomes on disk still carry "gemini"
+      // but the canonical labels map keys on "antigravity".
+      const normalized = normalizeProviderSlug(String(provider).trim().toLowerCase());
       const labels = {{
         claude: 'Claude',
-        gemini: 'Gemini',
+        antigravity: 'Antigravity',
         codex: 'Codex',
         mlx: 'MLX',
         openai: 'OpenAI',

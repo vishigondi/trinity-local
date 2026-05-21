@@ -1263,14 +1263,23 @@ def render_live_council_page() -> str:
       }};
     }}
 
+    // Provider slug normalizer — the harness rename gemini → antigravity
+    // happened 2026-05-20, but historical council_outcomes/*.json files on
+    // disk still carry provider="gemini". Centralize the alias here so the
+    // canonical labels map keys on "antigravity" only. Delete this helper
+    // when historical outcomes are far enough in the past to stop caring.
+    function normalizeProviderSlug(slug) {{
+      return slug === 'gemini' ? 'antigravity' : slug;
+    }}
+
     function formatProviderLabel(provider) {{
       if (!provider) {{
         return '';
       }}
-      const normalized = String(provider).trim().toLowerCase();
+      const normalized = normalizeProviderSlug(String(provider).trim().toLowerCase());
       const labels = {{
         claude: 'Claude',
-        gemini: 'Gemini',
+        antigravity: 'Antigravity',
         codex: 'Codex',
         mlx: 'MLX',
         openai: 'OpenAI',
