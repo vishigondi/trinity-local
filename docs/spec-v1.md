@@ -115,7 +115,7 @@ OR the launch hook. Mapping:
 |---|---|---|
 | `council` | `run_council` | Stable contract |
 | `query_lens` | ~~`search_prompts`~~ retired 2026-05-17 | Substring + recency + replay-value heuristics replaced embedding search on the hot path. Querying the lens now happens implicitly — every council loads `~/.trinity/memories/lens.md` via `get_persona`. |
-| `add_pair` | `record_outcome` | Stable contract |
+| `add_pair` | ~~`record_outcome`~~ retired 2026-05-21 | The MCP rating tool was sunset alongside the rest of the user-rating UX. Chairman's `routing_label.winner` is now the supervision signal, fed automatically into `compute_personal_routing_table()` (commit bb817b6). CLI `council-rate` still works for power users who want to write verdicts from the terminal. |
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |
 | — | `get_persona` | Extended (reads `lens.md` so harnesses don't re-fetch per call) |
