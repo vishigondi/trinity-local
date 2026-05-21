@@ -2548,9 +2548,20 @@ class TestNoRetiredCliInSrcQuotedStrings:
     panel unprotected.
     """
 
-    # CLI subcommands KNOWN to be retired (extracted from this session's
-    # commit log). When adding a new retirement, add the bare subcommand
-    # name here in the same commit that drops it from CORE_COMMAND_MODULES.
+    # CLI subcommands KNOWN to be retired. The retired_names.py registry
+    # (Gap B, task #124) is the authoritative declaration — add a
+    # RetirementRecord there in the same commit that drops a CLI from
+    # CORE_COMMAND_MODULES, and the entry must also appear here so the
+    # guard polices the runtime-visible quoted-string surface.
+    #
+    # Test test_retired_cli_set_is_subset_of_registry below asserts the
+    # registry covers every name in this set; iter #27 (2026-05-21)
+    # backfilled 22 missing records to close the historical drift.
+    # `search-prompts` is intentionally present here but NOT in the
+    # registry: the dashed form was never a CLI subcommand (the MCP
+    # tool was `search_prompts` with underscore, already registered);
+    # the dashed entry stays as defensive coverage so a future contributor
+    # can't reintroduce a CLI by mistake.
     RETIRED_CLI = frozenset({
         "doctor",
         "watch-once", "watch-loop",
@@ -2580,6 +2591,52 @@ class TestNoRetiredCliInSrcQuotedStrings:
         "src/trinity_local/commands/install.py",   # stale-hook cleanup detection
         "src/trinity_local/commands/trust.py",     # deferred-to-v1.1 docstring
     })
+
+    def test_retired_cli_set_is_subset_of_registry(self):
+        """The retired_names.py registry is the canonical source of
+        truth for retirements (per its module docstring: 'the registry
+        IS the source of truth'). This guard's RETIRED_CLI set must
+        match it — every CLI subcommand we police here should have a
+        RetirementRecord with kind='cli' + commit + replacement + reason.
+
+        Drift caught 2026-05-21 iter #27: 22 of the 30 CLIs in
+        RETIRED_CLI had no record in the registry (`stats`, `metric`,
+        `council-last`, the auto-chain/auto-open/polish-auto family,
+        the cache-stats/cache-clear pair, the task/bundle/launch
+        ghost-registers, core-show/depth-show, the trust-CLI deferred
+        triple). The hand-maintained set grew as each simplification
+        landed, but the registry — which is supposed to be the single
+        source — only had 9 of them. Without this guard, every future
+        retirement risks the same shape: the user-facing guard catches
+        the buttons-and-hints in src/, but the structured declaration
+        (used by docs renderers, runtime migration hints, MIGRATION.md
+        consistency checks) stays empty.
+
+        Exception: `search-prompts` (dashed). Was never a CLI — the
+        MCP tool retirement is `search_prompts` (underscore, already
+        in the registry as kind=mcp_tool). The dashed entry stays in
+        RETIRED_CLI as defensive coverage so a future contributor can't
+        introduce a `trinity-local search-prompts` CLI by mistake.
+        """
+        from trinity_local.retired_names import RETIRED
+        registry_clis = {
+            name for name, rec in RETIRED.items() if rec.kind == "cli"
+        }
+        defensive_only = {"search-prompts"}  # documented above
+        expected_in_registry = self.RETIRED_CLI - defensive_only
+        missing = expected_in_registry - registry_clis
+        if missing:
+            raise AssertionError(
+                "RETIRED_CLI lists names with no RetirementRecord in "
+                "src/trinity_local/retired_names.py. The registry is "
+                "the canonical declaration; the guard's set should be "
+                "a subset of it (plus the defensive exception for "
+                "`search-prompts`). Missing:\n  - "
+                + "\n  - ".join(sorted(missing))
+                + "\n\nAdd a RetirementRecord(name=<n>, retired_at=<iso>, "
+                "commit=<sha>, replacement=<what-instead>, reason=<one-line>, "
+                "kind='cli') for each missing entry in the same commit."
+            )
 
     def test_no_retired_cli_strings_in_src(self):
         import re
