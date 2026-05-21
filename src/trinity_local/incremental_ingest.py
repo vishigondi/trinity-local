@@ -9,9 +9,12 @@ embedding-free, only seed and consolidation pay the embed cost.
 
 Deadline-bounded: the caller passes ``deadline_s`` (default 2s) and we
 persist the cursor at whichever path we got to so the next call resumes.
-Designed to fire-and-forget at the start of MCP ``ask`` /
-``search_prompts`` so newly-typed prompts become routable without a
-manual ``seed-from-taste-terminal`` rerun.
+Designed to fire-and-forget at the start of MCP ``ask`` (and the
+Chrome extension's ``ingest-recent`` action) so newly-typed prompts
+become routable without a manual ``seed-from-taste-terminal`` rerun.
+(The ``search_prompts`` MCP tool that previously co-triggered this
+was retired 2026-05-17 — substring + recency + replay-value
+heuristics replaced it per retired_names.py.)
 """
 from __future__ import annotations
 

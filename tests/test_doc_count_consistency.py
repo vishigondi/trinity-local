@@ -3053,6 +3053,102 @@ class TestNoRetiredCliInSrcQuotedStrings:
             )
             raise AssertionError("\n".join(msg))
 
+    def test_no_retired_mcp_tool_in_py_docstrings(self):
+        """Iter #32 catch — sibling of iter #30's
+        test_no_retired_cli_in_src_docstrings, pointed at retired MCP
+        TOOLS instead of CLIs. Same drift class one dimension over.
+
+        Caught 2026-05-21 iter #32: incremental_ingest.py:13 module
+        docstring claimed ingest fires from "MCP `ask` /
+        `search_prompts`" — but `search_prompts` was retired
+        2026-05-17 (registry confirms). The fire-on-MCP-call behavior
+        is real; the named tool just drifted. A developer reading
+        incremental_ingest.py would see `search_prompts` named as a
+        live MCP trigger and try to call it — would get tool-not-found
+        at the MCP layer.
+
+        Different surface from existing
+        TestLiveDocsDontClaimRetiredMcpToolsAsLive guard: that one
+        scans long-form docs (.md). This one scans source-code
+        docstrings (.py). Both shapes can drift; both surfaces need
+        guards. Sources the retired MCP set from the registry so
+        future MCP-tool retirements automatically extend coverage.
+
+        Whole-docstring marker scope (same as the iter-30 CLI guard):
+        a single retirement note anywhere in the same docstring
+        block exempts every retired-tool mention in that block —
+        e.g. mcp_server.py legitimately names `record_outcome` in
+        the long comment explaining why it was retired.
+        """
+        import re
+
+        from trinity_local.retired_names import RETIRED
+
+        retired_mcp = {
+            name for name, rec in RETIRED.items() if rec.kind == "mcp_tool"
+        }
+        if not retired_mcp:
+            raise AssertionError(
+                "retired_names.py has no kind='mcp_tool' records — "
+                "registry is incomplete; cannot scan."
+            )
+
+        mcp_pattern = re.compile(
+            r"`(" + "|".join(re.escape(t) for t in retired_mcp) + r")`"
+        )
+        docstring_pattern = re.compile(
+            r'("""(?:.|\n)*?"""|\'\'\'(?:.|\n)*?\'\'\')',
+            re.MULTILINE,
+        )
+        markers = (
+            "retired", "former", "absorbed", "collapsed", "replaced",
+            "sunset", "was ", "deprecat", "no longer", "removed",
+            "deleted", "renamed", "→", "legacy", "subsume",
+            "pre-rename", "post-rename",
+        )
+
+        hits: list[tuple[str, int, str, str]] = []
+        scan_roots = [REPO / "src" / "trinity_local", REPO / "tests"]
+        for root in scan_roots:
+            for path in root.rglob("*.py"):
+                rel = path.relative_to(REPO).as_posix()
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+                for ds_match in docstring_pattern.finditer(text):
+                    block = ds_match.group(1)
+                    block_lower = block.lower()
+                    if any(mk in block_lower for mk in markers):
+                        continue
+                    for m in mcp_pattern.finditer(block):
+                        abs_offset = ds_match.start() + m.start()
+                        line_no = text[:abs_offset].count("\n") + 1
+                        tool = m.group(1)
+                        snippet = block[max(0, m.start() - 40):m.end() + 40].replace("\n", " ").strip()[:140]
+                        hits.append((rel, line_no, tool, snippet))
+        if hits:
+            msg = [
+                "Retired MCP tool referenced in a .py docstring without "
+                "any retirement marker in the same docstring block:"
+            ]
+            for rel, line, tool, snippet in hits:
+                msg.append(f"  {rel}:{line} mentions retired MCP `{tool}`")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "A docstring naming a retired MCP tool in present "
+                "tense (e.g. \"fires from MCP `search_prompts`\") "
+                "directs developers and agents to a tool that doesn't "
+                "exist. Fix: rename to the live successor (per "
+                "retired_names.py) and add a parenthetical noting the "
+                "retirement so a future reader doesn't reintroduce "
+                "the old name. Whole-docstring marker scope: a single "
+                "retirement note at the top of the block covers every "
+                "mention in the same block."
+            )
+            raise AssertionError("\n".join(msg))
+
     def test_no_retired_cli_in_test_docstrings(self):
         """Sibling guard born of iter #25 of the post-launch sweep.
         The `src/` scanner above catches retired CLIs in user-facing
