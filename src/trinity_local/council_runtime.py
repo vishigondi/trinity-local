@@ -126,7 +126,7 @@ def render_member_prompt(bundle: PromptBundle) -> str:
         → prepends "User has historically rejected over-engineered
            answers (COMPRESSION rejection signal n=8, mean 0.50 on
            your corpus). Prefer the tightest answer that lands."
-        render_member_prompt(bundle, provider_name="gemini", lens=...)
+        render_member_prompt(bundle, provider_name="antigravity", lens=...)
         → prepends "User's REFRAME rejection rate on your corpus is
            low — don't pivot the question, answer it."
 

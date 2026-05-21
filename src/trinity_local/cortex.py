@@ -695,7 +695,7 @@ Return a single JSON object (no prose around it) matching this exact shape:
   "failure_modes": {{
     "claude": "<one-phrase failure mode when claude loses in this basin, or null>",
     "codex": "<...>",
-    "gemini": "<...>"
+    "antigravity": "<...>"
   }},
   "successful_prompts": {{
     "claude": ["<first-words pattern of a prompt that worked>", "<another>"],
