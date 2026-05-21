@@ -3632,6 +3632,75 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_command_module_count_claim_matches_main_py(self):
+        """Iter #35 catch — claude.md's architecture section L597
+        asserts "22 user-facing command modules (21 in
+        CORE_COMMAND_MODULES + `install` in OPTIONAL_COMMAND_MODULES)".
+        Iter #35 also caught L381 saying "21-command surface" — same
+        metric, different number, because `install` was promoted to
+        OPTIONAL_COMMAND_MODULES after the L381 prose was written
+        and the count never propagated. L381 is now using the
+        canonical cli_command_count placeholder (44 subcommands),
+        eliminating that drift.
+
+        Guard shape: import CORE_COMMAND_MODULES + OPTIONAL_COMMAND_MODULES
+        from main.py, count both, assert claude.md's prose count
+        matches. The "22 user-facing command modules" claim is the
+        load-bearing public statement of v1.7.4's contract — drift
+        here lies to a reader about the surface they get.
+
+        Pattern catalog: principle #20 (drift in the oldest surface
+        when two prose claims describe the same number one paragraph
+        apart). L381 was the older claim; L597 got updated when
+        `install` was promoted but L381 wasn't co-edited.
+        """
+        import re
+        import sys
+
+        # Reset to avoid caching from previous test side effects.
+        for mod_name in list(sys.modules):
+            if mod_name.startswith("trinity_local"):
+                del sys.modules[mod_name]
+        sys.path.insert(0, str(REPO / "src"))
+
+        from trinity_local.main import (
+            CORE_COMMAND_MODULES,
+            OPTIONAL_COMMAND_MODULES,
+        )
+        core_count = len(CORE_COMMAND_MODULES)
+        optional_count = len(OPTIONAL_COMMAND_MODULES)
+        total = core_count + optional_count
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        # Match the architecture-section claim:
+        # "N user-facing command modules (M in `CORE_COMMAND_MODULES`
+        #  + `<extra>` in `OPTIONAL_COMMAND_MODULES`)"
+        m = re.search(
+            r"(\d+)\s+user-facing command modules\s+\((\d+)\s+in\s+`CORE_COMMAND_MODULES`",
+            claude_md,
+        )
+        if not m:
+            raise AssertionError(
+                "Couldn't locate the 'N user-facing command modules' "
+                "claim in claude.md. Either the prose was renamed or "
+                "this guard's regex needs updating."
+            )
+        claimed_total = int(m.group(1))
+        claimed_core = int(m.group(2))
+
+        if claimed_total != total or claimed_core != core_count:
+            raise AssertionError(
+                f"claude.md's command-modules claim drifted from main.py.\n"
+                f"  claimed: {claimed_total} total ({claimed_core} CORE + extras)\n"
+                f"  actual : {total} total ({core_count} CORE + {optional_count} OPTIONAL)\n\n"
+                f"Either main.py changed and the prose didn't follow, "
+                f"or the prose count was wrong to begin with (the iter-#35 "
+                f"drift caught the L381 '21-command surface' lying about "
+                f"L597's '22 user-facing command modules' — same metric, "
+                f"two paragraphs apart). Update the prose to match "
+                f"CORE_COMMAND_MODULES + OPTIONAL_COMMAND_MODULES."
+            )
+
     def test_state_layout_file_entries_have_writers(self):
         """Iter #34 catch — sibling of
         test_claude_md_state_layout_covers_every_state_paths_dir
