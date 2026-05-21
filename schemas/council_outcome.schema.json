@@ -16,7 +16,7 @@
   "properties": {
     "council_run_id": {
       "type": "string",
-      "description": "Stable id, sha1 prefix. Used as the on-disk filename and in MCP `record_outcome` calls.",
+      "description": "Stable id, sha1 prefix. Used as the on-disk filename. (The retired MCP `record_outcome` tool — sunset 2026-05-21 — used this id as its key argument; CLI `council-rate` still uses the same id.)",
       "pattern": "^council_[a-f0-9]{16}$"
     },
     "bundle_id": {
