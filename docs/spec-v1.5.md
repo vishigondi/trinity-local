@@ -311,7 +311,7 @@ surface as Trinity ships today is: `route`, `ask`, `run_council`,
 section for canonical current shape.)
 
 ```
-mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)
+mcp__trinity-local__get_picks(basin_id?, min_trust?)
   → { rules: [{basin_id, primary, challenger, trust_score, n_episodes,
                failure_modes, winner_distribution, ...}, ...] }
 

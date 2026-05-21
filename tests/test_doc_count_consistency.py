@@ -2101,6 +2101,69 @@ class TestBundledSkillCommandExamplesValidate:
             )
 
 
+class TestLiveDocsReferenceOnlyRegisteredMcpTools:
+    """Tick 129 — docs that claim Trinity ships specific MCP tools
+    by name must only reference tools that are actually registered
+    in mcp_server.py.
+
+    Today's catch: docs/spec-v1.5.md L314 had
+    `mcp__trinity-local__get_cortex_rules(basin_id?, min_trust?)`
+    in a signature block — but the actual tool is `get_picks`. The
+    cortex→picks rename (task #99) propagated to the surrounding
+    narration but missed the signature block. A doc-reading agent
+    that copy-pasted `mcp__trinity-local__get_cortex_rules(...)`
+    would get tool-not-found at runtime.
+
+    Same drift class as tick 128's dispatch-action guard at a
+    different surface: code is the canonical source of truth for
+    the tool name set; docs are derived views. This guard pins the
+    derived view (in LIVE-class docs only — aspirational specs
+    legitimately describe future tools).
+
+    Caveats: README.md is intentionally selective (only highlights
+    wedge tools like run_council/handoff). Aspirational specs
+    (spec-v1.5.md / product-spec.md / scale-plan.md) describe
+    future tools by design — excluded from this guard. The guard
+    runs on claude.md + bundled SKILL.md only — the surfaces that
+    promise SHIPPED state."""
+
+    LIVE_DOCS_TO_CHECK = [
+        "claude.md",
+        "src/trinity_local/data/skills/trinity/SKILL.md",
+        "skills/trinity/SKILL.md",
+    ]
+
+    def test_live_docs_only_reference_registered_mcp_tools(self):
+        import re
+
+        mcp_server = (REPO / "src/trinity_local/mcp_server.py").read_text(encoding="utf-8")
+        registered = set(re.findall(r'Tool\(\s*name\s*=\s*["\']([\w_]+)["\']', mcp_server))
+        assert registered, "Failed to parse MCP tool registrations from mcp_server.py"
+
+        errors: list[str] = []
+        for rel in self.LIVE_DOCS_TO_CHECK:
+            path = REPO / rel
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            referenced = set(re.findall(r'mcp__trinity-local__([\w_]+)', text))
+            stale = referenced - registered
+            if stale:
+                errors.append(
+                    f"  {rel}: references {sorted(stale)} which aren't "
+                    f"registered MCP tools (actual: {sorted(registered)})"
+                )
+
+        if errors:
+            raise AssertionError(
+                "Live-class docs reference MCP tools that don't exist in "
+                "mcp_server.py:\n" + "\n".join(errors) + "\n\n"
+                "Either update the doc to use the canonical tool name, "
+                "or register the missing tool in mcp_server.py."
+            )
+
+
 class TestLauncherPatternsListsAllDispatchActions:
     """Tick 128 — docs/launcher-patterns.md L156-164 enumerates the
     set of dispatch actions Trinity's capture-host accepts. Earlier
