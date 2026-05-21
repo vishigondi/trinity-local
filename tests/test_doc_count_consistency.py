@@ -2003,6 +2003,70 @@ class TestNoBannedSynonyms:
             raise AssertionError("\n".join(msg_lines))
 
 
+class TestBundledSkillCommandExamplesValidate:
+    """Tick 115 — the bundled SKILL.md (shipped to
+    `~/.claude/skills/trinity/SKILL.md` on install) had two example
+    commands that crash post-2026-05-20 harness rename:
+
+      mcp__trinity-local__handoff(target_provider="gemini", num_turns=3)
+      trinity-local eval-run --target gemini
+
+    Both raise on the user's machine because the config providers dict
+    is now keyed by "antigravity" (handoff.py:208 KeyError,
+    commands/eval.py:252 rejection). Existing TestNoBannedSynonyms scans
+    for "Gemini CLI" specifically, which doesn't catch standalone slug
+    references like `--target gemini`. And `SKILL.md` wasn't even in
+    that scan's SCAN_FILES list.
+
+    This guard parses the bundled SKILL.md, extracts every literal slug
+    used in `target_provider="X"` (MCP handoff arg) and `--target X`
+    (eval-run CLI arg), and asserts each X is a real provider in the
+    shipped config.json. Catches both today's drift (gemini) and any
+    future rename's drift (codex → ???, claude → ???) — the failure
+    shape is "skill teaches a slug the user's machine will reject."
+
+    Per principle #14 + #21: regression guard at the surface that
+    ships the claim. SKILL.md ships to user disk and is the closest
+    thing Trinity has to a tutorial; copy-paste-broken examples
+    erode trust on the first command.
+    """
+
+    TARGET_PROVIDER_RE = re.compile(r'target_provider="([^"]+)"')
+    EVAL_TARGET_RE = re.compile(r'--target\s+([a-z_][a-z0-9_-]*)')
+
+    def test_skill_md_example_slugs_resolve_in_config(self):
+        from trinity_local.config import load_config
+
+        skill_path = REPO / "src/trinity_local/data/skills/trinity/SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
+
+        mentioned: set[str] = set()
+        mentioned.update(self.TARGET_PROVIDER_RE.findall(text))
+        mentioned.update(self.EVAL_TARGET_RE.findall(text))
+
+        # `<provider>` is an explicit placeholder, not a literal — strip.
+        # Same for `<...>` style placeholders.
+        mentioned -= {"provider", "model"}
+        mentioned = {m for m in mentioned if not m.startswith("<")}
+
+        if not mentioned:
+            pytest.skip("SKILL.md has no literal slug examples to check")
+
+        config = load_config(str(REPO / "src/trinity_local/config.json"))
+        valid_slugs = set(config.providers.keys())
+
+        invalid = mentioned - valid_slugs
+        if invalid:
+            raise AssertionError(
+                f"SKILL.md references provider slug(s) {sorted(invalid)} "
+                f"that aren't in the shipped config.json providers "
+                f"{sorted(valid_slugs)}. The bundled skill teaches a "
+                f"command users will see crash on their machine. "
+                f"Update SKILL.md to use a canonical slug, or extend "
+                f"config.json if the slug should be added."
+            )
+
+
 class TestNoRetiredCliInSrcQuotedStrings:
     """Permanent guard born of iterations #9 + #11 + #12 + #13 of the
     pre-launch consistency-loop, EXTENDED in iter #32 after iters

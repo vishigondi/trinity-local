@@ -106,7 +106,7 @@ mcp__trinity-local__ask(task="...")
 Trinity's structurally non-refutable demo: hand a conversation off from one provider to another mid-thread. Only Trinity has the cross-provider prompt index, so only Trinity can do continuity.
 
 ```
-mcp__trinity-local__handoff(target_provider="gemini", num_turns=3)
+mcp__trinity-local__handoff(target_provider="antigravity", num_turns=3)
 ```
 
 Pulls the last N (user, assistant) turns from the prompt index, packages them as "continuing this thread" context, dispatches to a DIFFERENT provider. The target picks up exactly where the prior model left off — no re-context, no copy-paste.
@@ -119,7 +119,7 @@ After enough councils accumulate (`~/.trinity/me/rejections.jsonl` has ≥50 ent
 
 ```
 trinity-local eval-build
-trinity-local eval-run --target gemini
+trinity-local eval-run --target antigravity
 trinity-local eval-show
 ```
 
