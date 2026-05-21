@@ -3658,6 +3658,74 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_launchpad_install_commands_match_across_surfaces(self):
+        """Iter #39 catch — launchpad_data.py had TWO sources of
+        provider install commands that drifted from each other:
+
+          _TIER_INSTALL_HELP (dict, L351 — tier-card renderer)
+          _provider_install_help() (function, L295 — single-provider lookup)
+
+        Three drifts found across the codebase:
+
+          1. _TIER_INSTALL_HELP['claude'] used
+             `curl -fsSL https://claude.ai/install.sh | bash`
+             while every OTHER surface (setup_guidance.py,
+             test_setup_guidance.py, _provider_install_help)
+             used `npm install -g @anthropic-ai/claude-code`.
+
+          2. _provider_install_help('antigravity') appended `&& agy`
+             to the curl-bash install, while _TIER_INSTALL_HELP
+             did not. The `&& agy` would auto-launch the CLI after
+             install — surprising in a copy-paste one-liner.
+
+          3. Claude form differs from launchpad_data → setup_guidance
+             — fixed in this iter; now consistent.
+
+        Guard shape: for each provider in _TIER_INSTALL_HELP, look
+        up the same provider via _provider_install_help() and
+        assert the install command strings match. Catches future
+        edits that touch one but not the other.
+        """
+        import sys
+
+        # Re-import the module fresh (other tests mutate state_paths).
+        for mod_name in list(sys.modules):
+            if mod_name.startswith("trinity_local"):
+                del sys.modules[mod_name]
+        sys.path.insert(0, str(REPO / "src"))
+
+        from trinity_local.launchpad_data import (
+            _TIER_INSTALL_HELP,
+            _provider_install_help,
+        )
+
+        mismatches: list[str] = []
+        for provider, (name_a, install_a, _value_prop) in _TIER_INSTALL_HELP.items():
+            name_b, install_b = _provider_install_help(provider)
+            if install_a != install_b:
+                mismatches.append(
+                    f"  {provider}: tier-card says {install_a!r}, "
+                    f"provider-help says {install_b!r}"
+                )
+            if name_a != name_b:
+                mismatches.append(
+                    f"  {provider}: display-name disagrees "
+                    f"({name_a!r} vs {name_b!r})"
+                )
+        if mismatches:
+            raise AssertionError(
+                "launchpad_data.py has two install-command surfaces "
+                "that disagree:\n"
+                + "\n".join(mismatches)
+                + "\n\nBoth `_TIER_INSTALL_HELP` and "
+                "`_provider_install_help` are public-facing copy "
+                "describing the SAME install fact. Update both in "
+                "the same commit. The canonical form per provider is "
+                "the npm form for Claude (Anthropic's documented "
+                "primary path) + npm for Codex + curl-bash for "
+                "Antigravity (Google's documented primary path)."
+            )
+
     def test_every_canonical_helper_is_consumed_by_a_doc(self):
         """Iter #36 catch — symmetry guard. Iter #34's
         test_state_layout_file_entries_have_writers caught

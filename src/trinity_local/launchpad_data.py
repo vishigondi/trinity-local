@@ -293,12 +293,20 @@ def _load_replay_candidates(limit: int = 200) -> list:
 
 
 def _provider_install_help(provider: str) -> tuple[str, str]:
+    # Same install strings as _TIER_INSTALL_HELP below — they're two
+    # surfaces of the same fact (the canonical install command per
+    # provider). Iter-#39 caught divergent strings (Antigravity here
+    # had `&& agy` appended, which auto-launches the CLI after
+    # install — surprising in a copy-paste install one-liner). New
+    # invariant: these two functions agree byte-for-byte on the
+    # install command field. The doc-consistency guard
+    # test_launchpad_install_commands_match enforces it.
     if provider == "claude":
         return ("Claude Code", "npm install -g @anthropic-ai/claude-code")
     if provider == "codex":
         return ("Codex CLI", "npm install -g @openai/codex && codex --login")
     if provider == "antigravity":
-        return ("Antigravity", "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy")
+        return ("Antigravity", "curl -fsSL https://antigravity.google/cli/install.sh | bash")
     if provider == "cowork":
         return ("Cowork / Claude Desktop", "Install Claude Desktop, then open Local Agent Mode once.")
     pretty = provider.replace("_", " ").title()
@@ -348,11 +356,16 @@ _TIER_PROVIDER_BINARY: dict[str, str] = {
     "antigravity": "agy",
 }
 
+# Per-provider install commands. The canonical form per provider lives
+# here AND in setup_guidance.py + doctor.py — keep all three in sync
+# (the iter-#39 fix harmonized them after discovering the launchpad
+# taught `curl https://claude.ai/install.sh | bash` while setup_guidance
+# + tests both taught `npm install -g @anthropic-ai/claude-code`).
 _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
     # provider -> (display name, install command, value proposition)
     "claude": (
         "Claude Code",
-        "curl -fsSL https://claude.ai/install.sh | bash",
+        "npm install -g @anthropic-ai/claude-code",
         "Anchor voice — drives the chairman synthesis by default.",
     ),
     "codex": (
@@ -362,7 +375,7 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
     ),
     "antigravity": (
         "Antigravity",
-        "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy",
+        "curl -fsSL https://antigravity.google/cli/install.sh | bash",
         "Long-context third voice — completes the canonical council.",
     ),
 }
