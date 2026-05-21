@@ -4,7 +4,7 @@
   1. discover (cross-provider pair finder — no LLM)
   2. synthesize (one chairman call per cluster)
   3. consolidate (cortex rule extraction)
-  4. me-build (taste-lens rebuild)
+  4. lens-build (taste-lens rebuild; renamed from `me-build` per Tier 1 #2)
 
 All four phases share tested machinery; these tests pin `dream`'s job:
 sequencing, error isolation between phases, dry-run no-LLM path, the

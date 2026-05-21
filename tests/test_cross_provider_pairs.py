@@ -1,9 +1,10 @@
 """Tests for cross-provider pair discovery.
 
-The bootstrap-pairs CLI rides on `find_cross_provider_clusters` — given
-a list of PromptNodes with embeddings, group nodes whose embeddings are
-close and that span ≥ 2 providers, dedupe to one response per provider
-per cluster, return clusters sorted by coherence.
+The `dream` Phase 1 (and the retired bootstrap-pairs CLI before it)
+rides on `find_cross_provider_clusters` — given a list of PromptNodes
+with embeddings, group nodes whose embeddings are close and that span
+≥ 2 providers, dedupe to one response per provider per cluster, return
+clusters sorted by coherence.
 
 Tests are purely numerical (synthetic embeddings, no model load).
 """
