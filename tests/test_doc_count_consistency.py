@@ -2101,6 +2101,46 @@ class TestBundledSkillCommandExamplesValidate:
             )
 
 
+class TestLauncherPatternsListsAllDispatchActions:
+    """Tick 128 — docs/launcher-patterns.md L156-164 enumerates the
+    set of dispatch actions Trinity's capture-host accepts. Earlier
+    today that list missed `run_command` even though it's in
+    DISPATCH_ACTIONS and command_for_dispatch handles it as the
+    first branch (load-bearing for shell-payload dispatch).
+
+    The drift class is the council_76e5aef79bb9f241 verdict's #3
+    "docs are derived views over machine-readable facts" applied
+    locally: the action set is canonical in dispatch_registry.py
+    DISPATCH_ACTIONS; the doc's bullet list is a derived view. This
+    guard pins the derived view to the source by asserting every
+    name in DISPATCH_ACTIONS shows up somewhere in
+    launcher-patterns.md's Action-taxonomy section.
+
+    Catches both:
+      (a) a new dispatch action added to code but not documented
+      (b) an action retired from code but not removed from the doc
+    """
+
+    def test_doc_enumerates_all_dispatch_actions(self):
+        from trinity_local.dispatch_registry import DISPATCH_ACTIONS
+
+        path = REPO / "docs/launcher-patterns.md"
+        text = path.read_text(encoding="utf-8")
+
+        missing = sorted(
+            name for name in DISPATCH_ACTIONS if f"`{name}`" not in text
+        )
+        if missing:
+            raise AssertionError(
+                f"docs/launcher-patterns.md doesn't mention these dispatch "
+                f"actions: {missing}. They're registered in "
+                f"DISPATCH_ACTIONS (src/trinity_local/dispatch_registry.py) "
+                f"and accepted by capture_host's dispatch chain — the doc's "
+                f"Action-taxonomy bullet list needs to include each one so "
+                f"future readers don't miss a registered action."
+            )
+
+
 class TestNoRetiredCliInSrcQuotedStrings:
     """Permanent guard born of iterations #9 + #11 + #12 + #13 of the
     pre-launch consistency-loop, EXTENDED in iter #32 after iters

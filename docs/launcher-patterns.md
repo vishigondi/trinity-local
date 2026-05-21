@@ -161,7 +161,7 @@ Current dispatch actions (`src/trinity_local/dispatch_registry.py`):
 - `open_review` — open the unified council page
 - `start_council` — alternative entry from a prepared bundle
 - `council_iterate` — canonical iteration action (replaces continue/refine/auto-chain). Args: `{rounds: int, prompt: str|None}`. Legacy aliases (`council_continue`, `council_refine`, `council_auto_chain`) still accepted as input — they map to `council_iterate` via the dispatch shim — so old launchpad URLs and saved Shortcuts keep working.
-- `open_path`, `open_url`, `run_applescript` — generic dispatch helpers
+- `open_path`, `open_url`, `run_applescript`, `run_command` — generic dispatch helpers
 
 If multiple pending actions exist for the same task, priority order:
 
