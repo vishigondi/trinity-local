@@ -232,7 +232,7 @@ The rating UI lives **inside the unified council review page**, not a separate S
 
 - Answer cards are equally weighted until the user selects a winner.
 - Confirmation state should feel rewarding but not gamified.
-- Selecting a winner fires `record_outcome` (via the launchpad shortcut dispatch) which updates `CouncilOutcome.metadata.user_verdict` and propagates to the originating `PromptNode`.
+- Selecting a winner sets the "Preferred" badge via the Chrome extension Native Messaging dispatch → CLI `council-rate` (the macOS Shortcut dispatch path was retired 2026-05-17; the MCP `record_outcome` tool was retired 2026-05-21 alongside the rest of the rating UX). The chairman's pick on the council outcome is the primary supervision signal; user-veto via the click is the optional refinement.
 - Disagreed-claims block reads as a passage, not a table — the structured Routing JSON is the substrate, the prose is the experience.
 
 ## Chart Guidance

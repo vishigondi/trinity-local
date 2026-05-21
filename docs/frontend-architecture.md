@@ -254,18 +254,17 @@ Show the council result:
 
 ## Council Rating (inline, not a separate page)
 
-The rating UI is part of the **unified council review page**, not a separate Signal page. After members finish and the chairman synthesises, the same page exposes per-member rating buttons. Selecting a winner fires the `record_outcome` dispatch action which:
+The rating UI lives in the **unified council review page**, not a separate Signal page. After members finish and the chairman synthesises, the same page exposes per-member click-to-prefer buttons.
 
-- updates `CouncilOutcome.metadata.user_verdict`
-- propagates the verdict to the originating `PromptNode` (via `memory.record_council_outcome`)
-- triggers a `personal_routing_table` re-aggregation on next launchpad render (no durable file; recomputed from `council_outcomes/*.json` on demand)
+**Post-2026-05-21 supervision signal:** the chairman's `routing_label.winner` is the supervision signal — fed automatically into `compute_personal_routing_table()` via `~/.trinity/council_outcomes/<id>.json`. No agent-side rating call is needed. (The `record_outcome` MCP tool was retired alongside the rest of the rating UX per "we are sunsetting user ratings"; CLI `council-rate` remains for power users who want to write verdicts from the terminal.)
+
+Clicking a member card still sets a "Preferred" badge for that user's session — the click writes `metadata.user_verdict.user_winner` via the Chrome extension Native Messaging dispatch → `council-rate` CLI. The personal routing table aggregation no longer blends user verdicts at 0.7 weight (commit bb817b6); chairman picks are the entire signal.
 
 ### UX pattern
 
 1. read the synthesis (agreed claims / disagreed claims with why_matters)
-2. choose a winner from the per-member cards
-3. confirmation state, no full-page transition
-4. continue scrolling or close the page — `record_outcome` already wrote
+2. (optional) click a member card to mark "Preferred" — persists for re-renders
+3. (optional) click Refine to send the chairman a "I would have picked X because Y" prompt — the post-rating-UX signal path; refines the council, doesn't write a rating
 
 ---
 
