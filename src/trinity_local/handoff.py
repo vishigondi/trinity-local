@@ -105,7 +105,7 @@ def _select_recent_turns(num_turns: int) -> list[PromptNode]:
 # for users who haven't wired google-workspace MCP yet. The soft form
 # triggers tool use when available without inventing it otherwise.
 _CAPABILITY_HINTS: dict[str, str] = {
-    "gemini": (
+    "antigravity": (
         "If you have access to Google Workspace tools (Gmail, Drive, "
         "Calendar) or web search, USE THEM when they'd enrich your "
         "answer with data the prior model couldn't see. The prior "

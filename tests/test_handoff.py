@@ -116,11 +116,11 @@ class TestBuildHandoffPrompt:
         # Distinct providers, preserving first-appearance order.
         assert sources == ["claude", "codex"]
 
-    def test_gemini_target_gets_google_workspace_capability_hint(self):
-        """Launch-arc #121 — Gemini-Google handoff. When the target is
-        gemini, the prompt actively names Google Workspace tools so
-        gemini's MCP-wired Gmail/Drive/Calendar lights up when the
-        continuation question would benefit. Without this, gemini
+    def test_antigravity_target_gets_google_workspace_capability_hint(self):
+        """Launch-arc #121 — Antigravity-Google handoff. When the target is
+        antigravity, the prompt actively names Google Workspace tools so
+        Antigravity's MCP-wired Gmail/Drive/Calendar lights up when the
+        continuation question would benefit. Without this, the target
         often answers from its own internal knowledge and the demo's
         "wait, it read my actual emails" moment never fires."""
         from trinity_local.handoff import build_handoff_prompt
@@ -129,7 +129,7 @@ class TestBuildHandoffPrompt:
         prompt, _ = build_handoff_prompt(
             nodes,
             continuation="what about recent emails on this?",
-            target_provider="gemini",
+            target_provider="antigravity",
         )
         # Soft-form hint (must say "if you have" so users without
         # google-workspace MCP wired don't get hallucinated tool calls):
@@ -178,7 +178,7 @@ class TestBuildHandoffPrompt:
         synthesizing without the tool-use frame."""
         from trinity_local.handoff import build_handoff_prompt
         nodes = [_make_node(text="prior", provider="claude", following="resp")]
-        prompt, _ = build_handoff_prompt(nodes, target_provider="gemini")
+        prompt, _ = build_handoff_prompt(nodes, target_provider="antigravity")
         assert prompt.index("Google Workspace") < prompt.index("Prior conversation log")
 
 
