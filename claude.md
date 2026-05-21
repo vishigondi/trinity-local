@@ -641,7 +641,10 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface af
 | Share cards | `share_card_base.py`, `me_card.py`, `eval_card.py`, `council_card.py` | Three 1200×630 PNG renderers + a shared base module (canvas, fonts, palette, footer/CTA). One visual language (cream BG + sage accent + serif headline). `me_card` renders the strongest lens, `eval_card` renders an eval run's per-axis bars, `council_card` renders a council outcome's chairman-extracted agreed/disagreed claims. All three carry the same install CTA + `keepwhatworks.com` landing URL (brand flipped 2026-05-17 from `vishigondi.github.io/trinity-local`); council_card is privacy-safe by construction (chairman fields only, no user prompt or member text) |
 | Telemetry | `telemetry.py`, `notifications.py` | Opt-in telemetry settings (privacy-clean), system notifications |
 | Adapters | `adapters.py` | Provider adapter detection + transcript counts |
-| Research | `research/` package | Offline research pipeline (replay, hard mining, ranking eval) — not on the live product path |
+<!-- Research row removed 2026-05-21: the `research/` package was
+     retired in the pre-launch simplification pass (see L320). Listing
+     it here as a live layer contradicted that retirement. -->
+
 
 ### The eight MCP tools (`mcp_server.py`)
 
@@ -749,13 +752,12 @@ diagram is either retired or written by a feature you haven't run yet.
 │   └── dispatch_outcomes.jsonl     #   `ask` dispatch outcomes — Day-1 rate-limit-saves metric
 │
 │  ── First-run state ────────────────────────────────────────────
-├── cold_start_scan.json            # First-spawn auto-scan (status, sources, added count)
-│
-│  ── Optional / off-path ────────────────────────────────────────
-└── research/                       # Offline research outputs (not on the live product path)
-    ├── hard_examples/
-    └── replay_examples/
+└── cold_start_scan.json            # First-spawn auto-scan (status, sources, added count)
 ```
+
+(The `~/.trinity/research/` user-state subdirectory and its source-side
+`src/trinity_local/research/` package were both retired in the
+pre-launch simplification pass; see L320.)
 
 Retired directories that may still exist on older installs (Trinity no
 longer reads or writes them): `tasks/` (→ `todos/`), `memory/` (→
@@ -770,7 +772,12 @@ helper but never written to; actual nomic weights live in
 helper; spec-v1.5 originally described `cortex/failure_modes.json` +
 `cortex/successful_prompts.json` but the shipped picks.json embeds
 both inline — retired 2026-05-20, tick 51),
-`digest_pages/` (weekly digest feature deleted pre-launch).
+`digest_pages/` (weekly digest feature deleted pre-launch),
+`research/` (offline research outputs incl. `hard_examples/`,
+`replay_examples/` — directory was mkdir'd by the retired
+`research_dir()` helper; the `src/trinity_local/research/` package
+was deleted in the 2026-05-18 simplification pass alongside the
+watcher subsystem and embedding cache — see L320).
 
 ## The closed loop (v1)
 
