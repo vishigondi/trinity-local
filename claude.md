@@ -594,7 +594,7 @@ Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface af
 | `commands/telemetry.py` | `telemetry-show`, `telemetry-enable`, `telemetry-disable`, `telemetry-reset-id`, `telemetry-endpoint` |
 | `commands/unrated.py` | `unrated` (list councils without user verdict; Pillar 4 funnel-widening — one-line-per-council with chairman pick + copy-paste rate command) |
 | `commands/update.py` | `update` (pull latest, refresh MCP configs, verify with status — the post-curl-bash self-update mechanism) |
-| `commands/vocabulary.py` | `vocabulary` (scan prompts for terminology overloads — one word ↔ two meanings; two words ↔ one meaning. Emits `~/.trinity/memories/vocabulary.md`; load-bearing Stage 4 of the lens pipeline) |
+| `commands/vocabulary.py` | `vocabulary` (scan prompts for terminology overloads — one word ↔ two meanings; two words ↔ one meaning. Emits `~/.trinity/memories/vocabulary.md`; runs as Phase 2.5 of `dream` and as a standalone CLI. NOT a lens-pipeline stage — the lens pipeline has its own Stages 0–4 inside `me/pipeline.py`, ending at the basin post-filter.) |
 | `commands/watch.py` | `ingest-recent` (cursor-based incremental ingest; Chrome ext + MCP `ask` fire this same path. Legacy `watch-once`/`watch-loop` CLIs retired pre-launch — tool-triggered ingest replaces the daemon model) |
 
 ### Core layers
