@@ -536,6 +536,17 @@ A few words do specific work; they get conflated otherwise:
 - **Conductor** (v1.5+) — flagship model that *picks which model gets which sub-task* across a session/plan. Different role than chairman; same model family may play both.
 - **harness** — the CLI/IDE the user is working inside (Claude Code, Codex CLI, Antigravity, Cursor). Trinity registers as an MCP server inside each via `install-mcp`. (Antigravity ships TWO binaries both named `agy`: an IDE binary at `~/.antigravity/antigravity/bin/agy` v1.107+ that opens chat sessions in a window — NOT a CLI dispatch target — and the standalone CLI at `~/.local/bin/agy` v1.0+ installed via `curl -fsSL https://antigravity.google/cli/install.sh | bash`, which DOES support `-p / --prompt` non-interactive dispatch and is the one Trinity invokes. PATH ordering in the user's shell determines which `agy` resolves first; the standalone CLI installer prepends `~/.local/bin` to `.zshrc` so it wins by default. Both binaries read MCP servers from `~/.gemini/settings.json`; the Antigravity CLI also stores conversations as `.pb` protobuf files at `~/.gemini/antigravity-cli/conversations/` — distinct from the legacy `gemini` binary's `~/.gemini/tmp/` JSON sessions. Cowork — Anthropic Managed Agents — is an ingest source via `parse_cowork_session`, not a dispatch target or MCP harness; adapter wanted but blocked on Anthropic's stable API, see `CONTRIBUTING.md`.)
 - **member** — a provider acting as one voice in a council. Canonical term across code AND marketing copy (the Tier 2 #6 "rename to seat" was unwound; "seat" was tried as a table metaphor but never caught on, and code structures like `members=[...]` made the rename costly without payoff).
+- **provider trio across layers** — the same lab gets a different name at each layer; what users see depends on the entry surface. Consolidating here so future code/docs don't re-derive it:
+
+  | layer | Anthropic | OpenAI | Google |
+  |---|---|---|---|
+  | mobile app brand | Claude | ChatGPT | *(no Antigravity mobile yet)* |
+  | cloud agent harness | Claude Code | Codex agents | *(no equivalent)* |
+  | desktop CLI binary | `claude -p` | `codex exec` | `agy -p` |
+  | Trinity slug (code/config/JSON) | `claude` | `codex` | `antigravity` |
+  | underlying model | Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 | GPT-5.5 | Gemini 3.1 Pro Preview |
+
+  Use **slugs** in code, config, file paths, JSON keys (operational identifiers). Use **model names** in user-facing UI (mobile review cards, launchpad outcome rows — what users recognize). Use the **mixed marketing trio** ("Claude, Codex, and Gemini" per README L14) — that's each lab's strongest brand at its strongest layer (Claude is symmetric all the way down, Codex is a stronger dev brand than GPT for code work, Gemini is more recognizable than the new Antigravity harness). Trinity councils CANNOT fire from mobile apps directly today — mobile is read/review-only per `docs/cross-platform-spec.md` because Trinity is local-first (no hosted controller); phone-to-desktop dispatch is v1.6+ territory.
 - **task_type** — the short label for "what kind of question this is" (heuristic on input, also emitted by chairman). NOT the same as `category` (coarser LMArena-aligned grouping).
 
 The map mirrors the tagline: prompts (what you own) → dream (the verb) → core memories (what dream creates, plural) → core (the distillation, singular). When in doubt about a name, look at the brain analog and pick the one that matches what the file actually stores.
