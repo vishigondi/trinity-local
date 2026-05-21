@@ -147,10 +147,12 @@ is everything that didn't earn its keep.
     `shortcut_bin_dir()`, `cache_dir()`, `watcher_dir()` had no
     remaining src/ or tests/ consumers after the kills.
 
-23. **User-facing install docs swept.** `INSTALL-skill.md`,
-    `INSTALL-extension.md`, `INSTALL-pip.md`, `docs/index.md` updated
-    to drop references to the retired trust/audit CLI; inspection
-    instructions now point at `~/.trinity/audit.log` directly.
+23. **User-facing install docs swept.** `docs/INSTALL-skill.md`,
+    `docs/INSTALL-extension.md`, `docs/INSTALL-pip.md`, `docs/index.html`
+    updated to drop references to the retired trust/audit CLI; inspection
+    instructions now point at `~/.trinity/audit.log` directly. (Paths
+    reflect post-082fb1f layout — all install docs moved into `docs/`
+    for GitHub Pages serving; landing page is `index.html`, not `.md`.)
 
 **MCP tool count:** 10 → 9 (`get_eval_summary` dropped).
 **Public CLI surface:** ~30 → ~21 commands.
