@@ -165,7 +165,7 @@ rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives
 
 ## What's next
 
-Trinity Local v1.7 ships today. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (June 3); CHANGELOG in [`CHANGELOG.md`](CHANGELOG.md).
+Trinity Local v1.7 shipped May 13–15, 2026. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (next: June 3); CHANGELOG in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Help
 
