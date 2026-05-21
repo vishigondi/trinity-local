@@ -3658,6 +3658,79 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_doctor_install_hints_match_launchpad_canonical(self):
+        """Iter #40 catch — extends iter #39's launchpad-internal
+        consistency guard to also pin doctor.py's
+        `_install_command_for()` against the same canonical.
+
+        doctor.py provides the fix-hint when `trinity-local status`
+        reports "claude CLI not on PATH". When that hint differs
+        from what the launchpad teaches, a user sees two different
+        install instructions for the same product across two
+        surfaces of the same tool. Drift caught iter #40:
+
+          doctor.py['claude'] = "Install Claude Code:
+              https://docs.claude.com/en/docs/claude-code"
+          launchpad canonical = "npm install -g @anthropic-ai/claude-code"
+
+          doctor.py['codex'] = "npm install -g @openai/codex
+              # or: brew install codex"
+          launchpad canonical = "npm install -g @openai/codex
+              && codex --login"
+
+          (antigravity matched.)
+
+        Guard shape: for each provider in launchpad
+        _TIER_INSTALL_HELP, assert doctor._install_command_for()
+        returns the SAME string. Together with the iter-#39 guard
+        (which pins launchpad's two internal surfaces), this pins
+        all THREE surfaces:
+          - _TIER_INSTALL_HELP (tier-card)
+          - _provider_install_help() (single-provider lookup)
+          - doctor._install_command_for() (status fix-hint)
+
+        Future refactor: extract the canonical to a single module-
+        level dict in setup_guidance.py (or a new install_commands.py)
+        and have all three surfaces import from there. The guard
+        substitutes for that refactor by binding the three sites at
+        the test layer.
+        """
+        import sys
+
+        for mod_name in list(sys.modules):
+            if mod_name.startswith("trinity_local"):
+                del sys.modules[mod_name]
+        sys.path.insert(0, str(REPO / "src"))
+
+        from trinity_local.launchpad_data import _TIER_INSTALL_HELP
+        from trinity_local.doctor import _install_command_for
+
+        mismatches: list[str] = []
+        for provider, (_name, install_canonical, _value_prop) in _TIER_INSTALL_HELP.items():
+            doctor_str = _install_command_for(provider)
+            if doctor_str != install_canonical:
+                mismatches.append(
+                    f"  {provider}:\n"
+                    f"    launchpad canonical: {install_canonical!r}\n"
+                    f"    doctor.py:           {doctor_str!r}"
+                )
+        if mismatches:
+            raise AssertionError(
+                "doctor.py's _install_command_for() strings have "
+                "drifted from launchpad_data._TIER_INSTALL_HELP. "
+                "These are two surfaces of the same install command "
+                "fact — `status` shows doctor's hint when a provider "
+                "is missing; the launchpad shows the dict version in "
+                "tier cards. A user shouldn't see different commands "
+                "for the same product across surfaces.\n\n"
+                + "\n".join(mismatches)
+                + "\n\nUpdate doctor.py to match the canonical form. "
+                "If you intend to keep doctor.py's form different "
+                "(e.g. terser doc-link instead of a real command), "
+                "extract the divergence reason here and document "
+                "the alternative-by-design exception."
+            )
+
     def test_launchpad_install_commands_match_across_surfaces(self):
         """Iter #39 catch — launchpad_data.py had TWO sources of
         provider install commands that drifted from each other:

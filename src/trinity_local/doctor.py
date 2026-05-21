@@ -150,10 +150,16 @@ def _check_provider(provider: str, cli_name: str) -> CheckResult:
 
 
 def _install_command_for(provider: str) -> str:
-    """Single-line install hints — what we'd put in the README too."""
+    """Single-line install hints — same canonical strings as
+    launchpad_data._TIER_INSTALL_HELP + _provider_install_help() (the
+    user-facing setup-card surface). Iter #40 harmonized these after
+    iter #39 caught the launchpad's internal divergence; the
+    test_install_commands_match_across_surfaces guard pins all three
+    surfaces to the same per-provider command so a fix hint from
+    `status` matches what the launchpad teaches."""
     return {
-        "claude": "Install Claude Code: https://docs.claude.com/en/docs/claude-code",
-        "codex": "npm install -g @openai/codex   # or: brew install codex",
+        "claude": "npm install -g @anthropic-ai/claude-code",
+        "codex": "npm install -g @openai/codex && codex --login",
         "antigravity": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     }.get(provider, f"install the {provider} CLI")
 
