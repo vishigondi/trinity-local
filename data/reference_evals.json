@@ -13,11 +13,12 @@
       "agentic_index": 71.3,
       "cost_per_index_usd": 5335.23
     },
-    "gemini": {
+    "antigravity": {
       "name": "Gemini 3.1 Pro Preview",
       "slug": "gemini-3-1-pro-preview",
       "release_date": "2026-02-19",
       "creator": "Google",
+      "family": "Antigravity",
       "intelligence_index": 57.2,
       "coding_index": 55.5,
       "agentic_index": 59.1,
@@ -42,7 +43,7 @@
       "fetched_at": "2026-05-04",
       "models": {
         "claude": 57.3,
-        "gemini": 57.2,
+        "antigravity": 57.2,
         "codex": 60.2
       }
     },
@@ -53,7 +54,7 @@
       "fetched_at": "2026-05-04",
       "models": {
         "claude": 52.5,
-        "gemini": 55.5,
+        "antigravity": 55.5,
         "codex": 59.1
       }
     },
@@ -64,7 +65,7 @@
       "fetched_at": "2026-05-04",
       "models": {
         "claude": 71.3,
-        "gemini": 59.1,
+        "antigravity": 59.1,
         "codex": 74.1
       }
     }

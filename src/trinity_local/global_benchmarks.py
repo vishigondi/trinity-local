@@ -23,12 +23,12 @@ def _hardcoded_fallback() -> dict:
         "coding": {
             "benchmark": "HumanEval",
             "unit": "pass@1 (%)",
-            "models": {"claude": 91.3, "codex": 81.0, "gemini": 94.3},
+            "models": {"claude": 91.3, "codex": 81.0, "antigravity": 94.3},
         },
         "reasoning": {
             "benchmark": "GPQA Diamond",
             "unit": "accuracy (%)",
-            "models": {"claude": 68.5, "codex": 71.2, "gemini": 72.8},
+            "models": {"claude": 68.5, "codex": 71.2, "antigravity": 72.8},
         },
     }
 
