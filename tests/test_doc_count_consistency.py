@@ -2073,6 +2073,13 @@ class TestNoBannedSynonyms:
         "docs/spec-v1.md",
         "docs/spec-v1.5.md",
         "docs/spec-v1.6.md",
+        # spec-v2.md added 2026-05-21 after the "Gemini CLI" phrasing
+        # slipped through in the v1.0 hero quote (2 lines in the
+        # narrative-arc table). v2 is the sunset trained-coordinator
+        # doc but still describes v1.0's pitch — that quote has to use
+        # the post-Antigravity-rebrand wording to match the canonical
+        # hero in README / launch-package / claude.md.
+        "docs/spec-v2.md",
         "docs/product-spec.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
