@@ -2496,6 +2496,77 @@ class TestClaudeMdDependenciesMatchPyproject:
             )
 
 
+    def test_architectural_commitments_counts_match(self):
+        """Iter #45 catch — claude.md's "Architectural commitments
+        (load-bearing, not negotiable)" section lists 5 items; the
+        same section in CONTRIBUTING.md ("Architectural commitments
+        (don't break these)") listed only 4. The missing item was
+        #5: "HF Hub offline by default" — the privacy + reliability
+        invariant that pins HF_HUB_OFFLINE=1 at startup. A PR author
+        reading CONTRIBUTING.md wouldn't know they shouldn't add
+        code that makes surprise HF Hub calls; the PR would get
+        rejected with surprise at review time.
+
+        Same drift shape as iter #44's deps-bullet drift between
+        claude.md and CONTRIBUTING.md — two surfaces describing
+        the same architectural fact, the older one (CONTRIBUTING.md
+        was less-recently-edited until this iter) undercounting.
+
+        Guard shape: count numbered list items immediately under the
+        "Architectural commitments" headers in both docs; assert
+        the counts match. Doesn't pin item-by-item equivalence (the
+        prose can rephrase), only that the LIST LENGTH agrees —
+        which is the property that bit iter #45. Adding a new
+        commitment to claude.md without propagating to CONTRIBUTING.md
+        now fails the test.
+        """
+        import re
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        contributing_md = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+
+        def count_commitments(doc: str, doc_name: str) -> int:
+            # Find the section header.
+            m = re.search(
+                r"^##\s+Architectural commitments[^\n]*\n",
+                doc,
+                re.MULTILINE,
+            )
+            if not m:
+                raise AssertionError(
+                    f"Couldn't find '## Architectural commitments' header in "
+                    f"{doc_name}"
+                )
+            # Section body runs until the next '## ' header.
+            after = doc[m.end():]
+            next_header = re.search(r"^##\s+", after, re.MULTILINE)
+            section = after[: next_header.start()] if next_header else after
+            # Count numbered list items at start of line:
+            # `^N. **<title>**...`
+            items = re.findall(
+                r"^\d+\.\s+\*\*[^*]+\*\*",
+                section,
+                re.MULTILINE,
+            )
+            return len(items)
+
+        claude_count = count_commitments(claude_md, "claude.md")
+        contributing_count = count_commitments(contributing_md, "CONTRIBUTING.md")
+
+        if claude_count != contributing_count:
+            raise AssertionError(
+                f"Architectural-commitments list length disagrees:\n"
+                f"  claude.md       : {claude_count} commitments\n"
+                f"  CONTRIBUTING.md : {contributing_count} commitments\n\n"
+                f"These are two surfaces of the same load-bearing list. "
+                f"Adding a commitment to one without the other means a "
+                f"contributor reading the shorter list misses a "
+                f"rejection-criterion that PR review will apply. "
+                f"Either update the shorter list to match, or — if the "
+                f"divergence is intentional — extract the count "
+                f"discrepancy reason here and document the exception."
+            )
+
     def test_contributing_md_lists_every_pyproject_runtime_dep(self):
         """Iter #44 catch — CONTRIBUTING.md L168's "Code style" bullet
         had the SAME drift the iter-#31 fix caught in claude.md:

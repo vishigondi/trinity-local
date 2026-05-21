@@ -112,7 +112,7 @@ worth contributing on:
 ## Priority 6 — Docs and tests
 
 Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
-green on every commit, and the gate currently runs <!-- canonical:test_count -->1616<!-- /canonical --> tests in ~150s.
+green on every commit, and the gate currently runs <!-- canonical:test_count -->1617<!-- /canonical --> tests in ~150s.
 
 **Writing tests:** scope all test state via fixtures. Specifically, never set
 `os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module
@@ -131,7 +131,7 @@ git clone https://github.com/vishigondi/trinity-local
 cd trinity-local
 python3 -m venv .venv               # contributors use a venv for the dev install
 .venv/bin/pip install -e ".[test]"  # editable install + test deps (pytest, etc.)
-.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1616<!-- /canonical --> tests, ~140s; gate must stay green
+.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1617<!-- /canonical --> tests, ~140s; gate must stay green
 python scripts/browser_smoke.py     # <!-- canonical:smoke_surface_count -->34<!-- /canonical -->-surface UI verification (Playwright)
 ```
 
@@ -160,6 +160,13 @@ These are load-bearing for Trinity's identity. PRs that violate them get rejecte
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own
    CLI subscriptions (Claude Code, Codex, Antigravity). If a PR proposes a hosted API
    tier, push back hard — that destroys both cost basis and privacy.
+5. **HF Hub offline by default.** `main()` pins `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1`
+   via `setdefault` at startup. The nomic embedding model is pulled once via an explicit
+   `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`; after that Trinity loads
+   from `~/.cache/huggingface/hub/` and never contacts the Hub during normal operation.
+   Privacy + reliability invariant — no surprise outbound calls from the running system,
+   no telemetry to upstream model hosts, MCP child processes inherit the env so the
+   guarantee propagates through every spawn. PRs that bypass this invariant get rejected.
 
 ## Code style
 
