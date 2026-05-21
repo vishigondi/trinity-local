@@ -1093,7 +1093,7 @@ Use GPT first, Claude as challenger.
 | Delete | `digest.py`, `commands/digest.py` | Weekly digest is off the routing loop |
 | Delete | `workflow_runtime.py`, `commands/workflow.py`, `workflow_create` dispatch action | Watcher side-quest, not on the routing path |
 | Move | research handlers (`replay`, `embed`, `rank`, `hardeval`, `analytics`) out of `commands/research.py` | Research-only; doesn't belong in the product CLI. Keep `hard` (produces corpus the advisor reads). |
-| Move | `feature_extractors.py`, `example_builder.py`, `training_schema.py` into `research/` | They're not on the live routing path |
+| ~~Move~~ Deleted | ~~`feature_extractors.py`, `example_builder.py`, `training_schema.py`~~ | All three were v2-trained-coordinator substrate; deleted alongside the 2026-05-11 v2 sunset (`example_builder` earlier, the other two in tick 57 — 523 LOC removed). Reachable via git history if v1.5 hits a quality ceiling. |
 | Merge | `knn_advisor.py` into `ranker/knn_ranker.py` | Two adjacent surfaces; unify under one advisor |
 | Merge | `embeddings/cache.py` (global dict) + `research/embeddings.py` (disk cache) → `embeddings/store.py` | Single thread-safe, disk-backed embedding store |
 | Merge | `review.py` (post-hoc review) → `council_runtime.py` | It's a degenerate council with one member |
