@@ -14,7 +14,7 @@ class: live
 ## Why these registries
 
 `trinity-local install-mcp` already wires Trinity into Claude Code,
-Codex CLI, and Gemini CLI. The remaining funnel-widener is
+Codex CLI, and Antigravity. The remaining funnel-widener is
 **discoverability** — users who don't know Trinity exists never run
 `install-mcp`. Each MCP-server registry below is a directory users
 browse looking for tools. Being IN the dropdown beats being

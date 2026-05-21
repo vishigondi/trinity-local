@@ -1919,6 +1919,15 @@ class TestNoBannedSynonyms:
          "phantom CLI command documented but never wired"),
         ("model_detector.py", "(removed — module never shipped)",
          "phantom module documented but never written"),
+        ("Gemini CLI", "Antigravity",
+         "harness rename per the 2026-05-20 multi-tick rebrand: Google's "
+         "CLI binary is now `agy` (Antigravity v1.0.0 standalone CLI); "
+         "the legacy `gemini` binary is preserved on disk but Trinity's "
+         "shipped config dispatches via Antigravity. Pitch surfaces and "
+         "harness lists must use the post-rebrand name to match what "
+         "users see when they install. Model-family 'Gemini' (without "
+         "the 'CLI' suffix) remains accurate — the model behind "
+         "Antigravity is still Gemini 3.1 Pro Preview."),
     ]
 
     # Files that get the scan. User-facing surfaces only.

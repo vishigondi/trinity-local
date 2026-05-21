@@ -10,7 +10,7 @@ class: live
 >
 > **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
 > lens, and the personal routing table. The pitch users land on is *"Your taste, ported.
-> Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor."* with sub *"No new app.
+> Lives inside Claude Code, Codex CLI, Antigravity, and Cursor."* with sub *"No new app.
 > No service. No API key. Your transcripts never leave your machine."* — the cross-provider
 > memory layer the labs can't build. (Pitch pivoted 2026-05-16 from "Stop copy-pasting
 > prompts. Own your context. Dream your core memories. One question. Every model you use.
@@ -43,7 +43,7 @@ Anthropic just ship this?*
 
 ## The brand
 
-**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.*
+**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
 **Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
 
 (Brand axis pivoted 2026-05-16 from the prior "Stop copy-pasting prompts. Own
@@ -93,7 +93,7 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local status` — pre-flight cold-install checks
-- `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Gemini CLI + drops `/trinity` skill
+- `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Antigravity + drops `/trinity` skill
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local ingest-recent` — incremental transcript ingest (replaces the retired watch-once / watch-loop CLIs; MCP `ask` also fires this passively on every call)
 - `trinity-local council-rate` — record user verdict; persists to `outcome.metadata.user_verdict` + `council_feedback.jsonl`

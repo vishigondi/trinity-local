@@ -42,7 +42,7 @@ After this, every link in `README.md`, `docs/launch.md`, and the
 
 ```bash
 gh repo edit vishigondi/trinity-local \
-  --description "Your taste, ported. Cross-provider memory + councils + handoff inside Claude Code, Codex CLI, Gemini CLI, and Cursor. Local-first, rides on your existing subscriptions." \
+  --description "Your taste, ported. Cross-provider memory + councils + handoff inside Claude Code, Codex CLI, Antigravity, and Cursor. Local-first, rides on your existing subscriptions." \
   --add-topic mcp \
   --add-topic claude-code \
   --add-topic codex-cli \

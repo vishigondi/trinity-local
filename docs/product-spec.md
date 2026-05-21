@@ -42,12 +42,12 @@ The router is the implementation. The verifier is the value. The personal prefer
 1. **No LLM calls outside councils.** Ingest, embedding, theme assignment, search ranking, and clustering use pure heuristics + metadata. The only LLM invocations Trinity makes are council member calls and chairman synthesis — both ride the user's existing CLI subscriptions.
 2. **Prompt content never uploads.** Even with future opt-in aggregation, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. `/me` content is treated as sensitive derived prompt content; it stays local by default.
 3. **Local-first inference.** Phase 9's learned router runs on the user's hardware. No hosted controller, no per-call API billing.
-4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's CLI subscriptions (Claude Code, Codex CLI, Gemini CLI, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both the cost basis and the privacy commitment.
+4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's CLI subscriptions (Claude Code, Codex CLI, Antigravity, Cowork). If anyone proposes a hosted API tier, push back hard — that destroys both the cost basis and the privacy commitment.
 5. **Hosted components may only be registries, not controllers.** Trinity may host public registry metadata, public cold-start priors, and curated public/famous persona documents. It must not host ordinary users' private `/lens.md`, raw prompts, transcript derivatives, per-call inference, or a routing controller.
 
 ### What runs and when
 
-- **MCP server** (`trinity-local --mcp`): a stdio child of whatever harness launched it (Claude Code, Codex, Gemini CLI). Lives only while the harness is connected; dies on EOF. ~62MB resident, no embedding model loaded eagerly.
+- **MCP server** (`trinity-local --mcp`): a stdio child of whatever harness launched it (Claude Code, Codex, Antigravity). Lives only while the harness is connected; dies on EOF. ~62MB resident, no embedding model loaded eagerly.
 - **CLI** (`trinity-local <command>`): one-shot subprocess. No persistent state.
 - **Council launches**: spawned as background subprocesses by `council-launch`. They run member providers in parallel, write outcomes to `~/.trinity/council_outcomes/`, and exit.
 - **`lens-build`**: cron-friendly. Runs once on demand or on a schedule (typical: daily). Loads the nomic embedding model (~22s ramp), samples ~80 diverse prompts via embedding-MMR, fires one chairman call, writes `~/.trinity/memories/lens.md`. The only place embeddings are loaded on the product path.
@@ -134,7 +134,7 @@ The chairman reads `/me` (composed by `lens-build` from sampled diverse prompts)
 
 ### MCP — v1.0 canonical 5 + v1.5 trio + launch-arc `handoff`
 
-`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Gemini CLI, Cursor). v1.0 shipped 5; v1.5 adds three — `ask` for cheap single-call routing, `get_picks` for agent-facing introspection, `mark_pick_wrong` for the harness-callable user veto; launch-arc adds `handoff` (cross-provider conversation continuity) — for 9 total. (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks.)
+`src/trinity_local/mcp_server.py` exposes these tools to any MCP-compatible harness (Claude Code, Codex CLI, Antigravity, Cursor). v1.0 shipped 5; v1.5 adds three — `ask` for cheap single-call routing, `get_picks` for agent-facing introspection, `mark_pick_wrong` for the harness-callable user veto; launch-arc adds `handoff` (cross-provider conversation continuity) — for 9 total. (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks.)
 
 1. **`ask(query, available_providers?, thread_id?, top_k?)`** *(v1.5)* — kNN + cortex match → single dispatched call → concise structured return `{answer, routed_to, trust_score, latency_ms, escalate_hint?}`. The 90%-of-consults tool. Returns `escalate_hint=compare` when trust < 0.55 so the calling agent can choose to fan out instead.
 2. **`route(task, ...)`** — heuristic + k-NN; returns `{mode, primary, challenger, confidence, reason, shape_signals}`. No model calls. Deprecated in v1.5 in favor of `ask` for in-harness use (the calling agent can't shell out to dispatch via `route`'s advice alone); kept for backwards compatibility.
@@ -233,7 +233,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 **Power users who already use 2+ AI coding CLIs daily.** They:
 
-- Have Claude Code, Codex CLI, and/or Gemini CLI installed
+- Have Claude Code, Codex CLI, and/or Antigravity installed
 - Switch between tools based on gut feeling
 - Don't have data on which tool is actually better for what
 - Lose time re-trying tasks in a second tool when the first fails
@@ -264,7 +264,7 @@ Why this order:
    gesture. The Chrome extension is the v1 bridge for browser capture and
    launchpad dispatch while the desktop cockpit is built.
 2. **GitHub repo** — `curl -fsSL .../install.sh | bash` clones the repo into `~/.trinity/code/` (with a back-compat symlink at `~/.claude/skills/trinity/` for users on the pre-2026-05-19 path) and wires everything. Contributors `pip install -e .` from a clone for the editable dev path.
-3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Gemini CLI follow the same pattern.
+3. **MCP-default install** — `trinity-local install-mcp` registers Trinity with Claude Code's MCP host. Codex CLI / Antigravity follow the same pattern.
 4. **Word of mouth** — the multi-CLI power-user community is small and tight.
 5. **Blog post** — "I spent a month tracking which AI coding tool is actually best for what. Here's the data."
 

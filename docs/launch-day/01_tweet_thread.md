@@ -14,7 +14,7 @@ Trinity Local v1.7 — a cross-provider memory layer that lives in your folder, 
 
   curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
 
-One command. Registers Trinity in Claude Code, Codex CLI, Gemini CLI, and Cursor. macOS + Linux today.
+One command. Registers Trinity in Claude Code, Codex CLI, Antigravity, and Cursor. macOS + Linux today.
 
 3. Tweet 3 (271/280):
 The 60-second demo:

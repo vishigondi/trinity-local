@@ -29,7 +29,7 @@ v1.0 splits this into three tiers, each independently functional:
 
 - **Tier 1 — MCP server** (primary, 2026-05-19 pivot). Trinity
   registers as an MCP server in every harness that supports MCP
-  (Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop). The
+  (Claude Code, Codex CLI, Antigravity, Cursor, Claude Desktop). The
   agent calls tools like `mcp__trinity-local__run_council` inline.
   Tool docstrings are the contract — no `/skill` invocation required.
   The skill at `~/.claude/skills/trinity/` is kept as a **back-compat

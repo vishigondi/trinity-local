@@ -25,7 +25,7 @@ class: live
 
 **Framing**
 - Hero locked: *"Your taste, ported. Lives inside Claude Code, Codex
-  CLI, Gemini CLI, and Cursor."*
+  CLI, Antigravity, and Cursor."*
 - Three tiers documented (Skill primary / Pip engine / Chrome extension)
 - Tier-equivalence invariant locked verbatim: cosine ≥ 0.9999, NOT
   bit-identical. Pinned in 4 surfaces; doc-consistency guard catches

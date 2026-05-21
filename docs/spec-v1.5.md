@@ -19,7 +19,7 @@ class: aspirational
 
 v1.0 shipped a launchpad-centric council product. **v1.5 inverts the primary
 surface from launchpad to MCP.** Most real users won't open the launchpad —
-they'll work inside Claude Code (or Codex CLI, or Gemini CLI) and the agent
+they'll work inside Claude Code (or Codex CLI, or Antigravity) and the agent
 will call Trinity when it needs:
 
 - A second opinion from a different provider for the user's flavor of a question

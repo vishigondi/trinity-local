@@ -10,7 +10,7 @@ class: aspirational
 > v1.6 closes the corpus-acquisition gap that the v1.0 launch surfaces but
 > doesn't fully solve. The pitch — *"Trinity reads the transcripts already on
 > your machine"* — works for **claude.ai exports** (manual JSON dump) and for
-> **CLI harness sessions** (Claude Code / Codex CLI / Gemini CLI write
+> **CLI harness sessions** (Claude Code / Codex CLI / Antigravity write
 > session files automatically). It does NOT work for the **chat web UIs**
 > (claude.ai chat / chatgpt.com / gemini.google.com) where most users actually
 > spend their day. v1.6 fixes that — automatically, with no listening server,

@@ -24,7 +24,7 @@ narrative below ships at v1.7 launch.
 
 ## The locked positioning
 
-**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.*
+**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
 **Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
 
 **Lead paragraph (the digital-twin pitch):** *You've already chosen between Claude,
