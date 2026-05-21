@@ -1300,7 +1300,7 @@ async def _get_council_status(args: dict) -> list[Any]:
 
 async def _handoff(args: dict) -> list[Any]:
     """Cross-provider conversation continuity. Wraps handoff.run_handoff
-    so the agent calling it from inside Claude Code / Codex / Gemini CLI
+    so the agent calling it from inside Claude Code / Codex / Antigravity
     gets a structured tool result it can surface to the user.
 
     The wedge: only Trinity has the cross-provider prompt index. No

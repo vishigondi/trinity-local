@@ -21,7 +21,7 @@ _INSTALL_VERBS: list[tuple[str, str]] = [
     (
         "install-mcp",
         "Register Trinity's MCP server in installed harnesses "
-        "(Claude Code, Codex CLI, Gemini CLI, Cursor). The most "
+        "(Claude Code, Codex CLI, Antigravity, Cursor). The most "
         "common first-run verb.",
     ),
     (

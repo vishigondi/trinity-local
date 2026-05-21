@@ -3,7 +3,7 @@ conversation in a different model.
 
 This is the CLI wrapper around `handoff.run_handoff()`. The MCP-side
 exposure lives in `mcp_server.py` so the agent can call it inline
-from inside Claude Code / Codex CLI / Gemini CLI.
+from inside Claude Code / Codex CLI / Antigravity.
 
 Demo path (task #120):
   1. User just had a conversation in Claude Code.

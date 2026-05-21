@@ -308,7 +308,7 @@ def _emit_updated(applied: int, mcp_rc: int, status_rc: int,
         print(f"⚠ status returned {status_rc} — "
               "run `trinity-local status` to see what's wrong")
     print()
-    print("Note: Claude Code / Codex CLI / Gemini CLI / Cursor may need a "
+    print("Note: Claude Code / Codex CLI / Antigravity / Cursor may need a "
           "restart to pick up new MCP tools.")
     print("Note: Chrome extension users may need to reload the unpacked "
           "extension at chrome://extensions.")

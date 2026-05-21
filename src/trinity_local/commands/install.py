@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 def register(subparsers):
-    imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Gemini CLI, Codex CLI, and Cursor")
+    imp = subparsers.add_parser("install-mcp", help="Install Trinity as an MCP server in Claude Code, Antigravity, Codex CLI, and Cursor")
     imp.add_argument("--scope", choices=["user", "project"], default="user", help="User-wide or project-specific installation")
     imp.set_defaults(handler=handle_install_mcp)
 
@@ -96,7 +96,7 @@ def handle_install_mcp(args):
 
     written: list[str] = []
     if args.scope == "user":
-        # Claude Code, Gemini CLI, Cursor: JSON config with `mcpServers` key.
+        # Claude Code, Antigravity, Cursor: JSON config with `mcpServers` key.
         # 100-persona audit P16/P92 fix: Cursor was silently absent — it
         # supports MCP natively (same JSON shape as Claude Code) but the
         # install-mcp loop didn't write to its config path. Trinity-curious
@@ -139,7 +139,7 @@ def handle_install_mcp(args):
         # type /trinity or hit run_council in the same session and see
         # nothing happen.
         print(
-            "\nNext: restart Claude Code / Codex / Gemini CLI / Cursor to pick "
+            "\nNext: restart Claude Code / Codex / Antigravity / Cursor to pick "
             "up the new tools.\n"
             "Then verify with:  trinity-local status   (or type /trinity in "
             "Claude Code)\n"

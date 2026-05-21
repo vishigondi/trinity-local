@@ -1,7 +1,7 @@
 """Cold-start auto-scan of local CLI transcripts on first MCP spawn.
 
 The wow flow needs personalization on the first council, not a week
-later. The four local-CLI parsers (Claude Code, Codex, Gemini CLI,
+later. The four local-CLI parsers (Claude Code, Codex, Antigravity,
 Cowork) all read from on-disk dirs the user already has — so the
 moment Trinity's MCP child starts under a brand-new install, we can
 auto-detect "no corpus + at least one CLI source present" and kick a
@@ -151,7 +151,7 @@ def kick_cold_start_scan(deadline_s: float = DEFAULT_SCAN_DEADLINE_S) -> dict | 
 
     The initial in_progress state file is written SYNCHRONOUSLY before
     the daemon thread starts. This closes the cross-process race where
-    two MCP servers (Claude Code + Codex CLI + Cursor + Gemini CLI all
+    two MCP servers (Claude Code + Codex CLI + Cursor + Antigravity all
     spawn on session start) call is_cold_start() simultaneously and
     both see an empty state — only the first to reach this function
     creates the state file; the rest hit the `is_cold_start()`

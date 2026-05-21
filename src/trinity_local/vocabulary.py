@@ -64,7 +64,7 @@ _STOPWORDS = frozenset(
 _TOKEN_RX = re.compile(r"[a-zA-Z][a-zA-Z_-]{2,}")  # 3+ chars, alpha/_/-, alpha start
 
 # Anchors: capitalized words optionally chained with internal lowercase + hyphens
-# (Trinity, GitHub, Claude Code, Gemini CLI). The runs of single capitalized
+# (Trinity, GitHub, Claude Code, Antigravity). The runs of single capitalized
 # tokens are merged at extraction time when adjacent in source text.
 _PROPER_TOKEN_RX = re.compile(r"\b([A-Z][a-zA-Z][a-zA-Z0-9_-]*(?:\s+[A-Z][a-zA-Z][a-zA-Z0-9_-]*){0,3})\b")
 
