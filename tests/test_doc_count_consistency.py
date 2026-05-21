@@ -1939,6 +1939,18 @@ class TestNoBannedSynonyms:
          "wrapped code-quoted form because substring match couldn't "
          "see through the markdown backticks ('gemini` cli' isn't "
          "'gemini cli'). Catches both `gemini` CLI and `gemini` CLIs."),
+        ("~/.trinity/cortex/", "~/.trinity/scoreboard/",
+         "tick 131 — the cortex_dir() helper was retired 2026-05-20 "
+         "(per claude.md L762 + retired_names.py); the directory was "
+         "created as a side-effect but never written to. Canonical "
+         "post-rename storage is `scoreboard/` (picks.json + "
+         "routing.json). Two surfaces flipped: founder-essay-draft.md "
+         "L146 + L232 (was referencing retired routing-pattern path), "
+         "spec-v1.5.md L132-134 (diagram showed 3 NEW v1.5 files in "
+         "cortex/ but per task #51 they collapsed into picks.json). "
+         "The legacy-migration narration in state_paths.py docstring "
+         "is exempt (it documents the migration FROM the retired "
+         "path, which is intentional)."),
         ("@openclaw.dev", "@keepwhatworks.com",
          "contact-domain consolidation 2026-05-21 (tick 118). Trinity's "
          "ops contact addresses (security@, conduct@, teams@) had "

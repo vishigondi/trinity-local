@@ -129,9 +129,7 @@ TIER 1 — Hippocampus (episodic, fast write, slow recall)
 TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
 ├── ~/.trinity/memories/topics.json                  v1 — task-type clusters (cognitive: lens evidence map)
 ├── ~/.trinity/memories/lens.md                      v1 — taste tensions (cognitive)
-├── ~/.trinity/scoreboard/picks.json    NEW — extracted model-selection rules per task_type (operational)
-├── ~/.trinity/cortex/failure_modes.json       NEW — per-model failure patterns
-└── ~/.trinity/cortex/successful_prompts.json  NEW — per-model good-prompt templates
+└── ~/.trinity/scoreboard/picks.json    NEW — extracted model-selection rules per task_type (operational; collapses what the spec originally split into cortex/failure_modes.json + cortex/successful_prompts.json — both fields embedded inline in each pick per task #51 / 2026-05-20)
 ```
 
 **Hippocampus** stores episodes — specific past decisions. Fast to write

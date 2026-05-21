@@ -143,9 +143,10 @@ made openly. I agree with the technical claim and disagree with the
 ownership conclusion. Yes, tooling will lock you in. So the tooling should
 be **user-owned**, not lab-owned. Trinity is what user-owned tooling at the
 routing layer looks like — the layer that decides which lab to ask for which
-kind of question, with the decision criteria stored in `~/.trinity/cortex/`
-that you can grep, version-control, audit, port to a new machine, or share
-with your team. None of the labs can ship that, because none of the labs is
+kind of question, with the decision criteria stored in `~/.trinity/scoreboard/`
+(`picks.json` for extracted routing rules, `routing.json` for per-task track
+records) that you can grep, version-control, audit, port to a new machine,
+or share with your team. None of the labs can ship that, because none of the labs is
 allowed to route to a competitor.
 
 For compliance-driven shops: the local-first architecture isn't just a
@@ -229,7 +230,7 @@ with any AI vendor for exactly this reason. ProgressiveRobot has started selling
 
 Trinity is the architectural alternative that makes the cognitive substrate stay with
 the people who built it. The folder is yours. The patterns extracted from it are yours
-(`~/.trinity/cortex/routing_patterns.json` — open it in any text editor). The agent
+(`~/.trinity/scoreboard/picks.json` — open it in any text editor). The agent
 built from them belongs to you, not to the lab whose runtime hosted the consolidation.
 
 But you don't need to buy the bigger thesis to use the v1 thing. v1 is one CLI. Three
