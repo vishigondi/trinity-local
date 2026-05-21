@@ -104,9 +104,10 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 The original spec wanted 3 tools (council / query_lens / add_pair). Current ships 9 —
 5 canonical (v1.0), 3 v1.5 additions, 1 launch-arc addition (`handoff` from tick #119).
-(`get_eval_summary` shipped post-#122 and was retired 2026-05-17 in the simplification
-pass — agents ground via `ask` + picks; eval-summary stays on the launchpad card +
-`eval-show` CLI for direct user inspection.) All load-bearing for the supervision loop
+(`get_eval_summary` shipped post-#122 and was retired 2026-05-18 in commit `1fed7fc`
+(simplification pass) — agents ground via `ask` + picks; eval-summary stays on the
+launchpad card + `eval-show` CLI for direct user inspection.) All load-bearing for the
+supervision loop
 OR the launch hook. Mapping:
 
 | Spec tool | v1 tool | Status |
@@ -239,7 +240,7 @@ Launch day = May 13–15, 2026 per the multiple councils that ratified the condi
 
 2. **numpy not FAISS.** Numpy matmul gets ~5ms on a 49k-vector corpus (measured 2026-05-13; was ~28k when the call was first made, scaled linearly with no observable falloff). FAISS would add a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
-3. **9 MCP tools shipped (5 canonical + 3 v1.5 additions + 1 launch-arc).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 shipped 5: `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. Launch-arc adds `handoff` (tick #119 — cross-provider conversation continuity, killer-hook mechanism for the 60-second demo; powers tasks #115/#120/#121). (`get_eval_summary` shipped post-#122 then retired 2026-05-17 in the simplification pass — agents ground via `ask` + picks.)
+3. **9 MCP tools shipped (5 canonical + 3 v1.5 additions + 1 launch-arc).** The 3-tool subset breaks `record_outcome` (supervision loop persistence), `get_council_status` (async polling), `get_persona` (lens.md hand-off). v1.0 shipped 5: `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. Launch-arc adds `handoff` (tick #119 — cross-provider conversation continuity, killer-hook mechanism for the 60-second demo; powers tasks #115/#120/#121). (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` (simplification pass) — agents ground via `ask` + picks.)
 
 4. **`me-card` is the social object, not the radar chart.** Radar charts are commoditized; the me-card paired-tension PNG is unique to Trinity and renders the lens-discovery output as a shareable artifact. Radar stays as a secondary asset.
 
