@@ -296,8 +296,10 @@ mcp__trinity-local__run_council(task, members=[claude, antigravity, codex])
 ```
 
 Existing tools that stay: `record_outcome`, `get_persona`,
-`get_council_status`. `route` (advice-only) is **deprecated** — it's useless
-when Claude can't shell out to dispatch.
+`get_council_status`. `route` (advice-only) is **slated for deprecation in v1.5**
+once `ask` reaches stability — it's useless when Claude can't shell out to
+dispatch, but the v1.7 surface still ships it (per mcp_server.py canonical 5)
+since the v1.5 single-call alternative is the deprecation gate.
 
 (Spec drift note 2026-05-19: `search_prompts` was listed here as "stays" but
 retired 2026-05-17 in the pre-launch simplification — replaced by substring +
@@ -828,7 +830,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 |---|---|
 | `~/.trinity/SCHEMA_VERSION` lock | v1.5 adds `cortex/` subdir without renaming existing |
 | Routing JSON ledger canonical fields | v1.5 cortex extracts patterns from these — schema is the training data shape |
-| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` IS the council fan-out tool (the spec originally proposed `compare`; the shipped name is `run_council`, no alias); `route` deprecated. (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
+| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` IS the council fan-out tool (the spec originally proposed `compare`; the shipped name is `run_council`, no alias); `route` slated for deprecation in v1.5 once `ask` reaches stability (still ships in v1.7). (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
 | Embeddings pipeline (nomic 768d) | v1.5 uses same index — no re-embedding required |
 | Lens-discovery outputs (basins, lenses, rejections) | topics.json is the cortex consolidation key; lenses are the eval set |
 | Privacy posture (prompts never upload) | unchanged. Cortex consolidation runs on user's flagship sub — local dispatch, not hosted. |
