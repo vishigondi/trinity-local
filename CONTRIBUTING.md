@@ -65,7 +65,7 @@ context in claude.md "Launch arc" section):
   demo on video, embed in README + HN/Twitter launch posts. Mechanism
   shipped at `trinity-local handoff <provider>` and the MCP `handoff`
   tool (task #119, done).
-- **#121 Gemini-Google handoff branch** — verify Gemini CLI's Google
+- **#121 Gemini-Google handoff branch** — verify Antigravity's Google
   data integration surfaces correctly through `dispatch_runner` when
   Trinity hands off mid-conversation. Lights up Gmail / Drive /
   Calendar context Claude can't see.
@@ -112,7 +112,7 @@ worth contributing on:
 ## Priority 6 — Docs and tests
 
 Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
-green on every commit, and the gate currently runs <!-- canonical:test_count -->1615<!-- /canonical --> tests in ~150s.
+green on every commit, and the gate currently runs <!-- canonical:test_count -->1616<!-- /canonical --> tests in ~150s.
 
 **Writing tests:** scope all test state via fixtures. Specifically, never set
 `os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module
@@ -131,7 +131,7 @@ git clone https://github.com/vishigondi/trinity-local
 cd trinity-local
 python3 -m venv .venv               # contributors use a venv for the dev install
 .venv/bin/pip install -e ".[test]"  # editable install + test deps (pytest, etc.)
-.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1615<!-- /canonical --> tests, ~140s; gate must stay green
+.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1616<!-- /canonical --> tests, ~140s; gate must stay green
 python scripts/browser_smoke.py     # <!-- canonical:smoke_surface_count -->34<!-- /canonical -->-surface UI verification (Playwright)
 ```
 
@@ -158,14 +158,14 @@ These are load-bearing for Trinity's identity. PRs that violate them get rejecte
    (`task_type`, `winner`, `confidence`). No content, ever.
 3. **Local-first inference.** No hosted controller, no per-call API billing.
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's own
-   CLI subscriptions (Claude Code, Codex, Gemini CLI). If a PR proposes a hosted API
+   CLI subscriptions (Claude Code, Codex, Antigravity). If a PR proposes a hosted API
    tier, push back hard — that destroys both cost basis and privacy.
 
 ## Code style
 
 - Python 3.10+ (`from __future__ import annotations` in every module)
 - Dataclasses with manual `to_dict()` — no Pydantic, no attrs
-- No runtime dependencies beyond `Pillow>=10` and `mcp>=1.0`
+- Three runtime dependencies: `Pillow>=10` (PNG share cards), `mcp>=1.0` (MCP server runtime), `numpy>=1.26` (lens-build cosine matmul + k-means + vocabulary stats; NOT search — `search_prompt_nodes` is heuristic since task #54)
 - `[mlx]` extras for `sentence-transformers` (graceful degrade to TF-IDF if missing)
 - `[test]` extras for `pytest>=7`
 - JSONL append logs for analytics; JSON entity files for objects

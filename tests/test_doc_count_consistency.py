@@ -2072,6 +2072,13 @@ class TestNoBannedSynonyms:
     SCAN_FILES = [
         "README.md",
         "claude.md",
+        # CONTRIBUTING.md added 2026-05-21 after iter 44 caught
+        # "Gemini CLI" in the architectural-commitments list (L161
+        # "Trinity dispatches via Claude Code, Codex, Gemini CLI").
+        # The doc teaches contributors what NOT to violate; using
+        # the pre-rebrand harness name there is structurally the
+        # same drift as the launch-day docs.
+        "CONTRIBUTING.md",
         "DESIGN.md",
         "SECURITY.md",
         "CODE_OF_CONDUCT.md",
@@ -2413,6 +2420,10 @@ class TestClaudeMdDependenciesMatchPyproject:
     """
 
     def test_claude_md_lists_every_pyproject_runtime_dep(self):
+        # Iter #44 extension: also checks CONTRIBUTING.md after the same
+        # "missing numpy" drift bit the contributor-facing deps bullet —
+        # iter #31's fix patched claude.md but left CONTRIBUTING.md
+        # behind. Both docs are now bound to pyproject runtime deps.
         import re
         import tomllib
 
@@ -2482,6 +2493,68 @@ class TestClaudeMdDependenciesMatchPyproject:
                 "in Claude Code / Codex / Antigravity)). The bullet "
                 "is the canonical contributor-facing summary of "
                 "what `pip install trinity-local` pulls in."
+            )
+
+
+    def test_contributing_md_lists_every_pyproject_runtime_dep(self):
+        """Iter #44 catch — CONTRIBUTING.md L168's "Code style" bullet
+        had the SAME drift the iter-#31 fix caught in claude.md:
+        listed only Pillow + mcp but missed numpy>=1.26 (added per
+        Bug HIGH#4 + the matmul fast-path). iter #31 patched claude.md
+        but didn't co-edit CONTRIBUTING.md because nothing pinned the
+        two surfaces to each other.
+
+        Sibling of test_claude_md_lists_every_pyproject_runtime_dep —
+        same shape, same source of truth (pyproject runtime deps),
+        different consumer doc. The CONTRIBUTING.md bullet is the
+        first-impression contributor-facing claim; under-counting
+        runtime deps misleads new contributors about install
+        footprint and what's actually pip-installed.
+
+        Bullet shape: `- N runtime dependencies: <pkg>=<v> (...)`,
+        or legacy `- No runtime dependencies beyond <pkg>=<v> ...`.
+        """
+        import re
+        import tomllib
+
+        with (REPO / "pyproject.toml").open("rb") as f:
+            pyproject = tomllib.load(f)
+        runtime_deps = pyproject["project"]["dependencies"]
+        pkg_pattern = re.compile(r"^([A-Za-z][\w-]*)")
+        pkg_names: set[str] = set()
+        for dep in runtime_deps:
+            m = pkg_pattern.match(dep)
+            if m:
+                pkg_names.add(m.group(1).lower())
+
+        contributing_md = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        # Find the dependencies bullet. The CONTRIBUTING.md form is
+        # somewhat different from claude.md — we match "runtime
+        # dependencies" in a code-style list item.
+        bullet_match = re.search(
+            r"-\s+[^\n]*runtime dependencies[^\n]*\n",
+            contributing_md,
+            re.IGNORECASE,
+        )
+        if not bullet_match:
+            raise AssertionError(
+                "Couldn't locate the runtime-dependencies bullet in "
+                "CONTRIBUTING.md. The Code-style section should list "
+                "the runtime deps in a one-line bullet."
+            )
+        bullet = bullet_match.group(0).lower()
+
+        missing = sorted(pkg for pkg in pkg_names if pkg not in bullet)
+        if missing:
+            raise AssertionError(
+                f"Runtime deps in pyproject.toml not mentioned in "
+                f"CONTRIBUTING.md's deps bullet: {missing}\n\n"
+                f"Bullet found: {bullet.strip()!r}\n\n"
+                f"Fix: extend the bullet to name every runtime dep "
+                f"(currently three: Pillow, mcp, numpy). The bullet "
+                f"is the contributor-facing summary of what "
+                f"`pip install -e .` pulls in — under-counting it "
+                f"misleads new contributors about install footprint."
             )
 
 
