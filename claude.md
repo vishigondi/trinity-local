@@ -46,7 +46,7 @@ cross-provider council iteration; the new framing is a user-direct rewrite.
 v1 SHIPS: lens building (the twin's substrate) + councils + chairman synthesis
 + `dream` cold-start + cortex extraction. What's NOT in v1 yet but blocks the
 full twin pitch: **per-member prompt scaffolding** (documented design hole at
-`council_runtime.py:113`) — today chairman is lens-conditioned but dispatch is
+`council_runtime.render_member_prompt`) — today chairman is lens-conditioned but dispatch is
 not, so members get the raw question, not the user-twisted version. And
 **task_type vocabulary unification** (documented KNOWN GAP at
 `ranker/chairman_picker.py:_blended_pick`) — the chairman's open-set labels and
@@ -74,8 +74,8 @@ Hundreds of commits since April, with the bulk concentrated on the
 rules by costing time:
 
 1. **Lossless serialization round-trips.** If `to_dict()` writes,
-   `from_dict()` must return the same dataclass. `basins.py:68` capped
-   `prompt_ids` at 50 entries "for readable JSON" — `load_basins()`
+   `from_dict()` must return the same dataclass. `me/basins.py::Basin.to_dict`
+   capped `prompt_ids` at 50 entries "for readable JSON" — `load_basins()`
    round-tripped through that JSON, then `basin_for_prompt()`
    silently returned `None` for any prompt beyond #50, breaking the
    bulk of every multi-prompt basin. Truncation "for display" belongs
@@ -493,7 +493,7 @@ these. Tasks #114–118 break out one per workstream.
 
 A few words do specific work; they get conflated otherwise:
 
-- **prompts** — what the user owns (raw, indexed in `~/.trinity/prompts/`; renamed from `memory/` per Tier 1 #1, automatic one-time migration inside `prompts_dir()` itself, see `state_paths.py:175`). Inputs to dream.
+- **prompts** — what the user owns (raw, indexed in `~/.trinity/prompts/`; renamed from `memory/` per Tier 1 #1, automatic one-time migration inside `prompts_dir()` itself, see `state_paths.prompts_dir`). Inputs to dream.
 - **dream** — the verb only Trinity has. Reads prompts, emits core memories (offline, your data).
 - **core memories** — the three *thinking* memories that compose your lens. The four-level hierarchy chairman reads top-down (drill only when needed):
 
@@ -824,7 +824,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 8. **Launchpad autofill** wired to `memory.search_prompt_nodes`. Reason chips and "Winner: ..." hints render on each suggestion.
 9. **Personal routing table card** on the launchpad with empty-state CTA.
 10. **`lens-build` is a 5-stage lens-discovery pipeline adapted from the external taste-terminal spec.** (taste-terminal is no longer a runtime dependency — see `docs/product-spec.md` "What was deliberately deleted" — but its lens-at-tension-boundary frame is the conceptual anchor; the rules below were ratified into Trinity's own pipeline by the three councils named.) Lenses live at tension boundaries between value poles, not at cluster centers. Pipeline shape ratified by three councils: `council_70eaf228d7753074` (Option C — basins as verifier, not chairman input), `council_6892781d06ac3fa8` (Stage 0 turn-pair gaps as highest-leverage import from taste-terminal), `council_e7560934cb1f1d72` (Stage 0 = ONE batch chairman call gated by deterministic post-validators).
-    - **Stage 1 — Topology (no LLM, ~5s)**: numpy k-means on PromptNode embeddings → ~20 named basins. Per-basin shape (`me/basins.py:75-114`): `id`, `size`, `centroid`, `top_terms` (top-3 TF-IDF residual phrases), `representatives` (closest-to-centroid prompts with full turn lists for the click-to-expand viewer affordance), `label` (chairman-generated semantic label per tick #49 — empty on older runs, UI falls back to `top_terms`). Used to *tag decisions* and to *post-filter pairs* — NOT as a chairman prompt input.
+    - **Stage 1 — Topology (no LLM, ~5s)**: numpy k-means on PromptNode embeddings → ~20 named basins. Per-basin shape (`me/basins.py::Basin`): `id`, `size`, `centroid`, `top_terms` (top-3 TF-IDF residual phrases), `representatives` (closest-to-centroid prompts with full turn lists for the click-to-expand viewer affordance), `label` (chairman-generated semantic label per tick #49 — empty on older runs, UI falls back to `top_terms`). Used to *tag decisions* and to *post-filter pairs* — NOT as a chairman prompt input.
     - **Stage 0 — Turn-pair gap extraction (1 chairman call + deterministic validators)**: walks (assistant_text, user_next_turn) pairs, classifies each into one of the four taste-terminal implicit rejection signal types — REFRAME / COMPRESSION / REDIRECT / SHARPENING. Output: `~/.trinity/me/rejections.jsonl`. Validators (in `me/turn_pairs.py`) drop chairman-skim labels:
        - **COMPRESSION**: user_text word count must be ≤ model_text/10
        - **REDIRECT**: model_text must be structurally multi-part (numbered/bulleted/multi-sentence ≥3)
