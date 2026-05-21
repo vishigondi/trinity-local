@@ -41,7 +41,7 @@ _AUTH_INDICATORS = {
         Path.home() / ".codex" / "auth.json",
         Path.home() / ".codex" / "config.toml",
     ],
-    "gemini": [
+    "antigravity": [
         Path.home() / ".gemini" / ".credentials" / "credentials.json",
         Path.home() / ".gemini" / "settings.json",
     ],
@@ -154,7 +154,7 @@ def _install_command_for(provider: str) -> str:
     return {
         "claude": "Install Claude Code: https://docs.claude.com/en/docs/claude-code",
         "codex": "npm install -g @openai/codex   # or: brew install codex",
-        "gemini": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+        "antigravity": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     }.get(provider, f"install the {provider} CLI")
 
 
@@ -176,7 +176,7 @@ def _check_config() -> CheckResult:
                 name="config_loadable",
                 ok=False,
                 detail="config.json has no enabled CLI providers",
-                fix="edit config.json — enable at least one of {claude, gemini, codex}",
+                fix="edit config.json — enable at least one of {claude, antigravity, codex}",
             )
         return CheckResult(
             name="config_loadable",
@@ -689,7 +689,7 @@ def _check_handoff_ready() -> CheckResult:
             ok=True,  # soft — handoff isn't required to use Trinity
             detail=(
                 f"{len(enabled)} enabled providers — handoff demo needs "
-                "≥2 (claude + gemini, or claude + codex). "
+                "≥2 (claude + antigravity, or claude + codex). "
                 "Enable a second in config.json or run "
                 "`trinity-local install-mcp` to wire CLIs."
             ),
@@ -914,7 +914,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_feedback_consistency())
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))
-    report.checks.append(_check_provider("gemini", "gemini"))
+    report.checks.append(_check_provider("antigravity", "agy"))
     report.checks.append(_check_prompts_seeded())
     report.checks.append(_check_lens_built())
     report.checks.append(_check_core_distilled())
