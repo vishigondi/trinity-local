@@ -618,12 +618,12 @@ On `portal-html` generation, check if `last_update_check` in telemetry settings 
 |------|--------|
 | `src/trinity_local/embeddings/__init__.py` | Pass `dim=dim` to `embed_tfidf()` (correctness fix) |
 | `src/trinity_local/embeddings/backend_tfidf.py` | Honor `dim` parameter, default to 512 to match MLX |
-| `src/trinity_local/council_run_state.py` | **New** — unified disk-backed run-state schema + helpers |
-| `src/trinity_local/council_runner.py` | Write unified state, call `os.setpgrp()` on startup |
-| `src/trinity_local/council_progress.py` | **Delete** after migration |
-| `src/trinity_local/council_status.py` | **Delete** after migration |
+| ~~`src/trinity_local/council_run_state.py`~~ | ❌ never built — the unified schema goal was dropped pre-launch; run-state lives split across `council_runtime.py` (`CouncilOutcome`) and `council_status.py` (`CouncilRunStatus` for live polling). The unification would have been clean but no shipped surface was paying the integration cost. |
+| `src/trinity_local/council_runner.py` | ✅ done — writes per-member status under `~/.trinity/portal_pages/status/`; `os.setpgrp()` startup intentionally NOT adopted (broke pgroup-aware test runners; chosen tradeoff). |
+| ~~`src/trinity_local/council_progress.py`~~ | ✅ deleted pre-launch — was the intermediate progress-writer the unified schema would have replaced; once that goal was dropped, the writer's role moved into `council_runner.py` + `council_status.py` directly. |
+| `src/trinity_local/council_status.py` | ✅ kept (delete-plan retired) — load-bearing for live member streaming + chairman synthesis progress (claude.md L600). The "delete after migration" goal was retired when `council_run_state.py` didn't ship. |
 | `src/trinity_local/state_paths.py` | Add missing dirs (analytics, telemetry settings, watcher, research, council_runs) |
-| `src/trinity_local/process.py` | **New** — `run_checked`, `run_captured`, `run_background`, `build_subprocess_env` |
+| ~~`src/trinity_local/process.py`~~ | ❌ never built — subprocess helpers consolidated in `runtime_env.py` instead (`run_with_runtime_env` + PATH-injection env builder, see claude.md L630). Dedicated `process.py` would have been redundant once `runtime_env.py` absorbed the responsibility. |
 | ~~`src/trinity_local/portal_page.py`~~ | ✅ done — split into `launchpad_page.py` / `launchpad_data.py` / `launchpad_template.py` / `launchpad_install.py` (Tier 2 #4 rename `portal_*` → `launchpad_*`). |
 | `src/trinity_local/launchpad_runtime.py` | ✅ done — shared client JS runtime (polling, stop, completion). |
 | `src/trinity_local/council_runtime.py` | ✅ done — `parse_synthesis_sections` hardened (case-insensitive, numbered variants, `"raw"` fallback). `parse_peer_review_sections` retired with the verifier→synthesis rename (Tier 2 #5). |
