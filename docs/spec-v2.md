@@ -11,6 +11,14 @@ class: historical
 > training infrastructure, no 4–8 weeks of GPU time, no MLX fine-tune loop. This
 > document is preserved as architectural-decision history, not as the active spec.
 >
+> **Code substrate deleted 2026-05-20 (tick 57):** the v2 data-schema modules
+> `src/trinity_local/training_schema.py` (262 LOC) + `src/trinity_local/feature_extractors.py`
+> (261 LOC) had zero callers across src/ and tests/ after the v1.5 pivot. Deleted
+> to reduce dead-code surface; reachable via git history if v1.5 hits a quality
+> ceiling and a reopen needs the schema definitions. Same precedent as the Loop
+> Constitution substrate removal (claude.md L857). See `retired_names.py` for the
+> registry entries (`training_schema`, `feature_extractors`).
+>
 > ### Why we pivoted
 >
 > Re-reading Sakana's TRINITY paper (arXiv:2512.04388, ICLR 2026) end-to-end, the

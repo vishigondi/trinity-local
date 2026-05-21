@@ -212,6 +212,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
     ),
+    "training_schema": RetirementRecord(
+        name="training_schema",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(none — v2 trained-coordinator path sunset 2026-05-11)",
+        reason="262-LOC module defining the v2 trained-coordinator data schema (TranscriptWindow, RoutingExample, etc). The v2 path was sunset 2026-05-11 per claude.md ('reopens only if v1.5 hits a quality ceiling'). Tick 57 audit: ZERO callers across src/ and tests/ — feature_extractors.py was the only importer, and it itself had zero importers. Same shape as the Loop Constitution substrate that was deleted in pre-launch simplification. Architecture preserved in git history + docs/spec-v2.md sunset header.",
+        kind="module",
+    ),
+    "feature_extractors": RetirementRecord(
+        name="feature_extractors",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(none — v2 trained-coordinator path sunset)",
+        reason="261-LOC module wrapping the training_schema dataclasses for feature extraction. Zero importers across src/ and tests/. Deleted alongside training_schema.py — same v2-substrate-after-sunset shape.",
+        kind="module",
+    ),
     "hard_examples_dir": RetirementRecord(
         name="hard_examples_dir",
         retired_at="2026-05-20",
