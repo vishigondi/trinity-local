@@ -3632,6 +3632,87 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_every_canonical_helper_is_consumed_by_a_doc(self):
+        """Iter #36 catch — symmetry guard. Iter #34's
+        test_state_layout_file_entries_have_writers caught
+        doc → code orphans (diagram listed files no code wrote);
+        this one catches CODE → DOC orphans at the renderer level.
+
+        The scripts/render_docs.py CANONICAL dict declared 8 fields
+        (chrome_action_allowlist_count / cli_command_count /
+        doc_consistency_guards / mcp_tool_count / skipped_count /
+        smoke_surface_count / test_count / version). 7 of them
+        appeared as ``<!-- canonical:NAME -->`` placeholders somewhere
+        in the repo; ``version`` was an orphan helper — the function
+        computed the version from pyproject.toml but no doc actually
+        used the placeholder. claude.md L56 had the version inlined
+        as a raw string that would silently drift when v1.7.5 landed.
+
+        Guard shape: walk the CANONICAL dict from render_docs.py,
+        for each declared field assert at least one
+        `<!-- canonical:NAME -->` placeholder exists somewhere
+        in the docs (markdown + html). An orphan helper means
+        either the placeholder fell out of every doc (drift), or
+        the renderer never had a doc to feed (dead code).
+
+        Pattern catalog: principle #21 (every claim needs a guard
+        at the surface that ships it) inverted — every COMPUTED
+        canonical value needs a SURFACE that consumes it, otherwise
+        the computation is dead code. Pin both directions so the
+        canonical pipeline can't drift on either end.
+        """
+        import re
+        import subprocess
+        import sys
+
+        # Re-import the renderer fresh so we read the canonical
+        # dict directly (avoids caching issues).
+        for mod_name in list(sys.modules):
+            if mod_name.startswith("render_docs"):
+                del sys.modules[mod_name]
+        sys.path.insert(0, str(REPO / "scripts"))
+        import render_docs
+
+        declared_fields = set(render_docs.CANONICAL.keys())
+        if not declared_fields:
+            raise AssertionError(
+                "render_docs.CANONICAL is empty — guard would silently pass"
+            )
+
+        # Find every placeholder pattern in repo docs.
+        result = subprocess.run(
+            [
+                "grep", "-rohE", r"canonical:[a-z_]+",
+                "--include=*.md", "--include=*.html", "--include=*.py",
+                str(REPO),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        used = set(
+            line.replace("canonical:", "") for line in result.stdout.splitlines()
+            if line.strip()
+        )
+
+        orphans = sorted(declared_fields - used)
+        if orphans:
+            raise AssertionError(
+                "render_docs.CANONICAL declares helpers with no consumer doc:\n"
+                + "\n".join(f"  - {field}" for field in orphans)
+                + "\n\nEach declared canonical helper should have at least one "
+                f"<!-- canonical:NAME --> placeholder in a doc that the "
+                f"renderer can substitute into. Orphan helpers are either:\n"
+                f"  (a) drift: a doc used to consume the helper but the "
+                f"placeholder fell out — restore it where the value belongs.\n"
+                f"  (b) dead code: the helper was added speculatively but "
+                f"never wired into a doc — drop it from CANONICAL.\n\n"
+                f"Iter #36 caught ``version`` as an orphan when claude.md "
+                f"L56's pyproject-version mention was inlined as a raw "
+                f"string rather than the placeholder; fix was to wrap the "
+                f"version in <!-- canonical:version -->X.Y.Z<!-- /canonical -->."
+            )
+
     def test_command_module_count_claim_matches_main_py(self):
         """Iter #35 catch — claude.md's architecture section L597
         asserts "22 user-facing command modules (21 in
