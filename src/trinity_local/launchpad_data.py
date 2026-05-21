@@ -60,10 +60,11 @@ def _esc(value: str | None) -> str:
 
 
 def _strip_thread_context(text: str) -> str:
-    """When the prompt was built by thread_context.build_threaded_prompt, the
-    actual user question lives after a "Current user message:\n" marker. The
-    preceding block is prior-assistant context that humans don't want as the
-    card title. Strip it for display.
+    """When the prompt was built by the launchpad's JS thread-context wrapper
+    (launchpad_template.py applySuggestion), the actual user question lives
+    after a "Current user message:\n" marker. The preceding block is
+    prior-assistant context that humans don't want as the card title. Strip
+    it for display.
     """
     marker = "Current user message:\n"
     idx = text.find(marker)
@@ -274,7 +275,7 @@ def _load_replay_candidates(limit: int = 200) -> list:
         prior = (hit.preceding_assistant_text or "").strip()
         # Truncate prior assistant excerpt for the visible preview; the full
         # text up to the budget is sent through to the council bundle on
-        # apply (see thread_context.build_threaded_prompt).
+        # apply (see launchpad_template.py applySuggestion).
         prior_preview = prior[:240] + ("…" if len(prior) > 240 else "")
         candidates.append({
             "text": text,

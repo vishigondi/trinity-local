@@ -2550,8 +2550,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           const prior = this.suggestionPriorFull(suggestion);
           // For thread-dependent prompts ("continue.", "Let me restart.")
           // prepend the prior assistant excerpt so fresh members see the
-          // framing the user was responding to. Mirrors the canonical format
-          // in src/trinity_local/thread_context.py.
+          // framing the user was responding to. The reader/stripper for
+          // this format lives in launchpad_data.py:_strip_thread_context.
           if (prior && text) {{
             const BUDGET = 1500;
             let excerpt = prior.trim();
