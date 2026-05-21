@@ -65,19 +65,22 @@ async def handle_list_tools() -> list[Tool]:
         Tool(
             name="ask",
             description=(
-                "Ask a single question and get one routed answer. Trinity routes via kNN over "
-                "the user's past prompts (which model has historically won for similar questions), "
-                "dispatches one call to the best provider, and returns a concise structured answer. "
-                "Use for 90% of consults — quick second opinion, cross-provider check, dodging a "
-                "rate limit on your own subscription.\n\n"
+                "WHEN TO CALL THIS: before asking the user to pick between options that aren't "
+                "user-personal preferences. Default to `ask` for product/architectural questions "
+                "where the answer is 'which option is RIGHT' (Trinity routes to the model whose "
+                "past wins on similar questions are strongest, applies the user's lens). Reserve "
+                "AskUserQuestion / interactive prompts for genuinely personal choices (taste, "
+                "priorities, scope).\n\n"
+                "WHAT IT DOES: Trinity routes via kNN over the user's past prompts (which model "
+                "has historically won for similar questions), dispatches one call to the best "
+                "provider, and returns a concise structured answer.\n\n"
                 "Returns: {answer, routed_to, trust_score (0..1), latency_ms, optional runner_up, "
-                "optional escalate_hint='compare' when trust is low and you should consider calling "
-                "`run_council` for parallel perspectives instead}.\n\n"
+                "optional escalate_hint='compare' when trust is low and you should consider "
+                "calling `run_council` for parallel perspectives instead}.\n\n"
                 "Cost: ~$0.01–0.05 typical for one model call. Latency 3–30s dominated by "
-                "the dispatched provider's response time (Trinity overhead is <1s; the rest is "
-                "the model thinking). Single dispatched call, no flagship planning, no "
-                "multi-model fan-out. If you genuinely need disagreement-vs-agreement "
-                "structure, use `run_council` instead."
+                "the dispatched provider's response time (Trinity overhead is <1s). Single "
+                "dispatched call, no flagship planning, no multi-model fan-out. If you genuinely "
+                "need disagreement-vs-agreement structure, use `run_council` instead."
             ),
             inputSchema={
                 "type": "object",
@@ -96,16 +99,27 @@ async def handle_list_tools() -> list[Tool]:
         Tool(
             name="run_council",
             description=(
-                "Launch a multi-provider comparison for the user's task. Use when the user "
-                "asks for a second opinion or a council, or when route() returned mode='council'. "
-                "Supports parallel mode (default; members run simultaneously) and chain mode "
-                "(sequential refinement, each model refines the prior). Returns the council_run_id "
+                "WHEN TO CALL THIS: before committing to an architectural / public-API / "
+                "data-schema decision where two senior engineers could reasonably disagree, OR "
+                "when the user explicitly asks for a council or second opinion, OR when route() "
+                "returned mode='council', OR when you'd otherwise present a multi-option choice "
+                "to the user but the choice is product/architectural (not user-personal "
+                "preference). Skip for trivial bugs, syntax lookups, mechanical refactors, "
+                "information retrieval — wasted on questions with one right answer.\n\n"
+                "WHAT IT DOES: launches a multi-provider comparison (claude / codex / antigravity "
+                "by default). Supports parallel mode (default; members run simultaneously) and "
+                "chain mode (sequential refinement, each model refines the prior). The chairman "
+                "synthesizes via the user's lens.md and returns agreed_claims, disagreed_claims "
+                "with why_matters, winner, runner_up, routing_lesson. Returns the council_run_id "
                 "and the path to the live review page; the council runs asynchronously.\n\n"
-                "When `responses` is provided (pre-supplied member outputs), skips member dispatch "
-                "and goes straight to chairman synthesis — one model call instead of N+1. This is "
-                "the structured verdict path. Use when you ALREADY HAVE multiple model outputs "
-                "and just want the structured verdict (agreed_claims, disagreed_claims, winner, "
-                "routing_lesson, eval_seed)."
+                "When `responses` is provided (pre-supplied member outputs), skips member "
+                "dispatch and goes straight to chairman synthesis — one model call instead of "
+                "N+1. Use when you ALREADY HAVE multiple model outputs and just want the "
+                "structured verdict.\n\n"
+                "Cost: 3 member calls + 1 chairman call (~30s-2min). Anthropic's advisor-tool "
+                "pattern is intra-provider (Sonnet→Opus, all Claude); `run_council` is "
+                "cross-provider (claude/codex/antigravity) — different value prop, both can "
+                "coexist."
             ),
             inputSchema={
                 "type": "object",
