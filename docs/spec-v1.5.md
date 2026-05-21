@@ -271,7 +271,8 @@ mcp__trinity-local__ask(query)
   tool when working memory actually has consumers (see "Deferred to v1.7"
   + "Working memory" sections below).
 
-  Cost: ~$0.01–0.05, <2s typical
+  Cost: ~$0.01–0.05 per call. Latency 3–30s, dominated by the dispatched
+  provider's response time (Trinity overhead is <1s; the rest is the model).
   Use when: you want a quick consult from whichever model is best for THIS
   user's flavor of this question. Single dispatch, concise return. The
   90%-of-the-time tool. Default.

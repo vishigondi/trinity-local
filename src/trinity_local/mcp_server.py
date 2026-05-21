@@ -73,9 +73,11 @@ async def handle_list_tools() -> list[Tool]:
                 "Returns: {answer, routed_to, trust_score (0..1), latency_ms, optional runner_up, "
                 "optional escalate_hint='compare' when trust is low and you should consider calling "
                 "`run_council` for parallel perspectives instead}.\n\n"
-                "Cost: ~$0.01–0.05 typical, <2s. Single dispatched call, no flagship planning, "
-                "no multi-model fan-out. If you genuinely need disagreement-vs-agreement structure, "
-                "use `run_council` instead."
+                "Cost: ~$0.01–0.05 typical for one model call. Latency 3–30s dominated by "
+                "the dispatched provider's response time (Trinity overhead is <1s; the rest is "
+                "the model thinking). Single dispatched call, no flagship planning, no "
+                "multi-model fan-out. If you genuinely need disagreement-vs-agreement "
+                "structure, use `run_council` instead."
             ),
             inputSchema={
                 "type": "object",
