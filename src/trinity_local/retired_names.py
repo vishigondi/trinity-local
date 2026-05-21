@@ -68,7 +68,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "thread_context": RetirementRecord(
         name="thread_context",
         retired_at="2026-05-21",
-        commit="",  # filled by retirement commit
+        commit="063eb80",
         replacement="(none — JS-side inline implementation in launchpad_template.py:2548-2574)",
         reason="Docstring claimed it was the canonical formatter \"used by commands/replay.py + launchpad_template.py\" but tick 81 audit found ZERO Python callers. replay.py uses its own `_build_hidden_context()` with a different format; launchpad_template.py must reimplement in JS because the file:// architecture (claude.md \"File:// is the substrate\") blocks JS from importing Python. The `_strip_thread_context()` reader in launchpad_data.py only PARSES the format, doesn't import the producer. Pure orphan; deleted cleanly with the JS-side comment updated to no longer point at the removed file. Pattern #4: when fixing a bug, audit for its shape — same orphan-module shape as the `feature_extractors` + `training_schema` sunset in tick 57.",
         kind="module",
