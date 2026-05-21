@@ -9,7 +9,7 @@ v1.0 explicit-mode path; in v1.7+ they're redundant with MCP-triggered
 ingest.
 
 This module is preserved as the source-path resolver shared by
-`incremental_ingest.ingest_recent()` and `cold_start.run_initial_scan()`
+`incremental_ingest.ingest_recent()` and `cold_start.kick_cold_start_scan()`
 — both walk transcripts under per-provider roots and need a single
 source of truth for "where is provider X's history on disk".
 
