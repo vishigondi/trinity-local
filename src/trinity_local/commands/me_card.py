@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from ..me_card import collect_card_data, render_me_card
-from ..state_paths import state_dir
+from ..state_paths import share_dir
 
 
 def register(subparsers):
@@ -53,8 +53,7 @@ def handle_me_card(args):
         sys.stdout.buffer.write(png)
         return 0
 
-    out = args.out or (state_dir() / "share" / "me_card.png")
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = args.out or (share_dir() / "me_card.png")
     out.write_bytes(png)
     opened = False
     if getattr(args, "open_after", False):

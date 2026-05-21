@@ -406,7 +406,7 @@ def handle_eval_share(args):
     from pathlib import Path
     from ..evals.runner import load_run_result
     from ..eval_card import collect_card_data_from_result, render_eval_card
-    from ..state_paths import state_dir
+    from ..state_paths import share_dir
 
     path = _latest_result_path(args.target, args.eval_id)
     if path is None:
@@ -426,8 +426,7 @@ def handle_eval_share(args):
     card_data = collect_card_data_from_result(result)
     png_bytes = render_eval_card(card_data)
 
-    out = Path(args.out) if args.out else (state_dir() / "share" / "eval_card.png")
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = Path(args.out) if args.out else (share_dir() / "eval_card.png")
     out.write_bytes(png_bytes)
 
     opened = False

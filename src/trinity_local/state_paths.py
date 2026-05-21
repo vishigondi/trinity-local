@@ -169,6 +169,23 @@ def analytics_dir() -> Path:
     return path
 
 
+def share_dir() -> Path:
+    """PNG share-card outputs — `me-card`, `council-share --safe`,
+    `eval-share` defaults. Was inlined as `state_dir() / "share"` in
+    3 callers before tick 87 promoted it to a helper per principle
+    #17 (three inline shapes = missing helper).
+
+    NOTE: the eval suites' `evals_dir()` lives in `evals/builder.py`
+    (closer to the EvalSet dataclass that consumes it); state_paths.py
+    intentionally does NOT duplicate it — the canonical definition
+    has multiple importers (`commands/eval.py`, tests) and adding a
+    second declaration would drift per principle #20.
+    """
+    path = state_dir() / "share"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 # watcher_dir() retired 2026-05-17 with the watcher subsystem kill
 # (watch-once / watch-loop CLIs gone; MCP `ask` triggers ingestion
 # passively). The `~/.trinity/watcher/` cursor directory may still

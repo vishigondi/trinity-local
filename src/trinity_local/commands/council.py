@@ -481,7 +481,7 @@ def handle_council_share(args):
     longer leaks into the output filename (former bug).
     """
     from ..council_card import collect_card_data_from_outcome, render_council_card
-    from ..state_paths import state_dir
+    from ..state_paths import share_dir
 
     outcome = load_council_outcome(args.council)
     # Strip the "council_" prefix when slicing the id for the filename —
@@ -494,7 +494,7 @@ def handle_council_share(args):
     png_bytes = render_council_card(card_data)
 
     out = (Path(args.out) if args.out
-           else state_dir() / "share" / f"council_{id_short}.png")
+           else share_dir() / f"council_{id_short}.png")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(png_bytes)
 
