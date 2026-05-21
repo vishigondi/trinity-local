@@ -48,7 +48,7 @@ you don't want to re-implement every detail of macOS"* → Anthropic's stated
 goal is "the macOS of agents"). Trinity ships them in a way that keeps your
 cognitive substrate yours.
 
-The enterprise context that landed this week: MassMutual won't sign long-term
+The enterprise context that landed mid-May 2026: MassMutual won't sign long-term
 contracts with any single AI vendor for exactly this reason. ProgressiveRobot
 is selling "Anthropic Agent Lock-In" risk audits. There is now a recognized
 enterprise category called *vendor-neutral agent memory* — and Trinity is
