@@ -123,8 +123,8 @@ class TestRoutingDecision:
 class TestHeuristicRanker:
     """HeuristicRanker: task-kind-based routing with evidence."""
 
-    def test_research_task_kind(self):
-        """Research/broad comparison → gemini council."""
+    def test_research_task_type(self):
+        """Research/broad comparison → antigravity council."""
         ranker = HeuristicRanker()
         ctx = RoutingContext(
             task_text="Compare the top 5 machine learning frameworks",
@@ -133,14 +133,14 @@ class TestHeuristicRanker:
             session_id="sess-001",
         )
         decision = ranker.advise(ctx)
-        assert decision.recommended_provider == "gemini"
+        assert decision.recommended_provider == "antigravity"
         assert decision.needs_council is True
-        assert decision.top_k == ["gemini", "codex"]
+        assert decision.top_k == ["antigravity", "codex"]
         assert decision.confidence == 0.72
         assert decision.backend == "heuristic"
         assert any("research" in e.lower() for e in decision.evidence)
 
-    def test_coding_task_kind(self):
+    def test_coding_task_type(self):
         """Coding/execution → codex council."""
         ranker = HeuristicRanker()
         ctx = RoutingContext(
@@ -156,7 +156,7 @@ class TestHeuristicRanker:
         assert decision.confidence == 0.68
         assert decision.backend == "heuristic"
 
-    def test_debugging_task_kind(self):
+    def test_debugging_task_type(self):
         """Debugging/error triage → codex council."""
         ranker = HeuristicRanker()
         ctx = RoutingContext(
@@ -170,7 +170,7 @@ class TestHeuristicRanker:
         assert decision.needs_council is True
         assert decision.confidence == 0.68
 
-    def test_general_task_kind(self):
+    def test_general_task_type(self):
         """General/writing/other → claude default."""
         ranker = HeuristicRanker()
         ctx = RoutingContext(

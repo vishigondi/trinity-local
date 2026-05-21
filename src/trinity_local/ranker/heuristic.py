@@ -113,7 +113,7 @@ class HeuristicRanker(Ranker):
     """Routes based on task_type (research/coding/debugging/general).
 
     Evidence comes from recent session outcomes and cost comparisons.
-    Recommendations: research→gemini, coding→codex, default→claude.
+    Recommendations: research→antigravity, coding→codex, default→claude.
     Confidence is fixed by task_type (0.72/0.68/0.55).
     """
 
@@ -124,12 +124,12 @@ class HeuristicRanker(Ranker):
 
         if task_type in {"research", "cowork_general"}:
             return RoutingDecision(
-                recommended_provider="gemini",
-                top_k=["gemini", "codex"],
+                recommended_provider="antigravity",
+                top_k=["antigravity", "codex"],
                 needs_council=True,
                 confidence=0.72,
                 evidence=evidence + [
-                    "Gemini is likely stronger for broad research and comparison."
+                    "Antigravity is likely stronger for broad research and comparison."
                 ],
                 backend="heuristic",
             )
