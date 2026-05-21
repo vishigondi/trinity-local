@@ -3632,6 +3632,102 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_state_layout_file_entries_have_writers(self):
+        """Iter #34 catch — sibling of
+        test_claude_md_state_layout_covers_every_state_paths_dir
+        (iter #33). That guard catches code → doc gaps for
+        directories. This one catches doc → code orphans for FILES
+        named in the state-layout tree.
+
+        Drift caught 2026-05-21 iter #34: claude.md's state-layout
+        diagram listed `embeddings_matrix.npy   # numpy fast-path
+        matrix (lazy)` but NO code ever wrote that file (git log -S
+        confirmed no commit ever touched the name). It was a
+        forward-looking artifact from the pre-task-#54 era when
+        `search_prompt_nodes` used numpy matmul over a persisted
+        embedding cache. Task #54 retired embedding-powered search
+        in favor of substring + replay-value heuristics; the planned
+        cache file never shipped, but the diagram entry survived.
+
+        Guard shape: scrape every file leaf from the state-layout
+        tree (lines like `│   └── prompt_nodes.jsonl   # ...`),
+        then assert each filename appears as a string in src/.
+        Looser than the directory guard because filenames are less
+        likely to be constructed via helpers — most are inlined
+        string literals (`"prompt_nodes.jsonl"`).
+
+        Exceptions: a small ALLOWLIST for filenames that are
+        legitimately created by external tools or older installs
+        (none today; the allowlist is a forward-compat hook).
+
+        Same pattern catalog as iter #33: docs are derived views;
+        when a load-bearing list claim has no machine-readable
+        binding to code, drift accumulates silently. Bind both
+        directions (code → doc + doc → code) for the same diagram.
+        """
+        import re
+        import subprocess
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        # Extract the state-layout section.
+        m = re.search(
+            r"### State layout(.*?)(?=\n###\s|\n##\s[^#])",
+            claude_md,
+            re.DOTALL,
+        )
+        if not m:
+            raise AssertionError(
+                "Couldn't find ### State layout section in claude.md"
+            )
+        layout = m.group(1)
+
+        # Match file leaves inside the tree (lines with tree chars
+        # followed by a name ending in .json / .jsonl / .md / .npy /
+        # .toml / .yaml).
+        file_pattern = re.compile(
+            r"[├└]──\s+([\w.-]+\.(?:json|jsonl|md|npy|toml|yaml|js))\b"
+        )
+        diagram_files = set(file_pattern.findall(layout))
+
+        # Forward-compat allowlist: filenames legitimately surfaced
+        # in the diagram without an in-tree writer (e.g. user-curated
+        # configs, files written by the Chrome extension only).
+        ALLOWLIST = frozenset({
+            # SCHEMA_VERSION is written by state_paths._ensure_schema_version
+            # without a quoted-string literal that matches our scanner;
+            # the diagram entry is still real (the file ships on every
+            # mkdir of state_dir()).
+        })
+
+        src_dir = REPO / "src" / "trinity_local"
+        missing: list[str] = []
+        for fname in sorted(diagram_files):
+            if fname in ALLOWLIST:
+                continue
+            # Grep src/ for the bare filename as a quoted string
+            # literal or path fragment.
+            result = subprocess.run(
+                ["grep", "-rl", fname, str(src_dir)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if not result.stdout.strip():
+                missing.append(f"  `{fname}` — appears in diagram, no writer in src/")
+        if missing:
+            raise AssertionError(
+                "State-layout diagram lists files that no code in "
+                "src/trinity_local/ references:\n"
+                + "\n".join(missing)
+                + "\n\nA file in the diagram with no writer is a "
+                "doc orphan — a reader expecting it on disk will "
+                "never find it. Fix: either remove the entry from "
+                "the diagram (the file was forward-looking or got "
+                "retired), or add the file to the allowlist with a "
+                "one-line justification (the file is created by an "
+                "external tool / Chrome extension / etc.)."
+            )
+
     def test_claude_md_state_layout_covers_every_state_paths_dir(self):
         """Iter #33 catch — claude.md's "State layout" tree diagram
         is supposed to enumerate every directory Trinity creates under

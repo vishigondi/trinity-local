@@ -142,7 +142,7 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 ├── prompts/                  ← raw prompt index (the "hippocampus" — INPUT to dream)
 │   ├── prompt_nodes.jsonl    ←   (was `memory/`; renamed per brand axis: prompts vs memories)
 │   ├── turn_windows.jsonl
-│   └── embeddings_matrix.npy ← numpy matmul fast-path; FAISS-compatible interface
+│   └── cursors.json          ← per-source ingest cursors. (Task #54 dropped embedding-powered search for `search_prompt_nodes`; the embeddings live inline on PromptNode records, the planned `embeddings_matrix.npy` cache file never shipped.)
 ├── memories/                 ← three thinking memories (cognitive shape, OUTPUT of dream)
 │   ├── lens.md               ← value — paired tensions you'd reject vs accept
 │   ├── topics.json           ← semantic — subject clusters + evidence map for lens
