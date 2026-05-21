@@ -59,28 +59,14 @@ class TestCrossMemoryChipSharedClass:
             "lens chip not threading the shared base"
         )
 
-    def test_recent_card_chips_use_shared_class(self, isolated_home):
-        from trinity_local.launchpad_data import build_recent_cards_html
-        cards = [{
-            "council_id": "c001",
-            "chain_root_id": "t001",
-            "review_page_path": "c001.html",
-            "title": "A council",
-            "winner_provider": "claude",
-            "created_at": "2026-05-13T10:00:00",
-            "segment_count": 1,
-            "task_type": "coding",
-        }]
-        html = build_recent_cards_html(cards)
-        # All three recent-card chips share the same class string.
-        assert "council-xlink cross-memory-chip" in html, (
-            "recent-card chip not threading the shared base — three "
-            "surfaces will drift apart visually"
-        )
-        # No inline style= on the chip anymore (was duplicating CSS).
-        assert 'class="council-xlink"' not in html or "style=" not in html.split('class="council-xlink')[1].split('>')[0], (
-            "council-xlink chip still has inline style — visual drift risk"
-        )
+    # test_recent_card_chips_use_shared_class removed 2026-05-21.
+    # The council-xlink chips on recent cards (→ pick / → routing /
+    # → topology + PICK/ROUTING/SHARE PNG buttons) were deleted in
+    # commit 8f1fd95 per user direction "what are the buttons under
+    # it doing? remove them". The shared-class invariant for the
+    # cortex + lens chips that REMAIN is still guarded by
+    # test_cortex_chip_uses_shared_class + test_lens_chip_uses_shared_class
+    # above — only the deleted recent-card surface is sunset.
 
 
 class TestTopologyBasinLabels:

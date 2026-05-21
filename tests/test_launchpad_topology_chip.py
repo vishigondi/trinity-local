@@ -299,118 +299,16 @@ class TestTopicsBasinsCache:
         )
 
 
-class TestRecentCardTopologyTooltip:
-    """Tick #39 — recent-card → topology chip tooltip now surfaces
-    basin top-terms when topics.json carries them. Cold-install
-    fallback is 'Open basin <id> in the topology graph'."""
-
-    def test_tooltip_carries_top_terms_when_labels_available(self, isolated_home, monkeypatch):
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._task_to_topology_basin",
-            lambda: {"coding": "b07"},
-        )
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._topology_basin_labels",
-            lambda: {"b07": "refactor · function · type"},
-        )
-        from trinity_local.launchpad_data import build_recent_cards_html
-        cards = [{
-            "council_id": "c001",
-            "chain_root_id": "t001",
-            "review_page_path": "c001.html",
-            "title": "Refactor X?",
-            "winner_provider": "claude",
-            "created_at": "2026-05-13T10:00:00",
-            "segment_count": 1,
-            "task_type": "coding",
-        }]
-        html = build_recent_cards_html(cards)
-        # Tooltip should carry the top-terms text. The exact prefix
-        # matches the Vue + JS helpers so the wording is consistent
-        # across launchpad + viewer.
-        assert 'title="Basin b07 — refactor · function · type"' in html, (
-            "recent-card → topology chip tooltip missing basin top-terms"
-        )
-
-    def test_tooltip_falls_back_when_labels_empty(self, isolated_home, monkeypatch):
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._task_to_topology_basin",
-            lambda: {"coding": "b07"},
-        )
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._topology_basin_labels",
-            lambda: {},  # no labels → fallback path
-        )
-        from trinity_local.launchpad_data import build_recent_cards_html
-        cards = [{
-            "council_id": "c001",
-            "chain_root_id": "t001",
-            "review_page_path": "c001.html",
-            "title": "Refactor X?",
-            "winner_provider": "claude",
-            "created_at": "2026-05-13T10:00:00",
-            "segment_count": 1,
-            "task_type": "coding",
-        }]
-        html = build_recent_cards_html(cards)
-        assert 'title="Open basin b07 in the topology graph"' in html, (
-            "fallback tooltip path broken — cold install will render no title"
-        )
-
-
-class TestRecentCardTopologyChip:
-    """The chip must render only when task_type → basin map has a match.
-    Without a match, the recent card shows only → pick + → routing."""
-
-    def test_chip_rendered_when_match_exists(self, isolated_home, monkeypatch):
-        # Force _task_to_topology_basin to return a known map; assert
-        # the rendered card HTML carries the → topology chip with the
-        # right href.
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._task_to_topology_basin",
-            lambda: {"coding": "b07"},
-        )
-        from trinity_local.launchpad_data import build_recent_cards_html
-        cards = [{
-            "council_id": "c001",
-            "chain_root_id": "t001",
-            "review_page_path": "c001.html",
-            "title": "How do I refactor X?",
-            "winner_provider": "claude",
-            "created_at": "2026-05-13T10:00:00",
-            "segment_count": 1,
-            "task_type": "coding",
-        }]
-        html = build_recent_cards_html(cards)
-        assert "→ topology" in html, "topology chip missing"
-        assert "memory.html?file=topics.json&basin=b07" in html, (
-            "topology chip target drifted from ?basin= contract"
-        )
-
-    def test_chip_omitted_when_no_match(self, isolated_home, monkeypatch):
-        monkeypatch.setattr(
-            "trinity_local.launchpad_data._task_to_topology_basin",
-            lambda: {},  # no matches at all
-        )
-        from trinity_local.launchpad_data import build_recent_cards_html
-        cards = [{
-            "council_id": "c001",
-            "chain_root_id": "t001",
-            "review_page_path": "c001.html",
-            "title": "A council",
-            "winner_provider": "claude",
-            "created_at": "2026-05-13T10:00:00",
-            "segment_count": 1,
-            "task_type": "unmapped_task",
-        }]
-        html = build_recent_cards_html(cards)
-        # The other two chips must still render.
-        assert "→ pick" in html
-        assert "→ routing" in html
-        # But not the topology chip.
-        assert "→ topology" not in html, (
-            "topology chip should NOT render when task has no centroid match"
-        )
+# TestRecentCardTopologyTooltip + TestRecentCardTopologyChip removed
+# 2026-05-21 (this commit). The recent-card cross-memory chip strip
+# (→ pick / → routing / → topology + PICK PNG / ROUTING PNG / SHARE
+# PNG share buttons) was deleted in commit 8f1fd95 per user direction
+# "what are the buttons under it doing? remove them". The data layer
+# the topology chip read from (_task_to_topology_basin,
+# _topology_basin_labels) still exists and is exercised by
+# TestTaskToTopologyBasin + TestTopicsBasinsCache above — those keep
+# the underlying mechanism guarded. Only the now-deleted chip surface
+# is sunset.
 
 
 def _minimal_pattern_payload(task_type: str, *, centroid: list[float]) -> dict:
