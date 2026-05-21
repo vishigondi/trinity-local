@@ -59,7 +59,7 @@ class TestRenderShape:
 
     def test_render_empty_state_still_produces_valid_png(self):
         # Fresh install — no lenses yet. Card should still render with
-        # the "Run trinity-local me-build" CTA, NOT crash.
+        # the "Run trinity-local lens-build" CTA, NOT crash.
         from trinity_local.me_card import CardLensData, render_me_card
         data = CardLensData()  # all fields None / empty
         png = render_me_card(data)

@@ -1,20 +1,25 @@
 """Phase 7 fresh-install tests (council_37eca30b6e7010df).
 
-Three scenarios codex flagged as the v1.0 launch-readiness floor:
+The v1.0 launch-readiness floor included three "first-run on a clean
+machine" scenarios codex flagged. Of the original three, only #1
+ships a test here — the other two were retired with the underlying
+CLIs:
 
-  1. Fresh TRINITY_HOME → trinity-local doctor parses + reports
-     trinity_home_writeable + mcp_available green (provider CLIs
-     may be absent in CI; tolerated)
-  2. Fresh TRINITY_HOME → trust-init writes valid TOML; trust-show
-     parses it; audit-show works against empty audit log
-  3. Fresh TRINITY_HOME → portal-html renders the launchpad without
-     crashing (no provider data, no embeddings — just the empty-
-     state shape)
+  1. Fresh TRINITY_HOME → `status` (post-collapse) parses + reports
+     a health header without crashing (provider CLIs may be absent
+     in CI; tolerated). Covered below by `test_status_runs_on_fresh_home`.
+  2. trust-init / trust-show / audit-show CLIs were deferred to v1.1;
+     library behavior pinned by test_trust.py. Test removed in the
+     2026-05-17 simplification pass (see note at the bottom of this
+     file).
+  3. portal-html fresh-install rendering: covered by the launchpad
+     unit tests (test_launchpad_runtime.py + test_launchpad_data.py),
+     not duplicated here.
 
-These are the "first-run on a clean machine" tests. They DON'T
-exercise real provider CLIs (separate manual smoke script handles
-that); they DO exercise the CLI/data-contract surfaces that any
-fresh install touches before anything else happens.
+This file DOESN'T exercise real provider CLIs (separate manual smoke
+script handles that); it DOES exercise the post-collapse `status`
+CLI surface that any fresh install touches before anything else
+happens.
 """
 from __future__ import annotations
 

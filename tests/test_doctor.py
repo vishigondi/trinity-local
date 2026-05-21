@@ -1,11 +1,14 @@
-"""Tests for `trinity-local doctor` — pre-flight cold-install checks.
+"""Tests for the `doctor` module — pre-flight cold-install checks.
 
-Council council_35b2ae198a65b349 named the cold-install path as the
-audit-missed launch blocker. The eval seed for that council asks for a
-specific failure mode + the CLI command that detects it. These tests
-pin both: each provider check returns ok=False with a fix line when the
-relevant indicator is missing, and run_doctor never crashes on a fresh
-machine state.
+The `trinity-local doctor` CLI was retired in commit ef2f328 (collapsed
+into `status`), but the underlying functions (`_check_trinity_home`,
+`_check_provider`, etc.) survived as the library that powers status'
+health header. These tests pin the per-check contract:
+each provider check returns ok=False with a fix line when the relevant
+indicator is missing, and the module never crashes on fresh machine
+state. Council council_35b2ae198a65b349 named the cold-install path as
+the audit-missed launch blocker; the eval seed for that council asks
+for a specific failure mode + the function that detects it.
 """
 
 from __future__ import annotations

@@ -1,11 +1,15 @@
-"""Tests for `trinity-local distill` — Phase 5 of dream.
+"""Tests for the `distill` module — Phase 5 of dream.
 
-Distill reads the three thinking core memories (lens, topics, vocabulary)
-under ~/.trinity/memories/ and writes a single paragraph to ~/.trinity/core.md.
-picks.json and routing.json are model-selection memories (a scoreboard, not
-cognitive shape) and are intentionally excluded from the distillation. The
-chairman reads core.md FIRST on every council; this test suite pins the
-contract.
+The `trinity-local distill` CLI was retired in commit c9b1f9d
+(`dream` Phase 5 now refreshes core.md as part of the cold-start
+flow), but the underlying `distill_via_chairman()` function survives
+as the library called from dream + tested here. Distill reads the
+three thinking core memories (lens, topics, vocabulary) under
+~/.trinity/memories/ and writes a single paragraph to
+~/.trinity/core.md. picks.json and routing.json are model-selection
+memories (a scoreboard, not cognitive shape) and are intentionally
+excluded from the distillation. The chairman reads core.md FIRST on
+every council; this test suite pins the contract.
 """
 from __future__ import annotations
 
