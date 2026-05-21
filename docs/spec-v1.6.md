@@ -531,9 +531,11 @@ itself.
 - The browser smoke gate — Surface 33 will assert the
   "browser capture" launchpad card renders correctly when capture
   data is present.
-- MCP `ask` and `search_prompts` — already include incremental
-  ingest on every call; v1.6-captured data flows into them
-  automatically.
+- MCP `ask` — already includes incremental ingest on every call;
+  v1.6-captured data flows into the index automatically.
+  (Earlier draft also listed `search_prompts` here, but that tool
+  was retired pre-launch 2026-05-17 — `ask` is the only ingest-
+  triggering MCP entry point now.)
 
 ## What v1.6 explicitly does NOT do
 

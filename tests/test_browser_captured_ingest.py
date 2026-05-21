@@ -170,10 +170,12 @@ def test_ingest_recent_idempotent_across_two_runs(isolated_trinity_home):
 
 def test_default_sources_includes_browser_claude():
     """Regression guard: the v1.6 capture source must stay in
-    DEFAULT_SOURCES so MCP ``ask`` / ``search_prompts`` calls trigger
-    incremental ingest of newly-captured conversations without
-    requiring CLI flags. If it drops off the default list the
-    captures silently fail to flow into the index."""
+    DEFAULT_SOURCES so MCP ``ask`` calls trigger incremental ingest
+    of newly-captured conversations without requiring CLI flags.
+    If it drops off the default list the captures silently fail to
+    flow into the index. (Earlier draft of this docstring mentioned
+    ``search_prompts``; that MCP tool was retired pre-launch
+    2026-05-17 — ``ask`` is the live ingest-triggering entry point.)"""
     from trinity_local.incremental_ingest import DEFAULT_SOURCES
     assert "browser_claude" in DEFAULT_SOURCES, (
         "browser_claude dropped from DEFAULT_SOURCES; v1.6 captures would "
