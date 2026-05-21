@@ -156,7 +156,7 @@ Watcher should not:
 Current dispatch actions (`src/trinity_local/dispatch_registry.py`):
 
 - `launch_council` — primary path; user picks members + task
-- `rate_council` — record user's winner choice (closes the supervision loop via `record_outcome`)
+- `rate_council` — record user's winner choice (writes `metadata.user_verdict` via the `council-rate` CLI handler; the MCP `record_outcome` tool was retired 2026-05-21 — chairman pick is the auto-recorded supervision signal now)
 - `stop_council` — cancel an in-flight council
 - `open_review` — open the unified council page
 - `start_council` — alternative entry from a prepared bundle

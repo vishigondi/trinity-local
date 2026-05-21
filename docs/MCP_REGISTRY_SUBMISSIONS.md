@@ -69,9 +69,11 @@ users already trust Claude):
 > Claude's prior turns as context — no copy-paste. The wedge: only the
 > layer above the labs can pull context across competitors' transcripts,
 > and Trinity is open-source on your machine. Comes with the canonical
-> supervision-loop tools (`route` / `run_council` / `record_outcome`)
-> plus a personalized eval harness that benchmarks any provider against
-> the user's empirical rejection signal.
+> supervision-loop tools (`route` / `run_council` / `get_persona` /
+> `get_council_status`) plus a personalized eval harness that benchmarks
+> any provider against the user's empirical rejection signal. (Chairman
+> pick is the auto-recorded supervision signal — the prior `record_outcome`
+> MCP tool was retired 2026-05-21 when chairman-as-verdict landed.)
 
 **Required artifacts:**
 - 1024×1024 icon (use `docs/icon.png` if present, or `me-card.png`)
