@@ -253,9 +253,11 @@ materially changes — and that's roughly every 3–6 months per provider.
 
 ### MCP tool surface (the agent-facing UX)
 
-Two tiers in v1.5. The third tier (`plan_and_execute`) is **deferred to v1.6**
-— packing it into Week 4 alongside dispatch resilience would compromise the
-ship date and dilute the launch narrative. Cortex is the v1.5 headline.
+Two tiers in v1.5. The third tier (`plan_and_execute`) is **deferred to v1.7**
+(see `docs/spec-v1.7.md` once written; spec-v1.6 turned out to be the
+browser-extension capture work — see task #128). Packing it into v1.5 Week 4
+alongside dispatch resilience would have compromised the ship date and
+diluted the launch narrative. Cortex is the v1.5 headline.
 
 ```
 mcp__trinity-local__ask(query)
@@ -265,8 +267,8 @@ mcp__trinity-local__ask(query)
   Note: the original Week 1 spec proposed `thread_id?` as a working-memory
   carrier. The parameter is **NOT shipped in v1.5** — it was advertised in
   the MCP schema during Weeks 1-4 but the handler discarded it. Removed
-  in v1.5 cleanup; will return in v1.6 alongside the `plan_and_execute`
-  tool when working memory actually has consumers (see "Deferred to v1.6"
+  in v1.5 cleanup; will return in v1.7 alongside the `plan_and_execute`
+  tool when working memory actually has consumers (see "Deferred to v1.7"
   + "Working memory" sections below).
 
   Cost: ~$0.01–0.05, <2s typical
@@ -321,10 +323,13 @@ that into `run_council(responses=[...])` instead. `search_prompts` was retired
 added as the user-veto surface, and the launch-arc tick added `handoff` —
 neither was in the original spec list.)
 
-**Deferred to v1.6:** `mcp__trinity-local__plan_and_execute` (three-role
+**Deferred to v1.7:** `mcp__trinity-local__plan_and_execute` (three-role
 multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
 and recursive verification). Conductor-as-flagship-prompt mechanics stay
-valid; just not in the v1.5 ship.
+valid; just not in the v1.5 ship. Originally slated for v1.6, but v1.6
+ended up being scoped to browser-extension capture (which shipped
+2026-05-14/15). Task #128 covers writing `docs/spec-v1.7.md` from the
+design that already lives below.
 
 ### Basin classifier (gates the entire cortex layer)
 

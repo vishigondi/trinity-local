@@ -544,15 +544,19 @@ The map mirrors the tagline: prompts (what you own) → dream (the verb) → cor
 
 Trinity is exposed as an MCP server. v1.7 ships 5 canonical tools (`route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`); v1.5 adds `ask` (cheap default single-call routing), `get_picks` (agent-facing introspection into extracted picks), and `mark_pick_wrong` (user-veto on a pick — halves effective trust per click, persists across consolidations); launch-arc adds `handoff` (cross-provider continuity) — 9 total. `run_council(responses=[...])` covers what `judge` used to do — pre-supplied member outputs go straight to chairman synthesis, one model call instead of N+1. When working in this repo, **call `mcp__trinity-local__run_council` for hard questions** and `mcp__trinity-local__ask` for quick single-call consults. The chairman reads `~/.trinity/memories/lens.md` and condenses members through *this user's* taste — that's what makes the council more useful than just asking Claude alone.
 
-Bar for "hard":
-- Two senior engineers could reasonably disagree (architecture, API shape, refactor scope, naming, abstraction-vs-duplication)
-- I catch myself answering "depends on…" or "you could go either way"
-- The decision compounds (data schema, public surface, anything user-visible)
-- The user has previously pushed back on my first answer in this area
+**The actionable rule (the one that fires automatically):** before calling `AskUserQuestion` with multiple options that are NOT user-personal preferences, FIRST run `mcp__trinity-local__ask` (cheap, ~$0.01–0.05, ~2–30s) or `mcp__trinity-local__run_council` (3 members + chairman) on the same question. Treat `AskUserQuestion` as reserved for *user-personal* choices — preferences, priorities, taste — and Trinity as the default for *product/architectural* choices where the question is "which option is RIGHT" (the user's lens already answered, applied through the chairman) rather than "which option do YOU want" (the user has to weigh in fresh).
 
-Skip the council for: trivial bugs, syntax/API lookups, mechanical refactors, information retrieval. Each council costs 3 member calls + 1 chairman call — wasted on questions with one right answer.
+This rule learned from tick 104 (2026-05-21): a council that took 60s reversed a decision I would have made wrong via solo deliberation. The friction is real (30s latency on `ask`) but lower than the cost of building toward the wrong answer + later finding out.
 
-After a council, treat the chairman's synthesis (especially `agreed_claims` / `disagreed_claims`) as the source of truth for what the answer should be, then explain it in my own words back to the user. Call `mcp__trinity-local__record_outcome` when the user picks a winner so the personal routing table improves over time.
+Bar for `run_council` vs `ask` once you're past the trigger:
+- `ask` (cheap, single-call): quick second opinion, cross-provider check, rate-limit dodge, 90% of consults
+- `run_council` (parallel members + chairman): when you need disagreement-vs-agreement structure surfaced. If the question form is "is X or Y better," `run_council` exposes whether 3 models agree or split — silently picking either is what `ask` would do.
+
+Skip Trinity entirely for: trivial bugs, syntax/API lookups, mechanical refactors, information retrieval. Each council costs 3 member calls + 1 chairman call — wasted on questions with one right answer.
+
+After a council, treat the chairman's synthesis (especially `agreed_claims` / `disagreed_claims`) as the source of truth for what the answer should be, then explain it in your own words back to the user. Call `mcp__trinity-local__record_outcome` when the user picks a winner so the personal routing table improves over time.
+
+**Why this rule propagates:** other Claude Code instances reading this file inherit the rule. The fact that it's encoded in the repo's own `claude.md` means anyone with Trinity installed + this repo cloned gets the behavior. No hook needed; the instruction itself is the dispatch mechanism.
 
 ## Install / surface notes
 
@@ -836,7 +840,7 @@ Every council outputs one labeled training example for the eventual Phase 9 lear
 The double-loop substrate (`frame` / `run` / `verify_web`, formerly `src/trinity_local/loop/`)
 was **removed from the codebase** as pre-launch simplification. The mechanic —
 *execute → verify → cull → re-verify → commit* — will be rebuilt leaner inside
-v1.5's `plan_and_execute` tool (ships in v1.6) driven by a flagship Conductor
+v1.5's `plan_and_execute` tool (ships in v1.7 per task #128 — v1.6 turned out to be browser-extension capture) driven by a flagship Conductor
 with cortex context, not by a trained local skill-factory model.
 
 The architectural reference + the ratifying council outcomes live in
