@@ -15,7 +15,7 @@ Run any hard question through Claude, Codex, and Gemini in parallel. The chairma
 
 ![the launchpad — what a brand-new install opens to on first run](docs/launchpad_example.png)
 
-Inside Claude Code (or Codex CLI / Antigravity / Cursor) — just ask:
+Inside Claude Code (or Codex CLI / Gemini CLI / Cursor) — just ask:
 
 > Run a Trinity council on whether to use SQLite or DuckDB for this analytics workload.
 
@@ -33,19 +33,19 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 
 **Easiest** — install the Chrome extension first, then paste its setup brief into Claude Code or Claude Desktop. The agent runs the rest. No terminal expertise required. See [docs/INSTALL-extension.md](docs/INSTALL-extension.md).
 
-Once installed, just ask the agent: *"Run a Trinity council on …"* — Trinity registers as an MCP server in Claude Code / Codex CLI / Antigravity / Cursor, so the tools are visible inline. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end.
+Once installed, just ask the agent: *"Run a Trinity council on …"* — Trinity registers as an MCP server in Claude Code / Codex CLI / Gemini CLI / Cursor, so the tools are visible inline. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end.
 
 Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `gemini` CLIs authenticated — Trinity works with just one (chairman synthesis + your lens), gets stronger with two (real disagreement), full canonical council with three. **Ollama / MLX models you've pulled locally are auto-discovered** and join the routing pool as free council members (`ollama:<model>` / `mlx:<model>`) — no config edit, no extra MCP tools. Full prereqs, the two install paths (terminal / Chrome extension), uninstall, offline-model setup, and the local-models section live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
 
 ## How it works
 
-Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Antigravity), web chats the Chrome extension auto-captures locally (claude.ai, chatgpt.com, gemini.google.com), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
+Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Gemini CLI), web chats the Chrome extension auto-captures locally (claude.ai, chatgpt.com, gemini.google.com), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
 
 ### And — when a new model lands, score it against your taste
 
 ```bash
 trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/rejections.jsonl)
-trinity-local eval-run --target claude    # re-target whenever a new model lands (provider name: claude / codex / antigravity)
+trinity-local eval-run --target claude    # re-target whenever a new model lands (provider name: claude / codex / gemini)
 trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT / SHARPENING
 ```
 
@@ -82,7 +82,7 @@ the offering + waitlist.
 ## Objections (the ones I had)
 
 **"I don't want to learn another UI — I just use Claude Code."**
-You don't. Trinity is an MCP server inside your existing harness (Claude Code, Codex CLI, Antigravity, Cursor). `/trinity` walks installation in one step. After that, your existing UI is the UI.
+You don't. Trinity is an MCP server inside your existing harness (Claude Code, Codex CLI, Gemini CLI, Cursor). `/trinity` walks installation in one step. After that, your existing UI is the UI.
 
 **"I don't want a daemon running on my machine."**
 Trinity isn't a daemon. The MCP server spawns when your harness opens, exits when it closes. ~62 MB resident while connected. `lsof -i | grep LISTEN` shows nothing — no listening port, no background process.
@@ -91,13 +91,13 @@ Trinity isn't a daemon. The MCP server spawns when your harness opens, exits whe
 Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Telemetry is opt-in, default off, categorical labels only.
 
 **"I want my subscriptions actually used."**
-Trinity dispatches via your existing `claude` / `codex` / `agy` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
+Trinity dispatches via your existing `claude` / `codex` / `gemini` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
 
 **"I'm tired of copy-pasting between Claude / GPT / Gemini tabs."**
 That's the whole point. Every council runs all three in parallel from one prompt. `handoff` hands a thread between providers without re-pasting context.
 
 **"I want to know if a new model release is actually better for me."**
-`trinity-local eval-run --target <provider>` (claude / codex / antigravity — the provider you want to benchmark; the underlying model is whatever that provider currently ships) scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
+`trinity-local eval-run --target <provider>` (claude / codex / gemini — the provider you want to benchmark; the underlying model is whatever that provider currently ships) scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
 
 **"I want the right model picked for the right task, automatically."**
 Every council you rate teaches Trinity which model wins for which kind of question. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
