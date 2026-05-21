@@ -725,8 +725,10 @@ def build_page_data(
         "topologyBasinLabels": _topology_basin_labels(),
         "coreStatus": _core_status(),
         # Aggregate "what's stale, what should I do" — only surfaces when
-        # one of the four signals (core staleness / picks overrides /
-        # audit disagreement / pre-thread-aware topology) fires.
+        # one of the five signals (core staleness / picks overrides /
+        # audit disagreement / pre-thread-aware topology / picks cortex-
+        # stale) fires. See `_memory_health()` docstring for the
+        # canonical list.
         "memoryHealth": _memory_health(),
         # Just the count — actual cards are server-rendered into the body
         # via build_recent_cards_html. The hero h1 no longer branches on
