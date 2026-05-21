@@ -1,6 +1,6 @@
 """Stage 1 — topology via numpy k-means over PromptNode embeddings.
 
-Produces ~20 basins per `me-build`. Each basin carries:
+Produces ~20 basins per `lens-build`. Each basin carries:
 - id (b00..bNN)
 - size (count of prompts in cluster)
 - top_terms (top-3 TF-IDF residual phrases vs full corpus)

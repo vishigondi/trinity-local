@@ -9,10 +9,10 @@
   - hardness (replay_value heuristics)
   - staleness penalty (recently-run prompts get pushed down)
 
-Empty query = me-build sampling mode (rank by replay-value heuristics only).
+Empty query = lens-build sampling mode (rank by replay-value heuristics only).
 
 This is the embedding-free fast path. Trinity's product surface (launchpad
-autofill, MCP search_prompts, me-build sampling, replay-history candidates)
+autofill, MCP search_prompts, lens-build sampling, replay-history candidates)
 does not load nomic-embed-v1.5 or any ML model. Net: 22s cold-start → <100ms,
 RSS drops by ~150MB. Embeddings stay available in the `embeddings/` package
 for research/k-NN tooling that explicitly opts in.
@@ -160,7 +160,7 @@ def search_prompt_nodes(
     """Heuristic search over PromptNodes — no embedding model load.
 
     Query mode (non-empty query): rank by substring × 2.5 + replay-value signals.
-    Empty-query mode (me-build / replay-history): rank by replay-value alone.
+    Empty-query mode (lens-build / replay-history): rank by replay-value alone.
 
     Returns top_k diversified results via MMR (token-jaccard, no embeddings).
     """
@@ -213,7 +213,7 @@ def search_prompt_nodes(
                 - 0.4 * recently_run
             )
         else:
-            # Empty query (me-build sampling): replay-value heuristics
+            # Empty query (lens-build sampling): replay-value heuristics
             score = replay_value_score(
                 prompt_similarity=0.0,
                 known_theme=themes_val,

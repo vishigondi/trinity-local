@@ -1,4 +1,4 @@
-"""Lens-discovery pipeline for /me-build.
+"""Lens-discovery pipeline for `trinity-local lens-build`.
 
 Implements the 3-stage Option C pipeline ratified by council
 council_70eaf228d7753074:

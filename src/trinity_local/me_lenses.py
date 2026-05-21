@@ -1,6 +1,6 @@
 """Parse `~/.trinity/me.md` into shareable taste lenses.
 
-The /me document has 5 sections produced by the chairman in `me-build`:
+The /me document has 5 sections produced by the chairman in `lens-build`:
 recurring topics, vocabulary, implicit rejections, cross-domain analogies,
 abstract lenses. The "implicit rejections" section is the load-bearing
 moat: pairwise (model_said, user_substituted, why_this_matters) cards that
