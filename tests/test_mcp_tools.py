@@ -78,7 +78,7 @@ class TestRoute:
     def test_route_returns_canonical_payload_shape(self, home: Path):
         result = _call_tool_sync("route", {
             "task": "refactor this Python function to remove duplication",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
         })
         assert "mode" in result
         assert "primary" in result
@@ -97,7 +97,7 @@ class TestRoute:
         # field and always emitted mode='single'. After: needs_council → council.
         result = _call_tool_sync("route", {
             "task": "refactor this Python function",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
         })
         # Coding is a needs_council task in the heuristic ranker.
         assert result["mode"] == "council"
@@ -125,10 +125,10 @@ class TestRoute:
     def test_route_returns_challenger_distinct_from_primary(self, home: Path):
         result = _call_tool_sync("route", {
             "task": "refactor this Python function",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
         })
         assert result["challenger"] != result["primary"]
-        assert result["challenger"] in ("claude", "gemini", "codex")
+        assert result["challenger"] in ("claude", "antigravity", "codex")
 
 
 class TestRunCouncilChainPropagation:
@@ -159,7 +159,7 @@ class TestRunCouncilChainPropagation:
 
         result = _call_tool_sync("run_council", {
             "task": "refactor",
-            "members": ["claude", "codex", "gemini"],
+            "members": ["claude", "codex", "antigravity"],
             "mode": "chain",
             "sequence": ["claude", "codex", "claude"],
         })
@@ -192,7 +192,7 @@ class TestRecordOutcome:
             primary_provider="claude",
             member_results=[
                 CouncilMemberResult(provider="claude", output_text="A"),
-                CouncilMemberResult(provider="gemini", output_text="B"),
+                CouncilMemberResult(provider="antigravity", output_text="B"),
             ],
         )
         save_council_outcome(outcome)
@@ -300,7 +300,7 @@ class TestChainMode:
             "disagreed_claims": [{
                 "claim": "the user wants Y",
                 "providers_for": ["claude"],
-                "providers_against": ["gemini"],
+                "providers_against": ["antigravity"],
                 "why_matters": "drives the recommendation",
             }],
         })
@@ -321,7 +321,7 @@ class TestChainMode:
         )
         members = [
             CouncilMemberResult(provider="claude", output_text="A"),
-            CouncilMemberResult(provider="gemini", output_text="B"),
+            CouncilMemberResult(provider="antigravity", output_text="B"),
         ]
         prompt = render_primary_council_prompt(bundle, members)
         assert "agreed_claims" in prompt
@@ -340,7 +340,7 @@ Claude
   "confidence": "high",
   "agreed_claims": ["X is true", "Y is the constraint"],
   "disagreed_claims": [
-    {"claim": "Z is needed", "providers_for": ["claude"], "providers_against": ["gemini"], "why_matters": "affects the decision"}
+    {"claim": "Z is needed", "providers_for": ["claude"], "providers_against": ["antigravity"], "why_matters": "affects the decision"}
   ]
 }
 ```
@@ -407,7 +407,7 @@ Claude
                 model_name="claude-x", input_text="prompt 0", output_text="claude output",
             ),
             CouncilChainStep(
-                step_index=1, model_provider="gemini",
+                step_index=1, model_provider="antigravity",
                 model_name="gemini-x", input_text="prompt 1", output_text="gemini refinement",
             ),
         ]
@@ -416,7 +416,7 @@ Claude
             primary_provider="claude",
             member_results=[
                 CouncilMemberResult(provider="claude", output_text="claude output"),
-                CouncilMemberResult(provider="gemini", output_text="gemini refinement"),
+                CouncilMemberResult(provider="antigravity", output_text="gemini refinement"),
             ],
             mode="chain",
             chain_steps=steps,
@@ -431,7 +431,7 @@ Claude
         reloaded = load_council_outcome(outcome.council_run_id)
         assert reloaded.mode == "chain"
         assert len(reloaded.chain_steps) == 2
-        assert reloaded.chain_steps[1].model_provider == "gemini"
+        assert reloaded.chain_steps[1].model_provider == "antigravity"
 
 
 class TestRateActionNudge:

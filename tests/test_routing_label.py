@@ -29,14 +29,14 @@ VALID_ROUTING_JSON = """\
 ```routing-json
 {
   "winner": "claude",
-  "runner_up": "gemini",
+  "runner_up": "antigravity",
   "confidence": "high",
   "task_type": "code_refactor",
   "task_domain": "python",
   "user_likely_values": ["correctness", "concision"],
   "provider_scores": {
     "claude": {"overall": 8, "planning": 8, "execution": 9, "evaluation": 7, "specificity": 8, "user_fit": 8, "risk": 2, "conciseness": 7},
-    "gemini": {"overall": 6, "planning": 7, "execution": 5, "evaluation": 6, "specificity": 6, "user_fit": 6, "risk": 3, "conciseness": 8}
+    "antigravity": {"overall": 6, "planning": 7, "execution": 5, "evaluation": 6, "specificity": 6, "user_fit": 6, "risk": 3, "conciseness": 8}
   },
   "major_failure_mode": null,
   "routing_lesson": "For code_refactor tasks, prefer claude because it executes more reliably.",
@@ -61,7 +61,7 @@ def bundle() -> PromptBundle:
 def members() -> list[CouncilMemberResult]:
     return [
         CouncilMemberResult(provider="claude", model="claude-sonnet-4-6", output_text="Use a helper function..."),
-        CouncilMemberResult(provider="gemini", model="gemini-2.5", output_text="Extract a base class..."),
+        CouncilMemberResult(provider="antigravity", model="gemini-2.5", output_text="Extract a base class..."),
     ]
 
 
@@ -91,7 +91,7 @@ class TestParseRoutingLabel:
         assert error is None
         assert label is not None
         assert label.winner == "claude"
-        assert label.runner_up == "gemini"
+        assert label.runner_up == "antigravity"
         assert label.confidence == "high"
         assert label.task_type == "code_refactor"
         assert label.task_domain == "python"
@@ -151,13 +151,13 @@ That's the call."""
     def test_garbage_provider_scores_dropped_not_failed(self):
         synthesis = """```routing-json
 {"winner": "claude", "confidence": "medium",
- "provider_scores": {"claude": "not a dict", "gemini": {"overall": 5}}}
+ "provider_scores": {"claude": "not a dict", "antigravity": {"overall": 5}}}
 ```"""
         label, error = parse_routing_label(synthesis)
         assert error is None
         assert label is not None
         assert "claude" not in label.provider_scores
-        assert label.provider_scores["gemini"]["overall"] == 5.0
+        assert label.provider_scores["antigravity"]["overall"] == 5.0
 
     def test_alt_fence_label(self):
         # Tolerate "routing_json" or "routing json" variants
@@ -245,7 +245,7 @@ class TestSchemaSerialization:
         original = CouncilRoutingLabel(
             winner="claude",
             confidence="high",
-            runner_up="gemini",
+            runner_up="antigravity",
             task_type="code_refactor",
             task_domain="python",
             user_likely_values=["correctness"],
@@ -277,13 +277,13 @@ class TestRoutingLabelInHtml:
 
         label = CouncilRoutingLabel(
             winner="claude",
-            runner_up="gemini",
+            runner_up="antigravity",
             confidence="high",
             task_type="code_refactor",
             task_domain="python",
             routing_lesson="For code_refactor, prefer claude because it executes reliably.",
             eval_seed="should pass: type hints preserved",
-            provider_scores={"claude": {"overall": 8.5}, "gemini": {"overall": 6.2}},
+            provider_scores={"claude": {"overall": 8.5}, "antigravity": {"overall": 6.2}},
         )
         outcome = create_council_outcome(
             bundle=bundle,

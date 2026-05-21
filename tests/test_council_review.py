@@ -25,10 +25,10 @@ class TestCouncilReviewMarkdown:
             bundle_id=bundle.bundle_id,
             task_cluster_id=bundle.task_cluster_id,
             primary_provider="claude",
-            winner_provider="gemini",
+            winner_provider="antigravity",
             member_results=[
                 CouncilMemberResult(
-                    provider="gemini",
+                    provider="antigravity",
                     model="gemini-pro",
                     output_text="## Best take\n\n- fast\n- social\n\n```py\nprint('hello')\n```",
                 )
@@ -67,7 +67,7 @@ class TestCouncilReviewMarkdown:
             primary_provider="claude",
             member_results=[
                 CouncilMemberResult(provider="claude", model="claude", output_text="Claude answer"),
-                CouncilMemberResult(provider="gemini", model="gemini", output_text="Gemini answer"),
+                CouncilMemberResult(provider="antigravity", model="antigravity", output_text="Gemini answer"),
             ],
             synthesis_output="# Compare\n\nPick the clearest answer.",
             created_at="2026-04-28T12:05:00+00:00",
@@ -103,7 +103,7 @@ class TestCouncilReviewMarkdown:
             primary_provider="claude",
             member_results=[
                 CouncilMemberResult(provider="claude", model="claude", output_text="Claude answer"),
-                CouncilMemberResult(provider="gemini", model="gemini", output_text="Gemini answer"),
+                CouncilMemberResult(provider="antigravity", model="antigravity", output_text="Gemini answer"),
                 CouncilMemberResult(provider="codex", model="codex", output_text="Codex answer"),
             ],
             synthesis_output="# Compare\n\nPick the clearest answer.",

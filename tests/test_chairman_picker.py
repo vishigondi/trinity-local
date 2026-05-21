@@ -27,7 +27,7 @@ class TestPicker:
         # AA Coding Index: codex 59.1, gemini 55.5, claude 52.5.
         pick = predict_strongest_chairman(
             "refactor this function to remove duplication",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert pick == "codex"
 
@@ -35,7 +35,7 @@ class TestPicker:
         # writing maps to "intelligence"; Intelligence Index: claude 57.3, codex 53.6, gemini 34.6
         pick = predict_strongest_chairman(
             "write a launch announcement",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert pick == "claude"
 
@@ -43,7 +43,7 @@ class TestPicker:
         # research maps to "intelligence"; claude wins (57.3)
         pick = predict_strongest_chairman(
             "research the model router landscape and compare approaches",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert pick == "claude"
 
@@ -75,7 +75,7 @@ class TestPicker:
                 "by_task_type": {
                     "coding": {
                         "claude": {"overall": 8.5, "n": 6},
-                        "gemini": {"overall": 6.2, "n": 6},
+                        "antigravity": {"overall": 6.2, "n": 6},
                     },
                 },
                 "best_per_task_type": {"coding": "claude"},
@@ -83,7 +83,7 @@ class TestPicker:
         )
         pick = predict_strongest_chairman(
             "refactor this function",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert pick == "claude"
 
@@ -97,7 +97,7 @@ class TestPicker:
         )
         pick = predict_strongest_chairman(
             "refactor this code",
-            available_providers=["gemini", "codex"],
+            available_providers=["antigravity", "codex"],
         )
         # AA coding: codex 59.1 > gemini 55.5
         assert pick == "codex"
@@ -111,7 +111,7 @@ class TestPicker:
         monkeypatch.setattr(chairman_picker, "compute_personal_routing_table", _raise)
         pick = predict_strongest_chairman(
             "refactor this code",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert pick == "codex"  # falls through to reference_evals coding winner
 
@@ -128,7 +128,7 @@ class TestPickReason:
                 "by_task_type": {
                     "coding": {
                         "claude": {"overall": 8.5, "n": 20},
-                        "gemini": {"overall": 6.2, "n": 20},
+                        "antigravity": {"overall": 6.2, "n": 20},
                     },
                 },
                 "best_per_task_type": {"coding": "claude"},
@@ -136,7 +136,7 @@ class TestPickReason:
         )
         result = chairman_pick_reason(
             "refactor this",
-            available_providers=["claude", "gemini"],
+            available_providers=["claude", "antigravity"],
         )
         assert result["chairman"] == "claude"
         assert result["source"] == "personal_routing_table"
@@ -149,7 +149,7 @@ class TestPickReason:
         # Coding has data in reference_evals.json, so global lookup wins.
         result = chairman_pick_reason(
             "refactor this Python function",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert result["chairman"] == "codex"
         assert result["source"] == "global_benchmarks"
@@ -160,7 +160,7 @@ class TestPickReason:
         # external sync dropped. Falls back to default_order.
         result = chairman_pick_reason(
             "write a launch announcement",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert result["source"] == "default_order"
         assert result["task_type"] == "writing"
@@ -188,7 +188,7 @@ class TestSigmoidBlend:
         """No personal table → alpha ≈ 0 → pure global benchmark winner."""
         result = chairman_pick_reason(
             "refactor this function",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         # Coding global winner is codex.
         assert result["chairman"] == "codex"
@@ -222,7 +222,7 @@ class TestSigmoidBlend:
         )
         result = chairman_pick_reason(
             "refactor this code",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         assert result["alpha"] < 0.2  # n=1 is well below the sigmoid midpoint
 
@@ -245,7 +245,7 @@ class TestSigmoidBlend:
         )
         result = chairman_pick_reason(
             "refactor this code",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         # Codex's global should still win at n=1.
         assert result["chairman"] == "codex"
@@ -268,7 +268,7 @@ class TestSigmoidBlend:
         )
         result = chairman_pick_reason(
             "refactor this code",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         # Personal claude (8.5) beats personal codex (4.0) at saturation.
         assert result["chairman"] == "claude"
@@ -292,7 +292,7 @@ class TestSigmoidBlend:
         )
         result = chairman_pick_reason(
             "refactor this code",
-            available_providers=["claude", "gemini", "codex"],
+            available_providers=["claude", "antigravity", "codex"],
         )
         # alpha = sigmoid(0) = 0.5 → "blended" band (0.2 < alpha < 0.8).
         assert 0.4 < result["alpha"] < 0.6

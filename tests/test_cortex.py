@@ -60,7 +60,7 @@ class TestComputeTrustScore:
         # 40 episodes, claude wins 80%, recent winners agree, high diversity.
         trust = compute_trust_score(
             n_episodes=40,
-            winner_distribution={"claude": 0.8, "codex": 0.15, "gemini": 0.05},
+            winner_distribution={"claude": 0.8, "codex": 0.15, "antigravity": 0.05},
             rule_primary="claude",
             recent_winners=["claude"] * 8 + ["codex"] * 2,
             diversity_metric=0.85,
@@ -72,9 +72,9 @@ class TestComputeTrustScore:
         # Only 3 episodes, split distribution, recency disagrees.
         trust = compute_trust_score(
             n_episodes=3,
-            winner_distribution={"claude": 0.34, "codex": 0.33, "gemini": 0.33},
+            winner_distribution={"claude": 0.34, "codex": 0.33, "antigravity": 0.33},
             rule_primary="claude",
-            recent_winners=["codex", "codex", "gemini"],
+            recent_winners=["codex", "codex", "antigravity"],
             diversity_metric=0.4,
         )
         assert trust.value < TRUST_KNN_FALLBACK
@@ -509,11 +509,11 @@ class TestFlagshipExtractorProviderRouting:
         seen = []
         def fake_dispatch(provider, prompt):
             seen.append(provider)
-            return '{"primary": "gemini"}'
-        ext = make_flagship_extractor(fake_dispatch, basin_id="b", provider="gemini")
-        ext([{"routing_label": {"winner": "gemini"}}])
+            return '{"primary": "antigravity"}'
+        ext = make_flagship_extractor(fake_dispatch, basin_id="b", provider="antigravity")
+        ext([{"routing_label": {"winner": "antigravity"}}])
         # Previously this would have been ["claude"] — bug fixed.
-        assert seen == ["gemini"]
+        assert seen == ["antigravity"]
 
 
 class TestParseExtractionResponse:
@@ -534,9 +534,9 @@ class TestParseExtractionResponse:
     def test_parses_json_with_surrounding_prose(self):
         from trinity_local.cortex import parse_extraction_response
 
-        text = 'Sure! Here is the rule:\n{"primary": "gemini", "reason": "y"}\nLet me know if you need more.'
+        text = 'Sure! Here is the rule:\n{"primary": "antigravity", "reason": "y"}\nLet me know if you need more.'
         out = parse_extraction_response(text)
-        assert out["primary"] == "gemini"
+        assert out["primary"] == "antigravity"
 
     def test_raises_on_no_json(self):
         from trinity_local.cortex import parse_extraction_response

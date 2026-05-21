@@ -108,7 +108,7 @@ class TestAggregateRoutingTable:
                     "task_type": "code_refactor",
                     "provider_scores": {
                         "claude": {"overall": 8.0},
-                        "gemini": {"overall": 6.0},
+                        "antigravity": {"overall": 6.0},
                     },
                 },
             },
@@ -119,7 +119,7 @@ class TestAggregateRoutingTable:
                     "task_type": "code_refactor",
                     "provider_scores": {
                         "claude": {"overall": 9.0},
-                        "gemini": {"overall": 5.0},
+                        "antigravity": {"overall": 5.0},
                     },
                 },
             },
@@ -130,7 +130,7 @@ class TestAggregateRoutingTable:
                     "task_type": "writing",
                     "provider_scores": {
                         "claude": {"overall": 7.0},
-                        "gemini": {"overall": 8.5},
+                        "antigravity": {"overall": 8.5},
                     },
                 },
             },
@@ -142,7 +142,7 @@ class TestAggregateRoutingTable:
         assert table["by_task_type"]["code_refactor"]["claude"]["overall"] == 8.5
         assert table["by_task_type"]["code_refactor"]["claude"]["n"] == 2
         # writing: gemini wins
-        assert table["best_per_task_type"]["writing"] == "gemini"
+        assert table["best_per_task_type"]["writing"] == "antigravity"
 
     def test_empty_input_returns_clean_shape(self, home: Path):
         from trinity_local.commands.replay import _aggregate_routing_table
@@ -205,7 +205,7 @@ class TestAggregateRoutingTable:
                     "task_type": "writing",
                     "provider_scores": {
                         "claude": {"overall": 8.0},
-                        "gemini": {"overall": 6.0},
+                        "antigravity": {"overall": 6.0},
                     },
                 },
                 # No user_winner key — chairman is the only signal.
@@ -213,7 +213,7 @@ class TestAggregateRoutingTable:
         ]
         table = _aggregate_routing_table(councils)
         assert table["by_task_type"]["writing"]["claude"]["overall"] == 8.0
-        assert table["by_task_type"]["writing"]["gemini"]["overall"] == 6.0
+        assert table["by_task_type"]["writing"]["antigravity"]["overall"] == 6.0
 
     def test_mixed_user_verdicts_and_chairman_only_blend_correctly(self, home: Path):
         """Some councils have verdicts, others don't. Each contributes its
@@ -272,7 +272,7 @@ class TestDryRun:
         )
 
         args = SimpleNamespace(
-            limit=5, task_type=None, source=None, members=["claude", "gemini"],
+            limit=5, task_type=None, source=None, members=["claude", "antigravity"],
             primary_provider=None, force=False, dry_run=True, cwd=".", quiet=True, config=None,
         )
         handle_replay_history(args)
@@ -304,12 +304,12 @@ class TestRoundTripThroughCouncil:
             bundle: PromptBundle = kw["bundle"]
             label = CouncilRoutingLabel(
                 winner="claude",
-                runner_up="gemini",
+                runner_up="antigravity",
                 confidence="high",
                 task_type=("code_refactor" if "refactor" in bundle.task_text else "research"),
                 provider_scores={
                     "claude": {"overall": 8.5},
-                    "gemini": {"overall": 6.2},
+                    "antigravity": {"overall": 6.2},
                 },
             )
             outcome = create_council_outcome(
@@ -317,7 +317,7 @@ class TestRoundTripThroughCouncil:
                 primary_provider="claude",
                 member_results=[
                     CouncilMemberResult(provider="claude", model="claude-x", output_text="..."),
-                    CouncilMemberResult(provider="gemini", model="gemini-x", output_text="..."),
+                    CouncilMemberResult(provider="antigravity", model="gemini-x", output_text="..."),
                 ],
                 primary_model="claude-x",
                 winner_provider="claude",
@@ -336,7 +336,7 @@ class TestRoundTripThroughCouncil:
         monkeypatch.setattr(replay_module, "load_config", lambda *a, **kw: SimpleNamespace(providers={}))
 
         args = SimpleNamespace(
-            limit=5, task_type=None, source=None, members=["claude", "gemini"],
+            limit=5, task_type=None, source=None, members=["claude", "antigravity"],
             primary_provider="claude", force=False, dry_run=False, cwd=".", quiet=True, config=None,
         )
         replay_module.handle_replay_history(args)
@@ -360,7 +360,7 @@ class TestLaunchpadRendering:
 
         monkeypatch.setattr(launchpad_data, "check_all_adapters", lambda: [
             AdapterStatus(provider="claude", cli_name="claude", installed=True),
-            AdapterStatus(provider="gemini", cli_name="gemini", installed=True),
+            AdapterStatus(provider="antigravity", cli_name="antigravity", installed=True),
         ])
 
         # The launchpad reads via _load_personal_routing_table → compute_personal_routing_table.
@@ -493,8 +493,8 @@ class TestCortexRulesHealthSurface:
             consolidated_at="2026-05-12T03:00:00Z",
             n_episodes=5,
             task_types=["writing"],
-            winner_distribution={"gemini": 1.0},
-            routing_rule=cortex.RoutingRule(primary="gemini", challenger=None, reason="", subroutes=[]),
+            winner_distribution={"antigravity": 1.0},
+            routing_rule=cortex.RoutingRule(primary="antigravity", challenger=None, reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
                 value=0.4,
                 components={

@@ -119,7 +119,7 @@ class TestReplayValue:
         node = _node(
             id="x", text="x",
             chairman_winner="claude",
-            user_winner="gemini",
+            user_winner="antigravity",
             council_run_ids=["c1"],
         )
         # +0.30 (disagree)
@@ -136,13 +136,13 @@ class TestReplayValue:
         node = _node(
             id="x", text="x",
             chairman_winner="claude",
-            user_winner="gemini",
+            user_winner="antigravity",
             council_run_ids=["c1", "c2"],
             themes=["trinity"],
             importance=0.9,
         )
         # 0.30 + 0.10 + 0.20 + 0.15 = 0.75 (no +0.25 since user_winner is set)
-        # Note: no_winner contribution drops because user_winner='gemini' is truthy
+        # Note: no_winner contribution drops because user_winner='antigravity' is truthy
         assert infer_hardness(node) == pytest.approx(0.75, rel=1e-3)
 
     def test_staleness_score_buckets(self):

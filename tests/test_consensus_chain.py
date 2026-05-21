@@ -50,7 +50,7 @@ class TestChairmanConvergence:
         label = CouncilRoutingLabel(
             winner="claude", confidence="high",
             agreed_claims=["x"],
-            disagreed_claims=[{"claim": "z", "providers_for": ["claude"], "providers_against": ["gemini"]}],
+            disagreed_claims=[{"claim": "z", "providers_for": ["claude"], "providers_against": ["antigravity"]}],
         )
         assert chairman_says_converged(label) is False
 
@@ -84,12 +84,12 @@ class TestRenderConsensusRoundPrompt:
             round_index=1,
             own_provider="claude",
             own_prior_output="Claude's first answer.",
-            other_outputs=[("gemini", "Gemini's first answer."), ("codex", "Codex's first answer.")],
+            other_outputs=[("antigravity", "Gemini's first answer."), ("codex", "Codex's first answer.")],
         )
         assert "round 2" in prompt
         assert "Your prior-round answer:" in prompt
         assert "Claude's first answer." in prompt
-        assert "[gemini] said:" in prompt
+        assert "[antigravity] said:" in prompt
         assert "[codex] said:" in prompt
 
     def test_user_refinement_appears_as_directive(self):
@@ -98,7 +98,7 @@ class TestRenderConsensusRoundPrompt:
             round_index=2,
             own_provider="claude",
             own_prior_output="x",
-            other_outputs=[("gemini", "y")],
+            other_outputs=[("antigravity", "y")],
             user_refinement="Make the answer shorter and more specific.",
         )
         assert "ADDITIONAL USER DIRECTIVE" in prompt
@@ -110,7 +110,7 @@ class TestRenderConsensusRoundPrompt:
             round_index=1,
             own_provider="claude",
             own_prior_output="x",
-            other_outputs=[("gemini", "y")],
+            other_outputs=[("antigravity", "y")],
         )
         assert "ADDITIONAL USER DIRECTIVE" not in prompt
 
@@ -125,13 +125,13 @@ def _make_parent_outcome(home: Path) -> CouncilOutcome:
     save_prompt_bundle(bundle)
     members = [
         CouncilMemberResult(provider="claude", model="claude-x", output_text="Claude says use heuristic + k-NN."),
-        CouncilMemberResult(provider="gemini", model="gemini-x", output_text="Gemini says use embeddings only."),
+        CouncilMemberResult(provider="antigravity", model="gemini-x", output_text="Gemini says use embeddings only."),
     ]
     label = CouncilRoutingLabel(
         winner="claude", confidence="medium", task_type="system_design",
         agreed_claims=["both prefer hybrid"],
-        disagreed_claims=[{"claim": "k-NN size", "providers_for": ["claude"], "providers_against": ["gemini"]}],
-        provider_scores={"claude": {"overall": 7.0}, "gemini": {"overall": 6.0}},
+        disagreed_claims=[{"claim": "k-NN size", "providers_for": ["claude"], "providers_against": ["antigravity"]}],
+        provider_scores={"claude": {"overall": 7.0}, "antigravity": {"overall": 6.0}},
     )
     outcome = create_council_outcome(
         bundle=bundle,
@@ -157,9 +157,9 @@ class TestRunConsensusRound:
 - Confidence: high
 
 ```routing-json
-{"winner":"claude","runner_up":"gemini","confidence":"high","task_type":"system_design",
+{"winner":"claude","runner_up":"antigravity","confidence":"high","task_type":"system_design",
  "agreed_claims":["use hybrid","cap k-NN size","add fallback"],"disagreed_claims":[],
- "provider_scores":{"claude":{"overall":9},"gemini":{"overall":8}}}
+ "provider_scores":{"claude":{"overall":9},"antigravity":{"overall":8}}}
 ```
 """
 
@@ -189,7 +189,7 @@ class TestRunConsensusRound:
         config = AppConfig(
             max_turns=10,
             notifications=False,
-            providers={"claude": _pc("claude", "claude-x"), "gemini": _pc("gemini", "gemini-x")},
+            providers={"claude": _pc("claude", "claude-x"), "antigravity": _pc("antigravity", "gemini-x")},
             role_preferences={},
             task_preferences={},
         )
@@ -209,7 +209,7 @@ class TestRunConsensusRound:
         assert outcome.mode == "consensus_round"
         assert outcome.routing_label is not None
         assert chairman_says_converged(outcome.routing_label) is True
-        assert {m.provider for m in outcome.member_results} == {"claude", "gemini"}
+        assert {m.provider for m in outcome.member_results} == {"claude", "antigravity"}
 
     def test_user_refinement_propagates_to_metadata(self, home: Path, monkeypatch):
         from trinity_local.council_runner import run_consensus_round
@@ -233,7 +233,7 @@ class TestRunConsensusRound:
         config = AppConfig(
             max_turns=10,
             notifications=False,
-            providers={"claude": _pc("claude", "claude-x"), "gemini": _pc("gemini", "gemini-x")},
+            providers={"claude": _pc("claude", "claude-x"), "antigravity": _pc("antigravity", "gemini-x")},
             role_preferences={},
             task_preferences={},
         )

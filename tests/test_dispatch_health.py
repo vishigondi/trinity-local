@@ -157,7 +157,7 @@ class TestUnhealthyProviders:
              "primary": "claude", "succeeded_on": "codex", "retries": 1,
              "rate_limit_save": True, "failure_kind": "rate_limited"},
             {"ts": (now - timedelta(hours=2)).isoformat(),
-             "primary": "gemini", "succeeded_on": "codex", "retries": 1,
+             "primary": "antigravity", "succeeded_on": "codex", "retries": 1,
              "rate_limit_save": True, "failure_kind": "rate_limited"},
             {"ts": (now - timedelta(hours=4)).isoformat(),
              "primary": "codex", "succeeded_on": "claude", "retries": 1,
@@ -167,7 +167,7 @@ class TestUnhealthyProviders:
         # uses wall-clock; cache is cleared between calls per the autouse fixture.
         health = compute_health(now=now)
         assert "claude" in health
-        assert "gemini" not in health  # decayed out
+        assert "antigravity" not in health  # decayed out
         assert "codex" in health
 
     def test_no_failures_yields_empty_set(self, tmp_path, monkeypatch):
@@ -187,7 +187,7 @@ class TestPoolDemotion:
         fake_cfg = type("C", (), {})()
         fake_cfg.providers = {
             name: type("P", (), {"name": name, "enabled": True})()
-            for name in ["claude", "codex", "gemini"]
+            for name in ["claude", "codex", "antigravity"]
         }
         import trinity_local.config as cfg_mod
         monkeypatch.setattr(cfg_mod, "load_config", lambda: fake_cfg)
@@ -197,7 +197,7 @@ class TestPoolDemotion:
 
         pool = mcp_server._full_provider_pool()
         # Codex/gemini come first (healthy); claude comes last (sick).
-        assert pool == ["codex", "gemini", "claude"]
+        assert pool == ["codex", "antigravity", "claude"]
         # All three still in the pool — demotion not exclusion.
         assert "claude" in pool
 

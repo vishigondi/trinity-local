@@ -78,7 +78,7 @@ def test_collect_card_data_handles_empty_by_rejection_type():
     empty list, not crash. The renderer then falls through to the
     empty-state card."""
     result = _FakeRunResult(
-        target_provider="gemini",
+        target_provider="antigravity",
         target_model=None,
         aggregate_score=None,
         items_total=0,

@@ -143,7 +143,7 @@ class TestBuildHandoffPrompt:
         """When handing off TO claude (e.g., from gemini back), claude's
         MCP-wired filesystem/code-exec tools are the differentiator."""
         from trinity_local.handoff import build_handoff_prompt
-        nodes = [_make_node(text="email question", provider="gemini",
+        nodes = [_make_node(text="email question", provider="antigravity",
                             following="gemini said")]
         prompt, _ = build_handoff_prompt(nodes, target_provider="claude")
         assert "filesystem" in prompt.lower() or "MCP" in prompt
@@ -185,7 +185,7 @@ class TestBuildHandoffPrompt:
 class TestRunHandoff:
     """The integration shape: pull context, dispatch, return result."""
 
-    def _make_provider_config(self, name: str = "gemini") -> dict:
+    def _make_provider_config(self, name: str = "antigravity") -> dict:
         from trinity_local.config import ProviderConfig
         return {
             name: ProviderConfig(
@@ -193,7 +193,7 @@ class TestRunHandoff:
                 type="cli",
                 enabled=True,
                 label=name.title(),
-                command=["gemini"],  # fake binary; tests patch make_provider
+                command=["antigravity"],  # fake binary; tests patch make_provider
                 args=[],
                 roles={"member"},
                 task_types=set(),
@@ -203,13 +203,13 @@ class TestRunHandoff:
 
     def test_unknown_provider_returns_structured_error(self):
         from trinity_local.handoff import run_handoff
-        configs = self._make_provider_config("gemini")
+        configs = self._make_provider_config("antigravity")
         result = run_handoff("nonexistent", configs)
         # Don't raise; return a HandoffResult with .error populated.
         # The CLI / MCP wrapper renders this; raising would crash both.
         assert result.error is not None
         assert "Unknown provider" in result.error
-        assert "gemini" in result.error  # mentions the available ones
+        assert "antigravity" in result.error  # mentions the available ones
 
     def test_no_context_returns_structured_error(self, home):
         """Empty prompt index → can't build a handoff prompt. Should
@@ -217,7 +217,7 @@ class TestRunHandoff:
         from trinity_local.handoff import run_handoff
         configs = self._make_provider_config()
         # patch_trinity_home → empty index → iter_prompt_nodes returns []
-        result = run_handoff("gemini", configs)
+        result = run_handoff("antigravity", configs)
         assert result.error is not None
         assert "No recent prompts" in result.error
         assert "seed-from-taste-terminal" in result.error  # actionable
@@ -241,7 +241,7 @@ class TestRunHandoff:
                 captured_prompt["text"] = prompt
                 from trinity_local.providers import ProviderResult
                 return ProviderResult(
-                    provider="gemini",
+                    provider="antigravity",
                     stdout="Continuing: monads also compose like ...",
                     stderr="",
                     returncode=0,
@@ -249,7 +249,7 @@ class TestRunHandoff:
                 )
         configs = self._make_provider_config()
         with patch("trinity_local.handoff.make_provider", lambda cfg: FakeProvider()):
-            result = run_handoff("gemini", configs, num_turns=1)
+            result = run_handoff("antigravity", configs, num_turns=1)
         # Prompt the receiving model actually saw:
         assert "Explain monads" in captured_prompt["text"]
         assert "Monads are programmable semicolons" in captured_prompt["text"]
@@ -257,7 +257,7 @@ class TestRunHandoff:
         assert "continuing a conversation" in captured_prompt["text"]
         # Result shape:
         assert result.error is None
-        assert result.target_provider == "gemini"
+        assert result.target_provider == "antigravity"
         assert result.target_model == "gemini-3-pro"
         assert result.context_turns == 1
         assert result.source_providers == ["claude"]
@@ -275,7 +275,7 @@ class TestRunHandoff:
             def run(self, prompt, cwd):
                 from trinity_local.providers import ProviderResult
                 return ProviderResult(
-                    provider="gemini",
+                    provider="antigravity",
                     stdout="",
                     stderr="auth token expired",
                     returncode=1,
@@ -283,7 +283,7 @@ class TestRunHandoff:
                 )
         configs = self._make_provider_config()
         with patch("trinity_local.handoff.make_provider", lambda cfg: FailingProvider()):
-            result = run_handoff("gemini", configs, num_turns=1)
+            result = run_handoff("antigravity", configs, num_turns=1)
         assert result.error is not None
         assert "exit 1" in result.error
         assert "auth token expired" in result.error

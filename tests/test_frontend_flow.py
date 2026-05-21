@@ -41,7 +41,7 @@ def _write_council_fixture(home: Path) -> tuple[str, str]:
         "bundle_id": bundle.bundle_id,
         "task_cluster_id": bundle.task_cluster_id,
         "primary_provider": "claude",
-        "winner_provider": "gemini",
+        "winner_provider": "antigravity",
         "created_at": "2026-04-28T10:00:00+00:00",
         "member_results": [
             {
@@ -50,7 +50,7 @@ def _write_council_fixture(home: Path) -> tuple[str, str]:
                 "output_text": "Launch copy focused on product clarity.",
             },
             {
-                "provider": "gemini",
+                "provider": "antigravity",
                 "model": "gemini-pro",
                 "output_text": "Launch copy focused on narrative and social spread.",
             },
@@ -191,10 +191,10 @@ class TestLaunchpadFlow:
             council_id="bundle_stale",
             members={
                 "claude": {"status": "done", "reasoning_summary": "Done."},
-                "gemini": {"status": "running", "started_at": "2026-04-30T12:00:00+00:00"},
+                "antigravity": {"status": "running", "started_at": "2026-04-30T12:00:00+00:00"},
             },
-            active_provider="gemini",
-            active_providers=["gemini"],
+            active_provider="antigravity",
+            active_providers=["antigravity"],
             metadata={"kind": "council"},
         )
 
@@ -215,7 +215,7 @@ class TestLaunchpadFlow:
         assert updated["status"] == "failed"
         assert updated["error"] == "Council runner exited before completion."
         assert updated["active_provider"] is None
-        assert updated["members"]["gemini"]["status"] == "failed"
+        assert updated["members"]["antigravity"]["status"] == "failed"
 
 
 class TestTelemetryFlow:
@@ -237,7 +237,7 @@ class TestTelemetryFlow:
         assert state["view_event"]["event"] == "launchpad_view"
         assert state["elo_event"]["event"] == "elo_snapshot"
         assert state["snapshot"]["council_count"] == 1
-        assert state["snapshot"]["providers"]["gemini"]["elo"] > 1500
+        assert state["snapshot"]["providers"]["antigravity"]["elo"] > 1500
 
         reset = reset_share_install_id()
         assert reset.share_install_id.startswith("share_")
@@ -250,7 +250,7 @@ class TestTelemetryFlow:
         _write_council_fixture(patch_trinity_home)
 
         baseline = build_elo_snapshot()
-        assert baseline["providers"]["gemini"]["elo"] > baseline["providers"]["claude"]["elo"]
+        assert baseline["providers"]["antigravity"]["elo"] > baseline["providers"]["claude"]["elo"]
 
         append_council_feedback(
             council_id="council_test_launchpad",
@@ -258,7 +258,7 @@ class TestTelemetryFlow:
             answer_label="A",
         )
         updated = build_elo_snapshot()
-        assert updated["providers"]["claude"]["elo"] > updated["providers"]["gemini"]["elo"]
+        assert updated["providers"]["claude"]["elo"] > updated["providers"]["antigravity"]["elo"]
         assert updated["providers"]["claude"]["wins"] == 1
         assert updated["providers"]["claude"]["total_games"] == 1
 
@@ -270,7 +270,7 @@ class TestDispatchFlow:
             args={
                 "task": "Write a launch announcement",
                 "goal": "Find the strongest answer.",
-                "members": ["claude", "gemini", "codex"],
+                "members": ["claude", "antigravity", "codex"],
                 "primary_provider": "claude",
                 "cwd": "/tmp/project",
                 "notify": True,
@@ -283,7 +283,7 @@ class TestDispatchFlow:
         assert command is not None
         assert command.startswith("trinity-local council-launch")
         assert "--task 'Write a launch announcement'" in command
-        assert "--members claude gemini codex" in command
+        assert "--members claude antigravity codex" in command
         assert "--primary-provider claude" in command
         assert "--cwd /tmp/project" in command
         assert "--open-browser" in command
@@ -322,7 +322,7 @@ class TestCouncilLaunchCommand:
             instructions="Prefer the clearest and most persuasive draft.",
             context_file=None,
             project_hint="marketing",
-            members=["claude", "gemini"],
+            members=["claude", "antigravity"],
             primary_provider="claude",
             cwd=".",
             open_browser=True,
@@ -343,7 +343,7 @@ class TestCouncilLaunchCommand:
         assert raw["origin_session_id"] == "launch_token_123"
         assert raw["metadata"]["launch_source"] == "launchpad"
         assert raw["metadata"]["project_hint"] == "marketing"
-        assert captured["members"] == ["claude", "gemini"]
+        assert captured["members"] == ["claude", "antigravity"]
         assert captured["primary_provider"] == "claude"
         assert captured["open_browser"] is True
         assert (patch_trinity_home / "review_pages" / "live_council.html").exists()
@@ -411,7 +411,7 @@ class TestCouncilLaunchCommand:
         args = SimpleNamespace(
             config=None,
             bundle=bundle.bundle_id,
-            members=["claude", "gemini", "codex"],
+            members=["claude", "antigravity", "codex"],
             primary_provider="claude",
             cwd=".",
             status_token="launch_token_live",
@@ -428,7 +428,7 @@ class TestCouncilLaunchCommand:
         assert status["status"] == "running"
         assert status["runner_pid"] is not None
         assert status["runner_pgid"] is not None
-        assert status["metadata"]["members"] == ["claude", "gemini", "codex"]
+        assert status["metadata"]["members"] == ["claude", "antigravity", "codex"]
 
 
 # TestWatchStatusFlow retired 2026-05-17: the watch-once CLI + its
@@ -457,12 +457,12 @@ class TestCouncilFailureMetadata:
                     roles=set(),
                     task_types=set(),
                 ),
-                "gemini": ProviderConfig(
-                    name="gemini",
+                "antigravity": ProviderConfig(
+                    name="antigravity",
                     type="cli",
                     enabled=True,
                     label="Gemini",
-                    command=["gemini"],
+                    command=["antigravity"],
                     args=[],
                     roles=set(),
                     task_types=set(),
@@ -494,9 +494,9 @@ class TestCouncilFailureMetadata:
                 self.name = name
 
             def run(self, prompt: str, cwd: Path) -> ProviderResult:
-                if self.name == "gemini":
+                if self.name == "antigravity":
                     return ProviderResult(
-                        provider="gemini",
+                        provider="antigravity",
                         stdout="Gemini answer",
                         stderr="",
                         returncode=0,
@@ -511,7 +511,7 @@ class TestCouncilFailureMetadata:
         result = run_council(
             config=config,
             bundle=bundle,
-            member_providers=["claude", "gemini", "codex"],
+            member_providers=["claude", "antigravity", "codex"],
             primary_provider="claude",
             cwd=patch_trinity_home,
         )
@@ -554,7 +554,7 @@ class TestCouncilStopCommand:
             council_id="bundle_123",
             metadata={
                 "kind": "council",
-                "members": ["claude", "gemini", "codex"],
+                "members": ["claude", "antigravity", "codex"],
                 "pid": 111,
                 "process_group_id": 222,
             },

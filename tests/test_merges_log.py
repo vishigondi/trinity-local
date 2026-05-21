@@ -31,7 +31,7 @@ class TestRecordMerge:
     def test_appends_one_row_per_call(self, isolated_home):
         from trinity_local.merges import record_merge, merges_path
         record_merge({"type": "council_winner", "chosen": "claude"})
-        record_merge({"type": "council_winner", "chosen": "gemini"})
+        record_merge({"type": "council_winner", "chosen": "antigravity"})
         lines = merges_path().read_text(encoding="utf-8").strip().split("\n")
         assert len(lines) == 2, f"expected 2 rows, got {len(lines)}"
 
@@ -66,7 +66,7 @@ class TestIterMergeRecords:
     def test_round_trip(self, isolated_home):
         from trinity_local.merges import record_merge, iter_merge_records
         record_merge({"type": "council_winner", "chosen": "claude", "task_type": "coding"})
-        record_merge({"type": "council_winner", "chosen": "gemini", "task_type": "writing"})
+        record_merge({"type": "council_winner", "chosen": "antigravity", "task_type": "writing"})
         rows = list(iter_merge_records())
         assert len(rows) == 2
         assert rows[0]["chosen"] == "claude"
@@ -79,13 +79,13 @@ class TestIterMergeRecords:
         with merges_path().open("a", encoding="utf-8") as f:
             f.write("{not valid json\n")
             f.write("\n")
-            f.write('{"type": "council_winner", "chosen": "gemini"}\n')
+            f.write('{"type": "council_winner", "chosen": "antigravity"}\n')
         rows = list(iter_merge_records())
         # The malformed line is silently dropped — but the good rows
         # before AND after it both come through.
         assert len(rows) == 2, f"good rows lost; got {len(rows)}"
         assert rows[0]["chosen"] == "claude"
-        assert rows[1]["chosen"] == "gemini"
+        assert rows[1]["chosen"] == "antigravity"
 
 
 class TestCortexOverrideRow:
@@ -229,7 +229,7 @@ class TestSummarizeMerges:
     def test_counts_by_type(self, isolated_home):
         from trinity_local.merges import record_merge, summarize_merges
         record_merge({"type": "council_winner", "chosen": "claude"})
-        record_merge({"type": "council_winner", "chosen": "gemini"})
+        record_merge({"type": "council_winner", "chosen": "antigravity"})
         record_merge({"type": "cortex_override", "basin_id": "coding"})
         summary = summarize_merges()
         assert summary["total"] == 3
@@ -313,7 +313,7 @@ class TestCouncilWinnerSchema:
             "council_id": "council_abc",
             "task_type": "coding",
             "chosen": "claude",
-            "rejected": ["gemini", "codex"],
+            "rejected": ["antigravity", "codex"],
             "chairman_winner": "claude",
             "answer_label": "thumbs_up",
         })
@@ -322,4 +322,4 @@ class TestCouncilWinnerSchema:
         # Required keys downstream consumers will read:
         for key in ("type", "council_id", "task_type", "chosen", "rejected", "chairman_winner", "ts"):
             assert key in row, f"required key {key!r} missing from canonical row"
-        assert row["rejected"] == ["gemini", "codex"], "rejected provider list must round-trip"
+        assert row["rejected"] == ["antigravity", "codex"], "rejected provider list must round-trip"

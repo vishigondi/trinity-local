@@ -337,8 +337,8 @@ class TestHandoffNudge:
             providers={
                 "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
                     command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
-                "gemini": ProviderConfig(name="gemini", type="cli", enabled=True, label="Gemini",
-                    command=["gemini"], args=[], roles={"thinker"}, task_types=set(), model="y"),
+                "antigravity": ProviderConfig(name="antigravity", type="cli", enabled=True, label="Gemini",
+                    command=["antigravity"], args=[], roles={"thinker"}, task_types=set(), model="y"),
             },
             role_preferences={}, task_preferences={},
         )
@@ -348,7 +348,7 @@ class TestHandoffNudge:
         result = _handoff_nudge()
         # Conditions met (≥2 providers) but no prompts → target is set
         # but applicable=False
-        assert result["target"] in ("gemini", "claude")  # something picked
+        assert result["target"] in ("antigravity", "claude")  # something picked
         assert result["applicable"] is False
         assert result["source_count"] == 0
 
@@ -363,8 +363,8 @@ class TestHandoffNudge:
             providers={
                 "claude": ProviderConfig(name="claude", type="cli", enabled=True, label="Claude",
                     command=["claude"], args=[], roles={"thinker"}, task_types=set(), model="x"),
-                "gemini": ProviderConfig(name="gemini", type="cli", enabled=True, label="Gemini",
-                    command=["gemini"], args=[], roles={"thinker"}, task_types=set(), model="y"),
+                "antigravity": ProviderConfig(name="antigravity", type="cli", enabled=True, label="Gemini",
+                    command=["antigravity"], args=[], roles={"thinker"}, task_types=set(), model="y"),
             },
             role_preferences={}, task_preferences={},
         )
@@ -380,7 +380,7 @@ class TestHandoffNudge:
         from trinity_local.launchpad_data import _handoff_nudge
         result = _handoff_nudge()
         assert result["applicable"] is True
-        assert result["target"] == "gemini"  # non-claude target preferred
+        assert result["target"] == "antigravity"  # non-claude target preferred
         assert result["source_count"] >= 1
 
     def test_skips_mlx_provider_for_handoff_target(self, isolated_home, monkeypatch):
@@ -424,7 +424,7 @@ class TestHandoffNudge:
 class TestEvalSummary:
     """Launchpad-side surface of the eval harness output (post-Surface 29)."""
 
-    def _seed_run_result(self, home: Path, target="gemini", aggregate=0.65, mtime=None):
+    def _seed_run_result(self, home: Path, target="antigravity", aggregate=0.65, mtime=None):
         evals = home / "evals"
         results = evals / "results"
         results.mkdir(parents=True, exist_ok=True)
@@ -478,12 +478,12 @@ class TestEvalSummary:
 
     def test_populated_when_run_exists(self, isolated_home):
         self._seed_eval_set(isolated_home)
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.67)
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.67)
         from trinity_local.launchpad_data import _eval_summary
         s = _eval_summary()
         assert s["has_results"] is True
-        assert s["target"] == "gemini"
-        assert s["model"] == "gemini-mock"
+        assert s["target"] == "antigravity"
+        assert s["model"] == "antigravity-mock"
         assert s["aggregate_score"] == pytest.approx(0.67)
         # Per-axis array sorted by mean descending (COMPRESSION 0.9 > REFRAME 0.4)
         assert s["axes"][0]["name"] == "COMPRESSION"
@@ -493,7 +493,7 @@ class TestEvalSummary:
     def test_most_recent_wins_when_multiple_runs(self, isolated_home):
         """Multiple eval-run invocations leave multiple result files;
         the latest by mtime should win the launchpad slot."""
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.50, mtime=1000)
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.50, mtime=1000)
         self._seed_run_result(isolated_home, target="claude", aggregate=0.80, mtime=2000)
         from trinity_local.launchpad_data import _eval_summary
         s = _eval_summary()
@@ -506,12 +506,12 @@ class TestEvalSummary:
         Template uses `comparison.length >= 2` to decide whether to
         render the leaderboard, so single-run installs render only
         the per-axis bars (correct UX)."""
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.70, mtime=1000)
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.70, mtime=1000)
         from trinity_local.launchpad_data import _eval_summary
         s = _eval_summary()
         assert "comparison" in s
         assert len(s["comparison"]) == 1
-        assert s["comparison"][0]["target"] == "gemini"
+        assert s["comparison"][0]["target"] == "antigravity"
         assert s["comparison"][0]["aggregate_score"] == pytest.approx(0.70)
 
     def test_comparison_lists_all_unique_targets_sorted_by_score(self, isolated_home):
@@ -521,7 +521,7 @@ class TestEvalSummary:
         screenshotting the launchpad sees — the wedge only lands when
         multiple providers are visible side-by-side."""
         self._seed_run_result(isolated_home, target="codex", aggregate=0.80, mtime=1000)
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.83, mtime=2000)
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.83, mtime=2000)
         self._seed_run_result(isolated_home, target="claude", aggregate=1.00, mtime=3000)
         from trinity_local.launchpad_data import _eval_summary
         s = _eval_summary()
@@ -530,24 +530,24 @@ class TestEvalSummary:
         scores = [row["aggregate_score"] for row in s["comparison"]]
         assert scores == [1.00, 0.83, 0.80]
         targets = [row["target"] for row in s["comparison"]]
-        assert targets == ["claude", "gemini", "codex"]
+        assert targets == ["claude", "antigravity", "codex"]
 
     def test_comparison_dedupes_to_most_recent_per_target(self, isolated_home):
         """Multiple runs of the same target (re-runs after model
         version bumps) should produce one row per target — the most
         recent. Otherwise the leaderboard repeats targets and the
         rank order becomes meaningless."""
-        # Two gemini runs, second is newer + higher score
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.50, mtime=1000)
-        self._seed_run_result(isolated_home, target="gemini", aggregate=0.83, mtime=2000)
+        # Two antigravity runs, second is newer + higher score
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.50, mtime=1000)
+        self._seed_run_result(isolated_home, target="antigravity", aggregate=0.83, mtime=2000)
         # One claude run between them
         self._seed_run_result(isolated_home, target="claude", aggregate=0.90, mtime=1500)
         from trinity_local.launchpad_data import _eval_summary
         s = _eval_summary()
         assert len(s["comparison"]) == 2  # two unique targets
-        # Gemini's most-recent score (0.83), NOT the older 0.50
-        gemini_row = next(r for r in s["comparison"] if r["target"] == "gemini")
-        assert gemini_row["aggregate_score"] == pytest.approx(0.83)
+        # Antigravity's most-recent score (0.83), NOT the older 0.50
+        antigravity_row = next(r for r in s["comparison"] if r["target"] == "antigravity")
+        assert antigravity_row["aggregate_score"] == pytest.approx(0.83)
 
     def test_malformed_result_falls_back_to_empty_state(self, isolated_home):
         """Per Analytics-never-crash: a corrupted result JSON must not

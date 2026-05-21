@@ -42,7 +42,7 @@ class TestReplayCandidates:
         upsert_prompt_node(PromptNode(
             id="p2",
             transcript_id="t1",
-            provider="gemini",
+            provider="antigravity",
             source_path="/tmp/x",
             turn_index=1,
             text="write a launch announcement",
@@ -79,7 +79,7 @@ class TestLaunchpadRenderWithAutofill:
             "check_all_adapters",
             lambda: [
                 AdapterStatus(provider="claude", cli_name="claude", installed=True),
-                AdapterStatus(provider="gemini", cli_name="gemini", installed=True),
+                AdapterStatus(provider="antigravity", cli_name="antigravity", installed=True),
                 AdapterStatus(provider="codex", cli_name="codex", installed=True),
             ],
         )

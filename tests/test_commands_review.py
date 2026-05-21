@@ -13,20 +13,20 @@ def test_reviewer_command_for_uses_defaults_when_config_missing(monkeypatch: pyt
 
     monkeypatch.setattr(review_cmd, "load_config", fake_load_config)
 
-    assert review_cmd._reviewer_command_for(reviewer="gemini", config_path=None) == ["gemini"]
+    assert review_cmd._reviewer_command_for(reviewer="antigravity", config_path=None) == ["antigravity"]
     assert review_cmd._reviewer_command_for(reviewer="custom", config_path=None) == ["custom"]
 
 
 def test_reviewer_command_for_prefers_config(monkeypatch: pytest.MonkeyPatch):
     config = SimpleNamespace(
         providers={
-            "gemini": SimpleNamespace(command=["/tmp/gemini", "--model", "pro"]),
+            "antigravity": SimpleNamespace(command=["/tmp/gemini", "--model", "pro"]),
         }
     )
 
     monkeypatch.setattr(review_cmd, "load_config", lambda _path: config)
 
-    assert review_cmd._reviewer_command_for(reviewer="gemini", config_path=None) == [
+    assert review_cmd._reviewer_command_for(reviewer="antigravity", config_path=None) == [
         "/tmp/gemini",
         "--model",
         "pro",

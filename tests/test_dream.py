@@ -77,7 +77,7 @@ class TestDreamDryRun:
         """--dry-run discovers clusters, prints the plan, makes ZERO LLM calls."""
         # Plant a cross-provider pair
         _plant_node(isolated_home, id_="a1", provider="claude", embedding=[1.0, 0.0])
-        _plant_node(isolated_home, id_="a2", provider="gemini", embedding=[0.99, 0.05])
+        _plant_node(isolated_home, id_="a2", provider="antigravity", embedding=[0.99, 0.05])
 
         from trinity_local.commands.dream import handle_dream
         from trinity_local import mcp_server
@@ -123,9 +123,9 @@ class TestDreamSynthesisPhase:
         """Each cluster discovered → one call to `_synthesize_responses`."""
         # Two cross-provider pairs → two clusters
         _plant_node(isolated_home, id_="a1", provider="claude", embedding=[1.0, 0.0])
-        _plant_node(isolated_home, id_="a2", provider="gemini", embedding=[0.99, 0.05])
+        _plant_node(isolated_home, id_="a2", provider="antigravity", embedding=[0.99, 0.05])
         _plant_node(isolated_home, id_="b1", provider="claude", embedding=[0.0, 1.0])
-        _plant_node(isolated_home, id_="b2", provider="gemini", embedding=[0.05, 0.99])
+        _plant_node(isolated_home, id_="b2", provider="antigravity", embedding=[0.05, 0.99])
 
         from trinity_local import mcp_server
         from trinity_local.commands import dream
@@ -151,9 +151,9 @@ class TestDreamSynthesisPhase:
     def test_synthesis_failures_do_not_abort_subsequent_clusters(self, isolated_home, monkeypatch, capsys):
         """One bad cluster shouldn't poison the rest."""
         _plant_node(isolated_home, id_="a1", provider="claude", embedding=[1.0, 0.0])
-        _plant_node(isolated_home, id_="a2", provider="gemini", embedding=[0.99, 0.05])
+        _plant_node(isolated_home, id_="a2", provider="antigravity", embedding=[0.99, 0.05])
         _plant_node(isolated_home, id_="b1", provider="claude", embedding=[0.0, 1.0])
-        _plant_node(isolated_home, id_="b2", provider="gemini", embedding=[0.05, 0.99])
+        _plant_node(isolated_home, id_="b2", provider="antigravity", embedding=[0.05, 0.99])
 
         from trinity_local import mcp_server
         from trinity_local.commands import dream
@@ -221,7 +221,7 @@ class TestDreamMaxClusters:
             ([0.7, 0.7], [0.71, 0.71]),
         ]):
             _plant_node(isolated_home, id_=f"a{i}", provider="claude", embedding=a_embed)
-            _plant_node(isolated_home, id_=f"b{i}", provider="gemini", embedding=b_embed)
+            _plant_node(isolated_home, id_=f"b{i}", provider="antigravity", embedding=b_embed)
 
         from trinity_local import mcp_server
         from trinity_local.commands import dream

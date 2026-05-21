@@ -80,7 +80,7 @@ class TestAuthDetection:
     ])
     def test_recognizes_auth_phrasings(self, stderr):
         failure = classify_dispatch_failure(
-            provider="gemini", returncode=1, stderr=stderr,
+            provider="antigravity", returncode=1, stderr=stderr,
         )
         assert failure.kind == DispatchErrorKind.AUTH_FAILED
         assert failure.retry_with_other_provider is True
@@ -124,7 +124,7 @@ class TestTimeout:
 class TestUnknownFailure:
     def test_unrecognized_stderr_classifies_as_unknown(self):
         failure = classify_dispatch_failure(
-            provider="gemini", returncode=2,
+            provider="antigravity", returncode=2,
             stderr="some weird CLI panic that doesn't fit any bucket",
         )
         assert failure.kind == DispatchErrorKind.UNKNOWN

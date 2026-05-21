@@ -23,7 +23,7 @@ def home(patch_trinity_home: Path) -> Path:
     return patch_trinity_home
 
 
-def _make_provider_config(name: str = "gemini", *, model: str = "gemini-3-pro"):
+def _make_provider_config(name: str = "antigravity", *, model: str = "gemini-3-pro"):
     from trinity_local.config import ProviderConfig
     return ProviderConfig(
         name=name,
@@ -113,8 +113,8 @@ class TestRunner:
         with patch("trinity_local.evals.runner.make_provider", return_value=fake):
             result = run_eval(
                 _make_eval_set(),
-                "gemini",
-                {"gemini": _make_provider_config("gemini")},
+                "antigravity",
+                {"antigravity": _make_provider_config("antigravity")},
             )
         # One dispatch per eval item
         assert len(fake.calls) == 2
@@ -140,14 +140,14 @@ class TestRunner:
                 self.idx += 1
                 if self.idx == 2:
                     return ProviderResult(
-                        provider="gemini",
+                        provider="antigravity",
                         stdout="",
                         stderr="rate limit",
                         returncode=1,
                         elapsed_seconds=0.05,
                     )
                 return ProviderResult(
-                    provider="gemini",
+                    provider="antigravity",
                     stdout="OK",
                     stderr="",
                     returncode=0,
@@ -157,8 +157,8 @@ class TestRunner:
         with patch("trinity_local.evals.runner.make_provider", return_value=HalfFailingProvider()):
             result = run_eval(
                 _make_eval_set(),
-                "gemini",
-                {"gemini": _make_provider_config("gemini")},
+                "antigravity",
+                {"antigravity": _make_provider_config("antigravity")},
             )
         assert result.items_total == 2
         assert result.items_completed == 1
@@ -173,8 +173,8 @@ class TestRunner:
         with patch("trinity_local.evals.runner.make_provider", return_value=fake):
             result = run_eval(
                 _make_eval_set(),
-                "gemini",
-                {"gemini": _make_provider_config("gemini")},
+                "antigravity",
+                {"antigravity": _make_provider_config("antigravity")},
                 limit=1,
             )
         assert len(fake.calls) == 1
@@ -186,15 +186,15 @@ class TestRunner:
         with patch("trinity_local.evals.runner.make_provider", return_value=fake):
             result = run_eval(
                 _make_eval_set(),
-                "gemini",
-                {"gemini": _make_provider_config("gemini")},
+                "antigravity",
+                {"antigravity": _make_provider_config("antigravity")},
             )
         path = save_run_result(result)
         assert path.exists()
         reloaded = load_run_result(path)
         assert reloaded is not None
         assert reloaded.eval_id == result.eval_id
-        assert reloaded.target_provider == "gemini"
+        assert reloaded.target_provider == "antigravity"
         assert len(reloaded.items) == 2
         assert reloaded.items[0].eval_item_id == "ei_aaa"
 
@@ -205,11 +205,11 @@ class TestScorer:
         from trinity_local.evals.scorer import score_run
         fake = FakeProvider()
         with patch("trinity_local.evals.runner.make_provider", return_value=fake):
-            result = run_eval(_make_eval_set(), "gemini",
-                              {"gemini": _make_provider_config("gemini")})
+            result = run_eval(_make_eval_set(), "antigravity",
+                              {"antigravity": _make_provider_config("antigravity")})
         with pytest.raises(KeyError, match="Unknown judge provider"):
             score_run(result, "lens text", "nonexistent",
-                      {"gemini": _make_provider_config("gemini")})
+                      {"antigravity": _make_provider_config("antigravity")})
 
     def test_parse_judge_response_handles_json(self):
         from trinity_local.evals.scorer import _parse_judge_response
@@ -259,13 +259,13 @@ class TestScorer:
 
         # Two-step patch: runner gets target_fake, scorer gets judge.
         with patch("trinity_local.evals.runner.make_provider", return_value=target_fake):
-            result = run_eval(_make_eval_set(), "gemini",
-                              {"gemini": _make_provider_config("gemini")})
+            result = run_eval(_make_eval_set(), "antigravity",
+                              {"antigravity": _make_provider_config("antigravity")})
 
         with patch("trinity_local.evals.scorer.make_provider", return_value=JudgeProvider()):
             score_run(
                 result, "lens excerpt", "claude",
-                {"gemini": _make_provider_config("gemini"),
+                {"antigravity": _make_provider_config("antigravity"),
                  "claude": _make_provider_config("claude")},
             )
 
@@ -290,7 +290,7 @@ class TestScorer:
 
         run_result = EvalRunResult(
             eval_id="eval_xxx",
-            target_provider="gemini",
+            target_provider="antigravity",
             target_model="gemini-3",
             started_at="2026-05-14T00:00:00",
             completed_at="2026-05-14T00:00:00",
@@ -384,7 +384,7 @@ class TestEvalShowCLI:
     running a real dispatch."""
 
     def _seed_result(self, home: Path, *, eval_id="eval_aaaaaaaaaaaa",
-                     target="gemini", aggregate=0.65, mtime=None):
+                     target="antigravity", aggregate=0.65, mtime=None):
         """Drop a synthetic run result into evals/results/."""
         from trinity_local.evals.runner import EvalItemRun, EvalRunResult, save_run_result
         items = [
@@ -429,7 +429,7 @@ class TestEvalShowCLI:
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
         # Two runs, second one newer
-        self._seed_result(home, target="gemini", aggregate=0.65, mtime=1000)
+        self._seed_result(home, target="antigravity", aggregate=0.65, mtime=1000)
         self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
         args = SimpleNamespace(target=None, eval_id=None, limit_samples=0)
         handle_eval_show(args)
@@ -441,13 +441,13 @@ class TestEvalShowCLI:
     def test_show_target_filter_picks_correct_run(self, home, capsys):
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
-        self._seed_result(home, target="gemini", aggregate=0.55, mtime=1000)
+        self._seed_result(home, target="antigravity", aggregate=0.55, mtime=1000)
         self._seed_result(home, target="claude", aggregate=0.80, mtime=2000)
         # Newest is claude, but we filter to gemini
-        args = SimpleNamespace(target="gemini", eval_id=None, limit_samples=0)
+        args = SimpleNamespace(target="antigravity", eval_id=None, limit_samples=0)
         handle_eval_show(args)
         out = capsys.readouterr().out
-        assert "gemini" in out
+        assert "antigravity" in out
         assert "0.550" in out
 
     def test_show_empty_state_with_actionable_hint(self, home, capsys):
@@ -466,7 +466,7 @@ class TestEvalShowCLI:
         results — otherwise user thinks the data is missing entirely."""
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
-        self._seed_result(home, target="gemini")
+        self._seed_result(home, target="antigravity")
         args = SimpleNamespace(target="ollama", eval_id=None, limit_samples=0)
         with pytest.raises(SystemExit):
             handle_eval_show(args)
@@ -480,7 +480,7 @@ class TestEvalShowCLI:
         and sample items when --limit-samples > 0."""
         from trinity_local.commands.eval import handle_eval_show
         from types import SimpleNamespace
-        self._seed_result(home, target="gemini")
+        self._seed_result(home, target="antigravity")
         args = SimpleNamespace(target=None, eval_id=None, limit_samples=2)
         handle_eval_show(args)
         out = capsys.readouterr().out

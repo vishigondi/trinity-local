@@ -67,14 +67,14 @@ def test_collect_card_data_pulls_chairman_fields_only():
             # output_text intentionally LONG and verbatim — the test
             # asserts it does NOT appear in the card data.
             _FakeMember("claude", "VERBATIM_USER_PROMPT_LEAK_CANARY_1"),
-            _FakeMember("gemini", "VERBATIM_USER_PROMPT_LEAK_CANARY_2"),
+            _FakeMember("antigravity", "VERBATIM_USER_PROMPT_LEAK_CANARY_2"),
             _FakeMember("codex",  "VERBATIM_USER_PROMPT_LEAK_CANARY_3"),
         ],
         winner_provider="claude",
         routing_label=label,
     )
     data = collect_card_data_from_outcome(outcome)
-    assert data.members == ["claude", "gemini", "codex"]
+    assert data.members == ["claude", "antigravity", "codex"]
     assert data.winner == "claude"
     assert data.agreed_claims == ["Both models agreed X.", "Both flagged risk Y."]
     assert data.disagreed_claim == "Use approach A."
@@ -119,7 +119,7 @@ def _assert_valid_png(png_bytes: bytes) -> None:
 def test_render_council_card_with_full_data():
     pytest.importorskip("PIL")
     data = CouncilCardData(
-        members=["claude", "gemini", "codex"],
+        members=["claude", "antigravity", "codex"],
         winner="claude",
         agreed_claims=["First agreed point.", "Second agreed point."],
         disagreed_claim="Which approach to take.",
@@ -180,13 +180,13 @@ def test_council_share_cli_writes_png_with_safe_filename(tmp_path, monkeypatch):
         winner_provider="claude",
         member_results=[
             CouncilMemberResult(provider="claude", output_text="x"),
-            CouncilMemberResult(provider="gemini", output_text="y"),
+            CouncilMemberResult(provider="antigravity", output_text="y"),
             CouncilMemberResult(provider="codex", output_text="z"),
         ],
         routing_label=CouncilRoutingLabel(
             winner="claude",
             agreed_claims=["A", "B"],
-            disagreed_claims=[{"provider": "gemini", "claim": "C", "why_matters": "D"}],
+            disagreed_claims=[{"provider": "antigravity", "claim": "C", "why_matters": "D"}],
         ),
         synthesis_output="ok",
     )
@@ -207,7 +207,7 @@ def test_council_share_cli_writes_png_with_safe_filename(tmp_path, monkeypatch):
     summary = json.loads(captured.getvalue())
     assert summary["ok"] is True
     assert summary["winner"] == "claude"
-    assert summary["members"] == ["claude", "gemini", "codex"]
+    assert summary["members"] == ["claude", "antigravity", "codex"]
     assert summary["agreed_claims_count"] == 2
     assert summary["disagreed_claim_present"] is True
     assert out_path.exists()

@@ -45,7 +45,7 @@ class TestRoutingContext:
             task_id="task-789",
             cwd="/home/user/project",
             source="claude",
-            switched_from_provider="gemini",
+            switched_from_provider="antigravity",
             switched_from_task_id="task-111",
             has_web=True,
             has_tools=True,

@@ -47,7 +47,7 @@ class TestResolveWinner:
         result = _resolve_winner(
             routing_label=routing_label,
             winner_section=winner_section,
-            sequence=["claude", "gemini", "codex"],
+            sequence=["claude", "antigravity", "codex"],
         )
         assert result == "codex"
 
@@ -77,13 +77,13 @@ class TestResolveWinner:
         assert _resolve_winner(
             routing_label=None,
             winner_section="**Gemini.** Wins on terseness.",
-            sequence=["claude", "gemini", "codex"],
+            sequence=["claude", "antigravity", "codex"],
         ) is None
         assert _resolve_winner(
             routing_label=None,
             winner_section="A",
-            sequence=["claude", "gemini", "codex"],
-            label_to_provider={"A": "gemini"},
+            sequence=["claude", "antigravity", "codex"],
+            label_to_provider={"A": "antigravity"},
         ) is None
 
 

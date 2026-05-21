@@ -191,7 +191,7 @@ class TestBuildEvalSet:
 class TestSaveLoadRoundtrip:
     def test_roundtrip_preserves_all_fields(self, home):
         from trinity_local.evals.builder import build_eval_set, save_eval_set, load_eval_set
-        _write_prompt_node(home, "pn_1", "prompt text", provider="gemini")
+        _write_prompt_node(home, "pn_1", "prompt text", provider="antigravity")
         _write_rejections(home, [{
             "id": "r1", "type": "SHARPENING",
             "model_quote": "vague",

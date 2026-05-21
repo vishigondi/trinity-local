@@ -34,12 +34,12 @@ def _seed_council(task_text: str) -> str:
                 output_text="Use the local review page.",
             ),
             CouncilMemberResult(
-                provider="gemini",
+                provider="antigravity",
                 model="gemini-pro",
                 output_text="Use a mobile-safe review link.",
             ),
         ],
-        winner_provider="gemini",
+        winner_provider="antigravity",
         synthesis_output="Gemini wins because it names the mobile review loop.",
     )
     save_council_outcome(outcome)

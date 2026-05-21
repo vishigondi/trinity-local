@@ -77,7 +77,7 @@ class TestRenderReviewHtml:
             review_id="test-review-001",
             task_id="task-001",
             original_provider="claude",
-            reviewer_provider="gemini",
+            reviewer_provider="antigravity",
             verdict="Correct with minor issues",
             issues=["Missing null check"],
             suggestions=["Add input validation"],
@@ -87,6 +87,6 @@ class TestRenderReviewHtml:
         assert path.exists()
         html = path.read_text()
         assert "Post-Hoc Review" in html
-        assert "gemini" in html
+        assert "antigravity" in html
         assert "Missing null check" in html
         assert "Add input validation" in html

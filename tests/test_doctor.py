@@ -345,7 +345,7 @@ class TestNextStepHint:
         from trinity_local.doctor import DoctorReport, CheckResult
 
         checks = []
-        names = ["claude", "codex", "gemini"]
+        names = ["claude", "codex", "antigravity"]
         for i, name in enumerate(names):
             checks.append(CheckResult(
                 name=f"provider:{name}",
@@ -490,7 +490,7 @@ class TestHandoffReadyCheck:
 
     def test_fails_soft_when_no_prompts_indexed(self, tmp_path, monkeypatch):
         from trinity_local.doctor import _check_handoff_ready
-        self._patch_config(monkeypatch, enabled_providers=["claude", "gemini"])
+        self._patch_config(monkeypatch, enabled_providers=["claude", "antigravity"])
         monkeypatch.setattr(
             "trinity_local.memory.store.iter_prompt_nodes",
             lambda limit=None: iter([]),
@@ -507,7 +507,7 @@ class TestHandoffReadyCheck:
         from trinity_local.doctor import _check_handoff_ready
         from trinity_local.memory.schemas import PromptNode
 
-        self._patch_config(monkeypatch, enabled_providers=["claude", "gemini"])
+        self._patch_config(monkeypatch, enabled_providers=["claude", "antigravity"])
         nodes = [
             PromptNode(
                 id=f"p{i}", transcript_id=f"t{i}", turn_index=0,
@@ -536,7 +536,7 @@ class TestHandoffReadyCheck:
         from trinity_local.doctor import _check_handoff_ready
         from trinity_local.memory.schemas import PromptNode
 
-        self._patch_config(monkeypatch, enabled_providers=["claude", "gemini"])
+        self._patch_config(monkeypatch, enabled_providers=["claude", "antigravity"])
         nodes = [
             PromptNode(
                 id=f"p{i}", transcript_id=f"t{i}", turn_index=0,
@@ -565,7 +565,7 @@ class TestHandoffReadyCheck:
         from trinity_local.doctor import _check_handoff_ready
         from trinity_local.memory.schemas import PromptNode
 
-        self._patch_config(monkeypatch, enabled_providers=["claude", "gemini"])
+        self._patch_config(monkeypatch, enabled_providers=["claude", "antigravity"])
         nodes = [
             PromptNode(
                 id="p1", transcript_id="t1", turn_index=0,
@@ -577,7 +577,7 @@ class TestHandoffReadyCheck:
             ),
             PromptNode(
                 id="p2", transcript_id="t2", turn_index=0,
-                provider="gemini", source_path="/x",
+                provider="antigravity", source_path="/x",
                 text="hello gemini", embedding=[], created_at="2026-05-14T10:01:00",
                 preceding_assistant_text="",
                 following_assistant_text="gemini answered.",
