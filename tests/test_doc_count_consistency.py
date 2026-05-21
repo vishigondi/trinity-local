@@ -2361,6 +2361,124 @@ class TestLiveDocsReferenceOnlyRegisteredMcpTools:
             )
 
 
+class TestClaudeMdMcpSignaturesMatchSchema:
+    """Iter #29 catch — claude.md's `### The eight MCP tools` section
+    enumerates each tool with a prose-form signature like
+    `route(task, harness?, available_models?, ...)`. Per
+    three-tier-architecture.md L20-22 those signatures ARE the contract
+    an MCP-capable agent reads at handshake. Drift caught: `ask` was
+    documented as `(task, harness, available_models, budget)` while
+    the actual inputSchema is `(query, available_providers, top_k)` —
+    completely different param names. An agent literally following
+    claude.md and calling `ask(task=..., harness=...)` would get
+    schema-rejected. `mark_pick_wrong` had the same shape: documented
+    `(task_type)`, actual `(basin_id, reason, reset)`. The
+    tick-129/tick-136 guards catch tool-NAME drift; this one catches
+    tool-SIGNATURE drift (one level deeper).
+
+    Guard shape: parse each Tool(...) registration in mcp_server.py
+    to extract its property names. For each tool, locate the
+    enumerated signature paragraph in claude.md (the
+    ``**`tool_name(...)`**`` markdown pattern). Assert every actual
+    property name appears verbatim in that signature's parenthesized
+    arg list.
+
+    Excluded: nested object properties (e.g. `responses[].content`)
+    — only top-level property names are checked. The signature
+    string can use `param?` for optional + `param` for required;
+    both forms match. Aliases that intentionally differ across
+    surfaces (e.g. naming `available_models` vs `available_providers`
+    for two different tools) are still caught because the guard
+    pins to the SPECIFIC tool's schema.
+    """
+
+    def test_claude_md_signatures_cover_all_input_properties(self):
+        import ast
+        import re
+
+        mcp_src = (REPO / "src/trinity_local/mcp_server.py").read_text(
+            encoding="utf-8"
+        )
+        # Parse mcp_server.py and extract each Tool() ctor's name +
+        # inputSchema properties. AST walk is the right tool — regex
+        # over the source would miss nested-dict context.
+        tree = ast.parse(mcp_src)
+        tools: dict[str, set[str]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Name) and func.id == "Tool"):
+                continue
+            kwargs = {kw.arg: kw.value for kw in node.keywords}
+            name_node = kwargs.get("name")
+            schema_node = kwargs.get("inputSchema")
+            if not isinstance(name_node, ast.Constant):
+                continue
+            tool_name = name_node.value
+            props: set[str] = set()
+            if isinstance(schema_node, ast.Dict):
+                # Walk the dict for the 'properties' key.
+                for k, v in zip(schema_node.keys, schema_node.values):
+                    if (
+                        isinstance(k, ast.Constant)
+                        and k.value == "properties"
+                        and isinstance(v, ast.Dict)
+                    ):
+                        for pk in v.keys:
+                            if isinstance(pk, ast.Constant):
+                                props.add(pk.value)
+            tools[tool_name] = props
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+
+        missing: list[str] = []
+        for tool, props in sorted(tools.items()):
+            if not props:
+                # Empty schema (get_persona) — nothing to check.
+                continue
+            # Locate the enumerated signature paragraph for this tool.
+            # Pattern: `\d+\. \*\*\`<tool>(<args>)\`\*\*`
+            sig_re = re.compile(
+                rf"\d+\.\s+\*\*`{re.escape(tool)}\(([^)]*)\)`\*\*"
+            )
+            m = sig_re.search(claude_md)
+            if not m:
+                missing.append(
+                    f"  {tool}: no enumerated `**`{tool}(...)`**` signature "
+                    f"in claude.md (tool is registered with properties "
+                    f"{sorted(props)})"
+                )
+                continue
+            sig_args = m.group(1)
+            # Strip `?` suffix to allow both required and optional notation.
+            for prop in sorted(props):
+                if not re.search(rf"\b{re.escape(prop)}\b", sig_args):
+                    missing.append(
+                        f"  {tool}: signature `{tool}({sig_args})` doesn't "
+                        f"mention property `{prop}` (full inputSchema "
+                        f"properties: {sorted(props)})"
+                    )
+
+        if missing:
+            raise AssertionError(
+                "claude.md's `### The eight MCP tools` section has "
+                "signature drift relative to mcp_server.py's actual "
+                "inputSchema definitions. The tool docstrings ARE the "
+                "contract (per docs/three-tier-architecture.md L20-22) "
+                "— an agent reading claude.md and calling a tool with "
+                "the documented arg name would get schema-rejected if "
+                "the doc names diverge from code.\n\n"
+                + "\n".join(missing)
+                + "\n\n"
+                "Fix: update the prose signature in claude.md's tools "
+                "section to match the inputSchema properties. Use "
+                "`param?` to mark optional / non-required properties; "
+                "required ones (from the schema's `required` list) "
+                "appear without `?`."
+            )
+
+
 class TestLiveDocsDontClaimRetiredMcpToolsAsLive:
     """Tick 136 — extends tick 129's TestLiveDocsReferenceOnlyRegisteredMcpTools
     to catch the NARRATIVE-form drift class that bit tick 135.
