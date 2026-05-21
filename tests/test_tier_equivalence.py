@@ -138,7 +138,7 @@ def test_dispatch_payload_tier_equivalence():
     from trinity_local.ranker.chairman_picker import predict_strongest_chairman
 
     task = "explain the load-bearing decision in this commit"
-    models = ["claude", "codex", "gemini"]
+    models = ["claude", "codex", "antigravity"]
     p1 = predict_strongest_chairman(task, available_providers=models)
     p2 = predict_strongest_chairman(task, available_providers=models)
     assert p1 == p2

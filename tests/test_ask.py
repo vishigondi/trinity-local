@@ -95,7 +95,7 @@ class TestDecideFromHits:
             _hit(prompt_id="p1", chairman_winner="codex", user_winner="codex"),
             _hit(prompt_id="p2", chairman_winner="claude"),
         ]
-        decision = _decide_from_hits(hits, available_providers=["claude", "gemini"])
+        decision = _decide_from_hits(hits, available_providers=["claude", "antigravity"])
         assert decision.routed_to == "claude"
         assert "codex" not in decision.vote_counts
 
@@ -417,7 +417,7 @@ class TestCortexInAskHotPath:
             consolidated_at="2026-05-20T10:30:00Z",
             n_episodes=3,
             task_types=["system_design"],
-            winner_distribution={"codex": 0.34, "claude": 0.33, "gemini": 0.33},
+            winner_distribution={"codex": 0.34, "claude": 0.33, "antigravity": 0.33},
             routing_rule=cortex.RoutingRule(primary="codex", challenger="claude", reason="", subroutes=[]),
             trust_score=cortex.TrustScore(
                 value=0.30,  # below TRUST_KNN_FALLBACK = 0.50
@@ -547,7 +547,7 @@ class TestCortexInAskHotPath:
         from trinity_local import task_types
         monkeypatch.setattr(task_types, "guess_task_type", lambda text, provider=None: "b")
 
-        decision = ask_module.decide_route("q", available_providers=["claude", "gemini"])
+        decision = ask_module.decide_route("q", available_providers=["claude", "antigravity"])
         # codex (primary) not available, claude (challenger) IS → route to claude.
         assert decision.routed_to == "claude"
         assert "cortex rule" in decision.reason

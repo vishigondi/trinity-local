@@ -359,7 +359,7 @@ def test_get_council_status_reads_status_json_in_process(monkeypatch, tmp_path):
         task_text="hello",
         bundle_id="b1",
         council_id="b1",
-        members=["claude", "codex", "gemini"],
+        members=["claude", "codex", "antigravity"],
         metadata={},
         runner_pid=os.getpid(),
     )
@@ -370,7 +370,7 @@ def test_get_council_status_reads_status_json_in_process(monkeypatch, tmp_path):
     assert r["ok"] is True
     assert r["status"] is not None
     assert r["status"]["status"] == "running"
-    assert set(r["status"]["members"].keys()) == {"claude", "codex", "gemini"}
+    assert set(r["status"]["members"].keys()) == {"claude", "codex", "antigravity"}
 
 
 def test_get_council_status_rejects_unsafe_token():

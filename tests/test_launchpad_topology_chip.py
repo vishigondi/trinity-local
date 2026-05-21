@@ -120,7 +120,7 @@ class TestCortexCardTopologyAnnotation:
         # Stub load_routing_patterns so _load_cortex_rules has work
         # to annotate without needing a fully-seeded cortex.
         from trinity_local.cortex import RoutingPattern, RoutingRule, TrustScore, FailureModes
-        rule = RoutingRule(primary="claude", challenger="gemini", reason="test")
+        rule = RoutingRule(primary="claude", challenger="antigravity", reason="test")
         trust = TrustScore(value=0.7, components={"n_episodes": 1.0})
         pattern = RoutingPattern(
             basin_id="coding",
@@ -422,7 +422,7 @@ def _minimal_pattern_payload(task_type: str, *, centroid: list[float]) -> dict:
         "consolidated_at": "2026-05-13T00:00:00",
         "routing_rule": {
             "primary": "claude",
-            "challenger": "gemini",
+            "challenger": "antigravity",
             "reason": "test fixture",
         },
         "trust_score": {

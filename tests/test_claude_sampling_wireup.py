@@ -35,7 +35,7 @@ def _claude_config():
 def _gemini_config():
     from trinity_local.config import ProviderConfig
     return ProviderConfig(
-        name="gemini",
+        name="antigravity",
         type="cli",
         enabled=True,
         label="Gemini",

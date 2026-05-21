@@ -84,12 +84,12 @@ class TestOutcomeTracking:
             "switch-test-1",
             acted_on=False,
             later_switched=True,
-            switch_target="gemini",
+            switch_target="antigravity",
         )
         events = load_advisory_log()
         found = [e for e in events if e.session_id == "switch-test-1"]
         assert found[0].later_switched is True
-        assert found[0].switch_target == "gemini"
+        assert found[0].switch_target == "antigravity"
 
     def test_mark_missing_session(self):
         result = mark_suggestion_outcome("nonexistent", acted_on=True)
@@ -114,7 +114,7 @@ class TestReport:
             ))
         # Mark some outcomes
         mark_suggestion_outcome("report-0", acted_on=True)
-        mark_suggestion_outcome("report-1", acted_on=False, later_switched=True, switch_target="gemini")
+        mark_suggestion_outcome("report-1", acted_on=False, later_switched=True, switch_target="antigravity")
 
     def test_report_basics(self):
         report = generate_report()

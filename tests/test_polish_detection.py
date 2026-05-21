@@ -112,7 +112,7 @@ class TestRouteSurfacesPolish:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         result = asyncio.run(_route({
             "task": "Make this tagline better. Any better?",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
         }))
         payload = json.loads(result[0]["text"])
         assert payload.get("auto_iterate_recommended") is True
@@ -124,7 +124,7 @@ class TestRouteSurfacesPolish:
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         result = asyncio.run(_route({
             "task": "Which model is best for legal research workflows?",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
         }))
         payload = json.loads(result[0]["text"])
         assert payload.get("auto_iterate_recommended") is False
