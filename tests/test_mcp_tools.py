@@ -50,9 +50,10 @@ class TestToolList:
         # — agents ground via
         # `ask` + picks; the eval-summary surface remains in the launchpad
         # card and the `eval-show` CLI for direct user inspection.)
+        # record_outcome retired 2026-05-21 — chairman pick is supervision signal now.
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
-            "route", "run_council", "record_outcome",
+            "route", "run_council",
             "get_persona", "get_council_status",
             "handoff",
         }, f"unexpected tool list: {names}"
@@ -62,7 +63,11 @@ class TestToolList:
 
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        for legacy in ("get_status", "get_elo", "get_recent_councils", "watch_once", "get_recommendation", "judge"):
+        for legacy in (
+            "get_status", "get_elo", "get_recent_councils", "watch_once",
+            "get_recommendation", "judge",
+            "record_outcome",  # retired 2026-05-21 (rating UX sunset)
+        ):
             assert legacy not in names, f"legacy tool {legacy!r} still exposed"
 
     def test_run_council_schema_includes_responses_param(self):
@@ -171,82 +176,12 @@ class TestRunCouncilChainPropagation:
         assert captured["sequence"] == ["claude", "codex", "claude"]
 
 
-class TestRecordOutcome:
-    def test_writes_feedback_and_updates_outcome(self, home: Path):
-        from trinity_local.council_runtime import (
-            create_council_outcome,
-            create_prompt_bundle,
-            save_council_outcome,
-            save_prompt_bundle,
-        )
-        from trinity_local.council_schema import CouncilMemberResult
-
-        bundle = create_prompt_bundle(
-            task_cluster_id="tc1",
-            task_text="hello",
-            goal="test",
-        )
-        save_prompt_bundle(bundle)
-        outcome = create_council_outcome(
-            bundle=bundle,
-            primary_provider="claude",
-            member_results=[
-                CouncilMemberResult(provider="claude", output_text="A"),
-                CouncilMemberResult(provider="antigravity", output_text="B"),
-            ],
-        )
-        save_council_outcome(outcome)
-
-        result = _call_tool_sync("record_outcome", {
-            "council_run_id": outcome.council_run_id,
-            "user_winner": "claude",
-            "accepted": True,
-            "edited": False,
-            "cost_usd": 0.0,
-            "latency_sec": 5.0,
-        })
-        assert result["ok"] is True
-        assert result["outcome_updated"] is True
-        # Happy path: no error surfaced.
-        assert "outcome_load_error" not in result
-
-        # Verify the outcome JSON now carries user_verdict
-        from trinity_local.council_runtime import load_council_outcome
-        reloaded = load_council_outcome(outcome.council_run_id)
-        verdict = reloaded.metadata.get("user_verdict")
-        assert verdict is not None
-        assert verdict["user_winner"] == "claude"
-        assert verdict["accepted"] is True
-
-    def test_outcome_load_error_surfaces_when_council_id_unknown(self, home: Path):
-        """Earned 2026-05-16: silent skip when load_council_outcome fails
-        was load-bearing data loss — the verdict gets queued to
-        council_feedback.jsonl but the canonical outcome JSON (which
-        compute_personal_routing_table walks) doesn't get the verdict
-        metadata. The personal routing table the agent uses for the
-        NEXT council picks the wrong chairman because the previous
-        verdict is invisible.
-
-        Now: outcome_load_error is surfaced in the response so the
-        agent can warn the user / retry. recoverable=True signals that
-        a retry with the right council_run_id might succeed.
-        """
-        # Pass a bogus council_run_id that doesn't exist on disk.
-        result = _call_tool_sync("record_outcome", {
-            "council_run_id": "council_doesnotexist1234",
-            "user_winner": "claude",
-        })
-        # The feedback append still succeeds — that's a side-log.
-        assert result["ok"] is True
-        # But the canonical outcome JSON couldn't be loaded.
-        assert result["outcome_updated"] is False
-        # And the agent now sees WHY.
-        assert "outcome_load_error" in result, (
-            "Silent failure regressed: load_council_outcome raised but "
-            "the agent has no way to know — the verdict is half-lost"
-        )
-        assert result["recoverable"] is True
-        assert "council_doesnotexist1234" in result["user_message"]
+# TestRecordOutcome class removed 2026-05-21. The record_outcome
+# MCP tool was retired per "we are sunsetting user ratings. Full
+# retirement including MCP." The chairman's pick (routing_label.winner)
+# is the supervision signal now (compute_personal_routing_table reads
+# it directly from council_outcomes/). CLI council-rate still works
+# for power users; only the MCP surface is gone.
 
 
 class TestGetCouncilStatus:
@@ -528,23 +463,12 @@ class TestRateActionNudge:
         assert hint is not None
         assert hint["chairman_pick"] == "claude"  # primary_provider
 
-    def test_record_outcome_description_mentions_rate_action_trigger(self):
-        """The funnel only widens if the agent KNOWS it should fire
-        record_outcome after seeing a rate_action. The MCP tool description
-        is what trains that behavior — assert the trigger wording is
-        in the description, not just the param schema."""
-        import asyncio
-        from trinity_local.mcp_server import handle_list_tools
-
-        tools = asyncio.run(handle_list_tools())
-        ro = next((t for t in tools if t.name == "record_outcome"), None)
-        assert ro is not None, "record_outcome tool missing"
-        desc = ro.description or ""
-        assert "rate_action" in desc, (
-            "record_outcome description must mention rate_action so the "
-            "agent learns to fire it when the run_council response "
-            "carries the rating hint"
-        )
+    # test_record_outcome_description_mentions_rate_action_trigger
+    # removed 2026-05-21. record_outcome was retired; the rate_action
+    # nudge mechanism is reframed as supervision-signal-via-chairman
+    # (chairman pick lands automatically; no agent-side rating call
+    # needed). _build_rate_action still exists for the launchpad's
+    # internal nudge surface but no longer trains an MCP-side behavior.
 
 
 class TestPendingRatingsHint:
@@ -717,17 +641,8 @@ class TestPendingRatingsHint:
         payload = json.loads(result[0]["text"])
         assert "pending_ratings" not in payload
 
-    def test_record_outcome_description_mentions_pending_ratings_trigger(self):
-        """Agent must learn that pending_ratings is a SECONDARY trigger
-        (lower urgency than rate_action — pick ONE per pause, not all)."""
-        import asyncio
-        from trinity_local.mcp_server import handle_list_tools
-
-        tools = asyncio.run(handle_list_tools())
-        ro = next((t for t in tools if t.name == "record_outcome"), None)
-        assert ro is not None
-        desc = ro.description or ""
-        assert "pending_ratings" in desc, (
-            "record_outcome description must mention pending_ratings as "
-            "a trigger so the agent surfaces it at natural pauses"
-        )
+    # test_record_outcome_description_mentions_pending_ratings_trigger
+    # removed 2026-05-21. record_outcome was retired alongside the rest
+    # of the rating UX. pending_ratings still surfaces in route/ask
+    # responses for the launchpad's nudge — but no MCP rating tool
+    # description to mention it.

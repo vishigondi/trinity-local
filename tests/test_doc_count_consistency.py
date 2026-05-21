@@ -266,6 +266,7 @@ class TestMcpToolNameConsistency:
             "### The eleven MCP tools",
             "### The ten MCP tools",
             "### The nine MCP tools",
+            "### The eight MCP tools",
         ):
             idx = claude.find(variant)
             if idx > 0:
@@ -273,7 +274,7 @@ class TestMcpToolNameConsistency:
                 break
         assert section_start > 0, (
             "claude.md MCP-tools section not found — looked for "
-            "'### The eleven/ten/nine MCP tools'. "
+            "'### The eleven/ten/nine/eight MCP tools'. "
             "Principle #20 anchor moved, fix the test or restore the heading"
         )
         # Find the next ### heading or end-of-file
@@ -379,25 +380,27 @@ class TestMcpCanonicalSubsetCountClaims:
     \"canonical seven\" without any guard catching it.
 
     Principle #21: every fixed drift gets a regression guard at the
-    surface it ships from. The canonical-5 claim is load-bearing in
+    surface it ships from. The canonical-4 claim is load-bearing in
     claude.md (lifecycle order + section structure); locking it shut
     means no future numeric drift in that section can ship silently.
+
+    Updated 2026-05-21 after record_outcome retired (canonical 5 → 4,
+    8 total).
     """
 
     def test_no_stale_canonical_count_phrasings_in_docs(self):
-        # Drift-known-bad phrasings that should NEVER appear (these were
-        # the iter #61 stale values + their plural-word forms).
+        # Drift-known-bad phrasings that should NEVER appear.
         forbidden = [
-            "canonical 6",  # iter #61 fix
-            "canonical six",  # iter #61 fix
-            "canonical 7",  # would mean we re-added a tool to the v1.0 subset
+            "canonical 6",
+            "canonical six",
+            "canonical 7",
             "canonical seven",
-            "canonical 4",  # would mean we lost a v1.0 tool
-            "canonical four",
-            "### The eleven MCP",  # iter #61 fix (section header)
+            "canonical 5",  # record_outcome retired 2026-05-21 → canonical 4
+            "canonical five",
+            "### The eleven MCP",
             "### The ten MCP",
-            "### The eight MCP",
-            "1 launch-arc additions",  # singular/plural mismatch — "1 addition"
+            "### The nine MCP",  # was the section title until 2026-05-21
+            "1 launch-arc additions",
             "2 launch-arc addition",
             "0 launch-arc addition",
         ]
@@ -419,32 +422,31 @@ class TestMcpCanonicalSubsetCountClaims:
                         f"forbidden stale phrasing {phrase!r}"
                     )
         assert not violations, (
-            "MCP canonical-subset claims drifted to known-bad values "
-            "(iter #61 catch shape):\n  " + "\n  ".join(violations)
-            + "\n\nThe canonical v1.0 subset is 5 tools (route, "
-            "run_council, record_outcome, get_persona, get_council_status). "
-            "Total MCP surface is 9. If either changed, update both this "
-            "test and the docs."
+            "MCP canonical-subset claims drifted to known-bad values:\n  "
+            + "\n  ".join(violations)
+            + "\n\nThe canonical subset is 4 tools (route, run_council, "
+            "get_persona, get_council_status). Total MCP surface is 8. "
+            "If either changed, update both this test and the docs."
         )
 
     def test_canonical_count_claims_in_claude_md_agree(self):
-        # All "v1.0 canonical (\d+)" claims in claude.md must agree
-        # with each other AND with the literal "five" lifecycle header.
+        # All "canonical (\d+)" claims in claude.md must agree with
+        # each other AND with the literal "four" lifecycle header
+        # (since 2026-05-21 when record_outcome retired).
         claude = (REPO / "claude.md").read_text(encoding="utf-8")
-        numeric_claims = re.findall(r"v1\.0 canonical (\d+)", claude)
-        word_claims = re.findall(r"v1\.0 canonical (five|six|seven|eight)", claude)
-        assert numeric_claims, (
-            "claude.md has no 'v1.0 canonical (\\d+)' claims — did the "
+        numeric_claims = re.findall(r"canonical (\d+)\b", claude)
+        word_claims = re.findall(r"canonical (four|five|six|seven|eight)\b", claude, re.IGNORECASE)
+        assert numeric_claims or word_claims, (
+            "claude.md has no 'canonical (\\d+)' claims — did the "
             "MCP section get restructured? Update this test."
         )
-        word_to_num = {"five": 5, "six": 6, "seven": 7, "eight": 8}
+        word_to_num = {"four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8}
         nums = {int(n) for n in numeric_claims} | {
-            word_to_num[w] for w in word_claims
+            word_to_num[w.lower()] for w in word_claims
         }
-        assert nums == {5}, (
-            f"claude.md has mixed 'v1.0 canonical' counts: {sorted(nums)}. "
-            "All must agree on 5 (the v1.0 canonical subset size). "
-            "Same shape as iter #61 catch — drift between adjacent lines."
+        assert nums == {4}, (
+            f"claude.md has mixed 'canonical' counts: {sorted(nums)}. "
+            "All must agree on 4 (post-record_outcome-retirement, 2026-05-21)."
         )
 
 

@@ -1,4 +1,4 @@
-"""MCP server exposing Trinity's canonical 6 tools.
+"""MCP server exposing Trinity's canonical 4 tools + v1.5 trio + handoff.
 
 Public tools, in lifecycle order:
   - route(task, harness, available_models, budget, latency)
@@ -8,12 +8,18 @@ Public tools, in lifecycle order:
       When `responses` is provided, skips member dispatch and goes straight
       to chairman synthesis (one model call). This is the structured
       verdict path: agreed_claims, disagreed_claims, winner, routing_lesson.
-  - record_outcome(council_run_id, user_winner, accepted, edited, ...)
-      "Trinity, here's what actually happened." — closes the supervision loop.
   - get_persona()
       "Return the user's /me document." — chairman context for any harness.
   - get_council_status(council_run_id)
       "Poll an in-flight or completed council." — for harnesses without fs access.
+
+v1.5 trio: ask / get_picks / mark_pick_wrong.
+Launch-arc: handoff.
+
+Note: record_outcome retired 2026-05-21. Chairman's pick
+(routing_label.winner) is the supervision signal; refinement prompts
+on the council page carry the "what user wanted differently" signal.
+CLI council-rate still works for power users.
 
 Internal helpers (get_status, get_elo, get_recent_councils, watch_once)
 remain importable for the launchpad but are not exposed via MCP.
@@ -170,41 +176,14 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["task"],
             },
         ),
-        Tool(
-            name="record_outcome",
-            description=(
-                "Closes the supervision loop. After the user has acted on a council's output, "
-                "report what actually happened: which provider was selected, whether the user "
-                "accepted/edited it, cost, latency. THIS IS THE MOST IMPORTANT TOOL — without "
-                "it, Trinity is just a switchboard. "
-                "If the user abandoned the council without picking a winner (e.g. a member "
-                "hung or the user lost interest), pass `accepted=false` and omit `user_winner`. "
-                "Abandonment is a valid signal. "
-                "TRIGGER: when a prior `run_council` or `get_council_status` response carries "
-                "a `rate_action` field, the council is awaiting the user's verdict. Surface "
-                "the rating prompt to the user immediately, then call this tool with their "
-                "answer — that's how Trinity's personal routing table actually learns. "
-                "SECONDARY TRIGGER: when `ask` or `route` responses carry a `pending_ratings` "
-                "field, there are older unrated councils piling up. Pick ONE at a natural pause "
-                "in the conversation, ask the user, and call record_outcome — even one rating "
-                "per pause widens the personal-data funnel that other labs structurally can't see."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "council_run_id": {"type": "string"},
-                    "user_winner": {"type": "string", "description": "Provider the user actually picked. Omit when abandoned."},
-                    "accepted": {"type": "boolean"},
-                    "edited": {"type": "boolean"},
-                    "tests_passed": {"type": "boolean"},
-                    "cost_usd": {"type": "number"},
-                    "latency_sec": {"type": "number"},
-                    "answer_label": {"type": "string", "description": "Optional UI label for the chosen answer"},
-                    "abandonment_reason": {"type": "string", "description": "Optional: why the user didn't pick a winner (e.g. 'codex hung', 'lost interest')"},
-                },
-                "required": ["council_run_id"],
-            },
-        ),
+        # record_outcome retired 2026-05-21 per user direction "we are
+        # sunsetting user ratings. Full retirement including MCP." The
+        # chairman's pick (routing_label.winner) is the supervision
+        # signal that feeds compute_personal_routing_table() now (commit
+        # bb817b6). Refinement prompts on the council page carry the
+        # "what user wanted differently" signal. CLI `council-rate`
+        # stays for power users who want to write verdicts from the
+        # terminal. Registry entry: src/trinity_local/retired_names.py.
         Tool(
             name="get_persona",
             description=(
@@ -367,8 +346,7 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _route(arguments)
         if name == "run_council":
             return await _run_council(arguments)
-        if name == "record_outcome":
-            return await _record_outcome(arguments)
+        # `record_outcome` dispatch removed 2026-05-21 (rating UX sunset).
         if name == "get_persona":
             return await _get_persona(arguments)
         if name == "get_council_status":
@@ -1187,127 +1165,10 @@ async def _run_council(args: dict) -> list[Any]:
     return [_text(response)]
 
 
-async def _record_outcome(args: dict) -> list[Any]:
-    from .council_feedback import append_council_feedback
-    from .council_runtime import load_council_outcome, save_council_outcome
-    from .memory import record_council_outcome as memory_record_outcome
-
-    council_run_id = args["council_run_id"]
-    user_winner = args.get("user_winner")  # optional — abandonment is valid
-    abandoned = user_winner is None
-
-    # Sensible default: providing a user_winner means the user accepted that
-    # answer; omitting it means the council was abandoned. Caller can still
-    # override explicitly. Drops the cognitive load on the common "thumbs-up"
-    # call: record_outcome(council_run_id, user_winner="codex") is enough.
-    if "accepted" in args:
-        accepted = args["accepted"]
-    else:
-        accepted = not abandoned
-
-    feedback = None
-    if not abandoned:
-        feedback = append_council_feedback(
-            council_id=council_run_id,
-            provider=user_winner,
-            answer_label=args.get("answer_label"),
-        )
-
-    # Update the persisted CouncilOutcome with verdict metadata. Only include
-    # fields the caller actually provided — avoid clobbering with None.
-    outcome = None
-    outcome_load_error: str | None = None
-    try:
-        outcome = load_council_outcome(council_run_id)
-    except Exception as exc:
-        # Silent skip here would be load-bearing data loss — the moat
-        # thesis ("personal ledger of cross-model preferences") rests
-        # on every verdict landing on the canonical outcome JSON, not
-        # just the feedback.jsonl side-log. Surface the error in the
-        # response so the agent can warn the user / retry. council_run_id
-        # might be wrong (typo from the agent), the file might be
-        # half-written, or the disk might be full.
-        outcome_load_error = f"{type(exc).__name__}: {exc}"
-    if outcome is not None:
-        outcome.metadata.setdefault("user_verdict", {})
-        verdict = {
-            "user_winner": user_winner,
-            "accepted": accepted,
-            "abandoned": abandoned,
-        }
-        for optional_key in ("edited", "tests_passed", "cost_usd", "latency_sec", "abandonment_reason"):
-            if optional_key in args:
-                verdict[optional_key] = args[optional_key]
-        outcome.metadata["user_verdict"].update(verdict)
-        save_council_outcome(outcome)
-
-        # Propagate to PromptNode if the bundle linked one. For abandonments
-        # we still record the chairman_winner (so the personal table reflects
-        # what the chairman thought) but no user_winner.
-        prompt_node_id = (outcome.metadata or {}).get("prompt_node_id")
-        if isinstance(prompt_node_id, str) and prompt_node_id:
-            chairman = outcome.routing_label.winner if outcome.routing_label else None
-            memory_record_outcome(
-                prompt_node_id=prompt_node_id,
-                council_run_id=council_run_id,
-                chairman_winner=chairman,
-                user_winner=user_winner,  # None when abandoned — that's fine
-            )
-
-        # Append a merge row to ~/.trinity/me/merges.jsonl — this is the
-        # canonical paired-preference record (user chose X over Y). Only
-        # written when there's a real verdict (not abandonment); v1.5+
-        # downstream views (direction-of-preference vectors, lens.md,
-        # picks.json) will read this corpus rather than recomputing from
-        # council_outcomes/. Strictly additive — existing consumers
-        # unaffected.
-        if not abandoned and user_winner:
-            try:
-                from .merges import record_merge
-                rejected = [
-                    mr.provider
-                    for mr in (outcome.member_results or [])
-                    if mr.provider and mr.provider != user_winner
-                ]
-                record_merge({
-                    "type": "council_winner",
-                    "council_id": council_run_id,
-                    "task_type": (
-                        outcome.routing_label.task_type
-                        if outcome.routing_label else None
-                    ),
-                    "chosen": user_winner,
-                    "rejected": rejected,
-                    "chairman_winner": (
-                        outcome.routing_label.winner
-                        if outcome.routing_label else None
-                    ),
-                    "answer_label": args.get("answer_label"),
-                })
-            except Exception:
-                # Merge log is a side-channel; never let it break the
-                # primary record_outcome flow.
-                pass
-
-    payload: dict[str, Any] = {
-        "ok": True,
-        "feedback": feedback,
-        "outcome_updated": outcome is not None,
-        "abandoned": abandoned,
-    }
-    if outcome_load_error is not None:
-        # The verdict landed in council_feedback.jsonl but did NOT update
-        # the canonical outcome JSON. Surface so the agent can warn the
-        # user that the personal-routing aggregation may miss this rating.
-        payload["outcome_load_error"] = outcome_load_error
-        payload["recoverable"] = True
-        payload["user_message"] = (
-            f"Rating recorded in council_feedback.jsonl but the canonical "
-            f"outcome JSON for {council_run_id!r} could not be loaded "
-            f"({outcome_load_error}). The personal routing table may not "
-            f"reflect this verdict until the outcome file is restored."
-        )
-    return [_text(payload)]
+# _record_outcome handler removed 2026-05-21 per user direction
+# "we are sunsetting user ratings. Full retirement including MCP."
+# Chairman's pick is the supervision signal (commit bb817b6).
+# Registry entry: src/trinity_local/retired_names.py.
 
 
 async def _get_persona(args: dict) -> list[Any]:

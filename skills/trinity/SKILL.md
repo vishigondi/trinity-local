@@ -55,11 +55,11 @@ If any required check fails, walk the user through the surfaced fix. Don't proce
 
 The installer in section 2 already ran this. If MCP needs re-registration (after a `trinity-local update`, or to wire a newly-installed harness), run:
 
-v1.7.4 ships <!-- canonical:mcp_tool_count -->9<!-- /canonical --> MCP tools:
-- **canonical five** — `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`
+Trinity ships <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools:
+- **canonical four** — `route`, `run_council`, `get_persona`, `get_council_status`
 - **v1.5 trio** — `ask` (cheap default), `get_picks` (introspection), `mark_pick_wrong` (user-veto)
 - **launch-arc** — `handoff` (cross-provider continuity)
-  (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18 — agents ground via `ask` + picks)
+  (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18; `record_outcome` retired 2026-05-21 — chairman's pick is the supervision signal now, refinement prompts carry the "what differently" signal)
 
 !`trinity-local install-mcp`
 
@@ -87,13 +87,7 @@ mcp__trinity-local__run_council(task="$ARGUMENTS", mode="parallel")
 
 The chairman reads `~/.trinity/memories/lens.md` and synthesizes the members' answers through the user's taste. Output: structured Routing JSON with `agreed_claims`, `disagreed_claims`, `winner`, `runner_up`, `provider_scores`, `routing_lesson`. Persisted at `~/.trinity/council_outcomes/<id>.json`.
 
-After the council, **always** call `record_outcome` once the user picks their answer:
-
-```
-mcp__trinity-local__record_outcome(council_run_id=..., user_winner="...")
-```
-
-This is the supervision signal that improves Trinity's chairman picker over time. Trinity's moat is the personal ledger of cross-model preferences — `record_outcome` is what writes to it.
+The chairman's pick is automatically the supervision signal — `routing_label.winner` is what `compute_personal_routing_table()` aggregates from, no rating call needed (`record_outcome` retired 2026-05-21). Trinity's moat is the personal ledger of cross-model preferences; the chairman writes to it every council. If the user wants to refine ("I would have picked X because Y"), they can either click Refine on the council page (the refinement prompt becomes the post-pivot signal of "what should it have been") or run `trinity-local council-rate` from the terminal.
 
 If the question doesn't warrant a full 3-provider council (lookups, syntax, mechanical refactors), prefer the cheaper single-call route:
 

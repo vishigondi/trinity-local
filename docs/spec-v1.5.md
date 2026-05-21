@@ -133,7 +133,8 @@ TIER 2 — Cortex (semantic / procedural, slow write, fast recall)
 ```
 
 **Hippocampus** stores episodes — specific past decisions. Fast to write
-(`record_outcome` appends one file), slow to recall (need to embed-and-search
+(every council writes its outcome file; `record_outcome` was the agent-side
+write tool until retired 2026-05-21), slow to recall (need to embed-and-search
 to find relevant ones).
 
 **Cortex** stores extracted patterns — abstract rules across many episodes.
@@ -295,20 +296,22 @@ mcp__trinity-local__run_council(task, members=[claude, antigravity, codex])
   module + CLI council-launch surface.
 ```
 
-Existing tools that stay: `record_outcome`, `get_persona`,
-`get_council_status`. `route` (advice-only) is **slated for deprecation in v1.5**
+Existing tools that stay: `get_persona`, `get_council_status`.
+`route` (advice-only) is **slated for deprecation in v1.5**
 once `ask` reaches stability — it's useless when Claude can't shell out to
-dispatch, but the v1.7 surface still ships it (per mcp_server.py canonical 5)
-since the v1.5 single-call alternative is the deprecation gate.
+dispatch, but the surface still ships it since the v1.5 single-call
+alternative is the deprecation gate.
 
-(Spec drift note 2026-05-19: `search_prompts` was listed here as "stays" but
-retired 2026-05-17 in the pre-launch simplification — replaced by substring +
-recency + replay-value heuristics on the hot path. `get_eval_summary`,
-referenced elsewhere in earlier drafts, retired 2026-05-18. The v1.5 live
-surface as Trinity ships today is: `route`, `ask`, `run_council`,
-`record_outcome`, `get_persona`, `get_picks`, `mark_pick_wrong`,
-`get_council_status`, `handoff` — 9 total. See claude.md "The nine MCP tools"
-section for canonical current shape.)
+(Spec drift note 2026-05-21: `search_prompts` retired 2026-05-17
+in the pre-launch simplification — replaced by substring + recency +
+replay-value heuristics on the hot path. `get_eval_summary` retired
+2026-05-18. `record_outcome` retired 2026-05-21 per "we are sunsetting
+user ratings" — chairman's pick is now the supervision signal, fed
+automatically into `compute_personal_routing_table()`. The live surface
+as Trinity ships today is: `route`, `ask`, `run_council`, `get_persona`,
+`get_picks`, `mark_pick_wrong`, `get_council_status`, `handoff` —
+8 total. See claude.md "The MCP tools" section for canonical current
+shape.)
 
 ```
 mcp__trinity-local__get_picks(basin_id?, min_trust?)
@@ -323,14 +326,16 @@ mcp__trinity-local__get_picks(basin_id?, min_trust?)
   rules (e.g. 0.75+ for production routing decisions).
 ```
 
-9 tools shipped: `route`, `ask`, `run_council`, `record_outcome`,
+8 tools shipped: `route`, `ask`, `run_council`,
 `get_persona`, `get_picks`, `mark_pick_wrong`, `get_council_status`, `handoff`.
 (Spec divergence — preserved here for the audit trail: the original v1.5 spec
 proposed `compare` as an alias for `run_council`; Tier 1 #2 (task #48) collapsed
 that into `run_council(responses=[...])` instead. `search_prompts` was retired
-2026-05-17 — agents ground via `ask` + `get_picks` now. `mark_pick_wrong` was
-added as the user-veto surface, and the launch-arc tick added `handoff` —
-neither was in the original spec list.)
+2026-05-17 — agents ground via `ask` + `get_picks` now. `record_outcome` was
+retired 2026-05-21 per "we are sunsetting user ratings" — chairman's pick is
+the supervision signal now. `mark_pick_wrong` was added as the user-veto
+surface, and the launch-arc tick added `handoff` — neither was in the
+original spec list.)
 
 **Deferred to v1.7:** `mcp__trinity-local__plan_and_execute` (three-role
 multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
@@ -774,7 +779,7 @@ Anonymous taste topology that no provider can collect themselves.
 - `mcp__trinity-local__run_council(task, members)` — opt-in side-by-side (the spec originally proposed `compare`; the shipped tool is `run_council`)
 - Per-provider failure-mode tracking extending cortex schema
 - Strict-format inference via cortex retrieval
-- Macvm smoke covers the v1.5 MCP path end-to-end (install → ask → run_council → record_outcome)
+- Macvm smoke covers the v1.5 MCP path end-to-end (install → ask → run_council); supervision signal now flows through chairman pick automatically (`record_outcome` retired 2026-05-21)
 - Empty-state cortex handling (cold start: no basins, no rules → pure kNN)
 
 **Week 5 — Launchpad reframe + ship**
@@ -830,7 +835,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 |---|---|
 | `~/.trinity/SCHEMA_VERSION` lock | v1.5 adds `cortex/` subdir without renaming existing |
 | Routing JSON ledger canonical fields | v1.5 cortex extracts patterns from these — schema is the training data shape |
-| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` IS the council fan-out tool (the spec originally proposed `compare`; the shipped name is `run_council`, no alias); `route` slated for deprecation in v1.5 once `ask` reaches stability (still ships in v1.7). (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
+| MCP stable contract | `get_persona`, `get_council_status` unchanged; `run_council` IS the council fan-out tool (the spec originally proposed `compare`; the shipped name is `run_council`, no alias); `route` slated for deprecation in v1.5 once `ask` reaches stability. (`search_prompts` retired 2026-05-17 + `record_outcome` retired 2026-05-21 — see drift note ~L298.) |
 | Embeddings pipeline (nomic 768d) | v1.5 uses same index — no re-embedding required |
 | Lens-discovery outputs (basins, lenses, rejections) | topics.json is the cortex consolidation key; lenses are the eval set |
 | Privacy posture (prompts never upload) | unchanged. Cortex consolidation runs on user's flagship sub — local dispatch, not hosted. |

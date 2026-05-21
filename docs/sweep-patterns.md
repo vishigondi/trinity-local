@@ -267,7 +267,7 @@ drift opportunity when KEY changes (e.g., a new MCP tool ships and
 
 Tick 25 caught both `SKILL.md` copies hardcoding `"ships 9 MCP tools"`
 when every other doc in the corpus wrapped that 9 in
-`<!-- canonical:mcp_tool_count -->9<!-- /canonical -->`. The renderer's
+`<!-- canonical:mcp_tool_count -->8<!-- /canonical -->`. The renderer's
 rglob auto-scan picks up files that USE the placeholder syntax;
 surfaces that don't use it are invisible to the auto-sync machinery.
 

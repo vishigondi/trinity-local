@@ -64,6 +64,15 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-21 rating-UX MCP retirement ──
+    "record_outcome": RetirementRecord(
+        name="record_outcome",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="routing_label.winner (chairman pick) as supervision signal; refinement prompts as 'what user wanted differently'",
+        reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit bb817b6) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate stays for power users who want to write verdicts from the terminal; only the MCP tool is gone.",
+        kind="mcp_tool",
+    ),
     # ── 2026-05-21 consistency-sweep retirement ──
     "commands.tasks": RetirementRecord(
         name="commands.tasks",
