@@ -146,6 +146,23 @@ def canonical_cli_command_count() -> int:
     return 0
 
 
+def canonical_chrome_action_allowlist_count() -> int:
+    """Count entries in capture_host.ACTION_ALLOWLIST.
+
+    This is the Chrome-extension Native-Messaging allowlist (dashed
+    names like ``launch-council`` / ``ingest-recent`` /
+    ``render-me-card``), distinct from ``DISPATCH_ACTIONS`` in
+    dispatch_registry.py (underscored names used by launchpad URL
+    emitters). claude.md's status block + three-tier-architecture.md's
+    Tier-3 description both quote the count + enumeration; iter #28
+    of the post-launch sweep caught claude.md at "10" while live
+    count was 12 (council-iterate, dream, open-launchpad shipped
+    after the doc was written).
+    """
+    from trinity_local.capture_host import ACTION_ALLOWLIST
+    return len(ACTION_ALLOWLIST)
+
+
 def canonical_smoke_surface_count() -> int:
     """Count the distinct surface labels printed by scripts/browser_smoke.py.
 
@@ -171,6 +188,7 @@ CANONICAL: dict[str, callable] = {
     "mcp_tool_count": canonical_mcp_tool_count,
     "doc_consistency_guards": canonical_doc_consistency_guard_count,
     "cli_command_count": canonical_cli_command_count,
+    "chrome_action_allowlist_count": canonical_chrome_action_allowlist_count,
     "smoke_surface_count": canonical_smoke_surface_count,
     "version": canonical_version,
 }

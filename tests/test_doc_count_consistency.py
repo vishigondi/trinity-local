@@ -2516,6 +2516,53 @@ class TestLauncherPatternsListsAllDispatchActions:
             )
 
 
+class TestThreeTierEnumeratesAllChromeActions:
+    """Sibling of TestLauncherPatternsListsAllDispatchActions (one tier
+    above). docs/three-tier-architecture.md's Tier-3 description quotes
+    the Chrome-extension Native-Messaging allowlist by name. That set
+    lives in capture_host.ACTION_ALLOWLIST (dashed names like
+    `launch-council` / `render-me-card` — distinct from the underscored
+    DISPATCH_ACTIONS set used by launchpad URL emitters).
+
+    Drift caught 2026-05-21 iter #28: the doc enumerated 6 named
+    actions + "settings toggles" but the live allowlist has 12
+    entries. `council-iterate` (Phase 4b residual-drift fix),
+    `dream` (Memory Health "Refresh memory" button), and
+    `open-launchpad` (extension popup's canonical Trinity-launchpad
+    entry point) shipped after the doc was written but never got
+    enumerated. claude.md's status block similarly said "10 narrow
+    action-allowlist entries" while live count was 12.
+
+    Guard shape: for every name in ACTION_ALLOWLIST, assert it appears
+    as a backticked code reference somewhere in three-tier-architecture.md.
+    Mirrors the launcher-patterns guard one tier up — different set,
+    different doc, same drift shape. Principle #20 + the council
+    verdict cited there (docs are derived views over machine-readable
+    facts; pin the view).
+    """
+
+    def test_doc_enumerates_all_chrome_actions(self):
+        from trinity_local.capture_host import ACTION_ALLOWLIST
+
+        text = (REPO / "docs/three-tier-architecture.md").read_text(
+            encoding="utf-8"
+        )
+        missing = sorted(
+            name for name in ACTION_ALLOWLIST if f"`{name}`" not in text
+        )
+        if missing:
+            raise AssertionError(
+                f"docs/three-tier-architecture.md doesn't mention these "
+                f"Chrome-extension allowlist actions: {missing}. They're "
+                f"registered in capture_host.ACTION_ALLOWLIST and accepted "
+                f"by Native Messaging — the Tier-3 description must list "
+                f"each one so a reader knows the full attack surface. The "
+                f"count claim is pinned by the canonical "
+                f"`chrome_action_allowlist_count` placeholder; this guard "
+                f"pins the enumeration itself."
+            )
+
+
 class TestNoRetiredCliInSrcQuotedStrings:
     """Permanent guard born of iterations #9 + #11 + #12 + #13 of the
     pre-launch consistency-loop, EXTENDED in iter #32 after iters
