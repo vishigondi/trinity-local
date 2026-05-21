@@ -4,8 +4,16 @@ class: aspirational
 
 # Trinity v1.6 — Browser-side conversation capture (no server, no daemon)
 
-> Status: **spec only, follows v1.5 ship.** Target: **2-week implementation
-> after v1.5 (June 3, 2026) locks in.**
+> Status: **mostly shipped 2026-05-14/15** alongside the v1.0 launch
+> window — Week 1 + Week 2 Days 6-9 landed (browser-extension scaffold,
+> capture_host.py, claude.js + chatgpt.js SSE adapters, browser_claude
+> + browser_chatgpt ingest sources, Launchpad Surface 33). See "Ship
+> plan" section below for the per-day shipped/deferred breakdown.
+>
+> Remaining: Day 10 ship cut requires a one-time `chrome://extensions →
+> Load Unpacked` user action that can't be automated through MCP; the
+> gemini.google.com adapter was deferred to v1.7 per the launch-arc
+> protocol-fragility risk note.
 >
 > v1.6 closes the corpus-acquisition gap that the v1.0 launch surfaces but
 > doesn't fully solve. The pitch — *"Trinity reads the transcripts already on
