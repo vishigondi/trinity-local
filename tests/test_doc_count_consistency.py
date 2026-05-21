@@ -2499,3 +2499,25 @@ class TestCanonicalPlaceholdersAreRendered:
                 "to update the placeholders, then commit. Stdout:\n"
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
+
+    def test_bundled_config_example_matches_top_level(self):
+        """The bundled `src/trinity_local/data/config.example.json` is the
+        fallback config.py loads when the user's own config can't be found
+        (config.py:76-82). It MUST match the top-level `config.example.json`
+        — otherwise fresh installs get a stale shape.
+
+        Drift detected on 2026-05-20: top-level was renamed gemini→antigravity
+        in tick 5f13fe4 AND lost `default_task_kind` in tick 47, but the
+        bundled copy held both stale fields for 3 days. Pattern #4 + #20:
+        load-bearing fact lives in N=2 surfaces, drift accumulates in
+        whichever has fewer eyes on it.
+        """
+        top_level = (REPO / "config.example.json").read_text(encoding="utf-8")
+        bundled = (REPO / "src/trinity_local/data/config.example.json").read_text(encoding="utf-8")
+        if top_level != bundled:
+            raise AssertionError(
+                "src/trinity_local/data/config.example.json drifted from "
+                "config.example.json. The bundled copy is what fresh installs "
+                "fall back to via config.py:76-82. Re-sync with:\n\n"
+                "    cp config.example.json src/trinity_local/data/config.example.json\n"
+            )
