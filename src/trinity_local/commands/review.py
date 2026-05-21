@@ -11,7 +11,7 @@ from ..task_runtime import load_task_record
 
 DEFAULT_REVIEWER_COMMANDS = {
     "claude": ["claude", "-p"],
-    "gemini": ["gemini"],
+    "antigravity": ["agy", "-p"],
     "codex": ["codex", "--quiet"],
 }
 

@@ -13,7 +13,7 @@ def test_reviewer_command_for_uses_defaults_when_config_missing(monkeypatch: pyt
 
     monkeypatch.setattr(review_cmd, "load_config", fake_load_config)
 
-    assert review_cmd._reviewer_command_for(reviewer="antigravity", config_path=None) == ["antigravity"]
+    assert review_cmd._reviewer_command_for(reviewer="antigravity", config_path=None) == ["agy", "-p"]
     assert review_cmd._reviewer_command_for(reviewer="custom", config_path=None) == ["custom"]
 
 
