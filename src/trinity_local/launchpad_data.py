@@ -1857,117 +1857,23 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
         # design-12-share-buttons.png referenced but was never wired.
         # Dispatches `trinity-local council-share --council <id> --open`
         # via the macOS Shortcut; PNG lands at
-        # ~/.trinity/share/council_<id8>.png and opens in Preview.
-        share_chip = ""
-        council_id = item.get("council_id")
-        if council_id:
-            share_invocation = make_shortcut_invocation(
-                dispatch=make_dispatch_action(
-                    "run_command",
-                    args={
-                        "command": f"trinity-local council-share --council {council_id} --open",
-                    },
-                    metadata={"kind": "council_share"},
-                ),
-                shortcut_name=DEFAULT_SHORTCUT_NAME,
-            )
-            share_chip = (
-                f'<a href="{_esc(share_invocation.url)}" '
-                f'class="council-xlink cross-memory-chip cross-memory-chip--label cross-memory-chip--pill" '
-                f'title="Render this council as a 1200×630 PNG with install CTA — opens in Preview">'
-                f'→ share PNG</a>'
-            )
-
-        # Cross-memory chips: when this council's chairman tagged a
-        # task_type, render two ghost links that jump to picks.json
-        # and routing.json for that same task. Sits OUTSIDE the main
-        # card anchor so clicking a chip doesn't also trigger the
-        # full-card navigation to the live council page.
-        task_type = item.get("task_type")
-        xlinks = ""
-        if task_type:
-            task = _esc(str(task_type))
-            # All three chips share the .cross-memory-chip base from
-            # launchpad_template.py — visual treatment lives in one
-            # place. --pill modifier gives the round/larger look the
-            # recent-card row uses (vs the inline label chip on the
-            # cortex card).
-            chip_classes = "council-xlink cross-memory-chip cross-memory-chip--label cross-memory-chip--pill"
-            chips = [
-                f'<a href="../portal_pages/memory.html?file=picks.json&task={task}" '
-                f'class="{chip_classes}">→ pick</a>',
-                f'<a href="../portal_pages/memory.html?file=routing.json&task={task}" '
-                f'class="{chip_classes}">→ routing</a>',
-            ]
-            # Third chip: → topology, only when this task_type has a
-            # centroid match into topics.json (tick #34). Closes the
-            # launchpad → topology loop directly so the user doesn't
-            # have to bounce through picks first.
-            topo_basin = task_to_basin.get(str(task_type))
-            if topo_basin:
-                basin = _esc(topo_basin)
-                # Tooltip surfaces basin top-terms when available so
-                # the user knows what the basin contains without
-                # clicking (tick #39).
-                terms = basin_labels.get(topo_basin)
-                tooltip = (
-                    f"Basin {topo_basin} — {terms}" if terms
-                    else f"Open basin {topo_basin} in the topology graph"
-                )
-                chips.append(
-                    f'<a href="../portal_pages/memory.html?file=topics.json&basin={basin}" '
-                    f'class="{chip_classes}" title="{_esc(tooltip)}">→ topology</a>'
-                )
-            xlinks = (
-                '<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
-                + "".join(chips)
-                + "</div>"
-            )
-        # Share chip renders on every card, whether or not the council has a
-        # task_type. When task_type chips exist (above) the share chip joins
-        # that row; otherwise it sits in its own row below the card so the
-        # share affordance is always present.
-        if share_chip and xlinks:
-            # Insert before the closing </div> so the share chip joins
-            # the existing cross-memory chip row.
-            xlinks = xlinks[:-len("</div>")] + share_chip + "</div>"
-        elif share_chip:
-            xlinks = (
-                '<div class="council-xlinks" style="display: flex; gap: 6px; margin-top: -4px; flex-wrap: wrap;">'
-                + share_chip
-                + "</div>"
-            )
-        # Tick #94: "Unrated" badge on cards without user_verdict. The
-        # cards already click through to the live council page where
-        # the rating UX lives; the badge tells the user WHICH cards
-        # need their attention without forcing them to open each one.
-        # Same shape as the verdict-stats eyebrow from tick #70 — both
-        # make the rate funnel visible; this one is per-card-actionable.
-        unrated_badge = (
-            ""
-            if item.get("rated")
-            else '<span class="unrated-badge" '
-                 'style="margin-left: 8px; padding: 2px 8px; '
-                 'border-radius: 999px; background: rgba(178, 106, 31, 0.12); '
-                 'color: var(--accent, #b57438); font-size: 11px; '
-                 'font-weight: 500; letter-spacing: 0.02em;">'
-                 'Unrated</span>'
-        )
-        # data-rated + data-title power the launchpad's client-side
-        # filter chips (recent-filter-row). Title is lowercased once
-        # here so the JS substring match doesn't recompute per keystroke.
-        rated_attr = "true" if item.get("rated") else "false"
+        # data-title powers the launchpad's client-side title search.
+        # Lowercased once here so the JS substring match doesn't
+        # recompute per keystroke. The per-card cross-memory chips
+        # (→ pick / → routing / → topology / → share PNG) and the
+        # "Unrated" badge were sunset 2026-05-21 along with the rest
+        # of the user-rating UX. The prime directive is: chairman
+        # picks; user refines. The card is now: title, winner, date.
         title_lower = str(item.get("title") or "").lower()
         return f"""
-        <div class="council-card-wrapper" data-rated="{rated_attr}" data-title="{_esc(title_lower)}" style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="council-card-wrapper" data-title="{_esc(title_lower)}" style="display: flex; flex-direction: column; gap: 8px;">
           <a href="{href}" style="text-decoration: none; cursor: pointer;" class="council-card-link">
             <article class="card council-card">
-              <div class="eyebrow">Thread{unrated_badge}</div>
+              <div class="eyebrow">Thread</div>
               <h3 class="council-title">{_esc(str(item['title']))}</h3>
               <p class="meta">{_esc(winner)} · {_esc(created_at)}{rounds_badge}</p>
             </article>
           </a>
-          {xlinks}
         </div>
         """
 

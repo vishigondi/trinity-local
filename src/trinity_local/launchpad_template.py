@@ -1470,46 +1470,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
-      <!-- Rate-limit-saves: the Day-1 launch metric (docs/launch-package.md).
-           "Trinity routed N work-units around rate limits in the last
-           N days" is the case-study anchor for the post-Dreaming
-           positioning. Surfaces only when there's data — saves are a
-           side effect of using Trinity, not an action the user takes.
-           Empty until first save fires; once present, this is the
-           number the launch copy will quote. -->
-      <section class="card rate-limit-saves-card"
-               v-if="pageData.rateLimitSaves && pageData.rateLimitSaves.has_data"
-               style="border-left: 3px solid #2d8a3e; background: rgba(45, 138, 62, 0.04);">
-        <div class="eyebrow" style="color: #2d8a3e;">Rate-limit saves · last {{{{ pageData.rateLimitSaves.window_days }}}}d</div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          Work continued when Claude hit its limit
-          <span style="float: right; font-variant-numeric: tabular-nums; color: #2d8a3e;">
-            {{{{ pageData.rateLimitSaves.total_saves }}}}×
-          </span>
-        </h2>
-        <p class="meta" style="margin-top: 4px;">
-          {{{{ pageData.rateLimitSaves.total_saves }}}} of
-          {{{{ pageData.rateLimitSaves.total_calls }}}} ask calls were routed around a
-          rate-limited primary
-          ({{{{ (pageData.rateLimitSaves.save_rate * 100).toFixed(1) }}}}% save rate)
-        </p>
-        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
-          <li v-for="row in pageData.rateLimitSaves.by_failure_kind" :key="row.kind"
-              style="display: grid; grid-template-columns: 140px 60px 1fr; gap: 8px; align-items: center;">
-            <span>{{{{ row.kind }}}}</span>
-            <span class="meta">{{{{ row.count }}}}</span>
-            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
-              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.rateLimitSaves.total_saves * 100) + '%; background: #2d8a3e; border-radius: 3px;'"></span>
-            </span>
-          </li>
-        </ul>
-        <p class="meta" style="margin-top: 12px;">
-          The Day-1 case-study number. Raw events live in
-          <code>~/.trinity/analytics/dispatch_outcomes.jsonl</code>; this
-          card grows as you use Trinity through real rate-limit hits.
-        </p>
-      </section>
-
       <!-- Surface 33 (v1.6) — Browser capture activity. Shows per-
            provider counts + last-capture timestamp. Empty state has
            a CTA (install the extension); populated state surfaces
@@ -1724,37 +1684,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card">
-        <div class="eyebrow">
-          Your training history
-          <!-- Tick #98: thread-level count when threads != outcomes
-               (multi-round chains). The cards below group by thread,
-               so showing "3 of 14 threads rated" matches what the user
-               sees. Title attribute carries the outcome-level number
-               so a power user can hover to see the underlying count.
-               Falls back to outcome-only when the two are equal. -->
-          <span v-if="pageData.verdictStats && pageData.verdictStats.threads_total > 0
-                       && pageData.verdictStats.threads_total !== pageData.verdictStats.total"
-                class="meta" style="font-weight: 400; opacity: 0.7;"
-                :title="'Per-outcome: ' + pageData.verdictStats.rated + ' of ' + pageData.verdictStats.total + ' rounds rated (multi-round chains count each round)'">
-            · {{{{ pageData.verdictStats.threads_rated }}}} of {{{{ pageData.verdictStats.threads_total }}}} threads rated
-          </span>
-          <span v-else-if="pageData.verdictStats && pageData.verdictStats.total > 0"
-                class="meta" style="font-weight: 400; opacity: 0.7;">
-            · {{{{ pageData.verdictStats.rated }}}} of {{{{ pageData.verdictStats.total }}}} rated
-          </span>
-        </div>
-        <h2>Every council you've taught the router</h2>
-        <p class="meta">Reopen any thread to change your verdict. Every rating feeds your routing above — the moat is this ledger, not any one answer.</p>
-        <p class="meta" v-if="pageData.verdictStats && pageData.verdictStats.total >= 5 && pageData.verdictStats.rate < 0.5" style="color: var(--accent); margin-top: -4px;">
-          Only {{{{ Math.round(pageData.verdictStats.rate * 100) }}}}% of councils have your verdict. Pick a card below — the ledger learns from every click.
-        </p>
+        <div class="eyebrow">Council history</div>
+        <h2>Every council you've run</h2>
+        <p class="meta">Click a card to reopen the council. Refinement prompts on each thread are the supervision signal — Trinity learns from how you redirect, not from after-the-fact ratings.</p>
 
-        <!-- Recent-councils filter row. Replaces the retired `council-last`
-             CLI shortcut — instead of one CLI to find your last thread,
-             you filter the list down to what matters. Chips drive a JS
-             filter over the .council-card elements (data-rated /
-             data-title attrs); the search box does case-insensitive
-             substring match on the card title. -->
+        <!-- Recent-councils title filter. The Rated/Unrated/All chips
+             were sunset 2026-05-21 along with the rest of the user-
+             rating UX: chairman picks are the verdict; refinement
+             prompts are the signal. Only title-search remains. -->
         <div class="recent-filter-row" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px;">
           <input
             type="search"
@@ -1762,18 +1699,24 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             placeholder="Filter by title…"
             aria-label="Filter recent councils by title"
             style="flex: 1 1 200px; max-width: 320px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--surface); color: var(--text-primary);">
-          <div class="recent-filter-chips" role="tablist" style="display: flex; gap: 6px;">
-            <button type="button" class="recent-filter-chip active" data-filter="all" role="tab" aria-selected="true">All</button>
-            <button type="button" class="recent-filter-chip" data-filter="unrated" role="tab" aria-selected="false">Unrated</button>
-            <button type="button" class="recent-filter-chip" data-filter="rated" role="tab" aria-selected="false">Rated</button>
-          </div>
         </div>
 
         <div class="grid grid-2" id="recent-councils-grid" style="margin-top: 20px;">
           {recent_cards}
         </div>
+        <!-- Show-more button: initially shows 12 cards, button reveals
+             next 12 on click. Pure JS pagination — all cards are in
+             the DOM (filterable client-side); we just toggle .display
+             on cards past the initial window. -->
+        <div id="recent-show-more-row" style="display: none; margin-top: 16px; text-align: center;">
+          <button type="button" id="recent-show-more" class="button ghost"
+                  style="padding: 8px 16px; font-size: 14px;">
+            Show more
+            <span id="recent-show-more-count" class="meta" style="margin-left: 6px; font-weight: 400;"></span>
+          </button>
+        </div>
         <p class="meta" id="recent-filter-empty" style="display: none; margin-top: 16px;">
-          No councils match this filter. Try a different chip or clear the search box.
+          No councils match this filter. Clear the search box to see everything.
         </p>
       </section>
 
@@ -2787,56 +2730,72 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     maybeSendTelemetry();
     renderChart();
 
-    // ── Recent-councils filter (replaces the retired `council-last` CLI)
+    // ── Recent-councils title filter + pagination
     //
     // Pure JS over the .council-card-wrapper elements — no petite-vue
-    // store, no server round-trip. Filters on the data-rated +
-    // data-title attrs the server emits.
+    // store, no server round-trip. The Rated/Unrated/All chips were
+    // sunset 2026-05-21 along with the rest of the user-rating UX:
+    // chairman picks are the verdict; refinement prompts are the
+    // signal. Only title-search remains (and recency is implicit in
+    // the server-emitted order).
+    //
+    // Pagination: render first PAGE_SIZE cards; "Show more" reveals
+    // next PAGE_SIZE. All cards are server-emitted into the DOM, so
+    // filtering still sees everything. When a search term is active,
+    // pagination is bypassed — all matching cards show at once.
     (function() {{
+      const PAGE_SIZE = 12;
       const grid = document.getElementById('recent-councils-grid');
       if (!grid) return;
       const search = document.getElementById('recent-filter-search');
       const emptyMsg = document.getElementById('recent-filter-empty');
-      const chips = document.querySelectorAll('.recent-filter-chip');
-      let activeFilter = 'all';
+      const moreRow = document.getElementById('recent-show-more-row');
+      const moreBtn = document.getElementById('recent-show-more');
+      const moreCount = document.getElementById('recent-show-more-count');
+      let revealedCount = PAGE_SIZE;
 
       function applyFilter() {{
         const term = (search && search.value || '').trim().toLowerCase();
         const cards = grid.querySelectorAll('.council-card-wrapper');
         let visible = 0;
-        cards.forEach((card) => {{
-          const rated = card.getAttribute('data-rated') === 'true';
+        let matched = 0;
+        cards.forEach((card, idx) => {{
           const title = card.getAttribute('data-title') || '';
-          const ratedOk =
-            activeFilter === 'all' ||
-            (activeFilter === 'rated' && rated) ||
-            (activeFilter === 'unrated' && !rated);
-          const termOk = !term || title.includes(term);
-          const show = ratedOk && termOk;
+          const titleOk = !term || title.includes(term);
+          if (!titleOk) {{
+            card.style.display = 'none';
+            return;
+          }}
+          matched += 1;
+          // When searching, show all matches. When idle, paginate.
+          const show = term ? true : (matched <= revealedCount);
           card.style.display = show ? '' : 'none';
           if (show) visible += 1;
         }});
         if (emptyMsg) {{
           emptyMsg.style.display = (visible === 0 && cards.length > 0) ? '' : 'none';
         }}
+        // Show "more" button only when paginating + there are hidden matches.
+        if (moreRow && moreBtn) {{
+          const remaining = term ? 0 : Math.max(0, matched - revealedCount);
+          moreRow.style.display = remaining > 0 ? '' : 'none';
+          if (moreCount) {{
+            moreCount.textContent = remaining > 0 ? `(+${{remaining}})` : '';
+          }}
+        }}
       }}
-
-      chips.forEach((chip) => {{
-        chip.addEventListener('click', () => {{
-          chips.forEach((c) => {{
-            c.classList.remove('active');
-            c.setAttribute('aria-selected', 'false');
-          }});
-          chip.classList.add('active');
-          chip.setAttribute('aria-selected', 'true');
-          activeFilter = chip.getAttribute('data-filter') || 'all';
-          applyFilter();
-        }});
-      }});
 
       if (search) {{
         search.addEventListener('input', applyFilter);
       }}
+      if (moreBtn) {{
+        moreBtn.addEventListener('click', () => {{
+          revealedCount += PAGE_SIZE;
+          applyFilter();
+        }});
+      }}
+      // Initial render — apply pagination cutoff.
+      applyFilter();
     }})();
   </script>
 {footer}"""
