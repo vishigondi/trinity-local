@@ -2310,6 +2310,67 @@ class TestNoForbiddenColorsInLaunchpadTemplates:
             raise AssertionError("\n".join(msg))
 
 
+class TestNoFStringWithoutPlaceholders:
+    """Permanent guard born of tick 55 of the post-launch sweep.
+    `python -m pyflakes src/trinity_local/commands/` flagged 10
+    f-strings with no `{}` placeholders — all constant strings with
+    a stray `f` prefix (`print(f"  By rejection axis:")`). The
+    `f` prefix is misleading + slightly less efficient, but the
+    real harm is signal-masking: pyflakes catches accidentally-
+    dropped placeholders (e.g. someone refactors `f"...{var}..."`
+    to `f"..."` by mistake) using exactly this warning. When the
+    codebase has 10 false positives the warning becomes wallpaper.
+
+    Guard shape: parse `src/trinity_local/commands/*.py` as AST,
+    find every f-string with zero `FormattedValue` children, fail.
+    Limits scope to commands/ (where the bug actually lived) rather
+    than all of src/ — template modules legitimately use long
+    f-string blocks with placeholders for HTML rendering, and
+    expanding scope would slow the test without adding signal.
+
+    Why this matters in the sweep context: signal-masking warnings
+    are the cousin of stale claims. If pyflakes complains 10 times
+    about non-bugs, the 11th time (a real bug — dropped placeholder)
+    is invisible. Same shape as Principle #14 (regression guards
+    must run to count): warnings must mean something to be useful.
+    """
+
+    def test_no_fstring_without_placeholders_in_commands(self):
+        import subprocess
+        import sys
+        repo = Path(__file__).resolve().parent.parent
+        commands_dir = repo / "src" / "trinity_local" / "commands"
+
+        # Shell out to pyflakes — it correctly distinguishes top-level
+        # f-strings from inner format_spec JoinedStr nodes (which a naive
+        # ast.walk would false-positive on, e.g. `f"{x:>8,}"` contains
+        # an inner JoinedStr `f">8,"` that isn't a real source f-string).
+        result = subprocess.run(
+            [sys.executable, "-m", "pyflakes", str(commands_dir)],
+            capture_output=True,
+            text=True,
+        )
+        # pyflakes prints findings to stdout; exit code is nonzero when
+        # warnings exist but we parse output rather than rely on rc since
+        # we only want the specific f-string-missing-placeholders class.
+        fstring_hits = [
+            line for line in result.stdout.splitlines()
+            if "f-string is missing placeholders" in line
+        ]
+        if fstring_hits:
+            msg = ["f-strings without placeholders in commands/ (stray `f` prefix):"]
+            for line in fstring_hits:
+                msg.append(f"  {line}")
+            msg.append("")
+            msg.append(
+                "Either remove the `f` prefix (constant string), or "
+                "add the placeholders that were intended. The `f` "
+                "prefix is misleading + masks the pyflakes warning "
+                "that catches accidentally-dropped placeholders."
+            )
+            raise AssertionError("\n".join(msg))
+
+
 class TestPostLaunchTenseConsistency:
     """Today is post-launch (v1.0 shipped 2026-05-14). Public-facing
     docs must not describe the launch in future tense ("ships May

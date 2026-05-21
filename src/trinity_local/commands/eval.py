@@ -142,7 +142,7 @@ def handle_eval_build(args):
     print(f"  Items: {stats.get('items', 0)}")
     by_type = stats.get("by_rejection_type") or {}
     if by_type:
-        print(f"  By rejection_type:")
+        print("  By rejection_type:")
         for kind, count in by_type.items():
             print(f"    {kind:<12} {count}")
     by_basin = stats.get("by_basin") or {}
@@ -151,8 +151,8 @@ def handle_eval_build(args):
         for basin, count in list(by_basin.items())[:8]:
             print(f"    {basin:<8} {count}")
     print(f"\n  → {path}")
-    print(f"\n  Next: `trinity-local eval-run --target <provider>` to score a model against this set,"
-          f"\n        then `trinity-local eval-show` to inspect results.")
+    print("\n  Next: `trinity-local eval-run --target <provider>` to score a model against this set,"
+          "\n        then `trinity-local eval-show` to inspect results.")
 
 
 def handle_eval_stats(args):
@@ -181,7 +181,7 @@ def handle_eval_stats(args):
     print(f"  Items: {stats.get('items', 0)}")
     by_type = stats.get("by_rejection_type") or {}
     if by_type:
-        print(f"\n  Rejection-type distribution:")
+        print("\n  Rejection-type distribution:")
         total = sum(by_type.values())
         for kind, count in by_type.items():
             pct = (100.0 * count / total) if total else 0.0
@@ -189,14 +189,14 @@ def handle_eval_stats(args):
             print(f"    {kind:<12} {count:>3}  {pct:5.1f}%  {bar}")
     by_basin = stats.get("by_basin") or {}
     if by_basin:
-        print(f"\n  Basin distribution (top 10):")
+        print("\n  Basin distribution (top 10):")
         for basin, count in list(by_basin.items())[:10]:
             print(f"    {basin:<8} {count}")
 
     # A few sample items so the user sees the eval shape, not just counts.
     sample = eval_set.items[:3]
     if sample:
-        print(f"\n  Sample items:")
+        print("\n  Sample items:")
         for item in sample:
             preview = (item.prompt or "(no prompt text)")
             if len(preview) > 100:
@@ -289,7 +289,7 @@ def handle_eval_run(args):
     if run_result.aggregate_score is not None:
         print(f"  Aggregate score:  {run_result.aggregate_score:.3f}  ({args.target} vs rejected_responses)")
         if run_result.by_rejection_type:
-            print(f"  By rejection axis:")
+            print("  By rejection axis:")
             for axis, stats in sorted(run_result.by_rejection_type.items()):
                 print(f"    {axis:<12} n={stats['count']:>3}  mean={stats['mean_score']:.3f}  "
                       f"(min {stats['min_score']:.2f} max {stats['max_score']:.2f})")
@@ -353,7 +353,7 @@ def handle_eval_show(args):
         print(f"  Aggregate score: {result.aggregate_score:.3f}  "
               f"(vs the rejected_responses the original prompts elicited)")
         if result.by_rejection_type:
-            print(f"\n  By rejection axis:")
+            print("\n  By rejection axis:")
             for axis, stats in sorted(result.by_rejection_type.items()):
                 # Visual bar — 25-char max width, scaled by mean_score
                 width = int(round(stats["mean_score"] * 25))
@@ -362,7 +362,7 @@ def handle_eval_show(args):
                       f"mean={stats['mean_score']:.3f}  [{bar}]  "
                       f"min {stats['min_score']:.2f} max {stats['max_score']:.2f}")
     else:
-        print(f"\n  (No aggregate score — run completed without --no-score, or scoring failed.)")
+        print("\n  (No aggregate score — run completed without --no-score, or scoring failed.)")
 
     if args.limit_samples > 0 and result.items:
         # Show a few items with the strongest signal: extremes are
@@ -381,7 +381,7 @@ def handle_eval_show(args):
                 for it in worst:
                     _print_sample_line(it)
         else:
-            print(f"\n  (No scored items to sample.)")
+            print("\n  (No scored items to sample.)")
 
     print(f"\n  → {path}")
 

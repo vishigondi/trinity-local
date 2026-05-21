@@ -704,7 +704,7 @@ def handle_install_extension(args):
         for dir_path in _firefox_manifest_dirs():
             if str(dir_path).startswith("registry:"):
                 # Windows Firefox also via registry — defer for now.
-                print(f"  warn: Firefox on Windows registry not yet supported")
+                print("  warn: Firefox on Windows registry not yet supported")
                 continue
             try:
                 dir_path.mkdir(parents=True, exist_ok=True)
