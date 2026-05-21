@@ -8,11 +8,14 @@
 # Idempotent: clones the repo if missing, updates if present. Writes thin
 # shell wrappers to ~/.local/bin/ so `trinity-local <cmd>` works without
 # pip-installing the wheel. Detects the harnesses you have (Claude Code,
-# Codex CLI, Gemini CLI, Cursor) and registers Trinity's MCP server in
+# Codex CLI, Antigravity, Cursor) and registers Trinity's MCP server in
 # each. Verifies with `trinity-local status`.
 #
 # Architecture ratified by council_37eca30b6e7010df (see
-# docs/three-tier-architecture.md). Skill is primary; this script is the
+# docs/three-tier-architecture.md). MCP is primary per the 2026-05-19
+# pivot (docs/three-tier-architecture.md L15-22); the skill at
+# ~/.claude/skills/trinity/ is kept as a back-compat alias for users
+# who already type `/trinity` in Claude Code. This script is the
 # user-facing install path. No PyPI, no npm — just a git clone + a
 # couple of shell wrappers.
 
@@ -275,7 +278,7 @@ fi
 step "Registering MCP server"
 
 # Delegate to install-mcp, which knows how to detect Claude Code /
-# Codex CLI / Gemini CLI / Cursor configs and write the right entries.
+# Codex CLI / Antigravity / Cursor configs and write the right entries.
 if "$TRINITY_BIN_DIR/trinity-local" install-mcp 2>&1 | sed 's/^/  /'; then
   ok "MCP server registered"
 else

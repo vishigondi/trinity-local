@@ -2112,6 +2112,14 @@ class TestNoBannedSynonyms:
         # to the CURRENT provider slug list, which has been
         # (claude, codex, antigravity) since the 2026-05-20 rebrand.
         "docs/architectural-gaps.md",
+        # scripts/install.sh added 2026-05-21 after iter 38 caught
+        # 3 stale claims: two "Gemini CLI" mentions in head comments
+        # (L11 + L278) and "Skill is primary" on L15 (pre-2026-05-19
+        # pivot to MCP-primary). install.sh is the user-facing
+        # curl-bash install path; its inline comments are the first
+        # thing a curious operator reads when piping it. Drift here
+        # is high-leverage launch credibility.
+        "scripts/install.sh",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",
