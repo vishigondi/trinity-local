@@ -107,11 +107,19 @@ class RoutingRule:
 
 @dataclass
 class FailureModes:
-    """Per-provider failure shape extracted from disagreed_claims."""
+    """Per-provider failure shape extracted from disagreed_claims.
+
+    The three named slots are fast-path conveniences for the canonical
+    council providers (claude / codex / antigravity). Any other provider
+    name falls into `other` and round-trips through to_dict / from_dict
+    unchanged. The `antigravity` slot was renamed from `gemini` in tick
+    63 (2026-05-20) — old on-disk patterns with "gemini" keys still
+    load via the `other` dict path; from_dict normalizes them into the
+    `antigravity` slot when reading legacy data."""
 
     claude: str | None = None
     codex: str | None = None
-    gemini: str | None = None
+    antigravity: str | None = None
     other: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -120,8 +128,8 @@ class FailureModes:
             out["claude"] = self.claude
         if self.codex:
             out["codex"] = self.codex
-        if self.gemini:
-            out["gemini"] = self.gemini
+        if self.antigravity:
+            out["antigravity"] = self.antigravity
         out.update(self.other)
         return out
 
@@ -359,11 +367,15 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         computed_by=raw["trust_score"].get("computed_by", "system"),
     )
     fm_raw = raw.get("failure_modes", {})
+    # Back-compat: pre-2026-05-20 patterns wrote `gemini`; new ones write
+    # `antigravity`. Both can be present in old corpora; prefer the new
+    # key, fall through to the legacy one.
+    _ag_or_gemini = fm_raw.get("antigravity") or fm_raw.get("gemini")
     fm = FailureModes(
         claude=fm_raw.get("claude"),
         codex=fm_raw.get("codex"),
-        gemini=fm_raw.get("gemini"),
-        other={k: v for k, v in fm_raw.items() if k not in {"claude", "codex", "gemini"}},
+        antigravity=_ag_or_gemini,
+        other={k: v for k, v in fm_raw.items() if k not in {"claude", "codex", "antigravity", "gemini"}},
     )
     return RoutingPattern(
         basin_id=raw["basin_id"],
@@ -467,11 +479,14 @@ def consolidate_basin(
         subroutes=extracted.get("subroutes", []),
     )
     fm_dict = extracted.get("failure_modes", {})
+    # Back-compat: same legacy-"gemini" → "antigravity" normalization as
+    # `_pattern_from_dict()` above. Both paths must accept old corpora.
+    _ag_or_gemini = fm_dict.get("antigravity") or fm_dict.get("gemini")
     fm = FailureModes(
         claude=fm_dict.get("claude"),
         codex=fm_dict.get("codex"),
-        gemini=fm_dict.get("gemini"),
-        other={k: v for k, v in fm_dict.items() if k not in {"claude", "codex", "gemini"}},
+        antigravity=_ag_or_gemini,
+        other={k: v for k, v in fm_dict.items() if k not in {"claude", "codex", "antigravity", "gemini"}},
     )
     successful_prompts = extracted.get("successful_prompts", {})
 
