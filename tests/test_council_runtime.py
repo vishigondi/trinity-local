@@ -394,3 +394,68 @@ class TestThreadManifest:
         assert all(not s.get("running") for s in body["segments"])
         ids = [s["council_id"] for s in body["segments"]]
         assert ids == ["root1", "real_round2_id"]
+
+
+
+class TestLoadCouncilOutcomeNormalizesProviderSlugs:
+    """`load_council_outcome` normalizes legacy "gemini" → "antigravity"
+    across every provider-keyed field, so downstream consumers
+    (personal_routing aggregator, chairman picker, launchpad
+    rendering, audit dashboards) see canonical slugs end-to-end.
+
+    Tick 96 covered routing_label.{winner, runner_up, provider_scores};
+    tick 97 extends to primary_provider, winner_provider, and each
+    member's provider. Together the two ticks cover every Python-side
+    consumer of historical outcome JSON files."""
+
+    def test_normalizes_primary_and_winner_provider(self, tmp_path, monkeypatch):
+        import json
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.council_runtime import load_council_outcome
+        from trinity_local.state_paths import council_outcomes_dir
+
+        outcomes_dir = council_outcomes_dir()
+        outcomes_dir.mkdir(parents=True, exist_ok=True)
+        path = outcomes_dir / "council_test_legacy.json"
+        path.write_text(json.dumps({
+            "council_run_id": "council_test_legacy",
+            "bundle_id": "b1",
+            "task_cluster_id": "c1",
+            "primary_provider": "gemini",
+            "winner_provider": "gemini",
+            "member_results": [
+                {"provider": "claude", "output_text": "..."},
+                {"provider": "gemini", "output_text": "..."},
+            ],
+        }))
+
+        outcome = load_council_outcome("council_test_legacy")
+        assert outcome.primary_provider == "antigravity"
+        assert outcome.winner_provider == "antigravity"
+        member_providers = [m.provider for m in outcome.member_results]
+        assert member_providers == ["claude", "antigravity"]
+
+    def test_canonical_slug_passes_through_unchanged(self, tmp_path, monkeypatch):
+        import json
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.council_runtime import load_council_outcome
+        from trinity_local.state_paths import council_outcomes_dir
+
+        outcomes_dir = council_outcomes_dir()
+        outcomes_dir.mkdir(parents=True, exist_ok=True)
+        path = outcomes_dir / "council_test_canonical.json"
+        path.write_text(json.dumps({
+            "council_run_id": "council_test_canonical",
+            "bundle_id": "b1",
+            "task_cluster_id": "c1",
+            "primary_provider": "antigravity",
+            "winner_provider": "claude",
+            "member_results": [
+                {"provider": "antigravity", "output_text": "..."},
+            ],
+        }))
+
+        outcome = load_council_outcome("council_test_canonical")
+        assert outcome.primary_provider == "antigravity"
+        assert outcome.winner_provider == "claude"
+        assert outcome.member_results[0].provider == "antigravity"

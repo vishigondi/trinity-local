@@ -651,11 +651,30 @@ def register_pending_round(
 
 
 def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
+    from .council_schema import _normalize_provider_slug
+
     path = Path(path_or_run_id)
     if not path.exists():
         path = council_outcomes_dir() / f"{path_or_run_id}.json"
     raw = json.loads(path.read_text())
-    members = [CouncilMemberResult(**member) for member in raw.get("member_results", [])]
+    # Normalize legacy "gemini" → canonical "antigravity" at the load
+    # boundary across every provider-keyed field, so downstream
+    # consumers (personal_routing aggregator, chairman picker,
+    # launchpad rendering, audit dashboards) see one canonical slug.
+    # Tick 96 covered the routing_label fields; tick 97 extends the
+    # same fix to the per-outcome provider fields + each member's
+    # provider. See _LEGACY_PROVIDER_ALIASES in council_schema.py.
+    if "primary_provider" in raw:
+        raw["primary_provider"] = _normalize_provider_slug(raw["primary_provider"])
+    if "winner_provider" in raw:
+        raw["winner_provider"] = _normalize_provider_slug(raw["winner_provider"])
+    normalized_members = []
+    for member in raw.get("member_results", []):
+        if isinstance(member, dict) and "provider" in member:
+            member = dict(member)
+            member["provider"] = _normalize_provider_slug(member["provider"])
+        normalized_members.append(member)
+    members = [CouncilMemberResult(**member) for member in normalized_members]
     raw["member_results"] = members
     routing = raw.get("routing_label")
     if isinstance(routing, dict):
