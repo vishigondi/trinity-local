@@ -589,15 +589,15 @@ question").
 4. If lens_score ≥ threshold (default 0.65): ship it. Done. 1 call.
 5. If lens_score < threshold but > floor (0.40): dispatch challenger.
    Pick the better-scoring response.
-6. If both below floor: surface `escalate_hint=compare` to Claude.
+6. If both below floor: surface `escalate_hint=run_council` to Claude.
 ```
 
 Net cost:
 - Easy + clean basin match: 1 call (just primary)
 - Murky: 2 calls (primary + challenger)
 - Confused: 2 calls + escalation to `run_council` (signaled by
-  `escalate_hint=compare` in the ask response; agent decides whether
-  to call `run_council` based on the signal — see `ask.py:544` for
+  `escalate_hint=run_council` in the ask response; agent decides whether
+  to call `run_council` based on the signal — see `ask.run_ask` for
   the source-of-truth literal string)
 
 This is what makes `ask` the 90% tool: most queries clear the lens threshold

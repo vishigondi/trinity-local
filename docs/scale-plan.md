@@ -28,7 +28,7 @@ class: aspirational
 > heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —
 > agents ground via `ask` + picks.)
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
-> returns `escalate_hint=compare` when trust is low), `get_picks`
+> returns `escalate_hint=run_council` when trust is low), `get_picks`
 > (agent-facing introspection into extracted routing patterns), and
 > `mark_pick_wrong` (harness-callable user veto; halves effective
 > trust per click, persists across consolidations). Launch-arc adds
