@@ -2101,6 +2101,86 @@ class TestBundledSkillCommandExamplesValidate:
             )
 
 
+class TestCouncilOutcomeSchemaCoversAllSerializedFields:
+    """Tick 130 — schemas/council_outcome.schema.json is the public
+    contract Trinity ships for other tools (Aider / Cline / Continue)
+    to adopt — task #117. If the schema undersells the data, adopting
+    tools won't know about fields Trinity actually emits.
+
+    Today's catch: CouncilOutcome.to_dict() emits 19 distinct keys,
+    but the schema documented only 16. Missing:
+      - agreement_score    (aggregate consensus scalar)
+      - needs_followup     (chairman re-run hint)
+      - primary_session_id (chairman session correlation id)
+
+    All three are emitted when non-None/empty per the
+    `if value not in (None, '', {}, [])` filter in to_dict.
+
+    Same drift shape as ticks 128 (dispatch_registry) and 129
+    (mcp tools) at the schema-vs-dataclass layer: the dataclass IS
+    the canonical source of truth for emitted fields; the schema is
+    a derived view that drifted.
+
+    Caveats:
+      - Schema may legitimately have MORE fields than to_dict emits
+        (e.g. legacy compatibility, planned additions). We only
+        check that every TO_DICT field has a schema property.
+      - additionalProperties is None (defaults to True) — adopting
+        tools won't reject unknown fields, just won't be aware. Still
+        a doc-vs-code drift worth catching."""
+
+    def test_schema_describes_every_to_dict_field(self):
+        import json
+        import dataclasses
+
+        from trinity_local.council_schema import CouncilOutcome
+
+        schema = json.loads(
+            (REPO / "schemas/council_outcome.schema.json").read_text(encoding="utf-8")
+        )
+        documented = set((schema.get("properties") or {}).keys())
+
+        # Probe which keys to_dict emits. Build a fully-populated instance
+        # so every conditional `if value not in (...)` branch fires.
+        from trinity_local.council_schema import CouncilMemberResult, CouncilRoutingLabel, CouncilChainStep
+
+        probe = CouncilOutcome(
+            council_run_id="council_" + "0" * 16,
+            bundle_id="b",
+            task_cluster_id="t",
+            primary_provider="claude",
+            primary_model="claude-sonnet-4-6",
+            primary_session_id="sess_42",
+            agreement_score=0.85,
+            winner_provider="claude",
+            winner_model="claude-sonnet-4-6",
+            needs_followup=True,
+            differences=["X disagreed on Y"],
+            member_results=[CouncilMemberResult(provider="claude", model="x", output_text="o")],
+            synthesis_prompt="p",
+            synthesis_output="s",
+            routing_label=CouncilRoutingLabel(winner="claude"),
+            mode="chain",
+            chain_steps=[CouncilChainStep(step_index=0, model_provider="claude")],
+            created_at="2026-05-21T00:00:00",
+            metadata={"k": "v"},
+        )
+        emitted = set(probe.to_dict().keys())
+
+        undocumented = emitted - documented
+        if undocumented:
+            raise AssertionError(
+                f"CouncilOutcome.to_dict() emits keys not described in "
+                f"schemas/council_outcome.schema.json: {sorted(undocumented)}. "
+                f"Trinity ships this schema as a public contract for other "
+                f"tools to adopt (task #117); if it undersells the data, "
+                f"adopting tools won't know these fields exist. Add a "
+                f"properties entry for each missing key with a clear "
+                f"description, or filter the field out of to_dict if it "
+                f"shouldn't be part of the contract."
+            )
+
+
 class TestLiveDocsReferenceOnlyRegisteredMcpTools:
     """Tick 129 — docs that claim Trinity ships specific MCP tools
     by name must only reference tools that are actually registered
