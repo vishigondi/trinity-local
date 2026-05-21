@@ -287,7 +287,7 @@ class TestCortexFreshnessCheck:
         picks = {
             "council_synthesis": {
                 "consolidated_at": "2026-05-13T12:00:00+00:00",
-                "task_kinds": ["council_synthesis"],
+                "task_types": ["council_synthesis"],
             }
         }
         (home / "memories" / "picks.json").write_text(_json.dumps(picks))
@@ -312,7 +312,7 @@ class TestCortexFreshnessCheck:
         picks = {
             "council_synthesis": {
                 "consolidated_at": "2026-05-12T00:00:00+00:00",
-                "task_kinds": ["council_synthesis"],
+                "task_types": ["council_synthesis"],
             }
         }
         (home / "memories" / "picks.json").write_text(_json.dumps(picks))
