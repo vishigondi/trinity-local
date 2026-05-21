@@ -140,7 +140,7 @@ framework points hardest.
   surfaces) was the cost. Gap A makes this O(1) instead of O(N).
 
 **The recurring pattern:** Trinity has good DISCIPLINE around right
-paths (the 62-iter sweep, the 41 guards) but weak STRUCTURE that
+paths (the 62-iter sweep, the <!-- canonical:doc_consistency_guards -->56<!-- /canonical --> guards) but weak STRUCTURE that
 makes them cheap. Discipline scales with attention; structure scales
 with itself.
 
@@ -155,7 +155,7 @@ Trinity has good narrow-waist instinct in several places:
 | `~/.trinity/` schema | Launchpad UI, MCP server, CLI | Storage primitives (JSON, JSONL, npy) |
 | `CouncilOutcome` schema | Personal routing table, picks.json, eval harness | Raw provider responses |
 | `lens.md` | Chairman prompts (3 providers consume it) | Stage 0-4 pipeline |
-| MCP tool surface (9 tools) | Claude Code, Codex, Gemini, Cursor harnesses | Trinity's internal council/picks/lens logic |
+| MCP tool surface (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> tools) | Claude Code, Codex, Antigravity, Cursor harnesses | Trinity's internal council/picks/lens logic |
 
 These are intentionally simple + stable. The narrow waist Trinity is
 MISSING:
@@ -178,7 +178,7 @@ doc layer doesn't yet.
 
 claude.md principle #14 ("every shipped feature gets a smoke regression
 guard within one tick") is self-correction discipline at the CATCH
-level. The 41 doc-consistency guards are self-correction at the test
+level. The <!-- canonical:doc_consistency_guards -->56<!-- /canonical --> doc-consistency guards are self-correction at the test
 level. Browser smoke is self-correction at the visual level.
 
 What's missing at the AUTOMATIC-FIX level:
