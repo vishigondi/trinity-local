@@ -115,7 +115,7 @@ async def handle_list_tools() -> list[Tool]:
                     "members": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Provider names (e.g. ['claude', 'gemini', 'codex']). Omit to use the default 3-member lineup.",
+                        "description": "Provider names (e.g. ['claude', 'antigravity', 'codex']). Omit to use the default 3-member lineup.",
                     },
                     "mode": {"type": "string", "enum": ["parallel", "chain"], "default": "parallel"},
                     "sequence": {
@@ -303,7 +303,7 @@ async def handle_list_tools() -> list[Tool]:
                 "properties": {
                     "target_provider": {
                         "type": "string",
-                        "description": "Which provider to hand off to (e.g. 'claude', 'codex', 'gemini').",
+                        "description": "Which provider to hand off to (e.g. 'claude', 'codex', 'antigravity').",
                     },
                     "continuation": {
                         "type": "string",
@@ -1464,7 +1464,7 @@ def _pending_ratings_hint(max_age_hours: float = 168.0, limit: int = 3) -> dict 
             f"rated outcomes — unrated councils are zero supervision signal. "
             f"At a natural pause in this conversation, ask the user to rate "
             f"one (or skip): \"Which model won on the '<task_preview>' "
-            f"question — claude/codex/gemini? Or skip?\" Then call "
+            f"question — claude/codex/antigravity? Or skip?\" Then call "
             f"`record_outcome(council_run_id=..., user_winner=...)`, or "
             f"`record_outcome(council_run_id=..., accepted=False)` on skip. "
             f"Don't surface ALL of them — pick the most recent or most "
