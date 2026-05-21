@@ -32,15 +32,17 @@ _W_AGREEMENT = 0.55
 _W_SAMPLE = 0.30
 _W_RECENCY = 0.15
 
-# Below this trust score the response should include an escalate_hint=compare so
-# Claude in the harness can choose to call `compare` instead of trusting the ask.
+# Below this trust score the response should include an escalate_hint=run_council
+# so Claude in the harness can choose to call `run_council` instead of trusting
+# the ask. (The hint string matches the actual MCP tool name; "compare" was the
+# spec-v1.5.md proposed name but the shipped tool is `run_council`.)
 ESCALATE_HINT_THRESHOLD = 0.55
 
 # Token-economy budget for `ask` returns. The answer goes straight into the
 # calling agent's context window — long returns are expensive in tokens AND in
 # attention. Roughly 4 chars per token, so 2000 chars ≈ 500 tokens. Truncated
 # with a one-line marker so the agent knows the output was capped (and can
-# call `compare` or fetch the full council if it needs more).
+# call `run_council` or fetch the full council if it needs more).
 ASK_ANSWER_CHAR_BUDGET = 2000
 _TRUNCATION_MARKER = "\n\n[…truncated by Trinity for context economy — call `run_council` or read the council outcome for full output]"
 
@@ -78,7 +80,7 @@ class AskResult:
     routed_to: str
     trust_score: float
     runner_up: str | None
-    escalate_hint: str | None  # e.g. "compare" when trust is low
+    escalate_hint: str | None  # e.g. "run_council" when trust is low
     latency_ms: int
     decision: AskDecision
 
@@ -403,8 +405,8 @@ def _compute_trust(votes: dict[str, float], n_hits: int, *, cold_start: bool = F
     - **cold-start cap:** when the only signal is transcript-origin (the user
       reached for this provider before, but never explicitly evaluated it as
       best), cap trust at 0.55 — just below the escalate threshold — so the
-      agent gets `escalate_hint=compare` and can choose to fan out for an
-      explicit comparison. Routes-to-something-reasonable + suggests-compare
+      agent gets `escalate_hint=run_council` and can choose to fan out for an
+      explicit comparison. Routes-to-something-reasonable + suggests-run_council
       is the right cold-start behavior.
 
     Both floors are explicit so the trust score stays interpretable: high
@@ -541,7 +543,7 @@ def run_ask(
     dispatch_ms = int((time.monotonic() - t0) * 1000)
     total_ms = elapsed_ms if elapsed_ms is not None else dispatch_ms
 
-    escalate = "compare" if decision.trust_score < ESCALATE_HINT_THRESHOLD else None
+    escalate = "run_council" if decision.trust_score < ESCALATE_HINT_THRESHOLD else None
 
     return AskResult(
         answer=answer,

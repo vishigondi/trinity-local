@@ -158,12 +158,14 @@ class TestRunAsk:
         assert result.escalate_hint is None
         assert result.latency_ms >= 0
 
-    def test_low_trust_sets_escalate_hint_to_compare(self, monkeypatch):
+    def test_low_trust_sets_escalate_hint_to_run_council(self, monkeypatch):
         # One hit only, with split signal → low trust → escalate hint.
+        # Hint string is the actual MCP tool name `run_council` so the agent
+        # can call it directly; "compare" was the spec-v1.5.md proposed name.
         fake_hits = [_hit(prompt_id="p1", chairman_winner="claude")]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
         result = run_ask("complex question", dispatch_fn=lambda p, q: "answer")
-        assert result.escalate_hint == "compare"
+        assert result.escalate_hint == "run_council"
         assert result.trust_score < ESCALATE_HINT_THRESHOLD
 
     def test_long_answer_is_truncated_with_marker(self, monkeypatch):

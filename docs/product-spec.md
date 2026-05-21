@@ -6,7 +6,7 @@ class: aspirational
 
 > **Trajectory note (2026-05-19):** v1.0 shipped May 13–15, 2026 with the council-centric
 > mechanic + Routing JSON ledger described below. **v1.5 ships June 3, 2026** with
-> the MCP-primary routing surface (`ask` cheap default + `compare` for hard
+> the MCP-primary routing surface (`ask` cheap default + `run_council` for hard
 > questions) + hippocampus + cortex two-tier memory + local model dispatch + rate-
 > limit dodge. Active next-spec: [`spec-v1.5.md`](spec-v1.5.md). Trained-coordinator
 > v2 is **sunset** — see sunset header in [`spec-v2.md`](spec-v2.md).

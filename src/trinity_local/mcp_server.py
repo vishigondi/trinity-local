@@ -75,7 +75,7 @@ async def handle_list_tools() -> list[Tool]:
                 "has historically won for similar questions), dispatches one call to the best "
                 "provider, and returns a concise structured answer.\n\n"
                 "Returns: {answer, routed_to, trust_score (0..1), latency_ms, optional runner_up, "
-                "optional escalate_hint='compare' when trust is low and you should consider "
+                "optional escalate_hint='run_council' when trust is low and you should consider "
                 "calling `run_council` for parallel perspectives instead}.\n\n"
                 "Cost: ~$0.01–0.05 typical for one model call. Latency 3–30s dominated by "
                 "the dispatched provider's response time (Trinity overhead is <1s). Single "

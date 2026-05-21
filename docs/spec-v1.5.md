@@ -766,15 +766,15 @@ Anonymous taste topology that no provider can collect themselves.
 - Re-basining trigger (every 50 councils OR <70% basin acceptance rate)
 - Cortex (routing) + Lens (evaluation) composed flow inside `ask`
 - Rate-limit detection per provider; structured error codes
-- Conductor replan with reduced pool (for `compare`)
+- Conductor replan with reduced pool (for `run_council`)
 - Local model dispatch (Ollama + MLX); strongest-model probe extended to local runtimes
 - Pool composition + cost metadata exposed in tool responses
 
-**Week 4 — `compare` + per-provider failure-mode tracking + cold-install resilience**
-- `mcp__trinity-local__compare(query, members)` — opt-in side-by-side (alias of run_council)
+**Week 4 — `run_council` polish + per-provider failure-mode tracking + cold-install resilience**
+- `mcp__trinity-local__run_council(task, members)` — opt-in side-by-side (the spec originally proposed `compare`; the shipped tool is `run_council`)
 - Per-provider failure-mode tracking extending cortex schema
 - Strict-format inference via cortex retrieval
-- Macvm smoke covers the v1.5 MCP path end-to-end (install → ask → compare → record_outcome)
+- Macvm smoke covers the v1.5 MCP path end-to-end (install → ask → run_council → record_outcome)
 - Empty-state cortex handling (cold start: no basins, no rules → pure kNN)
 
 **Week 5 — Launchpad reframe + ship**
@@ -812,9 +812,12 @@ Weeks 1–5 have shipped; here's where each open question landed:
    `claude` (Opus is the slow path; user wants the best extraction);
    `--audit` opts into a second flagship via `--audit-provider`. Cheaper
    Haiku-class fallback is a v1.6 toggle.
-4. **`compare` retrieval-confidence trigger.** ✅ Resolved at
+4. **`run_council` retrieval-confidence trigger.** ✅ Resolved at
    `ESCALATE_HINT_THRESHOLD = 0.55` in `ask.py`. Below that the `ask`
-   return carries `escalate_hint=compare` so the calling agent can choose.
+   return carries `escalate_hint="run_council"` so the calling agent can call
+   the actual MCP tool directly. (Tick 122 flipped the literal from `compare`
+   to `run_council` — the spec proposed `compare` but the shipped tool is
+   `run_council`; the hint string now matches the tool name.)
 5. **Cortex eval signal vs lens basins.** 🟡 Outstanding. The two layers
    (cortex routing rules and `memories/lens.md` paired tensions) share basin
    semantics but no automated cross-check fires today. v1.6 item:
@@ -827,7 +830,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 |---|---|
 | `~/.trinity/SCHEMA_VERSION` lock | v1.5 adds `cortex/` subdir without renaming existing |
 | Routing JSON ledger canonical fields | v1.5 cortex extracts patterns from these — schema is the training data shape |
-| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` aliased to `compare`; `route` deprecated. (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
+| MCP stable contract | `record_outcome`, `get_persona`, `get_council_status` unchanged; `run_council` IS the council fan-out tool (the spec originally proposed `compare`; the shipped name is `run_council`, no alias); `route` deprecated. (`search_prompts` was in the original v1.5 stable list but retired 2026-05-17 — see drift note ~L278.) |
 | Embeddings pipeline (nomic 768d) | v1.5 uses same index — no re-embedding required |
 | Lens-discovery outputs (basins, lenses, rejections) | topics.json is the cortex consolidation key; lenses are the eval set |
 | Privacy posture (prompts never upload) | unchanged. Cortex consolidation runs on user's flagship sub — local dispatch, not hosted. |
@@ -840,7 +843,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
   needed.)
 - **Replace v1's council mechanic.** Council mode stays for the rare case the
   user wants the parallel-fan-out comparison AND the data acquisition for
-  cortex consolidation. `compare` IS the council mechanic, exposed as MCP.
+  cortex consolidation. `run_council` IS the council mechanic, exposed as MCP.
 - **Phone home.** Same privacy posture as v1. Cortex consolidation runs locally
   on the user's own subscription.
 - **Charge.** Free-forever stays.
@@ -848,7 +851,7 @@ Weeks 1–5 have shipped; here's where each open question landed:
 
 ## Path past v1.5 (when / if needed)
 
-If `ask` + `compare` + `plan_and_execute` + cortex consolidation hit a
+If `ask` + `run_council` + `plan_and_execute` + cortex consolidation hit a
 quality ceiling on real user data, the v2 trajectory opens:
 
 - True trained Conductor (Qwen 7B via DPO or sep-CMA-ES per the
