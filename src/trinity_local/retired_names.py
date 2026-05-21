@@ -93,7 +93,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "doctor": RetirementRecord(
         name="doctor",
         retired_at="2026-05-18",
-        commit="",  # pre-iter; collapsed into status during simplification
+        commit="ef2f328",
         replacement="status",
         reason="`status` absorbed the role; one canonical health-check entry",
         kind="cli",
@@ -101,7 +101,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "watch-once": RetirementRecord(
         name="watch-once",
         retired_at="2026-05-18",
-        commit="",
+        commit="07ea7da",
         replacement="ingest-recent",
         reason="Tool-triggered ingest (Chrome ext + MCP ask) replaces watcher daemon model",
         kind="cli",
@@ -109,7 +109,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "watch-loop": RetirementRecord(
         name="watch-loop",
         retired_at="2026-05-18",
-        commit="",
+        commit="07ea7da",
         replacement="ingest-recent",
         reason="See watch-once; same daemon-subsystem retirement",
         kind="cli",
@@ -125,15 +125,15 @@ RETIRED: dict[str, RetirementRecord] = {
     "bootstrap-pairs": RetirementRecord(
         name="bootstrap-pairs",
         retired_at="2026-05-18",
-        commit="",
+        commit="c4da425",
         replacement="dream",
         reason="dream Phase 2.5 subsumes pair-mining",
         kind="cli",
     ),
     "me-build": RetirementRecord(
         name="me-build",
-        retired_at="2026-05-18",
-        commit="",
+        retired_at="2026-05-12",
+        commit="b5d4d04",
         replacement="lens-build",
         reason="Tier 1 #2 rename: me/persona → lens",
         kind="cli",
@@ -141,7 +141,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "merges-show": RetirementRecord(
         name="merges-show",
         retired_at="2026-05-18",
-        commit="",
+        commit="3e66465",
         replacement="",
         reason="Internal CLI with no skill/launchpad callers; killed in simplification iter 7",
         kind="cli",
@@ -167,7 +167,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "install-app": RetirementRecord(
         name="install-app",
         retired_at="2026-05-17",
-        commit="",
+        commit="9c82ded",
         replacement="install-extension",
         reason="Trinity.app wrapper retired; Chrome extension is cross-platform launchpad host",
         kind="cli",
@@ -175,7 +175,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "Trinity.app": RetirementRecord(
         name="Trinity.app",
         retired_at="2026-05-17",
-        commit="",
+        commit="9c82ded",
         replacement="install-extension",
         reason="osacompile .app wrapper retired pre-launch",
         kind="file",
@@ -183,7 +183,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "search_prompts": RetirementRecord(
         name="search_prompts",
         retired_at="2026-05-17",
-        commit="",
+        commit="a815995",
         replacement="substring + recency + replay-value heuristics",
         reason="Embedding-free hot path; ranker/heuristic.py replaces it",
         kind="mcp_tool",
@@ -199,7 +199,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "guess_task_kind": RetirementRecord(
         name="guess_task_kind",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="244d15a",
         replacement="guess_task_type",
         reason="Back-compat alias from task #92 (Tier 1 #3 task_kind → task_type rename). Tick 48 audit found ZERO callers in src/ or tests/ — the comment claiming 'external callers (and a handful of tests) still import' was already untrue at the time of writing. Trinity has no external SDK consumers; internal callers all use guess_task_type directly. Pure dead aliasing.",
         kind="module",
@@ -207,7 +207,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "default_task_kind": RetirementRecord(
         name="default_task_kind",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="ad9abec",
         replacement="(removed, never consumed downstream)",
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
@@ -215,7 +215,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.ingest": RetirementRecord(
         name="commands.ingest",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="4aa7c77",
         replacement="(none — orphan handler for retired `features` CLI)",
         reason="`commands/ingest.py` was the retired-CLI shim for `trinity-local features` (kept importable but unregistered in main.py per pre-launch simplification). Imported from `..feature_extractors`, which tick 57 deleted alongside the v2 trained-coordinator sunset. Tick 58 found the broken import via `python -c 'from trinity_local.commands import ingest'`. Pattern #4 audit-for-shape: tick 57's relative-import grep used 1-dot patterns and missed the 2-dot `from ..feature_extractors` import. The whole file was dead even before the broken import — main.py registered no handler, no tests, no smoke. Deleted cleanly.",
         kind="module",
@@ -223,7 +223,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "training_schema": RetirementRecord(
         name="training_schema",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="d26317f",
         replacement="(none — v2 trained-coordinator path sunset 2026-05-11)",
         reason="262-LOC module defining the v2 trained-coordinator data schema (TranscriptWindow, RoutingExample, etc). The v2 path was sunset 2026-05-11 per claude.md ('reopens only if v1.5 hits a quality ceiling'). Tick 57 audit: ZERO callers across src/ and tests/ — feature_extractors.py was the only importer, and it itself had zero importers. Same shape as the Loop Constitution substrate that was deleted in pre-launch simplification. Architecture preserved in git history + docs/spec-v2.md sunset header.",
         kind="module",
@@ -231,7 +231,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "feature_extractors": RetirementRecord(
         name="feature_extractors",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="d26317f",
         replacement="(none — v2 trained-coordinator path sunset)",
         reason="261-LOC module wrapping the training_schema dataclasses for feature extraction. Zero importers across src/ and tests/. Deleted alongside training_schema.py — same v2-substrate-after-sunset shape.",
         kind="module",
@@ -239,7 +239,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "hard_examples_dir": RetirementRecord(
         name="hard_examples_dir",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="7986c0f",
         replacement="(inlined as `research_dir() / 'hard_examples'`)",
         reason="Same Pattern #4 shape as cortex_dir / models_dir — mkdir'd `~/.trinity/research/hard_examples/` on every call but zero callers. The single consumer (knn_advisor.py L60-61) constructs the path inline from `research_dir()`. Tick 52 deleted the helper.",
         kind="module",
@@ -247,7 +247,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "replay_examples_dir": RetirementRecord(
         name="replay_examples_dir",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="7986c0f",
         replacement="(inlined as `research_dir() / 'examples'`)",
         reason="Misleading name: returned `research_dir() / 'examples'` (NOT 'replay_examples'). Zero callers; knn_advisor.py L60-61 inlines the path string. Tick 52 deleted alongside hard_examples_dir.",
         kind="module",
@@ -255,7 +255,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "cortex_dir": RetirementRecord(
         name="cortex_dir",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="598ceb4",
         replacement="(none — picks.json carries failure_modes + successful_prompts inline)",
         reason="Spec-v1.5 originally described a `~/.trinity/cortex/` subdirectory with separate failure_modes.json + successful_prompts.json files. The shipped architecture embeds those fields INSIDE each RoutingPattern entry in scoreboard/picks.json — no separate cortex/ directory was ever needed. `cortex_dir()` survived as a state_paths helper that mkdir'd an empty `~/.trinity/cortex/` on every call (same ghost-dir shape as the retired `models_dir()` from tick 28). Zero callers in src/ or tests/. Tick 51 deleted the helper.",
         kind="module",
@@ -263,7 +263,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "~/.trinity/cortex/": RetirementRecord(
         name="~/.trinity/cortex/",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="598ceb4",
         replacement="~/.trinity/scoreboard/picks.json (inline failure_modes / successful_prompts)",
         reason="Spec-v1.5 § L133-134 described `~/.trinity/cortex/failure_modes.json` + `~/.trinity/cortex/successful_prompts.json` as v1.5 NEW files. The shipped architecture put both fields inline in scoreboard/picks.json's RoutingPattern records. The cortex/ subdirectory was never written by any code path beyond the (zero-caller) `cortex_dir()` helper. Tick 51 sunset both.",
         kind="file",
@@ -271,7 +271,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "~/.trinity/analytics/watch_errors.jsonl": RetirementRecord(
         name="~/.trinity/analytics/watch_errors.jsonl",
         retired_at="2026-05-20",
-        commit="",  # filled by next commit
+        commit="8d42d83",
         replacement="(none)",
         reason="Watcher subsystem retired 2026-05-17; no writer remains. Tick 44 swept the dead `_watch_error_summary` reader + status CLI surface that read the never-written file.",
         kind="file",
@@ -280,7 +280,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "task_kind": RetirementRecord(
         name="task_kind",
         retired_at="2026-05-12",
-        commit="",
+        commit="22c3064",
         replacement="task_type",
         reason="Tier 1 #3 rename to disambiguate from category (LMArena grouping)",
         kind="concept",
@@ -288,7 +288,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "persona.md": RetirementRecord(
         name="persona.md",
         retired_at="2026-05-12",
-        commit="",
+        commit="b5d4d04",
         replacement="lens.md",
         reason="Tier 1 #2 rename: me/persona → lens",
         kind="file",
@@ -296,7 +296,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "TranscriptNode": RetirementRecord(
         name="TranscriptNode",
         retired_at="2026-05-12",
-        commit="",
+        commit="623f592",
         replacement="PromptNode + TurnWindow",
         reason="Tier 2 #5: memory tier collapsed to 2 from 3",
         kind="concept",
@@ -304,7 +304,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "judge": RetirementRecord(
         name="judge",
         retired_at="2026-05-12",
-        commit="",
+        commit="623f592",
         replacement="run_council(responses=[...])",
         reason="Tier 1 #2: pre-supplied member outputs go straight to chairman synthesis",
         kind="mcp_tool",
@@ -312,7 +312,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "personal_routing_table.json": RetirementRecord(
         name="personal_routing_table.json",
         retired_at="2026-05-12",
-        commit="",
+        commit="623f592",
         replacement="compute_personal_routing_table() on demand",
         reason="Tier 1 #3: computed from council_outcomes/ at read time, no durable state",
         kind="file",
