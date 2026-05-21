@@ -582,7 +582,7 @@ def _check_cortex_freshness() -> CheckResult:
 
     Soft check: ok stays True (stale picks aren't broken, just dated).
     Detail surfaces the count so the user can decide whether to
-    re-consolidate. Pre-rated user (no record_outcome calls yet) gets
+    re-consolidate. Pre-rated user (no chairman verdicts yet) gets
     a different message than rated-but-stale.
     """
     from .state_paths import picks_path, council_outcomes_dir

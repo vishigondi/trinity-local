@@ -1610,11 +1610,12 @@ def render_live_council_page() -> str:
             if (!rs) return;
             // Hydrate the user's persisted verdict (if any) so the
             // "Preferred" badge survives reload. Source of truth is
-            // outcome.metadata.user_verdict.user_winner — written by both
-            // MCP record_outcome and CLI council-rate. The frontend has to
-            // look here because the launchpad's chooseMember() fires-and-
-            // forgets via shortcut URL; the only way to know the user
-            // already rated is to look at the outcome JSONP on next load.
+            // outcome.metadata.user_verdict.user_winner — written by
+            // the CLI council-rate handler (MCP record_outcome retired
+            // 2026-05-21). The frontend has to look here because the
+            // launchpad's chooseMember() fires-and-forgets via shortcut
+            // URL; the only way to know the user already rated is to
+            // look at the outcome JSONP on next load.
             const persistedWinner = (
               outcome?.metadata?.user_verdict?.user_winner ||
               outcome?.selected_provider ||

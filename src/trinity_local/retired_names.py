@@ -64,6 +64,23 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-21 rate-action mechanism retirement (companion to record_outcome) ──
+    "rate_action": RetirementRecord(
+        name="rate_action",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="(none — chairman pick IS the supervision signal, fed automatically)",
+        reason="The `rate_action` field that route/ask/run_council/get_council_status injected into MCP responses pointed agents at the retired record_outcome tool. With record_outcome retired and chairman pick auto-flowing into the personal routing table (commit bb817b6), the nudge had no destination. Per user direction 'Retire the whole mechanism' — agents don't need a hint to capture a verdict that's already captured. Pillar 4 funnel-widener deferred until a different shape proves out (current default: refinement prompts on the council page surface 'what should the chairman have picked instead' without an agent-side tax).",
+        kind="concept",
+    ),
+    "pending_ratings": RetirementRecord(
+        name="pending_ratings",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="(none — see rate_action)",
+        reason="`pending_ratings` was the SECONDARY funnel-widener — surfaced older unrated councils in route/ask responses. Same mechanism, same retirement (the agent-side capture pressure is gone with record_outcome). Launchpad surfaces unrated councils via the existing `unrated` CLI; pending_ratings as an MCP nudge is sunset alongside the rate-action mechanism.",
+        kind="concept",
+    ),
     # ── 2026-05-21 rating-UX MCP retirement ──
     "record_outcome": RetirementRecord(
         name="record_outcome",

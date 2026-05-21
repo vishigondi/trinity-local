@@ -1303,8 +1303,8 @@ def _verdict_stats() -> dict:
     without nagging the user mid-flow (task #110).
 
     A council counts as "rated" when its outcome JSON carries
-    `metadata.user_verdict.user_winner`. Same field both the CLI
-    council-rate handler and the MCP record_outcome tool write to.
+    `metadata.user_verdict.user_winner`. The CLI council-rate handler
+    is the only writer post-2026-05-21 (MCP record_outcome retired).
 
     Tick #98 also returns thread-level counts (chain_root_id grouped):
     `threads_total` and `threads_rated`. A multi-round chain has one

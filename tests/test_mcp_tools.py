@@ -1,7 +1,7 @@
-"""Tests for the 9 MCP tools (v1.0 canonical 5 + v1.5 trio + launch-arc handoff) and chain-mode council.
+"""Tests for the 8 MCP tools (canonical 4 + v1.5 trio + launch-arc handoff) and chain-mode council.
 
-v1.0 canonical 5: route, run_council (subsumes judge via responses=[...]),
-record_outcome, get_persona, get_council_status (§8.1).
+Canonical 4: route, run_council (subsumes judge via responses=[...]),
+get_persona, get_council_status. (record_outcome retired 2026-05-21.)
 v1.5 trio: ask, get_picks, mark_pick_wrong.
 Launch-arc: handoff (tick #119, cross-provider conversation continuity).
 """
@@ -40,17 +40,15 @@ class TestToolList:
 
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
-        # v1.0 canonical 5: route, run_council (subsumes judge via responses=[...]),
-        # record_outcome, get_persona, get_council_status.
+        # Canonical 4: route, run_council (subsumes judge via responses=[...]),
+        # get_persona, get_council_status.
         # v1.5 adds: `ask` (single-call routing), `get_picks`
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
         # Launch-arc adds: `handoff` (cross-provider conversation continuity).
-        # (`get_eval_summary` was retired 2026-05-18 in commit `1fed7fc`
-        # — agents ground via
-        # `ask` + picks; the eval-summary surface remains in the launchpad
-        # card and the `eval-show` CLI for direct user inspection.)
-        # record_outcome retired 2026-05-21 — chairman pick is supervision signal now.
+        # (`get_eval_summary` retired 2026-05-18 in commit `1fed7fc`;
+        # `record_outcome` retired 2026-05-21 — chairman pick is the
+        # supervision signal now, not user_winner verdicts.)
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council",
@@ -369,280 +367,9 @@ Claude
         assert reloaded.chain_steps[1].model_provider == "antigravity"
 
 
-class TestRateActionNudge:
-    """Pillar 4 funnel widener: when run_council/get_council_status returns
-    a completed-but-unrated outcome, the response carries a structured
-    `rate_action` hint. The agent (Claude Code, etc.) reads its own tool
-    response and surfaces the rating prompt to the user inline — no need
-    to open the launchpad.
-
-    Doctor + launchpad eyebrow + top banner ship the *visibility* signal;
-    this hint ships the *active nudge at the moment of decision*. Earned
-    its place after the real-corpus 16% verdict-capture rate persisted
-    through five passive surfaces.
-    """
-
-    def _make_outcome(self, *, winner: str | None = "claude", verdict: dict | None = None):
-        from types import SimpleNamespace
-        metadata: dict = {}
-        if verdict is not None:
-            metadata["user_verdict"] = verdict
-        return SimpleNamespace(
-            council_run_id="cr_test_rate_action",
-            winner_provider=winner,
-            primary_provider="claude",
-            metadata=metadata,
-        )
-
-    def test_hint_fires_for_completed_unrated_outcome(self):
-        from trinity_local.mcp_server import _build_rate_action
-        outcome = self._make_outcome(winner="codex", verdict=None)
-        hint = _build_rate_action(outcome)
-        assert hint is not None
-        assert hint["needs_rating"] is True
-        assert hint["council_run_id"] == "cr_test_rate_action"
-        assert hint["chairman_pick"] == "codex"
-        # Instruction must mention record_outcome so an LLM reading the
-        # MCP response naturally picks the next tool call.
-        assert "record_outcome" in hint["instruction"]
-        # And must carry the council_run_id verbatim so the agent doesn't
-        # have to reconstruct it (templated string concat is error-prone).
-        assert "cr_test_rate_action" in hint["instruction"]
-
-    def test_hint_silent_when_already_rated(self):
-        """An already-rated council is already in the ledger — don't nag."""
-        from trinity_local.mcp_server import _build_rate_action
-        outcome = self._make_outcome(
-            winner="claude",
-            verdict={"user_winner": "claude", "recorded_at": "2026-05-13T10:00:00"},
-        )
-        assert _build_rate_action(outcome) is None
-
-    def test_hint_silent_for_abandoned_outcome(self):
-        """`accepted=False` with no user_winner is a valid signal but not
-        the same as 'rated'. However, abandonment IS recorded via
-        record_outcome — checking for any user_verdict.user_winner means
-        a verdict-via-abandonment flow ALSO suppresses the hint correctly."""
-        from trinity_local.mcp_server import _build_rate_action
-        # Recorded abandonment: no user_winner key but user_verdict exists.
-        outcome = self._make_outcome(
-            winner="claude",
-            verdict={"recorded_at": "2026-05-13T10:00:00"},  # no user_winner
-        )
-        # Should still fire — without a user_winner, the supervision
-        # signal is unset. Abandonment-by-explicit-recording is rare;
-        # the common case is a user_winner present means rated.
-        hint = _build_rate_action(outcome)
-        assert hint is not None  # the verdict-without-winner still needs resolution
-
-    def test_hint_silent_for_outcome_without_council_run_id(self):
-        """Defensive: a malformed outcome (missing council_run_id) can't
-        carry an actionable hint because record_outcome can't be called
-        without it. Better to drop the hint than emit a broken instruction."""
-        from trinity_local.mcp_server import _build_rate_action
-        from types import SimpleNamespace
-        outcome = SimpleNamespace(
-            council_run_id=None,
-            winner_provider="claude",
-            primary_provider="claude",
-            metadata={},
-        )
-        assert _build_rate_action(outcome) is None
-
-    def test_hint_silent_for_none_outcome(self):
-        from trinity_local.mcp_server import _build_rate_action
-        assert _build_rate_action(None) is None
-
-    def test_hint_falls_back_to_primary_when_no_winner(self):
-        """When the chairman didn't pick a winner (rare — synthesis failure
-        or chain abandoned), fall back to primary_provider so the user
-        still has a default to confirm against."""
-        from trinity_local.mcp_server import _build_rate_action
-        outcome = self._make_outcome(winner=None)
-        hint = _build_rate_action(outcome)
-        assert hint is not None
-        assert hint["chairman_pick"] == "claude"  # primary_provider
-
-    # test_record_outcome_description_mentions_rate_action_trigger
-    # removed 2026-05-21. record_outcome was retired; the rate_action
-    # nudge mechanism is reframed as supervision-signal-via-chairman
-    # (chairman pick lands automatically; no agent-side rating call
-    # needed). _build_rate_action still exists for the launchpad's
-    # internal nudge surface but no longer trains an MCP-side behavior.
-
-
-class TestPendingRatingsHint:
-    """Pillar 4 funnel widener (round 2). rate_action only fires when the
-    agent is interacting with one specific council; pending_ratings rides
-    EVERY ask/route response so any MCP touchpoint becomes a rating
-    opportunity. The real-corpus evidence: 16% rate persisted through 6
-    surfaces because none of them re-prompts the user when they're NOT
-    looking at a council. This widener does."""
-
-    def _make_outcome_file(self, dir_path, council_run_id, task_text, *,
-                          rated_winner=None, abandoned=False, mtime_offset_hours=0):
-        """Write a minimal outcome JSON the hint can read."""
-        import json
-        import time
-        verdict: dict = {}
-        if rated_winner:
-            verdict["user_winner"] = rated_winner
-        if abandoned:
-            verdict["abandoned"] = True
-        data = {
-            "council_run_id": council_run_id,
-            "winner_provider": "claude",
-            "primary_provider": "claude",
-            "metadata": {
-                "task_text": task_text,
-                **({"user_verdict": verdict} if verdict else {}),
-            },
-            "routing_label": {"winner": "claude"},
-        }
-        path = dir_path / f"{council_run_id}.json"
-        path.write_text(json.dumps(data), encoding="utf-8")
-        if mtime_offset_hours:
-            ts = time.time() - mtime_offset_hours * 3600
-            import os
-            os.utime(path, (ts, ts))
-        return path
-
-    def test_hint_returns_top_n_unrated_within_window(self, tmp_path, monkeypatch):
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        # 4 unrated recent councils → only top 3 shown but count is 4.
-        for i in range(4):
-            self._make_outcome_file(outcomes_dir, f"council_unrated_{i}",
-                                    f"task number {i}", mtime_offset_hours=i)
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        hint = mcp_server._pending_ratings_hint()
-        assert hint is not None
-        assert hint["pending_count"] == 4
-        assert hint["shown"] == 3
-        assert all("task number" in c["task_preview"] for c in hint["councils"])
-        # Sorted newest-first: index 0 (offset 0h) is the most recent.
-        assert hint["councils"][0]["council_run_id"] == "council_unrated_0"
-
-    def test_hint_excludes_rated_councils(self, tmp_path, monkeypatch):
-        """Already-rated councils should NEVER appear — that's the user's
-        signal that they don't want to be nagged about it again."""
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        self._make_outcome_file(outcomes_dir, "council_rated", "rated task",
-                                rated_winner="claude")
-        self._make_outcome_file(outcomes_dir, "council_unrated", "open task")
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        hint = mcp_server._pending_ratings_hint()
-        assert hint is not None
-        assert hint["pending_count"] == 1
-        assert hint["councils"][0]["council_run_id"] == "council_unrated"
-
-    def test_hint_excludes_abandoned_councils(self, tmp_path, monkeypatch):
-        """An explicit abandonment IS recorded supervision signal (the user
-        said 'none of these worked'). Re-prompting them is the same nag
-        we avoid with rated councils."""
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        self._make_outcome_file(outcomes_dir, "council_aban", "abandoned task",
-                                abandoned=True)
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        assert mcp_server._pending_ratings_hint() is None
-
-    def test_hint_respects_age_window(self, tmp_path, monkeypatch):
-        """A council from 8 days ago is no longer a rating opportunity —
-        the user's memory of it is too cold to give a useful verdict."""
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        self._make_outcome_file(outcomes_dir, "council_stale", "stale task",
-                                mtime_offset_hours=8 * 24)
-        self._make_outcome_file(outcomes_dir, "council_fresh", "fresh task")
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        hint = mcp_server._pending_ratings_hint(max_age_hours=168.0)
-        assert hint is not None
-        assert hint["pending_count"] == 1
-        assert hint["councils"][0]["council_run_id"] == "council_fresh"
-
-    def test_hint_returns_none_when_no_outcomes_dir(self, tmp_path, monkeypatch):
-        """A fresh install has no council_outcomes/. Don't crash; return
-        None so the response just omits the field cleanly."""
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes_missing"  # not created
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        assert mcp_server._pending_ratings_hint() is None
-
-    def test_hint_returns_none_when_dir_empty(self, tmp_path, monkeypatch):
-        """Empty dir = no pending = silent. Don't ship an empty list with
-        a generic instruction — that's noise without signal."""
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-        assert mcp_server._pending_ratings_hint() is None
-
-    def test_route_response_carries_pending_ratings_when_pending(self, tmp_path, monkeypatch):
-        """The actual entry point: agent calls route(), gets back routing
-        decision + pending_ratings inline. This is THE widener — every
-        route call is now a rating opportunity."""
-        import asyncio
-        import json
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        self._make_outcome_file(outcomes_dir, "council_pending", "open task")
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-
-        result = asyncio.run(mcp_server._route({"task": "test task"}))
-        payload = json.loads(result[0]["text"])
-        assert "pending_ratings" in payload, (
-            "route() must surface pending_ratings so agents see unrated "
-            "councils on every routing decision — that's the widener"
-        )
-        assert payload["pending_ratings"]["pending_count"] == 1
-
-    def test_route_response_omits_pending_ratings_when_empty(self, tmp_path, monkeypatch):
-        """Silent when there's nothing to surface — agents shouldn't have
-        to handle empty lists in tool responses."""
-        import asyncio
-        import json
-        from trinity_local import mcp_server
-        outcomes_dir = tmp_path / "council_outcomes"
-        outcomes_dir.mkdir()
-        monkeypatch.setattr(mcp_server, "_PENDING_HINT_CACHE",
-                            {"key": None, "value": None})
-        monkeypatch.setattr("trinity_local.state_paths.council_outcomes_dir",
-                            lambda: outcomes_dir)
-
-        result = asyncio.run(mcp_server._route({"task": "test task"}))
-        payload = json.loads(result[0]["text"])
-        assert "pending_ratings" not in payload
-
-    # test_record_outcome_description_mentions_pending_ratings_trigger
-    # removed 2026-05-21. record_outcome was retired alongside the rest
-    # of the rating UX. pending_ratings still surfaces in route/ask
-    # responses for the launchpad's nudge — but no MCP rating tool
-    # description to mention it.
+# TestRateActionNudge + TestPendingRatingsHint removed 2026-05-21.
+# The _build_rate_action and _pending_ratings_hint mechanism was
+# retired in the same commit — agents no longer get a "go capture
+# the verdict" hint embedded in MCP responses because the chairman
+# pick IS the verdict (auto-recorded). Registry entries:
+# `rate_action`, `pending_ratings` in retired_names.py.

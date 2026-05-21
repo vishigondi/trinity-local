@@ -649,9 +649,7 @@ async def _ask(args: dict) -> list[Any]:
     # dict with no ok key, agent's natural check treated success as
     # failure.
     payload["ok"] = True
-    pending = _pending_ratings_hint()
-    if pending is not None:
-        payload["pending_ratings"] = pending
+    # pending_ratings hint retired 2026-05-21 alongside record_outcome.
     return [_text(payload)]
 
 
@@ -868,9 +866,7 @@ async def _route(args: dict) -> list[Any]:
         # changing default behavior.
         "auto_iterate_recommended": polish,
     }
-    pending = _pending_ratings_hint()
-    if pending is not None:
-        payload["pending_ratings"] = pending
+    # pending_ratings hint retired 2026-05-21 alongside record_outcome.
     return [_text(payload)]
 
 
@@ -972,7 +968,7 @@ async def _synthesize_responses(args: dict, responses: list[dict]) -> list[Any]:
 
     # Surface the chairman's verdict on the outcome itself, not just inside
     # the routing_label. Without `winner_provider`, downstream consumers
-    # (record_outcome, personal_routing aggregation) can't tell who won.
+    # (personal_routing aggregation, council-rate CLI) can't tell who won.
     winner_from_label = getattr(routing_label, "winner", None) if routing_label else None
     outcome_metadata: dict = {"mode": "synthesis_only"}
     if parse_error:
@@ -1013,7 +1009,7 @@ async def _synthesize_responses(args: dict, responses: list[dict]) -> list[Any]:
 async def _run_council(args: dict) -> list[Any]:
     # Pre-supplied responses → chairman synthesis only. One model call instead
     # of N+1. Same outcome shape (structured Routing JSON), persisted as
-    # a CouncilOutcome so subsequent record_outcome calls can attach.
+    # a CouncilOutcome the personal routing table reads from.
     #
     # Distinguish "absent" from "explicitly empty": passing responses=[] is a
     # caller error (they intended to invoke the synthesis path with N candidates
@@ -1135,7 +1131,6 @@ async def _run_council(args: dict) -> list[Any]:
 
         if completed_status is not None:
             outcome_summary = None
-            rate_action: dict | None = None
             outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
             if outcome_path.exists():
                 try:
@@ -1151,13 +1146,11 @@ async def _run_council(args: dict) -> list[Any]:
                         "routing_lesson": getattr(label, "routing_lesson", "") if label else "",
                         "user_likely_values": list(getattr(label, "user_likely_values", []) or []) if label else [],
                     }
-                    rate_action = _build_rate_action(outcome)
                 except Exception:
                     outcome_summary = None
             response["status"] = completed_status.get("status")
             response["outcome"] = outcome_summary
-            if rate_action is not None:
-                response["rate_action"] = rate_action
+            # rate_action injection retired 2026-05-21 alongside record_outcome.
         else:
             response["status"] = "running"
             response["timed_out_after_seconds"] = wait_seconds
@@ -1193,162 +1186,15 @@ async def _get_persona(args: dict) -> list[Any]:
     })]
 
 
-def _build_rate_action(outcome) -> dict | None:
-    """Pillar 4 funnel widener: when a council completes, the harness's MCP
-    response is the one place the agent always reads. Embedding a structured
-    "ask the user to rate this" hint there is the cheapest mechanism that
-    closes the supervision loop without forcing the user to the launchpad.
-
-    Returns the action hint when the outcome is completed-but-unrated; None
-    otherwise (already rated, or missing the metadata we'd write to). The
-    agent reads the hint and surfaces the rating prompt inline — Claude
-    Code / Codex CLI / Gemini CLI all expose tool-result text to the model,
-    so a `rate_action` field becomes part of the next turn's context.
-
-    Tested empirically: real corpus had 3 of 19 councils rated (16%) after
-    every passive surface (eyebrow badge, doctor check, top banner) shipped.
-    The funnel needs an *active* nudge at the moment of decision, not a
-    passive surface the user has to seek out. This is that nudge.
-    """
-    if outcome is None:
-        return None
-    metadata = getattr(outcome, "metadata", None) or {}
-    existing_verdict = (metadata.get("user_verdict") or {}).get("user_winner")
-    if existing_verdict:
-        return None  # already rated — don't nag
-    chairman_pick = getattr(outcome, "winner_provider", None) or getattr(outcome, "primary_provider", None)
-    council_run_id = getattr(outcome, "council_run_id", None)
-    if not council_run_id:
-        return None
-    pick_clause = f"The chairman picked `{chairman_pick}` — confirm or override." if chairman_pick else "Ask which member the user prefers."
-    return {
-        "needs_rating": True,
-        "council_run_id": council_run_id,
-        "chairman_pick": chairman_pick,
-        "instruction": (
-            f"This council awaits the user's verdict. {pick_clause} "
-            f"Then call `record_outcome` with `council_run_id={council_run_id!r}` "
-            f"and `user_winner=<their pick>`. If the user skips, call "
-            f"`record_outcome(council_run_id={council_run_id!r}, accepted=False)` so "
-            f"Trinity records the abandonment instead of leaving the council unlabeled. "
-            f"Trinity's personal routing table only learns from rated councils — "
-            f"unrated outcomes are zero supervision signal."
-        ),
-    }
-
-
-_PENDING_HINT_CACHE: dict[str, Any] = {"key": None, "value": None}
-
-
-def _pending_ratings_hint(max_age_hours: float = 168.0, limit: int = 3) -> dict | None:
-    """Pillar 4 funnel widener (round 2). The first round shipped:
-       (1) census  (2) eyebrow  (3) verify-after  (4) doctor  (5) banner
-       (6) per-council rate_action in run_council / get_council_status
-
-    Real-corpus rate after all six: 16% (3 of 19 outcomes rated).
-
-    The remaining gap is structural: rate_action only fires when the
-    agent either waits inline on a council OR polls get_council_status
-    for one specific id. Most councils complete async; the user moves
-    on; the agent never re-polls; the nudge never reaches the agent.
-
-    This widener: every `ask` and `route` call piggybacks a small list
-    of recent unrated councils. The agent reads it the way it reads
-    rate_action — but now ANY MCP touchpoint is a rating moment, not
-    just the council's own response. Multiplicative, not additive.
-
-    Returns:
-        {"pending_count": N, "councils": [...], "instruction": "..."}
-        when at least one unrated council exists within max_age_hours.
-        None otherwise (the field is omitted from the response — silent
-        when there's nothing pending).
-    """
-    import time
-    from .state_paths import council_outcomes_dir
-
-    now = time.time()
-    outcomes_dir = council_outcomes_dir()
-    if not outcomes_dir.exists():
-        return None
-
-    # 30s in-process cache. Scanning 19 files is cheap, but `ask` / `route`
-    # fire on every MCP turn — this avoids the same 11 disk reads at the
-    # rate of every user keystroke in Claude Code.
-    cache_key = (outcomes_dir.stat().st_mtime, max_age_hours, limit)
-    if _PENDING_HINT_CACHE["key"] == cache_key:
-        return _PENDING_HINT_CACHE["value"]
-
-    cutoff = now - max_age_hours * 3600
-    candidates: list[tuple[float, dict]] = []
-    for path in outcomes_dir.glob("council_*.json"):
-        try:
-            stat = path.stat()
-        except OSError:
-            continue
-        if stat.st_mtime < cutoff:
-            continue
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        metadata = data.get("metadata") or {}
-        verdict = (metadata.get("user_verdict") or {})
-        if verdict.get("user_winner"):
-            continue
-        # Skip explicitly abandoned councils — the user has already told
-        # us "no winner here." Re-prompting them is the same kind of
-        # nag we're trying to avoid with the rated-skip above.
-        if verdict.get("abandoned"):
-            continue
-        candidates.append((stat.st_mtime, data))
-
-    if not candidates:
-        _PENDING_HINT_CACHE["key"] = cache_key
-        _PENDING_HINT_CACHE["value"] = None
-        return None
-
-    candidates.sort(key=lambda kv: kv[0], reverse=True)
-    top = candidates[:limit]
-
-    councils = []
-    for mtime, data in top:
-        age_hours = (now - mtime) / 3600
-        if age_hours < 1:
-            ago = f"{int(age_hours * 60)}m ago"
-        elif age_hours < 24:
-            ago = f"{int(age_hours)}h ago"
-        else:
-            ago = f"{int(age_hours / 24)}d ago"
-        routing = data.get("routing_label") or {}
-        metadata = data.get("metadata") or {}
-        task_text = data.get("task_text") or metadata.get("task_text") or ""
-        councils.append({
-            "council_run_id": data.get("council_run_id"),
-            "task_preview": task_text[:120],
-            "chairman_pick": routing.get("winner") or data.get("winner_provider") or data.get("primary_provider"),
-            "ago": ago,
-        })
-
-    result = {
-        "pending_count": len(candidates),
-        "shown": len(councils),
-        "councils": councils,
-        "instruction": (
-            f"{len(candidates)} recent councils are awaiting the user's "
-            f"verdict. Trinity's personal routing table only learns from "
-            f"rated outcomes — unrated councils are zero supervision signal. "
-            f"At a natural pause in this conversation, ask the user to rate "
-            f"one (or skip): \"Which model won on the '<task_preview>' "
-            f"question — claude/codex/antigravity? Or skip?\" Then call "
-            f"`record_outcome(council_run_id=..., user_winner=...)`, or "
-            f"`record_outcome(council_run_id=..., accepted=False)` on skip. "
-            f"Don't surface ALL of them — pick the most recent or most "
-            f"relevant. Surfacing none is worse than surfacing one."
-        ),
-    }
-    _PENDING_HINT_CACHE["key"] = cache_key
-    _PENDING_HINT_CACHE["value"] = result
-    return result
+# _build_rate_action() + _pending_ratings_hint() + _PENDING_HINT_CACHE
+# removed 2026-05-21. Per user direction: "Retire the whole mechanism"
+# (rate-action hint injection alongside the record_outcome MCP tool).
+# The chairman's pick IS the supervision signal — agents don't need
+# to be nudged to capture a verdict that's already captured. Pillar 4
+# funnel-widener mechanism deferred until a different shape proves out
+# (current default: refinement prompts on the council page surface
+# "what should the chairman have picked instead" without an agent-side
+# tax). Registry: src/trinity_local/retired_names.py.
 
 
 def _lookup_council_status(council_run_id: str) -> dict | None:
@@ -1387,7 +1233,6 @@ async def _get_council_status(args: dict) -> list[Any]:
     status_payload: dict | None = _lookup_council_status(council_run_id)
 
     outcome_summary: dict | None = None
-    rate_action: dict | None = None
     outcome_load_error: str | None = None
     outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
     if outcome_path.exists():
@@ -1405,13 +1250,11 @@ async def _get_council_status(args: dict) -> list[Any]:
                 "user_likely_values": list(getattr(label, "user_likely_values", []) or []) if label else [],
                 "member_count": len(outcome.member_results),
             }
-            rate_action = _build_rate_action(outcome)
         except Exception as exc:
-            # Same shape as record_outcome's outcome_load_error fix
-            # (347b933) — silent skip would tell the agent "status is
-            # completed" but "outcome is null" without explaining why.
-            # Most likely cause: outcome JSON half-written by a legacy
-            # writer or partially corrupted on disk.
+            # Silent skip would tell the agent "status is completed"
+            # but "outcome is null" without explaining why. Most likely
+            # cause: outcome JSON half-written by a legacy writer or
+            # partially corrupted on disk.
             outcome_summary = None
             outcome_load_error = f"{type(exc).__name__}: {exc}"
 
@@ -1450,8 +1293,6 @@ async def _get_council_status(args: dict) -> list[Any]:
         "review_path": (status_payload or {}).get("review_path"),
         "outcome": outcome_summary,
     }
-    if rate_action is not None:
-        status_response["rate_action"] = rate_action
     if outcome_load_error is not None:
         status_response["outcome_load_error"] = outcome_load_error
     return [_text(status_response)]

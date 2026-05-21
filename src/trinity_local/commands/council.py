@@ -345,12 +345,12 @@ def handle_council_rate(args):
     bundle = load_prompt_bundle(outcome.bundle_id)
 
     # Persist the user's verdict to the outcome JSON so the live council page
-    # rehydrates the "Preferred" badge on reload. The MCP record_outcome tool
-    # writes the same shape; without this the launchpad's one-click rating
-    # was a feedback-log-only no-op as far as the UI was concerned (clicking
-    # a winner showed a green pill, reloading lost it). Discovered during
-    # the Surface 6 click-test: outcome.selected_provider stayed None across
-    # 21 council_feedback entries.
+    # rehydrates the "Preferred" badge on reload. (record_outcome MCP tool
+    # used to write the same shape; retired 2026-05-21. The CLI council-rate
+    # is now the canonical verdict-writer for power users.) Without this the
+    # launchpad's one-click rating was a feedback-log-only no-op as far as
+    # the UI was concerned. Discovered during the Surface 6 click-test:
+    # outcome.selected_provider stayed None across 21 council_feedback entries.
     outcome.metadata.setdefault("user_verdict", {})
     outcome.metadata["user_verdict"].update({
         "user_winner": args.provider,
@@ -362,10 +362,10 @@ def handle_council_rate(args):
     save_council_outcome(outcome)
 
     # Propagate the user's verdict to the originating PromptNode so the
-    # personal routing table compounds. The MCP record_outcome tool does this
-    # too — keeping the launchpad's one-click flow in sync makes every
-    # rated council a labeled training row regardless of which surface fired
-    # the rating.
+    # personal routing table compounds. (record_outcome MCP tool used to do
+    # this too — retired 2026-05-21; only this CLI path remains for explicit
+    # user-verdict capture.) Keeping the launchpad's one-click flow in sync
+    # makes every rated council a labeled training row.
     propagated_to_prompt_node = False
     metadata = outcome.metadata or {}
     prompt_node_id = metadata.get("prompt_node_id")
