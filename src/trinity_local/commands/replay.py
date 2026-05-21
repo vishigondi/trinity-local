@@ -49,7 +49,7 @@ def register(subparsers):
         "--members",
         nargs="+",
         default=default_council_members(),
-        help="Council members to compare (defaults to enabled subset of claude/gemini/codex)",
+        help="Council members to compare (defaults to enabled subset of claude/antigravity/codex)",
     )
     parser.add_argument(
         "--primary-provider",

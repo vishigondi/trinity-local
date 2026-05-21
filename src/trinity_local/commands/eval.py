@@ -59,7 +59,7 @@ def register(subparsers):
     )
     run_p.add_argument(
         "--target", required=True,
-        help="Provider to benchmark (claude / codex / gemini / ...).",
+        help="Provider to benchmark (claude / codex / antigravity / ...).",
     )
     run_p.add_argument(
         "--judge", default=None,

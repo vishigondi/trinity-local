@@ -27,7 +27,7 @@ def register(subparsers):
     )
     sp.add_argument(
         "provider",
-        help="Target provider (e.g. claude, codex, gemini). Receives the prior conversation as context.",
+        help="Target provider (e.g. claude, codex, antigravity). Receives the prior conversation as context.",
     )
     sp.add_argument(
         "-c", "--continuation",

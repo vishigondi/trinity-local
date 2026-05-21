@@ -30,7 +30,7 @@ def _reviewer_command_for(*, reviewer: str, config_path: str | None) -> list[str
 def register(subparsers):
     parser = subparsers.add_parser("review", help="Run a post-hoc review of a completed task")
     parser.add_argument("--task", required=True, help="Task ID to review")
-    parser.add_argument("--reviewer", required=True, help="Provider to use as reviewer (e.g. gemini, codex)")
+    parser.add_argument("--reviewer", required=True, help="Provider to use as reviewer (e.g. antigravity, codex)")
     parser.add_argument("--cwd", default=".", help="Working directory for the reviewer")
     parser.add_argument("--open-browser", action="store_true", help="Open review in browser")
     parser.set_defaults(handler=handle_review)

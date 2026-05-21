@@ -55,7 +55,7 @@ def register(subparsers):
     cp.add_argument(
         "--audit-provider",
         default=None,
-        help="Provider for the audit pass (default: gemini, or codex if --provider=gemini). Must differ from --provider — an audit by the same model that wrote the rule is worse than no audit at all.",
+        help="Provider for the audit pass (default: antigravity, or codex if --provider=antigravity). Must differ from --provider — an audit by the same model that wrote the rule is worse than no audit at all.",
     )
     cp.set_defaults(handler=handle_consolidate)
 
