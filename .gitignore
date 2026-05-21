@@ -20,6 +20,7 @@ state/
 *.png
 !docs/launchpad_example.png
 !docs/me_card_example.png
+!docs/favicon.png
 !browser-extension/icons/*.png
 mock_gen.py
 
