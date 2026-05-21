@@ -1153,7 +1153,7 @@ portal_data / portal_template (Launchpad, autofill UI, dashboard)
 
 ## 8.13 Phase 8 exit criteria
 
-- The nine MCP tools (canonical 5 — `route`, `run_council`, `record_outcome`, `get_persona`, `get_council_status`; v1.5 trio — `ask`, `get_picks`, `mark_pick_wrong`; launch-arc — `handoff`) respond correctly via stdio
+- The eight MCP tools (canonical 4 — `route`, `run_council`, `get_persona`, `get_council_status`; v1.5 trio — `ask`, `get_picks`, `mark_pick_wrong`; launch-arc — `handoff`) respond correctly via stdio. (`record_outcome` was the fifth canonical tool until retired 2026-05-21 — chairman pick is the supervision signal now.)
 - No daemon process is created by `install-mcp`
 - `~/Library/LaunchAgents/` is untouched after install
 - `ingest.parse_claude_code_session` correctly excludes sidechain turns and synthetic-error assistant messages
