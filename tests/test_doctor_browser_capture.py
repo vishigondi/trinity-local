@@ -172,7 +172,9 @@ def test_unsupported_platform_skips_with_note(isolated_trinity_home, monkeypatch
 def test_run_doctor_includes_browser_capture_check():
     """Regression guard: ``run_doctor()`` must include the new check
     in its sequence. If anyone removes the append call the check is
-    silently missing from `trinity-local doctor` output."""
+    silently missing from `trinity-local status` output. (run_doctor()
+    is the underlying library function; the `doctor` CLI was retired
+    2026-05-18 and its checks now surface via `status`.)"""
     from trinity_local.doctor import run_doctor
 
     # Don't care about pass/fail of the actual check here — just that

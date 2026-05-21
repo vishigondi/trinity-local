@@ -2626,6 +2626,102 @@ class TestNoRetiredCliInSrcQuotedStrings:
             )
             raise AssertionError("\n".join(msg))
 
+    def test_no_retired_cli_in_test_docstrings(self):
+        """Sibling guard born of iter #25 of the post-launch sweep.
+        The `src/` scanner above catches retired CLIs in user-facing
+        code paths. But test files are public-facing too — their
+        docstrings describe what each test pins, and a docstring
+        claiming `trinity-local doctor output` after `doctor` was
+        absorbed into `status` (commit ef2f328) is a present-tense
+        lie. Three sites caught: test_doctor.py:335 TestNextStepHint
+        ("the handoff-demo nudge in `trinity-local doctor` output"),
+        test_doctor_browser_capture.py:175 (same shape), test_ask.py:707
+        ("`trinity-local metric rate-limit-saves` reads") — all written
+        when those CLIs were live, none updated when they retired
+        because file headers correctly noted retirement and the human
+        eye stopped reading.
+
+        Guard shape: scan tests/*.py for `trinity-local <retired-cli>`
+        inside a docstring (triple-quoted block). Fail if the paragraph
+        containing the mention has no retirement marker (retired,
+        former, absorbed, collapsed, replaced, sunset, was). Same
+        marker-proximity heuristic as the src/ scanner; same RETIRED_CLI
+        set. Principle #20 (drifted-oldest-surface) + #21 (every claim
+        needs a guard at the surface that ships it) applied to tests.
+        """
+        import re
+        repo = Path(__file__).resolve().parent.parent
+        tests_dir = repo / "tests"
+        retired_cli = (
+            TestNoRetiredCliInSrcQuotedStrings.RETIRED_CLI
+        )
+        # Match `trinity-local <retired>` in any context (no quote/HTML
+        # prefix required — docstrings rarely quote command names with
+        # backticks alone is fine but plain `trinity-local doctor` is
+        # also common in prose).
+        retired_pattern = re.compile(
+            r"trinity-local\s+("
+            + "|".join(re.escape(c) for c in retired_cli)
+            + r")\b"
+        )
+        # Triple-quoted docstring matcher — captures everything
+        # between `"""` or `'''` pairs.
+        docstring_pattern = re.compile(
+            r'("""(?:.|\n)*?"""|\'\'\'(?:.|\n)*?\'\'\')',
+            re.MULTILINE,
+        )
+        markers = (
+            "retired", "former", "absorbed", "collapsed", "replaced",
+            "sunset", "was ", "deprecat", "no longer", "removed",
+            "deleted", "renamed", "→",
+        )
+        hits: list[tuple[str, int, str, str]] = []
+        for path in tests_dir.rglob("test_*.py"):
+            rel = path.relative_to(repo).as_posix()
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for ds_match in docstring_pattern.finditer(text):
+                docstring = ds_match.group(1)
+                ds_lower = docstring.lower()
+                for m in retired_pattern.finditer(docstring):
+                    # Find the paragraph (≈±3 line window around the
+                    # match) containing the retired CLI reference.
+                    ds_start_in_file = ds_match.start()
+                    abs_offset = ds_start_in_file + m.start()
+                    line_no = text[:abs_offset].count("\n") + 1
+                    # Pull a window of ±200 chars around the match
+                    # from the docstring (paragraph proxy).
+                    start = max(0, m.start() - 200)
+                    end = min(len(docstring), m.end() + 200)
+                    window = docstring[start:end].lower()
+                    if any(mk in window for mk in markers):
+                        continue
+                    cli = m.group(1)
+                    snippet = docstring[max(0, m.start()-40):m.end()+40].replace("\n", " ").strip()[:140]
+                    hits.append((rel, line_no, cli, snippet))
+        if hits:
+            msg = ["Retired CLI referenced in tests/ docstrings without "
+                   "a nearby retirement marker:"]
+            for rel, line_no, cli, snippet in hits:
+                msg.append(f"  {rel}:{line_no} mentions retired `trinity-local {cli}`")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "A test docstring describing the behavior under test "
+                "is a public claim about what the test pins. When the "
+                "CLI named in the docstring retires, the docstring "
+                "becomes a present-tense lie even if the underlying "
+                "library function survived (e.g. `doctor` → `status`). "
+                "Fix: name the live surface (`status` if doctor was "
+                "absorbed; the library function if the CLI was the "
+                "sole surface) and add a parenthetical noting the "
+                "retirement so future readers don't re-introduce the "
+                "old name."
+            )
+            raise AssertionError("\n".join(msg))
+
 
 class TestNoRetiredMcpToolEnumeratedAsLive:
     """Permanent guard born of tick 45 of the post-launch sweep.

@@ -704,7 +704,11 @@ class TestRateLimitAutoRetry:
 class TestRateLimitSavesMetric:
     """The case-study metric. Every successful retry after a primary-failure
     is logged to ~/.trinity/analytics/dispatch_outcomes.jsonl with
-    rate_limit_save=True, which `trinity-local metric rate-limit-saves` reads.
+    rate_limit_save=True, which `dispatch_health.compute_provider_health()`
+    reads to compute per-provider trust + rate-limit-save counts. (The
+    `trinity-local metric` CLI that surfaced this on a launchpad chip
+    was retired pre-launch; the jsonl is still the canonical record per
+    docs/launch-package.md's day-1 case-study number.)
     """
 
     def test_rate_limit_save_appends_jsonl_entry(self, monkeypatch, tmp_path):

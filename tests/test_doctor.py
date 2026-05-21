@@ -332,13 +332,15 @@ class TestCortexFreshnessCheck:
 
 
 class TestNextStepHint:
-    """The handoff-demo nudge in `trinity-local doctor` output (task #115).
+    """The handoff-demo nudge in `trinity-local status` output (task #115).
 
-    After a green doctor run the user otherwise sees "Trinity is ready"
+    After a green status run the user otherwise sees "Trinity is ready"
     with no idea what to do next. Surfacing the handoff demo right
     there closes the "I installed it, now what?" gap that #115 is
     about. These tests pin the tiered behavior so a future refactor
-    doesn't silently drop the hint.
+    doesn't silently drop the hint. (Hint code lives in `doctor.py`
+    because the underlying check library outlived the retired `doctor`
+    CLI — `status` is what users actually run now.)
     """
 
     def _make_report(self, *, providers_green=2, prompts_ok=True):
