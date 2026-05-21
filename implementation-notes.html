@@ -166,7 +166,7 @@
 <h3>Numeric drift — pin at surface vs. derive from canonical source</h3>
 <ul>
   <li>
-    The 4 (now 6) surfaces that pin the test count and the 41 doc-consistency
+    The 4 (now 6) surfaces that pin the test count and the <!-- canonical:doc_consistency_guards -->56<!-- /canonical --> doc-consistency
     guards both use hardcoded numeric assertions across docs rather than
     computing from a single source.
   </li>
@@ -261,8 +261,9 @@
     Extend the existing <code>TestMcpToolNameConsistency</code>.
   </li>
   <li class="why">
-    The existing class focuses on the TOTAL count (9 tools); the new class focuses on
-    the CANONICAL SUBSET (5 v1.0 tools) — different invariant, deserves its own class
+    The existing class focuses on the TOTAL count (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> tools); the new class focuses on
+    the CANONICAL SUBSET (4 tools — was 5 at iter #62 time; <code>record_outcome</code>
+    retired 2026-05-21) — different invariant, deserves its own class
     for failure-message clarity.
   </li>
 </ul>
