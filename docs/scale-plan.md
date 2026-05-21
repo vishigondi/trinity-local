@@ -13,8 +13,9 @@ class: aspirational
 > The Loop Constitution double-loop substrate (formerly `src/trinity_local/loop/`)
 > was removed alongside this trajectory pivot — pre-launch simplification. The
 > `cull → re-verify → commit` mechanic the substrate prototyped will be rebuilt
-> leaner inside v1.6's `plan_and_execute` (flagship Conductor + recursive
-> verification) if v1.5's `ask` + `compare` ceiling on multi-step workflows.
+> leaner inside v1.7's `plan_and_execute` (flagship Conductor + recursive
+> verification) if v1.5's `ask` + `run_council` ceiling on multi-step workflows.
+> (v1.6 was browser-extension capture; `plan_and_execute` moved to v1.7 per task #128.)
 > Spec is preserved in `docs/v2-loop-constitution.md` as architectural reference. Trained-coordinator v2 path is
 > **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).

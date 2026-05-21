@@ -200,11 +200,12 @@ Then, in order:
   council outcomes per task-type basin (cortex). Both layers fire at query time; the
   rule generalizes, the episodes calibrate. Brains don't kNN over raw episodes.
   Trinity shouldn't either.
-- **v1.6+ (post-v1.5): multi-step orchestration.** `plan_and_execute` for the rare
+- **v1.7+ (post-v1.5/v1.6): multi-step orchestration.** `plan_and_execute` for the rare
   case Claude wants Trinity to plan a multi-step workflow (who plans, who implements,
-  who verifies). v1.5 ships the routing; v1.6 ships the orchestrator. The
-  architecture is the same — a flagship Conductor reads cortex context + emits the
-  plan. No training. Just better prompts.
+  who verifies). v1.5 ships the routing; v1.6 shipped browser-extension capture;
+  v1.7 ships the orchestrator (per task #128). The architecture is the same —
+  a flagship Conductor reads cortex context + emits the plan. No training.
+  Just better prompts.
 - **The trained-coordinator path is sunset.** A flagship model with retrieval+cortex
   context produces better routing prompts than any 7B you could train. So I'm not
   paying 4–8 weeks of GPU training for an architecture I can ship in 5 weeks via
