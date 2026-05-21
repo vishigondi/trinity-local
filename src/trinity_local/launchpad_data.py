@@ -733,11 +733,11 @@ def build_page_data(
         # this (promise wins the H1 in idle state); kept exposed in case
         # other sections want a first-run greeting affordance.
         "recentCouncilsCount": len(recent_councils),
-        # Per-corpus verdict-capture stat. Lights the "Your training
-        # history" eyebrow with "N of M rated" so the gap is visible
-        # at a glance — the moat is this ledger, and an empty ledger
-        # is invisible without the count. See task #110 + tick #69.
-        "verdictStats": _verdict_stats(),
+        # verdictStats removed from pageData 2026-05-21 — the Vue
+        # template stopped reading it when the rating UX was sunset
+        # (commit 8f1fd95). The compute function _verdict_stats()
+        # stays alive because doctor._check_verdict_rate() still
+        # consumes it for the informational health check.
         # Retired 2026-05-17. The macOS Shortcut dispatcher is gone;
         # _shortcut_status() now always reports applicable=False so the
         # legacy banner stays hidden. Kept on the payload for template
@@ -755,13 +755,10 @@ def build_page_data(
         # benchmark numbers without cat'ing JSON. Empty state (CTA)
         # when no runs have completed yet.
         "evalSummary": _eval_summary(),
-        # Day-1 launch metric (per docs/launch-package.md): how many
-        # times Trinity routed around a rate-limited primary in the
-        # last 30 days. Empty until first save fires — no CTA card
-        # because rate-limit-saves are a side effect, not a user
-        # action. Once data exists, the number is the case-study
-        # anchor for "Trinity continues your work when Claude limits."
-        "rateLimitSaves": _rate_limit_saves(),
+        # rateLimitSaves removed from pageData 2026-05-21 alongside
+        # the rate-action / pending-ratings mechanism retirement. The
+        # launchpad never rendered a card for it (the user explicitly
+        # asked "remove this" pre-launch); function was orphan.
         # v1.6 Surface 33 — browser-capture activity. Empty state has a
         # CTA (install the extension); populated state shows per-provider
         # counts + last-capture timestamp. Stale (> 24h since last
@@ -973,108 +970,12 @@ def _eval_summary() -> dict:
     }
 
 
-def _rate_limit_saves() -> dict:
-    """Surface the rate-limit-saves metric on the launchpad.
-
-    `docs/launch-package.md` names this as THE Day-1 number for the
-    launch case study: "Trinity routed N work-units around rate
-    limits in 90 days." It's plumbed in `ask.py` → dispatch_outcomes
-    .jsonl → `trinity-local metric rate-limit-saves`. CLI-only made
-    the number invisible to the user unless they happened to know
-    the command. This card surfaces it.
-
-    Returns:
-      - {has_data: False}  when no dispatch outcomes recorded yet
-      - {has_data: True, total_saves, total_calls, save_rate,
-         window_days, by_failure_kind[], by_primary_provider[]}
-        when at least one save fired.
-
-    Empty state carries no CTA — rate-limit-saves are a side effect
-    of using Trinity, not an action the user can take to enable. The
-    card only shows once there's data to brag about.
-
-    Per "Analytics never crash": any failure returns the empty shape.
-    """
-    from .state_paths import dispatch_outcomes_path
-    empty = {
-        "has_data": False,
-        "total_saves": 0,
-        "total_calls": 0,
-        "save_rate": 0.0,
-        "window_days": 30,
-        "by_failure_kind": [],
-        "by_primary_provider": [],
-    }
-    path = dispatch_outcomes_path()
-    if not path.exists():
-        return empty
-    try:
-        from datetime import datetime, timedelta, timezone
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-        total_saves = 0
-        total_calls = 0
-        by_kind: dict[str, int] = {}
-        by_primary: dict[str, int] = {}
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            # Filter by window. dispatch_outcomes entries carry a
-            # `ts` ISO timestamp (matches what ask.py writes — NOT
-            # `at`; an earlier version read the wrong key and the
-            # 30-day window was silent dead code, so EVERY entry on
-            # disk passed through. The CLI metric reader is the source
-            # of truth for the field name). Tolerate missing/malformed
-            # by including the entry — the metric is biased toward
-            # "is something happening" and a missing ts is still a
-            # data point.
-            ts_str = entry.get("ts")
-            if ts_str:
-                try:
-                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    if ts < cutoff:
-                        continue
-                except (ValueError, TypeError):
-                    pass
-            total_calls += 1
-            if entry.get("rate_limit_save"):
-                total_saves += 1
-                kind = entry.get("failure_kind") or "unknown"
-                by_kind[kind] = by_kind.get(kind, 0) + 1
-                # `ask.py` writes the primary as the `primary` field
-                # (matches the CLI metric reader); not `primary_provider`.
-                primary = entry.get("primary") or "unknown"
-                by_primary[primary] = by_primary.get(primary, 0) + 1
-        if total_saves == 0:
-            # No saves yet — even if there are calls, the card
-            # offers nothing actionable. Wait until there's a number
-            # worth bragging about.
-            empty["total_calls"] = total_calls
-            return empty
-        return {
-            "has_data": True,
-            "total_saves": total_saves,
-            "total_calls": total_calls,
-            "save_rate": round(total_saves / total_calls, 3) if total_calls else 0.0,
-            "window_days": 30,
-            # Sort kinds/providers desc for a stable, scannable display
-            "by_failure_kind": sorted(
-                [{"kind": k, "count": c} for k, c in by_kind.items()],
-                key=lambda x: x["count"], reverse=True,
-            ),
-            "by_primary_provider": sorted(
-                [{"provider": p, "count": c} for p, c in by_primary.items()],
-                key=lambda x: x["count"], reverse=True,
-            ),
-        }
-    except Exception:
-        return empty
+# _rate_limit_saves() retired 2026-05-21 alongside the
+# rate-action / pending-ratings mechanism retirement. Function was
+# computed every launchpad render and shipped to pageData["rateLimitSaves"]
+# but the Vue template never read it (user said "remove this" pre-launch).
+# Pure orphan; removed from both call site and definition. Registry:
+# src/trinity_local/retired_names.py.
 
 
 def _humanize_ago(seconds: int | None) -> str:

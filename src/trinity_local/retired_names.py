@@ -64,6 +64,31 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-21 launchpad backend dead-code cleanup ──
+    "_rate_limit_saves": RetirementRecord(
+        name="_rate_limit_saves",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="(none — function was orphan; no Vue consumer)",
+        reason="launchpad_data._rate_limit_saves() computed a 30-day rate-limit-save count and shipped it into pageData['rateLimitSaves'], but the Vue template never read it. Pre-launch the user explicitly said 'remove this' for the rate-limit-saves card; the UI was deleted but the backend compute survived as orphan. Removed both the function and the pageData injection in the same commit.",
+        kind="module",
+    ),
+    "pageData.verdictStats": RetirementRecord(
+        name="pageData.verdictStats",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="doctor._check_verdict_rate() — informational health check (same _verdict_stats() math)",
+        reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 8f1fd95). The _verdict_stats() compute function stays alive because doctor._check_verdict_rate() still consumes it for the informational `trinity-local status` health check. Only the pageData injection (and its tests) are sunset.",
+        kind="concept",
+    ),
+    "pageData.rateLimitSaves": RetirementRecord(
+        name="pageData.rateLimitSaves",
+        retired_at="2026-05-21",
+        commit="(this commit)",
+        replacement="(none — see _rate_limit_saves)",
+        reason="Companion entry: the pageData field never had a Vue consumer; removed alongside the _rate_limit_saves() function.",
+        kind="concept",
+    ),
     # ── 2026-05-21 rate-action mechanism retirement (companion to record_outcome) ──
     "rate_action": RetirementRecord(
         name="rate_action",
