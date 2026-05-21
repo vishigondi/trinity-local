@@ -1334,9 +1334,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card" v-if="personalRoutingTable">
         <div class="eyebrow">Routing</div>
-        <h2>Best model per task type, from your own councils</h2>
+        <h2>Who the chairman picks, by task type</h2>
         <p class="meta">
-          Built from {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman blends your data with global benchmarks — the personalization % below shows how much your data drives the pick today.
+          From your own {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman synthesizes through your taste lens and picks the answer YOU would have picked. The Best column shows who they picked most often per task type.
         </p>
         <p class="meta" v-if="coreStatus.state === 'stale'" style="background: rgba(178, 106, 31, 0.08); border-left: 3px solid #b26a1f; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
           ⚠️ Your <code>core.md</code> is stale — a memory file was updated since the last dream. Run <code>trinity-local dream</code> so the chairman reads the freshest synthesis on the next council.
@@ -1368,7 +1368,18 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   <div class="benchmark-category">{{{{ taskType.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') }}}}</div>
                 </a>
               </td>
-              <td><span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span></td>
+              <td>
+                <span class="suggestion-chip">{{{{ formatProviderLabel(personalRoutingTable.best_per_task_type[taskType] || '') }}}}</span>
+                <!-- Chairman wins per task_type: "picked 3 of 5"
+                     surfaces the prime directive as visible data
+                     (chairman is the verdict; counts make it
+                     non-magic). winsFor() returns null when no
+                     chairman pick was recorded (legacy data); cell
+                     falls back to the chip alone. -->
+                <span class="meta" v-if="winsFor(taskType)" style="display: block; font-size: 11px; font-weight: 400; opacity: 0.75; margin-top: 2px;">
+                  picked {{{{ winsFor(taskType).wins }}}} of {{{{ winsFor(taskType).total }}}}
+                </span>
+              </td>
               <td style="text-align: right;">
                 <span class="benchmark-score" v-if="coldStartFor(taskType)">{{{{ coldStartFor(taskType).personalization_pct }}}}%</span>
                 <span class="benchmark-unit" v-if="coldStartFor(taskType)">n={{{{ coldStartFor(taskType).n_personal }}}}</span>
@@ -2077,6 +2088,19 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           // is missing (older launchpad_data without the augmentation) so the
           // column degrades to a "—" gracefully.
           return this.personalRoutingTable?.cold_start?.[taskType] || null;
+        }},
+        winsFor(taskType) {{
+          // Chairman wins per task_type. Returns {{wins, total}} for the
+          // current best_per_task_type[taskType] provider, or null when
+          // wins_per_task_type is missing (legacy data without
+          // chairman_winner) so the cell falls back to the chip alone.
+          const wins = this.personalRoutingTable?.wins_per_task_type?.[taskType];
+          const best = this.personalRoutingTable?.best_per_task_type?.[taskType];
+          if (!wins || !best) return null;
+          const winCount = wins[best] || 0;
+          const total = Object.values(wins).reduce((a, b) => a + b, 0);
+          if (!total) return null;
+          return {{ wins: winCount, total }};
         }},
         ruleHealthLabel(r) {{
           // The Health column on the cortex rules card surfaces signals

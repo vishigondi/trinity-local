@@ -38,84 +38,101 @@ from .state_paths import council_outcomes_dir
 from .utils import now_iso
 
 
-# User verdicts ARE the ground truth — they're what `record_outcome` was
-# called "the most important tool" for in claude.md. When a council has a
-# user_winner, we blend its contribution as:
-#
-#   effective_overall = USER_VERDICT_WEIGHT * (10 if winner else 0)
-#                     + (1 - USER_VERDICT_WEIGHT) * chairman_overall
-#
-# At weight 0.7: a user-picked codex with chairman_overall 6.0 contributes
-# 7.0 + 1.8 = 8.8 (much stronger than the chairman's 6.0); a user-rejected
-# claude with chairman_overall 8.0 contributes 0 + 2.4 = 2.4 (close to a
-# vote against). When NO user_winner exists, weight collapses to chairman
-# scores unchanged — backward compatible.
-USER_VERDICT_WEIGHT = 0.7
-USER_WINNER_SCORE = 10.0  # the "ceiling" overall chairman scores are scaled against
-
-
-def _blend_with_verdict(chairman_overall: float, is_user_winner: bool | None) -> float:
-    """Effective contribution for a single (council, provider) cell.
-
-    `is_user_winner` is None when this council had no user verdict at all
-    — chairman score passes through unchanged (backward compat).
-    """
-    if is_user_winner is None:
-        return chairman_overall
-    target = USER_WINNER_SCORE if is_user_winner else 0.0
-    return USER_VERDICT_WEIGHT * target + (1.0 - USER_VERDICT_WEIGHT) * chairman_overall
+# Per the prime directive (2026-05-21): "Run any hard question through
+# Claude, Codex, and Gemini in parallel. The chairman synthesizes through
+# your taste lens and picks the answer YOU would have picked, not the
+# generic one." The chairman's `winner` field IS the signal — counted as
+# wins per provider per task_type. We do not blend with user verdicts:
+# the user_winner UX was sunset 2026-05-21 ("asking the user to pick is
+# one more task on them, they don't want to do"). Refinement prompts on
+# each council are the supervision signal now.
 
 
 def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any]:
-    """Group routing labels by task_type and compute per-provider mean overall.
+    """Group routing labels by task_type and count chairman wins per provider.
 
     Each item should have:
-        - routing_label: dict (with provider_scores + task_type)
+        - routing_label: dict (with provider_scores + task_type + winner)
         - task_type: str (fallback when label lacks task_type)
-        - user_winner: str | None (the provider the user picked via
-          record_outcome; weighted heavily — see USER_VERDICT_WEIGHT)
+        - chairman_winner: str | None (the provider the chairman picked)
+        - user_winner: ignored — sunset 2026-05-21
+
+    Two derived stats per (task_type, provider):
+        - wins: count of councils where chairman picked this provider
+        - overall: mean of chairman.provider_scores[provider].overall
+                   (kept for the per-cell numeric bars in the table)
+
+    `best_per_task_type[task_type]` is the provider with the most chairman
+    wins (ties broken by mean overall). This is "chairman picked codex
+    4 of 5 times for code-refactor" — the prime directive made visible.
     """
-    by_task: dict[str, dict[str, list[float]]] = {}
+    by_task_scores: dict[str, dict[str, list[float]]] = {}
+    by_task_wins: dict[str, dict[str, int]] = {}
     materialised = list(councils)
     for c in materialised:
         label = c.get("routing_label") or {}
         task_type = label.get("task_type") or c.get("task_type") or "general"
         scores = label.get("provider_scores") or {}
-        user_winner = c.get("user_winner") or None
+        # Chairman's explicit pick — load-bearing for the prime directive.
+        # Falls back to the routing_label.winner (canonical) then
+        # outcome-level winner_provider supplied by the caller.
+        chairman_winner = (
+            label.get("winner")
+            or c.get("chairman_winner")
+            or c.get("winner_provider")
+        )
         for provider, sub in scores.items():
             overall = sub.get("overall") if isinstance(sub, dict) else None
             if overall is None:
                 continue
-            is_winner: bool | None = None
-            if user_winner is not None:
-                is_winner = provider == user_winner
-            effective = _blend_with_verdict(float(overall), is_winner)
-            by_task.setdefault(task_type, {}).setdefault(provider, []).append(effective)
+            by_task_scores.setdefault(task_type, {}).setdefault(provider, []).append(float(overall))
+        if chairman_winner:
+            by_task_wins.setdefault(task_type, {})[chairman_winner] = (
+                by_task_wins.get(task_type, {}).get(chairman_winner, 0) + 1
+            )
 
     by_task_type: dict[str, dict[str, dict[str, float]]] = {}
     best_per_task_type: dict[str, str] = {}
-    for task_type, providers in by_task.items():
+    wins_per_task_type: dict[str, dict[str, int]] = {}
+    for task_type, providers in by_task_scores.items():
         provider_summary: dict[str, dict[str, float]] = {}
-        best_provider: str | None = None
-        best_mean = float("-inf")
+        wins_here = by_task_wins.get(task_type, {})
         for provider, overalls in providers.items():
             mean_overall = statistics.fmean(overalls) if overalls else 0.0
             provider_summary[provider] = {
                 "overall": round(mean_overall, 3),
                 "n": len(overalls),
+                "wins": wins_here.get(provider, 0),
             }
-            if mean_overall > best_mean:
-                best_mean = mean_overall
-                best_provider = provider
         by_task_type[task_type] = provider_summary
-        if best_provider:
+        wins_per_task_type[task_type] = dict(wins_here)
+        # Best = most chairman wins, tie-broken by mean overall.
+        if wins_here:
+            best_provider = max(
+                wins_here.items(),
+                key=lambda kv: (kv[1], provider_summary.get(kv[0], {}).get("overall", 0)),
+            )[0]
             best_per_task_type[task_type] = best_provider
+        else:
+            # No chairman winner recorded for any council in this task
+            # type — fall back to highest mean overall so the column
+            # isn't empty for historical data missing the winner field.
+            best_provider = max(
+                provider_summary.items(),
+                key=lambda kv: kv[1].get("overall", 0),
+                default=(None, {}),
+            )[0]
+            if best_provider:
+                best_per_task_type[task_type] = best_provider
 
     return {
         "computed_at": now_iso(),
         "councils_aggregated": len(materialised),
         "by_task_type": by_task_type,
         "best_per_task_type": best_per_task_type,
+        # Per-task-type chairman wins; the launchpad table can render
+        # "chairman picked codex 4/5" using this.
+        "wins_per_task_type": wins_per_task_type,
     }
 
 
@@ -152,16 +169,20 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
                 all_clean = False
                 continue
         task_type = (outcome.metadata or {}).get("task_type")
-        # Pull the user's verdict if it was recorded. Lives under
-        # outcome.metadata.user_verdict.user_winner — written by
-        # record_outcome / commands/council_rate.
-        user_verdict = (outcome.metadata or {}).get("user_verdict") or {}
-        user_winner = user_verdict.get("user_winner") if isinstance(user_verdict, dict) else None
+        # The chairman's pick IS the supervision signal per the prime
+        # directive (2026-05-21). user_winner was sunset alongside the
+        # rest of the rating UX — refinement prompts on each council are
+        # the post-pivot signal path.
+        chairman_winner = (
+            (label_dict or {}).get("winner")
+            or outcome.winner_provider
+        )
         records.append({
             "council_run_id": council_id,
             "task_type": task_type,
             "routing_label": label_dict,
-            "user_winner": user_winner,
+            "chairman_winner": chairman_winner,
+            "winner_provider": outcome.winner_provider,
         })
     return records, all_clean
 

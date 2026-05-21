@@ -167,10 +167,10 @@ class TestAggregateRoutingTable:
         table = _aggregate_routing_table(councils)
         assert "general" in table["by_task_type"]
 
-    def test_user_verdict_overrides_chairman_winner(self, home: Path):
-        """User picked codex even though chairman scored claude higher —
-        the personal routing table must credit codex, not claude. record_outcome
-        is the most important tool; its signal must propagate."""
+    def test_chairman_wins_drive_best_per_task_type(self, home: Path):
+        """Per the 2026-05-21 prime directive: chairman picks are the
+        verdict; user ratings are retired. best_per_task_type tracks
+        which provider the chairman picked most often."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
         councils = [
@@ -179,22 +179,25 @@ class TestAggregateRoutingTable:
                 "task_type": "code_refactor",
                 "routing_label": {
                     "task_type": "code_refactor",
+                    "winner": "codex",
                     "provider_scores": {
-                        "claude": {"overall": 8.0},  # chairman likes claude
+                        "claude": {"overall": 8.0},  # higher mean overall…
                         "codex": {"overall": 6.0},
                     },
                 },
-                "user_winner": "codex",  # user disagreed, every time
             }
             for i in range(3)
         ]
         table = _aggregate_routing_table(councils)
-        # codex should win despite chairman scoring it lower.
+        # codex picked 3/3 times — it wins despite lower mean overall.
         assert table["best_per_task_type"]["code_refactor"] == "codex"
+        wins = table["wins_per_task_type"]["code_refactor"]
+        assert wins == {"codex": 3}
 
-    def test_council_with_no_user_verdict_uses_chairman_scores_unchanged(self, home: Path):
-        """Backward compat: councils without user_winner aggregate exactly
-        as they did before the verdict-weighting change shipped."""
+    def test_council_without_winner_falls_back_to_mean_overall(self, home: Path):
+        """Legacy outcomes that lack the routing_label.winner field still
+        populate best_per_task_type — fallback to highest mean overall —
+        so the table isn't empty for older data."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
         councils = [
@@ -203,57 +206,57 @@ class TestAggregateRoutingTable:
                 "task_type": "writing",
                 "routing_label": {
                     "task_type": "writing",
+                    # No `winner` field — legacy outcome.
                     "provider_scores": {
                         "claude": {"overall": 8.0},
                         "antigravity": {"overall": 6.0},
                     },
                 },
-                # No user_winner key — chairman is the only signal.
             },
         ]
         table = _aggregate_routing_table(councils)
         assert table["by_task_type"]["writing"]["claude"]["overall"] == 8.0
         assert table["by_task_type"]["writing"]["antigravity"]["overall"] == 6.0
+        # No winner recorded → fallback to highest mean overall.
+        assert table["best_per_task_type"]["writing"] == "claude"
+        # wins_per_task_type empty for this task — no chairman pick recorded.
+        assert table["wins_per_task_type"].get("writing", {}) == {}
 
-    def test_mixed_user_verdicts_and_chairman_only_blend_correctly(self, home: Path):
-        """Some councils have verdicts, others don't. Each contributes its
-        own effective score and they get averaged into the same bucket."""
+    def test_chairman_wins_break_ties_with_mean_overall(self, home: Path):
+        """When two providers tie on wins, the higher mean overall wins
+        the tiebreaker. This keeps the table stable when chairman picks
+        are sparse but scoring is rich."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
         councils = [
-            # No verdict — chairman scores pass through (claude=8, codex=6)
+            # Chairman picks claude once
             {
                 "council_run_id": "c1",
                 "routing_label": {
                     "task_type": "system_design",
+                    "winner": "claude",
                     "provider_scores": {
                         "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
                     },
                 },
             },
-            # User picked codex — codex gets boosted, claude gets penalized
+            # Chairman picks codex once, but codex scored low both times
             {
                 "council_run_id": "c2",
                 "routing_label": {
                     "task_type": "system_design",
+                    "winner": "codex",
                     "provider_scores": {
                         "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
                     },
                 },
-                "user_winner": "codex",
             },
         ]
         table = _aggregate_routing_table(councils)
-        # The user-verdict council credits codex with 0.7*10 + 0.3*6 = 8.8;
-        # the chairman-only council leaves codex at 6.0. Mean ≈ 7.4.
-        # Claude in the user-verdict council = 0.7*0 + 0.3*8 = 2.4; chairman-
-        # only leaves it at 8.0. Mean ≈ 5.2.
-        codex_mean = table["by_task_type"]["system_design"]["codex"]["overall"]
-        claude_mean = table["by_task_type"]["system_design"]["claude"]["overall"]
-        assert codex_mean > claude_mean, (
-            f"codex (user-preferred) should outrank claude after a single verdict: "
-            f"codex={codex_mean} vs claude={claude_mean}"
-        )
+        wins = table["wins_per_task_type"]["system_design"]
+        assert wins == {"claude": 1, "codex": 1}
+        # 1-1 tie on wins → fall back to mean overall (claude 8.0 > codex 6.0)
+        assert table["best_per_task_type"]["system_design"] == "claude"
 
 
 class TestDryRun:
