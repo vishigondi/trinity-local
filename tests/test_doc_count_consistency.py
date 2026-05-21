@@ -2256,6 +2256,121 @@ class TestLiveDocsReferenceOnlyRegisteredMcpTools:
             )
 
 
+class TestLiveDocsDontClaimRetiredMcpToolsAsLive:
+    """Tick 136 — extends tick 129's TestLiveDocsReferenceOnlyRegisteredMcpTools
+    to catch the NARRATIVE-form drift class that bit tick 135.
+
+    Tick 129's guard catches the invocation form
+    `mcp__trinity-local__<name>(...)` — fails if `<name>` isn't a
+    registered tool. But narrative mentions like ``MCP `ask` and
+    `search_prompts` both trigger incremental ingest`` slipped
+    past — `search_prompts` is named as a peer of `ask` (live) but
+    is itself retired (pre-launch 2026-05-17).
+
+    This guard catches narrative-form claims that a retired MCP
+    tool is currently live, while exempting legitimate retirement-
+    narration context. The retired tool name only fires the guard
+    when the line lacks retirement markers — i.e. the line claims
+    the tool ships TODAY.
+
+    Same shape as the BANNED-synonyms scan at the retired-MCP-tool
+    layer. Different from tick 129's guard because that one matches
+    only invocation form; this one matches backticked name in any
+    prose context."""
+
+    # Lines containing any of these substrings get exempted — the
+    # mention is in retirement-narration context, not a live claim.
+    RETIREMENT_MARKERS = [
+        "retired",
+        "deprecated",
+        "formerly",
+        "used to",
+        "what .* used to do",
+        "subsumes",
+        "subsumed",
+        "dropped",
+        "→",
+        "renamed",
+        "pre-rename",
+        "post-rename",
+        "earlier draft",
+        "legacy",
+        "rename-narration",
+        "collapsed",
+        "absorbed",
+        "rolled into",
+    ]
+
+    DOCS_TO_CHECK = [
+        "claude.md",
+        "README.md",
+        "src/trinity_local/data/skills/trinity/SKILL.md",
+        "skills/trinity/SKILL.md",
+        "docs/spec-v1.md",
+        "docs/spec-v1.5.md",
+        "docs/spec-v1.6.md",
+        "docs/product-spec.md",
+    ]
+
+    def test_no_retired_mcp_tools_claimed_as_live(self):
+        import re
+
+        from trinity_local.retired_names import RETIRED
+
+        retired_mcp = sorted(
+            name for name, rec in RETIRED.items() if rec.kind == "mcp_tool"
+        )
+        assert retired_mcp, "Expected at least one retired MCP tool in registry"
+
+        marker_pattern = re.compile(
+            "|".join(self.RETIREMENT_MARKERS), re.IGNORECASE
+        )
+
+        # Look at a ±2-line window around each candidate mention.
+        # Retirement narration often spans paragraph lines (e.g. a
+        # parenthetical aside breaks across lines, or the marker is
+        # in the sentence's predicate while the mention is in the
+        # subject on the previous line). A pure line-by-line check
+        # misclassifies these as bare claims.
+        WINDOW = 2
+
+        violations: list[str] = []
+        for rel in self.DOCS_TO_CHECK:
+            path = REPO / rel
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for lineno, line in enumerate(lines, 1):
+                # Check if this line mentions a retired MCP tool.
+                hits = [name for name in retired_mcp if f"`{name}`" in line]
+                if not hits:
+                    continue
+                # Expand window to catch multi-line retirement narration.
+                window_start = max(0, lineno - 1 - WINDOW)
+                window_end = min(len(lines), lineno + WINDOW)
+                window_text = "\n".join(lines[window_start:window_end])
+                if marker_pattern.search(window_text):
+                    continue  # retirement narration in ±2-line window
+                for name in hits:
+                    violations.append(
+                        f"  {rel}:{lineno}  retired MCP tool `{name}` "
+                        f"mentioned without retirement marker in ±{WINDOW}-line "
+                        f"window — reads as a live-tool claim:\n      {line.strip()[:120]}"
+                    )
+
+        if violations:
+            raise AssertionError(
+                "Live-class docs reference retired MCP tools as if they're "
+                "still live:\n" + "\n".join(violations) + "\n\n"
+                "If the mention is intentional (retirement narration, "
+                "rename history, etc.), add one of these markers to the "
+                f"line: {sorted(self.RETIREMENT_MARKERS)}. "
+                "Otherwise either remove the reference or flip it to the "
+                "canonical live-tool name."
+            )
+
+
 class TestLauncherPatternsListsAllDispatchActions:
     """Tick 128 — docs/launcher-patterns.md L156-164 enumerates the
     set of dispatch actions Trinity's capture-host accepts. Earlier

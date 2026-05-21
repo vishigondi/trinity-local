@@ -122,7 +122,6 @@ OR the launch hook. Mapping:
 | — | `get_picks` | v1.5 (agent-facing introspection into extracted cortex rules) |
 | — | `mark_pick_wrong` | v1.5 (user-veto on a pick from the agent side) |
 | — | `handoff` | Launch-arc tick #119 (cross-provider conversation continuity — the killer-hook for the 60-second demo) |
-| — | `get_eval_summary` | Launch-arc post-#122 (latest empirical-benchmark result for the agent surface) |
 
 Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disappear.
 
