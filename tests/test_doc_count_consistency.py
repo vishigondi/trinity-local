@@ -1615,6 +1615,56 @@ class TestV16BrowserExtensionArtifactsExist:
                     "content_script js path doesn't resolve."
                 )
 
+    def test_manifest_declares_icons_and_files_exist(self):
+        """Without an `icons` block (and an `action.default_icon` for
+        the toolbar surface), Chrome renders the gray puzzle-piece
+        placeholder in the toolbar + the chrome://extensions list.
+        First impression breakage for every install. Earned its place
+        in the regression suite 2026-05-21 after the icons were added
+        — every claim made by the manifest needs the file to exist on
+        disk OR a contributor's `pip install` ships a half-broken
+        extension to the next user."""
+        manifest_path = self.REPO / "browser-extension" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+
+        for surface in ("icons", "action"):
+            assert surface in manifest, (
+                f"manifest.json missing {surface!r} block — Chrome shows "
+                "the gray puzzle-piece placeholder without it."
+            )
+
+        # The top-level icons block (chrome://extensions list + system
+        # toolbar). The four sizes Chrome's docs list as expected.
+        icons = manifest["icons"]
+        for size in ("16", "32", "48", "128"):
+            assert size in icons, (
+                f"manifest.icons missing {size}px entry — Chrome scales "
+                "from larger sizes but loses crispness in the toolbar."
+            )
+            path = self.REPO / "browser-extension" / icons[size]
+            assert path.exists(), (
+                f"manifest.icons[{size!r}] points at {icons[size]!r} but "
+                "the file isn't on disk. Run "
+                "`.venv/bin/python scripts/render_extension_icons.py` "
+                "to regenerate."
+            )
+
+        # action.default_icon — the toolbar button specifically. Chrome
+        # falls back to manifest.icons when this is absent, but spelling
+        # it out makes the toolbar contract explicit + survives any
+        # future toolbar-icon variant (active/inactive, popup-open).
+        default_icon = manifest["action"].get("default_icon")
+        assert default_icon, (
+            "manifest.action.default_icon missing — the toolbar button "
+            "stays as Chrome's gray puzzle piece without it."
+        )
+        for size, rel in default_icon.items():
+            path = self.REPO / "browser-extension" / rel
+            assert path.exists(), (
+                f"manifest.action.default_icon[{size!r}] points at "
+                f"{rel!r} but the file isn't on disk."
+            )
+
 
 class TestV16ClaimedCliCommandsExist:
     """The v1.6 install ritual names two CLI surfaces:
