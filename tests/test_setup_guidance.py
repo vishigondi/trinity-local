@@ -9,7 +9,7 @@ def test_render_missing_provider_guidance_includes_copy_paste_commands():
         [
             AdapterStatus(provider="claude", cli_name="claude", installed=False),
             AdapterStatus(provider="codex", cli_name="codex", installed=False),
-            AdapterStatus(provider="gemini", cli_name="gemini", installed=False),
+            AdapterStatus(provider="antigravity", cli_name="agy", installed=False),
             AdapterStatus(provider="cowork", cli_name="claude-desktop", installed=False),
         ]
     )

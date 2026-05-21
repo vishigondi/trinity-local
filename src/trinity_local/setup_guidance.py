@@ -15,9 +15,9 @@ def _provider_install_block(status: AdapterStatus) -> list[str]:
             "Codex CLI",
             "  npm install -g @openai/codex && codex --login",
         ]
-    if status.provider == "gemini":
+    if status.provider == "antigravity":
         return [
-            "Antigravity CLI (Gemini)",
+            "Antigravity",
             "  curl -fsSL https://antigravity.google/cli/install.sh | bash && agy",
         ]
     if status.provider == "cowork":
