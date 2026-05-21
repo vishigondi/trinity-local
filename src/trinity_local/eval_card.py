@@ -9,7 +9,7 @@ Single function: ``render_eval_card(card_data) -> bytes``. CLI writes the
 bytes to disk; future launchpad share button would download them.
 
 The card is the artifact the user's pitch produces — *"I ran my evals on
-Gemini; here's where it landed; here's how you can do it too."* The
+Antigravity; here's where it landed; here's how you can do it too."* The
 recipient gets:
 
 1. The headline ("Claude scored 0.661 on YOUR kind of question")
@@ -94,11 +94,11 @@ def _provider_display_name(provider: str, model: str | None) -> str:
     """Friendly display name for the headline.
 
     `provider` is the slug Trinity uses internally (claude / codex /
-    gemini); `model` is the specific version (claude-opus-4-7,
+    antigravity); `model` is the specific version (claude-opus-4-7,
     gpt-5-5, gemini-3-1-pro-preview). The headline uses the friendly
     provider capitalization; the subhead carries the exact model id.
     """
-    friendly = {"claude": "Claude", "codex": "GPT", "gemini": "Gemini"}
+    friendly = {"claude": "Claude", "codex": "GPT", "antigravity": "Antigravity"}
     return friendly.get(provider, provider.capitalize())
 
 

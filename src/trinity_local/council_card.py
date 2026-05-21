@@ -102,7 +102,7 @@ def collect_card_data_from_outcome(outcome) -> CouncilCardData:
 def _provider_display(name: str | None) -> str:
     if not name:
         return "?"
-    friendly = {"claude": "Claude", "codex": "GPT", "gemini": "Gemini"}
+    friendly = {"claude": "Claude", "codex": "GPT", "antigravity": "Antigravity"}
     return friendly.get(name.lower(), name.capitalize())
 
 
