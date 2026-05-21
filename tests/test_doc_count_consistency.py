@@ -2036,6 +2036,18 @@ class TestNoBannedSynonyms:
          "The legacy-migration narration in state_paths.py docstring "
          "is exempt (it documents the migration FROM the retired "
          "path, which is intentional)."),
+        ("(claude, codex, gemini)", "(claude, codex, antigravity)",
+         "iter #37 catch — slug-list claim using the pre-rebrand "
+         "`gemini` slug. Distinct from the existing `Gemini CLI` "
+         "BANNED entries which catch harness-name uses; this catches "
+         "the bare-lowercase 3-slug list form. The mixed marketing "
+         "trio 'Claude, Codex, and Gemini' (Title Case, oxford comma) "
+         "stays intentional — it's the model-family brand, not the "
+         "slug. The lowercase paren'd form, however, is always a "
+         "slug-list and must use `antigravity` per config.example.json. "
+         "Caught in docs/architectural-gaps.md L362's Gap F symptom "
+         "claim — class:aspirational but the symptom describes the "
+         "CURRENT provider set."),
         ("@openclaw.dev", "@keepwhatworks.com",
          "contact-domain consolidation 2026-05-21 (tick 118). Trinity's "
          "ops contact addresses (security@, conduct@, teams@) had "
@@ -2094,6 +2106,12 @@ class TestNoBannedSynonyms:
         # council_ff3da1fa84906791 — rebrand drift here ships the
         # wrong harness name to every architectural reader.
         "docs/three-tier-architecture.md",
+        # architectural-gaps.md added 2026-05-21 after iter 37 caught
+        # "(claude, codex, gemini)" on L362 (Gap F symptom claim).
+        # The doc is class:aspirational but the symptom prose refers
+        # to the CURRENT provider slug list, which has been
+        # (claude, codex, antigravity) since the 2026-05-20 rebrand.
+        "docs/architectural-gaps.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",

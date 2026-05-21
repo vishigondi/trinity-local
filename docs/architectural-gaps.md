@@ -359,7 +359,7 @@ throughput?" question structurally.
 
 ## Gap F — Provider protocol (Narrow waist, boundary layer)
 
-**Symptom:** 3 providers (claude, codex, gemini), 3 subprocess
+**Symptom:** 3 providers (claude, codex, antigravity), 3 subprocess
 wrappers in `providers.py`, no unifying interface. Each wrapper:
 parses CLI args differently, handles errors differently, normalizes
 output differently. Tier-equivalence invariant (cosine ≥ 0.9999
