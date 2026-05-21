@@ -1928,6 +1928,17 @@ class TestNoBannedSynonyms:
          "users see when they install. Model-family 'Gemini' (without "
          "the 'CLI' suffix) remains accurate — the model behind "
          "Antigravity is still Gemini 3.1 Pro Preview."),
+        ("`gemini` CLI", "`agy` CLI",
+         "tick 120 found 4 user-facing surfaces (README/install-deep/"
+         "SECURITY/07_pricing_faq) teaching users to authenticate the "
+         "legacy `gemini` binary as a Trinity dispatch target. The "
+         "config providers dict now dispatches via `agy` per the "
+         "2026-05-20 rename; the `gemini` binary is read-only (ingest "
+         "via parse_gemini_cli_session) but isn't a council member. "
+         "The previous 'Gemini CLI' BANNED entry missed the backtick-"
+         "wrapped code-quoted form because substring match couldn't "
+         "see through the markdown backticks ('gemini` cli' isn't "
+         "'gemini cli'). Catches both `gemini` CLI and `gemini` CLIs."),
         ("@openclaw.dev", "@keepwhatworks.com",
          "contact-domain consolidation 2026-05-21 (tick 118). Trinity's "
          "ops contact addresses (security@, conduct@, teams@) had "

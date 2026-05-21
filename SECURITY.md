@@ -45,7 +45,7 @@ What Trinity defends against (in priority order):
    tighter isolation from other local users.
 
 4. **CLI subprocess auth boundaries.** Trinity dispatches to `claude`, `codex`,
-   `gemini` CLIs via `subprocess.Popen` with explicit argv. We do not pass user-provided
+   `agy` CLIs via `subprocess.Popen` with explicit argv. We do not pass user-provided
    strings as shell arguments without explicit quoting. The `runtime_env.py` module
    (`run_with_runtime_env()` + the PATH-injection helpers) is the single audit surface
    for shell-execution patterns.

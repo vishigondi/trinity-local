@@ -14,7 +14,7 @@ Yes. Trinity Local v1.7 is **free forever**, MIT-licensed, and open source on Gi
 
 ## 2. What's the catch?
 
-Trinity rides **your existing subscriptions**. It dispatches to the `claude`, `codex`, and `gemini` CLIs you already have authenticated on your machine — so when Trinity runs a council, the inference cost falls on Anthropic / OpenAI / Google, not on you and not on us. No hosted controller, no per-call API billing, no proxy in the middle. You need at least one provider CLI working; the catch is that Trinity is only as capable as the subs you already pay for.
+Trinity rides **your existing subscriptions**. It dispatches to the `claude`, `codex`, and `agy` CLIs you already have authenticated on your machine — so when Trinity runs a council, the inference cost falls on Anthropic / OpenAI / Google, not on you and not on us. No hosted controller, no per-call API billing, no proxy in the middle. You need at least one provider CLI working; the catch is that Trinity is only as capable as the subs you already pay for.
 
 ## 3. What does Trinity actually cost to use?
 

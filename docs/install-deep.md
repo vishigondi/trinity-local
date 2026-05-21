@@ -19,7 +19,7 @@ brew install python   # 3.12 or newer
 ```
 
 Plus the provider CLIs you want in the council: `claude`, `codex`, and/or
-`gemini` — each authenticated to your subscription. `trinity-local status`
+`agy` — each authenticated to your subscription. `trinity-local status`
 will tell you which are missing.
 
 ## Local models — free, optional, auto-discovered
