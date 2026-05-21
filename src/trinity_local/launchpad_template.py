@@ -569,44 +569,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       }}
     }}
 
-    .rating-toggle {{
-      display: flex;
-      gap: 12px;
-      font-size: 14px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 4px;
-      background: var(--surface-muted);
-    }}
-
-    .toggle-btn {{
-      padding: 6px 12px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-weight: 400;
-      transition: color 0.2s ease;
-    }}
-
-    .toggle-btn:disabled {{
-      opacity: 0.5;
-      cursor: not-allowed;
-    }}
-
-    .toggle-btn.active {{
-      color: var(--action);
-      font-weight: 600;
-      background: var(--surface);
-      border-radius: 6px;
-      box-shadow: inset 0 0 0 1px rgba(37, 88, 71, 0.18);
-    }}
-
-    .toggle-btn:focus-visible {{
-      outline: 2px solid rgba(37, 88, 71, 0.28);
-      outline-offset: 2px;
-      border-radius: 6px;
-    }}
+    /* .rating-toggle + .toggle-btn (with :disabled, .active,
+       :focus-visible modifiers) removed 2026-05-21 — orphan CSS
+       rules from the sunset rating UX (commit 8f1fd95). The toggle
+       container was the rated/unrated toggle UI; no DOM reaches
+       these rules anymore. */
 
     .sharing-toggle {{
       display: flex;
@@ -740,12 +707,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       font-weight: 400;
     }}
 
-    .ratings-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      margin-top: 18px;
-    }}
+    /* .ratings-grid removed 2026-05-21 — orphan CSS rule from the
+       sunset rating UX (commit 8f1fd95). No HTML/Vue/JS reference. */
 
     .chart-panel {{
       border: 1px solid var(--border);
@@ -762,30 +725,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       margin-bottom: 12px;
     }}
 
-    /* Recent-councils filter — pill chips + search.
-       Matches the launchpad's existing chip aesthetic (see
-       .cross-memory-chip) so the filter row reads as part of the
-       same UI family as the in-card cross-memory chips. */
-    .recent-filter-chip {{
-      padding: 6px 12px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--surface);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-    }}
-    .recent-filter-chip:hover {{
-      border-color: var(--action);
-      color: var(--text-primary);
-    }}
-    .recent-filter-chip.active {{
-      background: var(--accent, #b57438);
-      border-color: var(--accent, #b57438);
-      color: #fff;
-    }}
+    /* .recent-filter-chip and its modifiers removed 2026-05-21 —
+       the Rated/Unrated/All filter chips above the council list were
+       sunset in commit 8f1fd95 ("we are sunsetting user ratings. any
+       other way to sort?"). Title search + recency-order remain;
+       chip-row CSS no longer reaches any DOM. */
     #recent-filter-search:focus {{
       outline: none;
       border-color: var(--action);
