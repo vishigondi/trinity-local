@@ -460,7 +460,7 @@ Now start the council with the bundle ID above:
 ```yaml
 ---
 name: trinity-status
-description: Show current Trinity Local status — provider Elo ratings, recent councils, and watcher insights. Use when the user asks about provider performance, which AI is best, or recent session activity.
+description: Show current Trinity Local status — health, the personal routing scoreboard, and recent councils. Use when the user asks about provider performance, which AI is best, or recent session activity.
 allowed-tools: Bash(trinity-local status) Bash(trinity-local telemetry-show)
 ---
 
