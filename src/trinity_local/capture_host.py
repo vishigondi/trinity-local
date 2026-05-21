@@ -470,7 +470,7 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     # down. Caller polls status via `get-council-status`.
     #
     # Pass build_runtime_env() so the child can find provider binaries
-    # (claude, codex, gemini) — Chrome's spawn env strips ~/.local/bin
+    # (claude, codex, agy) — Chrome's spawn env strips ~/.local/bin
     # and Homebrew dirs, which is where those CLIs live. Without this,
     # every council launched from the popup fails with "Provider
     # binary not found: claude" within ~10s.
@@ -513,7 +513,7 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             timeout=120,
             # Same PATH augmentation rationale as the detached branch
             # above — every CLI we dispatch may itself shell out to
-            # claude / codex / gemini binaries, which Chrome's minimal
+            # claude / codex / agy binaries, which Chrome's minimal
             # PATH doesn't see.
             env=build_runtime_env(),
         )

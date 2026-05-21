@@ -1,9 +1,9 @@
 """Cross-provider handoff: continue a conversation in a different model.
 
 The killer-hook mechanism from the launch arc (task #119 / killer_hook
-memory). User is mid-conversation with Claude; runs `handoff gemini`;
-Gemini receives the prior conversation as context and continues — no
-re-context, no copy-paste.
+memory). User is mid-conversation with Claude; runs `handoff antigravity`;
+the Antigravity target (Gemini model) receives the prior conversation
+as context and continues — no re-context, no copy-paste.
 
 The wedge is structurally non-refutable: only Trinity has the
 cross-provider prompt index, so only Trinity can pull "what was just
@@ -12,7 +12,7 @@ said" from any provider's transcripts.
 Two surfaces:
   - `trinity-local handoff <provider> [--continuation "..."]` CLI
   - `mcp__trinity-local__handoff` MCP tool (agent-callable from
-    inside Claude Code, Codex CLI, Gemini CLI)
+    inside Claude Code, Codex CLI, Antigravity)
 
 Both share `run_handoff()` below.
 """
@@ -147,9 +147,9 @@ def build_handoff_prompt(
     capability hint that nudges the receiving model to use the
     integrations it commonly has but the prior model didn't. This is
     what makes the cross-provider hero demo (#115/#121) deterministic:
-    gemini sees "use Google Workspace if available" and pulls Gmail/
-    Calendar into the answer, demonstrating capability not just
-    perspective.
+    target=antigravity sees "use Google Workspace if available" and
+    Gemini pulls Gmail/Calendar into the answer, demonstrating
+    capability not just perspective.
     """
     capability_hint = _CAPABILITY_HINTS.get((target_provider or "").lower(), "")
     chunks: list[str] = [
