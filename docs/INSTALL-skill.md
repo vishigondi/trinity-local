@@ -50,7 +50,7 @@ What the installer does:
 3. Drops `~/.local/bin/trinity-local` + `~/.local/bin/trinity-local-capture-host`
    as thin shell wrappers (~5 lines each; PYTHONPATH-set + exec)
 4. Runs `trinity-local install-mcp` to register the MCP server in
-   Claude Code, Codex CLI, Gemini CLI, and Cursor (non-destructive
+   Claude Code, Codex CLI, Antigravity, and Cursor (non-destructive
    edits to each harness's config)
 5. Runs `trinity-local status` to verify
 
@@ -96,7 +96,7 @@ the CLI returns.
   the one-time `nomic-embed-text-v1.5` download from Hugging Face on
   first run (~600 MB; afterwards `HF_HUB_OFFLINE=1` is pinned).
 - **Provider CLIs**: council dispatches ride your existing Claude /
-  Codex / Gemini CLI subscriptions. Trinity calls those CLIs as
+  Codex / Antigravity subscriptions. Trinity calls those CLIs as
   subprocesses — your credentials never leave your machine via
   Trinity, only via the provider CLIs themselves (the same way they
   always have).

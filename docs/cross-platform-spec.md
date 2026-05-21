@@ -92,7 +92,7 @@ continuity, and the supervision ledger.
 | Surface | Primary job | Must not become |
 |---|---|---|
 | Terminal | Complete engine, automation, and debug path | A required daily UI for non-coders |
-| MCP | Agent-facing tools inside Claude Code, Codex CLI, Gemini CLI, Cursor, and similar harnesses | A private protocol tied to one harness |
+| MCP | Agent-facing tools inside Claude Code, Codex CLI, Antigravity, Cursor, and similar harnesses | A private protocol tied to one harness |
 | Chrome extension | Current v1 launchpad host and browser conversation capture | The long-term non-coder launcher |
 | Desktop app | Cowork-style local cockpit for councils, handoffs, memories, ratings, provider health, schedules, and device pairing | A hosted dashboard or desktop-only state store |
 | Mobile app | Open review links, rate outcomes, veto picks, receive notifications, and later dispatch through desktop | A full Trinity node in v1 |
@@ -135,7 +135,7 @@ the complete engine.
 ### Jobs To Be Done
 
 - Install Trinity from a terminal.
-- Register Trinity in Claude Code, Codex CLI, Gemini CLI, and Cursor through
+- Register Trinity in Claude Code, Codex CLI, Antigravity, and Cursor through
   MCP.
 - Run councils directly from shell commands.
 - Ask Trinity from inside a harness via MCP.
@@ -554,7 +554,7 @@ a hosted controller.
 
 - Running the full Trinity Python stack on iOS or Android.
 - Storing private prompt content on OpenClaw infrastructure.
-- Replacing Claude Code, Codex, Gemini CLI, Cursor, or any other harness.
+- Replacing Claude Code, Codex, Antigravity, Cursor, or any other harness.
 - Creating a desktop-only database.
 - Building a hosted web app for ordinary users' private corpora.
 - Making mobile the primary surface for long raw model outputs.

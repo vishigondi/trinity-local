@@ -7,7 +7,7 @@ class: live
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero
 > rewrite, blog hook, 60s demo script. Send me-card PNG with every external post.
 >
-> v1 brand: **Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.**
+> v1 brand: **Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.**
 > Sub: **No new app. No service. No API key. Your transcripts never leave your machine.**
 > Lead: *"You've already chosen between Claude, Codex, and Gemini a thousand times.
 > Trinity reads those transcripts, learns the pattern in how you rephrase, judge, and
@@ -110,7 +110,7 @@ architecture comparison. -->
 > I'm a polyharness power user. Architecture background — IIT Kharagpur + Harvard GSD. I
 > built the propensity models at Mailchimp and an intelligence layer for the smart-home
 > stack at OpenClaw. I built Trinity because *I* needed it: I had Claude Code open in one
-> terminal, Codex in another, Gemini CLI in a browser tab, and I was copy-pasting between
+> terminal, Codex in another, Antigravity in a browser tab, and I was copy-pasting between
 > them like an animal. The market is exhausted by visionary AI founders in 2026. Trinity
 > is the unsexy answer: my own context, on my machine, working for me.
 
@@ -122,7 +122,7 @@ visionary voice in 2026.
 
 ## README hero (locked, see README.md)
 
-> ## Your taste, ported. Lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor.
+> ## Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.
 >
 > You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
 > reads those transcripts, learns the pattern in how you rephrase, judge, and decide
@@ -282,7 +282,7 @@ reference directly when relevant:
 
 - **`trinity-local handoff <provider>`** — the 60-second hero demo
   (above). Also exposed as MCP `handoff` tool for agent-callable use
-  from inside Claude Code / Codex / Gemini CLI.
+  from inside Claude Code / Codex / Antigravity.
 - **`trinity-local eval-run --target <provider>`** — the empirical
   benchmark. Score any model against the user's actual rejection
   signal mined from their corpus. The marketing surface for "Trinity
