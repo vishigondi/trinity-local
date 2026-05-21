@@ -37,4 +37,4 @@ lock-in" as a procurement concern; Trinity is the architectural response.
 ## Waitlist
 
 [GitHub Discussions](https://github.com/vishigondi/trinity-local/discussions)
-— open an "Interested in Teams" thread, or email teams@openclaw.dev.
+— open an "Interested in Teams" thread, or email teams@keepwhatworks.com.

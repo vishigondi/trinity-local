@@ -1928,17 +1928,31 @@ class TestNoBannedSynonyms:
          "users see when they install. Model-family 'Gemini' (without "
          "the 'CLI' suffix) remains accurate — the model behind "
          "Antigravity is still Gemini 3.1 Pro Preview."),
+        ("@openclaw.dev", "@keepwhatworks.com",
+         "contact-domain consolidation 2026-05-21 (tick 118). Trinity's "
+         "ops contact addresses (security@, conduct@, teams@) had "
+         "drifted onto a vestigial openclaw.dev domain from the "
+         "pre-rebrand era; canonical project brand is keepwhatworks.com "
+         "(same domain the share-card landing URL flipped to on "
+         "2026-05-17). 5 surfaces fixed: SECURITY.md, CODE_OF_CONDUCT.md, "
+         "docs/teams.md, docs/launch-package.md, docs/launch-day/"
+         "10_hn_faq_full.md. Future drift caught by this BANNED entry."),
     ]
 
     # Files that get the scan. User-facing surfaces only.
     # pyproject.toml included because tick 116 found "Gemini CLI" in
     # an inline comment that PyPI users see when reading the build
-    # config — same drift class as a docs reference.
+    # config — same drift class as a docs reference. SECURITY.md /
+    # CODE_OF_CONDUCT.md / docs/teams.md added in tick 118 after the
+    # @openclaw.dev contact-domain drift surfaced across 5 surfaces.
     SCAN_FILES = [
         "README.md",
         "claude.md",
         "DESIGN.md",
+        "SECURITY.md",
+        "CODE_OF_CONDUCT.md",
         "pyproject.toml",
+        "docs/teams.md",
         "docs/launch.md",
         "docs/launch-package.md",
         "docs/MCP_REGISTRY_SUBMISSIONS.md",

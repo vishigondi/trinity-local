@@ -162,7 +162,7 @@ all point at the same architectural claim.
    the message.
 3. **Teams interest channel ready** — GitHub Discussions on the trinity-local
    repo (works the moment the repo flips public at T-0; no separate domain
-   registration needed). Email fallback: teams@openclaw.dev. Goal: every
+   registration needed). Email fallback: teams@keepwhatworks.com. Goal: every
    enterprise architect searching "Dreaming alternative" / "Anthropic agent
    lock-in" lands here. (Earlier plan: trinity.local/teams as a vanity domain
    waitlist page — deferred; the GitHub-native channel is cheaper to stand up

@@ -72,7 +72,7 @@ Yes. v1.0 is MIT, no paid tier, no hosted controller. The cost model: Trinity di
 
 ### What's the business model, then?
 
-**Trinity for Teams** (private beta) — same architecture, packaged for organizations that need data-residency / vendor-neutrality guarantees. The pitch is in the README: Claude Managed Agents runs memory + orchestration on Anthropic's hosted runtime, which is a non-starter for regulated industries; Trinity keeps everything in `~/.trinity/` on infrastructure the org owns, configurable inside a VPC. MassMutual / ProgressiveRobot have started naming "agent lock-in" as a procurement concern; Trinity is the architectural response. Waitlist: GitHub Discussions or `teams@openclaw.dev`. v1 ships with no pricing committed.
+**Trinity for Teams** (private beta) — same architecture, packaged for organizations that need data-residency / vendor-neutrality guarantees. The pitch is in the README: Claude Managed Agents runs memory + orchestration on Anthropic's hosted runtime, which is a non-starter for regulated industries; Trinity keeps everything in `~/.trinity/` on infrastructure the org owns, configurable inside a VPC. MassMutual / ProgressiveRobot have started naming "agent lock-in" as a procurement concern; Trinity is the architectural response. Waitlist: GitHub Discussions or `teams@keepwhatworks.com`. v1 ships with no pricing committed.
 
 ### What's the story if I only have one Pro subscription?
 

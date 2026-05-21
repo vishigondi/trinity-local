@@ -30,7 +30,7 @@ Trinity Local is a small, focused open-source project. Our code of conduct is sh
 ## Reporting
 
 If a contributor's behavior violates this code of conduct, email
-**conduct@openclaw.dev** with details. Reports stay confidential; we take action
+**conduct@keepwhatworks.com** with details. Reports stay confidential; we take action
 proportional to the offense.
 
 ## Coverage

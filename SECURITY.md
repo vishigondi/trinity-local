@@ -11,7 +11,7 @@ it's a P0 for us regardless of severity in the traditional security sense.
 
 ## Reporting a vulnerability
 
-Email reports to **security@openclaw.dev** with subject `[Trinity Local] <short summary>`.
+Email reports to **security@keepwhatworks.com** with subject `[Trinity Local] <short summary>`.
 
 Include if applicable:
 - Affected Trinity version (`trinity-local --version`)
