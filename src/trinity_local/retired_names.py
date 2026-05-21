@@ -212,6 +212,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
     ),
+    "commands.ingest": RetirementRecord(
+        name="commands.ingest",
+        retired_at="2026-05-20",
+        commit="",  # filled by next commit
+        replacement="(none — orphan handler for retired `features` CLI)",
+        reason="`commands/ingest.py` was the retired-CLI shim for `trinity-local features` (kept importable but unregistered in main.py per pre-launch simplification). Imported from `..feature_extractors`, which tick 57 deleted alongside the v2 trained-coordinator sunset. Tick 58 found the broken import via `python -c 'from trinity_local.commands import ingest'`. Pattern #4 audit-for-shape: tick 57's relative-import grep used 1-dot patterns and missed the 2-dot `from ..feature_extractors` import. The whole file was dead even before the broken import — main.py registered no handler, no tests, no smoke. Deleted cleanly.",
+        kind="module",
+    ),
     "training_schema": RetirementRecord(
         name="training_schema",
         retired_at="2026-05-20",
