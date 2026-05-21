@@ -3,6 +3,7 @@
 Colors, typography, spacing, and component styles used across all
 Trinity HTML pages (portal, council, digest).
 """
+from __future__ import annotations
 
 COLORS = {
     "bg_base": "#f5efe3",

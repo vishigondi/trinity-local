@@ -181,8 +181,8 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~<!-- canonical:test_count -->1595<!-- /canonical --> tests
-  #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->48<!-- /canonical --> doc-consistency guards
+  #   pytest -q                                  # ~<!-- canonical:test_count -->1596<!-- /canonical --> tests
+  #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->49<!-- /canonical --> doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check
 

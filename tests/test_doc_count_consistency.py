@@ -2522,6 +2522,54 @@ class TestCanonicalPlaceholdersAreRendered:
                 "    cp config.example.json src/trinity_local/data/config.example.json\n"
             )
 
+    def test_future_annotations_import_in_annotated_modules(self):
+        """claude.md coding conventions: `from __future__ import annotations`
+        in every module for PEP 604 style. Pin the convention with a guard.
+
+        Scope: src/trinity_local/**/*.py files that actually USE type
+        annotations (function signatures with arg/return types, or
+        AnnAssign statements). Skips __init__.py + files with zero
+        annotations (the import would be noise).
+
+        Detected at tick 99 — only design_system.py was missing it (1 of
+        ~70 annotated modules). Without this guard, the next missing
+        import after a refactor would silently drift the convention.
+        """
+        import ast
+        missing: list[str] = []
+        src_dir = REPO / "src" / "trinity_local"
+        for f in src_dir.rglob("*.py"):
+            if "__pycache__" in str(f) or "egg-info" in str(f):
+                continue
+            if f.name == "__init__.py":
+                continue
+            try:
+                text = f.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            if "from __future__ import annotations" in text:
+                continue
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            has_annotation = any(
+                isinstance(node, ast.AnnAssign) or
+                (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and
+                 (node.returns is not None or
+                  any(arg.annotation for arg in node.args.args)))
+                for node in ast.walk(tree)
+            )
+            if has_annotation:
+                missing.append(str(f.relative_to(REPO)))
+        if missing:
+            details = "\n".join(f"  {m}" for m in sorted(missing))
+            raise AssertionError(
+                "Modules use type annotations but lack the convention "
+                "`from __future__ import annotations` import. Add it "
+                "right after the module docstring:\n\n" + details
+            )
+
     def test_install_curl_commands_use_fsSL(self):
         """Every `curl … install.sh | bash` form across the repo must use
         `-fsSL` (or equivalent flags including `-f`). The `-f` flag makes
