@@ -2081,6 +2081,12 @@ class TestNoBannedSynonyms:
         # hero in README / launch-package / claude.md.
         "docs/spec-v2.md",
         "docs/product-spec.md",
+        # founder-essay-draft.md added 2026-05-21 after iter 22 caught
+        # "Gemini CLI is in a browser" on L31 — a personal-narrative
+        # surface that ships to the founder's blog T-7 (per the
+        # naked-`pip install` guard's reference at L2032). Same
+        # rebrand-drift risk as the other launch-facing surfaces.
+        "docs/founder-essay-draft.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",

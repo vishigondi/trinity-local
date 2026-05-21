@@ -28,7 +28,7 @@ That sentence is the entire reason this essay exists.
 
 I have three AI subscriptions and I still copy-paste between tabs like an animal.
 
-Claude is in one terminal. Codex CLI is in another. Gemini CLI is in a browser. None of
+Claude is in one terminal. Codex CLI is in another. Gemini is in a browser. None of
 them can tell me when the other one is better. None of them can read what I asked the
 other one yesterday. None of them can learn that for *my* kind of question, I trust the
 one with the cleanest hedge over the one with the boldest claim.
