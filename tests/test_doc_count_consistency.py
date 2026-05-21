@@ -2087,6 +2087,13 @@ class TestNoBannedSynonyms:
         # naked-`pip install` guard's reference at L2032). Same
         # rebrand-drift risk as the other launch-facing surfaces.
         "docs/founder-essay-draft.md",
+        # three-tier-architecture.md added 2026-05-21 after iter 23
+        # caught two "Gemini CLI" mentions in a class:live spec doc
+        # (Tier 1 description L18, sequencing rationale L161). The
+        # doc is the canonical architecture ratified by
+        # council_ff3da1fa84906791 — rebrand drift here ships the
+        # wrong harness name to every architectural reader.
+        "docs/three-tier-architecture.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",

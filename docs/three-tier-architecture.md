@@ -15,7 +15,7 @@ format in `~/.trinity/` is invariant across tiers; the tiers differ in
 ## Tier 1 — MCP server (primary, 2026-05-19 pivot)
 
 Trinity registers as an MCP server in every harness that supports MCP
-(Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop). The
+(Claude Code, Codex CLI, Antigravity, Cursor, Claude Desktop). The
 agent calls tools like `mcp__trinity-local__run_council` inline —
 no separate UI, no `/skill` invocation needed. The tool docstrings
 ARE the contract; the agent reads them at MCP handshake and dispatches
@@ -158,7 +158,7 @@ What v1.1 picks up:
 ## Sequencing rationale
 
 The brand pivot is a story about WHERE Trinity lives (Claude Code,
-Codex CLI, Gemini CLI, Cursor) — not WHAT it's compiled into. A
+Codex CLI, Antigravity, Cursor) — not WHAT it's compiled into. A
 SKILL.md that calls `trinity-local consolidate` is structurally
 indistinguishable from a SKILL.md that calls `python3 scripts/
 cortex.py` for the user-visible claim "lives inside Claude Code."
