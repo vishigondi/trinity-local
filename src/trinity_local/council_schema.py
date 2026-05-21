@@ -120,7 +120,14 @@ class CouncilChainStep:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> CouncilChainStep:
         known = {f for f in cls.__dataclass_fields__}
-        return cls(**{k: v for k, v in raw.items() if k in known})
+        filtered = {k: v for k, v in raw.items() if k in known}
+        # Normalize the chain-step's model_provider at the load boundary —
+        # same pattern as CouncilRoutingLabel.from_dict (tick 96) and
+        # load_council_outcome (tick 97). Closes the rename-arc gap on
+        # chain-mode council steps.
+        if "model_provider" in filtered:
+            filtered["model_provider"] = _normalize_provider_slug(filtered["model_provider"])
+        return cls(**filtered)
 
 
 @dataclass

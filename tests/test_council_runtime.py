@@ -459,3 +459,75 @@ class TestLoadCouncilOutcomeNormalizesProviderSlugs:
         assert outcome.primary_provider == "antigravity"
         assert outcome.winner_provider == "claude"
         assert outcome.member_results[0].provider == "antigravity"
+
+
+class TestChainStepNormalizesModelProvider:
+    """`CouncilChainStep.from_dict` normalizes legacy "gemini" →
+    "antigravity" in `model_provider`, so historical chain-mode
+    councils render canonical slugs through the same downstream
+    path that load_council_outcome already normalizes for the
+    outcome- and member-level provider fields (tick 97)."""
+
+    def test_gemini_model_provider_normalized(self):
+        from trinity_local.council_schema import CouncilChainStep
+        step = CouncilChainStep.from_dict({
+            "step_index": 0,
+            "model_provider": "gemini",
+            "input_text": "x",
+            "output_text": "y",
+        })
+        assert step.model_provider == "antigravity"
+
+    def test_canonical_model_provider_unchanged(self):
+        from trinity_local.council_schema import CouncilChainStep
+        step = CouncilChainStep.from_dict({
+            "step_index": 1,
+            "model_provider": "claude",
+            "input_text": "x",
+            "output_text": "y",
+        })
+        assert step.model_provider == "claude"
+
+
+class TestLoadPromptBundleNormalizesOriginProvider:
+    """`load_prompt_bundle` normalizes legacy "gemini" → "antigravity"
+    in the bundle's `origin_provider` field, so downstream consumers
+    (task_runtime.py:28,38; council_runner.py:323's source_provider;
+    handoff.py's source_providers list) see canonical slugs only."""
+
+    def test_origin_provider_gemini_normalized(self, tmp_path, monkeypatch):
+        import json
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.council_runtime import load_prompt_bundle
+        from trinity_local.state_paths import prompt_bundles_dir
+
+        bundles_dir = prompt_bundles_dir()
+        bundles_dir.mkdir(parents=True, exist_ok=True)
+        path = bundles_dir / "bundle_test_legacy.json"
+        path.write_text(json.dumps({
+            "bundle_id": "bundle_test_legacy",
+            "task_cluster_id": "c1",
+            "origin_provider": "gemini",
+            "task_text": "?",
+        }))
+
+        bundle = load_prompt_bundle("bundle_test_legacy")
+        assert bundle.origin_provider == "antigravity"
+
+    def test_no_origin_provider_field_passes_through(self, tmp_path, monkeypatch):
+        import json
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.council_runtime import load_prompt_bundle
+        from trinity_local.state_paths import prompt_bundles_dir
+
+        bundles_dir = prompt_bundles_dir()
+        bundles_dir.mkdir(parents=True, exist_ok=True)
+        path = bundles_dir / "bundle_test_no_origin.json"
+        path.write_text(json.dumps({
+            "bundle_id": "bundle_test_no_origin",
+            "task_cluster_id": "c1",
+            "task_text": "?",
+        }))
+
+        bundle = load_prompt_bundle("bundle_test_no_origin")
+        assert bundle.origin_provider is None

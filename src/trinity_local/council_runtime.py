@@ -61,10 +61,19 @@ def save_prompt_bundle(bundle: PromptBundle) -> Path:
 
 
 def load_prompt_bundle(path_or_bundle_id: str) -> PromptBundle:
+    from .council_schema import _normalize_provider_slug
+
     path = Path(path_or_bundle_id)
     if not path.exists():
         path = prompt_bundles_dir() / f"{path_or_bundle_id}.json"
     raw = json.loads(path.read_text())
+    # Normalize the bundle's origin_provider at the load boundary so
+    # task_runtime, council_runner.source_provider, and the launch-arc
+    # handoff source_providers display all see canonical slugs only.
+    # Same pattern as load_council_outcome (tick 97) and
+    # CouncilRoutingLabel.from_dict (tick 96).
+    if "origin_provider" in raw:
+        raw["origin_provider"] = _normalize_provider_slug(raw["origin_provider"])
     return PromptBundle(**raw)
 
 
