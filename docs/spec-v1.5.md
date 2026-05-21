@@ -278,15 +278,23 @@ mcp__trinity-local__ask(query)
   90%-of-the-time tool. Default.
 
   If lens_score on the dispatched response is below threshold, `escalate_hint`
-  suggests Claude call `compare` instead.
+  suggests Claude call `run_council` instead.
 
-mcp__trinity-local__compare(query, members=[claude, codex, gemini])
-  → { winner, runner_up, agreed, disagreed, why_matters, council_run_id }
+mcp__trinity-local__run_council(task, members=[claude, antigravity, codex])
+  → { winner, runner_up, agreed_claims, disagreed_claims, why_matters,
+       routing_lesson, council_run_id, review_path }
 
-  Cost: ~$0.05–0.20, ~10s
+  Cost: 3 member calls + 1 chairman call (~$0.05–0.30 per council).
+  Latency: 30s–2min, parallel members + sequential chairman synthesis.
   Use when: ask returned an escalate_hint, OR the question is hard enough
-  that disagreement between models is informative up front. Returns compact
-  structured synthesis (~200 words max).
+  that disagreement between models is informative up front, OR you're
+  about to present a multi-option product/architectural choice to the
+  user (per the tick-111 trigger rule baked into the MCP description).
+  Returns compact structured synthesis (~200 words max).
+
+  Note: the spec originally proposed naming this tool `compare`; the
+  shipped name is `run_council` for symmetry with the council_runner
+  module + CLI council-launch surface.
 ```
 
 Existing tools that stay: `record_outcome`, `get_persona`,
@@ -587,7 +595,10 @@ question").
 Net cost:
 - Easy + clean basin match: 1 call (just primary)
 - Murky: 2 calls (primary + challenger)
-- Confused: 2 calls + escalation to `compare` (Claude decides to invoke)
+- Confused: 2 calls + escalation to `run_council` (signaled by
+  `escalate_hint=compare` in the ask response; agent decides whether
+  to call `run_council` based on the signal — see `ask.py:544` for
+  the source-of-truth literal string)
 
 This is what makes `ask` the 90% tool: most queries clear the lens threshold
 on the first dispatched answer. Council is rare-and-expensive, used only when
@@ -600,8 +611,8 @@ There are two conductor layers, not one:
 1. **Claude-in-the-harness** — already there, decides which Trinity tool to
    call. Free for us. Most of the routing-decision intelligence happens here.
 
-2. **Trinity's internal mini-conductor** — only kicks in for `compare` and
-   `plan_and_execute`. For `ask`, retrieval + pick + heuristic routing
+2. **Trinity's internal mini-conductor** — only kicks in for `run_council`
+   and `plan_and_execute`. For `ask`, retrieval + pick + heuristic routing
    handles it. No flagship call wasted on meta-planning.
 
 For `plan_and_execute`: a flagship (default Claude Opus) gets the context
@@ -729,7 +740,7 @@ Anonymous taste topology that no provider can collect themselves.
 - Fast-path bypass when retrieval confidence > 0.9 (skip Conductor)
 - Heuristic transcript-success labeler (so routing works pre-councils)
 - Token-budget enforcement (max 500 tokens for `ask` returns)
-- Tool descriptions teach Claude when to use ask vs compare
+- Tool descriptions teach Claude when to use `ask` vs `run_council` (the shipped name for what the spec originally called `compare`)
 - ~~`thread_id` working memory across MCP calls~~ → **deferred to v1.6**.
   Lived in the MCP schema as a no-op through Weeks 1-4; removed in
   cleanup. Returns alongside `plan_and_execute` when there's a real
