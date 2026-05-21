@@ -416,9 +416,12 @@ launchpad hosting, browser capture, and Native Messaging dispatch while the real
 desktop shell is built.
 
 The mobile app starts as a review-link companion: open the web/deep link to the
-review page, rate the winner, mark bad picks, and write the same ledger through
-the paired desktop. Full phone-to-desktop dispatch comes after that rating loop
-is reliable.
+review page, see the chairman's pick, mark bad picks (via the same `mark_pick_wrong`
+affordance the launchpad uses), and write the same ledger through the paired
+desktop. Full phone-to-desktop dispatch comes after that review loop is reliable.
+(The earlier "rate the winner" framing was retired 2026-05-21 alongside the rest
+of the rating UX — chairman pick is the auto-recorded supervision signal now;
+the mobile review loop just surfaces the chairman's verdict for user-veto.)
 
 The earlier `Trinity.app` (osacompile-generated .app bundle) was retired
 pre-launch because it was only a launchpad wrapper. The next desktop surface has
