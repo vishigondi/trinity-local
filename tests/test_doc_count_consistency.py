@@ -2361,6 +2361,104 @@ class TestLiveDocsReferenceOnlyRegisteredMcpTools:
             )
 
 
+class TestClaudeMdDependenciesMatchPyproject:
+    """Iter #31 catch — claude.md's "Coding conventions" bullet enumerated
+    runtime dependencies as "No runtime dependencies beyond `Pillow>=10`."
+    Live pyproject.toml has THREE runtime deps: Pillow, mcp (HIGH#4 fix
+    promoted to default in task #59), and numpy (matmul fast-path).
+    Same `[mlx]` extras claim listed only `sentence-transformers` when
+    the actual extras carry `einops` and `torch>=2.0` too. A reader
+    relying on the claim would underestimate what `pip install trinity-local`
+    actually pulls in.
+
+    Same drift shape as the trust-substrate plan-vs-reality (iter #26)
+    one layer down: the claim was accurate when written, the reality
+    grew (mcp promoted from optional → default; numpy added for the
+    matmul fast-path), the claim didn't follow. Principle #20 in a
+    different surface.
+
+    Guard shape: parse pyproject.toml's [project] dependencies + the
+    [project.optional-dependencies] section. For each declared package,
+    assert the package name appears somewhere in claude.md's deps
+    paragraph (the "Minimal runtime dependencies" / "Coding conventions"
+    bullet). Strict subset assertion — claude.md should mention every
+    pyproject dep (it can add color the toml doesn't carry, but it
+    can't omit a dep that ships).
+    """
+
+    def test_claude_md_lists_every_pyproject_runtime_dep(self):
+        import re
+        import tomllib
+
+        with (REPO / "pyproject.toml").open("rb") as f:
+            pyproject = tomllib.load(f)
+        runtime_deps = pyproject["project"]["dependencies"]
+        # Parse package names out of dep specifier strings like
+        # `"Pillow>=10"`, `"mcp>=1.0  # comment"`, etc.
+        pkg_pattern = re.compile(r"^([A-Za-z][\w-]*)")
+        pkg_names = set()
+        for dep in runtime_deps:
+            m = pkg_pattern.match(dep)
+            if m:
+                pkg_names.add(m.group(1).lower())
+
+        # Optional-dependencies: walk each extra and collect its packages too.
+        extras = pyproject["project"].get("optional-dependencies", {})
+        extras_pkg_names: dict[str, set[str]] = {}
+        for extra_name, dep_list in extras.items():
+            extras_pkg_names[extra_name] = set()
+            for dep in dep_list:
+                m = pkg_pattern.match(dep)
+                if m:
+                    extras_pkg_names[extra_name].add(m.group(1).lower())
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        # Restrict the search to the dependencies bullet — claude.md
+        # is long and other sections mention numpy / mcp in different
+        # contexts. The bullet starts with "Minimal runtime dependencies."
+        # or "No runtime dependencies" (legacy form).
+        bullet_match = re.search(
+            r"-\s+\*\*(?:Minimal runtime dependencies|No runtime dependencies)[^\n]*\n",
+            claude_md,
+        )
+        if not bullet_match:
+            raise AssertionError(
+                "Couldn't locate the deps bullet in claude.md. Either "
+                "the bullet was renamed or the regex needs updating."
+            )
+        bullet = bullet_match.group(0).lower()
+
+        missing_runtime = sorted(pkg for pkg in pkg_names if pkg not in bullet)
+        missing_extras: list[str] = []
+        for extra_name, pkgs in extras_pkg_names.items():
+            for pkg in pkgs:
+                if pkg not in bullet:
+                    missing_extras.append(f"{extra_name}:{pkg}")
+        missing_extras.sort()
+
+        errors: list[str] = []
+        if missing_runtime:
+            errors.append(
+                f"Runtime deps in pyproject.toml not mentioned in "
+                f"claude.md deps bullet: {missing_runtime}"
+            )
+        if missing_extras:
+            errors.append(
+                f"Optional extras' packages not mentioned in claude.md "
+                f"deps bullet: {missing_extras}"
+            )
+        if errors:
+            raise AssertionError(
+                "\n".join(errors)
+                + "\n\nFix: extend the bullet to enumerate every dep "
+                "with a one-line role description (e.g. `mcp>=1.0` "
+                "(MCP server runtime — install-mcp registers Trinity "
+                "in Claude Code / Codex / Antigravity)). The bullet "
+                "is the canonical contributor-facing summary of "
+                "what `pip install trinity-local` pulls in."
+            )
+
+
 class TestClaudeMdMcpSignaturesMatchSchema:
     """Iter #29 catch — claude.md's `### The eight MCP tools` section
     enumerates each tool with a prose-form signature like
