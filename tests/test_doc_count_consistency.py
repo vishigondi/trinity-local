@@ -1931,10 +1931,14 @@ class TestNoBannedSynonyms:
     ]
 
     # Files that get the scan. User-facing surfaces only.
+    # pyproject.toml included because tick 116 found "Gemini CLI" in
+    # an inline comment that PyPI users see when reading the build
+    # config — same drift class as a docs reference.
     SCAN_FILES = [
         "README.md",
         "claude.md",
         "DESIGN.md",
+        "pyproject.toml",
         "docs/launch.md",
         "docs/launch-package.md",
         "docs/MCP_REGISTRY_SUBMISSIONS.md",
