@@ -3632,6 +3632,111 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_claude_md_state_layout_covers_every_state_paths_dir(self):
+        """Iter #33 catch — claude.md's "State layout" tree diagram
+        is supposed to enumerate every directory Trinity creates under
+        `~/.trinity/`. Drift caught: state_paths.research_dir() was
+        STILL live (used by knn_advisor via ranker/knn_ranker.py →
+        ranker/fallback.py) but claude.md claimed it was retired AND
+        omitted the directory from the layout diagram.
+
+        Guard shape: for each `*_dir()` function in state_paths.py
+        that takes zero arguments and returns under ~/.trinity/,
+        extract the leaf directory name. Assert it appears in claude.md
+        somewhere — either inside the State-layout tree (live entry)
+        or inside the "Retired directories" block (legitimately
+        retired but may still exist on older installs).
+
+        Catches the same drift class as
+        test_three_tier_schema_list_matches_directory one surface
+        over: a load-bearing list in the doc that has to match the
+        live code's view of what it produces. Without this guard,
+        future state_paths additions risk being undocumented; future
+        retirements risk being mis-flagged as live (or vice versa).
+        """
+        import inspect
+        import os
+        import pathlib
+        import sys
+        import tempfile
+
+        # Spin up a clean TRINITY_HOME for the call so we resolve
+        # paths cleanly without touching the user's actual install.
+        home_orig = os.environ.get("TRINITY_HOME")
+        tmpdir = tempfile.mkdtemp(prefix="trinity_paths_test_")
+        os.environ["TRINITY_HOME"] = tmpdir
+        try:
+            # Re-import to pick up the new env var if state_paths
+            # cached the home elsewhere.
+            sys.modules.pop("trinity_local.state_paths", None)
+            from trinity_local import state_paths
+
+            zero_arg_dir_fns: list[tuple[str, pathlib.Path]] = []
+            for name, fn in inspect.getmembers(state_paths, inspect.isfunction):
+                if not name.endswith("_dir"):
+                    continue
+                sig = inspect.signature(fn)
+                if sig.parameters:
+                    continue
+                if fn.__module__ != "trinity_local.state_paths":
+                    continue
+                try:
+                    p = fn()
+                except Exception:
+                    continue
+                if not isinstance(p, pathlib.Path):
+                    continue
+                # Skip the top-level state_dir itself.
+                if p == pathlib.Path(tmpdir):
+                    continue
+                # Only directories actually under TRINITY_HOME.
+                try:
+                    rel = p.relative_to(tmpdir)
+                except ValueError:
+                    continue
+                zero_arg_dir_fns.append((name, rel))
+        finally:
+            if home_orig is None:
+                os.environ.pop("TRINITY_HOME", None)
+            else:
+                os.environ["TRINITY_HOME"] = home_orig
+            sys.modules.pop("trinity_local.state_paths", None)
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        missing: list[str] = []
+        for fn_name, rel in zero_arg_dir_fns:
+            # The leaf directory name is what shows up in the
+            # diagram (e.g. "research", "scoreboard", "analytics").
+            leaf = rel.parts[0]
+            # Match either the tree-diagram form (`<leaf>/` or
+            # `<leaf>` in a path-like context) or the retirement-list
+            # form (backticked `<leaf>/`).
+            patterns = (
+                f"`{leaf}/`",
+                f"`~/.trinity/{leaf}/`",
+                f"├── {leaf}/",
+                f"└── {leaf}/",
+            )
+            if not any(p in claude_md for p in patterns):
+                missing.append(
+                    f"  state_paths.{fn_name}() → ~/.trinity/{rel}/ "
+                    f"(leaf `{leaf}/`)"
+                )
+        if missing:
+            raise AssertionError(
+                "claude.md doesn't mention these directories that "
+                "state_paths.py creates:\n"
+                + "\n".join(missing)
+                + "\n\nEach state_paths zero-arg *_dir() function "
+                "creates a directory under ~/.trinity/. The State-"
+                "layout tree diagram in claude.md is the canonical "
+                "view of what Trinity puts in the user's home — "
+                "every directory should appear either in the tree "
+                "(live) or in the 'Retired directories' note (legacy, "
+                "may still exist on older installs). A directory that "
+                "appears in neither place is undocumented surface."
+            )
+
     def test_three_tier_schema_list_matches_directory(self):
         """The v1.0-floor section of `docs/three-tier-architecture.md`
         enumerates the schemas that ship in `skills/trinity/schemas/`.
