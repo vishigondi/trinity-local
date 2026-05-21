@@ -20,13 +20,15 @@ class: aspirational
 > **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
-> **MCP surface (v1.0 canonical 5 + v1.5 trio + launch-arc `handoff`,
-> 9 total):**
-> v1.0 shipped `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
-> `record_outcome` / `get_persona` / `get_council_status`.
+> **MCP surface (canonical 4 + v1.5 trio + launch-arc `handoff`,
+> 8 total):**
+> Canonical 4: `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
+> `get_persona` / `get_council_status`.
 > (`search_prompts` retired 2026-05-17 — replaced by substring+recency
 > heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —
-> agents ground via `ask` + picks.)
+> agents ground via `ask` + picks; `record_outcome` retired 2026-05-21 —
+> chairman pick is now the supervision signal, fed automatically into
+> `compute_personal_routing_table()` (commit bb817b6).)
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
 > returns `escalate_hint=run_council` when trust is low), `get_picks`
 > (agent-facing introspection into extracted routing patterns), and
@@ -781,11 +783,12 @@ For Trinity Local that means:
 >
 > - **MCP surface** (8.1): plan said 6 tools (`route`, `judge`,
 >   `run_council`, `record_outcome`, `search_prompts`, `get_persona`).
->   Live ships 9: canonical 5 (`route`, `run_council`,
->   `record_outcome`, `get_persona`, `get_council_status`) + v1.5
->   trio (`ask`, `get_picks`, `mark_pick_wrong`) + launch-arc
->   `handoff`. `judge` collapsed into `run_council(responses=[...])`
->   (Tier 1 #2); `search_prompts` dropped pre-launch.
+>   Live ships 8: canonical 4 (`route`, `run_council`,
+>   `get_persona`, `get_council_status`) + v1.5 trio (`ask`,
+>   `get_picks`, `mark_pick_wrong`) + launch-arc `handoff`. `judge`
+>   collapsed into `run_council(responses=[...])` (Tier 1 #2);
+>   `search_prompts` dropped pre-launch; `record_outcome` retired
+>   2026-05-21 (chairman pick is the supervision signal now).
 > - **State paths** (8.4): plan said `~/.trinity/memory/...`. Live
 >   ships `~/.trinity/prompts/...` (Tier 1 #1 rename, task #90).
 >   `TranscriptNode` tier was dropped (Tier 2 #5, task #51).
@@ -809,20 +812,23 @@ For Trinity Local that means:
 
 ## 8.1 The MCP tool surface
 
-> **Superseded — shipped state is 9 tools, not 6.** This section's
+> **Superseded — shipped state is 8 tools, not 6.** This section's
 > pre-launch snapshot listed `route` / `judge` / `run_council` /
 > `record_outcome` / `search_prompts` / `get_persona` as the product
 > surface. Since then: `judge` was collapsed into
-> `run_council(responses=[...])` (Tier 1 #2) and `search_prompts` was
+> `run_council(responses=[...])` (Tier 1 #2); `search_prompts` was
 > retired in the 2026-05-17 simplification pass (substring + recency
-> heuristics replaced the embedding-search hot path). Four tools were
-> added: `get_council_status` rounding out the canonical lifecycle to
-> 5, plus v1.5 trio (`ask` cheap default routing, `get_picks` agent
-> introspection, `mark_pick_wrong` user-veto), plus launch-arc
-> `handoff` for cross-provider continuity. Total: **9 tools**.
+> heuristics replaced the embedding-search hot path); `record_outcome`
+> was retired 2026-05-21 alongside the rest of the rating UX (chairman
+> pick is now the supervision signal, fed automatically into
+> `compute_personal_routing_table()` via commit bb817b6). Three tools
+> were added: `get_council_status` rounding out the canonical
+> lifecycle to 4, plus v1.5 trio (`ask` cheap default routing,
+> `get_picks` agent introspection, `mark_pick_wrong` user-veto), plus
+> launch-arc `handoff` for cross-provider continuity. Total: **8 tools**.
 >
 > Canonical current surface lives in
-> [`../claude.md`](../claude.md#the-nine-mcp-tools-mcp_serverpy) and
+> [`../claude.md`](../claude.md#the-eight-mcp-tools-mcp_serverpy) and
 > [`product-spec.md`](product-spec.md). The
 > `TestMcpToolNameConsistency` / `TestMcpCanonicalSubsetCountClaims`
 > guards in `tests/test_doc_count_consistency.py` pin the count
