@@ -1875,11 +1875,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       // Trinity task_type → category map, injected from the server's
       // canonical CATEGORY_REGISTRY so the launchpad chart never drifts
-      // out-of-sync with new task_types. Unknown kinds bucket into
-      // `defaultCategoryForUnknownTaskKind` (default: hard_prompts) instead
+      // out-of-sync with new task_types. Unknown task_types bucket into
+      // `defaultCategoryForUnknownTaskType` (default: hard_prompts) instead
       // of disappearing from the chart.
-      const TASK_KIND_TO_CATEGORY = pageData.taskKindToCategory || {{}};
-      const DEFAULT_CATEGORY = pageData.defaultCategoryForUnknownTaskKind || 'overall';
+      const TASK_TYPE_TO_CATEGORY = pageData.taskTypeToCategory || {{}};
+      const DEFAULT_CATEGORY = pageData.defaultCategoryForUnknownTaskType || 'overall';
 
       const benchmarks = pageData.globalBenchmarks || {{}};
       const providers = pageData.benchmarkProviders || [];
@@ -1934,8 +1934,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           data: personalCategoryKeys.map((cat) => {{
             // Average overall scores for any task_type that maps to this category.
             const scores = [];
-            for (const [taskKind, providerScores] of Object.entries(byTaskType)) {{
-              const mappedCat = TASK_KIND_TO_CATEGORY[taskKind] || DEFAULT_CATEGORY;
+            for (const [taskType, providerScores] of Object.entries(byTaskType)) {{
+              const mappedCat = TASK_TYPE_TO_CATEGORY[taskType] || DEFAULT_CATEGORY;
               if (mappedCat !== cat) continue;
               const entry = providerScores?.[provider];
               if (entry && typeof entry.overall === 'number') {{

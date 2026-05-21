@@ -31,9 +31,9 @@ from ..task_types import guess_task_type
 # Map Trinity task_type → benchmark category. Aligned with the arena
 # leaderboard's category names so this stays portable when external benchmarks
 # come back online; sourced from `categories.CATEGORY_REGISTRY`.
-from ..categories import task_kind_to_category as _registry_task_kind_to_category
+from ..categories import task_type_to_category as _registry_task_type_to_category
 
-_TASK_KIND_TO_BENCHMARK_CATEGORY: dict[str, str] = _registry_task_kind_to_category()
+_TASK_TYPE_TO_BENCHMARK_CATEGORY: dict[str, str] = _registry_task_type_to_category()
 
 
 # Sigmoid tuning. Midpoint at 5 councils = 50% personal weight (the point
@@ -87,7 +87,7 @@ def _personal_scores(task_type: str, available: list[str]) -> tuple[dict[str, fl
 def _global_scores(task_type: str, available: list[str]) -> dict[str, float]:
     """Return {provider: rescaled_overall} from global benchmarks for this
     task_type. Rescaled to [0, 10] to be commensurate with personal."""
-    category = _TASK_KIND_TO_BENCHMARK_CATEGORY.get(task_type, "reasoning")
+    category = _TASK_TYPE_TO_BENCHMARK_CATEGORY.get(task_type, "reasoning")
     benchmarks = get_global_benchmarks().get(category) or {}
     models = benchmarks.get("models") or {}
     return {

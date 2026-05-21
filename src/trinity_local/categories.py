@@ -17,7 +17,7 @@ CATEGORY_REGISTRY: list[tuple[str, str, tuple[str, ...]]] = [
     # councils chew on most often — architecture, planning, audits. The
     # hardcoded JS map on the launchpad used to miss these and the
     # capabilities chart rendered empty. Sourcing the map from this list
-    # via task_kind_to_category() keeps server + UI in sync.
+    # via task_type_to_category() keeps server + UI in sync.
     ("hard_prompts",          "Hard Prompts",           (
         "research",
         "council_synthesis",
@@ -40,7 +40,7 @@ CATEGORY_REGISTRY: list[tuple[str, str, tuple[str, ...]]] = [
 # Default category for any task_type not explicitly registered above.
 # Anything that smells like reasoning lands here instead of disappearing
 # from the capabilities chart entirely.
-DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND = "hard_prompts"
+DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_TYPE = "hard_prompts"
 
 
 def category_keys() -> list[str]:
@@ -51,10 +51,10 @@ def category_labels() -> dict[str, str]:
     return {key: label for key, label, _ in CATEGORY_REGISTRY}
 
 
-def task_kind_to_category() -> dict[str, str]:
+def task_type_to_category() -> dict[str, str]:
     """Reverse map trinity task_type → category key."""
     out: dict[str, str] = {}
     for key, _, task_types in CATEGORY_REGISTRY:
-        for kind in task_types:
-            out[kind] = key
+        for task_type in task_types:
+            out[task_type] = key
     return out

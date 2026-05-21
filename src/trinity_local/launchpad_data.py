@@ -6,10 +6,10 @@ from pathlib import Path
 
 from .adapters import check_all_adapters
 from .categories import (
-    DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND,
+    DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_TYPE,
     category_keys as _category_keys,
     category_labels as _category_labels,
-    task_kind_to_category as _task_kind_to_category,
+    task_type_to_category as _task_type_to_category,
 )
 from .config import load_config
 from .council_runtime import load_prompt_bundle
@@ -680,8 +680,8 @@ def build_page_data(
         # Server-injected canonical map so the launchpad's per-category bar
         # chart aggregates ALL personal routing entries (not just the six
         # task_types an out-of-sync hardcoded JS map happened to know about).
-        "taskKindToCategory": _task_kind_to_category(),
-        "defaultCategoryForUnknownTaskKind": DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_KIND,
+        "taskTypeToCategory": _task_type_to_category(),
+        "defaultCategoryForUnknownTaskType": DEFAULT_CATEGORY_FOR_UNKNOWN_TASK_TYPE,
         # The personal chart's X-axis uses the LMArena-aligned CATEGORY_REGISTRY
         # keys (overall / coding / hard_prompts / ...). Reference evals use a
         # different category scheme (intelligence/coding/agentic from
