@@ -2848,6 +2848,113 @@ class TestNoRetiredCliInSrcQuotedStrings:
             )
             raise AssertionError("\n".join(msg))
 
+    def test_no_retired_cli_in_src_docstrings(self):
+        """Sibling of test_no_retired_cli_in_test_docstrings (iter #25),
+        pointed at src/ instead of tests/. Catches the SAME drift class
+        one level up: a source-module docstring naming a retired CLI
+        in present tense without a retirement marker anywhere in the
+        same docstring block.
+
+        Drift caught 2026-05-21 iter #30: doctor.py:281 inside
+        `_check_skill_freshness()` said "This keeps `doctor` fast
+        (<200ms)" — but `doctor` the CLI was absorbed into `status`
+        (commit ef2f328, 2026-05-18). The underlying check function
+        still ships (it's why the docstring is even there); the CLI
+        name in the prose just drifted.
+
+        Different surface from the existing
+        TestNoRetiredCliInSrcQuotedStrings scanner: that one matches
+        QUOTED Python strings + HTML `<code>` tags (the runtime-visible
+        strings users see); this one matches BACKTICKED names inside
+        triple-quoted docstrings (the developer-facing strings authors
+        read). Both shapes can drift; they need both guards.
+
+        Whole-docstring marker window (not ±200 chars): a single
+        retirement note at the top of a long module docstring should
+        absolve every CLI mention in the same block, since the
+        retirement context is clearly established once. Mirrors how
+        the iter #17 marker-proximity audit treated MD files (±3
+        lines was too narrow for prose; markers at the section header
+        legitimately cover the whole section).
+        """
+        import re
+
+        from trinity_local.retired_names import RETIRED
+
+        # Source the retired CLI set from the registry (per iter #27's
+        # test_retired_cli_set_is_subset_of_registry — the registry
+        # is canonical).
+        retired_cli = {
+            name for name, rec in RETIRED.items() if rec.kind == "cli"
+        }
+        if not retired_cli:
+            raise AssertionError(
+                "retired_names.py has no kind='cli' records — registry "
+                "is incomplete; cannot scan."
+            )
+
+        # Match backticked `<cli>` OR `trinity-local <cli>` form.
+        retired_pattern = re.compile(
+            r"`(?:trinity-local\s+)?("
+            + "|".join(re.escape(c) for c in retired_cli)
+            + r")`"
+        )
+        docstring_pattern = re.compile(
+            r'("""(?:.|\n)*?"""|\'\'\'(?:.|\n)*?\'\'\')',
+            re.MULTILINE,
+        )
+        markers = (
+            "retired", "former", "absorbed", "collapsed", "replaced",
+            "sunset", "was ", "deprecat", "no longer", "removed",
+            "deleted", "renamed", "→", "legacy", "subsume",
+            "pre-rename", "post-rename",
+        )
+
+        src_dir = REPO / "src" / "trinity_local"
+        hits: list[tuple[str, int, str, str]] = []
+        for path in src_dir.rglob("*.py"):
+            rel = path.relative_to(REPO).as_posix()
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for ds_match in docstring_pattern.finditer(text):
+                docstring = ds_match.group(1)
+                docstring_lower = docstring.lower()
+                # Whole-docstring marker scope: if ANY marker appears
+                # anywhere in this docstring, the retirement context
+                # is established.
+                if any(mk in docstring_lower for mk in markers):
+                    continue
+                for m in retired_pattern.finditer(docstring):
+                    abs_offset = ds_match.start() + m.start()
+                    line_no = text[:abs_offset].count("\n") + 1
+                    cli = m.group(1)
+                    snippet = docstring[max(0, m.start() - 40):m.end() + 40].replace("\n", " ").strip()[:140]
+                    hits.append((rel, line_no, cli, snippet))
+        if hits:
+            msg = [
+                "Retired CLI referenced in src/ docstring without "
+                "any retirement marker in the same docstring block:"
+            ]
+            for rel, line, cli, snippet in hits:
+                msg.append(f"  {rel}:{line} mentions retired `{cli}`")
+                msg.append(f"    → {snippet}")
+            msg.append("")
+            msg.append(
+                "A source-module docstring naming a retired CLI in "
+                "present tense (e.g. \"keeps `doctor` fast\") is a "
+                "developer-facing lie even though the underlying "
+                "function survived. Fix: rename the CLI to the live "
+                "one (e.g. `status`) and add a parenthetical noting "
+                "the retirement so a future reader doesn't reintroduce "
+                "the old name. The whole-docstring marker scope means "
+                "a single \"…was retired YYYY-MM-DD…\" note at the top "
+                "of the module docstring covers every CLI mention in "
+                "the same block."
+            )
+            raise AssertionError("\n".join(msg))
+
     def test_no_retired_cli_in_test_docstrings(self):
         """Sibling guard born of iter #25 of the post-launch sweep.
         The `src/` scanner above catches retired CLIs in user-facing

@@ -278,9 +278,11 @@ def _check_skill_freshness() -> CheckResult:
     No network call by default — uses git's cached refs which were
     last updated by `git fetch`. Users who want fresher staleness
     info can run `trinity-local update --check` (which does a real
-    fetch). This keeps `doctor` fast (<200ms) while still surfacing
+    fetch). This keeps `status` fast (<200ms) while still surfacing
     the "you should update" signal in the common case where the
     fetch happened recently (last update, last install, etc.).
+    (The `doctor` CLI was absorbed into `status` 2026-05-18 per
+    retired_names.py; this function remains the underlying check.)
 
     Trust positioning: this surfaces "you're behind" — never auto-
     pulls. The user runs `trinity-local update` to apply.
