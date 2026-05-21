@@ -69,8 +69,9 @@ silently doesn't fire today.
 
 ## Patterns extracted from the fixes (meta-principles)
 
-241 commits since April, 86 of them on 2026-05-12 alone. The recurring
-shapes that earned their rules by costing time:
+Hundreds of commits since April, with the bulk concentrated on the
+2026-05-12 simplification day. The recurring shapes that earned their
+rules by costing time:
 
 1. **Lossless serialization round-trips.** If `to_dict()` writes,
    `from_dict()` must return the same dataclass. `basins.py:68` capped
