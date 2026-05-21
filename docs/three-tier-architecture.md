@@ -115,11 +115,13 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1579<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1580<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
-  (`council_outcome`, `eval_set`, `rejection_signal`).
+  (`council_outcome`, `eval_set`, `rejection_signal`, `trust` —
+  the `trust.schema.json` shipped 2026-05-18 alongside the trust
+  substrate; see "What v1.0 shipped" in [`TRUST-MODE.md`](TRUST-MODE.md)).
 - Extension as-is (Phase 4b shipped — see MIGRATION.md).
 - `docs/three-tier-architecture.md` (this file) — full vision,
   marks shared `scripts/` substrate as v1.1.
@@ -146,11 +148,16 @@ What v1.1 picks up:
 - Pip package narrows to CLI ergonomics + installers + optional
   daemon. ~40 modules stay (commands, MCP server, launchpad
   templates).
-- Trust mode + audit log substrate: `~/.trinity/audit.log` JSONL
-  (timestamp, tier, operation, sanitized args, outcome,
-  trust_mode_status), `~/.trinity/trust.toml` per-operation grants,
-  `--dangerously-trust-all` uniform flag, visible trust indicators
-  across every UI surface.
+- Trust-mode finishing touches. The substrate ITSELF shipped in v1.0
+  (per [`TRUST-MODE.md`](TRUST-MODE.md) — `trust.toml` schema, `audit.log`
+  JSONL writer, `--dangerously-trust-all` env-var gate, `trinity_local.trust`
+  library, cross-tier `TRINITY_ORIGIN_TIER` propagation, loud-fail on
+  audit-write errors). What v1.1 picks up are the rough edges around the
+  shipped substrate: automatic audit rotation (v1.0 only warns above 50 MB
+  via `status`), visible trust indicators in launchpad header + extension
+  popup, `--tier`/`--operation`/`--outcome` filter flags on the deferred
+  `audit-show` CLI, and the top-level `--dangerously-trust-all` flag on
+  `trinity-local` (v1.0 has only the env var).
 - Cross-backend equivalence test harness:
   `tests/test_tier_equivalence.py` covering MLX / torch CPU / (post-
   v1.1) torch CUDA against pinned-config invariants.

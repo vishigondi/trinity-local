@@ -3109,6 +3109,49 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_three_tier_schema_list_matches_directory(self):
+        """The v1.0-floor section of `docs/three-tier-architecture.md`
+        enumerates the schemas that ship in `skills/trinity/schemas/`.
+        That enumeration MUST match the actual directory contents.
+
+        Drift caught 2026-05-21 iter #26: the doc ratified 2026-05-16
+        with three schemas (`council_outcome`, `eval_set`,
+        `rejection_signal`). `trust.schema.json` shipped 2026-05-18
+        alongside the trust substrate (per TRUST-MODE.md "What v1.0
+        shipped"), but the doc's enumeration never got updated. Same
+        shape as test_bundled_config_example_matches_top_level: a
+        load-bearing fact lives in N≥2 surfaces (the schemas/
+        directory + the doc's enumeration), drift accumulates in the
+        slower-moving surface. Pattern #20.
+
+        Why this matters: three-tier-architecture.md is the architecture
+        spec other tools read for the `~/.trinity/` cross-tool contract
+        (task #117). A schema missing from the v1.0 floor enumeration
+        signals "not stable yet" to integrators, even when the file is
+        already shipping. Closes that surface.
+        """
+        schemas_dir = REPO / "skills/trinity/schemas"
+        actual_schemas = sorted(
+            p.stem.replace(".schema", "")
+            for p in schemas_dir.glob("*.schema.json")
+        )
+        doc_text = (REPO / "docs/three-tier-architecture.md").read_text(
+            encoding="utf-8"
+        )
+        for schema_stem in actual_schemas:
+            if f"`{schema_stem}`" not in doc_text:
+                raise AssertionError(
+                    f"docs/three-tier-architecture.md doesn't mention "
+                    f"schema `{schema_stem}` even though "
+                    f"skills/trinity/schemas/{schema_stem}.schema.json "
+                    f"ships. Either add it to the v1.0 floor schemas "
+                    f"enumeration (around L122) with a parenthetical "
+                    f"noting when it shipped, or — if the schema is "
+                    f"intentionally undocumented — explain why with a "
+                    f"comment so future-me doesn't re-introduce the "
+                    f"drift. Schemas on disk: " + ", ".join(actual_schemas)
+                )
+
     def test_bundled_config_example_matches_top_level(self):
         """The bundled `src/trinity_local/data/config.example.json` is the
         fallback config.py loads when the user's own config can't be found
