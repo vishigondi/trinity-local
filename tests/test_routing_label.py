@@ -318,3 +318,57 @@ class TestRoutingLabelInHtml:
         write_unified_council_page(bundle, outcome)
         outcome_js = (council_outcomes_dir() / f"{outcome.council_run_id}.js").read_text(encoding="utf-8")
         assert '"routing_label"' not in outcome_js
+
+
+class TestLegacyProviderSlugNormalization:
+    """`from_dict` normalizes the legacy `gemini` slug → canonical
+    `antigravity` at the load boundary, so personal_routing aggregation,
+    chairman picker, and launchpad rendering all see one canonical key.
+
+    Pins the fix from tick 96: without normalization, historical outcomes
+    keyed under `provider_scores["gemini"]` would aggregate as a separate
+    bucket from new outcomes under `provider_scores["antigravity"]`,
+    splitting the per-task_type stats for the same model across two
+    apparent providers."""
+
+    def test_winner_gemini_normalized_to_antigravity(self):
+        from trinity_local.council_schema import CouncilRoutingLabel
+        label = CouncilRoutingLabel.from_dict({"winner": "gemini"})
+        assert label.winner == "antigravity"
+
+    def test_runner_up_gemini_normalized(self):
+        from trinity_local.council_schema import CouncilRoutingLabel
+        label = CouncilRoutingLabel.from_dict({
+            "winner": "claude",
+            "runner_up": "gemini",
+        })
+        assert label.runner_up == "antigravity"
+
+    def test_provider_scores_key_normalized(self):
+        from trinity_local.council_schema import CouncilRoutingLabel
+        label = CouncilRoutingLabel.from_dict({
+            "winner": "claude",
+            "provider_scores": {
+                "gemini": {"overall": 0.72},
+                "claude": {"overall": 0.81},
+            },
+        })
+        # Aggregator should see "antigravity", not "gemini"
+        assert set(label.provider_scores.keys()) == {"antigravity", "claude"}
+        assert label.provider_scores["antigravity"]["overall"] == 0.72
+
+    def test_already_canonical_slugs_pass_through(self):
+        from trinity_local.council_schema import CouncilRoutingLabel
+        label = CouncilRoutingLabel.from_dict({
+            "winner": "antigravity",
+            "runner_up": "claude",
+            "provider_scores": {"antigravity": {"overall": 0.9}},
+        })
+        assert label.winner == "antigravity"
+        assert label.runner_up == "claude"
+        assert "antigravity" in label.provider_scores
+
+    def test_unknown_slug_passes_through_unchanged(self):
+        from trinity_local.council_schema import CouncilRoutingLabel
+        label = CouncilRoutingLabel.from_dict({"winner": "mlx"})
+        assert label.winner == "mlx"

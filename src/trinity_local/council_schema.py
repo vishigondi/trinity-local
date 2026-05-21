@@ -4,6 +4,33 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
+# Legacy provider-slug aliases. The harness rename of 2026-05-20 changed
+# the canonical Google-harness slug from "gemini" → "antigravity", but
+# historical council_outcomes/*.json files on disk still carry the old
+# slug in `winner`, `runner_up`, and `provider_scores` keys. Normalize at
+# the from_dict boundary so personal_routing.aggregate_routing_table,
+# chairman picker, launchpad rendering, and every other downstream
+# consumer sees the canonical slug only. Delete this mapping once
+# historical outcomes are far enough in the past to stop caring (or
+# after a one-time batch-migration pass over council_outcomes/).
+# Cortex.py:373,484 already does the same shape for failure_modes keys.
+_LEGACY_PROVIDER_ALIASES: dict[str, str] = {
+    "gemini": "antigravity",
+}
+
+
+def _normalize_provider_slug(slug: Any) -> Any:
+    """Canonicalize a provider slug at the JSON-on-disk → Python boundary.
+
+    Non-str values pass through unchanged (preserves None and any future
+    type). Unknown slugs pass through unchanged (only known legacy
+    aliases get rewritten). String-shaped str-likes also pass through.
+    """
+    if not isinstance(slug, str):
+        return slug
+    return _LEGACY_PROVIDER_ALIASES.get(slug, slug)
+
+
 @dataclass
 class PromptBundle:
     bundle_id: str
@@ -158,6 +185,24 @@ class CouncilRoutingLabel:
         # Coerce required fields with sane defaults
         filtered.setdefault("winner", "")
         filtered.setdefault("confidence", "medium")
+        # Normalize legacy provider slugs at the load boundary so all
+        # downstream consumers (personal_routing aggregator, chairman
+        # picker, launchpad) see the canonical slug only. See
+        # _LEGACY_PROVIDER_ALIASES at the module top for the mapping.
+        filtered["winner"] = _normalize_provider_slug(filtered.get("winner", ""))
+        if "runner_up" in filtered:
+            filtered["runner_up"] = _normalize_provider_slug(filtered["runner_up"])
+        provider_scores = filtered.get("provider_scores")
+        if isinstance(provider_scores, dict):
+            normalized_scores: dict[str, Any] = {}
+            for provider, sub in provider_scores.items():
+                key = _normalize_provider_slug(provider)
+                # If both legacy + canonical keys exist on disk, prefer
+                # the canonical (newest); legacy is silently overwritten.
+                # No outcome should carry both, so the conflict is rare.
+                if key not in normalized_scores:
+                    normalized_scores[key] = sub
+            filtered["provider_scores"] = normalized_scores
         return cls(**filtered)
 
 
