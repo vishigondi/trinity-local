@@ -34,11 +34,16 @@ const COUNCIL_LOADING_MESSAGES = [
 ];
 
 // Mirrors launchpad_template.py's formatProviderLabel — kept tiny since
-// the popup only ever shows our three canonical providers.
+// the popup only ever shows our three canonical providers. The slug
+// rename (gemini → antigravity) was 2026-05-20; canonical lineup is now
+// (claude, codex, antigravity). New councils dispatch through the
+// canonical slugs; this popup only shows live councils so no legacy
+// normalizer is needed here (unlike launchpad_template.py which reads
+// historical outcomes).
 const PROVIDER_LABELS = {
   claude: "Claude",
   codex: "Codex",
-  gemini: "Gemini",
+  antigravity: "Antigravity",
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
@@ -365,7 +370,7 @@ $("run-btn").addEventListener("click", async () => {
     return;
   }
   const statusToken = newStatusToken();
-  const members = ["claude", "codex", "gemini"];
+  const members = ["claude", "codex", "antigravity"];
   showStatusPanel(task, members);
 
   const response = await dispatch("launch-council", {
