@@ -65,6 +65,22 @@ class RetirementRecord:
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
     # ── 2026-05-21 consistency-sweep retirement ──
+    "commands.tasks": RetirementRecord(
+        name="commands.tasks",
+        retired_at="2026-05-21",
+        commit="",  # filled by retirement commit
+        replacement="(none — task/bundle/launch flows supplanted by the live council architecture)",
+        reason="`commands/tasks.py` (90 LOC) held the handle_bundle_create / handle_task_create / handle_launch_create / handle_task_show / handle_task_sync handlers for retired CLIs. The module's own docstring claimed 'Tests still import handle_* for handler-level coverage' but tick 85 audit found ZERO callers across src/ + tests/ — the false-claim docstring outlived the test coverage by months. The actual live substrate (LaunchEvent dataclass, append_launch_event, create_launch_event) survives in council_runtime.py and is exercised by the council pipeline. Pattern #4 + #20: when a CLI retires, the handler module's docstring is the last surface to update; sometimes it never does. Sunset confirmed via AskUserQuestion in tick 85.",
+        kind="module",
+    ),
+    "commands.depth": RetirementRecord(
+        name="commands.depth",
+        retired_at="2026-05-21",
+        commit="",  # filled by retirement commit
+        replacement="(none — depth-signal geometry lives in me/depth.py; no caller wants a CLI wrapper)",
+        reason="`commands/depth.py` (123 LOC) held the handle_depth_show CLI handler for a CLI that was retired pre-launch. The docstring claimed 'Tests still import handle_depth_show for coverage' but tick 85 audit found ZERO callers in src/ + tests/. The actual geometry primitives (depth_score, corpus_distance, inter_turn_distance, LID) live in `me/depth.py` and ARE actively used by basins.py + lens pipeline. Sunset confirmed via AskUserQuestion in tick 85; the geometry stays.",
+        kind="module",
+    ),
     "thread_context": RetirementRecord(
         name="thread_context",
         retired_at="2026-05-21",
