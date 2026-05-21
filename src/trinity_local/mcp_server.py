@@ -812,11 +812,11 @@ async def _route(args: dict) -> list[Any]:
 
     # Latency-aware demotion: when the caller asked for latency='fast', the
     # strongest-on-quality provider (codex+gpt-5.5 xhigh) is the wrong pick —
-    # it takes 30s+. Prefer claude/gemini if either is available.
+    # it takes 30s+. Prefer claude/antigravity if either is available.
     fast_demoted = False
     primary_pick = chairman_pick.get("chairman") or available[0]
     if latency_pref == "fast" and primary_pick == "codex":
-        fast_alt = next((p for p in ("claude", "gemini") if p in available), None)
+        fast_alt = next((p for p in ("claude", "antigravity") if p in available), None)
         if fast_alt:
             primary_pick = fast_alt
             fast_demoted = True

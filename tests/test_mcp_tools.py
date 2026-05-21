@@ -111,13 +111,14 @@ class TestRoute:
 
     def test_route_demotes_codex_when_latency_fast(self, home: Path):
         # codex+gpt-5.5 xhigh wins coding on quality but takes 30s+. When the
-        # caller asks for latency='fast', route() should pick claude or gemini.
+        # caller asks for latency='fast', route() should pick claude or
+        # antigravity (the post-rename fallback set; see mcp_server.py L819).
         result = _call_tool_sync("route", {
             "task": "refactor this Python function",
-            "available_models": ["claude", "gemini", "codex"],
+            "available_models": ["claude", "antigravity", "codex"],
             "latency": "fast",
         })
-        assert result["primary"] in ("claude", "gemini")
+        assert result["primary"] in ("claude", "antigravity")
         assert "latency=fast" in result["reason"]
         assert result["latency"] == "fast"
 
