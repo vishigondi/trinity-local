@@ -53,19 +53,15 @@
           "writing"
         ]
       },
-      "gemini": {
+      "antigravity": {
         "type": "cli",
         "enabled": true,
-        "label": "Gemini",
-        "model": "gemini-2.5-pro",
+        "label": "Antigravity",
         "command": [
-          "gemini",
+          "agy",
           "-p"
         ],
-        "args": [
-          "--model",
-          "gemini-2.5-pro"
-        ],
+        "args": [],
         "roles": [
           "thinker",
           "verifier"
@@ -106,7 +102,7 @@
       "thinker": [
         "mlx",
         "claude",
-        "gemini"
+        "antigravity"
       ],
       "worker": [
         "codex",
@@ -115,7 +111,7 @@
       ],
       "verifier": [
         "claude",
-        "gemini",
+        "antigravity",
         "mlx"
       ]
     },
@@ -128,22 +124,22 @@
       "debugging": [
         "codex",
         "claude",
-        "gemini"
+        "antigravity"
       ],
       "reasoning": [
         "mlx",
         "claude",
-        "gemini"
+        "antigravity"
       ],
       "research": [
-        "gemini",
+        "antigravity",
         "claude",
         "mlx"
       ],
       "general": [
         "claude",
         "mlx",
-        "gemini"
+        "antigravity"
       ]
     }
 }
