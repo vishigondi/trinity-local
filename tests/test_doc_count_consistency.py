@@ -1615,6 +1615,39 @@ class TestV16BrowserExtensionArtifactsExist:
                     "content_script js path doesn't resolve."
                 )
 
+    def test_docs_html_pages_declare_favicon(self):
+        """keepwhatworks.com (docs/index.html + article pages) had no
+        favicon for months — browser tabs all rendered Chrome's gray
+        default. The favicon claim lives at the surface that ships it
+        per principle #21. Earned its place 2026-05-21 after the fix.
+
+        The favicon target shares the Trinity extension toolbar icon's
+        cream-BG / sage-T mark (docs/favicon.png is a copy of
+        browser-extension/icons/icon-32.png) so one product reads as
+        one product across the launchpad / toolbar / marketing site
+        triplet.
+        """
+        repo = self.REPO
+        favicon = repo / "docs" / "favicon.png"
+        assert favicon.exists(), (
+            "docs/favicon.png missing — every keepwhatworks.com tab "
+            "loses its brand mark."
+        )
+        for html_path in sorted((repo / "docs").glob("*.html")):
+            content = html_path.read_text(encoding="utf-8")
+            assert 'rel="icon"' in content, (
+                f"{html_path.name} has no <link rel='icon'> — "
+                "tab renders the gray default favicon."
+            )
+        for html_path in sorted((repo / "docs" / "articles").glob("*.html")):
+            content = html_path.read_text(encoding="utf-8")
+            assert 'rel="icon"' in content, (
+                f"docs/articles/{html_path.name} has no <link rel='icon'> "
+                "— article tab loses brand identity. Add "
+                '<link rel="icon" type="image/png" href="../favicon.png"> '
+                "to the head."
+            )
+
     def test_manifest_declares_icons_and_files_exist(self):
         """Without an `icons` block (and an `action.default_icon` for
         the toolbar surface), Chrome renders the gray puzzle-piece
