@@ -210,6 +210,18 @@ ACTION_ALLOWLIST: dict[str, tuple | None] = {
         "ingest-recent",
         [],
     ),
+    # Memory Health "Refresh memory" button (council_1f9cbecd7104f90f #3).
+    # The user's intent is "don't make me open a terminal" — not "auto-run
+    # LLM calls without my knowledge." Dream is expensive and surprising
+    # (10+ flagship calls, several minutes). A single button labeled
+    # "Refresh memory" that the user clicks explicitly satisfies the
+    # intent. No args from the launchpad — the defaults (full pipeline
+    # incl. vocabulary, consolidate, lens-build, distill) are what
+    # "refresh memory" means for someone whose lens has drifted.
+    "dream": (
+        "dream",
+        [],
+    ),
     # Phase 4b (council_bf1ab3f4dd70f75e residual-drift fix): stop-council
     # lets the launchpad's "Stop" button work cross-platform. Previously
     # the button fired a `shortcuts://run_command` payload that no-op'd

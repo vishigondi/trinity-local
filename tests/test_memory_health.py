@@ -343,3 +343,93 @@ class TestCortexFreshnessSignal:
             i.get("name") == "picks.json" and i.get("status") == "cortex-stale"
             for i in result["issues"]
         )
+
+
+class TestRefreshMemoryButton:
+    """The 'Refresh memory' button on the Memory Health card.
+
+    Earned by council_1f9cbecd7104f90f priority #3 (2026-05-21). The
+    council's explicit verdict on auto-running dream: "User's intent is
+    'don't make me open a terminal' — not 'run LLM calls without my
+    knowledge.' Dream is expensive and surprising. A single button
+    labeled 'Refresh memory' that shows a spinner and then 'Updated'
+    satisfies the intent."
+
+    Three invariants this guards:
+      1. capture_host.ACTION_ALLOWLIST has a `dream` entry (otherwise the
+         Chrome extension dispatch path silently no-ops, same shape as
+         the refine-button bug fixed in `abf923c`).
+      2. The launchpad template renders the button + dispatches via
+         `__TRINITY_DISPATCH__` (the canonical post-Shortcut path).
+      3. The button is INSIDE the memory-health-card v-if so it can't
+         render on installs where the health card is hidden.
+    """
+
+    def test_dream_in_action_allowlist(self):
+        """The Chrome extension dispatch path requires an allowlist
+        entry — without it `_run_action` rejects the kind. Same shape
+        as the missing `council-iterate` entry that silently killed
+        the refine button (commit abf923c)."""
+        from trinity_local.capture_host import ACTION_ALLOWLIST
+        assert "dream" in ACTION_ALLOWLIST, (
+            "Memory Health 'Refresh memory' button dispatches kind='dream' — "
+            "without an ACTION_ALLOWLIST entry capture_host rejects it."
+        )
+        entry = ACTION_ALLOWLIST["dream"]
+        # Tuple shape: (cli_subcommand, arg_spec, [constant_flags]).
+        # No required args — `trinity-local dream` with defaults is
+        # what "Refresh memory" means.
+        assert entry[0] == "dream"
+        assert entry[1] == [], (
+            "dream entry should declare no arg-spec — the launchpad "
+            "fires it with defaults; any required field would make "
+            "the button error on click."
+        )
+
+    def test_refresh_memory_button_renders_in_health_card(self):
+        """The button + its state machine must be wired into the
+        memory-health-card section. Verifies the button label, the
+        three transient states (running/done/failed), the Vue method
+        ref, and the extensionAction kind."""
+        from trinity_local.launchpad_template import render_launchpad_html
+        html = render_launchpad_html(
+            page_data={
+                "memoryHealth": {
+                    "issues": [{
+                        "name": "lens.md",
+                        "status": "STALE",
+                        "hint": "Hasn't been refreshed in a week",
+                    }],
+                    "ok_count": 3,
+                    "total_count": 4,
+                }
+            },
+            recent_cards="",
+        )
+        # Button label (idle)
+        assert "Refresh memory" in html, "button label missing"
+        # State machine transitions
+        assert "Refreshing" in html, "running-state label missing"
+        assert "Updated" in html, "done-state label missing"
+        assert "Failed" in html, "failed-state label missing"
+        # Vue plumbing
+        assert "@click=\"refreshMemory\"" in html, "click handler missing"
+        assert "refreshMemoryStatus" in html, "state field missing"
+        # Dispatch path — Chrome extension, not the retired shortcuts://
+        assert "kind: 'dream'" in html, "extensionAction kind missing"
+        # Button MUST sit inside the memory-health-card v-if so it doesn't
+        # render when there are no issues — guards against a future
+        # refactor that hoists the button into a section that always
+        # renders, which would resurrect the auto-fire pressure the
+        # council explicitly rejected. The first `memory-health-card`
+        # substring lives in SHARED_CSS, so anchor on the actual
+        # <section class="card memory-health-card" v-if=...> opener.
+        card_start = html.index('<section class="card memory-health-card"')
+        card_end = html.index("</section>", card_start)
+        button_pos = html.index("Refresh memory", card_start)
+        assert button_pos < card_end, (
+            "'Refresh memory' button must render inside memory-health-card; "
+            "hoisting it outside the v-if would surface it on installs "
+            "with no health issues, contradicting the council's rejection "
+            "of auto-fire / always-on dream surfacing."
+        )

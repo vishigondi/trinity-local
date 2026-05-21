@@ -102,7 +102,11 @@ class TestLaunchpadFlow:
         assert "Write a launch announcement for Trinity Local" in html
         assert "Top used council queries" in html
         assert "Matching previous council queries" in html
-        assert "Every council you've taught the router" in html
+        # Rating UX was sunset 2026-05-21 (commit 8f1fd95) — section
+        # title reframed from "Every council you've taught the router"
+        # to "Every council you've run" since chairman picks are the
+        # verdict, not user ratings.
+        assert "Every council you've run" in html
         assert "telemetry-enable" in html
         assert "Ingest transcripts once now" in html
         assert "Reference evals" in html

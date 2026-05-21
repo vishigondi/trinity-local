@@ -1095,7 +1095,30 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            on a fresh install. Maps directly to the four signals built
            into pageData.memoryHealth.issues. -->
       <section class="card memory-health-card" v-if="memoryHealth && memoryHealth.issues && memoryHealth.issues.length">
-        <div class="eyebrow">Memory health</div>
+        <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
+          <span>Memory health</span>
+          <!-- "Refresh memory" button (council_1f9cbecd7104f90f priority #3).
+               Per the council verdict: "User's intent is 'don't make me open
+               a terminal' — not 'run LLM calls without my knowledge.' Dream
+               is expensive and surprising. A single button labeled 'Refresh
+               memory' that shows a spinner and then 'Updated' satisfies the
+               intent." Click → dispatches `dream` via Chrome extension →
+               spinner → 'Updated' flash. Explicit user action; nothing
+               auto-fires. -->
+          <button type="button"
+                  class="suggestion-chip"
+                  style="margin-left: auto; padding: 4px 10px; font-size: 12px; cursor: pointer;"
+                  :disabled="refreshMemoryStatus === 'running'"
+                  @click="refreshMemory">
+            <span v-if="refreshMemoryStatus === 'running'">
+              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
+              Refreshing…
+            </span>
+            <span v-else-if="refreshMemoryStatus === 'done'">✓ Updated</span>
+            <span v-else-if="refreshMemoryStatus === 'failed'">⚠ Failed</span>
+            <span v-else>Refresh memory</span>
+          </button>
+        </div>
         <h2 style="margin-top: 4px; font-size: 18px;">
           {{{{ memoryHealth.issues.length }}}} memor{{{{ memoryHealth.issues.length === 1 ? 'y' : 'ies' }}}} need{{{{ memoryHealth.issues.length === 1 ? 's' : '' }}}} attention
           <span class="meta" style="font-weight: 400; font-size: 13px; margin-left: 8px;">·
@@ -2019,6 +2042,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         }},
         coreStatus: pageData.coreStatus || {{ state: 'empty' }},
         memoryHealth: pageData.memoryHealth || {{ issues: [], ok_count: 0, total_count: 0 }},
+        // "Refresh memory" button state machine (council_1f9cbecd7104f90f #3).
+        // States: 'idle' | 'running' | 'done' | 'failed'. Set by refreshMemory()
+        // — fires dream via Chrome extension; flips to 'done' for ~3s on
+        // success, 'failed' on dispatch error. NEVER auto-fires.
+        refreshMemoryStatus: 'idle',
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
@@ -2745,6 +2773,50 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             }});
           }} else {{
             this.triggerShortcut(buildShortcutUrl(payload));
+          }}
+        }},
+        refreshMemory() {{
+          // Council_1f9cbecd7104f90f priority #3 — "Refresh memory" button.
+          // The council's verdict on auto-running dream: "User's intent is
+          // 'don't make me open a terminal' — not 'run LLM calls without
+          // my knowledge.' Dream is expensive and surprising (10+ flagship
+          // calls, several minutes). A single button labeled 'Refresh
+          // memory' that shows a spinner and then 'Updated' satisfies
+          // the intent." This is the explicit-click path.
+          if (this.refreshMemoryStatus === 'running') return;
+          this.refreshMemoryStatus = 'running';
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const payload = {{
+            name: 'run_command',
+            args: {{ command: 'trinity-local dream' }},
+            metadata: {{ kind: 'launchpad_refresh_memory', source: 'launchpad' }},
+          }};
+          const finish = (ok) => {{
+            this.refreshMemoryStatus = ok ? 'done' : 'failed';
+            setTimeout(() => {{
+              if (this.refreshMemoryStatus === 'done' || this.refreshMemoryStatus === 'failed') {{
+                this.refreshMemoryStatus = 'idle';
+              }}
+            }}, ok ? 3000 : 4000);
+          }};
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'dream' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => {{
+                // Dream returns asynchronously from the host — the dispatch
+                // result only confirms the subprocess was launched, not
+                // that it completed. Reporting 'Updated' on launch is the
+                // honest signal; the user re-renders the launchpad later
+                // to see the issues clear. This matches how ingest-recent
+                // behaves on this page.
+                this.handleDispatchResult(r);
+                finish(r && r.ok !== false);
+              }},
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+            finish(true);
           }}
         }},
       }};
