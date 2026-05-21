@@ -1434,7 +1434,24 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            has been built. Surfaces the personalized-benchmark axis
            (workstream #116) where the user already lives, so the
            output of `trinity-local eval-run` isn't buried in JSON.
-           Tick post-Surface 29 / task #122 / #116. -->
+           Tick post-Surface 29 / task #122 / #116.
+           Demoted into a <details> 2026-05-21 (council_1f9cbecd7104f90f
+           priority #4) — the prime directive is "chairman picks YOUR
+           answer," not "chase external benchmarks." Personalized
+           benchmark is supporting evidence, not the main story. The
+           card still renders identically when expanded; the demotion
+           is summary + collapse-by-default. -->
+      <details class="demoted-card-wrapper" v-if="pageData.evalSummary && pageData.evalSummary.has_results" style="margin-bottom: 18px;">
+        <summary style="cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.025); border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 12px;">
+          <span class="eyebrow" style="margin: 0; padding: 0; opacity: 0.7;">Personalized benchmark</span>
+          <span style="font-weight: 500;">
+            {{{{ pageData.evalSummary.target }}}}
+            <span v-if="pageData.evalSummary.aggregate_score !== null && pageData.evalSummary.aggregate_score !== undefined" class="meta" style="font-weight: normal;">
+              · scored {{{{ pageData.evalSummary.aggregate_score.toFixed(2) }}}}
+            </span>
+          </span>
+          <span class="meta" style="margin-left: auto; font-size: 12px;">expand to see per-axis bars</span>
+        </summary>
       <section class="card eval-summary-card" v-if="pageData.evalSummary && pageData.evalSummary.has_results">
         <div class="eyebrow">Personalized benchmark</div>
         <h2 style="margin-top: 4px; font-size: 18px;">
@@ -1503,11 +1520,34 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           Re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.
         </p>
       </section>
+      </details>
 
       <!-- Surface 33 (v1.6) — Browser capture activity. Shows per-
            provider counts + last-capture timestamp. Empty state has
            a CTA (install the extension); populated state surfaces
-           silent-breakage signal when last capture > 24h ago. -->
+           silent-breakage signal when last capture > 24h ago.
+           Demoted into a <details> 2026-05-21 (council_1f9cbecd7104f90f
+           priority #4). Capture is corpus plumbing; the user's
+           attention belongs on Council + Routing (the prime
+           directive). Stale-capture warning still surfaces inline
+           in the summary so silent breakage isn't hidden by the
+           collapse. -->
+      <details class="demoted-card-wrapper" v-if="pageData.browserCapture" style="margin-bottom: 18px;">
+        <summary style="cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.025); border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 12px;"
+                 :style="pageData.browserCapture.has_data && pageData.browserCapture.stale ? 'background: rgba(196, 121, 31, 0.08);' : ''">
+          <span class="eyebrow" style="margin: 0; padding: 0; opacity: 0.7;">Browser capture</span>
+          <span v-if="pageData.browserCapture.has_data && !pageData.browserCapture.stale" style="font-weight: 500;">
+            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> ·
+            last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
+          </span>
+          <span v-else-if="pageData.browserCapture.has_data && pageData.browserCapture.stale" style="font-weight: 500; color: #c4791f;">
+            ⚠ no captures in 24h · last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
+          </span>
+          <span v-else style="font-weight: 500;">
+            Extension not installed — corpus is missing your web chats
+          </span>
+          <span class="meta" style="margin-left: auto; font-size: 12px;">expand</span>
+        </summary>
       <section class="card browser-capture-card"
                v-if="pageData.browserCapture && pageData.browserCapture.has_data"
                :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);'">
@@ -1567,6 +1607,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           Full ritual in <code>browser-extension/README.md</code>.
         </p>
       </section>
+      </details>
 
       <section class="card taste-card" v-if="tasteLenses">
         <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">

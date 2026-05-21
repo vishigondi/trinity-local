@@ -110,6 +110,23 @@ class TestLaunchpadFlow:
         assert "telemetry-enable" in html
         assert "Ingest transcripts once now" in html
         assert "Reference evals" in html
+        # Browser-capture + Personalized-benchmark cards demoted into
+        # <details> wrappers 2026-05-21 (council_1f9cbecd7104f90f #4)
+        # so the main launchpad stays focused on the prime directive
+        # (council + routing). The wrapper class is the regression
+        # guard — hoisting either card back to top-level (removing
+        # the <details>) re-pollutes the visual hierarchy. Each card
+        # still renders inside the wrapper, just collapsed by default.
+        assert 'class="demoted-card-wrapper"' in html, (
+            "Browser-capture / Personalized-benchmark cards must stay "
+            "demoted into <details> wrappers — re-elevating them "
+            "fights the council + routing card for attention."
+        )
+        # Two wrappers expected (eval + browser-capture).
+        assert html.count('class="demoted-card-wrapper"') == 2, (
+            "Expected exactly 2 demoted-card-wrapper instances "
+            "(eval-summary + browser-capture)."
+        )
         assert "liveReviewUrl" in html
         assert "Stop council" in html
         assert "Open council page" in html
