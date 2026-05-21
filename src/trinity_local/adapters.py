@@ -44,11 +44,16 @@ _PROVIDER_SPECS: list[dict[str, Any]] = [
         "glob": "**/rollout-*.jsonl",
     },
     {
-        "provider": "gemini",
-        "cli_name": "gemini",
-        "version_args": ["gemini", "--version"],
-        "transcript_root": lambda: Path.home() / ".gemini" / "tmp",
-        "glob": "**/session-*.json",
+        "provider": "antigravity",
+        "cli_name": "agy",
+        "version_args": ["agy", "--version"],
+        # Antigravity CLI conversations land here as `.pb` protobuf files
+        # (~105KB each, one per conversation). The legacy gemini CLI's
+        # `~/.gemini/tmp` JSON sessions are obsolete after the Antigravity
+        # rebrand; if a user still has legacy data there, run a one-time
+        # `seed-from-taste-terminal --path ~/.gemini/tmp` pass to import.
+        "transcript_root": lambda: Path.home() / ".gemini" / "antigravity-cli" / "conversations",
+        "glob": "*.pb",
     },
     {
         "provider": "cowork",
