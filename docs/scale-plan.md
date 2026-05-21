@@ -1636,9 +1636,11 @@ undocumented (P61). Ollama plumbing exists in v1.0 but is undocumented
 2. **Ollama configuration doc** — surface the v1.0 plumbing that
    already exists.
 3. **Optional `trinity-local serve --api`** read-only HTTP surface
-   (route + search_prompts + get_picks endpoints) for non-MCP-aware
-   consumers. Keep the wedge intact: read-only, local-bind, no auth
-   surface.
+   (route + ask + get_picks endpoints) for non-MCP-aware consumers.
+   (Original proposal named `search_prompts`; that MCP tool was
+   retired 2026-05-17 and the v1.5 `ask` tool absorbed the routing-
+   with-substring-search responsibility.) Keep the wedge intact:
+   read-only, local-bind, no auth surface.
 4. **GitHub Action template** in `.github/workflows/example-council.yml`
    showing CI-driven council on a PR diff.
 
