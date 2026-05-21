@@ -3,13 +3,15 @@
 Two entry points:
 
   aggregate_routing_table(councils)
-      Pure aggregation — given a list of {task_type, routing_label, user_winner}
-      dicts, compute per-task-type means + winners. User verdicts are the
-      ground truth signal: when present they dominate the chairman's per-
-      provider `provider_scores` via a fixed weighting (see USER_VERDICT_WEIGHT).
+      Pure aggregation — given a list of {task_type, routing_label,
+      chairman_winner} dicts, count chairman wins per provider per
+      task_type. The chairman's pick IS the supervision signal (per
+      the 2026-05-21 prime directive and commit bb817b6); user_winner
+      verdicts are no longer blended in because the MCP record_outcome
+      tool was retired alongside the rest of the rating UX.
 
   compute_personal_routing_table()
-      Walk every rated council outcome on disk and aggregate. Called from
+      Walk every council outcome on disk and aggregate. Called from
       the launchpad render and from chairman_picker. No file is written;
       the council_outcomes/ directory IS the source of truth, divergence
       becomes structurally impossible. Cached in-process by directory mtime.
@@ -20,12 +22,13 @@ The table shape:
       "councils_aggregated": int,
       "by_task_type": {
           "<task_type>": {
-              "<provider>": {"overall": float, "n": int},
+              "<provider>": {"overall": float, "n": int, "wins": int},
               ...
           },
           ...
       },
-      "best_per_task_type": {"<task_type>": "<provider>", ...}
+      "best_per_task_type": {"<task_type>": "<provider>", ...},
+      "wins_per_task_type": {"<task_type>": {"<provider>": int, ...}, ...},
     }
 """
 from __future__ import annotations
