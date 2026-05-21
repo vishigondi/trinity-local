@@ -14,8 +14,8 @@ Cost model (typical first run):
     Usually 10–100 clusters.
   - Phase 3 (consolidate): one flagship call per basin with >= --min-basin-size
     outcomes. Caps at the cortex `--min-basin-size` default (3).
-  - Phase 4 (me-build): three flagship calls total (turn-pairs, decisions,
-    pair-mining) per the existing /me pipeline.
+  - Phase 4 (lens-build): three flagship calls total (turn-pairs, decisions,
+    pair-mining) per the existing lens-discovery pipeline.
 
 So a full dream = (n_clusters + n_basins + 3) flagship calls. For a
 fresh install with 18k seeded nodes, that's typically $5–15 of
@@ -318,13 +318,14 @@ def _consolidate(provider: str) -> dict:
 
 
 def _me_build(provider: str) -> dict:
-    """Invoke the existing `me-build` handler in-process. Best-effort —
-    if the lens pipeline doesn't have enough data yet, it'll skip phases
-    gracefully and report that."""
+    """Invoke the `lens-build` handler in-process (the underlying Python
+    function kept its pre-rename name `handle_me_build` — internal
+    detail). Best-effort — if the lens pipeline doesn't have enough data
+    yet, it'll skip phases gracefully and report that."""
     try:
         from .me import handle_me_build
     except ImportError:
-        return {"ok": False, "error": "me-build handler not importable"}
+        return {"ok": False, "error": "lens-build handler not importable"}
 
     me_args = SimpleNamespace(
         provider=provider,
@@ -339,11 +340,11 @@ def _me_build(provider: str) -> dict:
         with contextlib.redirect_stdout(buf):
             handle_me_build(me_args)
     except SystemExit as exc:
-        return {"ok": False, "error": f"me-build exited: {exc}"}
+        return {"ok": False, "error": f"lens-build exited: {exc}"}
     except TypeError as exc:
         # handle_me_build's actual signature may differ — surface the gap
         # without breaking dream.
-        return {"ok": False, "error": f"me-build args mismatch: {exc}"}
+        return {"ok": False, "error": f"lens-build args mismatch: {exc}"}
     except Exception as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
     captured = buf.getvalue().strip()
