@@ -1637,9 +1637,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <ol class="taste-list">
             <li v-for="(p, idx) in tasteLenses.paired_lenses" :key="'pair-' + idx">
               <span class="taste-list-title">{{{{ p.pole_a }}}} ↔ {{{{ p.pole_b }}}}</span>
+              <!-- Pole → failure-mode lines (readability fix 2026-05-21).
+                   Was "pure-<pole> fails as <failure>" — two filler
+                   words ("pure-" prefix + "fails as" verb) before the
+                   information. New shape: "<pole> → <failure>" reads
+                   as causal arrow, no filler. The arrow IS the
+                   "fails as" verb; the bold failure mode IS what the
+                   eye lands on. -->
               <span class="taste-list-why taste-failure-modes" v-if="p.failure_a || p.failure_b">
-                <span class="taste-failure-line">pure-{{{{ p.pole_a }}}} fails as <b>{{{{ p.failure_a || '?' }}}}</b></span>
-                <span class="taste-failure-line">pure-{{{{ p.pole_b }}}} fails as <b>{{{{ p.failure_b || '?' }}}}</b></span>
+                <span class="taste-failure-line">{{{{ p.pole_a }}}} <span class="taste-failure-arrow" style="opacity: 0.5; margin: 0 4px;">→</span> <b>{{{{ p.failure_a || '?' }}}}</b></span>
+                <span class="taste-failure-line">{{{{ p.pole_b }}}} <span class="taste-failure-arrow" style="opacity: 0.5; margin: 0 4px;">→</span> <b>{{{{ p.failure_b || '?' }}}}</b></span>
               </span>
               <!-- Spans-basins chips: each basin id deep-links to the
                    topology view focused on that basin (tick #36). Closes

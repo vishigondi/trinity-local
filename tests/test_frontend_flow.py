@@ -110,7 +110,34 @@ class TestLaunchpadFlow:
         assert "telemetry-enable" in html
         assert "Ingest transcripts once now" in html
         assert "Reference evals" in html
-        # Browser-capture + Personalized-benchmark cards demoted into
+        # Lens readability fix 2026-05-21: paired-lens failure-mode
+        # lines changed from "pure-<pole> fails as <failure>" to
+        # "<pole> → <failure>". Drops 2 filler tokens per line; the
+        # arrow IS the verb. Guard the change because the previous
+        # shape was sticky muscle memory across the codebase.
+        assert 'taste-failure-arrow' in html, (
+            "lens card lost the pole → failure-mode arrow shape"
+        )
+        # The Vue template literal is `{{ p.pole_a }} <span>→</span> <b>...</b>`
+        # in the rendered page. After Vue mounts, this becomes
+        # "boldness → arrogance". The pre-change shape was
+        # "pure-boldness fails as arrogance" — guard the absence
+        # of BOTH artifacts at the template (pre-mount) level.
+        # Note: "fails as" CAN appear in HTML comments documenting
+        # the change; the guard targets RENDERED text inside the
+        # failure-line spans only.
+        import re
+        failure_lines = re.findall(
+            r'<span class="taste-failure-line">.*?</span>\s*</span>',
+            html, re.DOTALL
+        )
+        for line in failure_lines:
+            assert "pure-" not in line, (
+                f'lens line still carries "pure-" prefix: {line[:200]}'
+            )
+            assert "fails as" not in line, (
+                f'lens line still carries "fails as" filler: {line[:200]}'
+            )
         # <details> wrappers 2026-05-21 (council_1f9cbecd7104f90f #4)
         # so the main launchpad stays focused on the prime directive
         # (council + routing). The wrapper class is the regression
