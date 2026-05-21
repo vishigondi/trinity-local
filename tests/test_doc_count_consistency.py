@@ -3658,6 +3658,103 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_install_mcp_harness_claim_matches_code(self):
+        """Iter #42 catch — claude.md L439 + L584 claimed `install-mcp`
+        wires "the three CLI harnesses" but install.py actually
+        writes to FOUR config paths in user scope (added Cursor per
+        the P16/P92 persona audit when a Cursor user discovered
+        Trinity was MCP-compatible but had no install path):
+
+          json_targets = (
+              Path.home() / ".claude.json",          # Claude Code
+              Path.home() / ".gemini" / "settings.json",  # Antigravity
+              Path.home() / ".cursor" / "mcp.json",  # Cursor  ← was missing
+          )
+          codex_path = Path.home() / ".codex" / "config.toml"  # Codex
+
+        Four harnesses. Two claude.md prose claims said three.
+
+        Guard shape: AST-parse install.py for the tuple of
+        Path.home() expressions inside the install-mcp handler,
+        count them, plus the codex_path (separate because it's
+        TOML not JSON), assert the total matches the "N CLI
+        harnesses" prose claim in claude.md. Catches:
+          (a) future harness additions that don't propagate to the doc
+          (b) future harness removals that don't propagate either
+
+        Sibling of iter #28's chrome_action_allowlist_count canonical
+        helper — same "code is the source of truth, doc is a derived
+        view" shape applied to the install-mcp surface count.
+        """
+        import ast
+        import re
+
+        install_src = (REPO / "src/trinity_local/commands/install.py").read_text(encoding="utf-8")
+        tree = ast.parse(install_src)
+
+        # Find the install-mcp handler. It contains:
+        #   json_targets = ( ..., Path.home() / "X", ..., Path.home() / "Y" / "Z", ...)
+        #   codex_path = Path.home() / ".codex" / "config.toml"
+        # Count harness-config targets in user scope.
+        json_target_count = 0
+        has_codex = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                target_name = (
+                    node.targets[0].id
+                    if node.targets and isinstance(node.targets[0], ast.Name)
+                    else None
+                )
+                if target_name == "json_targets":
+                    if isinstance(node.value, ast.Tuple):
+                        json_target_count = len(node.value.elts)
+                if target_name == "codex_path":
+                    has_codex = True
+
+        if json_target_count == 0:
+            raise AssertionError(
+                "Couldn't locate json_targets tuple in install.py — "
+                "the guard's AST walk needs updating to track the "
+                "new code shape."
+            )
+
+        total_harnesses = json_target_count + (1 if has_codex else 0)
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+        # Match prose "N CLI harnesses" claim.
+        prose_matches = re.findall(
+            r"(\w+)\s+CLI\s+harnesses",
+            claude_md,
+        )
+        # Normalize spelled-out numbers to digits.
+        spelled = {
+            "one": 1, "two": 2, "three": 3, "four": 4,
+            "five": 5, "six": 6, "seven": 7, "eight": 8,
+        }
+        claimed_counts = set()
+        for m in prose_matches:
+            ml = m.lower()
+            if ml.isdigit():
+                claimed_counts.add(int(ml))
+            elif ml in spelled:
+                claimed_counts.add(spelled[ml])
+        if not claimed_counts:
+            raise AssertionError(
+                "Couldn't find any 'N CLI harnesses' prose in claude.md — "
+                "guard needs the regex updated."
+            )
+        if total_harnesses not in claimed_counts:
+            raise AssertionError(
+                f"claude.md 'N CLI harnesses' prose drifted from "
+                f"install.py reality.\n"
+                f"  install.py user scope writes to "
+                f"{json_target_count} JSON + {1 if has_codex else 0} "
+                f"TOML configs = {total_harnesses} total harnesses\n"
+                f"  claude.md prose claims: {sorted(claimed_counts)}\n\n"
+                f"Update claude.md to match (and update the example "
+                f"config-paths list right after the number)."
+            )
+
     def test_doctor_install_hints_match_launchpad_canonical(self):
         """Iter #40 catch — extends iter #39's launchpad-internal
         consistency guard to also pin doctor.py's
