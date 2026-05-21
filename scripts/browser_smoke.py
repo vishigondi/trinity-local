@@ -29,7 +29,9 @@ Prereqs (installed once):
 Surfaces:
     1. Launchpad cold-render: Ratings chart bars rendered
    1b. Autofill content quality: no scaffolding leaks in councilSuggestions
-    2. Settings gear: modal opens, sharing + auto-chain toggles present
+    2. Settings gear: modal opens, telemetry-sharing toggle present
+       (auto-chain + polish-auto-iterate global toggles retired
+       2026-05-18 — auto-chain is now per-council on the review page)
     3. Personal routing table: >=1 row + every row links to routing.json viewer
        (tick #20); plus cortex basin links → picks.json viewer (tick #19)
     4. Lenses Copy-for-sharing: clipboard write fires with non-empty text
