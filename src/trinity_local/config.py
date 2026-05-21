@@ -132,11 +132,14 @@ def _empty_config() -> AppConfig:
 
 
 # Canonical 3-provider lineup for parallel councils, in display order.
-# Codex-only / claude-only / gemini-only users (persona audit P89) had
-# broken 3-column councils because 9 sites hardcoded this list as a
+# Codex-only / claude-only / antigravity-only users (persona audit P89)
+# had broken 3-column councils because 9 sites hardcoded this list as a
 # default; the helper below picks the enabled subset so a single-
 # provider user gets a clean single-call instead of failed 3-of-3.
-CANONICAL_COUNCIL_PROVIDERS: tuple[str, ...] = ("claude", "gemini", "codex")
+# (Renamed "gemini" → "antigravity" 2026-05-20 alongside the provider
+# slug flip in config.example.json; the legacy `gemini` slug no longer
+# exists in any shipped config.)
+CANONICAL_COUNCIL_PROVIDERS: tuple[str, ...] = ("claude", "antigravity", "codex")
 
 
 def installed_council_providers(explicit: str | None = None) -> list[str]:

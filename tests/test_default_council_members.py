@@ -49,9 +49,9 @@ class TestDefaultCouncilMembers:
         from trinity_local.config import default_council_members
 
         _write_config(isolated_config, {
-            "claude": {}, "gemini": {}, "codex": {},
+            "claude": {}, "antigravity": {}, "codex": {},
         })
-        assert default_council_members() == ["claude", "gemini", "codex"]
+        assert default_council_members() == ["claude", "antigravity", "codex"]
 
     def test_codex_only_returns_just_codex(self, isolated_config):
         """100-persona audit P89: codex-only user must get a single-call
@@ -61,7 +61,7 @@ class TestDefaultCouncilMembers:
         _write_config(isolated_config, {
             "codex": {},
             "claude": {"enabled": False},
-            "gemini": {"enabled": False},
+            "antigravity": {"enabled": False},
         })
         assert default_council_members() == ["codex"]
 
@@ -70,18 +70,18 @@ class TestDefaultCouncilMembers:
         _write_config(isolated_config, {
             "claude": {},
             "codex": {"enabled": False},
-            "gemini": {"enabled": False},
+            "antigravity": {"enabled": False},
         })
         assert default_council_members() == ["claude"]
 
-    def test_gemini_only(self, isolated_config):
+    def test_antigravity_only(self, isolated_config):
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
-            "gemini": {},
+            "antigravity": {},
             "claude": {"enabled": False},
             "codex": {"enabled": False},
         })
-        assert default_council_members() == ["gemini"]
+        assert default_council_members() == ["antigravity"]
 
     def test_two_of_three_preserves_canonical_order(self, isolated_config):
         """claude + codex (skip gemini) — order must be [claude, codex],
@@ -90,7 +90,7 @@ class TestDefaultCouncilMembers:
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
             "claude": {}, "codex": {},
-            "gemini": {"enabled": False},
+            "antigravity": {"enabled": False},
         })
         assert default_council_members() == ["claude", "codex"]
 
@@ -102,9 +102,9 @@ class TestDefaultCouncilMembers:
         _write_config(isolated_config, {
             "claude": {"enabled": False},
             "codex": {"enabled": False},
-            "gemini": {"enabled": False},
+            "antigravity": {"enabled": False},
         })
-        assert default_council_members() == ["claude", "gemini", "codex"]
+        assert default_council_members() == ["claude", "antigravity", "codex"]
 
     def test_no_config_falls_back_to_canonical(self, isolated_config):
         """Fresh install (no config.json on disk, no bundled fallback
@@ -118,7 +118,7 @@ class TestDefaultCouncilMembers:
         # All three canonical providers should be present (or all three
         # missing — either way, no MLX or other non-canonical entries).
         for name in members:
-            assert name in ("claude", "gemini", "codex"), (
+            assert name in ("claude", "antigravity", "codex"), (
                 f"non-canonical {name!r} in default council members"
             )
 
@@ -142,7 +142,7 @@ class TestDefaultCouncilMembers:
         (isolated_config / "config.json").write_text("{ this is not json")
         # Should not raise; should return safe canonical fallback.
         result = default_council_members()
-        assert set(result) <= {"claude", "gemini", "codex"}
+        assert set(result) <= {"claude", "antigravity", "codex"}
 
 
 class TestProviderBinaryAvailabilityFilter:
@@ -165,7 +165,7 @@ class TestProviderBinaryAvailabilityFilter:
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
             "claude": {"command": ["claude-bin"]},
-            "gemini": {"command": ["gemini-bin"]},
+            "antigravity": {"command": ["gemini-bin"]},
             "codex":  {"command": ["codex-bin"]},
         })
         # Only the claude binary exists on PATH.
@@ -182,7 +182,7 @@ class TestProviderBinaryAvailabilityFilter:
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
             "claude": {"command": ["claude-bin"]},
-            "gemini": {"command": ["gemini-bin"]},
+            "antigravity": {"command": ["gemini-bin"]},
             "codex":  {"command": ["codex-bin"]},
         })
         present = {"claude-bin", "gemini-bin"}
@@ -190,7 +190,7 @@ class TestProviderBinaryAvailabilityFilter:
             "trinity_local.config.shutil.which",
             lambda name: f"/usr/local/bin/{name}" if name in present else None,
         )
-        assert default_council_members() == ["claude", "gemini"]
+        assert default_council_members() == ["claude", "antigravity"]
 
     def test_none_on_path_falls_back_to_canonical(
         self, isolated_config, monkeypatch
@@ -202,11 +202,11 @@ class TestProviderBinaryAvailabilityFilter:
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
             "claude": {"command": ["claude-bin"]},
-            "gemini": {"command": ["gemini-bin"]},
+            "antigravity": {"command": ["gemini-bin"]},
             "codex":  {"command": ["codex-bin"]},
         })
         monkeypatch.setattr("trinity_local.config.shutil.which", lambda _: None)
-        assert default_council_members() == ["claude", "gemini", "codex"]
+        assert default_council_members() == ["claude", "antigravity", "codex"]
 
     def test_disabled_provider_skipped_even_if_binary_present(
         self, isolated_config, monkeypatch
@@ -216,7 +216,7 @@ class TestProviderBinaryAvailabilityFilter:
         from trinity_local.config import default_council_members
         _write_config(isolated_config, {
             "claude": {"command": ["claude-bin"]},
-            "gemini": {"command": ["gemini-bin"], "enabled": False},
+            "antigravity": {"command": ["gemini-bin"], "enabled": False},
             "codex":  {"command": ["codex-bin"]},
         })
         # All three binaries on PATH...

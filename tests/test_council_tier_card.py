@@ -36,15 +36,18 @@ def fake_which():
 class TestCouncilTierStatus:
     def test_all_three_installed_tier_3_card_hidden(self, monkeypatch):
         """Happy path: all three canonical providers on PATH → tier 3,
-        show=False, the card stays hidden on the launchpad."""
+        show=False, the card stays hidden on the launchpad.
+
+        Note: Antigravity's binary is `agy` (not `antigravity`) — the
+        slug→binary mapping lives in `_TIER_PROVIDER_BINARY`."""
         from trinity_local.launchpad_data import _council_tier_status
         monkeypatch.setattr(
             "shutil.which",
-            lambda n: f"/usr/local/bin/{n}" if n in {"claude", "codex", "gemini"} else None,
+            lambda n: f"/usr/local/bin/{n}" if n in {"claude", "codex", "agy"} else None,
         )
         status = _council_tier_status()
         assert status["tier"] == 3
-        assert set(status["installed"]) == {"claude", "codex", "gemini"}
+        assert set(status["installed"]) == {"claude", "codex", "antigravity"}
         assert status["missing"] == []
         assert status["nextStep"] is None
         assert status["show"] is False
@@ -70,8 +73,8 @@ class TestCouncilTierStatus:
         assert "Claude Code" in status["headline"]
 
     def test_two_installed_pitches_third(self, monkeypatch):
-        """User has Claude + Codex (no Gemini) → tier 2, card pitches
-        Gemini to complete the canonical council."""
+        """User has Claude + Codex (no Antigravity) → tier 2, card pitches
+        Antigravity to complete the canonical council."""
         from trinity_local.launchpad_data import _council_tier_status
         monkeypatch.setattr(
             "shutil.which",
@@ -80,14 +83,14 @@ class TestCouncilTierStatus:
         status = _council_tier_status()
         assert status["tier"] == 2
         assert status["installed"] == ["claude", "codex"]
-        assert status["nextStep"]["provider"] == "gemini"
+        assert status["nextStep"]["provider"] == "antigravity"
         assert "Complete" in status["headline"] or "council" in status["headline"].lower()
         assert status["show"] is True
 
     def test_only_codex_installed_pitches_claude_first(self, monkeypatch):
         """User installed Codex but not Claude → next pitch must be
-        Claude (the canonical anchor voice), not Gemini. Order
-        preference: claude > codex > gemini per chairman convention."""
+        Claude (the canonical anchor voice), not Antigravity. Order
+        preference: claude > codex > antigravity per chairman convention."""
         from trinity_local.launchpad_data import _council_tier_status
         monkeypatch.setattr(
             "shutil.which",

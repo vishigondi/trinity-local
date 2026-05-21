@@ -296,8 +296,8 @@ def _provider_install_help(provider: str) -> tuple[str, str]:
         return ("Claude Code", "npm install -g @anthropic-ai/claude-code")
     if provider == "codex":
         return ("Codex CLI", "npm install -g @openai/codex && codex --login")
-    if provider == "gemini":
-        return ("Antigravity CLI (Gemini)", "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy")
+    if provider == "antigravity":
+        return ("Antigravity", "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy")
     if provider == "cowork":
         return ("Cowork / Claude Desktop", "Install Claude Desktop, then open Local Agent Mode once.")
     pretty = provider.replace("_", " ").title()
@@ -337,7 +337,15 @@ def _provider_health_data() -> dict[str, object]:
 # Canonical council providers, in chairman-preference order. Mirror of
 # config.CANONICAL_COUNCIL_PROVIDERS — re-declared at module level so
 # the tier-card renderer doesn't reach into config every render.
-_TIER_PROVIDERS: tuple[str, ...] = ("claude", "codex", "gemini")
+_TIER_PROVIDERS: tuple[str, ...] = ("claude", "codex", "antigravity")
+
+# Provider slug → on-PATH binary name. Most providers use the same string,
+# but Antigravity's slug is "antigravity" while its CLI binary is `agy`.
+_TIER_PROVIDER_BINARY: dict[str, str] = {
+    "claude": "claude",
+    "codex": "codex",
+    "antigravity": "agy",
+}
 
 _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
     # provider -> (display name, install command, value proposition)
@@ -351,8 +359,8 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
         "npm install -g @openai/codex && codex --login",
         "Adversarial second voice — surfaces real disagreement.",
     ),
-    "gemini": (
-        "Antigravity CLI (Gemini)",
+    "antigravity": (
+        "Antigravity",
         "curl -fsSL https://antigravity.google/cli/install.sh | bash && agy",
         "Long-context third voice — completes the canonical council.",
     ),
@@ -464,10 +472,12 @@ def _council_tier_status() -> dict[str, object]:
     installed: list[str] = []
     missing: list[dict[str, str]] = []
     for provider in _TIER_PROVIDERS:
-        # Each canonical provider's binary name matches the provider key
-        # by convention. shutil.which is fast and what the council
-        # runner uses too — same source of truth.
-        if shutil.which(provider) is not None:
+        # Most provider slugs match their on-PATH binary name 1:1, but
+        # Antigravity is "antigravity" with binary `agy`. `_TIER_PROVIDER_BINARY`
+        # is the canonical map; shutil.which is what the council runner
+        # uses too — same source of truth.
+        binary = _TIER_PROVIDER_BINARY.get(provider, provider)
+        if shutil.which(binary) is not None:
             installed.append(provider)
         else:
             label, cmd, value = _TIER_INSTALL_HELP[provider]
@@ -523,7 +533,7 @@ def _active_launchpad_operation() -> dict[str, object] | None:
                 "kind": kind,
                 "status": raw.get("status") or "running",
                 "label": raw.get("task_text") or ("Scan recent transcripts once" if kind == "ingest" else "Council"),
-                "memberOrder": list(metadata.get("members") or list((raw.get("members") or {}).keys()) or ["claude", "gemini", "codex"]),
+                "memberOrder": list(metadata.get("members") or list((raw.get("members") or {}).keys()) or ["claude", "antigravity", "codex"]),
                 "members": dict(raw.get("members") or {}),
                 "activeProvider": raw.get("active_provider"),
                 "activeProviders": list(raw.get("active_providers") or []),
