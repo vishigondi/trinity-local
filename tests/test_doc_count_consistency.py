@@ -1945,6 +1945,10 @@ class TestNoBannedSynonyms:
     # config — same drift class as a docs reference. SECURITY.md /
     # CODE_OF_CONDUCT.md / docs/teams.md added in tick 118 after the
     # @openclaw.dev contact-domain drift surfaced across 5 surfaces.
+    # The GitHub issue-template config.yml added in tick 119 after
+    # the same domain rename quietly stayed in the .yml surface that
+    # tick 118's glob (only .md/.py/.toml/.json) missed — every
+    # `New issue` click on GitHub shows that contact link verbatim.
     SCAN_FILES = [
         "README.md",
         "claude.md",
@@ -1952,6 +1956,7 @@ class TestNoBannedSynonyms:
         "SECURITY.md",
         "CODE_OF_CONDUCT.md",
         "pyproject.toml",
+        ".github/ISSUE_TEMPLATE/config.yml",
         "docs/teams.md",
         "docs/launch.md",
         "docs/launch-package.md",
