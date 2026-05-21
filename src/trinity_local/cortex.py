@@ -826,15 +826,16 @@ def parse_audit_response(text: str) -> str:
 
 def make_rule_auditor(
     dispatch_fn: Callable[[str, str], str],
-    audit_provider: str = "gemini",
+    audit_provider: str = "antigravity",
 ) -> RuleAuditor:
     """Build a RuleAuditor backed by `dispatch_fn(audit_provider, prompt)`.
 
-    The default audit provider is `gemini` so it differs from the primary
-    extractor's default (`claude`). When the user's pool doesn't include
-    gemini, the CLI flag --audit-provider lets them pick another. An audit
-    by the SAME provider that wrote the rule is worse than no audit at all,
-    so the CLI refuses --audit-provider == default-extractor-provider.
+    The default audit provider is `antigravity` so it differs from the
+    primary extractor's default (`claude`). When the user's pool doesn't
+    include antigravity, the CLI flag --audit-provider lets them pick
+    another. An audit by the SAME provider that wrote the rule is worse
+    than no audit at all, so the CLI refuses --audit-provider ==
+    default-extractor-provider.
     """
     def _audit(rule: "RoutingRule", outcomes: list[dict]) -> str:
         prompt = build_audit_prompt(rule, outcomes)

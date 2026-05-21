@@ -187,7 +187,7 @@ def handle_consolidate(args):
     if args.audit:
         from ..cortex import make_rule_auditor
 
-        audit_provider = args.audit_provider or ("codex" if args.provider == "gemini" else "gemini")
+        audit_provider = args.audit_provider or ("codex" if args.provider == "antigravity" else "antigravity")
         if audit_provider == args.provider:
             print(json.dumps({
                 "ok": False,
