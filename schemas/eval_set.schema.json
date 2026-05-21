@@ -97,7 +97,7 @@
         },
         "provider_of_rejected_response": {
           "type": ["string", "null"],
-          "description": "Which provider produced the rejected response (claude/codex/gemini/...). Lets benchmarks report 'this model got rejected on N of M, the new model scored X' with provider attribution."
+          "description": "Which provider produced the rejected response (claude/codex/antigravity/...). Lets benchmarks report 'this model got rejected on N of M, the new model scored X' with provider attribution."
         }
       }
     }
