@@ -173,12 +173,15 @@ The MCP surface is the harness-facing mirror:
 - `ask`
 - `route`
 - `run_council`
-- `record_outcome`
 - `get_persona`
 - `get_picks`
 - `mark_pick_wrong`
 - `get_council_status`
 - `handoff`
+
+(`record_outcome` was the ninth MCP tool until retired 2026-05-21 alongside
+the rest of the rating UX — chairman pick is the supervision signal now,
+fed automatically into `compute_personal_routing_table()`.)
 
 ### App-Facing Contracts
 
@@ -320,8 +323,9 @@ Rules:
 - A user can install once, launch desktop, run a first council, and rate it
   without touching the terminal after setup.
 - Desktop shows live progress for multiple providers.
-- Desktop rating updates the exact same ledger fields as `council-rate` and
-  MCP `record_outcome`.
+- Desktop rating updates the exact same ledger fields as `council-rate`
+  (the canonical verdict-writer; MCP `record_outcome` was retired
+  2026-05-21 alongside the rest of the rating UX).
 - Desktop pick-veto updates the same cortex override state as
   `cortex-override` and MCP `mark_pick_wrong`.
 - Desktop can repair MCP and extension setup using JSON status contracts.
