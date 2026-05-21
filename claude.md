@@ -711,6 +711,13 @@ diagram is either retired or written by a feature you haven't run yet.
 ├── scoreboard/                     # Operational scoreboards (NOT cognitive memory)
 │   ├── picks.json                  #   extracted model-selection rules per task_type
 │   └── routing.json                #   per-task-type provider track record
+├── me/                             # Lens-build pipeline working output (intermediates between prompts/ and memories/)
+│   ├── rejections.jsonl            #   Stage 0 turn-pair rejection signals (REFRAME/COMPRESSION/REDIRECT/SHARPENING)
+│   ├── rejections_dropped.jsonl    #   Validator-rejected turn pairs (audit trail)
+│   ├── decisions.jsonl             #   Stage 2 chairman-extracted decisions
+│   ├── lenses.json                 #   Stage 3 accepted tension pairs (renders into `memories/lens.md`)
+│   ├── orderings.json              #   Stage 3 preserved-as-ordering pairs
+│   └── merges.jsonl                #   Manual cherry-pick merge log
 │
 │  ── Event logs (JSONL append-only) ─────────────────────────────
 ├── outcomes.jsonl                  # Per-session outcome records (drift)
