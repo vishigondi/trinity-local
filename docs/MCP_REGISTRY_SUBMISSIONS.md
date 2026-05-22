@@ -14,11 +14,13 @@ class: live
 ## Why these registries
 
 `trinity-local install-mcp` already wires Trinity into Claude Code,
-Codex CLI, and Antigravity. The remaining funnel-widener is
-**discoverability** — users who don't know Trinity exists never run
-`install-mcp`. Each MCP-server registry below is a directory users
-browse looking for tools. Being IN the dropdown beats being
-technically perfect.
+Codex CLI, Antigravity, and Cursor (four harnesses — `install.py`
+writes `~/.claude.json`, `~/.codex/config.toml`, `~/.gemini/settings.json`,
+and `~/.cursor/mcp.json` per the P16/P92 persona-audit fix). The
+remaining funnel-widener is **discoverability** — users who don't
+know Trinity exists never run `install-mcp`. Each MCP-server registry
+below is a directory users browse looking for tools. Being IN the
+dropdown beats being technically perfect.
 
 Order is rough leverage estimate (highest first): user base × overlap
 with our power-user-with-multi-CLI persona × ease of approval.

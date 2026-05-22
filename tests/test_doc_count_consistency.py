@@ -3864,39 +3864,52 @@ class TestCanonicalPlaceholdersAreRendered:
 
         total_harnesses = json_target_count + (1 if has_codex else 0)
 
-        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
-        # Match prose "N CLI harnesses" claim.
-        prose_matches = re.findall(
-            r"(\w+)\s+CLI\s+harnesses",
-            claude_md,
+        # Iter #46 extension: also scan MCP_REGISTRY_SUBMISSIONS.md.
+        # That doc's "Why these registries" section is the marketing
+        # copy contributors paste into registry submission forms;
+        # under-counting the harness set there sells Trinity short
+        # to registry reviewers. Same drift shape, two surfaces.
+        targets = (
+            ("claude.md", r"(\w+)\s+CLI\s+harnesses"),
+            ("docs/MCP_REGISTRY_SUBMISSIONS.md", r"\((\w+)\s+harnesses"),
         )
         # Normalize spelled-out numbers to digits.
         spelled = {
             "one": 1, "two": 2, "three": 3, "four": 4,
             "five": 5, "six": 6, "seven": 7, "eight": 8,
         }
-        claimed_counts = set()
-        for m in prose_matches:
-            ml = m.lower()
-            if ml.isdigit():
-                claimed_counts.add(int(ml))
-            elif ml in spelled:
-                claimed_counts.add(spelled[ml])
-        if not claimed_counts:
+        errors: list[str] = []
+        for path, pattern in targets:
+            text = (REPO / path).read_text(encoding="utf-8")
+            prose_matches = re.findall(pattern, text)
+            claimed_counts = set()
+            for m in prose_matches:
+                ml = m.lower()
+                if ml.isdigit():
+                    claimed_counts.add(int(ml))
+                elif ml in spelled:
+                    claimed_counts.add(spelled[ml])
+            if not claimed_counts:
+                errors.append(
+                    f"  {path}: couldn't find harness-count prose. "
+                    f"Either the prose was renamed or this guard's "
+                    f"regex needs updating."
+                )
+                continue
+            if total_harnesses not in claimed_counts:
+                errors.append(
+                    f"  {path}: claims {sorted(claimed_counts)} harnesses, "
+                    f"install.py reality is {total_harnesses}"
+                )
+        if errors:
             raise AssertionError(
-                "Couldn't find any 'N CLI harnesses' prose in claude.md — "
-                "guard needs the regex updated."
-            )
-        if total_harnesses not in claimed_counts:
-            raise AssertionError(
-                f"claude.md 'N CLI harnesses' prose drifted from "
-                f"install.py reality.\n"
-                f"  install.py user scope writes to "
-                f"{json_target_count} JSON + {1 if has_codex else 0} "
-                f"TOML configs = {total_harnesses} total harnesses\n"
-                f"  claude.md prose claims: {sorted(claimed_counts)}\n\n"
-                f"Update claude.md to match (and update the example "
-                f"config-paths list right after the number)."
+                f"Install-mcp harness count drifted from install.py:\n"
+                f"  install.py user scope: {json_target_count} JSON + "
+                f"{1 if has_codex else 0} TOML configs = "
+                f"{total_harnesses} total\n\n" + "\n".join(errors)
+                + "\n\nUpdate the prose to match install.py's "
+                "json_targets tuple + codex_path. List paths inline so "
+                "a reader can verify the count without reading the code."
             )
 
     def test_doctor_install_hints_match_launchpad_canonical(self):
