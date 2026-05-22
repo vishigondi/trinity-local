@@ -1,4 +1,9 @@
-"""Parse `~/.trinity/me.md` into shareable taste lenses.
+"""Parse `~/.trinity/memories/lens.md` into shareable taste lenses.
+
+(Path renamed from `~/.trinity/me.md` per task #91; the auto-migration
+in `state_paths.memories_dir()` moves the file on first access. The
+parser here is path-agnostic — it calls `me_builder.load_me()` which
+resolves to the current canonical lens_path().)
 
 The /me document has 5 sections produced by the chairman in `lens-build`:
 recurring topics, vocabulary, implicit rejections, cross-domain analogies,
@@ -36,8 +41,8 @@ class ImplicitRejection:
 
     def to_dict(self) -> dict[str, str]:
         # `model_frame` and `user_substituted` are kept in the dict for the
-        # chairman's context (it reads /me.md verbatim). The launchpad does
-        # NOT render them — they're private prompt content.
+        # chairman's context (it reads memories/lens.md verbatim). The
+        # launchpad does NOT render them — they're private prompt content.
         return {
             "title": self.title,
             "model_frame": self.model_frame,
@@ -241,10 +246,13 @@ def parse_abstract_lenses(text: str) -> list[AbstractLens]:
 
 
 def parse_taste_lenses(text: str | None = None) -> TasteLenses:
-    """Parse the /me document into structured taste lenses.
+    """Parse the lens document into structured taste lenses.
 
-    Pass `text=None` (default) to read the live `~/.trinity/me.md`. Returns
-    an empty TasteLenses when /me is missing or hasn't been built yet.
+    Pass `text=None` (default) to read the live
+    `~/.trinity/memories/lens.md` (was `~/.trinity/me.md` pre-task-#91;
+    the auto-migration in `state_paths.memories_dir()` moves the file
+    on first access). Returns an empty TasteLenses when lens.md is
+    missing or hasn't been built yet.
     """
     if text is None:
         text = load_me()
