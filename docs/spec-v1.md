@@ -88,12 +88,12 @@ All of the below is **already in the repo** as of CHANGELOG commit `884615f`. v1
 remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 ### Surfaces
-- `trinity-local council-launch` — fan out to Claude/Gemini/Codex CLIs, chairman synthesizes, returns Routing JSON outcome
+- `trinity-local council-launch` — fan out to Claude/Codex/Antigravity CLIs, chairman synthesizes, returns Routing JSON outcome
 - `trinity-local lens-build` — 5-stage lens-discovery pipeline (Stage 0 turn-pair rejections → basins → decisions → pair-mining → basin post-filter)
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local status` — pre-flight cold-install checks
-- `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Antigravity + drops `/trinity` skill
+- `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Antigravity / Cursor + drops `/trinity` skill
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local ingest-recent` — incremental transcript ingest (replaces the retired watch-once / watch-loop CLIs; MCP `ask` also fires this passively on every call)
 - `trinity-local council-rate` — record user verdict; persists to `outcome.metadata.user_verdict` + `council_feedback.jsonl`

@@ -5105,6 +5105,94 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestInstallMcpHarnessProseLineupIncludesCursor:
+    """Sibling of `test_install_mcp_harness_claim_matches_code` —
+    that guard catches counts (\"three CLI harnesses\" / \"(three
+    harnesses)\" prose); this one catches *named lineups* of the
+    harnesses.
+
+    Sweep iter #93 caught `docs/spec-v1.md:96`: *"install-mcp —
+    registers MCP server in Claude Code / Codex / Antigravity +
+    drops /trinity skill."* Three harnesses listed, Cursor omitted.
+    install.py writes to four (`.claude.json`, `.gemini/settings.json`,
+    `.codex/config.toml`, `.cursor/mcp.json`).
+
+    Same shape as principle #20 — Cursor was the most recent
+    addition (P16/P92 persona audit), so older prose hadn't been
+    re-edited to include it, while newer prose has.
+
+    Guard: scan claude.md + all `class: live` docs in `docs/` for
+    install-mcp prose lineups. When a line cites Claude Code AND
+    Codex AND Antigravity by name in proximity, it must also cite
+    Cursor. Lines that explicitly carve out the four harnesses by
+    intent (e.g. listing CLI-only vs IDE harnesses) get a pass.
+    """
+
+    def test_install_mcp_harness_lineups_include_cursor(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = [repo / "claude.md", repo / "README.md"]
+        docs_dir = repo / "docs"
+        if docs_dir.exists():
+            for path in sorted(docs_dir.glob("*.md")):
+                try:
+                    head = path.read_text(encoding="utf-8")[:200]
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "class: live" in head:
+                    targets.append(path)
+
+        # Match prose that lists ≥3 of the four harnesses in proximity
+        # (within a single line). The four harness names as install-mcp
+        # would identify them:
+        harness_re = re.compile(
+            r"\bClaude Code\b|\bCodex\b|\bAntigravity\b|\bCursor\b"
+        )
+        # Heuristic: a line mentioning install-mcp + ≥3 harness names is
+        # a lineup claim. Lines that only mention one or two are talking
+        # about something narrower (e.g. just Antigravity-specific behavior).
+        install_mcp_keyword_re = re.compile(
+            r"install-mcp|install_mcp|\bMCP server\b|register.*MCP|wire.*MCP",
+            re.IGNORECASE,
+        )
+
+        offenders: list[str] = []
+        EXEMPT_FILES = {"tests/test_doc_count_consistency.py"}
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                if not install_mcp_keyword_re.search(line):
+                    continue
+                hits = set(harness_re.findall(line))
+                # Only enforce on lineup claims (≥3 of the four named).
+                if len(hits) < 3:
+                    continue
+                if "Cursor" in hits:
+                    continue
+                offenders.append(f"  {rel}:{idx}: {line.strip()[:160]}")
+
+        if offenders:
+            msg = [
+                "install-mcp prose lineups omit Cursor.",
+                "install.py writes to FOUR harness configs:",
+                "  ~/.claude.json   (Claude Code)",
+                "  ~/.gemini/settings.json   (Antigravity)",
+                "  ~/.codex/config.toml   (Codex)",
+                "  ~/.cursor/mcp.json   (Cursor)",
+                "Update the prose to include Cursor in the lineup.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestShortcutDispatcherNotPresentedAsLive:
     """The macOS Shortcut dispatcher (`shortcut_setup.py`,
     `dispatch_runner.py`, `commands/shortcuts.py`, the `trinity-dispatch`
