@@ -114,10 +114,16 @@ continuity, and the supervision ledger.
    desktop still launches councils through the CLI.
 6. **Static artifacts remain durable.** Council pages, memory pages, share
    cards, and review pages remain reopenable from disk.
-7. **Every action writes the same ledger.** Desktop and mobile verdicts must
-   update the same `CouncilOutcome.metadata.user_verdict`,
-   `council_feedback.jsonl`, cortex override, and routing-ledger paths as
-   terminal and MCP actions.
+7. **Every action writes the same ledger.** Desktop and mobile pick-vetoes
+   must update the same cortex override state (`picks.json` + the
+   `mark_pick_wrong` MCP tool's `override_count` cascade) and routing-ledger
+   paths as terminal and MCP actions. The pre-2026-05-22 mention of
+   `CouncilOutcome.metadata.user_verdict` is retired — the rating UX (task
+   #134) no longer accepts user-side winner verdicts; the chairman's
+   `routing_label.winner` is the sole supervision signal, fed
+   automatically into `compute_personal_routing_table()`. Refinement
+   prompts on each council carry the "what should it have been instead"
+   signal inline.
 8. **Links never carry private content.** Universal links may carry IDs,
    redacted titles, or encrypted user-exported fragments. They must not place
    prompt text or provider outputs in server-visible paths, query strings, or
