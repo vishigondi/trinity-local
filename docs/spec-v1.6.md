@@ -499,10 +499,14 @@ itself.
   ingest tests pass through real-parser + real-dispatch path; no
   monkeypatching of the parse layer.
 - ✅ Day 8 (commit `fb9de4c`): Launchpad Surface 33 "Browser
-  capture" card. Same shape as rate-limit-saves / verdict-rate —
-  per-provider counts, last-capture timestamp, `stale` flag flips
-  warning border when last capture > 24h ago (silent-breakage
-  signal). 11 tests; empty-state CTA points at install command.
+  capture" card. Per-provider counts, last-capture timestamp,
+  `stale` flag flips warning border when last capture > 24h ago
+  (silent-breakage signal). 11 tests; empty-state CTA points at
+  install command. (Note: the original Day-8 plan compared this
+  card's shape to `rate-limit-saves` / `verdict-rate` cards on
+  the launchpad — both retired 2026-05-21 alongside the rest of
+  the rating UX. The Browser-capture card shape stayed; only the
+  comparators went away.)
 - ✅ Day 9: README v1.6 section + this status sweep + the launch
   package note updating the "Install once" wedge claim.
 - ⏸ Day 10 — ship: pending the user's `chrome://extensions → Load
