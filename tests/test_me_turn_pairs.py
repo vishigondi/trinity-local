@@ -8,6 +8,8 @@ without them, Option A is just plausible JSON, not real signal.
 
 from __future__ import annotations
 
+from trinity_local.me.turn_pairs import RejectionSignal
+
 
 class TestRejectionParser:
     def test_valid_signal_types_are_the_four_spec_types(self):
@@ -41,8 +43,7 @@ class TestRejectionParser:
 
 
 class TestValidators:
-    def _sig(self, sig_type: str, prompt_id: str = "p1") -> "RejectionSignal":
-        from trinity_local.me.turn_pairs import RejectionSignal
+    def _sig(self, sig_type: str, prompt_id: str = "p1") -> RejectionSignal:
         return RejectionSignal(
             id="r_1",
             type=sig_type,

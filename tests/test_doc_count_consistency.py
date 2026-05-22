@@ -3721,14 +3721,20 @@ class TestNoFStringWithoutPlaceholders:
         import subprocess
         import sys
         repo = Path(__file__).resolve().parent.parent
-        commands_dir = repo / "src" / "trinity_local" / "commands"
+        # Iter #100 extended scope to also include tests/ — same drift
+        # class lived there (3 stray-`f`-prefix sites caught alongside
+        # the iter-#100 undefined-name `RejectionSignal` bug).
+        scan_dirs = [
+            repo / "src" / "trinity_local" / "commands",
+            repo / "tests",
+        ]
 
         # Shell out to pyflakes — it correctly distinguishes top-level
         # f-strings from inner format_spec JoinedStr nodes (which a naive
         # ast.walk would false-positive on, e.g. `f"{x:>8,}"` contains
         # an inner JoinedStr `f">8,"` that isn't a real source f-string).
         result = subprocess.run(
-            [sys.executable, "-m", "pyflakes", str(commands_dir)],
+            [sys.executable, "-m", "pyflakes", *[str(d) for d in scan_dirs]],
             capture_output=True,
             text=True,
         )
@@ -3740,7 +3746,7 @@ class TestNoFStringWithoutPlaceholders:
             if "f-string is missing placeholders" in line
         ]
         if fstring_hits:
-            msg = ["f-strings without placeholders in commands/ (stray `f` prefix):"]
+            msg = ["f-strings without placeholders in commands/ or tests/ (stray `f` prefix):"]
             for line in fstring_hits:
                 msg.append(f"  {line}")
             msg.append("")
@@ -4468,16 +4474,16 @@ class TestCanonicalPlaceholdersAreRendered:
                 "render_docs.CANONICAL declares helpers with no consumer doc:\n"
                 + "\n".join(f"  - {field}" for field in orphans)
                 + "\n\nEach declared canonical helper should have at least one "
-                f"<!-- canonical:NAME --> placeholder in a doc that the "
-                f"renderer can substitute into. Orphan helpers are either:\n"
-                f"  (a) drift: a doc used to consume the helper but the "
-                f"placeholder fell out — restore it where the value belongs.\n"
-                f"  (b) dead code: the helper was added speculatively but "
-                f"never wired into a doc — drop it from CANONICAL.\n\n"
-                f"Iter #36 caught ``version`` as an orphan when claude.md "
-                f"L56's pyproject-version mention was inlined as a raw "
-                f"string rather than the placeholder; fix was to wrap the "
-                f"version in <!-- canonical:version -->X.Y.Z<!-- /canonical -->."
+                "<!-- canonical:NAME --> placeholder in a doc that the "
+                "renderer can substitute into. Orphan helpers are either:\n"
+                "  (a) drift: a doc used to consume the helper but the "
+                "placeholder fell out — restore it where the value belongs.\n"
+                "  (b) dead code: the helper was added speculatively but "
+                "never wired into a doc — drop it from CANONICAL.\n\n"
+                "Iter #36 caught ``version`` as an orphan when claude.md "
+                "L56's pyproject-version mention was inlined as a raw "
+                "string rather than the placeholder; fix was to wrap the "
+                "version in <!-- canonical:version -->X.Y.Z<!-- /canonical -->."
             )
 
     def test_command_module_count_claim_matches_main_py(self):
@@ -5103,6 +5109,63 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestNoUndefinedNamesInTests:
+    """pyflakes 'undefined name' warnings are real bugs — code that
+    references a name not in scope. Unlike unused-imports (signal-
+    masking), undefined names indicate code that would fail at
+    runtime under some path.
+
+    Sweep iter #100 caught one in `tests/test_me_turn_pairs.py:44`:
+    `def _sig(...) -> \"RejectionSignal\":` used a string-form
+    forward reference annotation, and `RejectionSignal` was only
+    imported inside the function body. With `from __future__ import
+    annotations` in effect (L9), all annotations are lazy-strings
+    anyway, so the explicit quotes were redundant — but pyflakes
+    couldn't resolve `RejectionSignal` at the annotation site
+    because the import was function-scoped. Fixed by hoisting the
+    import to module-scope.
+
+    Guard: shell out to pyflakes against tests/ + src/, fail on any
+    'undefined name' line. Defensive against the next forward-ref-
+    style annotation lookup that pyflakes can't resolve.
+    """
+
+    def test_no_undefined_names_in_tests_and_src(self):
+        import subprocess
+        import sys
+
+        repo = Path(__file__).resolve().parent.parent
+        scan_dirs = [
+            repo / "tests",
+            repo / "src" / "trinity_local",
+        ]
+        result = subprocess.run(
+            [sys.executable, "-m", "pyflakes", *[str(d) for d in scan_dirs]],
+            capture_output=True,
+            text=True,
+        )
+        undefined_hits = [
+            line for line in result.stdout.splitlines()
+            if "undefined name" in line
+        ]
+        if undefined_hits:
+            msg = [
+                "pyflakes flagged undefined names in tests/ or src/. "
+                "Undefined names cause runtime errors under the code path "
+                "that hits them.",
+                "",
+                "Common fixes:",
+                "  - hoist function-scope imports to module scope when used "
+                "in annotations",
+                "  - add the missing import",
+                "  - check spelling against the actual name in the imported module",
+                "",
+            ]
+            for line in undefined_hits:
+                msg.append(f"  {line}")
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoUnusedImportsInTests:
     """Task #100 ('Unused-imports cleanup pass — pyflakes-driven')
     was marked completed on 2026-05-12. Sweep iter #99 found the
@@ -5249,7 +5312,7 @@ class TestGeminiVersionMatchesCanonical:
 
         if offenders:
             msg = [
-                f"Active docs cite a Gemini version that doesn't match",
+                "Active docs cite a Gemini version that doesn't match",
                 f"claude.md's canonical underlying-model entry "
                 f"({canonical_gemini}).",
                 "Update the citation, or update claude.md's provider trio",

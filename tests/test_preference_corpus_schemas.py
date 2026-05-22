@@ -287,7 +287,7 @@ class TestRealCorpusSchemaCompliance:
                 except jsonschema_mod.ValidationError as exc:
                     failures.append((idx, str(exc)[:300]))
         if failures:
-            msg = f"Real rejections.jsonl failed validation:\n"
+            msg = "Real rejections.jsonl failed validation:\n"
             for ln, err in failures[:10]:
                 msg += f"  line {ln}: {err}\n"
             pytest.fail(msg)
