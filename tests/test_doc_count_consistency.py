@@ -5177,6 +5177,29 @@ class TestSaveCouncilOutcomeEnforcesSchemaRequiredFields:
         with pytest.raises(ValueError, match="routing_label is None"):
             save_council_outcome(outcome)
 
+    def test_save_eval_set_refuses_stats_without_items_key(self, tmp_path, monkeypatch):
+        """Iter #107 extension: eval_set.schema.json declares
+        `stats.items` (the integer count) as required, but the
+        EvalSet dataclass types stats as a bare dict. save_eval_set
+        now fails fast if the dict shape is wrong."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import importlib
+        import trinity_local.state_paths as sp
+        importlib.reload(sp)
+
+        from trinity_local.evals.builder import EvalSet, save_eval_set
+
+        eval_set = EvalSet(
+            eval_id="e_test_bad_stats",
+            built_at="2026-05-22T00:00:00Z",
+            source="rejections",
+            stats={"total": 0},  # ← schema requires `items`, not `total`
+            items=[],
+        )
+        import pytest
+        with pytest.raises(ValueError, match="stats.*items"):
+            save_eval_set(eval_set)
+
 
 class TestHandoffSlugIsAntigravity:
     """The `handoff` CLI + MCP tool take the provider slug — per

@@ -230,7 +230,24 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
 
 
 def save_eval_set(eval_set: EvalSet) -> Path:
-    """Persist to ~/.trinity/evals/<eval_id>.json. Returns the path."""
+    """Persist to ~/.trinity/evals/<eval_id>.json. Returns the path.
+
+    Contract: schemas/eval_set.schema.json declares `stats.items` (the
+    integer item count) as required. The dataclass types stats as a
+    bare dict — no shape enforcement at construction time, so a future
+    code path that builds an EvalSet with the wrong stats shape would
+    silently write a schema-invalid JSON. Fail fast at the boundary
+    (same pattern as save_council_outcome — sweep iter #106).
+    """
+    if not isinstance(eval_set.stats, dict) or "items" not in eval_set.stats:
+        raise ValueError(
+            f"save_eval_set refused: eval_set.stats must be a dict with "
+            f"`items` (the integer count of eval items). Got "
+            f"{type(eval_set.stats).__name__} with keys "
+            f"{list(eval_set.stats.keys()) if isinstance(eval_set.stats, dict) else 'n/a'}. "
+            f"Schema declares `stats.items` required."
+        )
+
     path = evals_dir() / f"{eval_set.eval_id}.json"
     path.write_text(
         json.dumps(eval_set.to_dict(), indent=2, ensure_ascii=False),
