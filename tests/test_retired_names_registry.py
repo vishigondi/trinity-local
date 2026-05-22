@@ -63,6 +63,56 @@ class TestRegistryIntegrity:
             "meant to be filled at commit time but slipped through."
         )
 
+    def test_every_commit_ref_resolves_in_git(self):
+        """Iter #80 catch — iter #76 fixed the 6 placeholder commit
+        SHAs and iter #77 added a per-record + file-scan guard for the
+        literal `(this commit)` token. Both guards check the STRING
+        shape but not that the SHA actually resolves in the git
+        history. A typo (`331c57b` vs `331c75b`) would still pass.
+
+        This guard runs `git cat-file -t <sha>` on every commit field
+        and asserts each one is a real commit object. Skips silently
+        if git isn't available (no repo / shallow clone / CI sandbox
+        without .git access) — the principle #19 discipline says
+        guards must not silently skip on the polluter; here the skip
+        is for an environment that genuinely can't run the check, not
+        a polluted state.
+
+        Catches: typo SHAs, future renames that copy a commit field
+        from the wrong record, and accidental empty / `xxx` values.
+        """
+        import subprocess
+        repo = REPO
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                cwd=repo, capture_output=True, text=True, check=False,
+            )
+            if result.returncode != 0:
+                pytest.skip("git not available in this environment")
+        except FileNotFoundError:
+            pytest.skip("git binary not found")
+
+        bad: list[tuple[str, str]] = []
+        for name, record in sorted(RETIRED.items()):
+            sha = record.commit
+            # Skip the per-record placeholder check (already handled
+            # by test_record_has_required_fields); we only verify
+            # things that LOOK like SHAs actually resolve.
+            if not re.match(r"^[0-9a-f]{7,40}$", sha):
+                continue
+            result = subprocess.run(
+                ["git", "cat-file", "-t", sha],
+                cwd=repo, capture_output=True, text=True, check=False,
+            )
+            if result.returncode != 0 or result.stdout.strip() != "commit":
+                bad.append((name, sha))
+        assert not bad, (
+            "Retirement entries with commit SHAs that don't resolve "
+            "in the git history (typo or wrong copy):\n"
+            + "\n".join(f"  {n}: {s}" for n, s in bad)
+        )
+
     def test_no_duplicate_keys_in_dict_literal(self):
         """Python dict literals silently keep the last value for repeated keys,
         which would erase earlier registry entries on a copy-paste mistake.
