@@ -529,12 +529,15 @@ and charge ahead". Six more cleanups shipped:
   3 internal-only subparsers + their handlers (`council-prompt`,
   `council-run`, `council-outcome`). No skill / launchpad / NM dispatch
   / test callers. Kept: `council-launch` + `council-share` +
-  `council-iterate` + `council-stop` + `council-rate` + `council-start`
-  (the last two are fired by the dispatch registry via the Chrome
-  extension's Native Messaging host, even though users don't type
-  them). Library shapes (`run_council`, `create_council_outcome`,
-  `render_*_prompt`) remain on the council_runner / council_runtime
-  imports — the wire shape is unchanged, only the user-facing CLI.
+  `council-iterate` + `council-stop` + `council-start` (the last is
+  fired by the dispatch registry via the Chrome extension's Native
+  Messaging host, even though users don't type it). `council-rate`
+  was retired 2026-05-22 with the rest of the rating surface (commit
+  4c34757) — chairman's `routing_label.winner` is the supervision
+  signal; no user-action loop. Library shapes (`run_council`,
+  `create_council_outcome`, `render_*_prompt`) remain on the
+  council_runner / council_runtime imports — the wire shape is
+  unchanged, only the user-facing CLI.
 
 - **FAQ sharpened on Anthropic-Dreaming**: SHIPPED — README "How is
   this different from Anthropic's Dreaming?" + "Won't Anthropic just
