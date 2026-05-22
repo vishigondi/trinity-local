@@ -49,7 +49,11 @@ class TestRegistryIntegrity:
         )
         assert record.reason, f"{name}: empty reason"
         assert record.kind in (
-            "cli", "mcp_tool", "module", "file", "config_field", "concept"
+            "cli", "mcp_tool", "module", "file", "config_field", "concept",
+            "function",  # added 2026-05-22 for doctor._check_verdict_rate
+                         # retirement — function-level retirements weren't
+                         # representable by the prior 6 kinds (closest was
+                         # "concept" which understates the structural shape).
         ), f"{name}: invalid kind {record.kind!r}"
         # Iter #76 catch: 6 retirement entries shipped with
         # `commit="(this commit)"` — a placeholder that was supposed
