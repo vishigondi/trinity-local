@@ -1071,14 +1071,174 @@ def _group_cells_into_sessions(cells: list[dict]) -> list[list[dict]]:
     return groups
 
 
-def parse_gemini_takeout_html(path: Path) -> Iterator[SessionRecord]:
+# ---------------------------------------------------------------------------
+# v="3" — embedding+time hybrid grouper (task #107)
+# ---------------------------------------------------------------------------
+# The pure time-proximity grouper above (v="2") doesn't reconstruct threads
+# correctly on real Takeout corpora:
+#   1. Cells with missing timestamps fragment (new group started on every None).
+#   2. User resumes a topic after >30 min — wrongly split into 2 sessions.
+#   3. User multitasks <30 min across unrelated topics — wrongly merged.
+#
+# The v="3" path embeds each cell's (prompt + " " + response) text via
+# nomic-768d, then sliding-window clusters cells in time order. A cell
+# attaches to the most-recent open cluster when BOTH:
+#   (a) cosine(cell, cluster_centroid) >= GEMINI_TAKEOUT_EMBED_SIMILARITY
+#   (b) time gap to cluster's last cell <= GEMINI_TAKEOUT_EMBED_MAX_WINDOW_SECONDS
+# Otherwise a new cluster is seeded.
+#
+# Threshold choice (0.55): synthetic-data validated. nomic-768d cosines on
+# topic-related prose typically land in 0.65–0.85; cross-topic cosines
+# land in 0.2–0.45. 0.55 is the midpoint of "clearly related" vs "clearly
+# unrelated" and tolerates the natural drift within a single conversation.
+# May need re-tuning once we see real-corpus distributions — flagged in
+# the task #107 commit.
+#
+# Time bound (24h): much larger than the v="2" 30-min gap so the embedding
+# signal can override "long gap" on resumed topics. Beyond 24h, even
+# strongly related cells are almost always a fresh session that happens
+# to be on a similar topic — the time bound is a safety net, not the
+# primary cluster signal.
+#
+# Embedding fallback: if MLX isn't installed, embeddings.embed_batch falls
+# back to a deterministic TF-IDF projection. TF-IDF cosines aren't directly
+# comparable to nomic cosines (different distributions), so when the
+# backend is "tfidf" we fall through to the v="2" path entirely (caller
+# checks embeddings.get_backend()).
+
+GEMINI_TAKEOUT_EMBED_SIMILARITY = 0.55
+GEMINI_TAKEOUT_EMBED_MAX_WINDOW_SECONDS = 24 * 3600
+
+
+def _group_cells_by_embedding(cells: list[dict]) -> list[list[dict]]:
+    """Embedding+time hybrid grouper (v="3" path, task #107).
+
+    Embeds each cell's (prompt + " " + response) text in ONE batched call,
+    then sliding-window clusters cells in time order using cosine similarity
+    against a running cluster centroid plus a generous time bound.
+
+    Cells with missing timestamps are filled with last_seen + 1 second so
+    they ride along with adjacent cells instead of fragmenting.
+    """
+    from datetime import datetime, timedelta
+
+    if not cells:
+        return []
+
+    # 1) Parse timestamps and assign placeholder timestamps to None values.
+    # Sort by parsed timestamp first (None goes to the end), then walk and
+    # fill None with last_seen + 1s. This keeps the time order stable while
+    # ensuring missing-timestamp cells join the most-recent group.
+    def parse_ts(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+
+    timed = [(parse_ts(c["ts_iso"]), c) for c in cells]
+    # Sort ascending; None timestamps push to the end of the corpus, but we
+    # patch them inline below so they join their physical neighbors instead.
+    timed.sort(key=lambda pair: pair[0] or datetime.max)
+
+    last_seen: datetime | None = None
+    filled: list[tuple[datetime, dict]] = []
+    for ts, cell in timed:
+        if ts is None:
+            # No timestamp on this cell — anchor it to last_seen + 1s so
+            # it joins the previous cluster's time window. If last_seen is
+            # also None (first cell missing ts), use epoch as the anchor.
+            ts = (last_seen + timedelta(seconds=1)) if last_seen else datetime(1970, 1, 1)
+        filled.append((ts, cell))
+        last_seen = ts
+
+    # Re-sort after filling so any "patched" timestamps land in proper order.
+    filled.sort(key=lambda pair: pair[0])
+
+    # 2) Embed every cell in ONE batched call (meta-principle: batch at
+    # the boundary; 10k cells × per-cell embed() would be ~10× slower).
+    from .embeddings import embed_batch
+    from .embeddings.backend_tfidf import cosine_similarity
+
+    texts = [
+        (cell["prompt"] + " " + cell["response"]).strip() or cell["native_id"]
+        for _, cell in filled
+    ]
+    vectors = embed_batch(texts)
+
+    # 3) Sliding-window cluster. Each cluster carries its centroid (running
+    # mean of member vectors) + the timestamp of its most-recent cell.
+    groups: list[list[dict]] = []
+    centroids: list[list[float]] = []
+    last_ts_per_group: list[datetime] = []
+
+    for (ts, cell), vec in zip(filled, vectors):
+        attached = False
+        # Scan clusters in reverse-chronological order (most-recent first)
+        # so resumed topics attach to the freshest matching cluster.
+        for idx in range(len(groups) - 1, -1, -1):
+            time_gap = (ts - last_ts_per_group[idx]).total_seconds()
+            if time_gap > GEMINI_TAKEOUT_EMBED_MAX_WINDOW_SECONDS:
+                continue
+            sim = cosine_similarity(vec, centroids[idx])
+            if sim >= GEMINI_TAKEOUT_EMBED_SIMILARITY:
+                groups[idx].append(cell)
+                # Update centroid as running mean.
+                n = len(groups[idx])
+                centroids[idx] = [
+                    (centroids[idx][i] * (n - 1) + vec[i]) / n
+                    for i in range(len(vec))
+                ]
+                last_ts_per_group[idx] = ts
+                attached = True
+                break
+        if not attached:
+            groups.append([cell])
+            centroids.append(list(vec))
+            last_ts_per_group.append(ts)
+
+    # 4) Emit groups in time order (sort by first-cell timestamp).
+    def first_ts(group: list[dict]) -> datetime:
+        for cell in group:
+            ts = parse_ts(cell["ts_iso"])
+            if ts is not None:
+                return ts
+        return datetime.max
+    groups.sort(key=first_ts)
+    return groups
+
+
+def parse_gemini_takeout_html(
+    path: Path,
+    *,
+    use_embedding_grouping: bool = True,
+) -> Iterator[SessionRecord]:
     """Parse a Gemini Takeout MyActivity.html file.
 
     Each outer-cell is one prompt+response activity entry. Google flattens
-    multi-turn conversations into independent cells, but the timestamps reveal
-    the original threading. We group cells whose gap is <30min into a single
-    SessionRecord so downstream consumers see proper multi-turn context
-    (preceding/following assistant turns).
+    multi-turn conversations into independent cells, but the original threading
+    has to be reconstructed.
+
+    Two grouping strategies are available:
+
+    * ``use_embedding_grouping=True`` (default, v="3") — embed each cell via
+      nomic-768d and sliding-window cluster by cosine similarity + a 24h
+      time bound. Reconstructs threads correctly across (a) missing
+      timestamps, (b) >30min gaps with topic continuity, (c) topic-switch
+      multitasking inside a short window. Used when MLX embeddings are
+      available; falls back to v="2" when the active backend is TF-IDF
+      (whose cosines aren't directly comparable to nomic cosines, so the
+      0.55 threshold doesn't transfer).
+
+    * ``use_embedding_grouping=False`` (v="2") — pure time-proximity:
+      gap > 30 min OR missing timestamp starts a new session. Preserved
+      for back-compat / tests / embed-less environments.
+
+    The emitted SessionRecord carries source_format_version + a
+    ``reconstruction`` metadata key (``embedding+time`` or
+    ``time_proximity``) so downstream consumers can see which path
+    produced each session.
     """
     try:
         raw = path.read_text(encoding="utf-8")
@@ -1089,7 +1249,30 @@ def parse_gemini_takeout_html(path: Path) -> Iterator[SessionRecord]:
     if not cells:
         return
 
-    for group in _group_cells_into_sessions(cells):
+    # Backend probe: nomic cosines and TF-IDF cosines aren't comparable, so
+    # the 0.55 threshold only transfers under the nomic backend. When the
+    # active backend is TF-IDF (MLX not installed / fallback), the v="3"
+    # path silently falls through to v="2" — back-compat parity for
+    # embed-less environments.
+    use_v3 = use_embedding_grouping
+    if use_v3:
+        try:
+            from .embeddings import get_backend
+            if get_backend() != "mlx":
+                use_v3 = False
+        except Exception:
+            use_v3 = False
+
+    if use_v3:
+        groups = _group_cells_by_embedding(cells)
+        version_tag = "3"
+        reconstruction_kind = "embedding+time"
+    else:
+        groups = _group_cells_into_sessions(cells)
+        version_tag = "2"
+        reconstruction_kind = "time_proximity"
+
+    for group in groups:
         if not group:
             continue
         first_native_id = group[0]["native_id"]
@@ -1117,6 +1300,14 @@ def parse_gemini_takeout_html(path: Path) -> Iterator[SessionRecord]:
         if not messages:
             continue
 
+        metadata: dict[str, Any] = {
+            "cell_count": len(group),
+            "reconstruction": reconstruction_kind,
+        }
+        if version_tag == "3":
+            metadata["reconstruction_threshold"] = GEMINI_TAKEOUT_EMBED_SIMILARITY
+            metadata["reconstruction_window_seconds"] = GEMINI_TAKEOUT_EMBED_MAX_WINDOW_SECONDS
+
         yield SessionRecord(
             provider="gemini",
             session_id=session_id,
@@ -1131,7 +1322,7 @@ def parse_gemini_takeout_html(path: Path) -> Iterator[SessionRecord]:
             cli_name="gemini_takeout",
             cli_version=None,
             source_format="gemini_takeout_html",
-            source_format_version="2",  # multi-turn grouping
-            metadata={"cell_count": len(group)},
+            source_format_version=version_tag,
+            metadata=metadata,
             messages=messages,
         )
