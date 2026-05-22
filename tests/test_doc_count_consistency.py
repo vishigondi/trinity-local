@@ -5367,6 +5367,20 @@ class TestMcpToolCountClaimsArePinnedToCanonical:
         launch_day = repo / "docs" / "launch-day"
         if launch_day.exists():
             targets.extend(sorted(launch_day.glob("*.md")))
+        # Sweep iter #90: extend coverage to all `class: live` docs in
+        # docs/. Caught spec-v1.md L103 — a launch-spec section heading
+        # hardcoded "8 total" without a canonical placeholder. Live-doc
+        # status means breaking-API changes go through versioning;
+        # numeric claims about the live tool surface must pin to source.
+        docs_dir = repo / "docs"
+        if docs_dir.exists():
+            for path in sorted(docs_dir.glob("*.md")):
+                try:
+                    head = path.read_text(encoding="utf-8")[:200]
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "class: live" in head and path not in targets:
+                    targets.append(path)
 
         # `\bN tools\b` where N is a digit cluster. Captures
         # "8 tools", "8 MCP tools", "all 8 MCP tools", etc.
@@ -5383,12 +5397,20 @@ class TestMcpToolCountClaimsArePinnedToCanonical:
             r"<!-- canonical:mcp_tool_count -->\d+<!-- /canonical -->\s*(?:MCP\s+|public\s+)?tools?",
             re.IGNORECASE,
         )
-        # Exempt strings that aren't actually about MCP tool counts.
-        # `available_models` is a route() parameter naming, not a count.
+        # Exempt strings that aren't actually about Trinity's current
+        # MCP tool count.
         EXEMPT_PATTERNS = (
+            # `available_models` is a route() parameter, not a count.
             re.compile(r"\b\d+\s+command-line\s+tools?\b", re.IGNORECASE),
-            # "1 tool" / "2 tools" in arbitrary prose that's not about Trinity
-            # are unlikely but not currently exempted — flag and review.
+            # Historical-vs-current contrasts. The original v1 spec
+            # proposed 3 tools; we ship more now. Lines that contrast
+            # the historical proposal with the current state are not
+            # drift — they're documenting the divergence.
+            re.compile(
+                r"original\s+spec|spec\s+wanted|originally\s+\d+|"
+                r"wanted\s+\d+\s+tools?|shipped at \d+",
+                re.IGNORECASE,
+            ),
         )
 
         offenders: list[str] = []

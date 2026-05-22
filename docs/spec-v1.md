@@ -100,9 +100,9 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local handoff <provider>` — cross-provider conversation continuity (the 60-second hero demo). Pulls recent (user, assistant) turns from the cross-provider prompt index, dispatches to a different provider with "continue this thread" context. Mirror of MCP `handoff` tool. Workstream #2 of the launch arc; tick #119.
 - `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
 
-### MCP tool surface (8 total: 4 canonical + 3 v1.5 + 1 launch-arc)
+### MCP tool surface (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> total: 4 canonical + 3 v1.5 + 1 launch-arc)
 
-The original spec wanted 3 tools (council / query_lens / add_pair). Current ships 8 —
+The original spec wanted 3 tools (council / query_lens / add_pair). Current ships <!-- canonical:mcp_tool_count -->8<!-- /canonical --> —
 4 canonical, 3 v1.5 additions, 1 launch-arc addition (`handoff` from tick #119).
 (`get_eval_summary` shipped post-#122 and was retired 2026-05-18 in commit `1fed7fc`
 — agents ground via `ask` + picks; eval-summary stays on the launchpad card +
