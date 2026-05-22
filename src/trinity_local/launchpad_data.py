@@ -1013,18 +1013,19 @@ def _browser_capture() -> dict:
     capture" timestamp ages; same shape as the verdict_rate /
     handoff_ready / cortex_freshness checks.
 
-    Skips both kinds of partial-capture files:
-      - ``<conv_id>.stream.json`` — adapter outputs (e.g. claude.js
-        accumulator). Conv_id is real but the canonical fetch is
-        preferred for the user-facing count.
-      - ``stream-<urlhash>.json`` — fallback no-adapter writes
-        (capture_host stores raw stream bodies under this prefix when
-        no ``__TRINITY_ADAPTERS.<provider>`` exists). Since
-        `gemini.js` shipped (commit 441bc28, task #135), all 3
-        providers have adapters; this fallback path is dormant
-        unless a new untracked provider URL gets visited. Stream
-        files have no conv_id, just an opaque url hash; they aren't
-        user-facing conversations.
+    File-shape filtering (provider-conditional):
+      - ``<conv_id>.stream.json`` for claude/chatgpt — adapter
+        accumulator sidecars to canonical ``<conv_id>.json`` files;
+        skipped to avoid double-counting.
+      - ``<conv_id>.stream.json`` for gemini — IS the canonical
+        output (Google's batchexecute is reply-only; gemini.js writes
+        directly to ``.stream.json``). Counted.
+      - ``stream-<urlhash>.json`` (any provider) — fallback no-adapter
+        writes when no ``__TRINITY_ADAPTERS.<provider>`` exists. Since
+        `gemini.js` shipped (commit 441bc28, task #135), all 3 named
+        providers have adapters; this fallback path is dormant unless
+        a new untracked provider URL gets visited. Always skipped
+        (no conv_id, just an opaque url hash; not user-facing).
 
     Returns:
       - {has_data: False, install_command} when zero capture files
