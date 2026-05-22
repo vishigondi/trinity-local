@@ -263,11 +263,10 @@ Launch day = May 13–15, 2026 per the multiple councils that ratified the condi
 See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 
 **Lands in v1.5:**
-- **MCP-primary surface** — three-tier tools (`ask` cheap / `run_council` medium / `plan_and_execute` expensive). Claude Code calls Trinity as a specialist consult.
+- **MCP-primary surface** — two-tier tools (`ask` cheap / `run_council` medium). Claude Code calls Trinity as a specialist consult. (The originally-planned third tier `plan_and_execute` was sunset 2026-05-22 — the harness owns multi-step orchestration better than Trinity should.)
 - **Cortex consolidation** — flagship-extracted routing patterns per basin, stored at `~/.trinity/scoreboard/picks.json`. Operational scoreboard the chairman picker reads; not a cognitive memory. Hippocampus (kNN) + Cortex (rules) two-tier picker pipeline.
 - **Local model dispatch** — Ollama + MLX added to the dispatch layer. Local routes for easy subtasks = zero subscription cost.
 - **Rate-limit handling + Conductor replan** — when Claude's own sub hits its limit, Trinity continues your work via Codex/Gemini/local. The cross-provider rate-limit-dodge is the killer flow.
-- **Conductor-as-flagship-prompt** — for `plan_and_execute`, a flagship (default Claude Opus) handles three-role (Thinker / Worker / Verifier) planning with cortex context. No training required.
 - **Launchpad reframe** — becomes "What Trinity has learned about you" dashboard, not the destination.
 
 **Deferred indefinitely (the labs may build these first; not our wedge):**

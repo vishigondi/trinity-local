@@ -4,6 +4,16 @@ class: aspirational
 
 # Trinity v1.5 — locked next-trajectory spec
 
+> **Spec-wide note (2026-05-22):** the third-tier MCP tool
+> `mcp__trinity-local__plan_and_execute` is referenced throughout this
+> doc as a v1.7 plan. **It was fully sunset 2026-05-22** in the
+> post-launch cleanup pass — task #128 deleted, Loop Constitution
+> substrate stays removed, multi-step orchestration is the harness's
+> job. Treat every inline `plan_and_execute` reference below as
+> historical-architectural-description, not active plan. Same applies
+> to working-memory (`thread_id` parameter) which was queued to return
+> alongside it.
+>
 > Status: **spec only, follows v1.0 ship.** Target: **ship June 3, 2026.**
 >
 > v1.5 is where the "SOTA for you + your taste + your subs + saves cost" pitch
@@ -252,11 +262,14 @@ materially changes — and that's roughly every 3–6 months per provider.
 
 ### MCP tool surface (the agent-facing UX)
 
-Two tiers in v1.5. The third tier (`plan_and_execute`) is **deferred to v1.7**
-(see `docs/spec-v1.7.md` once written; spec-v1.6 turned out to be the
-browser-extension capture work — see task #128). Packing it into v1.5 Week 4
-alongside dispatch resilience would have compromised the ship date and
-diluted the launch narrative. Cortex is the v1.5 headline.
+Two tiers in v1.5. The third tier (`plan_and_execute`) was originally
+slated for v1.6, deferred to v1.7, then **fully sunset 2026-05-22** —
+the Loop Constitution substrate was already removed pre-launch as
+the right call, and after running v1.5 on real data the
+`ask` + `run_council` ceiling didn't bind hard enough to justify
+rebuilding the orchestration layer. Task #128 deleted. Cortex is
+the v1.5 headline; multi-step orchestration stays the harness's
+job, not Trinity's.
 
 ```
 mcp__trinity-local__ask(query)
@@ -266,9 +279,9 @@ mcp__trinity-local__ask(query)
   Note: the original Week 1 spec proposed `thread_id?` as a working-memory
   carrier. The parameter is **NOT shipped in v1.5** — it was advertised in
   the MCP schema during Weeks 1-4 but the handler discarded it. Removed
-  in v1.5 cleanup; will return in v1.7 alongside the `plan_and_execute`
-  tool when working memory actually has consumers (see "Deferred to v1.7"
-  + "Working memory" sections below).
+  in v1.5 cleanup. Was originally queued to return alongside `plan_and_execute`;
+  with `plan_and_execute` sunset 2026-05-22, working memory has no obvious
+  consumer either — re-queue if real demand surfaces.
 
   Cost: ~$0.01–0.05 per call. Latency 3–30s, dominated by the dispatched
   provider's response time (Trinity overhead is <1s; the rest is the model).
@@ -337,13 +350,15 @@ the supervision signal now. `mark_pick_wrong` was added as the user-veto
 surface, and the launch-arc tick added `handoff` — neither was in the
 original spec list.)
 
-**Deferred to v1.7:** `mcp__trinity-local__plan_and_execute` (three-role
+**Sunset 2026-05-22:** `mcp__trinity-local__plan_and_execute` (three-role
 multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
-and recursive verification). Conductor-as-flagship-prompt mechanics stay
-valid; just not in the v1.5 ship. Originally slated for v1.6, but v1.6
-ended up being scoped to browser-extension capture (which shipped
-2026-05-14/15). Task #128 covers writing `docs/spec-v1.7.md` from the
-design that already lives below.
+and recursive verification). Originally slated for v1.6, deferred to
+v1.7, formally sunset in the post-launch cleanup pass. The Loop
+Constitution substrate was already removed pre-launch (1,396 LOC of
+v2-trajectory code); the architectural intent is preserved here as
+historical reference, but Trinity is staying out of multi-step
+orchestration — the harness (Claude Code / Codex / Antigravity) does it
+better. Task #128 deleted.
 
 ### Basin classifier (gates the entire cortex layer)
 
@@ -618,9 +633,10 @@ There are two conductor layers, not one:
 1. **Claude-in-the-harness** — already there, decides which Trinity tool to
    call. Free for us. Most of the routing-decision intelligence happens here.
 
-2. **Trinity's internal mini-conductor** — only kicks in for `run_council`
-   and `plan_and_execute`. For `ask`, retrieval + pick + heuristic routing
-   handles it. No flagship call wasted on meta-planning.
+2. **Trinity's internal mini-conductor** — only kicks in for `run_council`.
+   For `ask`, retrieval + pick + heuristic routing handles it. No flagship
+   call wasted on meta-planning. (`plan_and_execute` was the third
+   consumer originally planned; sunset 2026-05-22.)
 
 For `plan_and_execute`: a flagship (default Claude Opus) gets the context
 package (kNN episodes + picks + lens basins + pool composition + cost

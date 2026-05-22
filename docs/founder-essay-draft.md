@@ -201,12 +201,13 @@ Then, in order:
   council outcomes per task-type basin (cortex). Both layers fire at query time; the
   rule generalizes, the episodes calibrate. Brains don't kNN over raw episodes.
   Trinity shouldn't either.
-- **v1.7+ (post-v1.5/v1.6): multi-step orchestration.** `plan_and_execute` for the rare
-  case Claude wants Trinity to plan a multi-step workflow (who plans, who implements,
-  who verifies). v1.5 ships the routing; v1.6 shipped browser-extension capture;
-  v1.7 ships the orchestrator (per task #128). The architecture is the same —
-  a flagship Conductor reads cortex context + emits the plan. No training.
-  Just better prompts.
+- **What Trinity is NOT doing: multi-step orchestration.** I considered
+  shipping `plan_and_execute` — a three-role (Thinker / Worker / Verifier)
+  workflow with recursive verification. Sunset 2026-05-22 after running v1.5
+  on real data: the `ask` + `run_council` ceiling didn't bind hard enough,
+  and the harness (Claude Code, Codex CLI, Antigravity) does multi-step
+  orchestration better than Trinity should. Trinity stays in its lane:
+  per-turn routing + lens + cross-provider lens-governed selection.
 - **The trained-coordinator path is sunset.** A flagship model with retrieval+cortex
   context produces better routing prompts than any 7B you could train. So I'm not
   paying 4–8 weeks of GPU training for an architecture I can ship in 5 weeks via
