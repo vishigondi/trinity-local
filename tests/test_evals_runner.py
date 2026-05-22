@@ -518,3 +518,74 @@ class TestGetEvalSummaryMCPRetired:
         tools = asyncio.run(handle_list_tools())
         names = {t.name for t in tools}
         assert "get_eval_summary" not in names
+
+
+class TestDefaultJudgeProviderPicker:
+    """Iter #61 caught a silent behavioral bug: `_default_judge_provider`'s
+    preferred list was `("claude", "codex", "gemini")` — but `gemini` is
+    not a slug in config.json post the 2026-05-21 Antigravity rebrand
+    (task #127). The third-preference branch never matched, so eval-run
+    with target=claude or target=codex fell through to alphabetical
+    search across configs, picking MLX as judge when Antigravity was
+    available + preferred. MLX returns empty stdout on judge prompts
+    (pre-launch real-run discovery), defaulting every per-axis score
+    to 0.5 — silently broken scoring.
+
+    This guard pins the preferred list to the live config slugs so the
+    drift can't recur if the slug ever changes again. Same shape as
+    principle #14 ("every shipped feature gets a smoke regression guard
+    within one tick") — the fix was iter #61; the guard is iter #62.
+    """
+
+    def _configs_for(self, *names: str) -> dict:
+        return {n: _make_provider_config(n) for n in names}
+
+    def test_picks_antigravity_when_target_is_claude(self):
+        from trinity_local.commands.eval import _default_judge_provider
+        # MLX intentionally first alphabetically — the bug would pick
+        # MLX, the fix should pick antigravity.
+        configs = self._configs_for("antigravity", "claude", "codex", "mlx")
+        assert _default_judge_provider("claude", configs) == "codex"
+        # codex is preferred before antigravity in the priority order
+        # since it's a closer chairman-grade match; with codex absent,
+        # antigravity wins.
+        configs_no_codex = self._configs_for("antigravity", "claude", "mlx")
+        assert _default_judge_provider("claude", configs_no_codex) == "antigravity"
+
+    def test_picks_antigravity_when_target_is_codex(self):
+        from trinity_local.commands.eval import _default_judge_provider
+        # target=codex, claude available — claude wins (highest priority).
+        configs = self._configs_for("antigravity", "claude", "codex", "mlx")
+        assert _default_judge_provider("codex", configs) == "claude"
+        # target=codex, claude absent — antigravity wins, NOT MLX.
+        configs_no_claude = self._configs_for("antigravity", "codex", "mlx")
+        assert _default_judge_provider("codex", configs_no_claude) == "antigravity"
+
+    def test_no_gemini_in_preferred_list(self):
+        """Direct AST-shape check: `gemini` must not appear in the
+        preferred-judge list. If a future edit re-adds it (e.g. as
+        a misguided "backward compat" entry), this guard fires."""
+        import inspect
+        from trinity_local.commands import eval as eval_mod
+        src = inspect.getsource(eval_mod._default_judge_provider)
+        # The tuple literal `preferred = (...)` is the load-bearing line.
+        # `gemini` as a string anywhere in that function is a regression.
+        # (The docstring intentionally mentions `gemini` in an
+        # explanatory note — the assertion targets the tuple line
+        # specifically.)
+        for line in src.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("preferred = ("):
+                assert "gemini" not in stripped, (
+                    "iter #61 fix regressed: `gemini` re-added to "
+                    "_default_judge_provider's preferred list. Slug "
+                    "is `antigravity` post task #127's 2026-05-21 "
+                    "Antigravity rebrand. Found in: " + stripped
+                )
+                break
+        else:
+            raise AssertionError(
+                "Could not find `preferred = (...)` line in "
+                "_default_judge_provider — has the function been "
+                "refactored? Update this guard accordingly."
+            )
