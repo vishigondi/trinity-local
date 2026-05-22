@@ -128,7 +128,7 @@ def classify_dispatch_failure(
     UNKNOWN if returncode is 0.
 
     Args:
-        provider: name from config (claude / codex / gemini / ollama / mlx)
+        provider: name from config (claude / codex / antigravity / ollama / mlx)
         returncode: subprocess exit code
         stderr: captured stderr text from the CLI
         timed_out: True if the caller hit our wall-clock timeout (we don't

@@ -208,13 +208,22 @@ def handle_eval_stats(args):
 
 def _default_judge_provider(target: str, configs: dict) -> str | None:
     """Pick a judge that isn't the model being scored. Prefers cloud
-    chairman-grade providers (claude / codex / gemini) over local
+    chairman-grade providers (claude / codex / antigravity) over local
     models — pre-launch real-run discovered MLX was being picked as
     judge by alphabetical default and returning empty stdout for the
     judge prompt, defaulting every score to 0.5. Bias-trap warning
-    surfaced in the CLI output."""
+    surfaced in the CLI output.
+
+    (Slug `gemini` is intentionally omitted from the preferred list:
+    the legacy Google CLI binary was retired as a Trinity dispatch
+    target per task #127's 2026-05-21 Antigravity migration. Before
+    iter #61's fix, this function listed `gemini` here, which never
+    matched config.json's `antigravity` slug and silently fell
+    through to the alphabetical fallback — picking MLX as judge in
+    cases where Antigravity was available and preferred.)
+    """
     # Preferred chairman-grade providers, in priority order.
-    preferred = ("claude", "codex", "gemini")
+    preferred = ("claude", "codex", "antigravity")
     for name in preferred:
         if name != target and name in configs and configs[name].enabled:
             return name
