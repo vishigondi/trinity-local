@@ -3882,12 +3882,10 @@ class TestCanonicalPlaceholdersAreRendered:
                 "updating."
             )
 
-        # Re-import design_system fresh so we read live state.
-        import sys
-        for mod_name in list(sys.modules):
-            if mod_name.startswith("trinity_local"):
-                del sys.modules[mod_name]
-        sys.path.insert(0, str(REPO / "src"))
+        # COLORS is a module-level dict; reading it doesn't need a
+        # fresh import (and `del sys.modules[trinity_local.*]` leaves
+        # other modules holding stale references — that pattern was
+        # the root cause of 15 cross-suite failures, per principle #19).
         from trinity_local.design_system import COLORS
 
         code_palette = {hex_value.lower(): name for name, hex_value in COLORS.items()}
@@ -4271,14 +4269,11 @@ class TestCanonicalPlaceholdersAreRendered:
         and have all three surfaces import from there. The guard
         substitutes for that refactor by binding the three sites at
         the test layer.
+
+        (Don't purge trinity_local from sys.modules to "refresh" —
+        that pattern leaves other modules holding stale references
+        and silently broke 15 cross-suite tests; see principle #19.)
         """
-        import sys
-
-        for mod_name in list(sys.modules):
-            if mod_name.startswith("trinity_local"):
-                del sys.modules[mod_name]
-        sys.path.insert(0, str(REPO / "src"))
-
         from trinity_local.launchpad_data import _TIER_INSTALL_HELP
         from trinity_local.doctor import _install_command_for
 
@@ -4336,14 +4331,6 @@ class TestCanonicalPlaceholdersAreRendered:
         assert the install command strings match. Catches future
         edits that touch one but not the other.
         """
-        import sys
-
-        # Re-import the module fresh (other tests mutate state_paths).
-        for mod_name in list(sys.modules):
-            if mod_name.startswith("trinity_local"):
-                del sys.modules[mod_name]
-        sys.path.insert(0, str(REPO / "src"))
-
         from trinity_local.launchpad_data import (
             _TIER_INSTALL_HELP,
             _provider_install_help,
@@ -4480,13 +4467,6 @@ class TestCanonicalPlaceholdersAreRendered:
         `install` was promoted but L381 wasn't co-edited.
         """
         import re
-        import sys
-
-        # Reset to avoid caching from previous test side effects.
-        for mod_name in list(sys.modules):
-            if mod_name.startswith("trinity_local"):
-                del sys.modules[mod_name]
-        sys.path.insert(0, str(REPO / "src"))
 
         from trinity_local.main import (
             CORE_COMMAND_MODULES,
@@ -4622,7 +4602,7 @@ class TestCanonicalPlaceholdersAreRendered:
                 "external tool / Chrome extension / etc.)."
             )
 
-    def test_claude_md_state_layout_covers_every_state_paths_dir(self):
+    def test_claude_md_state_layout_covers_every_state_paths_dir(self, monkeypatch, tmp_path):
         """Iter #33 catch — claude.md's "State layout" tree diagram
         is supposed to enumerate every directory Trinity creates under
         `~/.trinity/`. Drift caught: state_paths.research_dir() was
@@ -4645,52 +4625,45 @@ class TestCanonicalPlaceholdersAreRendered:
         retirements risk being mis-flagged as live (or vice versa).
         """
         import inspect
-        import os
         import pathlib
-        import sys
-        import tempfile
 
-        # Spin up a clean TRINITY_HOME for the call so we resolve
-        # paths cleanly without touching the user's actual install.
-        home_orig = os.environ.get("TRINITY_HOME")
-        tmpdir = tempfile.mkdtemp(prefix="trinity_paths_test_")
-        os.environ["TRINITY_HOME"] = tmpdir
-        try:
-            # Re-import to pick up the new env var if state_paths
-            # cached the home elsewhere.
-            sys.modules.pop("trinity_local.state_paths", None)
-            from trinity_local import state_paths
+        # Scope TRINITY_HOME via monkeypatch (per principle #19). The
+        # earlier shape mutated os.environ directly AND popped
+        # `trinity_local.state_paths` from sys.modules — that combo
+        # left other modules (drift.py, knn_advisor.py, ranker/...)
+        # holding stale references to the original state_paths module
+        # while a fresh copy lived in sys.modules. monkeypatched env
+        # vars from later tests then failed to reach those stale refs,
+        # silently breaking 15 unrelated tests across the suite.
+        # trinity_home() reads os.environ at every call, so no
+        # sys.modules.pop is needed — the env-var update propagates.
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local import state_paths
 
-            zero_arg_dir_fns: list[tuple[str, pathlib.Path]] = []
-            for name, fn in inspect.getmembers(state_paths, inspect.isfunction):
-                if not name.endswith("_dir"):
-                    continue
-                sig = inspect.signature(fn)
-                if sig.parameters:
-                    continue
-                if fn.__module__ != "trinity_local.state_paths":
-                    continue
-                try:
-                    p = fn()
-                except Exception:
-                    continue
-                if not isinstance(p, pathlib.Path):
-                    continue
-                # Skip the top-level state_dir itself.
-                if p == pathlib.Path(tmpdir):
-                    continue
-                # Only directories actually under TRINITY_HOME.
-                try:
-                    rel = p.relative_to(tmpdir)
-                except ValueError:
-                    continue
-                zero_arg_dir_fns.append((name, rel))
-        finally:
-            if home_orig is None:
-                os.environ.pop("TRINITY_HOME", None)
-            else:
-                os.environ["TRINITY_HOME"] = home_orig
-            sys.modules.pop("trinity_local.state_paths", None)
+        zero_arg_dir_fns: list[tuple[str, pathlib.Path]] = []
+        for name, fn in inspect.getmembers(state_paths, inspect.isfunction):
+            if not name.endswith("_dir"):
+                continue
+            sig = inspect.signature(fn)
+            if sig.parameters:
+                continue
+            if fn.__module__ != "trinity_local.state_paths":
+                continue
+            try:
+                p = fn()
+            except Exception:
+                continue
+            if not isinstance(p, pathlib.Path):
+                continue
+            # Skip the top-level state_dir itself.
+            if p == tmp_path:
+                continue
+            # Only directories actually under TRINITY_HOME.
+            try:
+                rel = p.relative_to(tmp_path)
+            except ValueError:
+                continue
+            zero_arg_dir_fns.append((name, rel))
 
         claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
         missing: list[str] = []

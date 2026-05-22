@@ -72,7 +72,6 @@ def test_all_src_modules_import_cleanly():
     have side effects on import.
     """
     import importlib
-    import sys
 
     src = REPO / "src" / "trinity_local"
     failures: list[tuple[str, str]] = []
@@ -86,8 +85,13 @@ def test_all_src_modules_import_cleanly():
             continue
         rel = py.relative_to(REPO / "src").with_suffix("")
         mod_name = str(rel).replace("/", ".")
-        # Drop from cache so we get a fresh import.
-        sys.modules.pop(mod_name, None)
+        # Don't `sys.modules.pop(mod_name)` before re-importing — that
+        # pollutes the suite (other modules hold refs to the OLD
+        # module object; monkeypatch on the NEW one fails to reach
+        # them). If the module is already in sys.modules, it loaded
+        # cleanly during pytest collection; if it isn't,
+        # importlib.import_module loads it fresh. Either covers the
+        # invariant this test guards.
         try:
             importlib.import_module(mod_name)
         except Exception as exc:
