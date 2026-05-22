@@ -2,7 +2,7 @@
 class: live
 ---
 
-# Trinity Local
+# ⠕ Trinity Local
 
 [![tests](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml/badge.svg)](https://github.com/vishigondi/trinity-local/actions/workflows/test.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
