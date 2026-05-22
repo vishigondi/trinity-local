@@ -240,8 +240,11 @@ template expanded correctly" assertion.
 
 All three are post-launch. Today's discipline (multi-surface guards +
 grep + reviewer attention) is functional; these architectural pieces
-would make the next 62 iters of consistency work UNNECESSARY for the
-patterns they cover.
+would make ongoing consistency-sweep work UNNECESSARY for the
+patterns they cover (the sweep continues iter-by-iter today — see
+the live `<!-- canonical:doc_consistency_guards -->78<!-- /canonical -->` guard count in
+`tests/test_doc_count_consistency.py`; each new guard is a place
+where SSOT could remove the need for the guard entirely).
 
 ---
 

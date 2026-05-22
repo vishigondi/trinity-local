@@ -4,17 +4,19 @@ class: aspirational
 
 # Meta-patterns from the pre-launch consistency sweep
 
-> Extracted 2026-05-19 across iters #15–#75 (62 commits, 41 doc-consistency
-> guards, ~15k LOC of markdown). Complements claude.md's "Patterns extracted
-> from the fixes" (principles #1–#21). These are doc-level meta-patterns the
-> sweep surfaced that aren't yet in claude.md.
+> Extracted 2026-05-19 from the pre-launch consistency-sweep iters,
+> extended through the post-launch sweep work that's still ongoing
+> (live guard count: <!-- canonical:doc_consistency_guards -->78<!-- /canonical --> in `tests/test_doc_count_consistency.py`).
+> Complements claude.md's "Patterns extracted from the fixes"
+> (principles #1–#21). These are doc-level meta-patterns the sweep
+> surfaced that aren't yet in claude.md.
 
 ## Why a meta-patterns doc
 
 claude.md's existing principles came from CODE fixes (basins.py truncation,
-NaN poisoning, cache shape). This file collects patterns from the 62-iter
-DOC sweep. Different drift class, different sources of truth, different
-fixes — worth a separate inventory.
+NaN poisoning, cache shape). This file collects patterns from the multi-iter
+DOC sweep — pre-launch + ongoing post-launch passes. Different drift class,
+different sources of truth, different fixes — worth a separate inventory.
 
 ---
 
