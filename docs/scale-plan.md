@@ -325,6 +325,15 @@ This plan is ordered by impact/effort ratio: the highest-leverage moves first.
 
 ## Phase 1 — MCP Server Mode (`trinity-local --mcp`)
 
+> 🛈 **Pre-rename terminology.** This Phase was drafted before task
+> #127 (2026-05-20) renamed the Google harness slug from `gemini` →
+> `antigravity`. References to "Gemini CLI" throughout Phase 1
+> describe what is now the Antigravity CLI (`agy` binary); the disk
+> paths (`~/.gemini/settings.json`, etc.) stayed stable for
+> back-compat, but the canonical user-facing CLI name is Antigravity.
+> See [`../claude.md`](../claude.md) "provider trio across layers"
+> for the current naming layer-by-layer.
+
 **Why**: MCP is an open protocol — the same stdio server works in Claude Code, Gemini CLI, and any other MCP-compatible host. Trinity tools become available mid-conversation in whichever AI CLI the user is currently in.
 
 **Provider MCP support status** (verified):
