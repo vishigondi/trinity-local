@@ -131,26 +131,6 @@ The shipped v1 bridge and the next launch target are:
    available.
 10. **Tool-triggered ingest replaces watchers**: `ingest-recent` is fired by the Chrome extension and by MCP `ask` with a 1s deadline; the legacy `watch-once`/`watch-loop` CLIs were retired pre-launch with the daemon subsystem.
 
-## Watcher layer (optional)
-
-When enabled, watcher responsibilities are narrow:
-
-- detect meaningful new transcript activity
-- derive or update a `TaskRecord`
-- decide whether to emit:
-  - `start_council`
-  - `recommendation`
-  - `workflow_suggestion`
-- regenerate the launchpad page
-- optionally send a local notification
-
-Watcher should not:
-
-- host a server
-- own long-running UI state
-- attempt direct browser automation
-- be the source of truth for task state
-
 ## Action taxonomy
 
 Current dispatch actions (`src/trinity_local/dispatch_registry.py`):

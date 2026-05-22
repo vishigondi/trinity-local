@@ -4862,3 +4862,92 @@ class TestCanonicalPlaceholdersAreRendered:
                 "non-zero on 4xx/5xx instead of dumping the error page "
                 "into the shell)."
             )
+
+
+class TestNoRetiredSubsystemSectionsInDocs:
+    """Permanent guard born of iter #55 of the post-launch sweep.
+
+    Some subsystems were retired with a clean note ("X was retired
+    pre-launch"), but the PROSE describing how X works lived on in
+    the same file. Reader scrolls past the retirement note, hits the
+    "How the watcher decides when to emit a recommendation" section,
+    and walks away with a wrong mental model.
+
+    Concrete case caught in iter #55:
+    `docs/launcher-patterns.md` correctly said at L132 that the
+    `watch-once`/`watch-loop` CLIs were retired pre-launch, but
+    L134-152 still had a `## Watcher layer (optional)` section
+    describing responsibilities, restrictions, and emit semantics
+    of a subsystem that no longer exists. Same shape as principle
+    #20 (drifted-oldest-surface): the retirement note lived in the
+    *recent* edit area; the explanatory prose was older and didn't
+    get co-edited.
+
+    Guard: maintain a small allowlist of retired-subsystem section
+    headings that must NOT appear as `##` / `###` headers in
+    user-facing docs (excluding CHANGELOG / simplification_log /
+    spec-v* historical-context files). When a new subsystem retires
+    + its prose-section needs killing, add the heading string here in
+    the same commit as the prose deletion.
+    """
+
+    # Section headings that describe a subsystem retired in
+    # retired_names.py. Match is case-insensitive and uses startswith
+    # (so `## Watcher layer (optional)` and `## Watcher layer`
+    # both trip).
+    RETIRED_SUBSYSTEM_HEADINGS = (
+        "watcher layer",
+        "watch loop",
+        "watch-once / watch-loop",
+        "macos shortcut dispatch",
+    )
+
+    DOCS_TO_CHECK = (
+        "claude.md",
+        "README.md",
+        "docs/launcher-patterns.md",
+        "docs/three-tier-architecture.md",
+        "docs/product-spec.md",
+        "docs/spec-v1.md",
+        "docs/spec-v1.5.md",
+        "docs/spec-v1.6.md",
+    )
+
+    def test_no_retired_subsystem_section_headings(self):
+        import re
+        repo = Path(__file__).resolve().parent.parent
+        # Section heading: `## Heading text` or `### Heading text`.
+        heading_re = re.compile(r"^(#{2,4})\s+(.+?)\s*$", re.MULTILINE)
+
+        hits: list[tuple[str, int, str, str]] = []
+        for doc in self.DOCS_TO_CHECK:
+            path = repo / doc
+            if not path.exists():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                m = heading_re.match(line)
+                if not m:
+                    continue
+                heading_text = m.group(2).strip().lower()
+                for retired_heading in self.RETIRED_SUBSYSTEM_HEADINGS:
+                    if heading_text.startswith(retired_heading):
+                        hits.append((doc, lineno, line.strip(), retired_heading))
+                        break
+        if hits:
+            msg = ["Section headings describing retired subsystems still in user-facing docs:"]
+            for doc, lineno, line, retired in hits:
+                msg.append(f"  {doc}:{lineno} `{line}` (retired subsystem: {retired})")
+            msg.append("")
+            msg.append(
+                "These sections explain how a subsystem works that the rest "
+                "of the doc says was retired — readers scroll past the "
+                "retirement note and form a wrong mental model. Delete the "
+                "section. If the subsystem is partially retained (e.g. a "
+                "helper survives), name the helper directly instead of "
+                "the umbrella subsystem name."
+            )
+            raise AssertionError("\n".join(msg))
