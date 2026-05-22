@@ -177,8 +177,8 @@ class TestRunCouncilChainPropagation:
 # MCP tool was retired per "we are sunsetting user ratings. Full
 # retirement including MCP." The chairman's pick (routing_label.winner)
 # is the supervision signal now (compute_personal_routing_table reads
-# it directly from council_outcomes/). CLI council-rate still works
-# for power users; only the MCP surface is gone.
+# it directly from council_outcomes/). CLI council-rate followed
+# on 2026-05-22 (task #134) — full rating retirement.
 
 
 class TestGetCouncilStatus:

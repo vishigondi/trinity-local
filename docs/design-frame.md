@@ -110,11 +110,16 @@ This is the most under-applied bullet at Trinity, and it's where the
 framework points hardest.
 
 **At the product level:**
-- Cheap path after a council: **close tab**. Right path: **record_outcome**.
-  The 13% verdict capture rate (4/31 on the dev install as of
-  2026-05-20; was 3/19 = 16% pre-nudge; task #110) is the cheap path
-  winning — the active-nudge mechanism shipped but the proportion
-  hasn't moved meaningfully at n=31.
+- The 2026-05-22 rating retirement (task #134) was the structural
+  resolution of this exact dilemma. The 13% verdict capture rate
+  (4/31 on the dev install as of 2026-05-20; was 3/19 = 16% pre-nudge;
+  task #110) was the cheap path winning even after the active-nudge
+  ship — n stayed at 31 and the proportion didn't move. Trinity's
+  response: stop asking the user to do the work. The chairman's pick
+  IS the verdict (via the lens), and the refinement prompt under
+  each council captures "what should it have been instead" embedded
+  in the user's natural flow. The cheap path won → the framework
+  evolved to make the cheap path the right path.
   Until the launchpad redesigns the council-result page so the
   rate-the-winner button is the MOST PROMINENT action (and closing
   costs an extra click), the gap won't close. Note: this isn't a

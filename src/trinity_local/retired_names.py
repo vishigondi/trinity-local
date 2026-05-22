@@ -112,7 +112,7 @@ RETIRED: dict[str, RetirementRecord] = {
         retired_at="2026-05-21",
         commit="0454b28",
         replacement="routing_label.winner (chairman pick) as supervision signal; refinement prompts as 'what user wanted differently'",
-        reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit bb817b6) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate stays for power users who want to write verdicts from the terminal; only the MCP tool is gone.",
+        reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit bb817b6) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate followed this retirement one day later on 2026-05-22 (see council-rate entry; full rating retirement, no power-user override remained).",
         kind="mcp_tool",
     ),
     # ── 2026-05-21 consistency-sweep retirement ──

@@ -232,7 +232,7 @@ The rating UI lives **inside the unified council review page**, not a separate S
 
 - Answer cards are equally weighted until the user selects a winner.
 - Confirmation state should feel rewarding but not gamified.
-- Selecting a winner sets the "Preferred" badge via the Chrome extension Native Messaging dispatch → CLI `council-rate` (the macOS Shortcut dispatch path was retired 2026-05-17; the MCP `record_outcome` tool was retired 2026-05-21 alongside the rest of the rating UX). The chairman's pick on the council outcome is the primary supervision signal; user-veto via the click is the optional refinement.
+- The chairman's pick on the council outcome is the supervision signal — no user-rating step. The "Preferred" rating chip + CLI `council-rate` + MCP `record_outcome` + macOS Shortcut dispatch were all retired in the 2026-05-21/22 rating-UX sunset (see `src/trinity_local/retired_names.py` for the canonical registry). Council pages now carry a "Lens pick" badge sourced from `routing_label.winner`; the refinement prompt below each council captures "what should it have been instead" inline — the post-pivot signal embedded in the user's natural flow.
 - Disagreed-claims block reads as a passage, not a table — the structured Routing JSON is the substrate, the prose is the experience.
 
 ## Chart Guidance

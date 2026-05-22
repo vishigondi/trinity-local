@@ -96,7 +96,6 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local install-mcp` — registers MCP server in Claude Code / Codex / Antigravity / Cursor + drops `/trinity` skill
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local ingest-recent` — incremental transcript ingest (replaces the retired watch-once / watch-loop CLIs; MCP `ask` also fires this passively on every call)
-- `trinity-local council-rate` — record user verdict; persists to `outcome.metadata.user_verdict` + `council_feedback.jsonl`
 - `trinity-local handoff <provider>` — cross-provider conversation continuity (the 60-second hero demo). Pulls recent (user, assistant) turns from the cross-provider prompt index, dispatches to a different provider with "continue this thread" context. Mirror of MCP `handoff` tool. Workstream #2 of the launch arc; tick #119.
 - `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
 
@@ -115,7 +114,7 @@ OR the launch hook. Mapping:
 |---|---|---|
 | `council` | `run_council` | Stable contract |
 | `query_lens` | ~~`search_prompts`~~ retired 2026-05-17 | Substring + recency + replay-value heuristics replaced embedding search on the hot path. Querying the lens now happens implicitly — every council loads `~/.trinity/memories/lens.md` via `get_persona`. |
-| `add_pair` | ~~`record_outcome`~~ retired 2026-05-21 | The MCP rating tool was sunset alongside the rest of the user-rating UX. Chairman's `routing_label.winner` is now the supervision signal, fed automatically into `compute_personal_routing_table()` (commit bb817b6). CLI `council-rate` still works for power users who want to write verdicts from the terminal. |
+| `add_pair` | ~~`record_outcome`~~ retired 2026-05-21 | The MCP rating tool was sunset alongside the rest of the user-rating UX. Chairman's `routing_label.winner` is now the supervision signal, fed automatically into `compute_personal_routing_table()` (commit bb817b6). CLI `council-rate` followed it into retirement on 2026-05-22 (task #134) — full rating retirement, no power-user override; refinement prompts carry the "what should it have been instead" signal inline. |
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |
 | — | `get_persona` | Extended (reads `lens.md` so harnesses don't re-fetch per call) |

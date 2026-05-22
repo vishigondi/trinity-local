@@ -16,10 +16,11 @@ Public tools, in lifecycle order:
 v1.5 trio: ask / get_picks / mark_pick_wrong.
 Launch-arc: handoff.
 
-Note: record_outcome retired 2026-05-21. Chairman's pick
-(routing_label.winner) is the supervision signal; refinement prompts
-on the council page carry the "what user wanted differently" signal.
-CLI council-rate still works for power users.
+Note: record_outcome retired 2026-05-21. CLI council-rate followed
+on 2026-05-22 (task #134 — full rating retirement). Chairman's pick
+(routing_label.winner) is the entire supervision signal now;
+refinement prompts on the council page carry the "what user wanted
+differently" signal inline.
 
 Internal helpers (get_status, get_elo, get_recent_councils, watch_once)
 remain importable for the launchpad but are not exposed via MCP.
@@ -182,8 +183,9 @@ async def handle_list_tools() -> list[Tool]:
         # signal that feeds compute_personal_routing_table() now (commit
         # bb817b6). Refinement prompts on the council page carry the
         # "what user wanted differently" signal. CLI `council-rate`
-        # stays for power users who want to write verdicts from the
-        # terminal. Registry entry: src/trinity_local/retired_names.py.
+        # was retired one day later on 2026-05-22 (task #134) — full
+        # rating retirement, no power-user override remained.
+        # Registry entry: src/trinity_local/retired_names.py.
         Tool(
             name="get_persona",
             description=(
@@ -968,7 +970,7 @@ async def _synthesize_responses(args: dict, responses: list[dict]) -> list[Any]:
 
     # Surface the chairman's verdict on the outcome itself, not just inside
     # the routing_label. Without `winner_provider`, downstream consumers
-    # (personal_routing aggregation, council-rate CLI) can't tell who won.
+    # (personal_routing aggregation) can't tell who won.
     winner_from_label = getattr(routing_label, "winner", None) if routing_label else None
     outcome_metadata: dict = {"mode": "synthesis_only"}
     if parse_error:
