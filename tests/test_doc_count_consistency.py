@@ -3802,6 +3802,107 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_launch_arc_completed_tasks_have_shipped_marker(self):
+        """Iter #48 catch — claude.md "Launch arc" section enumerates
+        5 workstreams as future work. Two of them (#117 "Standardize
+        ~/.trinity/" + #118 "Subsidy-window narrative") were marked
+        completed in the task list but the prose still read like
+        future intent ("Push a JSON Schema for `council_outcomes/*.json`
+        into the open while we have first-mover authority"). A reader
+        scanning the section to find what's done vs pending couldn't
+        tell. Same drift class as the iter-#26 plan-vs-reality shape:
+        the work shipped but the prose stayed future-tense.
+
+        Guard shape: for each workstream item in the Launch arc
+        numbered list (matches `N. **Title** (task #XXX...)`), check
+        whether the heading carries a ship marker like "✓ shipped"
+        or "shipped pre-launch". If the corresponding task is
+        completed (queried via TaskList in CI is infeasible; we hard-
+        code the known shipped set as the inline KNOWN_SHIPPED list
+        + the guard's CHANGELOG-citation heuristic). Lighter shape:
+        statically check that any task ID cited in the Launch arc
+        section that ALSO appears in claude.md's broader "Forward
+        arc" status block ("shipped (task #N)") carries the ship
+        marker.
+
+        Conservative form: maintain a small KNOWN_SHIPPED set of
+        launch-arc task IDs that are completed; for each, assert the
+        prose mentions either "✓ shipped" or "shipped" in the same
+        bullet's heading. When new tasks complete, this list grows
+        in the same commit that flips the prose to past-tense — a
+        single-line edit.
+        """
+        import re
+
+        claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
+
+        # Known-shipped launch-arc workstreams. Update inline when a
+        # workstream completes — the prose update + this list update
+        # are co-edited.
+        KNOWN_SHIPPED = {
+            "#117": "Standardize ~/.trinity/ (schemas published)",
+            "#118": "Subsidy-window narrative (threaded through launch copy)",
+            "#119": "Handoff mechanism (CLI + MCP tool shipped)",
+            "#122": "Corpus-based eval harness (trinity-local eval CLI + scoring loop)",
+        }
+
+        # Locate the Launch arc numbered list. Header is
+        # "## Launch arc (v1.0 → v1.1) — distribution beats elegance".
+        m = re.search(
+            r"^##\s+Launch arc[^\n]*\n",
+            claude_md,
+            re.MULTILINE,
+        )
+        if not m:
+            raise AssertionError(
+                "Couldn't find '## Launch arc' header in claude.md"
+            )
+        after = claude_md[m.end():]
+        next_header = re.search(r"^##\s+", after, re.MULTILINE)
+        section = after[: next_header.start()] if next_header else after
+
+        ship_markers = ("✓ shipped", "shipped pre-launch", "shipped 2026-")
+        missing: list[str] = []
+        for task_id, expected_topic in KNOWN_SHIPPED.items():
+            # Find the workstream's heading line(s) and a short window
+            # of prose. Workstream items match `N. **<title>** (task
+            # <task_id>...`.
+            item_re = re.compile(
+                r"^\d+\.\s+\*\*[^*]+\*\*\s+\(task\s+"
+                + re.escape(task_id)
+                + r"[^)]*\)",
+                re.MULTILINE,
+            )
+            item_match = item_re.search(section)
+            if not item_match:
+                # Task ID not cited in launch arc — exempt (it might
+                # be referenced elsewhere in claude.md but not be a
+                # launch-arc workstream).
+                continue
+            # Check the matched heading line for a ship marker.
+            heading_line = section[
+                item_match.start() : section.find("\n", item_match.start())
+            ]
+            if not any(marker in heading_line for marker in ship_markers):
+                missing.append(
+                    f"  Launch arc workstream task {task_id} "
+                    f"({expected_topic}) — heading lacks a ship marker.\n"
+                    f"    heading: {heading_line.strip()!r}"
+                )
+        if missing:
+            raise AssertionError(
+                "Launch arc workstreams known to be completed don't "
+                "carry a ship marker in claude.md:\n"
+                + "\n".join(missing)
+                + "\n\nAdd a `(task #N — ✓ shipped)` suffix to the "
+                "heading and update the body to reference the "
+                "completed work (e.g. "
+                "'Now threaded through launch copy...' instead of "
+                "'Tell users explicitly: ...'). When a new "
+                "workstream ships, extend the KNOWN_SHIPPED dict "
+                "in this test as part of the same commit."
+            )
+
     def test_gemini_capture_deferral_documented_consistently(self):
         """Iter #47 catch — claude.md L10 says "gemini.google.com
         adapter deferred to v1.7 per protocol-fragility risk," and
