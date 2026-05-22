@@ -143,7 +143,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "_verdict_stats": RetirementRecord(
         name="_verdict_stats",
         retired_at="2026-05-22",
-        commit="(this commit)",
+        commit="fcc2a37",
         replacement="(none — last consumer doctor._check_verdict_rate was retired in commit 182d5ac; load_council_outcome wipes user_verdict on read so the function would have always returned rated=0 anyway)",
         reason="Walked council_outcomes/*.json counting how many carried metadata.user_verdict.user_winner. Powered the launchpad verdictStats card (retired 2026-05-21) + doctor._check_verdict_rate health-check (retired 2026-05-22). With ratings fully retired and load_council_outcome stripping user_verdict on every read, the function had zero callers AND would always return rated=0/rate=0.0 on fresh data. 55 LOC dead code + 511 LOC dead tests (tests/test_verdict_stats.py).",
         kind="function",
