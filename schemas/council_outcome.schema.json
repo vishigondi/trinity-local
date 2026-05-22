@@ -68,10 +68,9 @@
         "properties": {
           "provider": {"type": "string"},
           "model": {"type": ["string", "null"]},
+          "session_id": {"type": ["string", "null"], "description": "Provider-side session token (Claude Code session, Codex CLI session, etc.) if the dispatch retained one."},
           "output_text": {"type": "string", "description": "The raw member response."},
-          "reasoning_summary": {"type": ["string", "null"]},
-          "error": {"type": ["string", "null"]},
-          "elapsed_seconds": {"type": ["number", "null"]}
+          "metadata": {"type": "object", "description": "Per-member free-form metadata (timing, retry counts, fallback signals) — keys are stable but contents evolve. Empty {} when nothing notable."}
         }
       }
     },
@@ -110,7 +109,12 @@
           "model_provider": {"type": "string"},
           "model_name": {"type": ["string", "null"]},
           "input_text": {"type": "string"},
-          "output_text": {"type": "string"}
+          "output_text": {"type": "string"},
+          "started_at": {"type": "string", "description": "ISO 8601 timestamp the step's dispatch began. Empty string when timing wasn't captured."},
+          "completed_at": {"type": "string", "description": "ISO 8601 timestamp the step's dispatch finished."},
+          "latency_seconds": {"type": ["number", "null"], "minimum": 0},
+          "cost_estimate_usd": {"type": ["number", "null"], "minimum": 0},
+          "metadata": {"type": "object", "description": "Per-step free-form metadata (retry count, fallback signals). Omitted when empty."}
         }
       }
     },
