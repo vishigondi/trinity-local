@@ -84,15 +84,21 @@ class TestTestCountConsistency:
         CANON = r"(?:<!--\s*canonical:\w+\s*-->)?"
         ENDCANON = r"(?:<!--\s*/canonical\s*-->)?"
 
-        # Surface A: claude.md Status block — "N tests passing"
+        # Surface A: claude.md Status block — "N tests passing" OR
+        # "N tests scoped" (the latter wording introduced 2026-05-22 in
+        # commit ef17b9a to disclose the intentional fail from the
+        # tightened TestLaunchpadScreenshotFreshness guard — the test
+        # gate became "X scoped (Y passing + ...)" rather than overclaiming
+        # "X passing" when 1 is intentionally red).
         status_count = _extract(
             CLAUDE_MD,
-            rf"{CANON}(\d+){ENDCANON}\s*tests passing",
+            rf"{CANON}(\d+){ENDCANON}\s*tests (?:passing|scoped)",
         )
         # Surface B: claude.md Verified status — "pytest -q — **N passed**"
+        # OR "pytest -q — **N scoped**" (same wording shift as Surface A).
         verified_count = _extract(
             CLAUDE_MD,
-            rf"pytest -q.{{0,5}}\*\*{CANON}(\d+){ENDCANON}\s*passed\*\*",
+            rf"pytest -q.{{0,5}}\*\*{CANON}(\d+){ENDCANON}\s*(?:passed|scoped)\*\*",
         )
         # Surface C: docs/product-spec.md item 11 — "Test suite: N passing"
         spec_count = _extract(
@@ -118,7 +124,10 @@ class TestTestCountConsistency:
         # guards green". Caught in iter #66 (was 1372, real was 1296).
         launch_checklist_count = _extract(
             REPO / "docs" / "LAUNCH_CHECKLIST.md",
-            rf"\({CANON}(\d+){ENDCANON}\s*tests passing \+\s*{CANON}\d+{ENDCANON}\s*skipped",
+            # Accept either "tests passing + N skipped" (original)
+            # or "tests scoped — Y passing + N skipped" (post-ef17b9a
+            # wording to disclose intentional fail).
+            rf"\({CANON}(\d+){ENDCANON}\s*tests (?:passing|scoped)\s*[+—]",
         )
 
         # All six must be present.
@@ -163,9 +172,13 @@ class TestTestCountConsistency:
         """
         FLOOR = 1280  # current count is 1293 after Pass A-BB simplification; floor allows ≤13 deletions
         # Tolerate canonical-placeholder wrapping (per Gap A renderer).
+        # Accept either "tests passing" or "tests scoped" wording
+        # (the latter introduced in commit ef17b9a, 2026-05-22, to
+        # disclose intentional failures from the tightened screenshot
+        # guard).
         status_count = _extract(
             CLAUDE_MD,
-            r"(?:<!--\s*canonical:\w+\s*-->)?(\d+)(?:<!--\s*/canonical\s*-->)?\s*tests passing",
+            r"(?:<!--\s*canonical:\w+\s*-->)?(\d+)(?:<!--\s*/canonical\s*-->)?\s*tests (?:passing|scoped)",
         )
         assert status_count is not None
         assert int(status_count) >= FLOOR, (
