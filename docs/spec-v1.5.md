@@ -545,10 +545,12 @@ is a real failure class.
 
 **principles.md (the sixth core memory) — on hold, data-gated.** The
 original pipeline plan: cluster per-council `routing_lesson` strings,
-prefer councils where `user_winner != chairman pick` (the "reverted
-commit" analog), require ≥3 distinct basins per cluster (cross-domain
-recurrence as the meta-principle signal). Tick #69's data audit found
-the pipeline is premature:
+prefer councils where `chairman_winner` had low confidence or where a
+refinement turn followed (the "wasn't quite right" analog — replaces
+the pre-2026-05-22 `user_winner != chairman pick` filter that died
+with the rating retirement, task #134), require ≥3 distinct basins per
+cluster (cross-domain recurrence as the meta-principle signal). Tick
+#69's data audit found the pipeline is premature:
 
 - 19 total councils in the corpus; 19 have routing_lesson.
 - 3 have ANY user verdict; 0 have an override.

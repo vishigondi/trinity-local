@@ -919,7 +919,6 @@ class PromptNode:
     cluster_id: str | None = None
     themes: list[str] = field(default_factory=list)
     council_runs: list[str] = field(default_factory=list)  # CouncilOutcome ids
-    user_winner: str | None = None
     chairman_winner: str | None = None
     uncertainty: float | None = None
     importance: float | None = None
@@ -950,7 +949,6 @@ class CouncilRun:  # mirror of CouncilOutcome, attached to PromptNode
     prompt_id: str
     models_run: list[str]
     chairman_winner: str | None
-    user_winner: str | None
     accepted: bool | None
     edited: bool | None
     provider_scores: dict[str, dict[str, float]]
@@ -958,6 +956,13 @@ class CouncilRun:  # mirror of CouncilOutcome, attached to PromptNode
     latency_by_provider: dict[str, float]
     created_at: str
 ```
+
+> Pre-2026-05-22 versions of this schema carried a `user_winner: str | None`
+> field. Task #134 retired the rating UX in full — the chairman's
+> `routing_label.winner` is the entire supervision signal now, fed
+> automatically into `compute_personal_routing_table()`. The aspirational
+> snippets below have been updated to reflect this; `chairman_winner` is
+> both the chairman pick and the gold target.
 
 **Files to add:**
 - `src/trinity_local/memory/prompt_node.py`
@@ -1011,8 +1016,8 @@ def replay_value_score(*,
 ```python
 def infer_hardness(p: PromptNode) -> float:
     score = 0.0
-    if not p.user_winner: score += 0.25
-    if p.chairman_winner and p.user_winner and p.chairman_winner != p.user_winner: score += 0.30
+    if not p.chairman_winner: score += 0.25            # never ran a council on it
+    if p.uncertainty and p.uncertainty > 0.5: score += 0.30  # chairman wasn't confident
     if not p.council_runs: score += 0.15
     if len(p.council_runs) > 1: score += 0.10
     if p.themes and any(t in HIGH_VALUE_THEMES for t in p.themes): score += 0.20
@@ -1262,13 +1267,12 @@ class RouterExample:
     task_type: str
     task_domain: str
 
-    # Targets (from Chairman Routing JSON + user verdict)
+    # Targets (from Chairman Routing JSON — chairman pick IS the gold target post-rating-retirement)
     actual_mode: str                     # what the user actually used
     actual_primary: str
     actual_challenger: str | None
-    user_winner: str                     # what the user ultimately picked (gold target)
-    chairman_winner: str                 # what /me-conditioned chairman picked (proxy target)
-    accepted: bool
+    chairman_winner: str                 # what /me-conditioned chairman picked (gold target; lens-governed)
+    accepted: bool                       # implicit signal: did the user close-tab or refine?
     edited: bool
 
     # Auxiliary supervision (richer signal)

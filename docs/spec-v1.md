@@ -211,9 +211,11 @@ Supporting metrics (first 90 days, all local-observable, none require telemetry)
 - **Activation:** ran first council successfully (any time after install). Target: 60% of
   installs. Tracked from local `council_runs.jsonl`.
 - **Reflex (lite):** user has run ≥3 councils. Target: 30% by day 60.
-- **Chairman accuracy:** % of councils where chairman-pick = user-pick after the user has
-  rated ≥5. Target: 70%. Computed from `outcome.metadata.user_verdict.user_winner` vs
-  `outcome.winner_provider`.
+- **Chairman accuracy:** structurally retired 2026-05-22 when task #134 retired
+  the rating UX in full. There is no `user_verdict.user_winner` to compare against
+  anymore — the chairman's pick (lens-governed) IS the gold target now. Trinity
+  measures chairman pick *stability* across providers via the eval harness
+  (`trinity-local eval-run --target <provider>`) instead — see task #116.
 - **Share rate:** count of `me-card` exports (visible locally as files in `~/.trinity/share/`).
   Target: 15% of users by week 12.
 - **Stars + forks** on GitHub.
