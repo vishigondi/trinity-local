@@ -1934,68 +1934,52 @@ def main() -> int:
         # exists (34 distinct labels: 1, 1b, 2–13, 14a, 14b, 15–30, 32, 33),
         # which is correct — the count tracks reality, not ID density.
 
-        # ─── Surface 32: Rate-limit-saves card (Day-1 launch metric) ──────────
-        # docs/launch-package.md names rate-limit-saves as THE Day-1 number
-        # for the launch case study. The card surfaces it on the launchpad
-        # so the user sees the count without running the CLI.
-        # Card is conditional: renders ONLY when `pageData.rateLimitSaves
-        # .has_data === true` — empty state is silent (saves are a side
-        # effect, not a user action). Two valid outcomes:
-        #   has_data=true  → card present, headline carries the count
-        #   has_data=false → card absent (silent, expected on fresh installs)
+        # ─── Surface 32: Rate-limit-saves card (RETIRED — regression guard) ──
+        # The card + its backing data field (`_rate_limit_saves` +
+        # `pageData.rateLimitSaves`) were retired 2026-05-21 alongside
+        # the rest of the rating UX (see `retired_names.py`). The card
+        # used to surface a Day-1 launch metric ("# of times Trinity
+        # routed around a rate-limited primary"); the launchpad surface
+        # was deleted because the rate-prompt friction it shipped under
+        # didn't earn its keep. Successor: `eval-run` corpus-based
+        # benchmark, surfaced via the Personalized Benchmark card
+        # (Surface 30).
+        #
+        # This surface is preserved as a REGRESSION GUARD: assert the
+        # card stays absent. A future PR that re-adds `pageData
+        # .rateLimitSaves` (or any `.eyebrow` saying "Rate-limit saves")
+        # trips this surface and announces the retirement was reversed
+        # without going through the retired_names.py registry first.
         rate_limit_state = page.evaluate(
             """() => {
               const script = document.getElementById('page-data');
               const data = script ? JSON.parse(script.textContent || '{}') : {};
-              const saves = data.rateLimitSaves || {};
               const eyebrows = Array.from(document.querySelectorAll('.eyebrow'));
               const eyebrow = eyebrows.find(el => /Rate-limit saves/i.test(el.textContent || ''));
               const card = eyebrow ? eyebrow.closest('section.card') : null;
-              const headline = card ? card.querySelector('h2') : null;
               return {
-                has_data: !!saves.has_data,
-                total_saves: saves.total_saves || 0,
-                save_rate: saves.save_rate || 0,
+                pagedata_field_present: 'rateLimitSaves' in data,
                 card_rendered: !!card,
-                headline: headline ? headline.textContent.replace(/\\s+/g, ' ').trim().slice(0, 120) : null,
               };
             }"""
         )
-        if rate_limit_state.get("has_data"):
-            # When data exists, the card MUST render. Headline must
-            # show the total_saves count (the load-bearing number).
-            if not rate_limit_state.get("card_rendered"):
-                reason = (
-                    f"has_data=true but rate-limit-saves card not rendered "
-                    f"(launch's Day-1 metric is missing from the launchpad)"
-                )
-                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
-                fails.append((32, "rate-limit saves card", reason))
-            elif str(rate_limit_state["total_saves"]) not in (rate_limit_state.get("headline") or ""):
-                reason = (
-                    f"card rendered but headline lacks total_saves "
-                    f"{rate_limit_state['total_saves']}: headline={rate_limit_state.get('headline')!r}"
-                )
-                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
-                fails.append((32, "rate-limit saves card", reason))
-            else:
-                print(
-                    f"[ ✓ ] Surface 32 rate-limit saves: populated · "
-                    f"saves={rate_limit_state['total_saves']} rate={rate_limit_state['save_rate']:.3f}"
-                )
+        if rate_limit_state.get("pagedata_field_present"):
+            reason = (
+                "pageData.rateLimitSaves field re-introduced — was retired "
+                "2026-05-21 (see retired_names.py). If this is intentional, "
+                "remove the retirement entry first."
+            )
+            print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
+            fails.append((32, "rate-limit saves card", reason))
+        elif rate_limit_state.get("card_rendered"):
+            reason = (
+                "rate-limit-saves card re-rendered on launchpad — was retired "
+                "2026-05-21 (see retired_names.py)."
+            )
+            print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
+            fails.append((32, "rate-limit saves card", reason))
         else:
-            # Empty branch: card MUST be absent. A render-on-empty would
-            # add launchpad noise to fresh installs where the user has
-            # nothing to brag about yet.
-            if rate_limit_state.get("card_rendered"):
-                reason = (
-                    f"card rendered with has_data=false "
-                    f"(empty state should be silent — saves are a side effect)"
-                )
-                print(f"[ ✗ ] Surface 32 rate-limit saves: {reason}")
-                fails.append((32, "rate-limit saves card", reason))
-            else:
-                print("[ ✓ ] Surface 32 rate-limit saves: empty state silent (no saves yet)")
+            print("[ ✓ ] Surface 32 rate-limit saves: card stays retired (2026-05-21)")
 
         # ─── Surface 33: Browser-capture card (v1.6 silent-breakage signal) ──
         # Per docs/spec-v1.6.md line 479-497. Card surfaces capture
