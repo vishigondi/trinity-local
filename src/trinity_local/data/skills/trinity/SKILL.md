@@ -87,7 +87,7 @@ mcp__trinity-local__run_council(task="$ARGUMENTS", mode="parallel")
 
 The chairman reads `~/.trinity/memories/lens.md` and synthesizes the members' answers through the user's taste. Output: structured Routing JSON with `agreed_claims`, `disagreed_claims`, `winner`, `runner_up`, `provider_scores`, `routing_lesson`. Persisted at `~/.trinity/council_outcomes/<id>.json`.
 
-The chairman's pick is automatically the supervision signal — `routing_label.winner` is what `compute_personal_routing_table()` aggregates from, no rating call needed (`record_outcome` retired 2026-05-21). Trinity's moat is the personal ledger of cross-model preferences; the chairman writes to it every council. If the user wants to refine ("I would have picked X because Y"), they can either click Refine on the council page (the refinement prompt becomes the post-pivot signal of "what should it have been") or run `trinity-local council-rate` from the terminal.
+The chairman's pick is automatically the supervision signal — `routing_label.winner` is what `compute_personal_routing_table()` aggregates from, no rating call needed (`record_outcome` retired 2026-05-21). Trinity's moat is the personal ledger of cross-model preferences; the chairman writes to it every council. If the user wants to refine ("I would have picked X because Y"), they click Refine on the council page — the refinement prompt itself is the post-pivot signal of "what should it have been instead." No rating step in the loop; the lens governs selection.
 
 If the question doesn't warrant a full 3-provider council (lookups, syntax, mechanical refactors), prefer the cheaper single-call route:
 
