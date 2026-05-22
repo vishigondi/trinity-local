@@ -53,14 +53,24 @@ _STOPWORDS = {
 
 @dataclass
 class RejectionSignal:
-    """One classified turn-pair gap."""
+    """One classified turn-pair gap.
+
+    Field defaults align with `schemas/rejection_signal.schema.json`:
+    only `id`, `type`, `model_quote`, `user_substitute` are required
+    by the schema; the rest are optional. The dataclass mirrors that
+    contract so an external schema-conformant producer (e.g. a future
+    importer that parses minimal records) can construct one without
+    supplying every field. `parse_rejections` already passes all
+    fields, so live behavior unchanged. Sweep iter #108 caught the
+    dataclass-vs-schema asymmetry.
+    """
     id: str
     type: str  # REFRAME | COMPRESSION | REDIRECT | SHARPENING
     model_quote: str
     user_substitute: str
-    why_signal: str
-    prompt_id: str | None
-    basin: str | None
+    why_signal: str = ""
+    prompt_id: str | None = None
+    basin: str | None = None
     next_user_turn: str = ""  # used for REFRAME persistence check; empty if unavailable
 
     def to_dict(self) -> dict[str, Any]:

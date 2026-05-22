@@ -5177,6 +5177,37 @@ class TestSaveCouncilOutcomeEnforcesSchemaRequiredFields:
         with pytest.raises(ValueError, match="routing_label is None"):
             save_council_outcome(outcome)
 
+    def test_rejection_signal_constructible_with_schema_required_fields_only(self):
+        """Iter #108: schemas/rejection_signal.schema.json declares
+        only `[id, type, model_quote, user_substitute]` as required.
+        The RejectionSignal dataclass previously required 7 fields
+        (no defaults on why_signal, prompt_id, basin) — tighter than
+        the schema. An external schema-conformant producer would slip
+        past the schema but fail dataclass construction.
+
+        Fix: dataclass defaults aligned with schema. why_signal=\"\",
+        prompt_id=None, basin=None. parse_rejections already passes
+        all fields explicitly, so live behavior unchanged.
+
+        Guard: construct a RejectionSignal with only the schema-
+        required fields. Confirms the dataclass accepts what the
+        schema accepts.
+        """
+        from trinity_local.me.turn_pairs import RejectionSignal
+
+        # Should not raise — schema-minimal construction.
+        sig = RejectionSignal(
+            id="r1",
+            type="REFRAME",
+            model_quote="some model output",
+            user_substitute="user's rewrite",
+        )
+        assert sig.id == "r1"
+        assert sig.why_signal == ""
+        assert sig.prompt_id is None
+        assert sig.basin is None
+        assert sig.next_user_turn == ""
+
     def test_save_eval_set_refuses_stats_without_items_key(self, tmp_path, monkeypatch):
         """Iter #107 extension: eval_set.schema.json declares
         `stats.items` (the integer count) as required, but the
