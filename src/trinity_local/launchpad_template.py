@@ -150,11 +150,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     }}
 
     /* Cross-memory chip — shared base for the small bordered pill links
-       that surface across the cortex card (→ topology), the lens card
-       (basin ids), and the recent council card (→ pick / → routing /
-       → topology). Three surfaces, one visual: bumping the look here
-       updates all three. Specific contexts add their overrides via the
-       modifier classes below. */
+       that surface across the cortex card (→ topology) and the lens
+       card (basin ids). Bumping the look here updates both. Specific
+       contexts add their overrides via the modifier classes below.
+       (The recent-council-card variant — → pick / → routing /
+       → topology / → share PNG — was sunset 2026-05-21 with the rest
+       of the user-rating UX; see launchpad_data.build_recent_cards_html
+       comment block + browser_smoke Surface 25 retirement guard.) */
     .cross-memory-chip {{
       font-size: 10px;
       color: var(--text-secondary);
