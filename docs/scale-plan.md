@@ -347,6 +347,15 @@ MCP Python SDK: https://github.com/modelcontextprotocol/python-sdk
 
 Expose tools via `stdio` transport using the MCP SDK's `Server` class. Tools to expose in order of value:
 
+> **Original Phase 1 plan below — superseded.** The live MCP surface
+> diverged from this table during v1.0/v1.5: `get_recommendation`
+> became `route` (and `ask` for the cheap default path);
+> `watch_once`/`get_elo`/`get_status`/`get_recent_councils` were
+> moved off the MCP surface (still importable for the launchpad but
+> not exposed to harnesses). The canonical live tool list is in
+> [`../claude.md`](../claude.md) "The eight MCP tools" — currently 4
+> canonical + 3 v1.5 + 1 launch-arc = 8 tools.
+
 | Tool | Maps to | Description shown to host AI |
 |------|---------|------------------------------|
 | `run_council` | `council-start` | Launch a multi-provider comparison for the current task |
