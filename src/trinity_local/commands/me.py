@@ -30,7 +30,7 @@ from ..me_builder import (
 def register(subparsers):
     build_parser = subparsers.add_parser(
         "lens-build",
-        help="Build ~/.trinity/memories/lens.md via the 3-stage lens-discovery pipeline.",
+        help="Build ~/.trinity/memories/lens.md via the 5-stage lens-discovery pipeline.",
     )
     build_parser.add_argument(
         "--budget-chars", type=int, default=ME_BUDGET_CHARS,

@@ -1,8 +1,11 @@
-"""End-to-end driver for the 3-stage lens-discovery pipeline.
+"""End-to-end driver for the 5-stage lens-discovery pipeline (Stages 0–4).
 
-Stage 1 → Stage 2 prompt (caller fires it via council member call)
-Stage 3 prompt (caller fires it via 3-member council)
-Stage 4 → save lenses.json + orderings.json + render to memories/lens.md.
+Stage 0 — turn-pair gap extraction (caller fires it as ONE batch chairman call)
+Stage 1 — basin topology (no LLM; numpy k-means)
+Stage 2 — decisions (caller fires it via council member call)
+Stage 3 — pair mining (caller fires it via 3-member council)
+Stage 4 — basin post-filter (deterministic; saves lenses.json + orderings.json
+          + renders to memories/lens.md).
 
 The driver is split so the caller (me_builder.build_me_via_council)
 controls the LLM dispatches — keeping our "no LLM outside councils"

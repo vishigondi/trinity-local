@@ -6,7 +6,7 @@ class: aspirational
 
 > Extracted 2026-05-19 from the pre-launch consistency-sweep iters,
 > extended through the post-launch sweep work that's still ongoing
-> (live guard count: <!-- canonical:doc_consistency_guards -->88<!-- /canonical --> in `tests/test_doc_count_consistency.py`).
+> (live guard count: <!-- canonical:doc_consistency_guards -->90<!-- /canonical --> in `tests/test_doc_count_consistency.py`).
 > Complements claude.md's "Patterns extracted from the fixes"
 > (principles #1–#21). These are doc-level meta-patterns the sweep
 > surfaced that aren't yet in claude.md.

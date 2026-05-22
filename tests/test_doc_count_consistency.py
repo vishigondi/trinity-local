@@ -5105,6 +5105,95 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestLensPipelineStageCountConsistent:
+    """Multiple doc surfaces (claude.md L863, README.md L163, docs/
+    spec-v1.md L92, docs/architecture.md L58) claim the lens-build
+    pipeline is "5-stage" (Stages 0–4 inclusive). Sweep iter #96
+    caught FOUR code surfaces still saying "3-stage":
+
+      src/trinity_local/commands/me.py:33   (the live `--help` text!)
+      src/trinity_local/me/pipeline.py:1    (module docstring)
+      src/trinity_local/me/__init__.py:3    (package docstring)
+      src/trinity_local/launchpad_data.py:1522
+
+    The "3-stage" phrasing froze at the Option C ratification (basins
+    + decisions + pair-mining = 3). Stage 0 was added later
+    (council_e7560934 turn-pair gap extraction) and Stage 4 was split
+    out from pair_mining for legibility — neither propagated to the
+    code-side docstrings. Same shape as principle #20.
+
+    Drift surface matters most for commands/me.py: the help text is
+    what users see when they run `trinity-local lens-build --help`.
+    A discrepancy between "3-stage" in help and "5-stage" in README
+    is the kind of incongruity that erodes credibility.
+
+    Guard: assert the live `lens-build` subparser help text contains
+    "5-stage" (or no stage-count claim at all). Also assert all
+    src/trinity_local/me/__init__.py + me/pipeline.py docstrings
+    don't say "3-stage".
+    """
+
+    def test_lens_build_help_says_five_stage(self):
+        import argparse, importlib
+
+        parser = argparse.ArgumentParser(prog="trinity-local")
+        subparsers = parser.add_subparsers(dest="command")
+        main_mod = importlib.import_module("trinity_local.main")
+        for module in main_mod._iter_command_modules():
+            if (r := getattr(module, "register", None)):
+                try:
+                    r(subparsers)
+                except Exception:
+                    continue
+
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for choice_action in action._choices_actions:
+                    if choice_action.dest == "lens-build":
+                        help_text = choice_action.help or ""
+                        if "3-stage" in help_text or "3 stage" in help_text:
+                            raise AssertionError(
+                                f"lens-build --help says '3-stage' but the live "
+                                f"pipeline is 5 stages (0–4 inclusive). Doc surfaces "
+                                f"(claude.md, README.md, docs/spec-v1.md, "
+                                f"docs/architecture.md) all say 5-stage. Update the "
+                                f"register() help= text to match.\n"
+                                f"Current help: {help_text!r}"
+                            )
+                        return
+        raise AssertionError("Couldn't locate lens-build subparser in argparse")
+
+    def test_me_package_docstrings_say_five_stage(self):
+        repo = Path(__file__).resolve().parent.parent
+        targets = [
+            repo / "src" / "trinity_local" / "me" / "__init__.py",
+            repo / "src" / "trinity_local" / "me" / "pipeline.py",
+        ]
+        offenders: list[str] = []
+        for path in targets:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(text.splitlines(), start=1):
+                # Stop scanning after the docstring (rough heuristic:
+                # stop at first import or non-quoted line past line 30).
+                if idx > 30:
+                    break
+                if "3-stage" in line or "3 stage" in line:
+                    rel = path.relative_to(repo).as_posix()
+                    offenders.append(f"  {rel}:{idx}: {line.strip()[:140]}")
+        if offenders:
+            msg = [
+                "me/ package docstrings say '3-stage' but the live pipeline",
+                "is 5 stages (0–4 inclusive). Update to '5-stage' to match",
+                "claude.md / README.md / docs/spec-v1.md / docs/architecture.md.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestProductSpecArchitectureTodayCommandsResolve:
     """`docs/product-spec.md` has an "Architecture Today" section
     (L120+) with a table that maps `commands/<name>.py` modules to

@@ -1519,7 +1519,7 @@ def _load_cortex_rules() -> dict | None:
 def _load_taste_lenses() -> dict | None:
     """Surface taste lenses for the launchpad.
 
-    Prefers the new 3-stage pipeline output (`me/lenses.json`,
+    Prefers the new 5-stage pipeline output (`me/lenses.json`,
     `me/orderings.json`) which carries pole_a / pole_b / failure
     modes / spanned basins. Falls back to the legacy single-virtue
     parse when the pipeline hasn't run yet.
