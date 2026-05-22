@@ -5135,26 +5135,34 @@ class TestSchemaNestedFieldsMatchDataclassFields:
             CouncilChainStep,
             CouncilRoutingLabel,
         )
+        from trinity_local.evals.builder import EvalItem
 
         repo = Path(__file__).resolve().parent.parent
-        schema_path = repo / "schemas" / "council_outcome.schema.json"
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        council_schema_path = repo / "schemas" / "council_outcome.schema.json"
+        council_schema = json.loads(council_schema_path.read_text(encoding="utf-8"))
+        eval_schema_path = repo / "schemas" / "eval_set.schema.json"
+        eval_schema = json.loads(eval_schema_path.read_text(encoding="utf-8"))
 
         cases = [
             (
-                "member_results",
+                "council_outcome.member_results",
                 CouncilMemberResult,
-                schema["properties"]["member_results"]["items"]["properties"],
+                council_schema["properties"]["member_results"]["items"]["properties"],
             ),
             (
-                "chain_steps",
+                "council_outcome.chain_steps",
                 CouncilChainStep,
-                schema["properties"]["chain_steps"]["items"]["properties"],
+                council_schema["properties"]["chain_steps"]["items"]["properties"],
             ),
             (
-                "routing_label",
+                "council_outcome.routing_label",
                 CouncilRoutingLabel,
-                schema["$defs"]["routing_label"]["properties"],
+                council_schema["$defs"]["routing_label"]["properties"],
+            ),
+            (
+                "eval_set.eval_item",
+                EvalItem,
+                eval_schema["$defs"]["eval_item"]["properties"],
             ),
         ]
 
@@ -5177,10 +5185,10 @@ class TestSchemaNestedFieldsMatchDataclassFields:
 
         if offenders:
             msg = [
-                "schemas/council_outcome.schema.json nested-type fields "
-                "drifted from the backing dataclasses. The schema is the "
-                "published contract (task #117); adopters break when it "
-                "misrepresents reality.",
+                "Schema nested-type fields drifted from the backing "
+                "dataclasses. The schemas are the published contract "
+                "(task #117); adopters break when they misrepresent "
+                "reality.",
                 "",
                 "Fix: either add the missing field to the schema (with a "
                 "JSON Schema type) or to the dataclass (and to to_dict), "
