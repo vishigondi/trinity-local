@@ -491,7 +491,7 @@ The chairman call is **one batched call per iteration**, not one
 per basin. With N=3 iterations + 1 final patterns/nuggets call,
 the entire dream pipeline fits in 4 chairman calls. The 5th is
 reserved as council-chain validation on the final-round labels
-(seat-vs-chairman dispute resolution on contested basins).
+(member-vs-chairman dispute resolution on contested basins).
 
 Reference: ClusterLLM (EMNLP 2023, arXiv:2305.14871),
 k-LLMmeans (arXiv:2502.09667).

@@ -5101,6 +5101,84 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestNoStaleSeatTerminologyAsLiveNoun:
+    """Tier 2 #6 (task #95) attempted to rename `member` → `seat` in
+    user-facing copy. The rename was unwound (see `claude.md` glossary
+    entry L556: *"the Tier 2 #6 \"rename to seat\" was unwound;
+    \"seat\" was tried as a table metaphor but never caught on"*).
+
+    Sweep iter #84 caught one straggler in `docs/spec-v1.5.md:494`
+    ("seat-vs-chairman dispute resolution"). Same shape as
+    [[principle_20_oldest_surface_drift]] — aspirational specs rarely
+    re-read line-by-line, so a single noun usage survives multiple
+    sweep passes.
+
+    The guard fails on any `\\bseat\\b` or `\\bseats\\b` token in
+    project docs, EXCEPT lines that explicitly document the unwind
+    (must contain `unwound`, `rename to seat`, `member ↔ seat`,
+    `member vs seat`, or `member`/`seat` together), and EXCEPT
+    `included_seats` (the JSON field in v2-loop-constitution.md's
+    synthetic SaaS-pricing example — that's domain terminology, not
+    council terminology).
+    """
+
+    def test_no_stale_seat_in_docs(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets = list(repo.glob("*.md")) + list((repo / "docs").rglob("*.md"))
+
+        token_re = re.compile(r"\bseats?\b")
+
+        # Lines that are explicit unwind-documentation get a pass.
+        unwind_marker_re = re.compile(
+            r"unwound|"
+            r"rename to seat|"
+            r"member.*↔.*seat|"
+            r"seat.*↔.*member|"
+            r"member.*vs.*seat|"
+            r"seat.*vs.*member|"
+            r"member.*seat|"
+            r"seat.*member"
+        )
+        # JSON-field noun from synthetic SaaS-pricing example.
+        included_seats_re = re.compile(r"included_seats")
+
+        EXEMPT_FILES = {
+            "tests/test_doc_count_consistency.py",
+            "src/trinity_local/retired_names.py",
+        }
+
+        offenders: list[str] = []
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(text.splitlines(), start=1):
+                if not token_re.search(line):
+                    continue
+                if unwind_marker_re.search(line):
+                    continue
+                if included_seats_re.search(line):
+                    continue
+                offenders.append(f"  {rel}:{idx}: {line.strip()[:140]}")
+
+        if offenders:
+            msg = [
+                "Stale `seat`/`seats` references as live council nouns in docs.",
+                "Tier 2 #6 (task #95) attempted `member` → `seat`; the rename",
+                "was unwound (claude.md L556). Canonical term is `member`.",
+                "Either rename to `member` or add the explicit unwind marker.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoStaleTaskKindInCode:
     """Task #92 unified `task_kind`/`task_kinds` → `task_type`/`task_types`
     across the live codebase. Stragglers slipped through in comments and
