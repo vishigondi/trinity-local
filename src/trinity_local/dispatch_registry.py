@@ -8,7 +8,6 @@ from typing import Any
 DISPATCH_ACTIONS = {
     "run_command",
     "launch_council",
-    "rate_council",
     "stop_council",
     "open_review",
     "start_council",
@@ -95,20 +94,6 @@ def command_for_dispatch(action: DispatchAction) -> str | None:
             parts.append(f"--status-token {shlex.quote(str(status_token))}")
         if args.get("open_browser", True):
             parts.append("--open-browser")
-        return " ".join(parts)
-    if action.name == "rate_council":
-        council_id = args.get("council_id")
-        provider = args.get("provider")
-        answer_label = args.get("answer_label")
-        if not council_id or not provider:
-            return None
-        parts = [
-            "trinity-local council-rate",
-            f"--council {shlex.quote(str(council_id))}",
-            f"--provider {shlex.quote(str(provider))}",
-        ]
-        if answer_label:
-            parts.append(f"--answer-label {shlex.quote(str(answer_label))}")
         return " ".join(parts)
     if action.name == "stop_council":
         status_token = args.get("status_token")

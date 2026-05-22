@@ -3075,6 +3075,8 @@ class TestNoRetiredCliInSrcQuotedStrings:
         "task-create", "task-show", "task-sync",
         "bundle-create", "launch-create",
         "council-last",
+        "council-rate",  # retired 2026-05-22 with full rating-surface sunset (commit 4c34757)
+        "unrated",       # retired 2026-05-22, was Pillar 4 rating-funnel widening (commit 4c34757)
         "trust-init", "trust-show", "audit-show",
         "install-app", "shortcut-install",
         "bootstrap-pairs",
@@ -6659,3 +6661,48 @@ class TestNoStaleTaskKindInCode:
             ]
             msg.extend(offenders)
             raise AssertionError("\n".join(msg))
+
+
+class TestClaudeMdLineCap:
+    """Cap claude.md at <=250 lines (target ~200; 50-line buffer).
+
+    Earned 2026-05-22 (v1.7.5 cleanup). Anthropic shipped official
+    Auto-Dream in Claude Code with a 200-line MEMORY.md discipline
+    (https://claudefa.st/blog/guide/mechanics/auto-dream). claude.md
+    is Trinity's agent-facing entry point — the file every harness
+    reads to know what the project IS. Without a cap it accreted to
+    918 lines (status block + 21 principles + retirement log +
+    glossary + state diagram + simplification log mixed together).
+
+    The cleanup pass cut claude.md to ~200 lines, relocated history
+    to docs/historical/ (principles.md, retirement-log.md,
+    brand-evolution.md), and locked the discipline with this guard.
+    Same shape as Principle #14 (every shipped feature gets a smoke
+    regression guard within one tick): the cleanup IS the feature.
+
+    Buffer: cap is 250 (50 above the 200 target). When a future
+    edit needs to nudge the count higher, the right move is to
+    relocate content to docs/historical/, not bump the cap.
+    """
+
+    CAP_LINES = 250
+
+    def test_claude_md_stays_under_line_cap(self):
+        repo = Path(__file__).resolve().parents[1]
+        claude_md = repo / "claude.md"
+        text = claude_md.read_text(encoding="utf-8")
+        line_count = len(text.splitlines())
+        assert line_count <= self.CAP_LINES, (
+            f"claude.md has {line_count} lines (cap: {self.CAP_LINES}). "
+            "Anthropic's Auto-Dream ships a 200-line MEMORY.md discipline "
+            "(https://claudefa.st/blog/guide/mechanics/auto-dream); "
+            "claude.md is the agent-facing entry point and follows the "
+            "same convention. Relocate historical context to "
+            "docs/historical/{principles,retirement-log,brand-evolution}.md "
+            "rather than bumping the cap. If the new content is genuinely "
+            "load-bearing for first-read agent comprehension, drill harder "
+            "on what's already in the file first — almost everything in "
+            "claude.md ends up referenced by tests/test_doc_count_consistency.py "
+            "as a regression-guarded surface, so 'load-bearing' has a "
+            "higher bar than 'feels useful to mention.'"
+        )

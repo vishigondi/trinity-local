@@ -132,6 +132,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`commands/depth.py` (123 LOC) held the handle_depth_show CLI handler for a CLI that was retired pre-launch. The docstring claimed 'Tests still import handle_depth_show for coverage' but tick 85 audit found ZERO callers in src/ + tests/. The actual geometry primitives (depth_score, corpus_distance, inter_turn_distance, LID) live in `me/depth.py` and ARE actively used by basins.py + lens pipeline. Sunset confirmed via AskUserQuestion in tick 85; the geometry stays.",
         kind="module",
     ),
+    "unrated": RetirementRecord(
+        name="unrated",
+        retired_at="2026-05-22",
+        commit="4c34757",
+        replacement="(none — the unrated funnel widened toward a rating UX that itself is retired; nothing replaces it. compute_personal_routing_table walks council_outcomes/ directly.)",
+        reason="`unrated` subcommand listed councils without `user_verdict` so the user could clear the rating backlog. Whole CLI was Pillar 4 'verdict-capture funnel widening' from the forward arc. With ratings retired (decision #2 of 2026-05-22 cleanup pass), there's no backlog to widen.",
+        kind="cli",
+    ),
     "council-rate": RetirementRecord(
         name="council-rate",
         retired_at="2026-05-22",
