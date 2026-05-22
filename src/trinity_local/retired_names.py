@@ -77,8 +77,8 @@ RETIRED: dict[str, RetirementRecord] = {
         name="pageData.verdictStats",
         retired_at="2026-05-21",
         commit="331c75b",
-        replacement="doctor._check_verdict_rate() — informational health check (same _verdict_stats() math)",
-        reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 8f1fd95). The _verdict_stats() compute function stays alive because doctor._check_verdict_rate() still consumes it for the informational `trinity-local status` health check. Only the pageData injection (and its tests) are sunset.",
+        replacement="(none — rating-rate signal is moot post-2026-05-22 full rating retirement; doctor._check_verdict_rate also retired)",
+        reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 8f1fd95). doctor._check_verdict_rate kept consuming _verdict_stats() until the full rating-surface retirement on 2026-05-22 (cleanup pass decision #2). With ratings gone, the verdict-capture rate is structurally 0%; surfacing it would be misleading noise. _verdict_stats() compute function may still exist for back-compat but has no live consumers.",
         kind="concept",
     ),
     "pageData.rateLimitSaves": RetirementRecord(
@@ -139,6 +139,14 @@ RETIRED: dict[str, RetirementRecord] = {
         replacement="(none — the unrated funnel widened toward a rating UX that itself is retired; nothing replaces it. compute_personal_routing_table walks council_outcomes/ directly.)",
         reason="`unrated` subcommand listed councils without `user_verdict` so the user could clear the rating backlog. Whole CLI was Pillar 4 'verdict-capture funnel widening' from the forward arc. With ratings retired (decision #2 of 2026-05-22 cleanup pass), there's no backlog to widen.",
         kind="cli",
+    ),
+    "doctor._check_verdict_rate": RetirementRecord(
+        name="doctor._check_verdict_rate",
+        retired_at="2026-05-22",
+        commit="(this commit)",
+        replacement="(none — doctor no longer reports a verdict-capture rate; with ratings retired the metric is always 0% which would be noise rather than signal)",
+        reason="Soft health check that walked _verdict_stats() and reported what fraction of councils had user_verdict.user_winner set. Pillar-4 'verdict-capture funnel' was the framing. With the full rating retirement on 2026-05-22 (decisions #2 + #7 of cleanup pass: CLI council-rate gone, UI removed, schema clean, wipe-on-read), the metric is structurally 0% on all fresh installs. Tests in tests/test_doctor.py::TestVerdictRateCheck deleted in the same commit.",
+        kind="function",
     ),
     "council-rate": RetirementRecord(
         name="council-rate",
