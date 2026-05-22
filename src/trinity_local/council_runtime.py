@@ -491,6 +491,32 @@ def save_council_outcome(outcome: CouncilOutcome) -> Path:
     from .markdown_utils import render_markdown
     from .utils import atomic_write_text
 
+    # Contract: council_outcome.schema.json declares synthesis_output +
+    # routing_label as required. The dataclass allows both to be None
+    # (it's the same shape during async council execution before
+    # chairman synthesis lands), so the strict save-time contract has
+    # to live here — every callsite in council_runner.py passes
+    # populated values, but a future code path that accidentally writes
+    # a partial outcome would silently break downstream readers that
+    # validate against schema. Fail fast at the boundary.
+    if outcome.synthesis_output is None:
+        raise ValueError(
+            f"save_council_outcome refused: synthesis_output is None "
+            f"for council {outcome.council_run_id!r}. The schema "
+            f"declares this field required. Live progress files belong "
+            f"in council_status_dir(); council_outcomes/ is for completed "
+            f"councils only."
+        )
+    if outcome.routing_label is None:
+        raise ValueError(
+            f"save_council_outcome refused: routing_label is None for "
+            f"council {outcome.council_run_id!r}. The schema declares "
+            f"this field required. Chairman synthesis emits the "
+            f"routing_label inline; outcomes without it indicate a "
+            f"parse failure that should be surfaced loudly, not "
+            f"silently written."
+        )
+
     payload = outcome.to_dict()
     path = council_outcomes_dir() / f"{outcome.council_run_id}.json"
     atomic_write_text(path, json.dumps(payload, indent=2))

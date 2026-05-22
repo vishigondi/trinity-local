@@ -5108,6 +5108,76 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestSaveCouncilOutcomeEnforcesSchemaRequiredFields:
+    """`schemas/council_outcome.schema.json` declares `synthesis_output`
+    and `routing_label` as required. The `CouncilOutcome` dataclass
+    allows both to be None (same shape during async council execution
+    before chairman synthesis lands). Sweep iter #106 caught the
+    contract gap: nothing enforced that pre-synthesis outcomes couldn't
+    accidentally hit `save_council_outcome` and write a schema-invalid
+    JSON to disk.
+
+    Fix: `save_council_outcome` now raises ValueError if either field
+    is None. Live progress files belong in `council_status_dir()`;
+    `council_outcomes/` is for completed councils only.
+
+    Guard: assert the fail-fast assertion fires for both fields.
+    Catches regressions where someone removes the assertion in a
+    refactor.
+    """
+
+    def test_save_refuses_outcome_with_none_synthesis_output(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        # Re-import to pick up TRINITY_HOME
+        import importlib
+        import trinity_local.state_paths as sp
+        importlib.reload(sp)
+
+        from trinity_local.council_runtime import save_council_outcome
+        from trinity_local.council_schema import (
+            CouncilOutcome, CouncilMemberResult, CouncilRoutingLabel,
+        )
+
+        outcome = CouncilOutcome(
+            council_run_id="c_test_no_synth",
+            bundle_id="b1",
+            task_cluster_id="tc1",
+            primary_provider="claude",
+            member_results=[CouncilMemberResult(provider="claude", output_text="hi")],
+            created_at="2026-05-22T00:00:00Z",
+            synthesis_output=None,  # ← schema says required
+            routing_label=CouncilRoutingLabel(winner="claude"),
+        )
+        import pytest
+        with pytest.raises(ValueError, match="synthesis_output is None"):
+            save_council_outcome(outcome)
+
+    def test_save_refuses_outcome_with_none_routing_label(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        import importlib
+        import trinity_local.state_paths as sp
+        importlib.reload(sp)
+
+        from trinity_local.council_runtime import save_council_outcome
+        from trinity_local.council_schema import (
+            CouncilOutcome, CouncilMemberResult,
+        )
+
+        outcome = CouncilOutcome(
+            council_run_id="c_test_no_label",
+            bundle_id="b1",
+            task_cluster_id="tc1",
+            primary_provider="claude",
+            member_results=[CouncilMemberResult(provider="claude", output_text="hi")],
+            created_at="2026-05-22T00:00:00Z",
+            synthesis_output="some output",
+            routing_label=None,  # ← schema says required
+        )
+        import pytest
+        with pytest.raises(ValueError, match="routing_label is None"):
+            save_council_outcome(outcome)
+
+
 class TestHandoffSlugIsAntigravity:
     """The `handoff` CLI + MCP tool take the provider slug — per
     task #127, the Google harness slug is `antigravity` (not the
