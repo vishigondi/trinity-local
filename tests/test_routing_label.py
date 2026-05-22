@@ -184,6 +184,8 @@ class TestRoutingLabelRoundtrip:
             member_results=members,
             primary_model="claude-sonnet-4-6",
             routing_label=label,
+            # iter #106 strict contract: synthesis_output required for save.
+            synthesis_output="[test stub]",
         )
         path = save_council_outcome(outcome)
         assert path.exists()
@@ -201,14 +203,21 @@ class TestRoutingLabelRoundtrip:
         assert on_disk["routing_label"]["winner"] == "claude"
 
     def test_outcome_without_label_omits_field(self, patch_trinity_home: Path, bundle, members):
+        # iter #106 strict contract: save_council_outcome refuses outcomes
+        # with synthesis_output=None OR routing_label=None. This test pins
+        # the dataclass `to_dict()` filter behavior — when routing_label is
+        # None on the in-memory outcome, the serialized dict must omit the
+        # key (forward-compat for downstream readers). Construct the outcome
+        # in-memory and serialize via to_dict() directly, bypassing the save
+        # boundary's strictness check; the omit-on-None behavior lives in
+        # the dataclass, not in save_council_outcome.
         outcome = create_council_outcome(
             bundle=bundle,
             primary_provider="claude",
             member_results=members,
             primary_model="claude-sonnet-4-6",
         )
-        path = save_council_outcome(outcome)
-        on_disk = json.loads(path.read_text())
+        on_disk = outcome.to_dict()
         assert "routing_label" not in on_disk
 
     def test_old_outcome_without_label_still_loads(self, patch_trinity_home: Path):
@@ -291,6 +300,8 @@ class TestRoutingLabelInHtml:
             member_results=members,
             primary_model="claude-sonnet-4-6",
             routing_label=label,
+            # iter #106 strict contract: synthesis_output required for save.
+            synthesis_output="[test stub]",
         )
         save_council_outcome(outcome)
         write_unified_council_page(bundle, outcome)
@@ -304,20 +315,19 @@ class TestRoutingLabelInHtml:
         assert "8.5" in outcome_js
 
     def test_no_routing_label_hides_section(self, patch_trinity_home: Path, bundle, members):
-        from trinity_local.council_review import write_unified_council_page
-        from trinity_local.council_runtime import save_council_outcome
-        from trinity_local.state_paths import council_outcomes_dir
-
+        # iter #106 strict contract: save_council_outcome refuses outcomes
+        # with routing_label=None — the JSONP wrapper is never produced for
+        # that shape. What the renderer needs to keep guaranteeing is that
+        # the dataclass `to_dict()` omits the routing_label key when None,
+        # because that filter is what made the JSONP hide the section in
+        # the first place. Pin the filter directly.
         outcome = create_council_outcome(
             bundle=bundle,
             primary_provider="claude",
             member_results=members,
             primary_model="claude-sonnet-4-6",
         )
-        save_council_outcome(outcome)
-        write_unified_council_page(bundle, outcome)
-        outcome_js = (council_outcomes_dir() / f"{outcome.council_run_id}.js").read_text(encoding="utf-8")
-        assert '"routing_label"' not in outcome_js
+        assert "routing_label" not in outcome.to_dict()
 
 
 class TestLegacyProviderSlugNormalization:

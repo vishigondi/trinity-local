@@ -326,7 +326,11 @@ Claude
             save_council_outcome,
             load_council_outcome,
         )
-        from trinity_local.council_schema import CouncilChainStep, CouncilMemberResult
+        from trinity_local.council_schema import (
+            CouncilChainStep,
+            CouncilMemberResult,
+            CouncilRoutingLabel,
+        )
 
         bundle = create_prompt_bundle(
             task_cluster_id="tc1",
@@ -352,6 +356,9 @@ Claude
             ],
             mode="chain",
             chain_steps=steps,
+            # iter #106 strict contract: synthesis_output + routing_label required.
+            synthesis_output="[test stub]",
+            routing_label=CouncilRoutingLabel(winner="antigravity", confidence="medium"),
         )
         path = save_council_outcome(outcome)
         on_disk = json.loads(path.read_text())

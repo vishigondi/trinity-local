@@ -491,6 +491,15 @@ class TestCouncilFailureMetadata:
         patch_trinity_home: Path,
         monkeypatch,
     ):
+        # iter #106 strict contract: save_council_outcome refuses partial
+        # outcomes (routing_label=None on a synthesis-failure path → raise).
+        # This test originally asserted that synthesis-failure metadata was
+        # persisted on the outcome; that path now correctly fails at save.
+        # Reframed: chairman succeeds with a valid routing-json stub so save
+        # succeeds, and the test pins member-failure metadata only. The
+        # synthesis-failure-raises behavior is covered by the regression
+        # guard `TestSaveCouncilOutcomeEnforcesSchemaRequiredFields` in
+        # tests/test_doc_count_consistency.py (added in iter #106).
         config = AppConfig(
             max_turns=4,
             notifications=False,
@@ -537,6 +546,15 @@ class TestCouncilFailureMetadata:
         )
         save_prompt_bundle(bundle)
 
+        chairman_synthesis = """## Winner
+- Provider: antigravity
+- Confidence: medium
+
+```routing-json
+{"winner":"antigravity","confidence":"medium","task_type":"comparison"}
+```
+"""
+
         class FakeProvider:
             def __init__(self, name: str) -> None:
                 self.name = name
@@ -546,6 +564,15 @@ class TestCouncilFailureMetadata:
                     return ProviderResult(
                         provider="antigravity",
                         stdout="Gemini answer",
+                        stderr="",
+                        returncode=0,
+                    )
+                # Chairman synthesizer call on claude — return a stub with
+                # routing-json so save_council_outcome accepts the outcome.
+                if self.name == "claude" and "synthesizer" in prompt.lower():
+                    return ProviderResult(
+                        provider="claude",
+                        stdout=chairman_synthesis,
                         stderr="",
                         returncode=0,
                     )
@@ -565,8 +592,10 @@ class TestCouncilFailureMetadata:
         )
 
         metadata = result.outcome.metadata
+        # Member failures still bubble through to metadata; the synthesis
+        # path now succeeds (via the chairman stub) so synthesis_failure /
+        # synthesis_error are no longer populated on this path.
         assert metadata["failed_members"] == ["claude", "codex"]
-        assert metadata["synthesis_error"] == "Provider binary not found: claude"
         assert metadata["member_failures"] == [
             {
                 "provider": "claude",
@@ -581,12 +610,8 @@ class TestCouncilFailureMetadata:
                 "error": "Provider binary not found: codex",
             },
         ]
-        assert metadata["synthesis_failure"] == {
-            "provider": "claude",
-            "stage": "primary_synthesis",
-            "reason": "exception",
-            "error": "Provider binary not found: claude",
-        }
+        assert "synthesis_error" not in metadata
+        assert "synthesis_failure" not in metadata
 
 
 class TestCouncilStopCommand:

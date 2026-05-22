@@ -214,11 +214,33 @@ class TestRunConsensusRound:
         from trinity_local.council_runner import run_consensus_round
 
         parent = _make_parent_outcome(home)
+
+        # iter #106 strict contract: save_council_outcome refuses outcomes
+        # without a parsed routing_label, so the chairman synthesis must
+        # carry a routing-json block. Match the chairman-stub pattern in
+        # test_round_increments_and_links_to_parent: detect the synthesizer
+        # prompt and return routing-json; members get a bland refinement.
+        chairman_synthesis = """## Winner
+- Provider: claude
+- Confidence: medium
+
+```routing-json
+{"winner":"claude","confidence":"medium","task_type":"system_design"}
+```
+"""
+
         class R:
-            def __init__(self): self.stdout = "ok"; self.stderr = ""; self.returncode = 0
+            def __init__(self, stdout="ok"):
+                self.stdout = stdout
+                self.stderr = ""
+                self.returncode = 0
+
         class P:
             def __init__(self, name): self.name = name
-            def run(self, prompt, cwd): return R()
+            def run(self, prompt, cwd):
+                if self.name == "claude" and "synthesizer" in prompt.lower():
+                    return R(chairman_synthesis)
+                return R()
         monkeypatch.setattr("trinity_local.council_runner.make_provider", lambda c: P(c.name))
         from trinity_local.config import AppConfig, ProviderConfig
 

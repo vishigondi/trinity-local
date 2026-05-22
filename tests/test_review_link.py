@@ -13,7 +13,7 @@ from trinity_local.council_runtime import (
     save_council_outcome,
     save_prompt_bundle,
 )
-from trinity_local.council_schema import CouncilMemberResult
+from trinity_local.council_schema import CouncilMemberResult, CouncilRoutingLabel
 
 
 def _seed_council(task_text: str) -> str:
@@ -41,6 +41,8 @@ def _seed_council(task_text: str) -> str:
         ],
         winner_provider="antigravity",
         synthesis_output="Gemini wins because it names the mobile review loop.",
+        # iter #106 strict contract: routing_label is required for save.
+        routing_label=CouncilRoutingLabel(winner="antigravity", confidence="medium"),
     )
     save_council_outcome(outcome)
     return outcome.council_run_id
