@@ -746,11 +746,10 @@ def build_page_data(
         # this (promise wins the H1 in idle state); kept exposed in case
         # other sections want a first-run greeting affordance.
         "recentCouncilsCount": len(recent_councils),
-        # verdictStats removed from pageData 2026-05-21 — the Vue
-        # template stopped reading it when the rating UX was sunset
-        # (commit 8f1fd95). The compute function _verdict_stats()
-        # stays alive because doctor._check_verdict_rate() still
-        # consumes it for the informational health check.
+        # verdictStats removed from pageData 2026-05-21 with the
+        # rating UX sunset (commit 8f1fd95). The compute function
+        # _verdict_stats() was retired 2026-05-22 alongside its
+        # sole remaining consumer doctor._check_verdict_rate.
         # Retired 2026-05-17. The macOS Shortcut dispatcher is gone;
         # _shortcut_status() now always reports applicable=False so the
         # legacy banner stays hidden. Kept on the payload for template
@@ -1205,62 +1204,6 @@ def _shortcut_status() -> dict:
     return {"ok": True, "applicable": False}
 
 
-def _verdict_stats() -> dict:
-    """Walk every council outcome and return verdict-capture counts.
-
-    Trinity's whole moat thesis ("the personal ledger of cross-model
-    preferences") rests on the user rating councils — every verdict
-    feeds the personal_routing_table and the cortex picks. Tick #69
-    found the real-corpus rate at 3 of 19 outcomes (16%): 84% of
-    councils contribute zero supervision data. Surfacing the count
-    on the launchpad is the cheapest way to make the gap visible
-    without nagging the user mid-flow (task #110).
-
-    A council counts as "rated" when its outcome JSON carries
-    `metadata.user_verdict.user_winner`. The CLI council-rate handler
-    is the only writer post-2026-05-21 (MCP record_outcome retired).
-
-    Tick #98 also returns thread-level counts (chain_root_id grouped):
-    `threads_total` and `threads_rated`. A multi-round chain has one
-    thread but N outcomes — the launchpad cards group by thread, so
-    the badge counts disagreed with the eyebrow until both shapes
-    were available. Surfaces both lets the eyebrow render the unit
-    that matches what the user is looking at.
-    """
-    total = 0
-    rated = 0
-    # Per-thread aggregation alongside per-outcome counts.
-    threads_seen: set[str] = set()
-    threads_rated: set[str] = set()
-    for path in council_outcomes_dir().glob("council_*.json"):
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        total += 1
-        metadata = raw.get("metadata") or {}
-        verdict = metadata.get("user_verdict") or {}
-        # Thread = chain_root_id, falling back to bundle_id then council_id
-        # (matches _load_recent_councils's grouping).
-        chain_root_id = (
-            metadata.get("chain_root_id")
-            or raw.get("bundle_id")
-            or raw.get("council_run_id")
-            or path.stem
-        )
-        threads_seen.add(chain_root_id)
-        if isinstance(verdict, dict) and verdict.get("user_winner"):
-            rated += 1
-            threads_rated.add(chain_root_id)
-    rate = rated / total if total else 0.0
-    threads_total = len(threads_seen)
-    return {
-        "total": total,
-        "rated": rated,
-        "rate": rate,
-        "threads_total": threads_total,
-        "threads_rated": len(threads_rated),
-    }
 
 
 def _core_status() -> dict:
