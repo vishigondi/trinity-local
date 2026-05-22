@@ -5101,6 +5101,82 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestActiveDocsDontClaimNonexistentCommandModules:
+    """docs/scale-plan.md Phase tables and similar status rows cite
+    `commands/<name>.py` paths as proof of completion. When a module
+    gets retired and the corresponding CLI dropped, the citation
+    becomes a phantom — the path doesn't exist, but the row still
+    says ✅ done.
+
+    Sweep iter #87 caught one in `scale-plan.md:82` (Phase 0 #14)
+    claiming `commands/cache.py with cache-stats/cache-clear` —
+    `commands/cache.py` was deleted with the embedding-cache
+    simplification 2026-05-17. Same shape as principle #20: status
+    rows in mature docs rarely get re-read line-by-line.
+
+    The guard scans all `docs/*.md` for backtick-quoted
+    `commands/<name>.py` paths (`` `commands/foo.py` ``) and asserts
+    each named file exists in `src/trinity_local/commands/`. Lines
+    that strike-through the citation (markdown `~~`) or that contain
+    a `retired`/`deleted`/`removed`/`gone` marker are exempt — those
+    are explicitly documenting the absence.
+
+    Scope limited to `docs/` to avoid noise from CHANGELOG (timestamped
+    retrospective) and source-code docstrings (their own concern).
+    """
+
+    def test_scale_plan_commands_paths_resolve(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        commands_dir = repo / "src" / "trinity_local" / "commands"
+        docs_dir = repo / "docs"
+
+        backtick_re = re.compile(r"`(commands/([a-z_]+)\.py)`")
+        retirement_marker_re = re.compile(
+            r"retired|deleted|removed|gone|sunset|killed|~~|"
+            r"\bcut\b|\bdrop\b|\bdrops\b|\bdelete\b|\bdeletes\b|"
+            r"\| (Delete|Move|Cut) \||"
+            r"\bargparse registration\b|"
+            r"\bsimplification\b",
+            re.IGNORECASE,
+        )
+        # Dedicated retirement-narrative docs are exempt — every line
+        # is about deletion by construction.
+        EXEMPT_DOCS = {"docs/simplification_log.md"}
+
+        offenders: list[str] = []
+        for path in sorted(docs_dir.rglob("*.md")):
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_DOCS:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                for match in backtick_re.finditer(line):
+                    relative, modname = match.group(1), match.group(2)
+                    if (commands_dir / f"{modname}.py").exists():
+                        continue
+                    if retirement_marker_re.search(line):
+                        continue
+                    offenders.append(
+                        f"  {rel}:{idx}: cites `{relative}` (file absent, line not marked retired): {line.strip()[:120]}"
+                    )
+
+        if offenders:
+            msg = [
+                "Active docs cite `commands/<name>.py` modules that no longer exist.",
+                "Either the cited module needs to exist, or the line needs a",
+                "retirement marker (`~~strikethrough~~`, or words like",
+                "'retired', 'deleted', 'removed').",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoDroppedTermsInTestMethodNames:
     """Task #94 dropped "verifier" as Trinity's own terminology in
     favor of "synthesis" / "Synthesis JSON". The existing
