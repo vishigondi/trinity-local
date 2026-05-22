@@ -1064,12 +1064,18 @@ def _browser_capture() -> dict:
             count = 0
             count_24h = 0
             for f in provider_dir.glob("*.json"):
-                # Two flavors of non-canonical sidecar:
-                #   - <conv_id>.stream.json (adapter accumulator)
-                #   - stream-<urlhash>.json  (raw fallback when no
-                #     adapter exists for this provider; currently the
-                #     gemini.google.com path)
-                if f.name.endswith(".stream.json") or f.name.startswith("stream-"):
+                # `stream-<urlhash>.json` is the raw-fallback orphan
+                # (no conv_id) written when no adapter exists. Always
+                # skip — not a user-facing conversation.
+                if f.name.startswith("stream-"):
+                    continue
+                # `.stream.json` is provider-conditional: it's a
+                # sidecar for claude/chatgpt (skip to avoid double-
+                # counting alongside the canonical `<conv_id>.json`),
+                # but it IS canonical for gemini (Google's batchexecute
+                # is reply-only — gemini.js writes <conv_id>.stream.json
+                # as the only output). Shipped 2026-05-22 (441bc28).
+                if f.name.endswith(".stream.json") and provider_name != "gemini":
                     continue
                 try:
                     mtime = f.stat().st_mtime

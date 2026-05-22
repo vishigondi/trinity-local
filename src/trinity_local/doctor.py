@@ -784,14 +784,21 @@ def _check_browser_capture() -> CheckResult:
             if not provider_dir.is_dir():
                 continue
             for f in provider_dir.glob("*.json"):
-                # Skip both sidecar flavors so doctor's "captures
-                # exist" stage matches Surface 33's user-facing count
-                # exactly: .stream.json (adapter accumulator) +
-                # stream-<urlhash>.json (raw fallback for providers
-                # without an adapter, e.g. gemini today).
-                if f.name.endswith(".stream.json"):
-                    continue
+                # `stream-<urlhash>.json` is the raw-fallback orphan
+                # (no conv_id) written when no adapter exists for the
+                # domain. Always skip — not a user-facing conversation.
                 if f.name.startswith("stream-"):
+                    continue
+                # `.stream.json` is provider-conditional:
+                #   - claude.ai / chatgpt.com — sidecar accumulator
+                #     to a sibling canonical `<conv_id>.json`. Skip
+                #     to avoid double-counting.
+                #   - gemini.google.com — canonical output (Google's
+                #     batchexecute is reply-only; no canonical-fetch
+                #     path). gemini.js shipped 2026-05-22 (commit
+                #     441bc28); these are real conversations and
+                #     MUST be counted.
+                if f.name.endswith(".stream.json") and provider_dir.name != "gemini":
                     continue
                 capture_files.append(f)
 
