@@ -281,8 +281,8 @@ class TestFallbackRanker:
         # With a corpus, could be "knn"
         assert decision.backend in {"heuristic", "knn", "fallback"}
 
-    def test_all_task_kinds(self):
-        """FallbackRanker handles all task kinds."""
+    def test_all_task_types(self):
+        """FallbackRanker handles all task_types."""
         ranker = FallbackRanker()
         for task_type in ["research", "coding", "debugging", "writing", "general"]:
             ctx = RoutingContext(

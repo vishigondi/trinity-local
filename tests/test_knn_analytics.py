@@ -131,10 +131,10 @@ class TestReport:
         assert report.upgrades_total >= 0
         assert 0 <= report.upgrade_rate <= 1
 
-    def test_threshold_by_task_kind(self):
+    def test_threshold_by_task_type(self):
         report = generate_report()
-        if report.confidence_by_task_kind:
-            for kind, stats in report.confidence_by_task_kind.items():
+        if report.confidence_by_task_type:
+            for task_type, stats in report.confidence_by_task_type.items():
                 assert "mean" in stats
                 assert "min" in stats
                 assert "max" in stats
@@ -151,10 +151,10 @@ class TestReport:
         assert "total_events" in raw
 
     def test_alert_threshold_brittleness(self):
-        """If confidence varies >30% across task kinds, an alert fires."""
+        """If confidence varies >30% across task_types, an alert fires."""
         report = generate_report()
         # Our test data has coding=0.8, research=0.3 -> spread=0.5
-        if report.confidence_by_task_kind:
+        if report.confidence_by_task_type:
             brittleness_alert = any("BRITTLENESS" in a for a in report.alerts)
             # This may or may not fire depending on accumulated test data
             assert isinstance(brittleness_alert, bool)

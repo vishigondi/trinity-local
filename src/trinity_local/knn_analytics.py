@@ -3,7 +3,7 @@
 Tracks every k-NN advisory call and provides aggregated reporting for:
   1. Evidence spam: how many evidence lines are being appended?
   2. Threshold brittleness: does council_confidence behave consistently
-     across task kinds and provider pairs?
+     across task_types and provider pairs?
   3. Product metrics: "acted on suggestion" and "later switched anyway"
 
 Log is append-only JSONL at ~/.trinity/analytics/knn_advisory.jsonl
@@ -174,8 +174,14 @@ class AdvisoryReport:
     council_by_heuristic: int = 0
     council_by_knn: int = 0
 
-    # Threshold analysis by task kind
-    confidence_by_task_kind: dict[str, dict[str, float]] = field(default_factory=dict)
+    # Threshold analysis by task_type
+    # (Field name was `confidence_by_task_kind` pre-Tier-1-#3 rename;
+    # renamed iter #67 to align with task #92's `task_kind` → `task_type`
+    # sweep, which had missed this surface. Old AdvisoryReport.to_dict()
+    # JSON consumers reading the old key need to migrate at the same
+    # time — knn_advisory_report.json on existing user installs will
+    # show the new key on next generate_report() call.)
+    confidence_by_task_type: dict[str, dict[str, float]] = field(default_factory=dict)
 
     # Threshold analysis by provider pair
     confidence_by_provider_pair: dict[str, dict[str, float]] = field(default_factory=dict)
@@ -245,12 +251,12 @@ def generate_report() -> AdvisoryReport:
         1 for e in council_events if e.was_upgraded and e.heuristic_mode != "council"
     )
 
-    # Threshold analysis by task kind
-    by_kind: dict[str, list[float]] = defaultdict(list)
+    # Threshold analysis by task_type
+    by_task_type: dict[str, list[float]] = defaultdict(list)
     for e in active:
-        by_kind[e.task_type].append(e.council_confidence)
-    for kind, confs in by_kind.items():
-        report.confidence_by_task_kind[kind] = {
+        by_task_type[e.task_type].append(e.council_confidence)
+    for task_type, confs in by_task_type.items():
+        report.confidence_by_task_type[task_type] = {
             "mean": sum(confs) / len(confs),
             "min": min(confs),
             "max": max(confs),
@@ -258,17 +264,17 @@ def generate_report() -> AdvisoryReport:
         }
 
     # Check for threshold brittleness
-    if len(by_kind) >= 2:
-        means = [sum(c) / len(c) for c in by_kind.values()]
+    if len(by_task_type) >= 2:
+        means = [sum(c) / len(c) for c in by_task_type.values()]
         spread = max(means) - min(means)
         if spread > 0.3:
-            high_kind = max(by_kind, key=lambda k: sum(by_kind[k]) / len(by_kind[k]))
-            low_kind = min(by_kind, key=lambda k: sum(by_kind[k]) / len(by_kind[k]))
+            high_type = max(by_task_type, key=lambda k: sum(by_task_type[k]) / len(by_task_type[k]))
+            low_type = min(by_task_type, key=lambda k: sum(by_task_type[k]) / len(by_task_type[k]))
             report.alerts.append(
                 f"THRESHOLD BRITTLENESS: council_confidence varies by {spread:.0%} "
-                f"across task kinds ({high_kind}={sum(by_kind[high_kind])/len(by_kind[high_kind]):.0%} "
-                f"vs {low_kind}={sum(by_kind[low_kind])/len(by_kind[low_kind]):.0%}). "
-                f"Consider per-kind thresholds."
+                f"across task_types ({high_type}={sum(by_task_type[high_type])/len(by_task_type[high_type]):.0%} "
+                f"vs {low_type}={sum(by_task_type[low_type])/len(by_task_type[low_type]):.0%}). "
+                f"Consider per-task_type thresholds."
             )
 
     # Threshold analysis by provider pair
