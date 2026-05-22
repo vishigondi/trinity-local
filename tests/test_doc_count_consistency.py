@@ -5105,6 +5105,112 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestProductSpecArchitectureTodayCommandsResolve:
+    """`docs/product-spec.md` has an "Architecture Today" section
+    (L120+) with a table that maps `commands/<name>.py` modules to
+    their key CLI subcommands. The drift class — the table cites
+    subcommand names, but doesn't bind them to the live argparse
+    surface.
+
+    Sweep iter #95 caught the council.py row citing `council-html`
+    (retired 2026-05-17 with the verifier→synthesis rename) as a
+    Key command. Same shape as iter #87 — a Phase/Architecture
+    table claims completeness against current state but drifts
+    silently when CLIs retire.
+
+    Guard: for each backtick-quoted command name in the
+    "Architecture Today" table of product-spec.md, assert the
+    subcommand exists in the live argparse surface. Lines explicitly
+    marking a retirement (`retired`, `~~`, etc.) are exempt.
+    """
+
+    def test_architecture_today_table_subcommands_resolve(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        target = repo / "docs" / "product-spec.md"
+        if not target.exists():
+            return
+
+        # Live argparse surface (same introspection as the canonical
+        # cli_command_count helper).
+        import argparse, importlib
+        parser = argparse.ArgumentParser(prog="trinity-local")
+        subparsers = parser.add_subparsers(dest="command")
+        main_mod = importlib.import_module("trinity_local.main")
+        for module in main_mod._iter_command_modules():
+            if (r := getattr(module, "register", None)):
+                try:
+                    r(subparsers)
+                except Exception:
+                    continue
+        live_commands: set[str] = set()
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                live_commands = set(action.choices.keys())
+                break
+
+        # Find the "Architecture Today" section and isolate its table.
+        text = target.read_text(encoding="utf-8")
+        section_start = text.find("## Architecture Today")
+        if section_start == -1:
+            return  # section was renamed, nothing to guard here
+        # Stop at the next H2 heading (## ...) so we only check the
+        # commands table, not the MCP-tool list further down.
+        next_section = text.find("\n## ", section_start + 1)
+        section = text[section_start:next_section if next_section != -1 else None]
+
+        # Backticked tokens that look like CLI subcommands:
+        #   `council-html`, `lens-build`, `install-mcp`, etc.
+        token_re = re.compile(r"`([a-z]+(?:-[a-z]+)+)`")
+        # Lines marking retirement get a pass.
+        retirement_marker_re = re.compile(
+            r"retired|deleted|removed|sunset|killed|~~|"
+            r"\bcut\b|\bdrop\b|\bdrops\b|\bdelete\b|"
+            r"replaced|former|legacy",
+            re.IGNORECASE,
+        )
+
+        offenders: list[str] = []
+        lineno = text[:section_start].count("\n") + 1
+        for line in section.splitlines():
+            if not line.lstrip().startswith("|"):
+                lineno += 1
+                continue
+            for match in token_re.finditer(line):
+                tok = match.group(1)
+                # Heuristic: only token-shapes that look like CLI subcommands.
+                # Skip non-CLI tokens (file paths, identifiers without dashes
+                # to a CLI verb shape).
+                if tok in live_commands:
+                    continue
+                # Exempt if the line marks the subcommand as retired.
+                if retirement_marker_re.search(line):
+                    continue
+                # The token might be a file path fragment, not a CLI subcommand.
+                # Filter: only tokens matching the CLI naming convention
+                # (a dashed identifier of the type `verb-noun` or `verb-noun-noun`).
+                # We already require the regex match; further filter by length+shape.
+                if "." in tok or "/" in tok:
+                    continue
+                offenders.append(
+                    f"  product-spec.md:{lineno}: cites `{tok}` "
+                    f"(not in live argparse): {line.strip()[:120]}"
+                )
+            lineno += 1
+
+        if offenders:
+            msg = [
+                "product-spec.md 'Architecture Today' table cites CLI",
+                "subcommands that don't exist in the live argparse surface.",
+                "Either remove the row, mark it retired (~~ or 'retired'),",
+                "or update the prose to match the live CLI.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestInstallMcpHarnessProseLineupIncludesCursor:
     """Sibling of `test_install_mcp_harness_claim_matches_code` —
     that guard catches counts (\"three CLI harnesses\" / \"(three
