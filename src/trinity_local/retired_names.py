@@ -135,7 +135,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.trust": RetirementRecord(
         name="commands.trust",
         retired_at="2026-05-22",
-        commit="(this commit)",
+        commit="5b4185e",
         replacement="(none — trust + audit library lives in `trinity_local.trust`; CLI rebuilt from scratch in v1.1)",
         reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
         kind="module",
