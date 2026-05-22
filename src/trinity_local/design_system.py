@@ -1,7 +1,11 @@
 """Shared design system CSS from DESIGN.md.
 
 Colors, typography, spacing, and component styles used across all
-Trinity HTML pages (portal, council, digest).
+Trinity HTML pages (launchpad, council, memory viewer). Was
+"portal, council, digest" pre-launch — `portal_*` renamed to
+`launchpad_*` per task #93, `digest_pages/` (weekly digest feature)
+retired pre-launch. The memory viewer (`memory_viewer.py`) ships
+with the launchpad and reuses the same SHARED_CSS.
 """
 from __future__ import annotations
 
