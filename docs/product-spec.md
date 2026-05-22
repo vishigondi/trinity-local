@@ -180,7 +180,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 - **Peer review (anonymous member-on-member ranking)** — replaced by chairman Routing JSON. Doubled latency for empty-equivalent data.
 - **TranscriptNode tier** — its only call site was the search re-ranker; PromptNode + TurnWindow already covered the same retrieval surface.
 - **`personal_routing_table.json` durable state** — computed on demand from `council_outcomes/`.
-- **`global_benchmarks.py` separate path** — *deferred*. Today still a separate file; Tier 2 plan merges into one read-time blend.
+- **`global_benchmarks.py` separate path** — read-time blend shipped per Tier 2 #7 (task #52, 2026-05-12). The file structure stayed split (no merge into one module) but `ranker/chairman_picker.py:_blended_pick` reads both `global_benchmarks` + `personal_routing_table` and sigmoid-blends them at decision time — the only consumer that matters. The structural separation has zero behavioral cost.
 - **`prompt_shape.py` standalone module** — folded into `ranker/heuristic.py` (`prompt_calls_for_council` lives there now).
 - **`judge` MCP tool** — collapsed into `run_council(responses=[...])`. One fewer public surface.
 - **Embedding-powered search on the hot path** — replaced with substring + recency + replay-value heuristics. Search cold-start dropped from 22s to ~300ms.
