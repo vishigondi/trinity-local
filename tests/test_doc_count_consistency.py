@@ -1038,10 +1038,13 @@ class TestLaunchpadScreenshotFreshness:
     launchpad they'd get after install.
 
     T-1 catch: the screenshot was 6 days old. Since then Trinity added
-    Surface 30 (3-provider leaderboard), Surface 32 (rate-limit-saves
-    card), and several launch-arc surfaces. The stale screenshot would
-    have shown a meaningfully thinner launchpad than the one a fresh
-    install produces — false advertising for the launch-arc work.
+    Surface 30 (Personalized benchmark / eval summary card) and several
+    launch-arc surfaces. (Surface 32 — the rate-limit-saves card — was
+    also added at T-1 then retired 2026-05-21 with the rest of the
+    rating UX; the smoke surface now guards its absence per iter #73.)
+    The stale screenshot would have shown a meaningfully thinner
+    launchpad than the one a fresh install produces — false advertising
+    for the launch-arc work.
 
     Same shape applies to docs/me_card_example.png (the OTHER Product
     Hunt asset named in launch-package): the example PNG can drift

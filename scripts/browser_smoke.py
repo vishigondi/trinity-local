@@ -1873,8 +1873,13 @@ def main() -> int:
         # Card is ALWAYS rendered (empty state OR populated). When no
         # eval results exist on disk, the card shows the CTA — flavored
         # depending on whether the user has built an eval set yet:
-        #   no set     → "trinity-local eval-build" + "trinity-local eval-run --target gemini"
-        #   set exists → "trinity-local eval-run --target gemini"
+        #   no set     → "trinity-local eval-build" + "trinity-local eval-run --target antigravity"
+        #   set exists → "trinity-local eval-run --target antigravity"
+        # (Slug `gemini` was the pre-task-#127 target name; the rebrand
+        # flipped it to `antigravity` to match config.json's provider
+        # dict. The card text now uses pageData.evalSummary.target which
+        # comes from the live results, so example provider in this
+        # comment is illustrative, not load-bearing.)
         # When results exist, the card shows the per-axis breakdown with
         # tabular-numeric bars.
         eval_state = page.evaluate(

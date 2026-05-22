@@ -65,11 +65,11 @@ trinity-local dream
 trinity-local council-launch --task "what is the right caching strategy"
 
 # Cross-provider continuity
-trinity-local handoff gemini
+trinity-local handoff antigravity
 
 # Personalized eval suite
 trinity-local eval-build
-trinity-local eval-run --target gemini
+trinity-local eval-run --target antigravity
 trinity-local eval-show
 ```
 
