@@ -23,7 +23,9 @@ When `--dangerously-trust-all` is set OR env var
 `TRINITY_TRUST_ALL=1`: every operation resolves to "trust"
 regardless of trust.toml. Audit log still fires.
 
-The schema lives at skills/trinity/schemas/trust.schema.json.
+The schema lives at schemas/trust.schema.json (with a bundled copy at
+skills/trinity/schemas/trust.schema.json that the mirror-sync guard
+keeps byte-identical).
 """
 from __future__ import annotations
 
@@ -269,7 +271,7 @@ def write_default_trust_toml() -> Path:
         '# Override per-invocation: --dangerously-trust-all flag or\n'
         '# TRINITY_DANGEROUSLY_TRUST_ALL=1 env (still audit-logged).\n'
         '#\n'
-        '# Schema: skills/trinity/schemas/trust.schema.json\n'
+        '# Schema: schemas/trust.schema.json\n'
         '# Ratified by council_c18f739a0234aa58 (2026-05-16).\n'
         '\n'
         'schema_version = 1\n'

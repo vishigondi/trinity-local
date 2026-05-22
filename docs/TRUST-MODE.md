@@ -135,6 +135,6 @@ Per the council verdict (`council_c18f739a0234aa58`):
 ## See also
 
 - `docs/three-tier-architecture.md` — full architecture spec
-- `skills/trinity/schemas/trust.schema.json` — JSON Schema for trust.toml
+- `schemas/trust.schema.json` — JSON Schema for trust.toml (canonical); `skills/trinity/schemas/trust.schema.json` is the byte-identical bundled copy
 - `docs/launch_councils/council_c18f739a0234aa58.json` — Phase 6
   council outcome
