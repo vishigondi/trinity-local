@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Retirement log
 
 > Historical context relocated from `claude.md` on 2026-05-22 during

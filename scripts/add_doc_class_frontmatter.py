@@ -90,6 +90,12 @@ CLASSIFICATIONS: dict[str, str] = {
     # ── Historical (snapshots; do not edit) ──
     "docs/spec-v2.md": "historical",
     "docs/v2-loop-constitution.md": "historical",
+    # docs/historical/ — created 2026-05-22 in v1.7.5 cleanup pass
+    # (Phase 4 cut claude.md 918 → 183 lines; these 3 carry the
+    # relocated principles / retirement-log / brand-evolution sections).
+    "docs/historical/principles.md": "historical",
+    "docs/historical/retirement-log.md": "historical",
+    "docs/historical/brand-evolution.md": "historical",
     "docs/PUBLIC_READINESS_PLAN.md": "historical",
     "docs/simplification_log.md": "historical",
 }

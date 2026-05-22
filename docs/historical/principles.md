@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Patterns extracted from the fixes (meta-principles)
 
 > Historical context relocated from `claude.md` on 2026-05-22 during

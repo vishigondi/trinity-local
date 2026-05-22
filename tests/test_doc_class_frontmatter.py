@@ -95,6 +95,13 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/v2-loop-constitution.md",
     "docs/PUBLIC_READINESS_PLAN.md",
     "docs/simplification_log.md",
+    # docs/historical/ — created 2026-05-22 in v1.7.5 cleanup pass
+    # when claude.md was cut from 918 → 183 lines. Each file is a
+    # relocated section of the old claude.md (principles, retired-name
+    # log, brand-pivot history).
+    "docs/historical/principles.md",
+    "docs/historical/retirement-log.md",
+    "docs/historical/brand-evolution.md",
 ]
 
 

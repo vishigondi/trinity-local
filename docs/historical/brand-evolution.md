@@ -1,3 +1,7 @@
+---
+class: historical
+---
+
 # Brand evolution
 
 > Historical context relocated from `claude.md` on 2026-05-22 during
