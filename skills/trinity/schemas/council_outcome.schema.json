@@ -16,7 +16,7 @@
   "properties": {
     "council_run_id": {
       "type": "string",
-      "description": "Stable id, sha1 prefix. Used as the on-disk filename and in MCP `record_outcome` calls.",
+      "description": "Stable id, sha1 prefix. Used as the on-disk filename. (The retired MCP `record_outcome` tool — sunset 2026-05-21 — used this id as its key argument; CLI `council-rate` still uses the same id.)",
       "pattern": "^council_[a-f0-9]{16}$"
     },
     "bundle_id": {
@@ -35,6 +35,18 @@
     "primary_provider": {
       "type": "string",
       "description": "The chairman provider (the model that ran the synthesis pass)."
+    },
+    "primary_session_id": {
+      "type": ["string", "null"],
+      "description": "Session ID of the chairman provider's underlying call. Lets the harness correlate a council with the provider's own session record (e.g. a Claude Code session uuid). Optional."
+    },
+    "agreement_score": {
+      "type": ["number", "null"],
+      "description": "Aggregate cross-member agreement scalar [0.0, 1.0]. Higher = more consensus on agreed_claims. Lets downstream consumers (replay, ranking) filter by deliberation quality without re-parsing routing_label.disagreed_claims."
+    },
+    "needs_followup": {
+      "type": ["boolean", "null"],
+      "description": "Chairman-flagged signal that the council should be re-run with refined context or different members (e.g. all members hedged, the question was misframed, etc.). Downstream consumers can treat as a soft escalation hint."
     },
     "primary_model": {
       "type": ["string", "null"],

@@ -4968,3 +4968,76 @@ class TestNoRetiredSubsystemSectionsInDocs:
                 "the umbrella subsystem name."
             )
             raise AssertionError("\n".join(msg))
+
+
+class TestSchemaMirrorsStaySynchronized:
+    """Permanent guard born of iter #58 of the post-launch sweep.
+
+    Trinity ships JSON Schemas in two locations:
+      - `schemas/` (top-level repo) — canonical, $id-referenced URL
+        target, what launch-package.md L206 raw.github-fetches in the
+        repo-public smoke test
+      - `skills/trinity/schemas/` — bundled copy that ships with the
+        Trinity skill (per docs/three-tier-architecture.md L126:
+        "copies of the in-repo schemas")
+
+    Drift caught in iter #58: past consistency iters updated
+    `schemas/council_outcome.schema.json` (added 3 new fields,
+    retired-record_outcome description) and
+    `schemas/eval_set.schema.json` (gemini → antigravity), but
+    `skills/trinity/schemas/` didn't get the same edits. Same shape
+    as iter #54's SKILL.md mirror sync — two file copies + a doc
+    saying "these stay in sync" + nothing enforcing it.
+
+    Guard: for every JSON schema file in `schemas/`, the bundled
+    copy at `skills/trinity/schemas/` must exist and be byte-
+    identical. `trust.schema.json` lives ONLY at skills/ today (the
+    only schema with that asymmetry); the guard tolerates extra
+    files in skills/ but not drift between the matched pair.
+    """
+
+    def test_schemas_directories_stay_byte_identical(self):
+        repo = Path(__file__).resolve().parent.parent
+        top_level = repo / "schemas"
+        bundled = repo / "skills" / "trinity" / "schemas"
+
+        if not top_level.exists() or not bundled.exists():
+            return  # nothing to check on this checkout
+
+        drifts: list[str] = []
+        missing: list[str] = []
+        for canonical in sorted(top_level.glob("*.schema.json")):
+            mirror = bundled / canonical.name
+            if not mirror.exists():
+                missing.append(canonical.name)
+                continue
+            if canonical.read_bytes() != mirror.read_bytes():
+                drifts.append(canonical.name)
+
+        if missing or drifts:
+            msg = []
+            if missing:
+                msg.append(
+                    "Schema files in `schemas/` missing from "
+                    "`skills/trinity/schemas/` (would ship a stale skill "
+                    "bundle to new users):"
+                )
+                for f in missing:
+                    msg.append(f"  {f}")
+            if drifts:
+                if msg:
+                    msg.append("")
+                msg.append(
+                    "Schema files that drifted between `schemas/` (canonical) "
+                    "and `skills/trinity/schemas/` (bundled copy):"
+                )
+                for f in drifts:
+                    msg.append(f"  {f}")
+            msg.append("")
+            msg.append(
+                "Re-sync the bundled copies. `schemas/` is the canonical "
+                "$id-referenced source per the URL pattern in 3 of 4 "
+                "schema files. Fix:\n"
+                "  cp schemas/<name>.schema.json skills/trinity/schemas/"
+            )
+            raise AssertionError("\n".join(msg))
