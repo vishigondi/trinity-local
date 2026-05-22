@@ -84,7 +84,6 @@ class TestLaunchpadRendering:
 
         # Need at least one rated council so the Routing card renders
         # (the hint is INSIDE the personal-routing card).
-        from trinity_local.launchpad_data import _load_personal_routing_table
         # Stub the routing-table loader so we don't need real outcomes.
         monkeypatch.setattr(
             "trinity_local.launchpad_data._load_personal_routing_table",

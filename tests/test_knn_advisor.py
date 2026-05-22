@@ -2,16 +2,11 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
-from unittest import mock
 
 import pytest
 
 from trinity_local.knn_advisor import (
     KnnAdvice,
-    _CorpusEntry,
-    _load_corpus,
     advise,
     corpus_size,
 )

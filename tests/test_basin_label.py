@@ -98,7 +98,6 @@ class TestBasinIntegratedLabel:
     the lens-build smoke."""
 
     def test_label_round_trips_through_save_load(self, tmp_path, monkeypatch):
-        import json
         from trinity_local.me.basins import Basin, save_basins, load_basins
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
@@ -117,7 +116,6 @@ class TestBasinIntegratedLabel:
         """Old topics.json files written before this fix have no `label`
         key. Loader must default to empty string, not crash."""
         import json
-        from pathlib import Path
         from trinity_local.me.basins import load_basins, basins_path
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))

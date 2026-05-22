@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -170,7 +169,6 @@ def test_launchpad_runtime_js_includes_external_messaging_protocol():
     """sendMessage to a specific extension ID (not the default) is the
     only API that works for file:// → externally-connectable extension
     delivery. Regression-guard the signature."""
-    from trinity_local.runtime_env import run_with_runtime_env  # noqa: F401 — keep import
     from trinity_local.launchpad_runtime import launchpad_runtime_js
 
     js = launchpad_runtime_js()

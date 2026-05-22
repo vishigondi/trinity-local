@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 
 import pytest
 
 from trinity_local.knn_analytics import (
     AdvisoryEvent,
-    AdvisoryReport,
     generate_report,
     load_advisory_log,
     log_advisory_event,

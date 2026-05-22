@@ -11,7 +11,6 @@ Real-corpus validation: a separate manual smoke test runs
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -284,7 +283,6 @@ class TestScorer:
     def test_score_run_skips_failed_dispatches(self, home):
         """Items that failed dispatch get score=None, not 0 — distinguishing
         'model performed badly' from 'dispatch never landed'."""
-        from trinity_local.evals.builder import EvalSet, EvalItem
         from trinity_local.evals.runner import EvalRunResult, EvalItemRun
         from trinity_local.evals.scorer import score_run
 

@@ -18,11 +18,9 @@ wrapper, eventually) surfaces a clear error.
 """
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
-import pytest
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "launcher_path_resolver.sh"

@@ -15,7 +15,6 @@ import pytest
 
 from trinity_local.dispatch_errors import (
     DispatchErrorKind,
-    DispatchFailure,
     classify_dispatch_failure,
 )
 

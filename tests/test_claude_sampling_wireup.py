@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 
@@ -294,7 +293,6 @@ class TestContextVarPropagation:
 @pytest.fixture(autouse=True)
 def _isolate_active_session():
     yield
-    import asyncio
     from trinity_local.mcp_sampling import clear_active_session
     try:
         clear_active_session()

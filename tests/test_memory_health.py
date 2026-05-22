@@ -9,7 +9,6 @@ that earned its place after the prompt_ids truncation bug in tick #5
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 

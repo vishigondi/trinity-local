@@ -10,10 +10,8 @@ never raises) since the live council path will lean on that.
 from __future__ import annotations
 
 import asyncio
-import threading
-from dataclasses import dataclass
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 

@@ -2353,7 +2353,6 @@ class TestCouncilOutcomeSchemaCoversAllSerializedFields:
 
     def test_schema_describes_every_to_dict_field(self):
         import json
-        import dataclasses
 
         from trinity_local.council_schema import CouncilOutcome
 
@@ -4430,7 +4429,6 @@ class TestCanonicalPlaceholdersAreRendered:
         the computation is dead code. Pin both directions so the
         canonical pipeline can't drift on either end.
         """
-        import re
         import subprocess
         import sys
 
@@ -5102,6 +5100,66 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             ]
             for ln, txt in offenders:
                 msg.append(f"  claude.md:{ln}: {txt[:140]}")
+            raise AssertionError("\n".join(msg))
+
+
+class TestNoUnusedImportsInTests:
+    """Task #100 ('Unused-imports cleanup pass — pyflakes-driven')
+    was marked completed on 2026-05-12. Sweep iter #99 found the
+    drift had re-accumulated: pyflakes flagged 89 unused imports
+    across 49 test files. Task-#100's claim was no longer accurate.
+
+    The drift class is signal-masking — same shape as
+    `TestNoFStringWithoutPlaceholders` (tick 55): when pyflakes
+    reports dozens of unused imports the warning becomes wallpaper,
+    and the next real bug (an accidentally-dropped consumer of a
+    legitimate import) hides in the noise.
+
+    Iter #99 ran autoflake to remove all 89 + manually fixed one
+    edge case (a misleading `# noqa: F401 — keep import` for a
+    truly-unused module probe). Net: tests/ went from 89 → 0
+    unused imports.
+
+    Guard: shell out to pyflakes against `tests/` and fail if any
+    'imported but unused' line is present. The same pattern as
+    `test_no_fstring_without_placeholders_in_commands` (tick 55) —
+    parse pyflakes stdout, filter for the specific warning class,
+    fail if non-empty. Doesn't gate on pyflakes exit code (which
+    fires on many other warning classes).
+    """
+
+    def test_no_unused_imports_in_tests(self):
+        import subprocess
+        import sys
+
+        repo = Path(__file__).resolve().parent.parent
+        tests_dir = repo / "tests"
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pyflakes", str(tests_dir)],
+            capture_output=True,
+            text=True,
+        )
+        unused_import_hits = [
+            line for line in result.stdout.splitlines()
+            if "imported but unused" in line
+        ]
+        if unused_import_hits:
+            msg = [
+                f"pyflakes found {len(unused_import_hits)} unused imports "
+                f"in tests/. The post-iter-#99 baseline is zero.",
+                "",
+                "Either remove the import (autoflake does this cleanly:",
+                "  python -m autoflake --remove-all-unused-imports",
+                "    --recursive --in-place tests/",
+                "), or — if the import is intentional probing — give it a",
+                "real use (assert it's importable inside the test body).",
+                "",
+            ]
+            for line in unused_import_hits[:20]:
+                msg.append(f"  {line}")
+            if len(unused_import_hits) > 20:
+                msg.append(f"  ... and {len(unused_import_hits) - 20} more")
             raise AssertionError("\n".join(msg))
 
 

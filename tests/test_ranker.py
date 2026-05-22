@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from trinity_local.ranker import RoutingContext, RoutingDecision, build_default_ranker
+from trinity_local.ranker import RoutingContext, RoutingDecision
 from trinity_local.ranker.fallback import FallbackRanker
 from trinity_local.ranker.heuristic import HeuristicRanker
 from trinity_local.ranker.knn_ranker import KnnRanker

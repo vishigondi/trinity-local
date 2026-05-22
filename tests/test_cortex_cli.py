@@ -9,11 +9,9 @@ only smoke-tested by hand.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 
 
 def _plant_pattern(basin: str, *, override: int = 0) -> None:

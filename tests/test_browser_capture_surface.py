@@ -6,7 +6,6 @@ test as the rate-limit-saves / verdict-stats Surface 30/32 helpers.
 
 from __future__ import annotations
 
-import json
 import os
 import time
 

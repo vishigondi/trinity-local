@@ -1,9 +1,6 @@
 """Tests for the embeddings package."""
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
 
 from trinity_local.embeddings.backend_tfidf import embed_tfidf, cosine_similarity
 

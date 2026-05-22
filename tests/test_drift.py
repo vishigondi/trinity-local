@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from trinity_local.drift import (
-    DriftAlert,
     OutcomeRecord,
     _score_outcome,
     check_drift,
-    _outcomes_path,
 )
 
 

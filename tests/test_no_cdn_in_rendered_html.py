@@ -9,7 +9,6 @@ file under src/trinity_local/data/vendor/ + reference via
 """
 from __future__ import annotations
 
-import re
 
 import pytest
 

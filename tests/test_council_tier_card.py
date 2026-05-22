@@ -7,7 +7,6 @@ free-tier add unlocks. Pairs with the PATH-filter change to
 """
 from __future__ import annotations
 
-from typing import Iterator
 from unittest.mock import patch
 
 import pytest

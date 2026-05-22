@@ -24,7 +24,6 @@ class TestCardData:
     def test_collect_picks_lens_with_most_basins(self, tmp_path, monkeypatch):
         # When multiple lenses exist, the strongest = most cross-domain reach
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        from trinity_local.me.basins import me_dir
         from trinity_local.me.pair_mining import LensPair, save_lenses
         narrow = LensPair(
             pole_a="A", pole_b="B", failure_a="x", failure_b="y",

@@ -7,7 +7,6 @@ be exercised end-to-end before more types get added.
 """
 from __future__ import annotations
 
-import json
 
 import pytest
 

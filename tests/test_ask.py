@@ -12,7 +12,6 @@ import pytest
 
 from trinity_local import ask as ask_module
 from trinity_local.ask import (
-    AskDecision,
     ESCALATE_HINT_THRESHOLD,
     _decide_from_hits,
     decide_route,

@@ -15,8 +15,6 @@ surface.
 from __future__ import annotations
 
 import argparse
-import io
-from contextlib import redirect_stdout
 
 
 from trinity_local.main import (

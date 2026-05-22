@@ -11,13 +11,11 @@ Tests are purely numerical (synthetic embeddings, no model load).
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from trinity_local.cross_provider_pairs import (
-    DEFAULT_SIMILARITY_THRESHOLD,
     CrossProviderCluster,
     ProviderResponse,
     _cosine,

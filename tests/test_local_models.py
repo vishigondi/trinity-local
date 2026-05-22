@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from trinity_local.local_models import (
-    LocalModel,
     _parse_size,
     clear_detection_cache,
     detect_local_models,

@@ -15,7 +15,6 @@ implementation could swap in without test churn.
 """
 from __future__ import annotations
 
-import math
 
 import pytest
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -281,7 +280,6 @@ class TestIngestRecent:
         """args.sources defaults to [] from argparse (action="append"). The
         handler must fan out to DEFAULT_SOURCES, not pass an empty list to
         ingest_recent (which would walk zero sources)."""
-        import json
         from types import SimpleNamespace
         from trinity_local import incremental_ingest
         from trinity_local.commands.watch import handle_ingest_recent

@@ -205,7 +205,7 @@ def test_dispatch_readiness_doctor_launchpad_agree(
         lambda: {"ok": True, "applicable": False},
     )
     from trinity_local.launchpad_data import (
-        dispatch_readiness, build_page_data, _browser_extension
+        dispatch_readiness, build_page_data
     )
     from trinity_local.doctor import _check_dispatch_ready
 

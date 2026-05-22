@@ -8,8 +8,6 @@ exercised here.
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 
 import pytest
 
@@ -220,7 +218,6 @@ class TestLoadSaveRoundtrip:
         # Redirect cortex_dir to tmp.
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         # Have to reload modules that cache trinity_home at import.
-        from trinity_local import state_paths
 
         # state_paths uses functions; safe to call after env change.
         pattern = RoutingPattern(
@@ -313,7 +310,6 @@ class TestLoadSaveRoundtrip:
         """
         from trinity_local import cortex
         from trinity_local.ask import _best_centroid_match
-        from trinity_local.embeddings.backend_tfidf import cosine_similarity
 
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
 

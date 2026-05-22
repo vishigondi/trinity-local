@@ -9,9 +9,7 @@ The git-clone-led distribution (no PyPI, no npm) hinges on:
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 

@@ -15,7 +15,6 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 from trinity_local.dispatch_health import (
-    _DECAY_MINUTES,
     clear_health_cache,
     compute_health,
     log_member_failure,

@@ -36,11 +36,8 @@ subprocess-based Native Messaging frame round-trip.
 """
 from __future__ import annotations
 
-import json
 import os
 import shutil
-import subprocess
-import time
 from pathlib import Path
 
 import pytest

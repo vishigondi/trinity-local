@@ -8,9 +8,7 @@ topology evidence actually gate output (Option C, council_70eaf228d7753074).
 
 from __future__ import annotations
 
-import json
 
-import pytest
 
 
 class TestBasins:

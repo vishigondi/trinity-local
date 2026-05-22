@@ -15,7 +15,6 @@ monkeypatching of the parse layer. The only env override is
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 

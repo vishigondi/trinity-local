@@ -1,7 +1,6 @@
 """Tests for consensus-iteration chain mode (#35)."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
