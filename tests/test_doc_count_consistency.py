@@ -5105,6 +5105,103 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestGeminiVersionMatchesCanonical:
+    """`claude.md` L565 carries the canonical underlying-model trio:
+    *"Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 | GPT-5.5 | Gemini 3.1
+    Pro Preview"*. Sweep iter #98 caught `docs/LAUNCH_CHECKLIST.md:5`
+    titled *"Launch checklist — Trinity v1.0 alongside Gemini 4"* — a
+    pre-launch expected-name guess that didn't match the actual
+    Google launch (Gemini 3.1 Pro Preview).
+
+    The drift is a model-version naming mismatch: when a frontier
+    provider's actual launch name diverges from the expected
+    pre-launch label, the checklist freezes the old guess. Same
+    shape as principle #20 — load-bearing names need binding to a
+    canonical source.
+
+    Guard: scan `class: live` docs in docs/ for `Gemini N` claims
+    where `N` differs from claude.md's canonical entry. CHANGELOG.md
+    + sweep-patterns + simplification_log exempt (retrospective).
+    """
+
+    def test_gemini_version_in_live_docs_matches_canonical(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        # Extract canonical Gemini version from claude.md provider trio table.
+        claude_md = (repo / "claude.md").read_text(encoding="utf-8")
+        canonical_match = re.search(
+            r"\|\s*underlying model\s*\|.*?\|\s*(Gemini\s+[\w\s.-]*?Preview)\s*\|",
+            claude_md,
+        )
+        if not canonical_match:
+            raise AssertionError(
+                "Couldn't locate the canonical 'underlying model' row "
+                "in claude.md. The 'provider trio across layers' table "
+                "should carry the Gemini version — guard regex needs "
+                "updating if the table shape changed."
+            )
+        canonical_gemini = canonical_match.group(1).strip()
+
+        # Scan class:live docs in docs/ for any `Gemini N` claim that
+        # doesn't match the canonical version.
+        # `Gemini N` with N being a digit/decimal version number.
+        gemini_version_re = re.compile(r"\bGemini\s+(\d+(?:\.\d+)?)\b")
+        canonical_version_match = re.search(r"(\d+(?:\.\d+)?)", canonical_gemini)
+        if not canonical_version_match:
+            return  # canonical doesn't have a parseable version number; skip
+        canonical_version = canonical_version_match.group(1)
+
+        docs_dir = repo / "docs"
+        targets: list[Path] = []
+        for path in sorted(docs_dir.glob("*.md")):
+            try:
+                head = path.read_text(encoding="utf-8")[:200]
+            except (OSError, UnicodeDecodeError):
+                continue
+            if "class: live" in head:
+                targets.append(path)
+
+        offenders: list[str] = []
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                for match in gemini_version_re.finditer(line):
+                    cited = match.group(1)
+                    # Both must match — the version number itself,
+                    # AND there's no obvious historical-context marker.
+                    if cited == canonical_version:
+                        continue
+                    # Skip when the line is about a different concept
+                    # entirely — gemini.google.com adapter, gemini takeout,
+                    # ~/.gemini/ disk paths.
+                    if re.search(
+                        r"gemini\.google\.com|gemini\s+takeout|~/\.gemini/|gemini_takeout|gemini_cli_session",
+                        line, re.IGNORECASE,
+                    ):
+                        continue
+                    offenders.append(
+                        f"  {rel}:{idx}: 'Gemini {cited}' "
+                        f"(canonical: 'Gemini {canonical_version}'): {line.strip()[:120]}"
+                    )
+
+        if offenders:
+            msg = [
+                f"Active docs cite a Gemini version that doesn't match",
+                f"claude.md's canonical underlying-model entry "
+                f"({canonical_gemini}).",
+                "Update the citation, or update claude.md's provider trio",
+                "table if the canonical version changed.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestBundledSkillMatchesTopLevel:
     """The `/trinity` skill ships at `skills/trinity/SKILL.md` (the
     canonical) and is mirrored to `src/trinity_local/data/skills/trinity/SKILL.md`

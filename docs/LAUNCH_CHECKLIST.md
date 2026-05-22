@@ -2,7 +2,7 @@
 class: live
 ---
 
-# Launch checklist — Trinity v1.0 alongside Gemini 4
+# Launch checklist — Trinity v1.0 alongside Gemini 3.1 Pro Preview
 
 > Generated 2026-05-16 by the cron loop after council `ff3da1fa84906791`
 > ratified the v1.0 floor. Sunday/Monday tasks below; everything in
@@ -10,7 +10,7 @@ class: live
 
 ## Done — v1.0 ready to ship
 
-**Code (<!-- canonical:test_count -->1641<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->91<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62)**
+**Code (<!-- canonical:test_count -->1642<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->92<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62)**
 - 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
   (commits d56cffc → ebc212a). Every launchpad button works
   cross-platform via the extension; macOS Shortcut as tier-2 fallback.
@@ -45,7 +45,7 @@ launch live.
       a git clone via curl|sh.
 - [ ] **Demo recording shot + hosted.** Task #120: the 60-second
       cross-provider handoff demo. Use `trinity-local handoff
-      gemini` mid-conversation; show Gemini picking up the thread
+      antigravity` mid-conversation; show Gemini picking up the thread
       with Google data Claude couldn't see. Host on
       vishigondi.com/trinity-demo or wherever; update the README +
       docs/launch.md to embed.
