@@ -356,24 +356,28 @@ actually firing on real installs.
    card + the launchpad's Personalized Benchmark card are the
    surfaces; the harness is shipped.
 
-4. **Supervision-signal uplift measurement.** The 6-stage rate-
-   capture defense shipped pre-launch (census → visible →
-   verify-after → preempt-CLI → preempt-UI → active nudge via MCP
-   `rate_action`). Pre-launch the real-corpus rate was 3/19 (16%);
-   first post-launch measurement (2026-05-20) on the same install:
-   4/31 (13%). Council count grew faster than verdict count, so the
-   proportion slipped slightly — the active nudge shipped but n=31
-   is too small to conclude (binomial noise dominates). Prediction
-   was ≥50% within a week. If still <2× the baseline at n≥50,
-   revisit by surfacing the nudge through the macOS notification
-   system (notifications.py exists) on council completion. The
-   personal ledger of cross-model preferences is the moat — empty
-   ledger = no moat.
+4. **Supervision-signal accumulation.** The 6-stage rate-capture
+   defense was sunset 2026-05-21 alongside the rest of the rating UX
+   — `rate_action`, `record_outcome`, and `pending_ratings` all
+   retired (see `retired_names.py`). The new mechanism: the chairman's
+   `routing_label.winner` field IS the supervision signal, written
+   automatically to `~/.trinity/council_outcomes/<id>.json` on every
+   council. `compute_personal_routing_table()` walks the outcomes
+   directory on demand — no user-click step in the loop. This
+   removes the "council count grows faster than verdict count"
+   drift the rating mechanism was vulnerable to: every council is
+   a verdict now. Open question: whether the chairman pick alone
+   is a strong-enough signal at low n vs the human-veto-able rating
+   that was retired. Refinement prompts on the council page carry
+   the "what user wanted differently" signal that user_winner
+   ratings used to. The personal ledger of cross-model preferences
+   is the moat — empty ledger = no moat.
 
 5. **`principles.md` pipeline (task #109).** Data-gated. Needs ≥100
-   council outcomes AND verdict rate ≥50% before k-means in 768-d
-   space is meaningful. Revisits after the rate-capture work in #4
-   produces enough signal.
+   council outcomes (the auto-recorded chairman picks per #4 above)
+   before k-means in 768-d space is meaningful. n is the only
+   bottleneck; sustained MCP usage on shipped installs accumulates
+   the signal automatically.
 
 **What's NOT in the post-launch arc (deliberately):**
 
