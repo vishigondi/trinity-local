@@ -46,11 +46,11 @@ def _source_root(source: str) -> Path:
         # claude.ai with the Trinity browser extension installed. The
         # directory may not exist on installs without the extension —
         # _iter_recent_paths bails cleanly in that case.
-        from .state_paths import trinity_home
-        return trinity_home() / "conversations" / "claude"
+        from .state_paths import conversations_provider_dir
+        return conversations_provider_dir("claude")
     if source == "browser_chatgpt":
-        from .state_paths import trinity_home
-        return trinity_home() / "conversations" / "chatgpt"
+        from .state_paths import conversations_provider_dir
+        return conversations_provider_dir("chatgpt")
     raise ValueError(f"Unknown source: {source}")
 
 

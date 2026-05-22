@@ -836,8 +836,8 @@ def _check_browser_capture() -> CheckResult:
         )
 
     # Stage 3 — any captures yet?
-    from .state_paths import trinity_home
-    conv_root = trinity_home() / "conversations"
+    from .state_paths import conversations_dir
+    conv_root = conversations_dir()
     capture_files: list[Path] = []
     if conv_root.exists():
         for provider_dir in conv_root.iterdir():

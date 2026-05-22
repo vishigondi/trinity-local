@@ -26,11 +26,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .state_paths import trinity_home
+from .state_paths import conversations_dir
 
 
 def _conv_dir() -> Path:
-    return trinity_home() / "conversations"
+    return conversations_dir()
 
 
 def _read_message() -> dict[str, Any] | None:

@@ -1036,7 +1036,7 @@ def _browser_capture() -> dict:
     Per "Analytics never crash": any unexpected failure returns the
     empty shape.
     """
-    from .state_paths import trinity_home
+    from .state_paths import conversations_dir
     empty = {
         "has_data": False,
         "total_captured": 0,
@@ -1047,7 +1047,7 @@ def _browser_capture() -> dict:
         "stale": False,
         "install_command": "trinity-local install-extension",
     }
-    conv_root = trinity_home() / "conversations"
+    conv_root = conversations_dir()
     if not conv_root.exists():
         return empty
     try:

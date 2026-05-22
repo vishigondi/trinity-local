@@ -169,6 +169,34 @@ def analytics_dir() -> Path:
     return path
 
 
+def conversations_dir() -> Path:
+    """Captured web-chat conversations under ``~/.trinity/conversations/``.
+    The Chrome extension's Native Messaging host (``capture_host.py``)
+    writes per-provider subdirs (``claude/``, ``chatgpt/``, etc.); the
+    ingest path (``watch_runtime._source_root``) and the launchpad's
+    capture-status card (``launchpad_data._capture_card``) read them.
+
+    Was inlined as ``trinity_home() / "conversations"`` in 5 callers
+    (capture_host.py, doctor.py, launchpad_data.py, watch_runtime.py ×2)
+    before iter #117 promoted it to a helper per principle #17 (three
+    inline shapes = missing helper). See ``share_dir`` for the same
+    pattern at N=3.
+
+    Unlike most state dirs, this is NOT pre-created — the capture host
+    creates it on first message and absence is a meaningful signal
+    (doctor surface 33 reports "no captures yet" when missing). Callers
+    that need to check existence MUST ``.exists()`` themselves.
+    """
+    return state_dir() / "conversations"
+
+
+def conversations_provider_dir(provider: str) -> Path:
+    """Per-provider capture subdir, e.g. ``~/.trinity/conversations/claude/``
+    or ``~/.trinity/conversations/chatgpt/``. Not pre-created — see
+    ``conversations_dir`` for why."""
+    return conversations_dir() / provider
+
+
 def share_dir() -> Path:
     """PNG share-card outputs — `me-card`, `council-share --safe`,
     `eval-share` defaults. Was inlined as `state_dir() / "share"` in
