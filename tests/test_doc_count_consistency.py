@@ -2283,6 +2283,11 @@ class TestBundledSkillCommandExamplesValidate:
 
     TARGET_PROVIDER_RE = re.compile(r'target_provider="([^"]+)"')
     EVAL_TARGET_RE = re.compile(r'--target\s+([a-z_][a-z0-9_-]*)')
+    # Iter #75 catch: bundled SKILL.md "Common follow-ups" L144 taught
+    # `trinity-local handoff gemini` — same crash shape as --target gemini
+    # (handoff.py:208 KeyError) but the existing regexes missed the
+    # positional CLI form. Anchor on the literal CLI prefix.
+    HANDOFF_CLI_RE = re.compile(r'trinity-local\s+handoff\s+([a-z_][a-z0-9_-]*)')
 
     def test_skill_md_example_slugs_resolve_in_config(self):
         from trinity_local.config import load_config
@@ -2293,6 +2298,7 @@ class TestBundledSkillCommandExamplesValidate:
         mentioned: set[str] = set()
         mentioned.update(self.TARGET_PROVIDER_RE.findall(text))
         mentioned.update(self.EVAL_TARGET_RE.findall(text))
+        mentioned.update(self.HANDOFF_CLI_RE.findall(text))
 
         # `<provider>` is an explicit placeholder, not a literal — strip.
         # Same for `<...>` style placeholders.

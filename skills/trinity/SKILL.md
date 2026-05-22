@@ -141,7 +141,7 @@ Suggest these to the user after section 5 succeeds:
 
 > Trinity is set up. Next moves:
 > - `/council <a hard question>` — dispatch through all three providers, synthesized in your voice
-> - `trinity-local handoff gemini` — hand off the last 3 turns to a different model (the demo most people don't realize they can do)
+> - `trinity-local handoff antigravity` — hand off the last 3 turns to a different model (the demo most people don't realize they can do; `antigravity` is the post-task-#127 slug for the Google CLI binary `agy`)
 > - `trinity-local portal-html --open-browser` — the launchpad: recent councils, lens preview, eval leaderboard, topic graph
 > - `trinity-local me-card --open` — render your strongest lens as a sharable PNG
 
