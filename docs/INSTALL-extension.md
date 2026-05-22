@@ -8,7 +8,7 @@ class: live
 > the skill + pip tiers can't: (1) one-click launchpad UI from the
 > browser toolbar, (2) cross-surface capture of web-chat conversations
 > from claude.ai / chatgpt.com (gemini.google.com captures hit disk
-> too but Python-side ingestion is deferred to v1.7 per protocol-
+> too but Python-side ingestion is deferred to v1.8 per protocol-
 > fragility risk — extension preserves raw payloads now, lens reads
 > them once the adapter lands).
 

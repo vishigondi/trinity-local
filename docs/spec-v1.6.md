@@ -12,7 +12,8 @@ class: aspirational
 >
 > Remaining: Day 10 ship cut requires a one-time `chrome://extensions →
 > Load Unpacked` user action that can't be automated through MCP; the
-> gemini.google.com adapter was deferred to v1.7 per the launch-arc
+> gemini.google.com adapter was deferred (originally v1.7 target; v1.7
+> shipped without it; now tracked for v1.8) per the launch-arc
 > protocol-fragility risk note.
 >
 > v1.6 closes the corpus-acquisition gap that the v1.0 launch surfaces but

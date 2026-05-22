@@ -1020,7 +1020,7 @@ def _browser_capture() -> dict:
       - ``stream-<urlhash>.json`` — fallback no-adapter writes
         (capture_host stores raw stream bodies under this prefix when
         no ``__TRINITY_ADAPTERS.<provider>`` exists; currently the
-        gemini.google.com path since `gemini.js` is deferred to v1.7).
+        gemini.google.com path since `gemini.js` is deferred to v1.8).
         These have no conv_id, just an opaque url hash; they aren't
         user-facing conversations.
 
