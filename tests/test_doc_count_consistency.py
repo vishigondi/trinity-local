@@ -5105,6 +5105,80 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestScalePlanPhaseRowsResolveCitedPaths:
+    """`docs/scale-plan.md` Phase tables cite backtick-quoted module
+    paths as evidence of completion (✅ done). When a cited module
+    gets retired or renamed, the row keeps the ✅ marker but the path
+    no longer resolves — same shape as the `commands/cache.py` row
+    caught in iter #87, generalized.
+
+    Sweep iter #89 caught the Phase 0 row #12 (L80) citing
+    `research/replay.py` — the `research/` package was deleted in
+    the 2026-05-18 simplification pass. (The same row also claimed
+    `watch_runtime.py` imports from `task_types.py`, which is no
+    longer true post-watcher-retirement; that semantic drift is
+    harder to catch by path-resolution alone — fixed manually in
+    this iter.)
+
+    The guard scans `docs/scale-plan.md` for backtick-quoted
+    `<dir>/<file>.py` paths in lines beginning with `| ` (table rows).
+    Resolves each path against either:
+      - `src/trinity_local/<dir>/<file>.py`
+      - `<repo>/<dir>/<file>.py`
+    Lines marked retired/deleted/removed/cut/dropped/sunset/replaced
+    are exempt — those explicitly document the absence. Strikethrough
+    `~~`-wrapped citations are also exempt.
+    """
+
+    def test_scale_plan_phase_row_paths_resolve(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        target = repo / "docs" / "scale-plan.md"
+        if not target.exists():
+            return
+
+        # Match backticked paths like `dir/name.py` or `dir/sub/name.py`.
+        # Stay strict — require at least one `/` so we don't catch
+        # bare filenames (those are too ambiguous to resolve).
+        path_re = re.compile(r"`((?:[a-z_]+/)+[a-z_]+\.py)`")
+        retirement_marker_re = re.compile(
+            r"retired|deleted|removed|gone|sunset|killed|~~|"
+            r"\bcut\b|\bdrop\b|\bdrops\b|\bdelete\b|\bdeletes\b|"
+            r"\breplaced\b|\bmoved\b|\bfolded\b|"
+            r"\| (Delete|Move|Cut|Merge|Split) \|",
+            re.IGNORECASE,
+        )
+
+        offenders: list[str] = []
+        for idx, line in enumerate(target.read_text(encoding="utf-8").splitlines(), start=1):
+            # Only scan table rows.
+            if not line.lstrip().startswith("|"):
+                continue
+            for match in path_re.finditer(line):
+                relative = match.group(1)
+                resolved_under_src = (repo / "src" / "trinity_local" / relative).exists()
+                resolved_under_repo = (repo / relative).exists()
+                if resolved_under_src or resolved_under_repo:
+                    continue
+                if retirement_marker_re.search(line):
+                    continue
+                offenders.append(
+                    f"  scale-plan.md:{idx}: cites `{relative}` "
+                    f"(file absent; line not marked retired): {line.strip()[:120]}"
+                )
+
+        if offenders:
+            msg = [
+                "scale-plan.md Phase-table rows cite paths that no longer exist.",
+                "Either the path needs to resolve (under src/trinity_local/ or",
+                "repo root), or the row needs a retirement marker.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestActiveDocsDontClaimNonexistentCommandModules:
     """docs/scale-plan.md Phase tables and similar status rows cite
     `commands/<name>.py` paths as proof of completion. When a module

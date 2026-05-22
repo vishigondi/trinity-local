@@ -77,7 +77,7 @@ class: aspirational
 | 9 | Complete state path migration | ✅ done | All duplicate `*_dir()` functions removed from `council_runtime.py`, `review.py`, ~~`shortcut_setup.py`~~ (retired), `research/embeddings.py`, `research/hard_eval.py`, `research/ranking.py`. All use `state_paths.*` imports. |
 | 10 | Harden council parsing | ✅ done | `tests/test_council_runtime.py` added with regression cases |
 | 11 | Normalize config loading | ✅ done | `load_config(required=False)` for read-only commands; only provider-requiring commands call with `required=True`. |
-| 12 | Deduplicate task-type classification | ✅ done | `task_types.py` with `guess_task_type()`. `watch_runtime.py` and `research/replay.py` both import from it. (Renamed from `task_kinds.py` per Tier 1 #3, 2026-05-12.) |
+| 12 | Deduplicate task-type classification | ✅ done | `task_types.py` with `guess_task_type()`. Live callers: `incremental_ingest.py`, `ask.py`, `mcp_server.py`, `ranker/chairman_picker.py`. (Renamed from `task_kinds.py` per Tier 1 #3, 2026-05-12. The earlier `watch_runtime.py` + `research/replay.py` callers cited above were retired: the watcher subsystem was dropped pre-launch and the `research/` package was deleted in the 2026-05-18 simplification pass.) |
 | 13 | Fix dispatch wrapper portability | ✅ done | ~~`dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang.~~ Both files retired pre-launch when the Chrome extension Native Messaging path replaced the macOS Shortcut dispatcher — the portability concern is moot now (capture_host.py inherits the user's PATH from the Chrome process). |
 | 14 | Operator surfaces (cache-stats, watch errors) | ✅ done | ~~`commands/cache.py` with `cache-stats`/`cache-clear`; `commands/status.py` reads `watch_errors.jsonl`.~~ Both operator surfaces retired pre-launch: the embedding cache module + its two CLIs retired 2026-05-17 (offline rebuild passes re-encode their corpus per run; see `embeddings/__init__.py` docstring), and `~/.trinity/analytics/watch_errors.jsonl` was retired with the watcher subsystem (see `retired_names.py`). The "operator surface" concern is moot — there are no operator surfaces left to surface errors from. |
 | 15 | Deprecate old council-html path | ✅ done | The `council-html` CLI subcommand was retired entirely; `council_runner.write_unified_council_page()` is the single page writer now and runs after every council. `render_review_html` / `write_review_html` deleted from `council_review.py`. Public surface for sharing council pages is `council-share`. |
@@ -639,10 +639,10 @@ On `portal-html` generation, check if `last_update_check` in telemetry settings 
 | `src/trinity_local/council_runtime.py` | ✅ done — `parse_synthesis_sections` hardened (case-insensitive, numbered variants, `"raw"` fallback). `parse_peer_review_sections` retired with the verifier→synthesis rename (Tier 2 #5). |
 | `src/trinity_local/config.py` | Soft-fail for read-only commands; add explicit per-command annotation |
 | `src/trinity_local/task_types.py` | ✅ done — single `guess_task_type()` (renamed from `task_kind` per Tier 1 #3). |
-| `src/trinity_local/research/replay.py` | ✅ done — drifted duplicate removed; imports from `task_types`. |
+| ~~`src/trinity_local/research/replay.py`~~ | ~~✅ done — drifted duplicate removed; imports from `task_types`.~~ Replaced: the whole `research/` package was deleted in the 2026-05-18 simplification pass (CHANGELOG v1.7.4 entry #5). |
 | ~~`src/trinity_local/shortcut_setup.py`~~ | ✅ retired pre-launch (commit 53db635) — Chrome extension Native Messaging replaced the macOS Shortcut dispatcher. |
 | `src/trinity_local/commands/status.py` | Add watch-loop error count + last error |
-| `src/trinity_local/commands/cache.py` | **New** — `cache-stats`, `cache-clear` subcommands |
+| ~~`src/trinity_local/commands/cache.py`~~ | ~~**New** — `cache-stats`, `cache-clear` subcommands~~ Retired: the persistent embedding cache was dropped 2026-05-17 (see `embeddings/__init__.py` docstring); both CLIs retired with it. |
 | `src/trinity_local/commands/council.py` | Route `council-html` through `write_unified_council_page` |
 
 ### Phase 1+ (distribution / growth)
@@ -808,7 +808,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: <!-- canonical:test_count -->1634<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
+>   tests after dead-code removal." Live: <!-- canonical:test_count -->1635<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.
