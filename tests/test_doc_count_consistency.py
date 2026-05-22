@@ -2115,6 +2115,18 @@ class TestNoBannedSynonyms:
         "CODE_OF_CONDUCT.md",
         "pyproject.toml",
         ".github/ISSUE_TEMPLATE/config.yml",
+        # ISSUE_TEMPLATE markdown templates added iter #64 after
+        # bug_report.md L34 was caught listing "Claude Code / Codex
+        # CLI / Gemini CLI / Cursor" as the harness 4-tuple — same
+        # drift class as the launch-day docs (post the 2026-05-21
+        # Antigravity rebrand, slot 3 is Antigravity, not Gemini
+        # CLI). Every "New Issue" form on GitHub renders these
+        # templates verbatim, so the harness list there is just as
+        # user-facing as the README.
+        ".github/ISSUE_TEMPLATE/bug_report.md",
+        ".github/ISSUE_TEMPLATE/feature_request.md",
+        ".github/ISSUE_TEMPLATE/adapter_request.md",
+        ".github/pull_request_template.md",
         "docs/teams.md",
         "docs/launch.md",
         "docs/launch-package.md",

@@ -31,7 +31,7 @@ $ trinity-local status
 - macOS / Linux / WSL version:
 - Python version (`python3 --version`):
 - Trinity install path (`which trinity-local`):
-- Which harness you were using (Claude Code / Codex CLI / Gemini CLI / Cursor / standalone CLI):
+- Which harness you were using (Claude Code / Codex CLI / Antigravity / Cursor / standalone CLI):
 
 ## Logs or screenshots (optional)
 

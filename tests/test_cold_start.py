@@ -160,7 +160,7 @@ class TestKickColdStartScan:
         self, isolated_home, autoscan_enabled, monkeypatch,
     ):
         """Cross-process race guard: when two MCP servers (e.g. Claude
-        Code + Codex CLI + Gemini CLI + Cursor) start at session-load
+        Code + Codex CLI + Antigravity + Cursor) start at session-load
         and each calls is_cold_start() simultaneously, only one should
         actually spawn a scan thread. The serialization point is the
         on-disk state file. This test asserts kick_cold_start_scan
