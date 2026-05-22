@@ -119,10 +119,21 @@ Every public claim about Trinity's value over the next 90 days needs a number be
 We don't need many — we need **one that's easy to compute, hard to argue with, and gets
 sharper as users accumulate councils.** The candidates ranked:
 
-### Recommended: **rate-limit-saves** — # of times Trinity routed around a rate-limited primary
+### ~~Recommended: rate-limit-saves~~ — superseded 2026-05-21
+
+> The rate-limit-saves metric (`_rate_limit_saves` + `pageData.rateLimitSaves`)
+> was retired alongside the rest of the rating UX (see
+> `src/trinity_local/retired_names.py`). The launchpad card it powered created
+> agent-side rate-prompt friction that didn't earn its keep. The successor
+> Day-90 metric is the **personalized benchmark from `eval-run`** (task #122,
+> shipped) — see the updated rationale in the "risk we're acknowledging
+> head-on" section below. Original framing preserved here for narrative
+> continuity.
+
+### Originally recommended: **rate-limit-saves** — # of times Trinity routed around a rate-limited primary
 
 - **What it measures:** the killer-flow win. Every time Claude (the harness) hits its own
-  rate limit and Trinity dispatches the work to Codex / Gemini / local instead, that's a
+  rate limit and Trinity dispatches the work to Codex / Antigravity / local instead, that's a
   recorded event.
 - **Where it lives:** `~/.trinity/analytics/dispatch_outcomes.jsonl` (NEW) — one line per
   `ask` dispatch with the kind label from `dispatch_errors.py` when retry happened.
@@ -240,8 +251,18 @@ Anthropic's; the production-deployment proof is not. **By T+90 we need at least 
 case study** — even small. Founder-self-use is acceptable for T+30 if the metric is
 clean.
 
-This is why the rate-limit-saves metric ships in v1.5: it's the cleanest single number
-that turns "I built this for myself" into a case study other people can verify.
+This was originally why the rate-limit-saves metric was scoped for v1.5 — a clean
+single number to turn "I built this for myself" into a case study other people
+could verify. That metric was retired 2026-05-21 alongside the rest of the
+rating UX (per `src/trinity_local/retired_names.py` `_rate_limit_saves` +
+`pageData.rateLimitSaves`); the rate-prompting UX it surfaced created agent
+friction that wasn't earning its keep. The successor case-study metric is the
+**personalized benchmark from `trinity-local eval-run --target <provider>`**
+(task #122, shipped): "Claude scored 0.66 on YOUR kind of question" — a real
+empirical number computed against the user's own rejection signal, not a
+heuristic save-counter. Same use case (verifiable single-number case study),
+stronger surface (provider-comparative, structurally non-refutable because
+only Trinity has cross-provider rejection signal).
 
 ## Cross-references
 
