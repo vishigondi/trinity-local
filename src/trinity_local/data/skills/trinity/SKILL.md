@@ -1,13 +1,13 @@
 ---
 name: trinity
-description: Your taste, ported. Install Trinity Local — the cross-provider memory + council layer that lives inside Claude Code, Codex CLI, Gemini CLI, and Cursor. Use when the user types /trinity, asks how to set up Trinity, wants their lens / picks / routing built from existing transcripts, or wants a hard question dispatched to multiple models with synthesis in their voice.
+description: Your taste, ported. Install Trinity Local — the cross-provider memory + council layer that lives inside Claude Code, Codex CLI, Antigravity, and Cursor. Use when the user types /trinity, asks how to set up Trinity, wants their lens / picks / routing built from existing transcripts, or wants a hard question dispatched to multiple models with synthesis in their voice.
 argument-hint: [optional first-council prompt]
 allowed-tools: Bash(curl *) Bash(bash *) Bash(trinity-local *) Bash(command -v *) Bash(which *) Bash(open *) Read
 ---
 
 # Trinity Local — your taste, ported
 
-Trinity reads transcripts already on the user's machine (Claude Code, Codex CLI, Gemini CLI, Cursor, claude.ai, chatgpt.com, gemini takeout), learns the pattern in how the user rephrases / judges / decides, then runs hard questions through all three frontier providers in their voice and picks the answer they would have picked.
+Trinity reads transcripts already on the user's machine (Claude Code, Codex CLI, Antigravity, Cursor, claude.ai, chatgpt.com, gemini takeout), learns the pattern in how the user rephrases / judges / decides, then runs hard questions through all three frontier providers in their voice and picks the answer they would have picked.
 
 This skill is the orchestration layer that drives the `trinity-local` CLI from inside Claude Code via the bash tool. The CLI is the engine; this file is the user-facing contract. Every command below can be run by hand — the skill is a transparent driver, not a hidden one.
 

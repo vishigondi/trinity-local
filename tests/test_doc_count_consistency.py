@@ -2127,6 +2127,17 @@ class TestNoBannedSynonyms:
         # thing a curious operator reads when piping it. Drift here
         # is high-leverage launch credibility.
         "scripts/install.sh",
+        # SKILL.md (top-level + bundled) added 2026-05-21 after iter 50
+        # caught "Gemini CLI" in both copies' frontmatter description
+        # (L3) + intro paragraph (L10). The skill is what runs when a
+        # user types /trinity in Claude Code — high-visibility
+        # back-compat alias per three-tier-architecture.md L31. The
+        # bundled copy at src/trinity_local/data/skills/... must stay
+        # byte-identical to the top-level copy (pinned by existing
+        # test_bundled_skill_matches_top_level guard); scanning both
+        # catches drift if a future edit only touches one half.
+        "skills/trinity/SKILL.md",
+        "src/trinity_local/data/skills/trinity/SKILL.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",
