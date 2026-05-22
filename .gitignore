@@ -21,6 +21,8 @@ state/
 !docs/launchpad_example.png
 !docs/me_card_example.png
 !docs/favicon.png
+!docs/launch_assets/*.png
+!docs/smoke/*.png
 !browser-extension/icons/*.png
 mock_gen.py
 
