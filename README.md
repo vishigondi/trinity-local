@@ -39,7 +39,9 @@ Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `agy` CL
 
 ## How it works
 
-Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Antigravity), web chats the Chrome extension auto-captures locally (claude.ai + chatgpt.com today; gemini.google.com captures hit disk but the Python adapter that ingests them lands in v1.7), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
+Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Antigravity), web chats the Chrome extension auto-captures locally (claude.ai + chatgpt.com today; gemini.google.com captures hit disk but the Python adapter that ingests them lands in v1.7), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model.
+
+> **Anthropic can't recommend ChatGPT. OpenAI can't recommend Claude. Google can't recommend either. The competitive constraint is structural, not technical.** The labs that built the models you trust are commercially blocked from helping you use a competitor — so the cross-provider memory layer has to come from outside the labs. That's what Trinity is.
 
 ### And — when a new model lands, score it against your taste
 

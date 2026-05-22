@@ -29,9 +29,10 @@ class: live
 an animal. Claude can't tell me when to use ChatGPT. ChatGPT can't tell me when to use
 Gemini. The labs are *commercially prevented* from helping you use a competitor.
 
-**The structural problem (2/12).** It's not a bug. Anthropic isn't allowed to recommend
-ChatGPT. OpenAI isn't allowed to recommend Claude. They built the labs you trust; they
-can't build the layer above them. Someone outside the labs has to.
+**The structural problem (2/12).** It's not a bug. Anthropic can't recommend ChatGPT.
+OpenAI can't recommend Claude. Google can't recommend either. The competitive constraint
+is structural, not technical. They built the labs you trust; they can't build the layer
+above them. Someone outside the labs has to.
 
 **Local-first answer (3/12).** Your transcripts already live on your machine. ~/.claude/.
 ~/.codex/. ~/.gemini/. Three SQLite caches owned by three companies, none allowed to read
