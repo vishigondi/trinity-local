@@ -180,6 +180,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
         kind="module",
     ),
+    "trinity_local.trust": RetirementRecord(
+        name="trinity_local.trust",
+        retired_at="2026-05-22",
+        commit="(see git log — same change as the file deletion)",
+        replacement="scripts/_runtime.py::audit_log() — the active trust+audit substrate that scripts/embed.py, scripts/cluster.py, scripts/anchor.py, scripts/descriptor.py write through. Independent implementation; never went through trinity_local.trust.",
+        reason="src/trinity_local/trust.py (302 LOC) was a planned-but-deferred Phase 6 'trust mode + audit log' library. The commands.trust retirement on 2026-05-22 (5b4185e) kept the library on the assumption v1.1 would rebuild a CLI on top of it. Iter #117 audit found ZERO production imports — only tests/test_trust.py (270 LOC) exercises the library. Meanwhile the actual ~/.trinity/audit.log writes happen via scripts/_runtime.audit_log(), a separate stdlib-only implementation that the scripts cluster has used all along. The library was duplicate scaffolding, not active substrate. Sunset confirmed via AskUserQuestion in iter #117 of the post-launch consistency sweep — user picked 'Sunset — delete + register retired'. Net delete: 572 LOC (302 library + 270 tests).",
+        kind="module",
+    ),
     "thread_context": RetirementRecord(
         name="thread_context",
         retired_at="2026-05-21",
