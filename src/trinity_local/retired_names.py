@@ -132,6 +132,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`commands/depth.py` (123 LOC) held the handle_depth_show CLI handler for a CLI that was retired pre-launch. The docstring claimed 'Tests still import handle_depth_show for coverage' but tick 85 audit found ZERO callers in src/ + tests/. The actual geometry primitives (depth_score, corpus_distance, inter_turn_distance, LID) live in `me/depth.py` and ARE actively used by basins.py + lens pipeline. Sunset confirmed via AskUserQuestion in tick 85; the geometry stays.",
         kind="module",
     ),
+    "commands.trust": RetirementRecord(
+        name="commands.trust",
+        retired_at="2026-05-22",
+        commit="(this commit)",
+        replacement="(none — trust + audit library lives in `trinity_local.trust`; CLI rebuilt from scratch in v1.1)",
+        reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
+        kind="module",
+    ),
     "thread_context": RetirementRecord(
         name="thread_context",
         retired_at="2026-05-21",

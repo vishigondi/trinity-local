@@ -262,8 +262,9 @@ def test_write_default_trust_toml_idempotent_does_not_overwrite(isolated_home):
 #
 # The trust CLI (audit-show / trust-init / trust-show) was hidden from
 # the public CLI on 2026-05-17 — the trust+audit substrate is deferred
-# to v1.1 per the simplification pass. The handler functions in
-# commands/trust.py + the library in trust.py both remain importable;
-# the CLI subprocess tests that used to live here are dropped along
-# with the public surface. Library tests above still pin the behavior
-# v1.1 will re-expose.
+# to v1.1 per the simplification pass. The orphan `commands/trust.py`
+# shim was deleted in iter #115 (2026-05-22) — same false-claim-
+# docstring shape as commands.tasks + commands.depth (tick 85). The
+# library in `trinity_local.trust` remains importable; v1.1 will
+# rebuild the CLI surface fresh when needed. Library tests above
+# pin the behavior v1.1 will re-expose.

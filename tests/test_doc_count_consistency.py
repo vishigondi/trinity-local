@@ -3088,12 +3088,13 @@ class TestNoRetiredCliInSrcQuotedStrings:
 
     # Files that legitimately reference retired CLIs in retirement-
     # context strings (docstrings, comments, upgrade detection logic).
-    # The legitimate uses cluster in install.py (detects + removes stale
-    # `watch-once` hooks on re-install) and commands/trust.py (module
-    # docstring naming the retired CLI surface it's deferred to v1.1).
+    # The legitimate use is in install.py (detects + removes stale
+    # `watch-once` hooks on re-install). commands/trust.py was a
+    # second exempted file but iter #115 sunset it — it was an
+    # orphan module with a false test-coverage docstring, same
+    # pattern as commands.tasks + commands.depth (tick 85).
     KNOWN_REFS_PATHS = frozenset({
         "src/trinity_local/commands/install.py",   # stale-hook cleanup detection
-        "src/trinity_local/commands/trust.py",     # deferred-to-v1.1 docstring
     })
 
     def test_retired_cli_set_is_subset_of_registry(self):
