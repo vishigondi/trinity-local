@@ -1019,9 +1019,11 @@ def _browser_capture() -> dict:
         preferred for the user-facing count.
       - ``stream-<urlhash>.json`` — fallback no-adapter writes
         (capture_host stores raw stream bodies under this prefix when
-        no ``__TRINITY_ADAPTERS.<provider>`` exists; currently the
-        gemini.google.com path since `gemini.js` is deferred to v1.8).
-        These have no conv_id, just an opaque url hash; they aren't
+        no ``__TRINITY_ADAPTERS.<provider>`` exists). Since
+        `gemini.js` shipped (commit 441bc28, task #135), all 3
+        providers have adapters; this fallback path is dormant
+        unless a new untracked provider URL gets visited. Stream
+        files have no conv_id, just an opaque url hash; they aren't
         user-facing conversations.
 
     Returns:

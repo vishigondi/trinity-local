@@ -12,9 +12,13 @@ class: aspirational
 >
 > Remaining: Day 10 ship cut requires a one-time `chrome://extensions →
 > Load Unpacked` user action that can't be automated through MCP; the
-> gemini.google.com adapter was deferred (originally v1.7 target; v1.7
-> shipped without it; now tracked for v1.8) per the launch-arc
-> protocol-fragility risk note.
+> gemini.google.com adapter shipped 2026-05-22 in the v1.7.5 cleanup
+> pass (commit 441bc28, task #135) — originally v1.7 target, slipped,
+> then prioritized post-launch per user directive. Adapter handles
+> Google's batchexecute RPC frames + recovers user prompts from
+> outbound request body (Gemini's response is reply-only). Shape-
+> rotation resilience via XSSI-prefix-tolerant parser + longest-
+> prose-leaf text extractor.
 >
 > v1.6 closes the corpus-acquisition gap that the v1.0 launch surfaces but
 > doesn't fully solve. The pitch — *"Trinity reads the transcripts already on
