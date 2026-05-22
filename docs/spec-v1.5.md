@@ -562,7 +562,9 @@ Gates for revisiting:
 
 Same structural shape as the lens Stage 4 post-filter remains the
 right pattern when the data arrives — just at the cross-event
-level instead of cross-decision. Tracked as task #109.
+level instead of cross-decision. (Task #109 tracked this; sunset
+2026-05-22 as speculative — re-add when n≥100 real councils
+justify principles.md clustering.)
 
 ### Cortex (routing) vs Lens (evaluation) — two layers, same data
 
@@ -727,9 +729,11 @@ nodes; lens.md built); the missing builder + runner + scorer + CLI
 landed in two ticks today. Real-corpus first run produced REFRAME
 45.5% / COMPRESSION 25.0% / REDIRECT 22.7% / SHARPENING 6.8% on the
 maintainer's corpus — the signature itself is informative as a
-benchmark axis. Compounds with #111-113 (matryoshka shape-sim feeds
-into basin-aware eval slicing — pending) and #119 (handoff mechanism
-reuses the same `make_provider` dispatch path the eval harness uses).
+benchmark axis. (Tasks #111-113 — matryoshka shape-sim, disagreement-
+axis mining, inversion-test default — were sunset 2026-05-22 as
+speculative research; re-add when the empirical eval signal demands
+it.) Compounds with #119 (handoff mechanism reuses the same
+`make_provider` dispatch path the eval harness uses).
 
 **Future hub angle:** the eval-set JSON (without raw prompt text,
 just `rejection_type` + `rubric_axes` shape) is shareable. A
