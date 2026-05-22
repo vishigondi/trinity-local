@@ -62,7 +62,7 @@ class: aspirational
 
 > Lands before MCP, hooks, or broader distribution. Exit criteria at the bottom.
 
-## Phase 0 Status (audited against codex's checkpoint — 165 tests passing)
+## Phase 0 Status (audited 2026-04-30 against codex's checkpoint — 165 tests passing at the time of audit)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
