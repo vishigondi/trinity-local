@@ -2,7 +2,7 @@
 
 Stage 1 → Stage 2 prompt (caller fires it via council member call)
 Stage 3 prompt (caller fires it via 3-member council)
-Stage 4 → save lenses.json + orderings.json + render to me.md.
+Stage 4 → save lenses.json + orderings.json + render to memories/lens.md.
 
 The driver is split so the caller (me_builder.build_me_via_council)
 controls the LLM dispatches — keeping our "no LLM outside councils"
@@ -149,9 +149,11 @@ def render_me_markdown(
     orderings: list[LensPair],
     rejections: list[RejectionSignal] | None = None,
 ) -> str:
-    """Render lens artifacts as me.md so the chairman context loader
-    picks them up. This replaces the old single-virtue-list shape with
-    paired tensions.
+    """Render lens artifacts as the lens-document markdown (written by
+    the caller to ~/.trinity/memories/lens.md — function name retained
+    for back-compat with the pre-task-#91 me.md path) so the chairman
+    context loader picks them up. This replaces the old single-virtue-
+    list shape with paired tensions.
 
     Rejections (Stage 0 turn-pair gaps) get a section too — they're
     behavioral evidence the chairman should see when scoring future
@@ -191,7 +193,7 @@ def render_me_markdown(
             if not items:
                 continue
             lines.append(f"### {sig_type} ({len(items)})")
-            for sig in items[:5]:  # cap per type so me.md stays readable
+            for sig in items[:5]:  # cap per type so lens.md stays readable
                 lines.append(f"- model: \"{sig.model_quote[:100]}\"")
                 lines.append(f"  user: \"{sig.user_substitute[:100]}\"")
                 if sig.why_signal:
