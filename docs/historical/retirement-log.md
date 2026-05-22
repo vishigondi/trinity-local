@@ -49,7 +49,8 @@ Retired CLI subcommands:
 - `auto-open` → launchpad opens automatically
 - `bootstrap-pairs` → subsumed by `dream`
 - `cache-*` → embedding cache retired entirely
-- `council-last` → use `unrated` or launchpad
+- `council-last` → use launchpad (was previously `→ use unrated`; unrated retired 2026-05-22)
+- `council-rate` → retired 2026-05-22 with full rating-surface sunset; chairman's `routing_label.winner` IS the supervision signal now (lens governs council selection — no human rating step in the loop)
 - `daemon` / `watch-loop` / `watch-once` → tool-triggered ingest
 - `depth-show` → orphan module (commands.depth retired tick #85)
 - `distill` → subsumed by `dream`
@@ -57,6 +58,12 @@ Retired CLI subcommands:
 - `shortcut-*` → macOS Shortcut dispatcher retired 2026-05-17
 - `stats` → never load-bearing
 - `task-*` / `bundle-*` / `launch-*` → collapsed in pre-launch passes
+- `unrated` → retired 2026-05-22 with rating-surface sunset (was Pillar-4 funnel-widening for ratings; whole purpose moot post-retirement)
+
+Retired internal functions:
+
+- `doctor._check_verdict_rate()` → retired 2026-05-22; metric is structurally 0% post-rating-retirement = misleading noise
+- `launchpad_data._verdict_stats()` → retired 2026-05-22; sole remaining consumer was the doctor check above; ~55 LOC dead function + 511 LOC dead tests removed
 - `trust-init` / `trust-show` / `audit-show` → deferred to v1.1
 
 ## MCP tool retirements
@@ -128,16 +135,21 @@ moat.
 The double-loop substrate (`frame` / `run` / `verify_web`, formerly
 `src/trinity_local/loop/`) was **removed from the codebase** as
 pre-launch simplification — 1,396 lines of v2-trajectory code. The
-mechanic — *execute → verify → cull → re-verify → commit* — will
-be rebuilt leaner inside a future `plan_and_execute` MCP tool
-(task #128, still pending). The original v1.7 target slipped when
-v1.7's actual scope became MCP-primary + post-launch consistency
-sweep, and v1.6 turned out to be browser-extension capture.
+mechanic — *execute → verify → cull → re-verify → commit* — was
+queued to be rebuilt leaner inside a `plan_and_execute` MCP tool
+(task #128). Originally v1.6 → v1.7 deferral; v1.7 shipped without
+it (v1.6 turned out to be browser-extension capture, v1.7 became
+MCP-primary + post-launch consistency sweep). **Formally sunset
+2026-05-22** in the v1.7.5 cleanup pass: running v1.5 on real
+data showed the `ask` + `run_council` ceiling didn't bind hard
+enough to justify rebuilding the orchestration layer; the harness
+(Claude Code / Codex / Antigravity) owns multi-step orchestration
+better than Trinity should. Task #128 deleted.
 
 The architectural reference + the ratifying council outcomes live
 in [`docs/v2-loop-constitution.md`](../v2-loop-constitution.md).
-Git history preserves the prior implementation if v1.6 wants to
-study it.
+Git history preserves the prior implementation as architectural
+reference.
 
 ## Renames before shipping
 
