@@ -135,7 +135,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "council-rate": RetirementRecord(
         name="council-rate",
         retired_at="2026-05-22",
-        commit="(this commit)",
+        commit="4c34757",
         replacement="(none — the chairman's routing_label.winner IS the supervision signal; compute_personal_routing_table aggregates from it directly. Refinement prompts on the council page carry 'what should it have been instead' signal inline.)",
         reason="Per user directive 2026-05-22: 'user doesn't have to provide ratings. that's another task for them. use the lens governed council selections.' The whole rating loop violated the thesis (lens > ratings; evaluation easier than generation through lens). MCP `record_outcome` was retired 2026-05-21 for the same reason; CLI `council-rate` was kept as 'power-user override' but the user now confirms full retirement is the right call. Cleanup pass decision #2 in plan-mode session.",
         kind="cli",
@@ -143,7 +143,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.unrated": RetirementRecord(
         name="commands.unrated",
         retired_at="2026-05-22",
-        commit="(this commit)",
+        commit="4c34757",
         replacement="(none — the whole module was purpose-built for the rating-loop funnel widening (Pillar 4 from forward arc). With ratings retired, the unrated backlog has no actionable next step. Chairman pick is the supervision signal.)",
         reason="`commands/unrated.py` listed councils without `user_verdict` so the user could see their rating backlog. Module docstring: 'Closes Pillar 4 (verdict-capture funnel widening)' + 'The 16%-rate problem isn't a UX-flaw-per-click; it's that the user doesn't realize how many councils they haven't rated.' Both motivations are moot once ratings are retired. Cleanup pass decision #2 cascaded retirement.",
         kind="module",
