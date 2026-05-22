@@ -300,7 +300,7 @@ class TestTopicsBasinsCache:
 
 
 # TestRecentCardTopologyTooltip + TestRecentCardTopologyChip removed
-# 2026-05-21 (this commit). The recent-card cross-memory chip strip
+# 2026-05-21 in commit e5ef20c. The recent-card cross-memory chip strip
 # (→ pick / → routing / → topology + PICK PNG / ROUTING PNG / SHARE
 # PNG share buttons) was deleted in commit 8f1fd95 per user direction
 # "what are the buttons under it doing? remove them". The data layer

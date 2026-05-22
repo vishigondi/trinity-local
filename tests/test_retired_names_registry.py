@@ -307,3 +307,59 @@ class TestNoPresentTenseInDocs:
             + "\n".join(violations[:20])
             + (f"\n  ...and {len(violations)-20} more" if len(violations) > 20 else "")
         )
+
+
+class TestNoUnresolvedCommitPlaceholders:
+    """Iter #77 catch — extends iter #76's per-record guard to a
+    broader-file scan. Iter #76 patched 6 retirement entries that
+    shipped with `commit="(this commit)"` (a template placeholder
+    that was meant to be substituted with the real SHA but wasn't).
+    Iter #77 found the same placeholder in `tests/test_launchpad_
+    topology_chip.py:303` — a test docstring describing when a test
+    was removed.
+
+    The per-record guard in `TestRegistryIntegrity` only catches the
+    placeholder inside `RetirementRecord.commit` fields. This guard
+    catches it ANYWHERE in src/ or tests/ source — covers docstrings,
+    comments, future field uses. Cheap text scan; one assertion.
+
+    Allowlist exemption: this test file + its message strings + the
+    iter #76 entry-validation guard mention the placeholder literally
+    to explain what they catch. Skip the file that defines them.
+    """
+
+    def test_no_this_commit_placeholder_in_src_or_tests(self):
+        from pathlib import Path
+        repo = Path(__file__).resolve().parent.parent
+        # Files that mention the placeholder LITERALLY for documentation
+        # / explanatory purposes; not drift.
+        EXEMPT = {
+            "tests/test_retired_names_registry.py",  # this file
+        }
+        violations: list[tuple[str, int, str]] = []
+        for py in sorted((repo / "src" / "trinity_local").rglob("*.py")):
+            if py.name == "__init__.py":
+                continue
+            text = py.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if "(this commit)" in line:
+                    rel = str(py.relative_to(repo))
+                    if rel in EXEMPT:
+                        continue
+                    violations.append((rel, lineno, line.strip()[:120]))
+        for py in sorted((repo / "tests").rglob("test_*.py")):
+            text = py.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if "(this commit)" in line:
+                    rel = str(py.relative_to(repo))
+                    if rel in EXEMPT:
+                        continue
+                    violations.append((rel, lineno, line.strip()[:120]))
+        assert not violations, (
+            "'(this commit)' placeholder found in src/ or tests/. "
+            "This is a copy-paste template marker that should have been "
+            "substituted with the actual commit SHA. Run "
+            "`git log -S <surrounding-context>` to find the originating "
+            "commit, then replace the placeholder with the short SHA.\n"
+            + "\n".join(f"  {p}:{ln}  {snip}" for p, ln, snip in violations)
+        )
