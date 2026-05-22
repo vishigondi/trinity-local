@@ -5062,3 +5062,40 @@ class TestSchemaMirrorsStaySynchronized:
                 "  cp schemas/<name>.schema.json skills/trinity/schemas/"
             )
             raise AssertionError("\n".join(msg))
+
+
+class TestNoStaleNewAnnotationsInClaudeMd:
+    """`(NEW)` markers on modules/symbols in `claude.md` are stale-magnets:
+    they're written when something is genuinely new, then never deleted.
+    By the time a reader sees them weeks later, they're noise pretending
+    to be signal — the same shape as principle #20 (oldest surface
+    drifts because edits touch the recent surface).
+
+    Sweep iter #82 caught two: `CouncilChainStep (NEW)` and
+    `chairman_picker.py (NEW)` — both shipped weeks before the audit
+    found them. This guard fails on any `(NEW)` token in the architecture
+    sections of `claude.md`. CHANGELOG.md and the explicitly-historical
+    `docs/launch-package.md` "Originally recommended" block are exempt
+    (CHANGELOG is timestamped append-only; the launch-package block
+    explicitly preserves original framing for narrative continuity).
+    """
+
+    def test_no_new_annotation_in_claude_md(self):
+        repo = Path(__file__).resolve().parent.parent
+        target = repo / "claude.md"
+        text = target.read_text(encoding="utf-8")
+
+        offenders: list[tuple[int, str]] = []
+        for idx, line in enumerate(text.splitlines(), start=1):
+            if "(NEW)" in line:
+                offenders.append((idx, line.strip()))
+
+        if offenders:
+            msg = [
+                "`(NEW)` annotations found in claude.md — these go stale silently.",
+                "Drop the marker; the module is stable by the time anyone reads it.",
+                "",
+            ]
+            for ln, txt in offenders:
+                msg.append(f"  claude.md:{ln}: {txt[:140]}")
+            raise AssertionError("\n".join(msg))
