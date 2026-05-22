@@ -3448,7 +3448,6 @@ class TestNoRetiredCliInSrcQuotedStrings:
                 continue
             for ds_match in docstring_pattern.finditer(text):
                 docstring = ds_match.group(1)
-                ds_lower = docstring.lower()
                 for m in retired_pattern.finditer(docstring):
                     # Find the paragraph (≈±3 line window around the
                     # match) containing the retired CLI reference.
@@ -5106,6 +5105,73 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             ]
             for ln, txt in offenders:
                 msg.append(f"  claude.md:{ln}: {txt[:140]}")
+            raise AssertionError("\n".join(msg))
+
+
+class TestNoUnusedLocalsInTestsOrSrc:
+    """Unused local variables are a signal-masking sub-class of dead
+    code — pyflakes emits 'local variable X is assigned to but never
+    used'. Same shape as TestNoUnusedImportsInTests (iter #99) and
+    TestNoFStringWithoutPlaceholders (tick #55): noise drowns the
+    next real bug.
+
+    Sweep iter #101 cleaned 6 unused locals:
+    - src/trinity_local/launchpad_data.py:1746 (`task_to_basin`) and
+      :1751 (`basin_labels`) — orphaned by the 2026-05-21 sunset of
+      the per-card cross-memory chips on recent-council cards. The
+      build-once-per-render setup lost its consumer when the chips
+      were removed.
+    - tests/test_ask.py:767 (`original_log`) — save with no restore;
+      monkeypatch makes the save redundant.
+    - tests/test_install_mcp.py:277 (`first_mtime`) — captured for an
+      mtime-equality assertion that the comment explicitly declines.
+    - tests/test_doc_count_consistency.py:3451 (`ds_lower`) — lowered
+      copy of docstring, never consumed.
+    - tests/test_phase8_integration.py:137 (`js`) — `launchpad_runtime_js()`
+      call orphaned when the test was refactored to crawl
+      launchpad_template source instead.
+
+    Guard: shell out to pyflakes against tests/ + src/, fail on any
+    'assigned to but never used' line. Filters out the noqa-marked
+    src/ unused imports that are intentional re-exports.
+    """
+
+    def test_no_unused_locals_in_tests_and_src(self):
+        import subprocess
+        import sys
+
+        repo = Path(__file__).resolve().parent.parent
+        scan_dirs = [
+            repo / "tests",
+            repo / "src" / "trinity_local",
+        ]
+        result = subprocess.run(
+            [sys.executable, "-m", "pyflakes", *[str(d) for d in scan_dirs]],
+            capture_output=True,
+            text=True,
+        )
+        unused_local_hits = [
+            line for line in result.stdout.splitlines()
+            if "assigned to but never used" in line
+        ]
+        if unused_local_hits:
+            msg = [
+                f"pyflakes flagged {len(unused_local_hits)} unused local "
+                f"variables in tests/ or src/. The post-iter-#101 baseline "
+                f"is zero.",
+                "",
+                "Common fixes:",
+                "  - delete the dead assignment",
+                "  - if intentional (e.g. capturing for debugging), prefix "
+                "    with `_` to signal intent",
+                "  - if the variable was supposed to be used, restore the "
+                "    consumer (often: assertion or comparison dropped during refactor)",
+                "",
+            ]
+            for line in unused_local_hits[:20]:
+                msg.append(f"  {line}")
+            if len(unused_local_hits) > 20:
+                msg.append(f"  ... and {len(unused_local_hits) - 20} more")
             raise AssertionError("\n".join(msg))
 
 

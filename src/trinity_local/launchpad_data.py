@@ -1740,16 +1740,6 @@ def _task_to_topology_basin() -> dict[str, str]:
 
 
 def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str:
-    # Build the task→topology_basin map once for ALL cards in this
-    # render pass (not per-card — load_routing_patterns + topics.json
-    # parse would otherwise re-run N times).
-    task_to_basin = _task_to_topology_basin()
-    # Same shape: basin labels for the → topology chip's hover tooltip.
-    # Mirrors the viewer-side basinHoverTitle so launchpad + viewer
-    # chips have matching hover text. Empty dict on cold install →
-    # tooltip falls back to "Open basin <id>".
-    basin_labels = _topology_basin_labels()
-
     def _card(item: dict[str, str | None]) -> str:
         thread_id = item.get("chain_root_id") or item.get("council_id")
         review_path = item.get("review_page_path")
@@ -1768,18 +1758,12 @@ def build_recent_cards_html(recent_councils: list[dict[str, str | None]]) -> str
             if seg_count > 1
             else ""
         )
-        # Iteration 7 of the share-workflow audit: "Share PNG" chip on
-        # each recent-council card. Closes the launchpad-side gap that
-        # design-12-share-buttons.png referenced but was never wired.
-        # Dispatches `trinity-local council-share --council <id> --open`
-        # via the macOS Shortcut; PNG lands at
         # data-title powers the launchpad's client-side title search.
         # Lowercased once here so the JS substring match doesn't
         # recompute per keystroke. The per-card cross-memory chips
         # (→ pick / → routing / → topology / → share PNG) and the
         # "Unrated" badge were sunset 2026-05-21 along with the rest
-        # of the user-rating UX. The prime directive is: chairman
-        # picks; user refines. The card is now: title, winner, date.
+        # of the user-rating UX. The card is now: title, winner, date.
         title_lower = str(item.get("title") or "").lower()
         return f"""
         <div class="council-card-wrapper" data-title="{_esc(title_lower)}" style="display: flex; flex-direction: column; gap: 8px;">

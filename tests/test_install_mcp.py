@@ -274,7 +274,6 @@ class TestInstallTrinitySkill:
         _run_install(monkeypatch, home)
         skill_path = home / ".claude" / "skills" / "trinity" / "SKILL.md"
         first = skill_path.read_text()
-        first_mtime = skill_path.stat().st_mtime_ns
 
         _run_install(monkeypatch, home)
         assert skill_path.read_text() == first

@@ -131,10 +131,8 @@ def test_dispatch_payload_shape_matches_capture_host_contract():
     silently no-ops.
     """
     from trinity_local.capture_host import ACTION_ALLOWLIST
-    from trinity_local.launchpad_runtime import launchpad_runtime_js
 
     launchpad_kinds = set()
-    js = launchpad_runtime_js()
     # The dispatch script accepts kinds as arbitrary strings; callers
     # (launchpad template Vue methods) pick the kind. Crawl the template
     # for the actual call sites.

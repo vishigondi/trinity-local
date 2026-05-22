@@ -764,7 +764,6 @@ class TestRateLimitSavesMetric:
 
         # Make the logger function itself throw — should be swallowed.
         from trinity_local import ask as _ask
-        original_log = _ask._log_dispatch_outcome
 
         def explode(**kwargs):
             raise RuntimeError("telemetry blew up")
