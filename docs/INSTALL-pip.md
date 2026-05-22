@@ -100,14 +100,8 @@ Three reasons (per the launch architecture decision; see
 
 The pip tier respects the same `~/.trinity/trust.toml` and writes to
 the same `~/.trinity/audit.log` as the other tiers. See
-[`TRUST-MODE.md`](TRUST-MODE.md).
-
-The trust+audit CLI (`trust-init` / `trust-show` / `audit-show`) is
-deferred to v1.1 — inspect `~/.trinity/audit.log` directly:
-
-```bash
-tail -20 ~/.trinity/audit.log
-```
+[`TRUST-MODE.md`](TRUST-MODE.md). Inspect the audit log directly with
+`tail -20 ~/.trinity/audit.log`; the dedicated CLI lands in v1.1.
 
 ## Heavy ops as standalone scripts
 

@@ -93,11 +93,9 @@ audit.log`) ships with v1.0. The skill respects it; every operation
 either prompts or pre-grants per the trust config. See
 [`TRUST-MODE.md`](TRUST-MODE.md) for the model.
 
-The trust+audit CLI (`trust-init` / `trust-show` / `audit-show`) is
-deferred to v1.1 — the library + audit log behavior ship in v1.7.4
-but the user-facing CLI surface was hidden in the pre-launch
-simplification pass. Inspect `~/.trinity/audit.log` directly until
-the CLI returns.
+Inspect `~/.trinity/audit.log` directly with `tail -20`; the library
+runs, the audit log writes, and the dedicated CLI for both lands in
+v1.1.
 
 ## What runs locally vs. what doesn't
 
