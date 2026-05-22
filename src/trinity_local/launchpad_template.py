@@ -743,7 +743,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
     <div class="launchpad-shell" id="launchpad-app" v-scope="LaunchpadApp(pageData)" @vue:mounted="init">
       <section class="card hero-shell">
         <div>
-          <div class="eyebrow">Trinity</div>
+          <div class="eyebrow">⠕ Trinity</div>
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
           <p class="meta hero-mechanism" v-if="heroMechanism">{{{{ heroMechanism }}}}</p>
