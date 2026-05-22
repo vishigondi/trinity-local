@@ -129,15 +129,6 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 # Used to render cross-links from each recent card to the
                 # matching picks.json / routing.json viewer entries.
                 "task_type": None,
-                # Tick #94: any_rated tracks whether ANY round in the
-                # chain has user_verdict.user_winner. Surfaces as an
-                # "Unrated" badge on the recent card so the user can
-                # see at a glance which cards still need their verdict.
-                # Pillar 4 funnel-widening — complements tick #93's
-                # `trinity-local unrated` CLI by surfacing the same
-                # information on the launchpad where the rating UX
-                # already lives (click card → rate winner).
-                "any_rated": False,
             },
         )
         thread["segment_count"] += 1
@@ -146,10 +137,10 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
         routing_label = raw.get("routing_label") or {}
         if isinstance(routing_label, dict) and routing_label.get("task_type"):
             thread["task_type"] = routing_label["task_type"]
-        # Mark thread as rated if THIS round carries a verdict
-        verdict = metadata.get("user_verdict") or {}
-        if isinstance(verdict, dict) and verdict.get("user_winner"):
-            thread["any_rated"] = True
+        # (Phase 3d 2026-05-22: the per-thread "any_rated" flag was
+        # stripped here when the launchpad rating UI was retired. The
+        # chairman's pick — recorded in routing_label.winner above — is
+        # now the supervision signal and never needs a user click.)
         # Earliest round = round_number 1 (or smallest round_number) carries
         # the original prompt for the title.
         if round_number == 1 or thread["root_bundle_id"] is None:
@@ -179,7 +170,9 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
                 "created_at": thread["latest_created_at"],
                 "segment_count": thread["segment_count"],
                 "task_type": thread.get("task_type"),
-                "rated": thread.get("any_rated", False),
+                # The per-thread "rated" flag was retired Phase 3d
+                # (2026-05-22) along with the launchpad rating UI;
+                # chairman's winner_provider is the supervision signal.
                 "review_page_path": str(
                     (review_pages_dir() / "live_council.html").resolve()
                 ),
@@ -282,7 +275,12 @@ def _load_replay_candidates(limit: int = 200) -> list:
             "reasons": list(hit.reasons or []),
             "score": float(hit.score or 0.0),
             "council_count": int(hit.council_count or 0),
-            "winner": hit.user_winner or hit.chairman_winner or None,
+            # Phase 3d (2026-05-22): autofill chip now shows the
+            # chairman's winner directly. The user_winner field on the
+            # memory schema (hit.user_winner) is left in place for v1.8
+            # cleanup, but no UI reads it any more — the chairman's pick
+            # is the supervision signal.
+            "winner": hit.chairman_winner or None,
             "prompt_id": hit.prompt_id or "",
             "priorAssistantText": prior,
             "priorAssistantPreview": prior_preview,

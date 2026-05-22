@@ -51,7 +51,15 @@ class TestCouncilReviewMarkdown:
         assert "Comparative Analysis" in html
         assert "Full Responses" in html
 
-    def test_unified_page_uses_clickable_cards_for_preference(self):
+    def test_unified_page_surfaces_lens_pick_badge_from_chairman(self):
+        """Phase 3d (2026-05-22): the rating click-to-pick UI is retired.
+        Replacement affordance is a "Lens pick" badge sourced from the
+        chairman's routing_label.winner — chairman synthesis is
+        conditioned on the user's lens, so the chairman's pick IS the
+        supervision signal. No click-handler, no rate-council shortcut,
+        no metadata.user_verdict hydration."""
+        from trinity_local.council_schema import CouncilRoutingLabel
+
         bundle = PromptBundle(
             bundle_id="bundle_123",
             task_cluster_id="cluster_123",
@@ -70,22 +78,64 @@ class TestCouncilReviewMarkdown:
                 CouncilMemberResult(provider="antigravity", model="antigravity", output_text="Gemini answer"),
             ],
             synthesis_output="# Compare\n\nPick the clearest answer.",
+            routing_label=CouncilRoutingLabel(winner="antigravity"),
             created_at="2026-04-28T12:05:00+00:00",
         )
 
         html = render_unified_council_page(bundle, outcome)
 
-        assert "Click the answer you prefer." in html
+        # New affordance: Lens-pick badge keyed off the chairman's winner.
+        assert "Lens pick</span>" in html
+        assert "lensPickProvider" in html
+        # JSON in the page_data block uses compact separators.
+        assert '"lensPickProvider":"antigravity"' in html
+        # Retired affordances: no click-to-rate, no Preferred badge, no
+        # initialSelection hydration, no rate_council shortcut.
+        assert "Preferred</span>" not in html
+        assert "chooseAnswer(" not in html
+        assert "chooseMember(" not in html
+        assert "selectedLabel" not in html
+        assert "selectedProvider" not in html
+        assert "initialSelection" not in html
+        assert "user_verdict" not in html
+        assert "user_winner" not in html
+        # Layout sanity: page renders launchpad nav + comparison body.
         assert "← Launchpad" in html
         assert "confirm your preference in the floating bar" not in html
         assert "floating-actions" not in html
-        assert "@click=\"chooseAnswer(" in html
-        assert "role=\"button\"" in html
-        assert "tabindex=\"0\"" in html
-        assert "Preferred</span>" in html
-        assert "initialSelection" in html
-        assert "trinity:council-selection:${pageData.councilId}" not in html
         assert "signal_page" not in html
+
+    def test_unified_page_omits_lens_pick_when_routing_label_missing(self):
+        """When the chairman's Routing JSON failed to parse (or the
+        outcome predates structured chairman output), the routing_label
+        is None and the badge should not render."""
+        bundle = PromptBundle(
+            bundle_id="bundle_456",
+            task_cluster_id="cluster_456",
+            task_text="Pick something.",
+            goal="Choose the strongest answer.",
+            comparison_instructions="Prefer the strongest answer for the user.",
+            created_at="2026-04-28T12:00:00+00:00",
+        )
+        outcome = CouncilOutcome(
+            council_run_id="council_456",
+            bundle_id=bundle.bundle_id,
+            task_cluster_id=bundle.task_cluster_id,
+            primary_provider="claude",
+            member_results=[
+                CouncilMemberResult(provider="claude", model="claude", output_text="A"),
+                CouncilMemberResult(provider="antigravity", model="antigravity", output_text="B"),
+            ],
+            synthesis_output="No structured pick.",
+            created_at="2026-04-28T12:05:00+00:00",
+        )
+
+        html = render_unified_council_page(bundle, outcome)
+
+        # routing_label is None → lensPickProvider is empty string →
+        # Vue's v-if="lensPickProvider === '<provider>'" never matches.
+        # JSON in page_data block uses compact separators.
+        assert '"lensPickProvider":""' in html
 
     def test_unified_page_uses_three_column_layout_for_three_members(self):
         bundle = PromptBundle(
@@ -154,21 +204,20 @@ class TestCouncilReviewMarkdown:
         assert "quoteMember(row.provider, row)" in html
         assert "quote-member-btn" in html
         assert "@click.stop=" in html
-        # Verify-on-shortcut-fire (tick #71). chooseMember can't trust
-        # the dispatch URL succeeded — if the Chrome extension's Native
-        # Messaging host isn't wired up, the dispatch goes nowhere, the
-        # user_verdict never gets written, and the optimistic "Preferred"
-        # badge lies. After 3s, re-load the outcome JSONP and check the
-        # verdict actually persisted; if not, switch the badge to "Save
-        # failed" with install guidance. This is the root cause behind
-        # tick #69's 16% verdict-capture rate. (Pass A: dispatch path
-        # migrated from macOS Shortcut to Chrome extension pre-launch;
-        # the install hint now points at install-extension, not the
-        # retired shortcut-install CLI.)
-        assert "verifyPending" in html
-        assert "verifyFailed" in html
-        assert "Save failed" in html
-        assert "install-extension" in html
+        # Phase 3d (2026-05-22): rating click-to-pick UI retired. The
+        # "Lens pick" badge is sourced from the chairman's
+        # routing_label.winner via lensPickProviderFor; no chooseMember
+        # handler, no verifyPending / verifyFailed states, no
+        # metadata.user_verdict hydration.
+        assert "lensPickProviderFor" in html
+        assert "routingLabelFor(seg)?.winner" in html
+        assert "chooseMember" not in html
+        assert "verifyPending" not in html
+        assert "verifyFailed" not in html
+        assert "Preferred</div>" not in html
+        assert "user_verdict" not in html
+        assert "user_winner" not in html
+        assert "rate_council" not in html
 
         path = write_live_council_page()
         assert path.name == "live_council.html"

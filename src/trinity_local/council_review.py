@@ -19,7 +19,6 @@ def _strip_routing_json_fence(text: str | None) -> str:
         return ""
     return _ROUTING_JSON_FENCE_STRIP_RE.sub("", text).strip()
 
-from .council_feedback import latest_feedback_by_council
 from .council_schema import CouncilOutcome, PromptBundle
 from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
@@ -108,49 +107,36 @@ LIVE_COUNCIL_LOADING_MESSAGES = [
 
 
 def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -> str:
-    """Unified page combining synthesis analysis + response cards + voting."""
+    """Unified page combining synthesis analysis + response cards.
+
+    The "Lens pick" badge on each card is sourced from the chairman's
+    `routing_label.winner` — chairman synthesis is governed by the
+    user's lens, so the chairman's pick IS the supervision signal. The
+    rating click-to-pick UI was retired 2026-05-22 (Phase 3d cleanup);
+    `record_outcome` retired 2026-05-21 took the MCP side, council-rate
+    CLI retired at 4c34757 took the CLI, and this commit takes the UI.
+    """
     council_id = outcome.council_run_id
-    prior_feedback = latest_feedback_by_council().get(council_id, {})
-    selected_provider = prior_feedback.get("provider")
-    selected_label = prior_feedback.get("answer_label")
-    # Build response cards with voting
+    # The chairman's pick comes from the structured Routing JSON,
+    # populated on every successful synthesis. Empty string when the
+    # routing_label is missing (failed parse) — the badge then never
+    # renders.
+    lens_pick_provider = (
+        outcome.routing_label.winner if outcome.routing_label else None
+    ) or ""
+    # Build response cards
     answers_html = []
-    answers_payload = []
     for i, member in enumerate(outcome.member_results):
         provider = member.provider
         answer_label = chr(65 + i)
         output = member.output_text or ""
 
-        dispatch = make_dispatch_action(
-            "rate_council",
-            args={
-                "council_id": council_id,
-                "provider": provider,
-                "answer_label": answer_label,
-            },
-            metadata={"kind": "council_feedback"},
-        )
-        shortcut = make_shortcut_invocation(dispatch=dispatch, shortcut_name=DEFAULT_SHORTCUT_NAME)
-        answers_payload.append({
-            "label": answer_label,
-            "provider": provider,
-            "shortcut_url": shortcut.url,
-        })
-
         body = render_markdown(output)
         answers_html.append(f"""
-    <article
-      class="card answer-card"
-      :class="{{selected: selectedLabel === '{_esc(answer_label)}'}}"
-      role="button"
-      tabindex="0"
-      @click="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
-      @keydown.enter.prevent="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
-      @keydown.space.prevent="chooseAnswer('{_esc(answer_label)}', '{_esc(provider)}', '{_esc(shortcut.url)}')"
-    >
+    <article class="card answer-card">
       <div class="answer-card-head">
         <div class="eyebrow">{_esc(answer_label)}</div>
-        <span class="rank-badge" v-if="selectedLabel === '{_esc(answer_label)}'">Preferred</span>
+        <span class="rank-badge" v-if="lensPickProvider === '{_esc(provider)}'">Lens pick</span>
       </div>
       <h3>{_esc(provider.title())}</h3>
       <div class="markdown-body">{body}</div>
@@ -219,15 +205,13 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     from .launchpad_data import _browser_extension as _ext_config
     page_data = {
         "councilId": council_id,
-        "answers": answers_payload,
         "launchpadUrl": "../portal_pages/launchpad.html",
         "statusScriptBaseUrl": "../portal_pages/status",
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "browserExtension": _ext_config(),
-        "initialSelection": {
-            "provider": selected_provider or "",
-            "label": selected_label or "",
-        },
+        # The chairman's pick — the Vue template paints the "Lens pick"
+        # badge on whichever card matches this provider.
+        "lensPickProvider": lens_pick_provider,
         "chain": {
             "continueUrl": continue_shortcut.url,
             "autoChainUrl": auto_chain_shortcut.url,
@@ -395,7 +379,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     <main>
       <section class="card mb-lg">
         <h1>{_esc(page_title)}</h1>
-        <p class="lede">Read the analysis below, compare the responses, then pick your preference.</p>
+        <p class="lede">Read the analysis below, then compare the responses. The chairman's pick — governed by your lens — is marked.</p>
       </section>
 
       <section class="card synthesis-section mb-lg">
@@ -408,16 +392,10 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
 
       <section class="mb-lg">
         <h2>Full Responses</h2>
-        <p class="meta">Click the answer you prefer. Trinity will save that choice for local ratings and future recommendations.</p>
+        <p class="meta">Each member's full response below. The <strong>Lens pick</strong> badge marks the chairman's pick — synthesis is conditioned on your lens, so the chairman's pick is the supervision signal.</p>
         <div class="{answers_grid_class}">
           {"".join(answers_html)}
         </div>
-      </section>
-
-      <section class="card confirmation-box" v-if="feedbackSaved && selectedProvider">
-        <div class="eyebrow">Preference saved</div>
-        <h2>{{{{ selectedProviderTitle }}}} is currently your preferred answer</h2>
-        <p class="meta">Refreshing this page will keep the selected state. Trinity will use this choice for local ratings and future routing.</p>
       </section>
 
       <section class="card chain-actions">
@@ -425,7 +403,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
         <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
-          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction. Click <strong>Pick winner</strong> on a card above to stop here.
+          Run another round where each model sees the others' answers and refines, or add a new directive to push the conversation in a new direction.
         </p>
         <div class="chain-loading" v-if="chainBusy">
           <span class="spinner" aria-hidden="true"></span>
@@ -463,25 +441,15 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     {launchpad_runtime_js()}
 
     function CouncilApp(pageData) {{
-      const initialProvider = pageData.initialSelection?.provider || '';
-      const initialLabel = pageData.initialSelection?.label || '';
-      const savedProvider = pageData.initialSelection?.provider || '';
-      const initialAnswer = (pageData.answers || []).find((answer) => answer.label === initialLabel || answer.provider === initialProvider);
-
       return {{
-        selectedLabel: initialLabel,
-        selectedProvider: initialProvider,
-        selectedShortcutUrl: initialAnswer?.shortcut_url || '',
-        savedProvider,
-        feedbackSaved: !!savedProvider && savedProvider === initialProvider,
+        // The chairman's pick — drives the "Lens pick" badge on cards.
+        // Static read from pageData; no click flow ever mutates this.
+        lensPickProvider: pageData.lensPickProvider || '',
         chain: pageData.chain || {{}},
         refinePrompt: '',
         chainBusy: false,
         chainStatusHeading: '',
         chainStatusDetail: '',
-        get selectedProviderTitle() {{
-          return this.selectedProvider ? this.selectedProvider.replace(/_/g, ' ').replace(/\\b\\w/g, (c) => c.toUpperCase()) : '';
-        }},
         _liveCouncilBaseUrl() {{
           // Resolve relative to the launchpad's portal_pages -> review_pages.
           const base = (pageData.launchpadUrl || '').replace('launchpad.html', '').replace('portal_pages', 'review_pages');
@@ -491,26 +459,6 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
           // Client-generated UUID-ish so the new round writes to a fresh
           // status file we can navigate to immediately.
           return 'chain_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-        }},
-        _fireShortcut(shortcutsUrl) {{
-          // Hidden anchor click — fires the macOS shortcuts:// URL without
-          // navigating the tab, so we can navigate to the live page next.
-          const a = document.createElement('a');
-          a.href = shortcutsUrl;
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        }},
-        chooseAnswer(label, provider, shortcutUrl) {{
-          this.selectedLabel = label;
-          this.selectedProvider = provider;
-          this.selectedShortcutUrl = shortcutUrl;
-          this.savedProvider = this.selectedProvider;
-          this.feedbackSaved = true;
-          if (shortcutUrl) {{
-            this._fireShortcut(shortcutUrl);
-          }}
         }},
         _startChainAction(actionName, additionalArgs, heading, detail) {{
           const statusToken = this._newStatusToken();
@@ -1113,25 +1061,17 @@ def render_live_council_page() -> str:
 
         <section class="mb-lg" v-if="seg.expanded && memberRowsFor(seg).length">
           <h2>Full Responses</h2>
-          <p class="meta" v-if="seg.completed">Click the answer you prefer. Trinity saves that choice for local ratings and future routing.</p>
+          <p class="meta" v-if="seg.completed">Each member's full response below. The <strong>Lens pick</strong> badge marks the chairman's pick — synthesis is conditioned on your lens.</p>
           <div :class="memberRowsFor(seg).length === 3 ? 'answers-grid answers-grid-three' : 'answers-grid'">
             <article
               class="provider-status-row"
-              :class="{{ selected: seg.selectedProvider === row.provider, clickable: seg.completed && row.statusClass === 'done' }}"
               v-for="row in memberRowsFor(seg)"
               :key="row.provider"
-              :role="seg.completed && row.statusClass === 'done' ? 'button' : null"
-              :tabindex="seg.completed && row.statusClass === 'done' ? 0 : null"
-              @click="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
-              @keydown.enter.prevent="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
-              @keydown.space.prevent="seg.completed && row.statusClass === 'done' ? chooseMember(seg, row.provider, row.answerLabel) : null"
             >
               <div class="provider-status-header">
                 <div class="provider-status-name">{{{{ row.label }}}}</div>
                 <div class="provider-status-badge" :class="row.statusClass" v-if="row.statusClass !== 'done'">{{{{ row.statusLabel }}}}</div>
-                <div class="provider-status-badge done" v-if="seg.selectedProvider === row.provider && !seg.verifyFailed && !seg.verifyPending">Preferred</div>
-                <div class="provider-status-badge running" v-if="seg.selectedProvider === row.provider && seg.verifyPending">Saving…</div>
-                <div class="provider-status-badge failed" v-if="seg.selectedProvider === row.provider && seg.verifyFailed">Save failed</div>
+                <div class="provider-status-badge done" v-if="lensPickProviderFor(seg) === row.provider">Lens pick</div>
                 <button
                   type="button"
                   class="quote-member-btn"
@@ -1145,25 +1085,6 @@ def render_live_council_page() -> str:
               <div class="provider-status-detail" v-else :class="{{ empty: !row.detail }}">{{{{ row.detail }}}}</div>
             </article>
           </div>
-        </section>
-
-        <section class="card confirmation-box" v-if="seg.expanded && seg.selectedProvider && !seg.verifyFailed">
-          <div class="eyebrow" v-if="!seg.verifyPending">Preference saved</div>
-          <div class="eyebrow" v-if="seg.verifyPending">Saving…</div>
-          <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} is your preferred answer</h2>
-          <p class="meta">Trinity uses this for local ratings and future routing.</p>
-        </section>
-        <section class="card confirmation-box save-failed" v-if="seg.expanded && seg.selectedProvider && seg.verifyFailed">
-          <div class="eyebrow">Rating didn't save</div>
-          <h2>{{{{ formatProviderLabel(seg.selectedProvider) }}}} verdict not persisted to outcome JSON</h2>
-          <p class="meta">
-            The Chrome extension's Native Messaging host may not be wired up.
-            Run <code>trinity-local install-extension --extension-id &lt;your-extension-id&gt;</code>
-            (find the ID on chrome://extensions) and re-click the answer.
-            Tick #69 found this silent-failure mode accounts for the bulk of
-            unrated councils — make sure the dispatch host is registered
-            before rating again.
-          </p>
         </section>
       </div>
 
@@ -1354,7 +1275,6 @@ def render_live_council_page() -> str:
         errorText: '',
         roundNumber: 1,
         converged: false,
-        selectedProvider: '',
         currentStatusIndex: 0,
         expanded: true,
       }};
@@ -1466,44 +1386,12 @@ def render_live_council_page() -> str:
           if (idx === -1) return;
           this._patchSegment(key, {{ expanded: !this.segments[idx].expanded }});
         }},
-        chooseMember(seg, provider, answerLabel) {{
-          if (!seg.councilId) return;
-          const payload = {{
-            name: 'rate_council',
-            args: {{
-              council_id: seg.councilId,
-              provider,
-              answer_label: answerLabel,
-            }},
-            metadata: {{ kind: 'council_feedback', source: 'unified_review' }},
-          }};
-          this._fireShortcut(buildShortcutUrl(payload));
-          // Optimistic UI: paint "Preferred" immediately. Then verify
-          // the shortcut actually persisted within 3s — tick #69's data
-          // audit found 3 of 19 outcomes rated (16%) because the
-          // shortcut can fail silently when not installed, and the UI
-          // was lying about success. After 3s, re-load the outcome
-          // JSONP and check metadata.user_verdict.user_winner; if
-          // missing, set verifyFailed so the template shows a
-          // "rating didn't save" banner with install guidance.
-          this._patchSegment(seg.key, {{
-            selectedProvider: provider,
-            verifyPending: true,
-            verifyFailed: false,
-          }});
-          const targetSegKey = seg.key;
-          const targetCouncilId = seg.councilId;
-          setTimeout(() => {{
-            loadOutcomeScript(targetCouncilId, (outcome) => {{
-              const persisted = (
-                outcome?.metadata?.user_verdict?.user_winner === provider
-              );
-              this._patchSegment(targetSegKey, {{
-                verifyPending: false,
-                verifyFailed: !persisted,
-              }});
-            }});
-          }}, 3000);
+        lensPickProviderFor(seg) {{
+          // Source the "Lens pick" badge from the chairman's
+          // routing_label.winner — chairman synthesis is conditioned on
+          // the user's lens, so the chairman's pick IS the supervision
+          // signal. Empty string when the routing_label is missing.
+          return this.routingLabelFor(seg)?.winner || '';
         }},
         quoteMember(provider, row) {{
           // Append a quoted fragment of this member's response into the
@@ -1608,19 +1496,10 @@ def render_live_council_page() -> str:
             }}
             const rs = outcomeToRunState(outcome);
             if (!rs) return;
-            // Hydrate the user's persisted verdict (if any) so the
-            // "Preferred" badge survives reload. Source of truth is
-            // outcome.metadata.user_verdict.user_winner — written by
-            // the CLI council-rate handler (MCP record_outcome retired
-            // 2026-05-21). The frontend has to look here because the
-            // launchpad's chooseMember() fires-and-forgets via shortcut
-            // URL; the only way to know the user already rated is to
-            // look at the outcome JSONP on next load.
-            const persistedWinner = (
-              outcome?.metadata?.user_verdict?.user_winner ||
-              outcome?.selected_provider ||
-              null
-            );
+            // The "Lens pick" badge is sourced from
+            // routingLabelFor(seg).winner via lensPickProviderFor — no
+            // per-segment selection state needed since the rating
+            // click-flow was retired 2026-05-22 (Phase 3d).
             // user_refinement is the directive the user typed to launch
             // this round (council-iterate / launchpad refinement input).
             // Source: outcome.metadata.user_refinement (written by
@@ -1644,7 +1523,6 @@ def render_live_council_page() -> str:
               completed: true,
               roundNumber: rs.metadata?.round_number || 1,
               converged: !!rs.metadata?.converged,
-              selectedProvider: persistedWinner || current.selectedProvider || '',
             }});
             this.segments.splice(idx, 1, next);
             if (!this.threadTaskText) {{
