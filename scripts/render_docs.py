@@ -182,12 +182,30 @@ def canonical_smoke_surface_count() -> int:
     return len(ids)
 
 
+def canonical_command_module_count() -> int:
+    """Count user-facing command modules from main.py's tuples.
+
+    `CORE_COMMAND_MODULES + OPTIONAL_COMMAND_MODULES` is the SoT for
+    which modules register CLIs. Distinct from
+    `canonical_cli_command_count` (subparser count) — one module can
+    register N subparsers. claude.md cites the module count in the
+    architecture section + the forward-arc "shipped surface" line.
+    """
+    import importlib
+
+    main_mod = importlib.import_module("trinity_local.main")
+    core = getattr(main_mod, "CORE_COMMAND_MODULES", ())
+    optional = getattr(main_mod, "OPTIONAL_COMMAND_MODULES", ())
+    return len(core) + len(optional)
+
+
 CANONICAL: dict[str, callable] = {
     "test_count": canonical_test_count,
     "skipped_count": canonical_skipped_count,
     "mcp_tool_count": canonical_mcp_tool_count,
     "doc_consistency_guards": canonical_doc_consistency_guard_count,
     "cli_command_count": canonical_cli_command_count,
+    "command_module_count": canonical_command_module_count,
     "chrome_action_allowlist_count": canonical_chrome_action_allowlist_count,
     "smoke_surface_count": canonical_smoke_surface_count,
     "version": canonical_version,

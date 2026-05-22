@@ -4515,11 +4515,15 @@ class TestCanonicalPlaceholdersAreRendered:
         total = core_count + optional_count
 
         claude_md = (REPO / "claude.md").read_text(encoding="utf-8")
-        # Match the architecture-section claim:
-        # "N user-facing command modules (M in `CORE_COMMAND_MODULES`
-        #  + `<extra>` in `OPTIONAL_COMMAND_MODULES`)"
+        # Match the architecture-section claim. The total count is now
+        # wrapped in a canonical-placeholder (sweep iter #88):
+        # "<!-- canonical:command_module_count -->22<!-- /canonical --> user-facing command modules (M in `CORE_COMMAND_MODULES` + ...)"
+        # — accept either the placeholder form or a bare integer for the
+        # total, then enforce that the parenthetical `M in CORE` count
+        # still matches main.py's CORE_COMMAND_MODULES length.
         m = re.search(
-            r"(\d+)\s+user-facing command modules\s+\((\d+)\s+in\s+`CORE_COMMAND_MODULES`",
+            r"(?:<!-- canonical:command_module_count -->(\d+)<!-- /canonical -->|(\d+))"
+            r"\s+user-facing command modules\s+\((\d+)\s+in\s+`CORE_COMMAND_MODULES`",
             claude_md,
         )
         if not m:
@@ -4528,8 +4532,8 @@ class TestCanonicalPlaceholdersAreRendered:
                 "claim in claude.md. Either the prose was renamed or "
                 "this guard's regex needs updating."
             )
-        claimed_total = int(m.group(1))
-        claimed_core = int(m.group(2))
+        claimed_total = int(m.group(1) or m.group(2))
+        claimed_core = int(m.group(3))
 
         if claimed_total != total or claimed_core != core_count:
             raise AssertionError(

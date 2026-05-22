@@ -382,7 +382,7 @@ actually firing on real installs.
 **What's NOT in the post-launch arc (deliberately):**
 
 - More CLI surface kills. The simplification pass is done; the
-  shipped <!-- canonical:cli_command_count -->44<!-- /canonical -->-subcommand surface across 22 command modules
+  shipped <!-- canonical:cli_command_count -->44<!-- /canonical -->-subcommand surface across <!-- canonical:command_module_count -->22<!-- /canonical --> command modules
   is the v1.7.4 contract. Adding new CLIs only when MCP isn't a
   better entry point.
 - Architectural pivots. The trained-coordinator path remains sunset
@@ -605,7 +605,7 @@ When MCP is enabled and you're actively editing Trinity, set `TRINITY_MCP_WATCH=
 
 ### CLI dispatcher
 
-Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface after pre-launch simplification (Passes A–BB collapsed task/bundle/launch/watch/distill/cache/depth/metric/trust/shortcut/council-last/auto-chain/auto-open). 22 user-facing command modules (21 in `CORE_COMMAND_MODULES` + `install` in `OPTIONAL_COMMAND_MODULES`); 4 more (`bootstrap_pairs`, `distill`, `helpers`, `trust`) survive as importable utilities for tests + internal callers but no longer register CLIs (the `shortcuts_integration` inert shim at the package root falls into the same category). (Survivor list trimmed in tick 85: `commands.tasks` + `commands.depth` retired as orphan modules whose docstrings lied about test coverage; `commands.ingest` was already retired in tick 58 but had lingered on this list.) Live argparse surface: <!-- canonical:cli_command_count -->44<!-- /canonical --> subparser registrations (each one shows in `trinity-local --help`); count auto-rendered from main.py's registration via `scripts/render_docs.py` so docs and the actual CLI surface can't drift.
+Entry: `src/trinity_local/main.py` — thin dispatcher only. Live CLI surface after pre-launch simplification (Passes A–BB collapsed task/bundle/launch/watch/distill/cache/depth/metric/trust/shortcut/council-last/auto-chain/auto-open). <!-- canonical:command_module_count -->22<!-- /canonical --> user-facing command modules (21 in `CORE_COMMAND_MODULES` + `install` in `OPTIONAL_COMMAND_MODULES`); 4 more (`bootstrap_pairs`, `distill`, `helpers`, `trust`) survive as importable utilities for tests + internal callers but no longer register CLIs (the `shortcuts_integration` inert shim at the package root falls into the same category). (Survivor list trimmed in tick 85: `commands.tasks` + `commands.depth` retired as orphan modules whose docstrings lied about test coverage; `commands.ingest` was already retired in tick 58 but had lingered on this list.) Live argparse surface: <!-- canonical:cli_command_count -->44<!-- /canonical --> subparser registrations (each one shows in `trinity-local --help`); count auto-rendered from main.py's registration via `scripts/render_docs.py` so docs and the actual CLI surface can't drift.
 
 | Module | Key commands |
 |--------|-------------|
