@@ -722,6 +722,15 @@ def load_council_outcome(path_or_run_id: str) -> CouncilOutcome:
             CouncilChainStep.from_dict(s) if isinstance(s, dict) else s
             for s in chain_steps_raw
         ]
+    # Rating-surface retirement 2026-05-22 (per "lens-governed council
+    # selections" directive): the legacy `metadata.user_verdict` block
+    # was sunset alongside the rest of the rating UX. Strip on read so
+    # existing on-disk councils naturally lose the field on next save —
+    # no separate migration script needed; load+save IS the migration.
+    metadata = raw.get("metadata")
+    if isinstance(metadata, dict) and "user_verdict" in metadata:
+        metadata = {k: v for k, v in metadata.items() if k != "user_verdict"}
+        raw["metadata"] = metadata
     # Tolerate forward/backward field drift on load
     known = {f for f in CouncilOutcome.__dataclass_fields__}
     raw = {k: v for k, v in raw.items() if k in known}

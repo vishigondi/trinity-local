@@ -16,7 +16,7 @@
   "properties": {
     "council_run_id": {
       "type": "string",
-      "description": "Stable id, sha1 prefix. Used as the on-disk filename. (The retired MCP `record_outcome` tool — sunset 2026-05-21 — used this id as its key argument; CLI `council-rate` still uses the same id.)",
+      "description": "Stable id, sha1 prefix. Used as the on-disk filename.",
       "pattern": "^council_[a-f0-9]{16}$"
     },
     "bundle_id": {
@@ -54,7 +54,7 @@
     },
     "winner_provider": {
       "type": ["string", "null"],
-      "description": "Chairman's pick of which member's answer was strongest. Distinct from `user_verdict.user_winner`."
+      "description": "Chairman's pick of which member's answer was strongest. This IS the supervision signal — feeds compute_personal_routing_table() directly."
     },
     "winner_model": {
       "type": ["string", "null"]
@@ -120,26 +120,8 @@
     },
     "metadata": {
       "type": "object",
-      "description": "Free-form sidecar. Notable keys: user_verdict (the rating), chain_root_id (thread grouping).",
+      "description": "Free-form sidecar. Notable key: chain_root_id (thread grouping). The legacy user_verdict block was retired 2026-05-22 along with the entire rating surface — chairman's winner is the supervision signal now (compute_personal_routing_table aggregates from routing_label.winner directly). Existing on-disk councils get user_verdict wiped on next read by load_council_outcome.",
       "properties": {
-        "user_verdict": {
-          "type": "object",
-          "description": "Set when the user rates the council. Absent means the council is in the unrated backlog.",
-          "properties": {
-            "user_winner": {
-              "type": ["string", "null"],
-              "description": "Provider the user actually picked. Null when abandoned (accepted=false)."
-            },
-            "accepted": {"type": "boolean"},
-            "edited": {"type": "boolean"},
-            "tests_passed": {"type": ["boolean", "null"]},
-            "cost_usd": {"type": ["number", "null"]},
-            "latency_sec": {"type": ["number", "null"]},
-            "answer_label": {"type": ["string", "null"]},
-            "abandonment_reason": {"type": ["string", "null"]},
-            "recorded_at": {"type": ["string", "null"], "format": "date-time"}
-          }
-        },
         "chain_root_id": {
           "type": ["string", "null"],
           "description": "Groups multi-round chain councils as one thread. All councils sharing chain_root_id are refinement steps of the same original question."
