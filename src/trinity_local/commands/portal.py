@@ -1,4 +1,12 @@
-"""Portal and review command handlers."""
+"""Launchpad-page (`portal-html`) and council-review command handlers.
+
+The CLI verb stays `portal-html` for back-compat with the
+pre-task-#93 rename (portal_*.py → launchpad_*.py); the underlying
+write produces `~/.trinity/portal_pages/launchpad.html` (directory
+name kept stable for on-disk back-compat with existing user
+installs). The module name `commands/portal.py` matches the CLI
+verb prefix. See task #93 (Tier 2 #4 rename) for the rationale.
+"""
 from __future__ import annotations
 
 import http.server
