@@ -88,19 +88,49 @@ Post-launch cleanup pass driven by three user directives:
   stale state, launch-sequence pre-flip note) + 3 rewrites in
   `~/.claude/projects/.../memory/`.
 
-**Test gate (post-pass):** 1655 passing + 4 skipped + 1 intentional
-fail. Movement was 1649 (pre-cleanup) → 1625 (rating-surface
+**Test gate (post-pass):** 1662 passing + 4 skipped + 0 failing
+(167s wall). Movement was 1649 (pre-cleanup) → 1625 (rating-surface
 retirements removed `_verdict_stats` + `_check_verdict_rate` tests)
 → 1656 (`gemini.js` task #135 added 22 tests; takeout-embedding task
-#107 added 9 tests) → 1655 passing post the tightened
-`TestLaunchpadScreenshotFreshness` 1-day threshold (intentional fail
-until `docs/launchpad_example.png` regenerates after Phase 6 demo
-session — recipe in the test's error message).
+#107 added 9 tests) → 1655 passing + 1 intentional fail post the
+tightened `TestLaunchpadScreenshotFreshness` 1-day threshold →
+1662 + 0 fail after the post-release smoke gallery regen
+(commit `2bbb333` cleared the intentional fail; +7 test movement
+absorbed by canonical-placeholder ripple + drift-sweep edits).
 
 **Net code delta:** ~1,300 LOC removed from active surface;
 ~550 LOC added under `docs/historical/`. Hero claim every doc
 agrees on: *"Your taste, ported — Trinity picks the answer you
 would have picked."*
+
+**Post-release polish (commits after `37b144b`, all 2026-05-22):**
+
+- ⠕ brand mark (U+2815, Braille pattern dots-135) added across
+  4 surfaces: `e52eec9` README hero, `c85f860` share-card footer
+  tagline, `0138c12` launchpad header eyebrow, `eccb76e` Chrome
+  extension toolbar icons (16/32/48/128px rendered from Apple
+  Symbols at 85% glyph height on the cream + sage palette).
+- `2bbb333 / 0138c12` regenerated `docs/launchpad_example.png` +
+  smoke gallery for the Phase 3d "Lens pick" badge UI swap;
+  cleared the intentional `TestLaunchpadScreenshotFreshness` fail.
+- `ba41133` cross-provider eval share cards committed to
+  `docs/launch_assets/` (task #116). Real numbers from the May 19
+  sweep: claude 0.786 aggregate (5/5 items: REDIRECT n=1
+  mean=0.92, REFRAME n=4 mean=0.75), codex 0.700 (same 5-item
+  subset), gemini 0.442 (wider 17-item slice including COMPRESSION).
+  `.gitignore` extended to whitelist `docs/launch_assets/*.png` +
+  `docs/smoke/*.png`. Apples-to-apples re-run on the full suite
+  queued as v1.7.6 polish.
+- `0da50df` 15 new smoke surface PNGs (14, 17-30) tracked,
+  completing the visual gallery per principle #14 ("every shipped
+  feature gets a smoke regression guard within one tick").
+- `0ac8ada` drift sweep: 11 sites across 8 files scrubbed of stale
+  "council-rate stays for power users" prose. The line was correct
+  on 2026-05-21 (only `record_outcome` retired) but became false
+  on 2026-05-22 when task #134 retired the CLI too — the retirement
+  registry caught the canonical fact, but the framing prose didn't.
+  Filed a future drift-guard idea: catch "stays|still works|power
+  users" within 6 lines of a retired name.
 
 ## [v1.7.4 — pre-launch simplification pass] — 2026-05-18
 
