@@ -21,7 +21,7 @@ Inside Claude Code (or Codex CLI / Antigravity / Cursor) — just ask:
 
 The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel. The chairman synthesizes through your lens and returns the verdict inline: winner, runner-up, agreed claims, where they split, why each split matters. The launchpad above is the same surface in a browser tab — open it from the Chrome extension when you want to scan recent councils, your `/me` lens, and the topic graph without leaving the keyboard for a chat window.
 
-**The Chrome extension does two things.** As you chat on claude.ai / chatgpt.com / gemini.google.com, it captures each conversation to `~/.trinity/conversations/` on your machine — no listening port, no upload; Chrome's Native Messaging spawns a local capture host on demand. And it hosts the launchpad you click open from the toolbar. Together with the CLI sessions on disk (`~/.claude/`, `~/.codex/`, `~/.gemini/`), the extension's captures are what your lens distills from.
+**The Chrome extension does two things.** As you chat on claude.ai / chatgpt.com, it captures each conversation to `~/.trinity/conversations/` on your machine — no listening port, no upload; Chrome's Native Messaging spawns a local capture host on demand (gemini.google.com captures hit disk too but Python-side ingest is deferred to v1.7 per protocol-fragility risk — files accumulate today, lens reads them once the adapter lands). And it hosts the launchpad you click open from the toolbar. Together with the CLI sessions on disk (`~/.claude/`, `~/.codex/`, `~/.gemini/`), the extension's captures are what your lens distills from.
 
 **No new app. No service. No API key.** Captures flow *to* your machine; prompts never leave it. Everything else is an MCP server inside the harnesses you already use.
 
@@ -39,7 +39,7 @@ Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `agy` CL
 
 ## How it works
 
-Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Antigravity), web chats the Chrome extension auto-captures locally (claude.ai, chatgpt.com, gemini.google.com), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
+Trinity reads the transcripts on your machine — CLI sessions on disk (Claude Code, Codex CLI, Antigravity), web chats the Chrome extension auto-captures locally (claude.ai + chatgpt.com today; gemini.google.com captures hit disk but the Python adapter that ingests them lands in v1.7), and any manual exports you've imported (claude.ai exports, ChatGPT exports, Gemini Takeout) — and distills the pattern in **how you rephrase, push back, and decide** into a taste lens. The chairman reads that lens on every council, so the synthesis comes back in your voice, not in the voice of a generic model. The labs can't do this for you because they're commercially prevented from reading across each other; only the layer above them can.
 
 ### And — when a new model lands, score it against your taste
 

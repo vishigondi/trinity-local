@@ -3802,6 +3802,103 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_gemini_capture_deferral_documented_consistently(self):
+        """Iter #47 catch — claude.md L10 says "gemini.google.com
+        adapter deferred to v1.7 per protocol-fragility risk," and
+        the absence of a `parse_captured_gemini_conversation` parser
+        in ingest.py confirms this is real. But README + INSTALL-
+        extension.md were overselling — claiming gemini.google.com
+        gets ingested end-to-end alongside claude.ai + chatgpt.com.
+
+        Reality on disk:
+          - browser-extension/page-hook.js DOES intercept
+            gemini.google.com traffic (stream pattern wired up)
+          - Captures DO accumulate at ~/.trinity/conversations/
+          - But ingest.py has NO `parse_captured_gemini_conversation`
+            function — captures sit unread until v1.7
+
+        The honest framing (now applied to README L24+L42 and INSTALL-
+        extension.md L10+L16): claude.ai + chatgpt.com are ingested
+        end-to-end; gemini.google.com captures hit disk but parsing
+        is deferred.
+
+        Guard shape: AST-scan ingest.py for parse_captured_* function
+        defs. If parse_captured_gemini_conversation appears, the
+        deferral narration in user-facing docs becomes stale (and
+        should be updated to "ingested in real time"). If it
+        doesn't, README + INSTALL-extension must include the
+        deferral disclaimer.
+
+        Catches:
+          (a) the parser ships → docs still hedge → reader misses
+              the news
+          (b) docs drift back to overselling without the parser
+              shipping
+        """
+        import ast
+
+        ingest_src = (REPO / "src/trinity_local/ingest.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(ingest_src)
+        parser_names = {
+            node.name for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name.startswith("parse_captured_")
+        }
+        gemini_parser_present = "parse_captured_gemini_conversation" in parser_names
+
+        readme = (REPO / "README.md").read_text(encoding="utf-8")
+        install_ext = (REPO / "docs/INSTALL-extension.md").read_text(
+            encoding="utf-8"
+        )
+
+        # The deferral disclaimer markers (any of these phrases counts
+        # as "doc acknowledges the deferral"):
+        deferral_markers = (
+            "deferred to v1.7",
+            "Python adapter that ingests them lands in v1.7",
+            "captures hit disk too but Python-side ingestion is deferred",
+        )
+
+        def has_deferral_note(text: str) -> bool:
+            return any(m in text for m in deferral_markers)
+
+        readme_acknowledges = has_deferral_note(readme)
+        install_ext_acknowledges = has_deferral_note(install_ext)
+
+        if gemini_parser_present:
+            # Parser shipped — docs should NOT hedge anymore.
+            stale_docs = []
+            if readme_acknowledges:
+                stale_docs.append("README.md")
+            if install_ext_acknowledges:
+                stale_docs.append("docs/INSTALL-extension.md")
+            if stale_docs:
+                raise AssertionError(
+                    f"parse_captured_gemini_conversation has shipped, but "
+                    f"docs still contain the v1.7-deferral hedge: "
+                    f"{stale_docs}. Update the prose to claim end-to-end "
+                    f"ingestion of gemini.google.com captures."
+                )
+        else:
+            # Parser absent — docs MUST hedge.
+            missing_hedge = []
+            if not readme_acknowledges:
+                missing_hedge.append("README.md")
+            if not install_ext_acknowledges:
+                missing_hedge.append("docs/INSTALL-extension.md")
+            if missing_hedge:
+                raise AssertionError(
+                    f"ingest.py has no parse_captured_gemini_conversation "
+                    f"function (Gemini captures hit disk but aren't ingested), "
+                    f"but these docs claim end-to-end Gemini ingestion "
+                    f"without the v1.7-deferral hedge: {missing_hedge}\n\n"
+                    f"Add the deferral note matching claude.md L10's "
+                    f"existing accurate framing, or implement the parser "
+                    f"and remove the hedge."
+                )
+
     def test_install_mcp_harness_claim_matches_code(self):
         """Iter #42 catch — claude.md L439 + L584 claimed `install-mcp`
         wires "the three CLI harnesses" but install.py actually

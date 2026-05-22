@@ -7,15 +7,19 @@ class: live
 > The Chrome extension is the optional third tier. It does two things
 > the skill + pip tiers can't: (1) one-click launchpad UI from the
 > browser toolbar, (2) cross-surface capture of web-chat conversations
-> from claude.ai / chatgpt.com / gemini.google.com.
+> from claude.ai / chatgpt.com (gemini.google.com captures hit disk
+> too but Python-side ingestion is deferred to v1.7 per protocol-
+> fragility risk — extension preserves raw payloads now, lens reads
+> them once the adapter lands).
 
 ## When to install this tier
 
 - You want the launchpad and councils accessible from any tab via
   the toolbar icon — no terminal.
-- You want web chats (claude.ai, chatgpt.com, gemini.google.com)
-  ingested into `~/.trinity/conversations/` so Trinity sees ALL
-  your conversations, not just the CLI tools.
+- You want web chats (claude.ai, chatgpt.com) ingested into
+  `~/.trinity/conversations/` so Trinity sees ALL your conversations,
+  not just the CLI tools. (gemini.google.com captures accumulate
+  now and become ingestable in v1.7.)
 - You're on Linux or Windows and the macOS-only Shortcut dispatcher
   doesn't apply.
 
