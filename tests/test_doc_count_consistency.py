@@ -5108,6 +5108,91 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestCitedCommitsResolveInGit:
+    """Live docs cite commit SHAs to anchor specific events ('retired
+    2026-05-18 in commit `1fed7fc`'). If a cited commit disappears
+    (rebase, force-push, never-existed-typo), the doc points at
+    nothing. Sweep iter #114 baselined this: 6 commit refs across
+    claude.md + 4 live docs, all resolve today.
+
+    Same shape as iter #80's `test_every_commit_ref_resolves_in_git`
+    for retired_names.py — that guard catches missing commit refs in
+    the retirement registry; this one catches the same drift class
+    in published prose. Together they cover the two surfaces where
+    Trinity anchors claims to specific commits.
+
+    Guard: scan claude.md + README.md + class:live docs in docs/ for
+    'commit <sha>' or 'commit `<sha>`' patterns. Run `git cat-file
+    -t <sha>` per match. Fail if any return non-zero (= unresolved
+    commit ref).
+    """
+
+    def test_every_cited_commit_resolves_in_git(self):
+        import re
+        import subprocess
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = [repo / "claude.md", repo / "README.md"]
+        docs_dir = repo / "docs"
+        if docs_dir.exists():
+            for path in sorted(docs_dir.glob("*.md")):
+                try:
+                    head = path.read_text(encoding="utf-8")[:200]
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "class: live" in head:
+                    targets.append(path)
+
+        # Match `commit <sha>` or `commit \`<sha>\`` — sha is a 7-40
+        # char hex string. The `commit` prefix prevents false positives
+        # on basin_ids and other hex content.
+        commit_re = re.compile(
+            r"\bcommit\s+`?([a-f0-9]{7,40})`?",
+            re.IGNORECASE,
+        )
+
+        seen: set[tuple[str, str]] = set()  # dedupe (file, sha) pairs
+        broken: list[tuple[str, int, str]] = []
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                for match in commit_re.finditer(line):
+                    sha = match.group(1)
+                    key = (rel, sha)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    # `git cat-file -t <sha>` is fast — single object
+                    # lookup. Exit 0 = exists; 128 = not found.
+                    result = subprocess.run(
+                        ["git", "cat-file", "-t", sha],
+                        cwd=repo,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode != 0:
+                        broken.append((rel, idx, sha))
+
+        if broken:
+            msg = [
+                "Live docs cite commit SHAs that don't resolve in git.",
+                "Possible causes: rebase/force-push removed the commit,",
+                "typo in the SHA, or the commit was never pushed.",
+                "",
+                "Fix: update the citation to a real commit (use `git log`",
+                "to find the right SHA), or remove the citation if the",
+                "event being cited has no anchorable commit.",
+                "",
+            ]
+            for rel, ln, sha in broken:
+                msg.append(f"  {rel}:{ln}: commit `{sha}` does not exist")
+            raise AssertionError("\n".join(msg))
+
+
 class TestSchemaNestedFieldsMatchDataclassFields:
     """Iter #109 caught real schema-vs-dataclass drift in nested
     types: schemas/council_outcome.schema.json declared 3 member_results
