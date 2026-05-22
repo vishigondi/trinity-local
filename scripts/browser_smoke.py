@@ -1655,44 +1655,51 @@ def main() -> int:
             print(f"[ ✗ ] Surface 24 routing→topology: {reason}")
             fails.append((24, "routing→topology chip", reason))
 
-        # ─── Surface 25: Launchpad recent-card → topology chip ───────────────
-        # On the launchpad, each recent-council card with a task_type
-        # that maps into topology should grow a third → topology chip
-        # alongside → pick / → routing. SKIPPED if zero cards have it
-        # (cold install or no consolidation yet).
+        # ─── Surface 25: Recent-card cross-memory chips (RETIRED — regression guard) ──
+        # Sunset 2026-05-21 alongside the rest of the user-rating UX
+        # (see launchpad_data.py:1764). Each recent-council card used to
+        # grow → pick / → routing / → topology / → share PNG chips; the
+        # card is now just title / winner / date per "chairman picks;
+        # user refines" prime directive. Iter #101 cleaned the orphaned
+        # build-once cache; iter #103 converts this surface to a
+        # retirement guard (Principle #14 sunset-pattern, mirrors
+        # Surface 32's rate-limit-saves regression). Catches accidental
+        # re-introduction — same retired-feature shape iter #73 used.
         page.goto(
             f"{base_url}/portal_pages/launchpad.html",
             wait_until="networkidle",
             timeout=10000,
         )
         page.wait_for_timeout(300)
-        topo_chip_state = page.evaluate(
+        xlink_state = page.evaluate(
             """() => {
-              const xlinks = Array.from(document.querySelectorAll('.council-xlink'));
-              const topo = xlinks.filter(a => /→\\s*topology/.test(a.textContent || ''));
-              if (!topo.length) return {ok: true, skipped: true, reason: 'no cards have a → topology chip'};
-              const href = topo[0].getAttribute('href') || '';
-              const m = href.match(/[?&]basin=([^&]+)/);
+              const cards = Array.from(document.querySelectorAll('.council-card'));
+              // The retired chips lived inside .council-card-wrapper as
+              // anchors with class `.council-xlink`. Cards now wrap a
+              // single anchor to the review page only.
+              const xlinks_in_cards = [];
+              for (const card of cards) {
+                const wrapper = card.closest('.council-card-wrapper');
+                if (!wrapper) continue;
+                xlinks_in_cards.push(...wrapper.querySelectorAll('.council-xlink'));
+              }
               return {
-                ok: !!m && href.includes('topics.json'),
-                total: topo.length,
-                href: href,
-                basin: m ? decodeURIComponent(m[1]) : null,
+                ok: xlinks_in_cards.length === 0,
+                count: xlinks_in_cards.length,
+                card_count: cards.length,
               };
             }"""
         )
-        page.screenshot(path=str(SHOTS_DIR / "25-recent-card-topology-chip.png"))
-        if topo_chip_state.get("skipped"):
-            print(f"[ - ] Surface 25 recent-card→topology: SKIPPED ({topo_chip_state['reason']})")
-        elif topo_chip_state.get("ok"):
+        page.screenshot(path=str(SHOTS_DIR / "25-recent-card-no-xlinks.png"))
+        if xlink_state.get("ok"):
             print(
-                f"[ ✓ ] Surface 25 recent-card→topology: "
-                f"{topo_chip_state['total']} chip(s) · first → basin={topo_chip_state['basin']}"
+                f"[ ✓ ] Surface 25 recent-card cross-memory chips: "
+                f"retired (0 .council-xlink in {xlink_state['card_count']} cards)"
             )
         else:
-            reason = f"href={topo_chip_state.get('href')!r}"
-            print(f"[ ✗ ] Surface 25 recent-card→topology: {reason}")
-            fails.append((25, "recent-card→topology chip", reason))
+            reason = f".council-xlink count={xlink_state.get('count')} (expected 0 — chips sunset 2026-05-21)"
+            print(f"[ ✗ ] Surface 25 recent-card cross-memory chips: {reason}")
+            fails.append((25, "recent-card cross-memory chips retired", reason))
 
         # ─── Surface 26: Cortex picks card → topology chip ───────────────────
         # The cortex picks table on the launchpad annotates each row with
