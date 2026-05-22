@@ -30,7 +30,7 @@ from .task_types import guess_task_type
 from .utils import now_iso, stable_id
 
 
-DEFAULT_SOURCES = ("claude", "codex", "gemini", "cowork", "browser_claude", "browser_chatgpt")
+DEFAULT_SOURCES = ("claude", "codex", "gemini", "cowork", "browser_claude", "browser_chatgpt", "browser_gemini")
 DEFAULT_DEADLINE_S = 2.0
 
 

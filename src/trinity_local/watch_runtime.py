@@ -51,6 +51,14 @@ def _source_root(source: str) -> Path:
     if source == "browser_chatgpt":
         from .state_paths import conversations_provider_dir
         return conversations_provider_dir("chatgpt")
+    if source == "browser_gemini":
+        # v1.8 (task #135): captures from gemini.google.com via the
+        # browser extension's adapters/gemini.js. Same lifecycle as
+        # browser_claude / browser_chatgpt — capture_host writes to
+        # conversations/gemini/<conv_id>.stream.json; we read on the
+        # MCP-ingest hot path.
+        from .state_paths import conversations_provider_dir
+        return conversations_provider_dir("gemini")
     raise ValueError(f"Unknown source: {source}")
 
 
@@ -70,6 +78,13 @@ def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
         # chatgpt) and the captured parsers return None for them.
         # Saves the parse attempt + skipped_parse increment.
         paths = (p for p in root.glob("*.json") if not p.name.endswith(".stream.json"))
+    elif source == "browser_gemini":
+        # Gemini has NO canonical full-conversation fetch — the
+        # batchexecute RPC is reply-only — so the .stream.json files
+        # ARE the data. Include them (opposite of the claude/chatgpt
+        # filter above). All *.json files under conversations/gemini/
+        # are adapter outputs from adapters/gemini.js.
+        paths = root.glob("*.json")
     else:
         paths = root.rglob("local_*.json")
     recent = []
@@ -100,4 +115,7 @@ def _parse_source_path(source: str, path: Path):
     if source == "browser_chatgpt":
         from .ingest import parse_captured_chatgpt_conversation
         return parse_captured_chatgpt_conversation(path)
+    if source == "browser_gemini":
+        from .ingest import parse_captured_gemini_conversation
+        return parse_captured_gemini_conversation(path)
     raise ValueError(f"Unknown source: {source}")

@@ -67,6 +67,25 @@
     const method = (init?.method || (typeof input !== "string" && input?.method) || "GET").toUpperCase();
     const classification = classifyRequest(url, method);
 
+    // Snapshot request body BEFORE awaiting the fetch — Gemini's
+    // batchexecute RPC is reply-only on the response side, so the
+    // user's prompt only lives in the request body. Best-effort:
+    // serialize init.body if it's a string or URLSearchParams. Other
+    // shapes (FormData, Blob, ReadableStream) are skipped — adapter
+    // handles missing request_body gracefully.
+    let request_body = null;
+    if (classification && init && init.body !== undefined && init.body !== null) {
+      try {
+        if (typeof init.body === "string") {
+          request_body = init.body;
+        } else if (init.body instanceof URLSearchParams) {
+          request_body = init.body.toString();
+        }
+      } catch {
+        request_body = null;
+      }
+    }
+
     const response = await originalFetch.apply(this, arguments);
 
     if (!classification || !response.ok) {
@@ -107,7 +126,12 @@
           // adapter is registered for this provider.
           const adapter = window.__TRINITY_ADAPTERS?.[classification.provider];
           if (adapter?.adapt) {
-            emit(adapter.adapt({ url, body_text: buf, method, captured_at }));
+            // page_href lets gemini.js extract conv_id from the user's
+            // open conversation (the batchexecute URL itself doesn't
+            // carry one). request_body carries the user prompt for
+            // gemini (whose response is reply-only). Other adapters
+            // ignore extra fields.
+            emit(adapter.adapt({ url, body_text: buf, method, captured_at, page_href: location.href, request_body }));
           } else {
             emit({
               provider: classification.provider,

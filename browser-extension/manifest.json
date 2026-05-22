@@ -57,7 +57,7 @@
         "https://chat.openai.com/*",
         "https://gemini.google.com/*"
       ],
-      "js": ["adapters/claude.js", "adapters/chatgpt.js", "page-hook.js"],
+      "js": ["adapters/claude.js", "adapters/chatgpt.js", "adapters/gemini.js", "page-hook.js"],
       "run_at": "document_start",
       "world": "MAIN"
     }
