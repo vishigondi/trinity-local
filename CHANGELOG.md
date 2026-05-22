@@ -7,6 +7,97 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.5 — rating-surface retirement + claude.md cut to 200 lines + Auto-Dream cite] — 2026-05-22
+
+Post-launch cleanup pass driven by three user directives:
+1. **"Cross-provider continuity is NOT the killer hook"** — reframed
+   to "Your taste, ported — Trinity picks the answer you would have
+   picked." Continuity becomes a capability, not the hook.
+2. **"User doesn't have to provide ratings — use the lens-governed
+   council selections"** — full retirement of the rating surface.
+3. **Anthropic shipped official Auto-Dream** in Claude Code; cite
+   + position Trinity's `dream` as the cross-provider extension
+   (Anthropic dreams *Claude* conversations only; Trinity dreams
+   across Claude + Codex + Antigravity — the labs are commercially
+   prevented from crossing).
+
+**Rating-surface retirement (decisions #2 + #7):**
+
+- `council-rate` CLI subparser + `handle_council_rate` handler
+  deleted (~80 LOC).
+- `commands/unrated.py` module deleted (was Pillar-4 funnel-widening
+  for ratings; whole purpose moot post-retirement).
+- `tests/test_unrated.py` deleted.
+- `doctor._check_verdict_rate()` deleted (+ `TestVerdictRateCheck`
+  in test_doctor.py) — metric always-0 post-retirement = noise.
+- `_verdict_stats()` in launchpad_data.py deleted (~55 LOC) — last
+  consumer (the doctor check) gone.
+- `tests/test_verdict_stats.py` deleted (~511 LOC of dead tests).
+- `schemas/council_outcome.schema.json` (+ skills/ mirror) strips
+  the `metadata.user_verdict` spec entirely.
+- `load_council_outcome()` in council_runtime.py wipes
+  `metadata.user_verdict` on read so existing on-disk councils
+  naturally lose the field on next save.
+- `rate_council` action removed from `dispatch_registry.DISPATCH_ACTIONS`
+  + its handler branch (was orphan — Chrome ext would have shelled
+  to a missing CLI).
+- `launchpad_template.py` + `council_review.py`: "Preferred" click-
+  to-rate badge replaced with "Lens pick" badge sourced from
+  `routing_label.winner`. No human rating step in the loop; lens
+  governs.
+
+**claude.md restructure (decisions #4 + #10 + #11):**
+
+- claude.md cut from 918 → 183 lines (well under the new 200-line
+  Anthropic-Auto-Dream-discipline target; 250-line guard added).
+- Auto-Dream cite as a load-bearing positioning subsection
+  (cross-provider extension framing).
+- Old hero framings deleted ("Stop copy-pasting prompts", etc.).
+- Historical context relocated to `docs/historical/`:
+  - `principles.md` (21 meta-principles, 250 LOC)
+  - `retirement-log.md` (retired-name notes + simplification log)
+  - `brand-evolution.md` (pivot history + ratifying councils)
+- `TestClaudeMdLineCap` guard added; canonical
+  `doc_consistency_guards` bumped 102 → 103.
+
+**Other cleanup:**
+
+- `state_paths.conversations_dir()` + `conversations_provider_dir(provider)`
+  helpers promoted (principle #17: N=5 inline-construction sites
+  collapsed to 1 helper). Same shape as `share_dir` (tick 87, N=3).
+- Trust-CLI mentions (`trust-init` / `trust-show` / `audit-show`)
+  scrubbed from INSTALL-skill.md + INSTALL-pip.md.
+- `RETIRED_CLI` guard in test_doc_count_consistency extended with
+  `council-rate` + `unrated`; caught real orphan in
+  `dispatch_registry.py` as a side effect.
+- `_verdict_stats` retirement record uses new `kind="function"`
+  (enum extended in retired_names_registry test).
+- `plan_and_execute` MCP tool fully sunset (task #128 deleted) —
+  Loop Constitution removal was the right call to NOT rebuild.
+  Multi-step orchestration is the harness's job, not Trinity's.
+- gemini.google.com adapter deferral re-pointed v1.7 → v1.8
+  (task #135).
+- Spec-v1.5 + spec-v1 + spec-v1.6 + scale-plan + v2-loop-constitution
+  + founder-essay-draft all updated to reflect sunsets.
+- scale-plan state-paths updated: `memory/` → `prompts/` per Tier
+  1 #1 (task #90); `transcript_nodes.jsonl` removed per Tier 2 #5
+  (task #51).
+- spec-v1.md vanity domain `trinity.local/install` updated to the
+  shipped `raw.githubusercontent.com` form.
+- Auto-memory cleanup: 3 deletes (killer-hook continuity, day2-close
+  stale state, launch-sequence pre-flip note) + 3 rewrites in
+  `~/.claude/projects/.../memory/`.
+
+**Test gate:** 1625 passing + 4 skipped + 0 failing (was 1649; net
+-24 from `_verdict_stats` + `_check_verdict_rate` test retirements,
+counter-weighed by Phase 2 refactor adding test scaffolding for the
+strict save_council_outcome contract).
+
+**Net code delta:** ~1,300 LOC removed from active surface;
+~550 LOC added under `docs/historical/`. Hero claim every doc
+agrees on: *"Your taste, ported — Trinity picks the answer you
+would have picked."*
+
 ## [v1.7.4 — pre-launch simplification pass] — 2026-05-18
 
 Day-of-launch simplification: 17 commits removed ~5000 LOC across
