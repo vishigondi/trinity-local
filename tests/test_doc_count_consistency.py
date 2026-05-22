@@ -5108,6 +5108,89 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestSchemaNestedFieldsMatchDataclassFields:
+    """Iter #109 caught real schema-vs-dataclass drift in nested
+    types: schemas/council_outcome.schema.json declared 3 member_results
+    fields the dataclass never emits (reasoning_summary, error,
+    elapsed_seconds — they live on different dataclasses) and omitted
+    2 fields the dataclass does emit (session_id, metadata). Same
+    asymmetry on chain_steps. Iter #109 fixed both.
+
+    Per task #117 ('Standardize ~/.trinity/'), the schemas are
+    published as the contract for other tools to adopt. A schema that
+    misrepresents what Trinity actually emits breaks adopters in two
+    directions: they expect fields that never arrive, and they don't
+    expect fields that do.
+
+    Guard: introspect each nested type's schema declaration vs the
+    backing dataclass's field set. Field-set parity required.
+    """
+
+    def test_council_outcome_nested_types_match_dataclasses(self):
+        import json
+        import dataclasses
+
+        from trinity_local.council_schema import (
+            CouncilMemberResult,
+            CouncilChainStep,
+            CouncilRoutingLabel,
+        )
+
+        repo = Path(__file__).resolve().parent.parent
+        schema_path = repo / "schemas" / "council_outcome.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+        cases = [
+            (
+                "member_results",
+                CouncilMemberResult,
+                schema["properties"]["member_results"]["items"]["properties"],
+            ),
+            (
+                "chain_steps",
+                CouncilChainStep,
+                schema["properties"]["chain_steps"]["items"]["properties"],
+            ),
+            (
+                "routing_label",
+                CouncilRoutingLabel,
+                schema["$defs"]["routing_label"]["properties"],
+            ),
+        ]
+
+        offenders: list[str] = []
+        for name, klass, schema_props in cases:
+            schema_fields = set(schema_props.keys())
+            dataclass_fields = {f.name for f in dataclasses.fields(klass)}
+            only_schema = sorted(schema_fields - dataclass_fields)
+            only_dataclass = sorted(dataclass_fields - schema_fields)
+            if only_schema:
+                offenders.append(
+                    f"  {name}: schema declares fields the dataclass "
+                    f"doesn't emit: {only_schema}"
+                )
+            if only_dataclass:
+                offenders.append(
+                    f"  {name}: dataclass emits fields the schema doesn't "
+                    f"document: {only_dataclass}"
+                )
+
+        if offenders:
+            msg = [
+                "schemas/council_outcome.schema.json nested-type fields "
+                "drifted from the backing dataclasses. The schema is the "
+                "published contract (task #117); adopters break when it "
+                "misrepresents reality.",
+                "",
+                "Fix: either add the missing field to the schema (with a "
+                "JSON Schema type) or to the dataclass (and to to_dict), "
+                "and mirror to skills/trinity/schemas/.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestSaveCouncilOutcomeEnforcesSchemaRequiredFields:
     """`schemas/council_outcome.schema.json` declares `synthesis_output`
     and `routing_label` as required. The `CouncilOutcome` dataclass
