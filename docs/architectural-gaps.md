@@ -404,9 +404,11 @@ convention; with one, it's a contract.
 ## Gap G — Event log vs derived state (Self-correction, data layer)
 
 **Symptom:** Council outcomes are written once + later mutated
-(CLI `council-rate` sets `outcome.metadata.user_verdict` retroactively;
-the prior MCP `record_outcome` tool wrote the same mutation until
-retired 2026-05-21).
+(prior `council-rate` CLI + MCP `record_outcome` both set
+`outcome.metadata.user_verdict` retroactively until both were retired
+2026-05-21/22 alongside the rest of the rating UX — chairman pick is
+the auto-recorded supervision signal now; the mutation pattern below
+describes the historical shape).
 The personal routing table is *computed on demand* from outcomes —
 but the outcomes themselves are *both* event records *and* mutable
 state.

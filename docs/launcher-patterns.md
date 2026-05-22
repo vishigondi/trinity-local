@@ -136,18 +136,21 @@ The shipped v1 bridge and the next launch target are:
 Current dispatch actions (`src/trinity_local/dispatch_registry.py`):
 
 - `launch_council` — primary path; user picks members + task
-- `rate_council` — record user's winner choice (writes `metadata.user_verdict` via the `council-rate` CLI handler; the MCP `record_outcome` tool was retired 2026-05-21 — chairman pick is the auto-recorded supervision signal now)
 - `stop_council` — cancel an in-flight council
 - `open_review` — open the unified council page
 - `start_council` — alternative entry from a prepared bundle
 - `council_iterate` — canonical iteration action (replaces continue/refine/auto-chain). Args: `{rounds: int, prompt: str|None}`. Legacy aliases (`council_continue`, `council_refine`, `council_auto_chain`) still accepted as input — they map to `council_iterate` via the dispatch shim — so old launchpad URLs and saved Shortcuts keep working.
 - `open_path`, `open_url`, `run_applescript`, `run_command` — generic dispatch helpers
 
+(The `rate_council` dispatch action was retired 2026-05-21/22 alongside the
+rest of the rating UX — chairman pick is the auto-recorded supervision signal
+now. `council-rate` CLI + MCP `record_outcome` are retired; pick-veto on
+extracted cortex rules is the remaining user-side supervision surface.)
+
 If multiple pending actions exist for the same task, priority order:
 
 1. `launch_council` / `start_council`
-2. `rate_council`
-3. `open_review`
-4. `recommendation` / `workflow_suggestion`
+2. `open_review`
+3. `recommendation` / `workflow_suggestion`
 
 This keeps the launchpad from becoming noisy and ensures the primary CTA is always the most actionable one.

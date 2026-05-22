@@ -156,14 +156,12 @@ than importing internal Python modules:
 | `trinity-local install-extension` | Install the Native Messaging bridge for the Chrome/Edge extension |
 | `trinity-local install-launcher` | Install OS launcher where supported |
 | `trinity-local council-launch --task "..."` | Run a multi-provider council |
-| `trinity-local council-rate <id> <winner>` | Record a verdict |
 | `trinity-local council-stop <id>` | Stop a running council |
 | `trinity-local handoff <provider>` | Continue a recent thread in another provider |
 | `trinity-local dream` | Build the personal layer in one pass |
 | `trinity-local lens-build` / `lens-show` | Rebuild and inspect the taste lens |
 | `trinity-local consolidate` | Rebuild cortex routing patterns |
 | `trinity-local cortex-override` | Mark a routing rule wrong |
-| `trinity-local unrated --json` | List councils needing verdicts |
 | `trinity-local review-link --json <id>` | Produce mobile-safe review routes |
 | `trinity-local portal-html` | Regenerate static launchpad artifacts |
 | `trinity-local open-review <id>` | Reopen an existing review page |
@@ -193,7 +191,6 @@ cannot: stable fields, deterministic errors, and one remediation hint.
 | Contract | Producer | Consumers |
 |---|---|---|
 | Setup/provider status | `status --json` | desktop setup, mobile pairing preflight |
-| Unrated councils | `unrated --json` | desktop home, mobile review queue |
 | Recent/active councils | `councils --json --status ...` | desktop home, live progress, mobile queue |
 | One council status | `council-status <id> --json` | live progress, notifications |
 | Review route | `review-link --json <id>` | desktop share sheet, mobile universal-link bootstrap |
@@ -233,7 +230,7 @@ First screen:
 - command bar for `ask`, `council`, and `handoff`
 - onboarding/status panel for first-run setup
 - active councils with provider progress
-- recent and unrated outcomes
+- recent outcomes (chairman pick + per-member streams)
 - provider/auth health
 - memory health and last `dream` / `consolidate` time
 - routing picks with trust/override indicators
@@ -246,15 +243,13 @@ Expected workflows:
 - Use a global hotkey or menu bar item to open Trinity over the current app.
 - Watch multiple active councils side by side.
 - Review provider agreement/disagreement in an evidence pane.
-- Rate a completed council inline.
 - Mark a cortex pick wrong from the same review flow.
 - Continue a Claude thread in Gemini or Codex from desktop.
 - Inspect `lens.md`, topics, vocabulary, picks, routing rules, and evidence
   councils.
 - Install or repair MCP and browser extension registrations.
 - Pair or revoke a mobile device.
-- Run scheduled local maintenance: `dream`, `consolidate`, stale-memory checks,
-  and unrated-outcome reminders.
+- Run scheduled local maintenance: `dream`, `consolidate`, stale-memory checks.
 
 ### Desktop App Requirements
 
@@ -320,14 +315,15 @@ Rules:
 
 ### Desktop Acceptance Criteria
 
-- A user can install once, launch desktop, run a first council, and rate it
-  without touching the terminal after setup.
+- A user can install once, launch desktop, run a first council, and review
+  the chairman's verdict without touching the terminal after setup.
 - Desktop shows live progress for multiple providers.
-- Desktop rating updates the exact same ledger fields as `council-rate`
-  (the canonical verdict-writer; MCP `record_outcome` was retired
-  2026-05-21 alongside the rest of the rating UX).
 - Desktop pick-veto updates the same cortex override state as
-  `cortex-override` and MCP `mark_pick_wrong`.
+  `cortex-override` and MCP `mark_pick_wrong`. (The prior rating UX —
+  `council-rate` CLI, MCP `record_outcome`, the `rate_council` dispatch
+  action — was retired 2026-05-21/22; chairman pick is the auto-recorded
+  supervision signal now. Pick-veto on extracted cortex rules is the
+  remaining user-side supervision surface.)
 - Desktop can repair MCP and extension setup using JSON status contracts.
 - Quitting desktop does not break terminal, MCP, Chrome extension capture, or
   existing static artifacts.
@@ -348,10 +344,8 @@ First screen:
 
 - open review link from browser, Messages, Mail, Notes, Shortcuts, or
   notification
-- latest council review
-- unrated queue
-- one-tap winner rating
-- pick-veto actions
+- latest council review (chairman pick + agreed/disagreed claims)
+- pick-veto actions on extracted cortex rules
 - connection status to paired desktop
 
 Expected workflows:
@@ -361,9 +355,9 @@ Expected workflows:
 - Treat the link as a pointer: the mobile app resolves review content from the
   paired desktop, a local/static artifact, or an explicit exported share bundle.
 - Read chairman synthesis and provider outputs in a mobile-safe view.
-- Rate completed councils with one tap.
-- Mark an extracted pick wrong.
-- Queue ratings offline when desktop is unreachable.
+- Mark an extracted cortex pick wrong (the remaining user-side
+  supervision surface; the rating UX was retired 2026-05-21/22).
+- Queue pick-veto actions offline when desktop is unreachable.
 - Later: capture a prompt by typing or voice and send it to desktop as `ask`,
   `council`, or `handoff`.
 
