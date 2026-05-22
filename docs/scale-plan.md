@@ -73,12 +73,12 @@ class: aspirational
 | 5 | Share polling runtime JS | ✅ done | `launchpad_runtime.py` with `launchpad_runtime_js()` — both launchpad and live council page inject the same `buildShortcutUrl` + `loadStatusScript` (with `!token` guard fixed on launchpad). |
 | 6 | Centralize Launchpad refresh | ✅ done | All callers use `refresh_launchpad()` via `refresh.py`. |
 | 7 | Standardize subprocess execution | ✅ done | `run_with_runtime_env()` in `runtime_env.py` (the planned `subprocess_utils.py` split didn't materialize — both helpers fit in one module). Wired into `providers.py`, `adapters.py`. |
-| 8 | Centralize runtime env | ✅ done | `runtime_env.py` with `build_runtime_env()`, `runtime_path_prefix()`, `run_with_runtime_env()`. Used by `providers.py`, `adapters.py`, `dispatch_runner.py`, `shortcut_setup.py`. |
-| 9 | Complete state path migration | ✅ done | All duplicate `*_dir()` functions removed from `council_runtime.py`, `review.py`, `shortcut_setup.py`, `research/embeddings.py`, `research/hard_eval.py`, `research/ranking.py`. All use `state_paths.*` imports. |
+| 8 | Centralize runtime env | ✅ done | `runtime_env.py` with `build_runtime_env()`, `runtime_path_prefix()`, `run_with_runtime_env()`. Used by `providers.py`, `adapters.py`, ~~`dispatch_runner.py`, `shortcut_setup.py`~~ (both retired pre-launch with the macOS Shortcut subsystem — see L635). |
+| 9 | Complete state path migration | ✅ done | All duplicate `*_dir()` functions removed from `council_runtime.py`, `review.py`, ~~`shortcut_setup.py`~~ (retired), `research/embeddings.py`, `research/hard_eval.py`, `research/ranking.py`. All use `state_paths.*` imports. |
 | 10 | Harden council parsing | ✅ done | `tests/test_council_runtime.py` added with regression cases |
 | 11 | Normalize config loading | ✅ done | `load_config(required=False)` for read-only commands; only provider-requiring commands call with `required=True`. |
 | 12 | Deduplicate task-type classification | ✅ done | `task_types.py` with `guess_task_type()`. `watch_runtime.py` and `research/replay.py` both import from it. (Renamed from `task_kinds.py` per Tier 1 #3, 2026-05-12.) |
-| 13 | Fix dispatch wrapper portability | ✅ done | `dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang. |
+| 13 | Fix dispatch wrapper portability | ✅ done | ~~`dispatch_runner.py` does runtime env construction; `shortcut_setup.py` generates a shell launcher rather than an absolute-path Python shebang.~~ Both files retired pre-launch when the Chrome extension Native Messaging path replaced the macOS Shortcut dispatcher — the portability concern is moot now (capture_host.py inherits the user's PATH from the Chrome process). |
 | 14 | Operator surfaces (cache-stats, watch errors) | ✅ done | `commands/cache.py` with `cache-stats`/`cache-clear`; `commands/status.py` reads `watch_errors.jsonl`. |
 | 15 | Deprecate old council-html path | ✅ done | The `council-html` CLI subcommand was retired entirely; `council_runner.write_unified_council_page()` is the single page writer now and runs after every council. `render_review_html` / `write_review_html` deleted from `council_review.py`. Public surface for sharing council pages is `council-share`. |
 | 16 | Legacy module cleanup | ✅ done | `commands/run.py`, `coordinator.py`, `runner.py`, `prompts.py` deleted. `scoreboard` CLI was moved to `commands/status.py` then removed entirely post-v1.5 — see §8.10. |
@@ -168,12 +168,12 @@ Add shared helpers in a new `process.py` (or `exec_utils.py`):
 - `run_captured(cmd, ...)` — returns stdout/stderr, never raises
 - `run_background(cmd, ...)` — fire-and-forget with logging
 
-Standardize across:
+Standardize across (the plan as written; retirement notes inline):
 - `providers.py` — CLI provider subprocess calls
-- `shortcut_setup.py` — osacompile, shortcuts sign, open
-- `daemon_manager.py` — launchctl calls
+- ~~`shortcut_setup.py`~~ — retired pre-launch (Chrome extension replaced the Shortcut dispatcher)
+- ~~`daemon_manager.py`~~ — retired pre-launch (watcher subsystem deleted)
 - `adapters.py` — version detection calls
-- `portal_page.py` — sips, iconutil, lsregister calls
+- ~~`portal_page.py`~~ — split into `launchpad_*.py` (Tier 2 #4 rename); call sites moved accordingly
 
 ## 8. Centralize runtime environment construction
 
@@ -239,6 +239,14 @@ parameter. Embedding-based classification was deferred until after the
 heuristic was canonical (still deferred — heuristic ships in v1).
 
 ## 13. Fix dispatch wrapper portability
+
+> **Moot post-launch:** the entire `shortcut_setup.py` / `dispatch_runner.py`
+> path was retired pre-launch when the Chrome extension's Native Messaging
+> dispatcher replaced the macOS Shortcut wrapper. The portability problem
+> below describes how the *old* wrapper would have broken — preserved as
+> design-decision history. The current dispatch path (Chrome ext →
+> Native Messaging → `trinity-local-capture-host`) inherits PATH from
+> the parent Chrome process, so the shebang concern doesn't apply.
 
 `shortcut_setup.py:70` bakes the absolute Python path into the shebang at install time. If the venv is relocated or recreated, the wrapper silently breaks.
 
