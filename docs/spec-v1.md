@@ -191,8 +191,10 @@ curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scrip
 
 The `/trinity` Claude Code skill is co-equal with the terminal path — see disagreement #5.
 
-Future: `curl -sL trinity.local/install | bash` (week 2, gated on domain + GitHub Pages
-landing). `brew install trinity-local` (week 2). `npm i -g trinity-local` (week 4).
+Shipped 2026-05-13: `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash`
+— canonical install URL backed by the public repo. Future: `brew install trinity-local` (post-launch),
+`npm i -g trinity-local` (post-launch). The `trinity.local` vanity domain was retired pre-launch; the
+brand surface is `keepwhatworks.com`.
 
 ## Pricing
 
