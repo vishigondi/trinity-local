@@ -8,7 +8,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ..config import load_config
-from ..council_feedback import append_council_feedback
 from ..council_review import write_live_council_page, write_unified_council_page
 from ..council_runner import run_council
 from ..council_runtime import (
@@ -16,7 +15,6 @@ from ..council_runtime import (
     load_council_outcome,
     load_prompt_bundle,
     save_prompt_bundle,
-    save_council_outcome,
 )
 from ..council_status import (
     council_status_json_path,
@@ -91,15 +89,6 @@ def register(subparsers):
     council_launch_parser.add_argument("--status-token", default=None)
     council_launch_parser.add_argument("--open-browser", action="store_true")
     council_launch_parser.set_defaults(handler=handle_council_launch)
-
-    council_rate_parser = subparsers.add_parser(
-        "council-rate",
-        help="Record a user's preferred provider for a council result",
-    )
-    council_rate_parser.add_argument("--council", required=True)
-    council_rate_parser.add_argument("--provider", required=True)
-    council_rate_parser.add_argument("--answer-label", default=None)
-    council_rate_parser.set_defaults(handler=handle_council_rate)
 
     council_stop_parser = subparsers.add_parser(
         "council-stop",
@@ -333,81 +322,6 @@ def handle_council_launch(args):
         sequence=getattr(args, "sequence", None),
     )
     handle_council_start(launch_args)
-
-
-def handle_council_rate(args):
-    record = append_council_feedback(
-        council_id=args.council,
-        provider=args.provider,
-        answer_label=args.answer_label,
-    )
-    outcome = load_council_outcome(args.council)
-    bundle = load_prompt_bundle(outcome.bundle_id)
-
-    # Persist the user's verdict to the outcome JSON so the live council page
-    # rehydrates the "Preferred" badge on reload. (record_outcome MCP tool
-    # used to write the same shape; retired 2026-05-21. The CLI council-rate
-    # is now the canonical verdict-writer for power users.) Without this the
-    # launchpad's one-click rating was a feedback-log-only no-op as far as
-    # the UI was concerned. Discovered during the Surface 6 click-test:
-    # outcome.selected_provider stayed None across 21 council_feedback entries.
-    outcome.metadata.setdefault("user_verdict", {})
-    outcome.metadata["user_verdict"].update({
-        "user_winner": args.provider,
-        "accepted": True,
-        "abandoned": False,
-    })
-    if args.answer_label:
-        outcome.metadata["user_verdict"]["answer_label"] = args.answer_label
-    save_council_outcome(outcome)
-
-    # Propagate the user's verdict to the originating PromptNode so the
-    # personal routing table compounds. (record_outcome MCP tool used to do
-    # this too — retired 2026-05-21; only this CLI path remains for explicit
-    # user-verdict capture.) Keeping the launchpad's one-click flow in sync
-    # makes every rated council a labeled training row.
-    propagated_to_prompt_node = False
-    metadata = outcome.metadata or {}
-    prompt_node_id = metadata.get("prompt_node_id")
-    if prompt_node_id:
-        try:
-            from ..memory import record_council_outcome as _record_to_prompt_node
-
-            chairman_winner = None
-            label = outcome.routing_label
-            if label is not None:
-                chairman_winner = getattr(label, "winner", None)
-            propagated_to_prompt_node = _record_to_prompt_node(
-                prompt_node_id=prompt_node_id,
-                council_run_id=outcome.council_run_id,
-                chairman_winner=chairman_winner,
-                user_winner=args.provider,
-            )
-        except Exception:
-            propagated_to_prompt_node = False
-
-    # The personal routing table is computed on demand from rated outcomes;
-    # this rate event will appear there automatically the next time the
-    # launchpad renders or chairman_picker runs. Surface the current count
-    # for the CLI response so the caller can confirm the table is non-empty.
-    try:
-        from ..personal_routing import compute_personal_routing_table, invalidate_cache
-
-        invalidate_cache()
-        councils_aggregated = compute_personal_routing_table().get("councils_aggregated", 0)
-    except Exception:
-        councils_aggregated = None
-
-    review_path = write_unified_council_page(bundle, outcome)
-    portal_path = refresh_launchpad()
-    print(json.dumps({
-        "feedback": record,
-        "portal_path": str(portal_path),
-        "review_path": str(review_path),
-        "propagated_to_prompt_node": propagated_to_prompt_node,
-        "prompt_node_id": prompt_node_id,
-        "personal_routing_table_councils": councils_aggregated,
-    }, indent=2))
 
 
 def handle_council_stop(args):

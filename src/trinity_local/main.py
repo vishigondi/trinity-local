@@ -46,7 +46,6 @@ CORE_COMMAND_MODULES = (
     "seed",
     "status",
     "telemetry",
-    "unrated",
     "update",
     "vocabulary",
     "watch",
