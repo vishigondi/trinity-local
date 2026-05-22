@@ -87,27 +87,37 @@ Active spec lives in `docs/spec-v1.5.md` (next ship target June 3, 2026); the
 trained-coordinator v2 path in `docs/spec-v2.md` is sunset. Concrete items
 worth contributing on:
 
-- **`plan_and_execute` MCP tool** (v1.6) — multi-step orchestration with
-  flagship Conductor + recursive verification. The mechanic was prototyped in
-  the now-removed `src/trinity_local/loop/` substrate; rebuild it leaner.
-- **Matryoshka shape-similarity over basins** (task #111) — nomic-embed
-  is MRL-trained; slice the 768d embeddings at 64d to compute
-  abstraction-level similarity that survives topic drift. Feeds the
-  principles.md pipeline (#109).
-- **Disagreement-axis mining** (task #112) — the chairman's
-  `disagreed_claims` are the residual signal. Cluster them across
-  councils at low Matryoshka fidelity → candidate conditioning
-  variables → principle candidates without needing N≥100 verdicts.
-- **Inversion test in lens pipeline** (task #113) — for each lens,
-  test whether the inverted pole has corpus evidence. If yes, surface
-  the conditioning variable that gates when each pole applies (the
-  principle IS the variable; the inversion is the diagnostic).
 - **Basin classifier centroid-matching upgrade** — currently the cortex layer
   keys on `task_type` (chairman label). Switch to embedding-similarity vs.
   the lens-pipeline basin centroids for top-3 soft membership.
 - **MLX dispatch** — Ollama works; MLX detection ships behind an env-var
   opt-in. Wire full MLX dispatch (the `mlx_lm` Python path) as a peer to
   OllamaProvider.
+
+### Speculative directions (no active task — re-open when real data justifies)
+
+These were tracked as tasks #109/#111/#112/#113 + #128 and sunset 2026-05-22
+in the v1.7.5 cleanup pass. The architectural intent is real but the gates
+haven't moved — either n<100 council outcomes (the principles-pipeline
+gates) or the harness-owns-multi-step decision (the plan_and_execute case).
+Documented here so a future contributor sees the design space:
+
+- **principles.md pipeline** — sixth core memory clustering chairman
+  `routing_lesson` outputs into reusable principle statements. Data-gated
+  on ≥100 council outcomes.
+- **Matryoshka shape-similarity over basins** — nomic-embed is MRL-trained;
+  slice the 768d embeddings at 64d to compute abstraction-level similarity
+  that survives topic drift. Pairs with the principles pipeline above.
+- **Disagreement-axis mining** — the chairman's `disagreed_claims` are
+  the residual signal. Cluster them across councils → candidate
+  conditioning variables → principle candidates.
+- **Inversion test in lens pipeline** — for each lens, test whether the
+  inverted pole has corpus evidence. If yes, surface the conditioning
+  variable that gates when each pole applies.
+- **`plan_and_execute` MCP tool** — fully sunset 2026-05-22; the
+  harness (Claude Code / Codex / Antigravity) does multi-step
+  orchestration better than Trinity should. Architectural intent
+  preserved in `docs/historical/retirement-log.md` + `docs/v2-loop-constitution.md`.
 
 ## Priority 6 — Docs and tests
 
