@@ -10,7 +10,7 @@ The five questions every HN reader is going to ask before they install. Honest a
 
 ## 1. Is it free?
 
-Yes. Trinity Local v1.7 is **free forever**, MIT-licensed, and open source on GitHub. There's no account to create, no email gate, no "free tier with paid upgrade" trick where the useful features sit behind a paywall. The council mechanic, the cortex, `dream`, the lens, the personal routing table, the launchpad, all 8 MCP tools — everything described in the README ships in the free build and stays in the free build.
+Yes. Trinity Local v1.7 is **free forever**, MIT-licensed, and open source on GitHub. There's no account to create, no email gate, no "free tier with paid upgrade" trick where the useful features sit behind a paywall. The council mechanic, the cortex, `dream`, the lens, the personal routing table, the launchpad, all <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools — everything described in the README ships in the free build and stays in the free build.
 
 ## 2. What's the catch?
 

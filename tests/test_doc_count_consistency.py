@@ -5101,6 +5101,93 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestMcpToolCountClaimsArePinnedToCanonical:
+    """Free-floating `<N> MCP tools` / `<N> total` claims in active docs
+    drift the moment the canonical count changes. The canonical-renderer
+    convention (`<!-- canonical:mcp_tool_count -->8<!-- /canonical -->`)
+    pins each surface to one source of truth: `mcp_server.py`'s
+    registered tool count via `scripts/render_docs.py`.
+
+    Sweep iter #85 caught two stragglers in active surfaces:
+    `claude.md:574` (\"— 8 total.\") and
+    `docs/launch-day/07_pricing_faq.md:13` (\"all 8 MCP tools\"). Both
+    were live for >1 week; neither was guarded; both would have
+    drifted silently if `mcp_server.py` had added or removed a tool.
+
+    The guard fails on any `\\bN (MCP )?tools?\\b` claim in claude.md,
+    README.md, AGENTS.md, CONTRIBUTING.md, or any `docs/launch-day/*.md`
+    file that is NOT inside a `canonical:mcp_tool_count` placeholder.
+    CHANGELOG.md and docs/sweep-patterns.md exempt — they are
+    timestamped retrospective surfaces where historical claims are
+    intentional.
+    """
+
+    def test_mcp_tool_counts_in_active_docs_use_canonical_placeholder(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = [
+            repo / "claude.md",
+            repo / "README.md",
+            repo / "AGENTS.md",
+            repo / "CONTRIBUTING.md",
+        ]
+        launch_day = repo / "docs" / "launch-day"
+        if launch_day.exists():
+            targets.extend(sorted(launch_day.glob("*.md")))
+
+        # `\bN tools\b` where N is a digit cluster. Captures
+        # "8 tools", "8 MCP tools", "all 8 MCP tools", etc.
+        # Avoids false-matches on "test_tools" or "8 tools_dir" via
+        # word boundaries.
+        claim_re = re.compile(
+            r"\b\d+\s+(?:MCP\s+|public\s+)?tools?\b",
+            re.IGNORECASE,
+        )
+        # A claim wrapped in a canonical placeholder takes the form
+        # `<!-- canonical:mcp_tool_count -->8<!-- /canonical --> tools`.
+        # Strip wrapped claims before scanning so they don't trigger.
+        canonical_wrap_re = re.compile(
+            r"<!-- canonical:mcp_tool_count -->\d+<!-- /canonical -->\s*(?:MCP\s+|public\s+)?tools?",
+            re.IGNORECASE,
+        )
+        # Exempt strings that aren't actually about MCP tool counts.
+        # `available_models` is a route() parameter naming, not a count.
+        EXEMPT_PATTERNS = (
+            re.compile(r"\b\d+\s+command-line\s+tools?\b", re.IGNORECASE),
+            # "1 tool" / "2 tools" in arbitrary prose that's not about Trinity
+            # are unlikely but not currently exempted — flag and review.
+        )
+
+        offenders: list[str] = []
+        for path in targets:
+            if not path.exists():
+                continue
+            rel = path.relative_to(repo).as_posix()
+            text = path.read_text(encoding="utf-8")
+            stripped = canonical_wrap_re.sub("[CANONICAL]", text)
+            for idx, line in enumerate(stripped.splitlines(), start=1):
+                m = claim_re.search(line)
+                if not m:
+                    continue
+                if any(p.search(line) for p in EXEMPT_PATTERNS):
+                    continue
+                offenders.append(f"  {rel}:{idx}: {line.strip()[:140]}")
+
+        if offenders:
+            msg = [
+                "Free-floating `<N> MCP tools` claims in active docs.",
+                "Pin each one to the canonical source via the placeholder:",
+                "  <!-- canonical:mcp_tool_count -->8<!-- /canonical --> tools",
+                "Then `scripts/render_docs.py` keeps them in sync with",
+                "`mcp_server.py`. CHANGELOG + sweep-patterns are exempt",
+                "(retrospective surfaces); active docs are not.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoStaleSeatTerminologyAsLiveNoun:
     """Tier 2 #6 (task #95) attempted to rename `member` → `seat` in
     user-facing copy. The rename was unwound (see `claude.md` glossary
