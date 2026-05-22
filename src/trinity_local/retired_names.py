@@ -143,7 +143,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "doctor._check_verdict_rate": RetirementRecord(
         name="doctor._check_verdict_rate",
         retired_at="2026-05-22",
-        commit="(this commit)",
+        commit="182d5ac",
         replacement="(none — doctor no longer reports a verdict-capture rate; with ratings retired the metric is always 0% which would be noise rather than signal)",
         reason="Soft health check that walked _verdict_stats() and reported what fraction of councils had user_verdict.user_winner set. Pillar-4 'verdict-capture funnel' was the framing. With the full rating retirement on 2026-05-22 (decisions #2 + #7 of cleanup pass: CLI council-rate gone, UI removed, schema clean, wipe-on-read), the metric is structurally 0% on all fresh installs. Tests in tests/test_doctor.py::TestVerdictRateCheck deleted in the same commit.",
         kind="function",
