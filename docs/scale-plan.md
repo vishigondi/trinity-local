@@ -12,12 +12,15 @@ class: aspirational
 > The MCP-primary routing product with hippocampus + cortex two-tier memory. The
 > The Loop Constitution double-loop substrate (formerly `src/trinity_local/loop/`)
 > was removed alongside this trajectory pivot — pre-launch simplification. The
-> `cull → re-verify → commit` mechanic the substrate prototyped will be rebuilt
-> leaner inside `plan_and_execute` (was queued for v1.7; formally sunset 2026-05-22 — the harness does multi-step orchestration better than Trinity should)
-> verification) if v1.5's `ask` + `run_council` ceiling on multi-step workflows.
-> (v1.6 was browser-extension capture; `plan_and_execute` moved to v1.7 per task #128.)
-> Spec is preserved in `docs/v2-loop-constitution.md` as architectural reference. Trained-coordinator v2 path is
-> **sunset** (see sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
+> `cull → re-verify → commit` mechanic the substrate prototyped was queued to
+> be rebuilt leaner inside `plan_and_execute` (originally v1.6 → v1.7 deferral;
+> v1.7 shipped without it; formally sunset 2026-05-22 in the v1.7.5 cleanup
+> pass — task #128 deleted — because running v1.5 on real data showed the
+> `ask` + `run_council` ceiling didn't bind hard enough to justify rebuilding
+> the orchestration layer; the harness owns multi-step orchestration better
+> than Trinity should). Spec is preserved in `docs/v2-loop-constitution.md` as
+> architectural reference. Trained-coordinator v2 path is **sunset** (see
+> sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
 > **MCP surface (canonical 4 + v1.5 trio + launch-arc `handoff`,
