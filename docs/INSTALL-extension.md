@@ -100,21 +100,24 @@ Per the council-ratified roadmap (see
   the trust mode config — see [`TRUST-MODE.md`](TRUST-MODE.md))
 - Audit-log read surface in the popup ("last 10 operations")
 
-## Trust + audit
+## Audit log
 
-The extension respects the same `~/.trinity/trust.toml` as the other
-tiers. When the extension fires `launch-council` (or any other
-allowlisted action), the Native Messaging host stamps the audit log
-with `tier=extension` so cross-tier provenance is preserved.
-
-See [`TRUST-MODE.md`](TRUST-MODE.md) for the full trust model.
-
-The trust+audit CLI is deferred to v1.1 — inspect `~/.trinity/audit.log`
-directly to grep for `tier=extension` entries:
+When the extension fires `launch-council` (or any other allowlisted
+action), the Native Messaging host stamps the audit log with
+`tier=extension` so cross-tier provenance is preserved. Inspect:
 
 ```bash
 grep '"tier": "extension"' ~/.trinity/audit.log | tail -20
 ```
+
+The trust-*gating* library (`trinity_local.trust`) was retired
+2026-05-22; the `trust.toml` config is no longer consulted by any
+tier. The extension's allowlist (`background.js`
+`ACTION_ALLOWLIST`) is its current gating surface. A unified gating
+config + the `trust-init` / `trust-show` / `audit-show` CLI lands in
+v1.1 as a fresh build. See [`TRUST-MODE.md`](TRUST-MODE.md) for the
+originally-shipped substrate description (pending reconciliation
+with the library retirement).
 
 ## Limitations and what to expect
 

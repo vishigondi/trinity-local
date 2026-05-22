@@ -86,16 +86,25 @@ trinity-local dream                     # ~5-15 minutes
 trinity-local portal-html --open-browser
 ```
 
-## Trust + audit
+## Audit log
 
-Trinity's trust substrate (`~/.trinity/trust.toml`, `~/.trinity/
-audit.log`) ships with v1.0. The skill respects it; every operation
-either prompts or pre-grants per the trust config. See
-[`TRUST-MODE.md`](TRUST-MODE.md) for the model.
+Trinity's audit log at `~/.trinity/audit.log` is the append-only JSONL
+ledger that `scripts/_runtime.audit_log()` writes every operation
+through. Inspect with `tail -20 ~/.trinity/audit.log`.
 
-Inspect `~/.trinity/audit.log` directly with `tail -20`; the library
-runs, the audit log writes, and the dedicated CLI for both lands in
-v1.1.
+The trust-*gating* library (`trinity_local.trust`) was retired
+2026-05-22 (iter #117 of the post-launch sweep, see
+[`historical/retirement-log.md`](historical/retirement-log.md)) —
+nothing currently reads `~/.trinity/trust.toml`. The gating config +
+the `trust-init` / `trust-show` / `audit-show` CLI surface return as
+a fresh implementation in v1.1. Until then, operations don't
+pre-grant from a config; the Claude Code permission dialog (skill
+tier) is the gating surface.
+
+See [`TRUST-MODE.md`](TRUST-MODE.md) for the originally-shipped
+trust model; that doc describes the substrate as it was on
+2026-05-16 (council `c18f739a0234aa58`) and is pending reconciliation
+with the library retirement.
 
 ## What runs locally vs. what doesn't
 

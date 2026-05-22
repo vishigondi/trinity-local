@@ -96,12 +96,18 @@ Three reasons (per the launch architecture decision; see
    Skipping it means Monday's launch depends on exactly ONE external
    gate flipping: `github.com/vishigondi/trinity-local` going public.
 
-## Trust + audit
+## Audit log
 
-The pip tier respects the same `~/.trinity/trust.toml` and writes to
-the same `~/.trinity/audit.log` as the other tiers. See
-[`TRUST-MODE.md`](TRUST-MODE.md). Inspect the audit log directly with
-`tail -20 ~/.trinity/audit.log`; the dedicated CLI lands in v1.1.
+The pip tier writes to `~/.trinity/audit.log` via
+`scripts/_runtime.audit_log()` like the other tiers. Inspect with
+`tail -20 ~/.trinity/audit.log`.
+
+The trust-gating library (`trinity_local.trust`) was retired
+2026-05-22 (post-launch sweep iter #117) — `~/.trinity/trust.toml` is
+no longer consulted by any tier. Gating config + the dedicated CLI
+land in v1.1 as a fresh build. See [`TRUST-MODE.md`](TRUST-MODE.md)
+for the originally-shipped substrate description (pending
+reconciliation with the library retirement).
 
 ## Heavy ops as standalone scripts
 

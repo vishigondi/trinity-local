@@ -69,15 +69,17 @@ imports. The dependency inversion (pip imports from scripts/ exclusively)
 ships in v1.1; v1.0 has scripts/ wrapping the pip tier with the same
 output guarantees. See [`three-tier-architecture.md`](three-tier-architecture.md).
 
-**Trust + audit substrate**: `~/.trinity/trust.toml` + `~/.trinity/audit.log`
-now ship with v1.0. Every Trinity operation either prompts (default)
-or pre-grants per config + writes an audit-log entry. See
-[`TRUST-MODE.md`](TRUST-MODE.md). Bootstrap with:
+**Audit log**: `~/.trinity/audit.log` ships in v1.0 — every Trinity
+operation that flows through the scripts cluster writes an entry via
+`scripts/_runtime.audit_log()`. Inspect with `tail -20`.
 
-The trust+audit substrate (library + audit log) ships in v1.7.4; the
-user-facing CLI (`trust-init` / `trust-show` / `audit-show`) is
-deferred to v1.1. Until then, `tail -20 ~/.trinity/audit.log` for
-inspection.
+The trust-*gating* library (`trinity_local.trust`) was retired
+2026-05-22 in the post-launch consistency sweep (iter #117) — nothing
+currently reads `~/.trinity/trust.toml`. The gating config + the
+user-facing CLI (`trust-init` / `trust-show` / `audit-show`) rebuild
+fresh in v1.1. See [`TRUST-MODE.md`](TRUST-MODE.md) for the
+originally-shipped substrate description (pending reconciliation
+with the library retirement).
 
 ---
 
