@@ -826,7 +826,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: <!-- canonical:test_count -->1651<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
+>   tests after dead-code removal." Live: <!-- canonical:test_count -->1649<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.
@@ -965,11 +965,13 @@ class CouncilRun:  # mirror of CouncilOutcome, attached to PromptNode
 
 **State paths** (add to `state_paths.py`):
 ```
-~/.trinity/memory/prompt_nodes/<transcript_id>.jsonl
-~/.trinity/memory/turn_windows/<transcript_id>.jsonl
-~/.trinity/memory/transcript_nodes.jsonl
-~/.trinity/memory/embeddings.bin     # one mmap-able vector blob
-~/.trinity/memory/cursors.json       # per-source ingest cursors
+~/.trinity/prompts/prompt_nodes/<transcript_id>.jsonl
+~/.trinity/prompts/turn_windows/<transcript_id>.jsonl
+~/.trinity/prompts/embeddings.bin    # one mmap-able vector blob
+~/.trinity/prompts/cursors.json      # per-source ingest cursors
+# (memory/ renamed to prompts/ — Tier 1 #1, task #90, 2026-05;
+#  transcript_nodes.jsonl retired — Tier 2 #5, task #51;
+#  PromptNode + TurnWindow cover the search surface)
 ```
 
 ## 8.5 Replay-value score (search ranking)
@@ -1184,7 +1186,7 @@ portal_data / portal_template (Launchpad, autofill UI, dashboard)
 - `~/Library/LaunchAgents/` is untouched after install
 - `ingest.parse_claude_code_session` correctly excludes sidechain turns and synthetic-error assistant messages
 - `ingest` emits `PromptTurn[]` distinct from raw `SessionRecord`
-- `~/.trinity/memory/prompt_nodes/` is populated from existing transcripts
+- `~/.trinity/prompts/prompt_nodes.jsonl` is populated from existing transcripts
 - Launchpad search box returns ranked replay candidates with reason chips
 - Empty-state autofill shows watcher recos
 - Every new `CouncilOutcome` has a `routing_label` field populated; parse-success ≥85%
