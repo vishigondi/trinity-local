@@ -51,6 +51,17 @@ class TestRegistryIntegrity:
         assert record.kind in (
             "cli", "mcp_tool", "module", "file", "config_field", "concept"
         ), f"{name}: invalid kind {record.kind!r}"
+        # Iter #76 catch: 6 retirement entries shipped with
+        # `commit="(this commit)"` — a placeholder that was supposed
+        # to be replaced with the actual SHA at commit time but the
+        # substitution never happened. Now baked into the registry as
+        # a permanently-unresolved pointer. Catch any future copy-paste
+        # from a template that leaves the placeholder intact.
+        assert record.commit != "(this commit)", (
+            f"{name}: commit field is the placeholder '(this commit)' "
+            "— substitute the real commit SHA. This placeholder was "
+            "meant to be filled at commit time but slipped through."
+        )
 
     def test_no_duplicate_keys_in_dict_literal(self):
         """Python dict literals silently keep the last value for repeated keys,

@@ -68,7 +68,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "_rate_limit_saves": RetirementRecord(
         name="_rate_limit_saves",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="331c75b",
         replacement="(none — function was orphan; no Vue consumer)",
         reason="launchpad_data._rate_limit_saves() computed a 30-day rate-limit-save count and shipped it into pageData['rateLimitSaves'], but the Vue template never read it. Pre-launch the user explicitly said 'remove this' for the rate-limit-saves card; the UI was deleted but the backend compute survived as orphan. Removed both the function and the pageData injection in the same commit.",
         kind="module",
@@ -76,7 +76,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "pageData.verdictStats": RetirementRecord(
         name="pageData.verdictStats",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="331c75b",
         replacement="doctor._check_verdict_rate() — informational health check (same _verdict_stats() math)",
         reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 8f1fd95). The _verdict_stats() compute function stays alive because doctor._check_verdict_rate() still consumes it for the informational `trinity-local status` health check. Only the pageData injection (and its tests) are sunset.",
         kind="concept",
@@ -84,7 +84,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "pageData.rateLimitSaves": RetirementRecord(
         name="pageData.rateLimitSaves",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="331c75b",
         replacement="(none — see _rate_limit_saves)",
         reason="Companion entry: the pageData field never had a Vue consumer; removed alongside the _rate_limit_saves() function.",
         kind="concept",
@@ -93,7 +93,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "rate_action": RetirementRecord(
         name="rate_action",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="82f56f4",
         replacement="(none — chairman pick IS the supervision signal, fed automatically)",
         reason="The `rate_action` field that route/ask/run_council/get_council_status injected into MCP responses pointed agents at the retired record_outcome tool. With record_outcome retired and chairman pick auto-flowing into the personal routing table (commit bb817b6), the nudge had no destination. Per user direction 'Retire the whole mechanism' — agents don't need a hint to capture a verdict that's already captured. Pillar 4 funnel-widener deferred until a different shape proves out (current default: refinement prompts on the council page surface 'what should the chairman have picked instead' without an agent-side tax).",
         kind="concept",
@@ -101,7 +101,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "pending_ratings": RetirementRecord(
         name="pending_ratings",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="82f56f4",
         replacement="(none — see rate_action)",
         reason="`pending_ratings` was the SECONDARY funnel-widener — surfaced older unrated councils in route/ask responses. Same mechanism, same retirement (the agent-side capture pressure is gone with record_outcome). Launchpad surfaces unrated councils via the existing `unrated` CLI; pending_ratings as an MCP nudge is sunset alongside the rate-action mechanism.",
         kind="concept",
@@ -110,7 +110,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "record_outcome": RetirementRecord(
         name="record_outcome",
         retired_at="2026-05-21",
-        commit="(this commit)",
+        commit="0454b28",
         replacement="routing_label.winner (chairman pick) as supervision signal; refinement prompts as 'what user wanted differently'",
         reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit bb817b6) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate stays for power users who want to write verdicts from the terminal; only the MCP tool is gone.",
         kind="mcp_tool",
