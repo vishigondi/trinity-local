@@ -88,10 +88,14 @@ Post-launch cleanup pass driven by three user directives:
   stale state, launch-sequence pre-flip note) + 3 rewrites in
   `~/.claude/projects/.../memory/`.
 
-**Test gate:** 1625 passing + 4 skipped + 0 failing (was 1649; net
--24 from `_verdict_stats` + `_check_verdict_rate` test retirements,
-counter-weighed by Phase 2 refactor adding test scaffolding for the
-strict save_council_outcome contract).
+**Test gate (post-pass):** 1655 passing + 4 skipped + 1 intentional
+fail. Movement was 1649 (pre-cleanup) → 1625 (rating-surface
+retirements removed `_verdict_stats` + `_check_verdict_rate` tests)
+→ 1656 (`gemini.js` task #135 added 22 tests; takeout-embedding task
+#107 added 9 tests) → 1655 passing post the tightened
+`TestLaunchpadScreenshotFreshness` 1-day threshold (intentional fail
+until `docs/launchpad_example.png` regenerates after Phase 6 demo
+session — recipe in the test's error message).
 
 **Net code delta:** ~1,300 LOC removed from active surface;
 ~550 LOC added under `docs/historical/`. Hero claim every doc
