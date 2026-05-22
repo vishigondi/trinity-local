@@ -3813,6 +3813,97 @@ class TestCanonicalPlaceholdersAreRendered:
                 f"{result.stdout[-800:]}\n\nStderr:\n{result.stderr[-400:]}"
             )
 
+    def test_design_md_palette_matches_design_system_colors(self):
+        """Iter #51 catch — DESIGN.md's "Color palette" section lists
+        16 colors with `#hex` values. design_system.COLORS is the
+        canonical dict the Python rendering layer reads. Drift caught:
+        design_system.COLORS was missing `accent_warm` (#b57438) —
+        even though DESIGN.md documents it AND 5 inline call sites in
+        memory_viewer.py + launchpad_template.py use the hex literal.
+        A new dev reading design_system.COLORS to learn the palette
+        would see only 15 of the 16 colors DESIGN.md says ship; a new
+        dev reading DESIGN.md would think accent_warm IS in the
+        canonical dict (it should be).
+
+        Guard shape: parse DESIGN.md's palette list (lines matching
+        the markdown ``- <Name>: `#XXXXXX`...`` shape) into a
+        {hex → name} map. For each hex value in DESIGN.md, assert it
+        appears as a value in design_system.COLORS. For each hex
+        value in COLORS, assert it appears in DESIGN.md. Bidirectional
+        pinning so adding a color to either surface forces the other
+        to follow.
+
+        Distinct from the existing test_no_forbidden_hex_in_launchpad
+        guard which polices DESIGN.md-forbidden colors (indigo /
+        violet / tailwind-blue / pink). This guard pins the positive
+        palette match.
+        """
+        import re
+
+        design_md = (REPO / "DESIGN.md").read_text(encoding="utf-8")
+        # Extract palette hex values from DESIGN.md.
+        # Lines like "- Background base: `#f5efe3`" or
+        # "- Info: `#315c85` (blue used for...)".
+        design_hex_re = re.compile(
+            r"^- ([^:]+):\s+`(#[0-9a-fA-F]{6})`",
+            re.MULTILINE,
+        )
+        design_palette = {
+            hex_value.lower(): name.strip()
+            for name, hex_value in design_hex_re.findall(design_md)
+        }
+        if not design_palette:
+            raise AssertionError(
+                "Couldn't extract any palette colors from DESIGN.md — "
+                "either the section was reformatted or the regex needs "
+                "updating."
+            )
+
+        # Re-import design_system fresh so we read live state.
+        import sys
+        for mod_name in list(sys.modules):
+            if mod_name.startswith("trinity_local"):
+                del sys.modules[mod_name]
+        sys.path.insert(0, str(REPO / "src"))
+        from trinity_local.design_system import COLORS
+
+        code_palette = {hex_value.lower(): name for name, hex_value in COLORS.items()}
+
+        missing_from_code = sorted(
+            f"{name} ({hex_value})"
+            for hex_value, name in design_palette.items()
+            if hex_value not in code_palette
+        )
+        missing_from_doc = sorted(
+            f"{name} ({hex_value})"
+            for hex_value, name in code_palette.items()
+            if hex_value not in design_palette
+        )
+
+        errors: list[str] = []
+        if missing_from_code:
+            errors.append(
+                "DESIGN.md documents hex values not present in "
+                "design_system.COLORS:\n  - "
+                + "\n  - ".join(missing_from_code)
+            )
+        if missing_from_doc:
+            errors.append(
+                "design_system.COLORS has entries not documented in "
+                "DESIGN.md's palette section:\n  - "
+                + "\n  - ".join(missing_from_doc)
+            )
+        if errors:
+            raise AssertionError(
+                "DESIGN.md palette section drifted from "
+                "design_system.COLORS.\n\n"
+                + "\n\n".join(errors)
+                + "\n\nThe two surfaces are the docs + code views of "
+                "the same fact. Add the missing entries to either "
+                "surface (same hex value, matching name) so a "
+                "contributor reading either surface gets the full set."
+            )
+
     def test_launch_arc_completed_tasks_have_shipped_marker(self):
         """Iter #48 catch — claude.md "Launch arc" section enumerates
         5 workstreams as future work. Two of them (#117 "Standardize

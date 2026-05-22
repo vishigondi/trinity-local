@@ -17,6 +17,7 @@ COLORS = {
     "action_primary": "#255847",
     "action_primary_hover": "#1d4638",
     "action_text": "#f7f3ea",
+    "accent_warm": "#b57438",  # warm brown used for "deeper memory" / optional cards
     "success": "#2d6a4f",
     "warning": "#b26a1f",
     "danger": "#a33c2f",
