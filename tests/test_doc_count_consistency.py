@@ -5105,6 +5105,97 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestShortcutDispatcherNotPresentedAsLive:
+    """The macOS Shortcut dispatcher (`shortcut_setup.py`,
+    `dispatch_runner.py`, `commands/shortcuts.py`, the `trinity-dispatch`
+    shell wrapper) was retired 2026-05-17 in favor of the Chrome
+    extension's Native Messaging bridge (capture_host.py) as the
+    cross-platform launchpad dispatcher. See claude.md L656 + the
+    `retired_names.py` registry.
+
+    Sweep iter #91 caught `docs/spec-v1.md:275` — a "Deferred
+    indefinitely" item phrased "the launchpad Shortcut dispatcher is
+    macOS-specific until the v1.6 browser-extension fallback ships."
+    Both halves were stale at the time of the audit: the Shortcut
+    dispatcher had been retired, and the browser-extension fallback
+    had shipped. Same shape as principle #20 — a forward-looking
+    "until X" statement freezes the moment the statement was true
+    and doesn't notice when X happens.
+
+    Guard scope: any `class: live` markdown file in `docs/` plus
+    claude.md / README.md. Claims like "Shortcut dispatcher is" /
+    "macOS Shortcut dispatcher" / "the launchpad Shortcut" in
+    present-tense or future-tense framing should fail. Lines marked
+    retired/sunset/replaced (or that explicitly describe the
+    historical Shortcut → Chrome extension transition) are exempt.
+    """
+
+    def test_shortcut_dispatcher_marked_retired_in_active_docs(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = [
+            repo / "claude.md",
+            repo / "README.md",
+        ]
+        docs_dir = repo / "docs"
+        if docs_dir.exists():
+            for path in sorted(docs_dir.glob("*.md")):
+                try:
+                    head = path.read_text(encoding="utf-8")[:200]
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "class: live" in head:
+                    targets.append(path)
+
+        # Active-state claims about the Shortcut dispatcher.
+        live_claim_re = re.compile(
+            r"Shortcut dispatcher\s+(?:is|stays|remains|will)|"
+            r"the\s+launchpad\s+Shortcut\b|"
+            r"macOS\s+Shortcut\s+dispatcher\s+(?:is|stays|remains|will)",
+            re.IGNORECASE,
+        )
+        # Exempt lines marked retired/historical.
+        retirement_marker_re = re.compile(
+            r"retired|sunset|replaced|deprecated|"
+            r"\bgone\b|\bremoved\b|\bdeleted\b|"
+            r"~~|\bwas\b|\bformer|\bprior\b|\bhistorical\b|"
+            r"\btransition\b|legacy|"
+            # Sentences explicitly framing the Shortcut as past-tense.
+            r"used\s+to\s+be|prior\s+to|before\s+",
+            re.IGNORECASE,
+        )
+
+        offenders: list[str] = []
+        EXEMPT_FILES = {"tests/test_doc_count_consistency.py"}
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                if not live_claim_re.search(line):
+                    continue
+                if retirement_marker_re.search(line):
+                    continue
+                offenders.append(f"  {rel}:{idx}: {line.strip()[:160]}")
+
+        if offenders:
+            msg = [
+                "Active docs claim the macOS Shortcut dispatcher is still live.",
+                "It was retired 2026-05-17 — the Chrome extension's Native",
+                "Messaging bridge is the canonical dispatch path now.",
+                "Either rewrite the claim with past-tense framing (was, retired,",
+                "replaced) or add a retirement marker to the line.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestScalePlanPhaseRowsResolveCitedPaths:
     """`docs/scale-plan.md` Phase tables cite backtick-quoted module
     paths as evidence of completion (✅ done). When a cited module

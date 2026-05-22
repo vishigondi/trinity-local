@@ -272,7 +272,7 @@ See `docs/spec-v1.5.md` for the next-trajectory plan. Target ship: June 3, 2026.
 - Narrative video pipeline — the me-card PNG is the v1 social object; richer video animation is a future explore-not-commit
 - Hosted council orchestration / cross-machine sync — the local-first promise is the brand; revisit only if a real paid tier ever exists
 - Federated / shared / team anything — single-user has to be overwhelmingly great first
-- Windows / Linux — macOS-first at launch; cross-platform expansion is the v1.5/v1.6 trajectory per `docs/cross-platform-spec.md`. The core CLI + MCP path runs on Linux today (pyproject's `POSIX :: Linux` classifier reflects this); the launchpad Shortcut dispatcher is macOS-specific until the v1.6 browser-extension fallback ships
+- Windows / Linux — macOS-first at launch; cross-platform expansion is the v1.5/v1.6 trajectory per `docs/cross-platform-spec.md`. The core CLI + MCP path runs on Linux today (pyproject's `POSIX :: Linux` classifier reflects this). The macOS-specific Shortcut dispatcher was retired 2026-05-17 — the Chrome extension's Native Messaging bridge (`capture_host.py`) shipped as the cross-platform launchpad dispatcher (Phase 4b, 2026-05-16; see `docs/MIGRATION.md` for the upgrade path). What remains Windows/Linux work: `trinity-local install-launcher` (.desktop / Start Menu shortcut emitters) is shipped but not yet end-to-end-tested on those platforms
 - Hosted leaderboard from opt-in routing labels
 
 **Sunset (v2.0 trained-coordinator path):**
