@@ -43,7 +43,7 @@ The installer needs `git` + `python3.10+` on PATH. If Python is missing, recomme
 
 ## 3. Pre-flight checks
 
-`status` verifies provider CLIs (Claude / Codex / Gemini) are installed + authenticated, the MCP dep is present, the Trinity home directory is writable, the launchpad dispatch tier is wired, and embeddings can run. Each ✗ surfaces a one-line fix. (The legacy `doctor` CLI was collapsed into `status` pre-launch — `status` is the single health-check entry point.)
+`status` verifies provider CLIs (Claude / Codex / Antigravity) are installed + authenticated, the MCP dep is present, the Trinity home directory is writable, the launchpad dispatch tier is wired, and embeddings can run. Each ✗ surfaces a one-line fix. (The legacy `doctor` CLI was collapsed into `status` pre-launch — `status` is the single health-check entry point.)
 
 !`trinity-local status`
 

@@ -5105,6 +5105,43 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestBundledSkillMatchesTopLevel:
+    """The `/trinity` skill ships at `skills/trinity/SKILL.md` (the
+    canonical) and is mirrored to `src/trinity_local/data/skills/trinity/SKILL.md`
+    (the bundled copy that `install-skill` writes to
+    `~/.claude/skills/trinity/SKILL.md`). The comment in
+    `TestNoRetiredCliInUserFacingDocs` (L2182) already named the guard
+    that should enforce byte-identical sync — but the test was never
+    written. Sweep iter #97 caught the gap: the canonical SKILL.md
+    listed providers as "Claude / Codex / Gemini" (pre-task-#127),
+    fixed in this iter, and the bundled copy needed the same edit.
+    Without a sync guard the next edit would silently drift again.
+
+    Same shape as `test_schemas_directories_stay_byte_identical`:
+    mirror-pair files need a single guard that asserts byte-identical
+    state. The comment had been promising this guard since iter 52;
+    finally writing it now.
+    """
+
+    def test_canonical_and_bundled_skill_md_are_byte_identical(self):
+        repo = Path(__file__).resolve().parent.parent
+        canonical = repo / "skills" / "trinity" / "SKILL.md"
+        bundled = repo / "src" / "trinity_local" / "data" / "skills" / "trinity" / "SKILL.md"
+        if not canonical.exists() or not bundled.exists():
+            return
+        if canonical.read_bytes() != bundled.read_bytes():
+            raise AssertionError(
+                f"Canonical {canonical.relative_to(repo)} and bundled "
+                f"{bundled.relative_to(repo)} have drifted. The bundled "
+                f"copy is what `install-skill` writes to "
+                f"`~/.claude/skills/trinity/SKILL.md`; if these diverge, "
+                f"users get a different /trinity skill than the repo "
+                f"documents.\n\n"
+                f"Re-sync the bundled copy:\n"
+                f"  cp {canonical.relative_to(repo)} {bundled.relative_to(repo)}"
+            )
+
+
 class TestLensPipelineStageCountConsistent:
     """Multiple doc surfaces (claude.md L863, README.md L163, docs/
     spec-v1.md L92, docs/architecture.md L58) claim the lens-build
