@@ -230,15 +230,16 @@ that lands in the README hero block.
 ```
 0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
-           (RECORDING NOTE: the installer clones the repo to ~/.claude/skills/
-            trinity/, drops wrappers in ~/.local/bin/, registers MCP. No pip,
-            no npm — just a git clone + shell wrappers.)
+           (RECORDING NOTE: the installer clones the repo to ~/.trinity/code/
+            with a back-compat symlink at ~/.claude/skills/trinity/, drops
+            wrappers in ~/.local/bin/, registers MCP. No pip, no npm — just
+            a git clone + shell wrappers.)
 0:08–0:25  Open Claude Code. Ask a substantive multi-turn question
            ("explain this codebase's architecture and what I'd refactor first").
            Claude answers across 2-3 turns. Don't rush — let the conversation
            develop so the next beat reads as REAL continuity, not a script.
-0:25–0:32  Cut to terminal. CLI: trinity-local handoff gemini
-           Pause beat. Header reads: "→ handed off to gemini — 3 prior turns
+0:25–0:32  Cut to terminal. CLI: trinity-local handoff antigravity
+           Pause beat. Header reads: "→ handed off to antigravity — 3 prior turns
            from claude, 1.4s"
 0:32–0:50  Gemini's response prints. It visibly continues the conversation
            Claude started — references the architecture Claude described,
@@ -260,9 +261,10 @@ Routing JSON ledger, which the handoff demo doesn't show.
 ```
 0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
            (text overlay: "rides Claude / Gemini / Codex subs you already have")
-           (RECORDING NOTE: the installer clones the repo to ~/.claude/skills/
-            trinity/, drops wrappers in ~/.local/bin/, registers MCP. No pip,
-            no npm — just a git clone + shell wrappers.)
+           (RECORDING NOTE: the installer clones the repo to ~/.trinity/code/
+            with a back-compat symlink at ~/.claude/skills/trinity/, drops
+            wrappers in ~/.local/bin/, registers MCP. No pip, no npm — just
+            a git clone + shell wrappers.)
 0:08–0:15  CLI: trinity-local status   (green checks scroll)
 0:15–0:23  Switch to Claude Code. Type /trinity. Show first-council prompt.
 0:23–0:38  Type real question (eg "Should I use SQLite or DuckDB for 50M-row analytics?")

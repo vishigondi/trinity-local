@@ -5108,6 +5108,82 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestHandoffSlugIsAntigravity:
+    """The `handoff` CLI + MCP tool take the provider slug — per
+    task #127, the Google harness slug is `antigravity` (not the
+    legacy `gemini`). Active docs sometimes write
+    `trinity-local handoff gemini` because the brand name is more
+    recognizable, but the literal slug-bearing invocations must
+    match what the CLI accepts.
+
+    Sweep iter #102 caught:
+    - `docs/launch.md:240` — `trinity-local handoff gemini` in the
+      60-second demo script.
+    - `docs/launch.md:241` — \"→ handed off to gemini — 3 prior turns\"
+      in the script (this is CLI header output, echoes the slug).
+
+    Same drift class as iter #98 (LAUNCH_CHECKLIST.md L48 same line
+    of code). The fix is mechanical: handoff invocations use the
+    slug, not the brand. Surrounding brand-level prose can stay
+    \"Gemini\" per the claude.md L562 mixed-marketing convention.
+
+    Guard: scan `class: live` markdown files for the literal pattern
+    `handoff gemini` (case-insensitive). The slug is `antigravity` —
+    any `handoff gemini` is drift.
+    """
+
+    def test_no_handoff_gemini_in_live_docs(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = [repo / "claude.md", repo / "README.md"]
+        docs_dir = repo / "docs"
+        if docs_dir.exists():
+            for path in sorted(docs_dir.glob("*.md")):
+                try:
+                    head = path.read_text(encoding="utf-8")[:200]
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "class: live" in head:
+                    targets.append(path)
+
+        # The two patterns that indicate handoff-with-wrong-slug:
+        #   - `handoff gemini` (CLI invocation)
+        #   - `handed off to gemini` (CLI output text echoing the slug)
+        bad_invoke_re = re.compile(r"\bhandoff\s+gemini\b", re.IGNORECASE)
+        bad_output_re = re.compile(r"handed off to gemini", re.IGNORECASE)
+
+        offenders: list[str] = []
+        EXEMPT_FILES = {"tests/test_doc_count_consistency.py"}
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                if bad_invoke_re.search(line) or bad_output_re.search(line):
+                    offenders.append(f"  {rel}:{idx}: {line.strip()[:140]}")
+
+        if offenders:
+            msg = [
+                "Active docs cite `handoff gemini` but the CLI slug is",
+                "`antigravity` (post-task-#127 rename of the Google",
+                "harness). The handoff CLI + MCP tool accept the slug,",
+                "not the marketing brand.",
+                "",
+                "Fix: replace `handoff gemini` → `handoff antigravity` and",
+                "`handed off to gemini` → `handed off to antigravity`. The",
+                "surrounding brand-level prose (e.g. \"Gemini picks up\")",
+                "stays per the claude.md L562 mixed-marketing convention.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoUnusedLocalsInTestsOrSrc:
     """Unused local variables are a signal-masking sub-class of dead
     code — pyflakes emits 'local variable X is assigned to but never
