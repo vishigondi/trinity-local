@@ -609,7 +609,7 @@ def _check_cortex_freshness() -> CheckResult:
             ok=True,
             detail="picks.json unreadable — re-run `trinity-local consolidate`",
         )
-    # Find the freshest consolidated_at across all task_kinds in picks.
+    # Find the freshest consolidated_at across all task_types in picks.
     consolidated_ats: list[str] = []
     for entry in picks_data.values() if isinstance(picks_data, dict) else []:
         if isinstance(entry, dict):

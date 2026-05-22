@@ -5099,3 +5099,72 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             for ln, txt in offenders:
                 msg.append(f"  claude.md:{ln}: {txt[:140]}")
             raise AssertionError("\n".join(msg))
+
+
+class TestNoStaleTaskKindInCode:
+    """Task #92 unified `task_kind`/`task_kinds` → `task_type`/`task_types`
+    across the live codebase. Stragglers slipped through in comments and
+    test method names (sweep iter #83 caught a stale comment in
+    `doctor.py:612` and a stale test method name
+    `test_falls_back_to_task_kind_when_routing_label_missing`).
+
+    The guard fails on any `task_kind` or `task_kinds` token in `src/`
+    or `tests/`, EXCEPT lines that are explicit migration notes (must
+    contain `pre-Tier-1-#3 rename`, `task_kind` → `task_type`, or
+    `task #92`). retired_names.py and this test file itself are exempt
+    (registries / scanners need to mention the retired terms by name).
+    """
+
+    def test_no_stale_task_kind_in_src_and_tests(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        targets: list[Path] = []
+        for sub in ("src", "tests"):
+            targets.extend((repo / sub).rglob("*.py"))
+
+        # Tokenize: `task_kind` / `task_kinds` as standalone identifiers
+        # (word-boundary), not as part of `task_kinds.py` historical CHANGELOG
+        # mentions or `task_kinds → task_types` rename arrows.
+        token_re = re.compile(r"\btask_kinds?\b")
+
+        # Lines that are explicit migration documentation get a pass.
+        migration_marker_re = re.compile(
+            r"pre-Tier-1-#3 rename|"
+            r"task #92|"
+            r"task_kind\s*(→|->|->)\s*task_type|"
+            r"`task_kind`\s*(→|->|->)\s*`task_type`"
+        )
+
+        # Files that are scanners / registries of retired terms.
+        EXEMPT_FILES = {
+            "tests/test_doc_count_consistency.py",
+            "src/trinity_local/retired_names.py",
+        }
+
+        offenders: list[str] = []
+        for path in targets:
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(text.splitlines(), start=1):
+                if not token_re.search(line):
+                    continue
+                if migration_marker_re.search(line):
+                    continue
+                offenders.append(f"  {rel}:{idx}: {line.strip()[:140]}")
+
+        if offenders:
+            msg = [
+                "Stale `task_kind`/`task_kinds` references in src/ or tests/.",
+                "Task #92 unified these to `task_type`/`task_types`.",
+                "Rename, or add the explicit migration marker if the line is",
+                "documenting the rename itself.",
+                "",
+            ]
+            msg.extend(offenders)
+            raise AssertionError("\n".join(msg))

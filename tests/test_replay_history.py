@@ -153,7 +153,7 @@ class TestAggregateRoutingTable:
         assert table["best_per_task_type"] == {}
         assert "computed_at" in table
 
-    def test_falls_back_to_task_kind_when_routing_label_missing(self, home: Path):
+    def test_falls_back_to_task_type_when_routing_label_missing(self, home: Path):
         """If chairman didn't emit a routing_label.task_type, use the council's task_type."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
