@@ -175,7 +175,7 @@ For each basin in ~/.trinity/memories/topics.json:
   "consolidated_at": "2026-05-20T10:30:00Z",
   "n_episodes": 47,
   "task_types": ["system_design", "architecture_decision", "launch_readiness"],
-  "winner_distribution": {"claude": 0.62, "codex": 0.31, "gemini": 0.07},
+  "winner_distribution": {"claude": 0.62, "codex": 0.31, "antigravity": 0.07},
   "routing_rule": {
     "primary": "claude",
     "challenger": "codex",
@@ -198,7 +198,7 @@ For each basin in ~/.trinity/memories/topics.json:
   "failure_modes": {
     "claude": "over-engineers when implementation suffices",
     "codex": "misses second-order failure modes",
-    "gemini": "too generic for this user's domain"
+    "antigravity": "too generic for this user's domain"
   },
   "successful_prompts": {
     "claude": ["What's the SINGLE biggest...", "Audit this against..."],

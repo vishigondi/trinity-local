@@ -76,7 +76,7 @@ jsonschema.validate(example, schema)  # raises ValidationError if drift
   "primary_provider": "claude",
   "member_results": [
     {"provider": "claude", "output_text": "answer A"},
-    {"provider": "gemini", "output_text": "answer B"}
+    {"provider": "antigravity", "output_text": "answer B"}
   ],
   "synthesis_output": "Both answers converge on X. Claude's framing is sharper.",
   "routing_label": {

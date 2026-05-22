@@ -148,7 +148,7 @@ A real council outcome — verbatim from `~/.trinity/council_outcomes/<id>.json`
   "disagreed_claims": [{
     "claim": "Post-validator must check for skill cache-staleness.",
     "providers_for": ["claude"],
-    "providers_against": ["gemini", "codex"],
+    "providers_against": ["antigravity", "codex"],
     "why_matters": "install-mcp can succeed on disk but /trinity stays invisible to the open Claude Code session."
   }],
   "routing_lesson": "For launch_readiness_decision, prefer claude — surfaces second-order failure modes."

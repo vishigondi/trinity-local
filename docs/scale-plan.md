@@ -104,10 +104,10 @@ Replace the split between `council_status/` (operation lifecycle) and `council_p
   "council_id": "...",
   "task_text": "...",
   "status": "running|done|failed|canceled",
-  "members": ["claude", "gemini"],
+  "members": ["claude", "antigravity"],
   "member_progress": {
     "claude": { "status": "done", "reasoning_summary": "...", "completed_at": "..." },
-    "gemini": { "status": "running", "started_at": "..." }
+    "antigravity": { "status": "running", "started_at": "..." }
   },
   "synthesis": { "status": "pending|running|done" },
   "review_path": "/path/to/review.html",
@@ -1232,7 +1232,7 @@ class RouterExample:
     # Inputs
     task_text_embedding: list[float]    # 768d Nomic
     user_persona_embedding: list[float] # 768d Nomic of the user's /me at council time
-    harness: str                         # "claude_code" | "codex" | "gemini" | "cowork"
+    harness: str                         # "claude_code" | "codex" | "antigravity" | "cowork"
     available_models: list[str]
     budget: str                          # "low" | "normal" | "high"
     latency: str                         # "fast" | "normal" | "patient"

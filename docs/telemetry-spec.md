@@ -227,7 +227,7 @@ Purpose:
       "writing": 1730,
       "research": 1580
     },
-    "gemini": {
+    "antigravity": {
       "elo": 1615,
       "writing": 1500,
       "research": 1710
