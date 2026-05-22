@@ -2,13 +2,24 @@
 class: live
 ---
 
-# Install Trinity (Skill tier — primary)
+# Install Trinity (curl-bash → MCP-primary install)
 
-> The skill IS the spec. `~/.trinity/code/skills/trinity/SKILL.md` drives the
-> `trinity-local` CLI from inside Claude Code via the bash tool. This
-> is the primary tier — what you interact with when you type `/trinity`.
-> (`~/.claude/skills/trinity/` is a back-compat symlink for users who
-> already typed `/trinity` before the 2026-05-19 path canonicalization.)
+> MCP is the primary tier per the 2026-05-19 pivot
+> (see [`three-tier-architecture.md`](three-tier-architecture.md) L15-22).
+> Trinity registers as an MCP server in every MCP-capable harness
+> (Claude Code, Codex CLI, Antigravity, Cursor) — the agent calls
+> tools like `mcp__trinity-local__run_council` inline; no `/trinity`
+> invocation needed for new users.
+>
+> The skill at `~/.claude/skills/trinity/SKILL.md` is kept as a
+> back-compat alias for users who already typed `/trinity` in Claude
+> Code before the pivot — `/trinity` still resolves to a friendly
+> walkthrough that drives the same `trinity-local` CLI via Claude
+> Code's bash tool. New users never need to know it exists.
+>
+> This doc explains the install path (curl-bash) — the same install
+> wires MCP across all harnesses AND preserves the `/trinity`
+> back-compat alias path in one step.
 
 ## What you get
 

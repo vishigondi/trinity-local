@@ -2048,6 +2048,20 @@ class TestNoBannedSynonyms:
          "Caught in docs/architectural-gaps.md L362's Gap F symptom "
          "claim — class:aspirational but the symptom describes the "
          "CURRENT provider set."),
+        ("Skill tier — primary", "(removed — MCP is the primary tier post 2026-05-19 pivot)",
+         "iter #52 catch — pre-pivot framing. The 2026-05-19 pivot "
+         "made MCP the primary tier; the skill at "
+         "~/.claude/skills/trinity/ is kept as a back-compat alias. "
+         "INSTALL-skill.md L5/L9 had 'Skill tier — primary' as its "
+         "h1 + intro framing. Same drift class as iter #38's install.sh "
+         "'Skill is primary' comment. The HEADING phrase is more "
+         "specific than the inline-comment phrase, so the BANNED "
+         "entry is the literal heading form."),
+        ("Skill is primary", "MCP is primary (per 2026-05-19 pivot)",
+         "iter #52 catch — inline-comment form of the same pre-pivot "
+         "claim. iter #38 fixed install.sh's instance but didn't add "
+         "the phrase to BANNED, so docs/INSTALL-skill.md's L7-9 prose "
+         "drift survived undetected until iter #52's audit."),
         ("@openclaw.dev", "@keepwhatworks.com",
          "contact-domain consolidation 2026-05-21 (tick 118). Trinity's "
          "ops contact addresses (security@, conduct@, teams@) had "
@@ -2138,6 +2152,15 @@ class TestNoBannedSynonyms:
         # catches drift if a future edit only touches one half.
         "skills/trinity/SKILL.md",
         "src/trinity_local/data/skills/trinity/SKILL.md",
+        # docs/INSTALL-*.md added 2026-05-21 after iter 52 caught
+        # "Skill tier — primary" in INSTALL-skill.md L5 + L9 (pre-
+        # 2026-05-19 pivot framing — MCP is the primary tier now).
+        # The install doc trio is the first thing a curious user
+        # reads when deciding which path to take; pre-pivot framing
+        # there ships the wrong mental model.
+        "docs/INSTALL-skill.md",
+        "docs/INSTALL-pip.md",
+        "docs/INSTALL-extension.md",
         # All launch-day artifacts (paste-ready copy).
         "docs/launch-day/00_leaderboard.md",
         "docs/launch-day/01_tweet_thread.md",
