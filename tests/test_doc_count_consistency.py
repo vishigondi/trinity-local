@@ -2048,6 +2048,23 @@ class TestNoBannedSynonyms:
          "Caught in docs/architectural-gaps.md L362's Gap F symptom "
          "claim — class:aspirational but the symptom describes the "
          "CURRENT provider set."),
+        ("`claude`, `codex`, `gemini`", "`claude`, `codex`, `agy`",
+         "iter #57 catch — backtick-wrapped dispatch triple naming the "
+         "legacy `gemini` CLI as a Trinity council member. Found in "
+         "SECURITY.md L55 + docs/launch-day/03_hn_objection_faq.md L19 "
+         "+ docs/launch-day/10_hn_faq_full.md L39/55/111. The shipped "
+         "config.json dispatches via `agy` (Antigravity CLI, slug "
+         "`antigravity`) per task #127's 2026-05-21 migration; the "
+         "legacy `gemini` binary stays read-only via "
+         "parse_gemini_cli_session for ingest. Distinct from the bare "
+         "paren'd form caught above — substring match needs the exact "
+         "backtick triple shape to catch this drift. Catches "
+         "`claude`, `codex`, `gemini` and `claude` / `codex` / `gemini` "
+         "(both with backticks)."),
+        ("`claude` / `codex` / `gemini`", "`claude` / `codex` / `agy`",
+         "iter #57 sub-case — slash-separated backtick triple, same "
+         "drift as the comma form. The Antigravity rebrand applies "
+         "regardless of the separator."),
         ("Skill tier — primary", "(removed — MCP is the primary tier post 2026-05-19 pivot)",
          "iter #52 catch — pre-pivot framing. The 2026-05-19 pivot "
          "made MCP the primary tier; the skill at "

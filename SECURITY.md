@@ -52,9 +52,12 @@ What Trinity defends against (in priority order):
 
 What Trinity does NOT defend against (out of scope):
 
-- **Compromised provider CLIs.** If `claude` / `codex` / `gemini` is malicious, Trinity
-  can't help — the user's prompt is already being sent to the wrong place by definition.
-  Verify your provider CLI integrity via official package distribution channels.
+- **Compromised provider CLIs.** If `claude` / `codex` / `agy` (the Antigravity CLI,
+  slug `antigravity`) is malicious, Trinity can't help — the user's prompt is already
+  being sent to the wrong place by definition. Verify your provider CLI integrity via
+  official package distribution channels. (The legacy Google CLI binary is no longer a
+  dispatch target; Trinity reads `~/.gemini/` for *ingest only* and routes new questions
+  through `agy` after task #127's 2026-05-21 migration.)
 
 - **Compromised user machine.** If a process on the user's machine has read access to
   `~/.trinity/`, it has read access to everything Trinity knows. We don't encrypt at

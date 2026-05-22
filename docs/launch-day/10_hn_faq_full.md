@@ -36,7 +36,7 @@ LangChain orchestrates within-provider state (chains, tools, memory) for *one* m
 
 ### How is this different from LiteLLM?
 
-LiteLLM is a unified API gateway — same SDK shape, swap providers, pay-per-call. Trinity is the opposite cost model: rides your *existing consumer subscriptions* via subprocess CLIs (`claude`, `codex`, `gemini`), so the provider eats inference cost and Trinity never pays per token. LiteLLM has no preference corpus, no cross-provider memory, no chairman synthesis — it's a router primitive, not a learning layer. You could in principle layer Trinity over LiteLLM if you wanted hosted API access; we don't, by design (architectural commitment #4 in `claude.md`).
+LiteLLM is a unified API gateway — same SDK shape, swap providers, pay-per-call. Trinity is the opposite cost model: rides your *existing consumer subscriptions* via subprocess CLIs (`claude`, `codex`, `agy` — the Antigravity CLI, slug `antigravity`), so the provider eats inference cost and Trinity never pays per token. LiteLLM has no preference corpus, no cross-provider memory, no chairman synthesis — it's a router primitive, not a learning layer. You could in principle layer Trinity over LiteLLM if you wanted hosted API access; we don't, by design (architectural commitment #4 in `claude.md`).
 
 ### How is this different from OpenRouter?
 
@@ -52,7 +52,7 @@ Same mechanic (learning from past sessions → consolidated routing patterns), d
 
 ### What actually leaves my machine?
 
-Nothing by default. Prompts, answers, council outcomes, lens.md, picks, routing table — all stay in `~/.trinity/`. The MCP server is a stdio child of your harness (no listening port). `HF_HUB_OFFLINE=1` is pinned at `main()` startup so HuggingFace gets no outbound calls during normal operation. The embedding model is pulled exactly once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5` (~600 MB). Model dispatches go through your authenticated CLI subprocesses (`claude`, `codex`, `gemini`) — the provider sees the prompt because *you* asked them; Trinity adds no relay.
+Nothing by default. Prompts, answers, council outcomes, lens.md, picks, routing table — all stay in `~/.trinity/`. The MCP server is a stdio child of your harness (no listening port). `HF_HUB_OFFLINE=1` is pinned at `main()` startup so HuggingFace gets no outbound calls during normal operation. The embedding model is pulled exactly once via an explicit `huggingface-cli download nomic-ai/nomic-embed-text-v1.5` (~600 MB). Model dispatches go through your authenticated CLI subprocesses (`claude`, `codex`, `agy` — the Antigravity CLI, slug `antigravity`) — the provider sees the prompt because *you* asked them; Trinity adds no relay.
 
 ### What about the opt-in telemetry?
 
@@ -108,4 +108,4 @@ Caught and fixed in v1.7 (P53). Real-corpus largest cluster of 3,408 prompts was
 
 ### Isn't this just a wrapper around three CLIs?
 
-The CLIs are the substrate — yes, Trinity dispatches via `claude`, `codex`, `gemini` subprocesses. The product is what gets *written back*: every council emits structured Routing JSON to `~/.trinity/council_outcomes/<id>.json` with `agreed_claims`, `disagreed_claims` (with `why_matters`), `provider_scores`, `routing_lesson`. That's a labeled training example the frontier labs *can't see* — Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. The personal routing table, the `/me` lens, the corpus-based eval harness all compound on this ledger. The wrapper does dispatch; the moat is the ledger. <!-- canonical:test_count -->1622<!-- /canonical --> tests, <!-- canonical:doc_consistency_guards -->77<!-- /canonical --> doc-consistency guards.
+The CLIs are the substrate — yes, Trinity dispatches via `claude`, `codex`, `agy` (the Antigravity CLI, slug `antigravity`) subprocesses. The product is what gets *written back*: every council emits structured Routing JSON to `~/.trinity/council_outcomes/<id>.json` with `agreed_claims`, `disagreed_claims` (with `why_matters`), `provider_scores`, `routing_lesson`. That's a labeled training example the frontier labs *can't see* — Anthropic can't read OpenAI's transcripts, OpenAI can't read Gemini's. The personal routing table, the `/me` lens, the corpus-based eval harness all compound on this ledger. The wrapper does dispatch; the moat is the ledger. <!-- canonical:test_count -->1622<!-- /canonical --> tests, <!-- canonical:doc_consistency_guards -->77<!-- /canonical --> doc-consistency guards.
