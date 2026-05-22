@@ -289,10 +289,13 @@ def handle_eval_run(args):
     if run_result.aggregate_score is not None:
         print(f"  Aggregate score:  {run_result.aggregate_score:.3f}  ({args.target} vs rejected_responses)")
         if run_result.by_rejection_type:
-            print("  By rejection axis:")
+            from ..evals.scorer import AXIS_ONELINER
+            print("  By rejection axis (what the user wanted that the rejected response missed):")
             for axis, stats in sorted(run_result.by_rejection_type.items()):
+                hint = AXIS_ONELINER.get(axis, "")
                 print(f"    {axis:<12} n={stats['count']:>3}  mean={stats['mean_score']:.3f}  "
-                      f"(min {stats['min_score']:.2f} max {stats['max_score']:.2f})")
+                      f"(min {stats['min_score']:.2f} max {stats['max_score']:.2f})"
+                      + (f"  — {hint}" if hint else ""))
     print(f"\n  → {path}")
 
 
@@ -353,14 +356,18 @@ def handle_eval_show(args):
         print(f"  Aggregate score: {result.aggregate_score:.3f}  "
               f"(vs the rejected_responses the original prompts elicited)")
         if result.by_rejection_type:
-            print("\n  By rejection axis:")
+            from ..evals.scorer import AXIS_ONELINER
+            print("\n  By rejection axis (what the user wanted that the rejected response missed):")
             for axis, stats in sorted(result.by_rejection_type.items()):
                 # Visual bar — 25-char max width, scaled by mean_score
                 width = int(round(stats["mean_score"] * 25))
                 bar = "█" * width + "·" * (25 - width)
+                hint = AXIS_ONELINER.get(axis, "")
                 print(f"    {axis:<12} n={stats['count']:>3}  "
                       f"mean={stats['mean_score']:.3f}  [{bar}]  "
                       f"min {stats['min_score']:.2f} max {stats['max_score']:.2f}")
+                if hint:
+                    print(f"                 — {hint}")
     else:
         print("\n  (No aggregate score — run completed without --no-score, or scoring failed.)")
 

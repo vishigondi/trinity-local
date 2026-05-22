@@ -130,6 +130,7 @@ def render_eval_card(data: EvalCardData) -> bytes:
     headline = _load_font("serif", 56)
     sub = _load_font("regular", 26)
     axis_label = _load_font("bold", 20)
+    axis_hint = _load_font("regular", 14)  # one-liner per axis below the label
     axis_score = _load_font("mono", 22)
     cta_label = _load_font("bold", 20)
     cta_cmd = _load_font("mono", 22)
@@ -176,11 +177,18 @@ def render_eval_card(data: EvalCardData) -> bytes:
         bar_track_x = margin + 240
         bar_track_width = CARD_WIDTH - bar_track_x - margin - 80
         bar_height = 14
-        row_height = 36
+        row_height = 48  # bumped from 36 to make room for the axis-hint line
+
+        # Lazy import — keeps eval_card.py importable without the runtime
+        # scorer module on render-only paths.
+        from .evals.scorer import AXIS_ONELINER
 
         for axis_name, mean_score, _count in data.by_axis:
-            # Label (left-anchored)
+            # Label (left-anchored) + small hint line below
             draw.text((margin, y), axis_name, font=axis_label, fill=COLOR_MUTED)
+            hint = AXIS_ONELINER.get(axis_name, "")
+            if hint:
+                draw.text((margin, y + 22), hint, font=axis_hint, fill=COLOR_MUTED)
 
             # Bar track
             track_y_top = y + 4

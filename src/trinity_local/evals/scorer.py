@@ -22,6 +22,17 @@ from ..providers import make_provider, ProviderResult
 from .runner import EvalRunResult
 
 
+# One-liner per axis, surfaced in user-facing eval output (terminal +
+# share card) so a reader knows what each axis measures without
+# leaving the output. Long-form rubric below is for the chairman judge.
+AXIS_ONELINER = {
+    "REFRAME": "user wanted a different frame",
+    "COMPRESSION": "user wanted shorter",
+    "REDIRECT": "user wanted a different shape (spec vs narrative, etc.)",
+    "SHARPENING": "user wanted more precision (numbers, identifiers)",
+}
+
+
 # Per-rejection-type rubric the chairman gets in the judge prompt.
 # Each describes WHAT the user wanted that the rejected_response missed,
 # so the chairman can grade on the right axis instead of generic quality.
