@@ -32,7 +32,9 @@ COLOR_ACCENT = (37, 88, 71)       # sage green for accents
 # on share artifacts. Mirrored across all three cards by importing here
 # — any future brand pivot stays consistent.
 LANDING_URL = "keepwhatworks.com"
-FOOTER_TAGLINE = "Trinity · keepwhatworks.com"
+# Logo char: ⠕ (U+2855, Braille pattern dots-1357). Per user direction
+# 2026-05-22 — the brand mark Trinity carries on every share artifact.
+FOOTER_TAGLINE = "⠕ Trinity · keepwhatworks.com"
 
 
 # Font path candidates — try macOS first, fall back to Linux DejaVu, then
