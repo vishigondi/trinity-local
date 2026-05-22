@@ -5101,6 +5101,84 @@ class TestNoStaleNewAnnotationsInClaudeMd:
             raise AssertionError("\n".join(msg))
 
 
+class TestNoDroppedTermsInTestMethodNames:
+    """Task #94 dropped "verifier" as Trinity's own terminology in
+    favor of "synthesis" / "Synthesis JSON". The existing
+    `TestDroppedTermsAreNotReintroduced` guard scans launch-facing
+    prose for the dropped term, but NOT test method names.
+
+    Sweep iter #86 caught three stragglers in `tests/test_mcp_tools.py`:
+    `test_routing_label_carries_verifier_fields`,
+    `test_chairman_prompt_includes_verifier_arrays`,
+    `test_routing_json_parser_extracts_verifier_fields`. All three
+    bodies tested the Synthesis JSON shape (`agreed_claims`,
+    `disagreed_claims`, `why_matters`) but the method names froze
+    the pre-rename vocabulary. Same shape as principle #20: the test
+    body got updated to match the field names; the method name
+    didn't, because nothing reads back method names line-by-line.
+
+    Drift surface matters: pytest output reads back the retired term
+    every time the suite runs, training the eye to accept "verifier"
+    as a live concept.
+
+    The guard scans `tests/*.py` for `def test_*` definitions whose
+    name contains a dropped term (currently just `verifier`). The
+    scanner file itself is exempt (it has to mention the retired
+    term to enforce the rule).
+    """
+
+    DROPPED_TERMS_IN_TEST_NAMES = {
+        "verifier": (
+            "task #94 dropped 'verifier' in Trinity's own voice; "
+            "rename to 'synthesis' to match `agreed_claims` / "
+            "`disagreed_claims` field naming"
+        ),
+    }
+
+    def test_no_dropped_terms_in_test_method_names(self):
+        import re
+
+        repo = Path(__file__).resolve().parent.parent
+        EXEMPT_FILES = {"tests/test_doc_count_consistency.py"}
+
+        # Catches `def test_foo_verifier_bar(...)` etc.
+        # Word-boundary at the start (`_` or word start), and an
+        # underscore/paren close at the end so we don't match
+        # `verifies` or `verification`.
+        offenders: list[tuple[str, int, str, str]] = []
+        for path in sorted((repo / "tests").rglob("test_*.py")):
+            rel = path.relative_to(repo).as_posix()
+            if rel in EXEMPT_FILES:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for idx, line in enumerate(lines, start=1):
+                stripped = line.strip()
+                if not stripped.startswith("def test_"):
+                    continue
+                m = re.match(r"def\s+(test_\w+)\s*\(", stripped)
+                if not m:
+                    continue
+                method_name = m.group(1)
+                for term, rationale in self.DROPPED_TERMS_IN_TEST_NAMES.items():
+                    if re.search(rf"_{term}(_|$|\b)", method_name):
+                        offenders.append((rel, idx, method_name, rationale))
+                        break
+
+        if offenders:
+            msg = [
+                "Test method names contain dropped terminology.",
+                "pytest output reads back these names on every run;",
+                "the retired term becomes invisible-wallpaper.",
+                "",
+            ]
+            for rel, ln, name, rationale in offenders:
+                msg.append(f"  {rel}:{ln}: {name} — {rationale}")
+            raise AssertionError("\n".join(msg))
+
+
 class TestMcpToolCountClaimsArePinnedToCanonical:
     """Free-floating `<N> MCP tools` / `<N> total` claims in active docs
     drift the moment the canonical count changes. The canonical-renderer

@@ -222,7 +222,7 @@ class TestGetCouncilStatus:
 # ---------------------------------------------------------------------------
 
 class TestChainMode:
-    def test_routing_label_carries_verifier_fields(self, home: Path):
+    def test_routing_label_carries_synthesis_fields(self, home: Path):
         """Verify CouncilRoutingLabel.from_dict accepts agreed_claims/disagreed_claims."""
         from trinity_local.council_schema import CouncilRoutingLabel
 
@@ -241,7 +241,7 @@ class TestChainMode:
         assert len(label.disagreed_claims) == 1
         assert label.disagreed_claims[0]["claim"] == "the user wants Y"
 
-    def test_chairman_prompt_includes_verifier_arrays(self, home: Path):
+    def test_chairman_prompt_includes_synthesis_arrays(self, home: Path):
         from trinity_local.council_runtime import render_primary_council_prompt
         from trinity_local.council_schema import CouncilMemberResult, PromptBundle
 
@@ -261,7 +261,7 @@ class TestChainMode:
         assert "disagreed_claims" in prompt
         assert "why_matters" in prompt
 
-    def test_routing_json_parser_extracts_verifier_fields(self, home: Path):
+    def test_routing_json_parser_extracts_synthesis_fields(self, home: Path):
         from trinity_local.council_runtime import parse_routing_label
 
         synthesis = """## Winner
