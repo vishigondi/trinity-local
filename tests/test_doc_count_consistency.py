@@ -1057,24 +1057,45 @@ class TestLaunchpadScreenshotFreshness:
     """
 
     STALE_THRESHOLD_DAYS = 3
+    # Tighter threshold for launchpad_template.py specifically — that
+    # file IS the visual surface. Any structural UI edit (chip removed,
+    # badge swapped, color changed) MUST land alongside a regenerated
+    # screenshot. Iter 2026-05-22 set this after Phase 3d swapped the
+    # "Preferred" rating chip for "Lens pick" badge but README + smoke
+    # screenshots stayed on the pre-swap UI for 3+ days. The existing
+    # 3-day threshold was too generous for template-level structural
+    # changes; tightened to 1 day for that one driver specifically.
+    TEMPLATE_STRICT_THRESHOLD_DAYS = 1
 
-    def _assert_asset_fresh(self, asset_relpath: str, driver_relpaths: list[str], regen_recipe: str):
+    def _assert_asset_fresh(
+        self,
+        asset_relpath: str,
+        driver_relpaths: list[str],
+        regen_recipe: str,
+        strict_drivers: tuple[str, ...] = (),
+    ):
         asset = REPO / asset_relpath
         if not asset.exists():
             return  # not yet generated — guard is a no-op
         asset_mtime = asset.stat().st_mtime
-        stale_drivers: list[tuple[str, float]] = []
+        stale_drivers: list[tuple[str, float, float]] = []
         for rel in driver_relpaths:
             path = REPO / rel
             if not path.exists():
                 continue
             src_mtime = path.stat().st_mtime
             age_days = (src_mtime - asset_mtime) / 86400
-            if age_days > self.STALE_THRESHOLD_DAYS:
-                stale_drivers.append((path.name, age_days))
+            threshold = (
+                self.TEMPLATE_STRICT_THRESHOLD_DAYS
+                if rel in strict_drivers
+                else self.STALE_THRESHOLD_DAYS
+            )
+            if age_days > threshold:
+                stale_drivers.append((path.name, age_days, threshold))
         assert not stale_drivers, (
             f"{asset_relpath} is grossly stale relative to its rendering "
-            f"source files: {stale_drivers}. Regenerate via: {regen_recipe}"
+            f"source files: {stale_drivers} (each tuple: file, age_days, threshold). "
+            f"Regenerate via: {regen_recipe}"
         )
 
     def test_launchpad_example_not_grossly_stale(self):
@@ -1089,6 +1110,9 @@ class TestLaunchpadScreenshotFreshness:
                 "python scripts/browser_smoke.py && "
                 "cp docs/smoke/1-launchpad.png docs/launchpad_example.png"
             ),
+            # launchpad_template.py is the visual surface — UI changes
+            # there MUST land with a refreshed screenshot within 1 day.
+            strict_drivers=("src/trinity_local/launchpad_template.py",),
         )
 
     def test_me_card_example_not_grossly_stale(self):
