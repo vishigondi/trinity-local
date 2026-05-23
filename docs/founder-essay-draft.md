@@ -57,12 +57,13 @@ The verdict isn't a chat log. It's a structured object:
 - **Agreed claims**: what the three models converged on. You can lean on these.
 - **Disagreed claims**: where they split. Each disagreement has a *why it matters* note —
   the actual structural difference between the two answers, not just "model X said this."
-- **Winner + scores**: a chairman picks one. You can override.
+- **Winner + scores**: a chairman picks one — through your taste lens.
 
-You override by clicking. That click is the only training signal Trinity ever takes.
-
-After ten or so councils, Trinity has built a personal map of which model wins for *your*
-kind of question. After fifty, it surfaces something called a `/me` lens — paired
+The chairman's pick is the training signal. It comes from your `/me` lens
+— distilled from how you rephrased, pushed back, and decided across every
+past transcript — so it's already *your* call, not the model's. No rating
+step. No tax. After ten or so councils, Trinity has built a personal map
+of which model wins for *your* kind of question. After fifty, it surfaces something called a `/me` lens — paired
 tensions extracted from where you actually pushed back on a model. One of mine reads:
 
 > *leading proxy signal as forecast* vs *official lagging metric as truth*
@@ -218,9 +219,9 @@ Then, in order:
 There's a bigger thesis behind all of it. *Own your context now, because the next
 thing you'll need to own is your agent.* The labs are migrating from "the model I rent"
 to "the agent that acts for me." Your context — what you've already asked, the lens
-your taste encodes, the routing your verdicts taught — 
-trusted, what you've rejected — are the raw asset. Dream is the verb that turns them into
-the agent's memory: cortex rules, taste lens, routing brain.
+your taste encodes, the routing the lens-governed chairman picks taught — are
+the raw asset. Dream is the verb that turns them into the agent's memory:
+cortex rules, taste lens, routing brain.
 
 Dreaming makes this concrete. In two years, enterprises that adopted Anthropic's
 agent stack without architectural resistance won't own the playbook their teams built
