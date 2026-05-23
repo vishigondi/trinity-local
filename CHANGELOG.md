@@ -53,6 +53,27 @@ CLI subcommands across user-facing modules: 42 → 43; module count
 21 → 22 (the new `extension_repair` module). Canonical placeholders
 re-rendered.
 
+**Eval data — matched-N comparability landed (queued from v1.7.5).**
+The v1.7.5 entry queued codex + gemini full-suite re-runs as v1.7.6
+polish. Those landed overnight 2026-05-22 → 2026-05-23 on the SAME
+N=45 suite (`eval_eval_12f21a9fd423`):
+
+- claude       **0.788** (REFRAME 0.81 / REDIRECT 0.80 / SHARPENING 0.82 / COMPRESSION 0.48 n=2)
+- codex        **0.760** (SHARPENING peak 0.86 — beats claude; COMPRESSION 0.78 also beats claude)
+- antigravity  **0.610** (COMPRESSION 0.08 — standout weakness; closest to the trio on SHARPENING at 0.75)
+
+Per-axis split becomes the headline (the aggregate hides which
+provider wins which axis). Launch surfaces refreshed:
+`docs/launch-day/00_leaderboard.md` (full rewrite), `README.md` and
+`03_hn_objection_faq.md` and `10_hn_faq_full.md` (data + per-axis
+story updated), `docs/launch-package.md` L271 (sourcing).
+
+(Legacy gemini provider slug switched to `antigravity` for the
+N=45 cohort — `agy` binary, post task #127 migration. The
+`gemini` slug now refers only to the gemini.google.com web-chat
+capture source, per the browser extension's adapters/gemini.js
+introduced in task #135.)
+
 ## [v1.7.5 — rating-surface retirement + claude.md cut to 200 lines + Auto-Dream cite] — 2026-05-22
 
 Post-launch cleanup pass driven by three user directives:

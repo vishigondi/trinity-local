@@ -268,7 +268,12 @@ own rejection signal, not a heuristic save-counter. Same use case
 (verifiable single-number case study), stronger surface
 (provider-comparative, structurally non-refutable because only Trinity
 has cross-provider rejection signal). See `docs/launch-day/00_leaderboard.md`
-for the freshest run details (claude N=45 / codex N=5 / gemini N=17).
+for the freshest run details — as of 2026-05-23 all three providers
+ran the SAME N=45 suite: claude 0.79 aggregate, codex 0.76, antigravity
+0.61. The per-axis story is the interesting one: codex beats claude
+on SHARPENING (0.86 vs 0.82) and COMPRESSION (0.78 vs 0.48), claude
+leads REFRAME and REDIRECT, antigravity has a clear COMPRESSION
+weakness (0.08).
 
 ## Cross-references
 
