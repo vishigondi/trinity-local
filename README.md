@@ -102,7 +102,7 @@ That's the whole point. Every council runs all three in parallel from one prompt
 `trinity-local eval-run --target <provider>` (claude / codex / antigravity — the provider you want to benchmark; the underlying model is whatever that provider currently ships) scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.
 
 **"I want the right model picked for the right task, automatically."**
-Every council you rate teaches Trinity which model wins for which kind of question. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
+Every council teaches Trinity which model wins for which kind of question — automatically. The chairman's pick (lens-governed) is the signal; `compute_personal_routing_table()` aggregates it per task type. No human rating step. The launchpad surfaces the personal routing table; the cortex extracts the rules; chairman uses them on the next call.
 
 **"How is this different from Anthropic's Dreaming?"**
 Same verb, different domain. Dreaming consolidates Claude sessions inside Anthropic's runtime — single-lab. Trinity dreams *across the labs*: `~/.claude/` + `~/.codex/` + `~/.gemini/` + claude.ai + ChatGPT + Gemini exports, on your machine. Even if Anthropic moves Dreaming server-side tomorrow, the server-side version still can't see OpenAI or Google transcripts — the labs are commercially prevented from reading each other. Cross-lab dreaming has to come from outside the labs, by definition. Dreaming makes Claude smarter at being Claude; Trinity learns which model wins which kind of YOUR question.
@@ -167,7 +167,7 @@ rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives
 
 ## What's next
 
-Trinity Local v1.7 shipped May 13–15, 2026. Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (next: June 3); CHANGELOG in [`CHANGELOG.md`](CHANGELOG.md).
+Trinity Local v1.7.4 shipped May 13–15, 2026; v1.7.5 post-launch cleanup shipped May 22, 2026 (full rating retirement, claude.md cut to 200 lines, Auto-Dream coexistence framing, ⠕ brand mark — see [`CHANGELOG.md`](CHANGELOG.md)). Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (next: June 3, 2026).
 
 ## Help
 
