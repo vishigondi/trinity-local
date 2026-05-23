@@ -59,11 +59,11 @@ The verdict isn't a chat log. It's a structured object:
   the actual structural difference between the two answers, not just "model X said this."
 - **Winner + scores**: a chairman picks one — through your taste lens.
 
-The chairman's pick is the training signal. It comes from your `/me` lens
+The chairman's pick is the training signal. It comes from your `lens`
 — distilled from how you rephrased, pushed back, and decided across every
 past transcript — so it's already *your* call, not the model's. No rating
 step. No tax. After ten or so councils, Trinity has built a personal map
-of which model wins for *your* kind of question. After fifty, it surfaces something called a `/me` lens — paired
+of which model wins for *your* kind of question. After fifty, it surfaces something called a `lens` — paired
 tensions extracted from where you actually pushed back on a model. One of mine reads:
 
 > *leading proxy signal as forecast* vs *official lagging metric as truth*
@@ -105,7 +105,7 @@ own memory is open. Trinity is the memory layer for that window.
 
 When (not if) the labs close the cache and move the context cloud-side, you'll still
 have `~/.trinity/`. You'll still have the Routing JSON ledger. You'll still have the
-`/me` lens — the thing that actually represents what you trust. If you switch labs
+your `lens` — the thing that actually represents what you trust. If you switch labs
 tomorrow, your taste comes with you.
 
 That's what *own your memories* means in operational terms. Not "we promise not to
@@ -175,7 +175,7 @@ Three product commitments worth flagging:
 1. **macOS-only at launch.** Not because Trinity can't run elsewhere. Because shipping
    to one platform first means I can make it actually delightful on that platform
    instead of approximately working on three. Linux and Windows when it makes sense.
-2. **No social anything until the local thing is great.** The shareable `/me` lens
+2. **No social anything until the local thing is great.** The shareable `lens`
    PNG is the social object — *one image, no account.* Federated taste, team plans, all
    of that is v2+. The point is to make the single-user experience overwhelmingly
    compelling, then let the network effects compound.
@@ -188,7 +188,7 @@ Three product commitments worth flagging:
 
 Right now, today, v1 ships. Three commands → first council on your real work. The
 launchpad shows you which model has been winning for which kind of question you ask. The
-`/me` lens distills it into the paired tensions your taste actually lives in.
+your `lens` distills it into the paired tensions your taste actually lives in.
 
 Then, in order:
 

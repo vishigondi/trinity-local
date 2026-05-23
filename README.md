@@ -19,7 +19,7 @@ Inside Claude Code (or Codex CLI / Antigravity / Cursor) — just ask:
 
 > Run a Trinity council on whether to use SQLite or DuckDB for this analytics workload.
 
-The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel. The chairman synthesizes through your lens and returns the verdict inline: winner, runner-up, agreed claims, where they split, why each split matters. The launchpad above is the same surface in a browser tab — open it from the Chrome extension when you want to scan recent councils, your `/me` lens, and the topic graph without leaving the keyboard for a chat window.
+The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel. The chairman synthesizes through your lens and returns the verdict inline: winner, runner-up, agreed claims, where they split, why each split matters. The launchpad above is the same surface in a browser tab — open it from the Chrome extension when you want to scan recent councils, your `lens`, and the topic graph without leaving the keyboard for a chat window.
 
 **The Chrome extension does two things.** As you chat on claude.ai / chatgpt.com / gemini.google.com, it captures each conversation to `~/.trinity/conversations/` on your machine — no listening port, no upload; Chrome's Native Messaging spawns a local capture host on demand. And it hosts the launchpad you click open from the toolbar. Together with the CLI sessions on disk (`~/.claude/`, `~/.codex/`, `~/.gemini/`), the extension's captures are what your lens distills from.
 
@@ -122,12 +122,12 @@ The folder is the API. `~/.trinity/memories/lens.md` is Markdown; council outcom
 |---|---|---|---|---|---|
 | Data source | **Your own prompts** | Crowd votes | Test fixtures | n/a (router) | Yours, but no persistence |
 | Cost basis | Your own subscriptions | Hosted | Per-call API | Per-call API | Per-call API |
-| Output | **Structured Routing JSON + your `/me` lens** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
+| Output | **Structured Routing JSON + your `lens`** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
 | Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
 | Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
 | Personal benchmarks | **`eval-run` scores any model against YOUR actual rejections** | Synthetic prompts | Static fixtures | n/a | n/a |
 | Council reads through your lens | **Chairman synthesizes in your voice — distilled from past transcripts** | n/a | n/a | n/a | Generic synthesis |
-| Shareable artifact | **`/me` lens PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |
+| Shareable artifact | **`lens` PNG card** | Leaderboard link | Eval report | n/a | Per-prompt summary |
 
 If you want "which model is best in general," LMArena. If you want "which model handles **this
 codebase / this voice / this trade-off you keep making**," Trinity.

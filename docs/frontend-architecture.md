@@ -22,9 +22,9 @@ Shortcuts / local-helper execution model.
 
 Trinity is not building a hosted app shell. It is generating local artifacts:
 
-- **Launchpad** (`portal_pages/launchpad.html`) — autofill, personal routing table card, **pair-wise `/me` lenses card with copy buttons**, recent councils, settings modal
+- **Launchpad** (`portal_pages/launchpad.html`) — autofill, personal routing table card, **pair-wise `lens` cardses card with copy buttons**, recent councils, settings modal
 - **Unified council page** (`portal_pages/status/...`) — single page handling both in-flight (`?status_token=`) and post-hoc (`?council_id=`) views. Member streaming, chairman synthesis, structured Routing label section, **rating buttons inline** (no separate Signal/Rating page)
-- Future surfaces (deferred): weekly Elo report, leaderboard view, radar/battle/taste-profile social cards. The shipped social object is the `/me` lens card (see DESIGN.md Social Artifact Guidance)
+- Future surfaces (deferred): weekly Elo report, leaderboard view, radar/battle/taste-profile social cards. The shipped social object is the `lens` card (see DESIGN.md Social Artifact Guidance)
 
 Those pages need:
 
@@ -382,7 +382,7 @@ Keep generated-page code close to the page type. Current shipped modules:
 - `me_lenses.py` — parses `~/.trinity/memories/lens.md` into structured taste lenses for the launchpad card
 - `council_share.py` — was deleted along with the `--safe` Privacy-Safe Share Card. (The `council-share` CLI command is still in `commands/council.py` and copies the unified review HTML to Desktop.)
 
-Future surfaces (deferred): `digest_page.py`, `radar_page.py`, `battle_card_page.py`. The `/me` lens cards subsume the social-artifact role for now.
+Future surfaces (deferred): `digest_page.py`, `radar_page.py`, `battle_card_page.py`. The your `lens` cards subsume the social-artifact role for now.
 
 Keep shared frontend helpers in:
 

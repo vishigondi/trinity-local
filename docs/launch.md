@@ -207,7 +207,7 @@ Backup titles (use if the Dreaming hook decays):
 > The interesting bit isn't the comparison — it's that every council emits *Routing JSON*
 > (winner / agreed_claims / disagreed_claims / routing_lesson / eval_seed). After a few
 > councils, the chairman picker gets smarter at routing *your* flavor of question to the
-> *right model for that flavor*. After more, you get a `/me` lens: paired tensions
+> *right model for that flavor*. After more, you get a `lens`: paired tensions
 > distilled from where you pushed back on a model. Pair-wise tensions like *"systems
 > thinking that ships"* vs *"elegant theory left in the doc"* — each pole with its named
 > failure mode.
@@ -318,7 +318,7 @@ reference directly when relevant:
 - v1.5 (the MCP-primary routing product + cortex layer) is the *what's next*. Mention
   briefly with a link to `docs/spec-v1.5.md` — ships June 3, 2026. Not the launch
   headline — v1.0 is the ledger / data pipe; v1.5 is the routing turn.
-- The personal `/me` lens demo on real data — only mention if I have ≥3 lenses to show.
+- The personal `lens` demo on real data — only mention if I have ≥3 lenses to show.
   An empty `lens.md` undersells.
 - Hosted leaderboard — opt-in upload not yet wired; v1.5+ if needed.
 - Trained-coordinator path is **sunset** (former v2). A flagship with cortex

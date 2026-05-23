@@ -40,7 +40,7 @@ The router is the implementation. The verifier is the value. The personal prefer
 ### Load-bearing commitments (non-negotiable)
 
 1. **No LLM calls outside councils.** Ingest, embedding, theme assignment, search ranking, and clustering use pure heuristics + metadata. The only LLM invocations Trinity makes are council member calls and chairman synthesis — both ride the user's existing CLI subscriptions.
-2. **Prompt content never uploads.** Even with future opt-in aggregation, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. `/me` content is treated as sensitive derived prompt content; it stays local by default.
+2. **Prompt content never uploads.** Even with future opt-in aggregation, only categorical routing labels (`task_type`, `provider_scores`, `winner`) leave the machine. `lens` content is treated as sensitive derived prompt content; it stays local by default.
 3. **Local-first inference.** Phase 9's learned router runs on the user's hardware. No hosted controller, no per-call API billing.
 4. **Subsidized consumer credits as cost basis.** Trinity dispatches via the user's CLI subscriptions (Claude Code, Codex CLI, Antigravity). If anyone proposes a hosted API tier, push back hard — that destroys both the cost basis and the privacy commitment. (Cowork — Anthropic Managed Agents — is an *ingest source* via `parse_cowork_session`, not a dispatch target; the live `config.json` providers dict is `claude / codex / antigravity / mlx`.)
 5. **Hosted components may only be registries, not controllers.** Trinity may host public registry metadata, public cold-start priors, and curated public/famous persona documents. It must not host ordinary users' private `/lens.md`, raw prompts, transcript derivatives, per-call inference, or a routing controller.
@@ -62,7 +62,7 @@ A single CLI already tells you what it thinks. Trinity's value is the **delta**:
 - You keep switching from A to B for this type of task (personal routing table)
 - You've done this exact workflow N times across N tools — it should be automated
 - Provider B would have been faster and cheaper for this task kind (latency-aware routing)
-- This task kind looks different in your taste than in the population (chairman reads `/me`)
+- This task kind looks different in your taste than in the population (chairman reads `lens`)
 
 If a single CLI can already surface the information, Trinity should not duplicate it.
 
@@ -77,13 +77,13 @@ These are problems that **require multi-provider observation** and cannot be sol
 > "These models agreed on these claims, disagreed on these, here's why the
 > disagreement matters — and which answer fits *you*."
 
-When a task matters, you want more than one opinion. Trinity runs the same prompt through multiple providers and a chairman synthesizes a structured Routing JSON: structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `routing_lesson`, and `user_likely_values` derived from your `/me` profile.
+When a task matters, you want more than one opinion. Trinity runs the same prompt through multiple providers and a chairman synthesizes a structured Routing JSON: structured `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `routing_lesson`, and `user_likely_values` derived from your `lens` profile.
 
 The chairman is loaded with `~/.trinity/memories/lens.md`, so it doesn't pick the universally best answer — it picks the answer that fits *this* user. Members generate broad; chairman condenses through your taste.
 
 Each council run produces `(prompt, response_A, response_B, response_C, chairman_synthesis, routing_label, your_verdict)`. The Routing JSON is the supervision signal that feeds the personal routing table and, eventually, the Phase 9 learned controller.
 
-**No single provider can do this.** Each provider only sees its own output. Only your `/me` + your verdicts know which answers actually match your taste.
+**No single provider can do this.** Each provider only sees its own output. Only your `lens` knows which answers actually match your taste (the chairman's pick on each council, lens-governed, IS the verdict — task #134 retired the separate user-rating step).
 
 ### 2. Personal Routing Table (the moat)
 
@@ -113,7 +113,7 @@ External benchmarks (artificialanalysis.ai's Intelligence/Coding/Agentic indices
 
 > "Two senior engineers could reasonably disagree about this — and you've already made similar architectural choices three times. Here's what fits you."
 
-The chairman reads `/me` (composed by `lens-build` from sampled diverse prompts) and conditions every synthesis on your demonstrated taste, vocabulary, implicit rejections, and abstract lenses. The persona is built locally, never uploads.
+The chairman reads `lens` (composed by `lens-build` from sampled diverse prompts) and conditions every synthesis on your demonstrated taste, vocabulary, implicit rejections, and abstract lenses. The persona is built locally, never uploads.
 
 ---
 
@@ -248,14 +248,14 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 The blog post writes itself:
 
-> "I ran 50 of my favorite prompts through 3 AI coding tools. The chairman synthesized structured verdicts personalised to my `/me`. The rankings surprised me. Here's the data — run it on your own prompts."
+> "I ran 50 of my favorite prompts through 3 AI coding tools. The chairman synthesized structured verdicts personalised to my `lens`. The rankings surprised me. Here's the data — run it on your own prompts."
 
 Why this order:
 
 1. **Council is generative.** It produces a new artifact (cross-provider verdict) that didn't exist before.
 2. **Council extracts constitutional data.** Every run feeds Routing JSON into the local evidence ledger; the personal routing table aggregates on demand.
 3. **Council is the proof.** Multi-provider chairman synthesis with structured Routing JSON (agreed_claims / disagreed_claims with why_matters) already validates the multi-provider thesis.
-4. **`/me` lenses are the shareable social object.** Pair-wise principles distilled from your prompt history (title + why-it-matters per implicit rejection); copyable to socials with one click. Verbatim prompts stay local — only the principle ships.
+4. **Pair-wise `lens` cards are the shareable social object.** Pair-wise principles distilled from your prompt history (title + why-it-matters per implicit rejection); copyable to socials with one click. Verbatim prompts stay local — only the principle ships.
 
 ### Distribution
 
@@ -342,7 +342,7 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 
 For the long-form Phase 0–9 plan (TRM-style learned coordinator, aggregation endpoint, Phase 9 training pipeline), see [`docs/scale-plan.md`](scale-plan.md). This file stays product-spec-shaped: positioning, GTM, what's in/out of v1.
 
-The destination matches the convergence of Lottery Ticket → HRM → TRM: a small learned controller (~10K params) over frontier models, with a verifier head, that recursively refines via chain mode. The chairman + `/me` primitive Trinity ships today is the supervision-signal generator that feeds Phase 9; chairman synthesis is `/me`-conditioned, so the Phase 9 router learns `(task_text, /me_embedding) → routing_decision` rather than a generic mapping.
+The destination matches the convergence of Lottery Ticket → HRM → TRM: a small learned controller (~10K params) over frontier models, with a verifier head, that recursively refines via chain mode. The chairman + `lens` primitive Trinity ships today is the supervision-signal generator that feeds Phase 9; chairman synthesis is `lens`-conditioned, so the Phase 9 router learns `(task_text, lens_embedding) → routing_decision` rather than a generic mapping.
 
 ## Trinity and the broader pattern
 
@@ -351,7 +351,7 @@ This architecture is isomorphic to earlier work on spatial taste and pattern sel
 | Layer | Trinity (Coding Taste) | IPCo (Spatial Taste) |
 |-------|------------------------|----------------------|
 | **Observation** | Watcher scans transcripts | Usage telemetry of pattern books |
-| **Pairwise judgment** | Council forces cross-provider comparison + `/me`-personalised chairman | Pattern book curator selection |
+| **Pairwise judgment** | Council forces cross-provider comparison + `lens`-personalised chairman | Pattern book curator selection |
 | **Constitution extraction** | k-NN learns routing from (prompt, response) pairs | SLM learns plan selection from (site, pattern) pairs |
 | **Taste licensing** | `/score` endpoint judges code | Design system judges spatial instantiations |
 

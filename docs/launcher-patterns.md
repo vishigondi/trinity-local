@@ -122,7 +122,7 @@ The shipped v1 bridge and the next launch target are:
    plumbing; it is not the long-term app shell.
 3. **Direct prompt → council** is the primary action: launchpad has a textarea + autofill suggestions; user types a prompt or picks a replay candidate; click dispatches `launch_council` through the Chrome extension's Native Messaging host.
 4. Trinity writes `PromptBundle` and `CouncilOutcome` files.
-5. The static launchpad page renders the personal routing table, the `/me` lenses card, and recent councils.
+5. The static launchpad page renders the personal routing table, the `lens`es card, and recent councils.
 6. Launch actions post a JSON message to `trinity-local-capture-host` (the Native Messaging endpoint registered by `install-extension`).
 7. The capture host spawns the local CLI as a one-shot subprocess and exits when the council completes — no persistent process. (The earlier macOS Shortcut path through `~/.trinity/bin/trinity-dispatch` was retired pre-launch; an inert `shortcuts_integration` shim survives so older renderers don't break before their JS surgery lands.)
 8. Finished councils write to `council_outcomes/`; the next launchpad render reflects them via on-demand `compute_personal_routing_table()` (no durable state file).

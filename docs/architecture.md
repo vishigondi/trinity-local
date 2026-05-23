@@ -54,7 +54,7 @@ context across them. Someone outside them has to.
 The chairman model synthesizes member outputs, emitting structured Routing JSON
 over every council. Members run in parallel (or in `chain` mode for sequential
 refinement). The personal routing table is computed on demand from
-`~/.trinity/council_outcomes/*.json` — no separate state file. The `/me`
+`~/.trinity/council_outcomes/*.json` — no separate state file. The `lens`
 lens-discovery pipeline (5 stages: turn-pair rejections → basins → decisions → pair-mining → basin
 post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair
 gap extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal

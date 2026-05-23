@@ -50,7 +50,7 @@ class: aspirational
 > selection; ~/.taste/ no longer required). Memory tier collapsed:
 > `PromptNode` + `TurnWindow` only (`TranscriptNode` retired). Iteration
 > commands collapsed: `council-iterate --rounds N [--prompt P]` replaces
-> council-continue/refine/auto-chain. Pair-wise `/me` lenses surface on
+> council-continue/refine/auto-chain. Pair-wise `lens` cards surface on
 > the launchpad with copy-to-socials buttons. **Phase 9 (learned tiny
 > coordinator) is aspirational** — sibling-repo work, not in this code.
 > See `~/.claude/plans/whimsical-imagining-firefly.md` for the focused v1
@@ -1108,17 +1108,17 @@ Use GPT first, Claude as challenger.
 
 ## 8.9 Aggregation endpoint = cold-start prior + calibration audit
 
-> **Reframed May 2026.** Earlier text called this "the training set for Phase 9." That's no longer true: chairman synthesis is now `/me`-conditioned (§8.4 + `me_builder`), so per-user `winner` and `provider_scores` labels are not apples-to-apples across users. Aggregating them produces a noisy mean, not a clean training signal. The endpoint stays load-bearing for two narrower jobs.
+> **Reframed May 2026.** Earlier text called this "the training set for Phase 9." That's no longer true: chairman synthesis is now `lens`-conditioned (§8.4 + `me_builder`), so per-user `winner` and `provider_scores` labels are not apples-to-apples across users. Aggregating them produces a noisy mean, not a clean training signal. The endpoint stays load-bearing for two narrower jobs.
 
-**Job 1 — Cold-start prior.** A new user with an empty `~/.trinity/council_outcomes/` directory and a thin `/me` would otherwise waste their first 10–20 councils rediscovering "codex+gpt-5.5 wins coding." Aggregated `(task_type, task_domain) → default_provider` priors short-circuit that. The chairman + the personal routing table (computed on demand by `compute_personal_routing_table()` walking those outcomes) then take over as a user accumulates their own data. (This is what §8.8 Local + global blend serves — fade from priors to personal as council count grows.)
+**Job 1 — Cold-start prior.** A new user with an empty `~/.trinity/council_outcomes/` directory and a thin `lens` would otherwise waste their first 10–20 councils rediscovering "codex+gpt-5.5 wins coding." Aggregated `(task_type, task_domain) → default_provider` priors short-circuit that. The chairman + the personal routing table (computed on demand by `compute_personal_routing_table()` walking those outcomes) then take over as a user accumulates their own data. (This is what §8.8 Local + global blend serves — fade from priors to personal as council count grows.)
 
-**Job 2 — Calibration audit.** Periodically compare anonymized aggregate winners to what an individual `/me`-conditioned chairman picks for the same `(task_type, task_domain)`. Large deltas mean either: (a) Trinity's chairman picker has rubber-stamped a single provider too aggressively, or (b) a model silently got worse. Both are actionable; the audit catches them.
+**Job 2 — Calibration audit.** Periodically compare anonymized aggregate winners to what an individual `lens`-conditioned chairman picks for the same `(task_type, task_domain)`. Large deltas mean either: (a) Trinity's chairman picker has rubber-stamped a single provider too aggressively, or (b) a model silently got worse. Both are actionable; the audit catches them.
 
 **What's no longer claimed:**
 
-- ~~"This bucket is the supervision signal Phase 9 trains on."~~ Phase 9's training data shape is now `(task_text, /me_embedding, available_models, …) → routing_decision`. Without `/me` as an input feature, generic labels collapse the user diversity Phase 9 needs to learn from. The training pipeline should pull from per-user `~/.trinity/council_outcomes/*.json` *with `/me` snapshot attached*, not from cross-user aggregate. See §9.
+- ~~"This bucket is the supervision signal Phase 9 trains on."~~ Phase 9's training data shape is now `(task_text, lens_embedding, available_models, …) → routing_decision`. Without `lens` as an input feature, generic labels collapse the user diversity Phase 9 needs to learn from. The training pipeline should pull from per-user `~/.trinity/council_outcomes/*.json` *with `lens` snapshot attached*, not from cross-user aggregate. See §9.
 
-**Payload (unchanged):** Anonymous opt-in upload of the Chairman `routing_label` JSON only — never prompt text, never harness identifiers. Each upload is `(task_type, task_domain, available_models, winner, runner_up, provider_scores, mode)`. No `/me`-derived fields are uploaded.
+**Payload (unchanged):** Anonymous opt-in upload of the Chairman `routing_label` JSON only — never prompt text, never harness identifiers. Each upload is `(task_type, task_domain, available_models, winner, runner_up, provider_scores, mode)`. No `lens`-derived fields are uploaded.
 
 **Implementation:** One Cloudflare Worker, R2 storage, GitHub Action for nightly aggregation. ~100 lines. Public read endpoint integrated into `trinity-local update` to refresh local priors weekly.
 
@@ -1252,7 +1252,7 @@ Inference is one encoder pass + one head pass. The head is the learned thing; th
 
 ## 9.2 Training data shape
 
-> **Reframed May 2026.** Chairman synthesis is `/me`-conditioned today, so labels are *per-user-per-/me*, not generic. Training data must include a `user_persona_embedding` as input or the head learns the average user's preferences (i.e. "always pick the AA top model"). Source the rows from per-user `~/.trinity/council_outcomes/*.json` with the user's `/me` snapshot attached at training time — **not** from §8.9's anonymized aggregate.
+> **Reframed May 2026.** Chairman synthesis is `lens`-conditioned today, so labels are *per-user-per-/me*, not generic. Training data must include a `user_persona_embedding` as input or the head learns the average user's preferences (i.e. "always pick the AA top model"). Source the rows from per-user `~/.trinity/council_outcomes/*.json` with the user's `lens` snapshot attached at training time — **not** from §8.9's anonymized aggregate.
 
 ```python
 @dataclass
@@ -1271,7 +1271,7 @@ class RouterExample:
     actual_mode: str                     # what the user actually used
     actual_primary: str
     actual_challenger: str | None
-    chairman_winner: str                 # what /me-conditioned chairman picked (gold target; lens-governed)
+    chairman_winner: str                 # what lens-conditioned chairman picked (gold target; lens-governed)
     accepted: bool                       # implicit signal: did the user close-tab or refine?
     edited: bool
 
@@ -1311,9 +1311,9 @@ Hold out 10% of councils as eval. Re-run after every controller release.
 
 ## 9.5 Deployment
 
-> **Reordered May 2026.** Earlier text shipped the shared head first and per-user adapter second. With chairman now `/me`-conditioned, the shared head trained on cross-user data learns "always pick AA's top model" — useless personalization. Flip the order: ship the per-user head first, fall back to a small shared cold-start prior for users with too few labeled councils.
+> **Reordered May 2026.** Earlier text shipped the shared head first and per-user adapter second. With chairman now `lens`-conditioned, the shared head trained on cross-user data learns "always pick AA's top model" — useless personalization. Flip the order: ship the per-user head first, fall back to a small shared cold-start prior for users with too few labeled councils.
 
-1. **Per-user head with `/me` conditioning.** Each user keeps a small head on top of a shared frozen encoder. The encoder's input is `concat(task_text_embedding, user_persona_embedding)` so the same architecture personalizes via input features rather than weights. Trained from that user's own verdicts (council outcomes + `record_outcome` calls). ~10KB on disk. v1 of the learned router. Privacy-clean — training data + weights stay local.
+1. **Per-user head with `lens` conditioning.** Each user keeps a small head on top of a shared frozen encoder. The encoder's input is `concat(task_text_embedding, user_persona_embedding)` so the same architecture personalizes via input features rather than weights. Trained from that user's own verdicts (council outcomes + `record_outcome` calls). ~10KB on disk. v1 of the learned router. Privacy-clean — training data + weights stay local.
 
 2. **Shared cold-start prior, distributed in the package.** A small head trained on §8.9's anonymized aggregate, used only when a user has fewer than ~20 labeled councils. As soon as the per-user head has enough signal to beat it on hold-out, swap. Update via `trinity-local update`. v2 — ships once we have enough per-user councils to validate that the per-user head is actually better than the prior.
 
