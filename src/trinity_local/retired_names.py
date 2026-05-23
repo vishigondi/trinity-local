@@ -541,6 +541,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Embedding-free hot path; ranker/heuristic.py replaces it",
         kind="mcp_tool",
     ),
+    "parse_peer_review_sections": RetirementRecord(
+        name="parse_peer_review_sections",
+        retired_at="2026-05-06",
+        commit="623f592",
+        replacement="parse_synthesis_sections (council_runtime.py)",
+        reason="Council pipeline simplification — the v1.0 peer-review subsystem (`render_peer_review_prompt` + `parse_peer_review_sections` + `parse_ranking_labels` + `aggregate_peer_rankings`) was an extra round before synthesis, retired in the v1.1 4-iteration council audit (commit 623f592). The surviving `parse_synthesis_sections` (hardened to case-insensitive + numbered variants + `raw` fallback) is the live parser. `docs/scale-plan.md` §10 narrates the retirement but until now it wasn't formally in the registry. Caught by the post-launch consistency loop 2026-05-23 (iter #30) — same doc-vs-registry cross-reference probe that caught iter #29's `shortcut_setup`/`dispatch_runner`/`commands.shortcuts` gap.",
+        kind="function",
+    ),
     "trinity-dispatch": RetirementRecord(
         name="trinity-dispatch",
         retired_at="2026-05-17",
