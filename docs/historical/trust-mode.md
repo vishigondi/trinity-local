@@ -1,11 +1,19 @@
 ---
-class: live
+class: historical
 ---
 
 # Trust mode + audit log
 
-> Council-ratified by `council_c18f739a0234aa58` (2026-05-16). Phase 6
-> of the three-tier architecture.
+> **Historical record — retired 2026-05-22.** The `trinity_local.trust`
+> library + `trust.schema.json` + `trust-init` / `trust-show` / `audit-show`
+> CLIs were sunset alongside the rating UX (#134). Trinity now ships with
+> NO unified gating UX; the Chrome extension's `ACTION_ALLOWLIST` in
+> `capture_host.py` is the current gating surface. Whatever shape v1.1
+> rebuilds, this doc is the v1.0 design context — not live config.
+>
+> Council-ratified by `council_c18f739a0234aa58` (2026-05-16) as the
+> Phase 6 design of the three-tier architecture. Preserved verbatim
+> below so the next iteration can read the original intent.
 
 Trinity's trust substrate is what makes "we respect your choices" a
 credible claim instead of a marketing line. Two coupled mechanisms:
