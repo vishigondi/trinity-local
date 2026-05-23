@@ -179,10 +179,18 @@ class CouncilRoutingLabel:
             payload["user_likely_values"] = self.user_likely_values
         if self.provider_scores:
             payload["provider_scores"] = self.provider_scores
-        if self.agreed_claims:
-            payload["agreed_claims"] = self.agreed_claims
-        if self.disagreed_claims:
-            payload["disagreed_claims"] = self.disagreed_claims
+        # agreed_claims + disagreed_claims are marked `required` in
+        # council_outcome.schema.json — they MUST be emitted even when
+        # empty. "Members reached no consensus" (empty agreed_claims)
+        # is semantically distinct from "the writer forgot to record
+        # it"; dropping the field collapses that distinction. Prior
+        # behaviour filtered them as part of the general empty-list
+        # filter and produced one schema-invalid outcome on disk
+        # (council_08debe7fdefdfcf8.json — caught by
+        # test_real_council_outcomes_validate during the post-launch
+        # consistency sweep).
+        payload["agreed_claims"] = self.agreed_claims
+        payload["disagreed_claims"] = self.disagreed_claims
         return payload
 
     @classmethod

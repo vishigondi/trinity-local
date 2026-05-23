@@ -246,9 +246,29 @@ class TestRoutingLabelRoundtrip:
 
 class TestSchemaSerialization:
     def test_minimal_label_serializes(self):
+        # agreed_claims + disagreed_claims are emitted even when empty
+        # — the schema marks them required. "No consensus reached"
+        # (empty array) is semantically distinct from "writer forgot
+        # to record it" (missing field). See council_schema.py L182.
         label = CouncilRoutingLabel(winner="claude")
         d = label.to_dict()
-        assert d == {"winner": "claude", "confidence": "medium"}
+        assert d == {
+            "winner": "claude",
+            "confidence": "medium",
+            "agreed_claims": [],
+            "disagreed_claims": [],
+        }
+
+    def test_required_schema_fields_always_present_even_when_empty(self):
+        # Regression guard: prior bug had to_dict() dropping empty
+        # agreed_claims/disagreed_claims, which violated the schema
+        # (32 of 358 on-disk outcomes hit this; backfilled 2026-05-23).
+        label = CouncilRoutingLabel(winner="x")
+        d = label.to_dict()
+        assert "agreed_claims" in d
+        assert "disagreed_claims" in d
+        assert d["agreed_claims"] == []
+        assert d["disagreed_claims"] == []
 
     def test_full_label_roundtrips_through_from_dict(self):
         original = CouncilRoutingLabel(
