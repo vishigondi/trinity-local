@@ -201,9 +201,13 @@ all point at the same architectural claim.
   gh repo edit vishigondi/trinity-local --visibility public --accept-visibility-change-consequences
   # → every github.com/vishigondi/trinity-local URL in launch copy goes 200
 
-  # 3. Tag v1.7.4 (matches pyproject.toml version)
-  git tag -a v1.7.4 -m "Trinity Local v1.7 — shipped May 13–15, 2026"
-  git push origin v1.7.4
+  # 3. Tag whatever pyproject.toml currently has (v1.7.4 already tagged
+  #    during the May 13–15 ship; v1.7.5 is the post-launch cleanup
+  #    described in CHANGELOG.md). If pyproject moved forward since the
+  #    last tag, cut a fresh tag at the current version:
+  current_version=$(grep -E '^version = "' pyproject.toml | sed -E 's/.*"([^"]+)".*/\1/')
+  git tag -a "v${current_version}" -m "Trinity Local v${current_version}"
+  git push origin "v${current_version}"
 
   # 4. (No PyPI publish — Trinity ships as a git clone via curl-bash; see
   #    docs/INSTALL-pip.md "Why no PyPI publish?" for the architectural reasons.)
