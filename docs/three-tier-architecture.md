@@ -125,8 +125,12 @@ Ratified by the council:
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
   (`council_outcome`, `eval_set`, `rejection_signal`, `trust` —
-  the `trust.schema.json` shipped 2026-05-18 alongside the trust
-  substrate; see "What v1.0 shipped" in [`historical/trust-mode.md`](historical/trust-mode.md)).
+  `trust.schema.json` shipped 2026-05-18 alongside the trust
+  substrate; the substrate was retired 2026-05-22 alongside the
+  rating-UX retirement (iter #117 of the post-launch sweep) — the
+  schema files are now orphan reference material pending the v1.1
+  rebuild. See [`historical/trust-mode.md`](historical/trust-mode.md)
+  for the original design).
 - Extension as-is (Phase 4b shipped — see MIGRATION.md).
 - `docs/three-tier-architecture.md` (this file) — full vision,
   marks shared `scripts/` substrate as v1.1.
@@ -153,16 +157,21 @@ What v1.1 picks up:
 - Pip package narrows to CLI ergonomics + installers + optional
   daemon. ~40 modules stay (commands, MCP server, launchpad
   templates).
-- Trust-mode finishing touches. The substrate ITSELF shipped in v1.0
-  (per [`historical/trust-mode.md`](historical/trust-mode.md) — `trust.toml` schema, `audit.log`
-  JSONL writer, `--dangerously-trust-all` env-var gate, `trinity_local.trust`
-  library, cross-tier `TRINITY_ORIGIN_TIER` propagation, loud-fail on
-  audit-write errors). What v1.1 picks up are the rough edges around the
-  shipped substrate: automatic audit rotation (v1.0 only warns above 50 MB
-  via `status`), visible trust indicators in launchpad header + extension
-  popup, `--tier`/`--operation`/`--outcome` filter flags on the deferred
-  `audit-show` CLI, and the top-level `--dangerously-trust-all` flag on
-  `trinity-local` (v1.0 has only the env var).
+- Trust-mode rebuild from scratch. The v1.0 substrate (per
+  [`historical/trust-mode.md`](historical/trust-mode.md) — `trust.toml`
+  schema, `trinity_local.trust` library + 16 tests, `--dangerously-trust-all`
+  env-var gate) was retired 2026-05-22 (iter #117 of the post-launch
+  sweep, commit `c2573ff`) after audit found zero production imports
+  — the active audit-log surface is `scripts/_runtime.py::audit_log()`,
+  an independent stdlib-only implementation that never went through
+  the library. What v1.1 picks up is a clean rebuild: gating config
+  (probably reusing the `trust.toml` shape since the schema is intact),
+  user-facing CLI (`trust-init` / `trust-show` / `audit-show`),
+  automatic audit rotation, visible trust indicators in launchpad +
+  extension popup, cross-tier `TRINITY_ORIGIN_TIER` propagation (the
+  audit-log writer already stamps this), `--tier`/`--operation`/
+  `--outcome` filter flags, and a top-level `--dangerously-trust-all`
+  flag on `trinity-local`.
 - Cross-backend equivalence test harness:
   `tests/test_tier_equivalence.py` covering MLX / torch CPU / (post-
   v1.1) torch CUDA against pinned-config invariants.

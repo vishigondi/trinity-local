@@ -97,8 +97,15 @@ are done.** The cron can fire empty ticks until the user
 Per council verdict, deferred:
 - `scripts/` as importable+executable shared substrate
 - 70-module engine extraction from `src/trinity_local/`
-- Trust mode + audit log substrate (`~/.trinity/trust.toml`,
-  `~/.trinity/audit.log`, `--dangerously-trust-all`)
+- Trust mode + audit log substrate rebuild from scratch
+  (`~/.trinity/trust.toml` gating config + CLI + visible indicators).
+  The v1.0 library `trinity_local.trust` was retired 2026-05-22
+  (iter #117 of the post-launch sweep, commit `c2573ff`) after audit
+  found zero production imports. The active audit-log surface today
+  is `scripts/_runtime.py::audit_log()` — an independent
+  implementation that survives the retirement. v1.1 rebuilds the
+  gating + CLI fresh; the original design is preserved at
+  [`docs/historical/trust-mode.md`](docs/historical/trust-mode.md).
 - Cross-backend equivalence test harness (MLX / torch CPU / CUDA)
 - Web-chat capture in extension v0.2 (separate per-site permission
   opt-in)
