@@ -31,7 +31,6 @@ def _make_provider_config(name: str = "antigravity", *, model: str = "gemini-3-p
         label=name.title(),
         command=[name],
         args=[],
-        roles={"member"},
         task_types=set(),
         model=model,
     )

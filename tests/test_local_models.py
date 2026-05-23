@@ -148,7 +148,6 @@ class TestOllamaProviderDispatch:
             label="Ollama Qwen 3 32B",
             command=["ollama"],
             args=[],
-            roles=set(),
             task_types=set(),
             model="qwen3:32b",
         )
@@ -182,7 +181,6 @@ class TestOllamaProviderDispatch:
             label="Ollama (bad)",
             command=["ollama"],
             args=[],
-            roles=set(),
             task_types=set(),
             model=None,  # the bug we're guarding
         )
@@ -204,7 +202,6 @@ class TestMakeProviderDispatch:
             label="Local Qwen 3 32B",
             command=["ollama"],
             args=[],
-            roles=set(),
             task_types=set(),
             model="qwen3:32b",
         )

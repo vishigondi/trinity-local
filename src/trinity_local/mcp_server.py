@@ -501,7 +501,6 @@ def _dispatch_to_ollama_model(provider_name: str, prompt: str) -> str:
         label=f"Ollama {model}",
         command=["ollama"],
         args=[],
-        roles=set(),
         task_types=set(),
         model=model,
     )

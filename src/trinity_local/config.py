@@ -15,7 +15,6 @@ class ProviderConfig:
     label: str
     command: list[str]
     args: list[str]
-    roles: set[str]
     task_types: set[str]
     model: str | None = None
 
@@ -25,7 +24,6 @@ class AppConfig:
     max_turns: int
     notifications: bool
     providers: dict[str, ProviderConfig]
-    role_preferences: dict[str, list[str]]
     task_preferences: dict[str, list[str]]
 
 
@@ -102,7 +100,6 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
             label=provider.get("label", name),
             command=list(provider["command"]),
             args=list(provider.get("args", [])),
-            roles=set(provider.get("roles", [])),
             task_types=set(provider.get("task_types", [])),
             model=provider.get("model"),
         )
@@ -111,9 +108,6 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
         max_turns=int(raw.get("max_turns", 4)),
         notifications=bool(raw.get("notifications", True)),
         providers=providers,
-        role_preferences={
-            key: list(value) for key, value in raw.get("role_preferences", {}).items()
-        },
         task_preferences={
             key: list(value) for key, value in raw.get("task_preferences", {}).items()
         },
@@ -126,7 +120,6 @@ def _empty_config() -> AppConfig:
         max_turns=4,
         notifications=False,
         providers={},
-        role_preferences={},
         task_preferences={},
     )
 

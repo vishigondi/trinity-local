@@ -181,7 +181,7 @@ class TestRunConsensusRound:
         def _pc(name: str, model: str) -> ProviderConfig:
             return ProviderConfig(
                 name=name, type="cli", enabled=True, label=name,
-                command=["echo"], args=[], roles=set(), task_types=set(),
+                command=["echo"], args=[], task_types=set(),
                 model=model,
             )
 
@@ -189,7 +189,6 @@ class TestRunConsensusRound:
             max_turns=10,
             notifications=False,
             providers={"claude": _pc("claude", "claude-x"), "antigravity": _pc("antigravity", "gemini-x")},
-            role_preferences={},
             task_preferences={},
         )
         result = run_consensus_round(
@@ -247,7 +246,7 @@ class TestRunConsensusRound:
         def _pc(name: str, model: str) -> ProviderConfig:
             return ProviderConfig(
                 name=name, type="cli", enabled=True, label=name,
-                command=["echo"], args=[], roles=set(), task_types=set(),
+                command=["echo"], args=[], task_types=set(),
                 model=model,
             )
 
@@ -255,7 +254,6 @@ class TestRunConsensusRound:
             max_turns=10,
             notifications=False,
             providers={"claude": _pc("claude", "claude-x"), "antigravity": _pc("antigravity", "gemini-x")},
-            role_preferences={},
             task_preferences={},
         )
         result = run_consensus_round(

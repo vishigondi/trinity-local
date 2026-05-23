@@ -25,7 +25,6 @@ def _claude_config():
         label="Claude",
         command=["claude", "-p"],
         args=[],
-        roles=set(),
         task_types=set(),
         model="claude-test",
     )
@@ -40,7 +39,6 @@ def _gemini_config():
         label="Gemini",
         command=["agy", "-p"],
         args=[],
-        roles=set(),
         task_types=set(),
         model="gemini-test",
     )

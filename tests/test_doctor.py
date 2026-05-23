@@ -402,7 +402,7 @@ class TestHandoffReadyCheck:
         providers = {
             name: ProviderConfig(
                 name=name, type="cli", enabled=True, label=name.title(),
-                command=[name], args=[], roles=set(), task_types=set(),
+                command=[name], args=[], task_types=set(),
                 model=None,
             )
             for name in enabled_providers
@@ -415,7 +415,7 @@ class TestHandoffReadyCheck:
             "trinity_local.config.load_config",
             lambda required=False: AppConfig(
                 max_turns=10, notifications=True,
-                providers=providers, role_preferences={}, task_preferences={},
+                providers=providers, task_preferences={},
             ),
         )
 

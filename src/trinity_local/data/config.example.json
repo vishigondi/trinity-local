@@ -18,10 +18,6 @@
           "--max-tokens",
           "900"
         ],
-        "roles": [
-          "thinker",
-          "verifier"
-        ],
         "task_types": [
           "general",
           "reasoning",
@@ -41,11 +37,6 @@
           "--model",
           "claude-sonnet-4-6"
         ],
-        "roles": [
-          "thinker",
-          "worker",
-          "verifier"
-        ],
         "task_types": [
           "general",
           "reasoning",
@@ -62,10 +53,6 @@
           "-p"
         ],
         "args": [],
-        "roles": [
-          "thinker",
-          "verifier"
-        ],
         "task_types": [
           "general",
           "reasoning",
@@ -88,32 +75,11 @@
           "--model",
           "gpt-5.3-codex"
         ],
-        "roles": [
-          "worker",
-          "verifier"
-        ],
         "task_types": [
           "coding",
           "debugging"
         ]
       }
-    },
-    "role_preferences": {
-      "thinker": [
-        "mlx",
-        "claude",
-        "antigravity"
-      ],
-      "worker": [
-        "codex",
-        "claude",
-        "mlx"
-      ],
-      "verifier": [
-        "claude",
-        "antigravity",
-        "mlx"
-      ]
     },
     "task_preferences": {
       "coding": [

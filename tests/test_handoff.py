@@ -193,7 +193,6 @@ class TestRunHandoff:
                 label=name.title(),
                 command=["antigravity"],  # fake binary; tests patch make_provider
                 args=[],
-                roles={"member"},
                 task_types=set(),
                 model="gemini-3-pro",
             )

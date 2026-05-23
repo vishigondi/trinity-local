@@ -511,7 +511,6 @@ class TestCouncilFailureMetadata:
                     label="Claude",
                     command=["claude"],
                     args=[],
-                    roles=set(),
                     task_types=set(),
                 ),
                 "antigravity": ProviderConfig(
@@ -521,7 +520,6 @@ class TestCouncilFailureMetadata:
                     label="Gemini",
                     command=["antigravity"],
                     args=[],
-                    roles=set(),
                     task_types=set(),
                 ),
                 "codex": ProviderConfig(
@@ -531,11 +529,9 @@ class TestCouncilFailureMetadata:
                     label="Codex",
                     command=["codex"],
                     args=[],
-                    roles=set(),
                     task_types=set(),
                 ),
             },
-            role_preferences={},
             task_preferences={},
         )
         bundle = create_prompt_bundle(
