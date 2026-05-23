@@ -3,15 +3,22 @@
 The browser-extension/manifest.json had no `icons` block, so Chrome
 rendered the gray puzzle-piece placeholder in the toolbar and the
 extensions list. This script generates the canonical ⠕ Trinity mark
-(U+2815 — Braille pattern dots-135) inside a cream/sage circle, at
-16/32/48/128 px.
+(U+2815 — Braille pattern dots-135) at 16/32/48/128 px.
+
+**Variant: "04 Filled badge"** — sage fill + cream dots (inverse of
+the original 01 Canonical Ring). Picked 2026-05-23 because the
+filled-disk treatment survives best at 16 px (the actual toolbar
+size) and pops against Chrome's light browser-chrome bar. The
+inverse-contrast treatment is also more distinctive at a glance
+than the thin-ring variants when scrolling the chrome://extensions
+list past other gray-puzzle-piece extensions.
 
 ⠕ is the brand mark Trinity carries on every share artifact (see
 `share_card_base.FOOTER_TAGLINE`) and the launchpad eyebrow
-(`launchpad_template.py`). Bringing the same glyph onto the toolbar
-icon makes the visual language consistent end-to-end — same character
-in the README badge, share cards, launchpad eyebrow, and Chrome
-extension chip.
+(`launchpad_template.py`). Same character end-to-end — README badge,
+share cards (still using 01 Canonical Ring framing for editorial
+context), launchpad eyebrow, and the toolbar icon (now 04 Filled
+badge for legibility).
 
 Re-run if `design_system.COLORS` palette changes or the mark needs
 updating. Output lands under `browser-extension/icons/` (4 PNGs)
@@ -84,28 +91,32 @@ def _font_with_braille(pixel_size: int) -> ImageFont.FreeTypeFont | ImageFont.Im
 
 
 def render_icon(canvas_size: int) -> Image.Image:
+    """Render the "04 Filled badge" variant: sage disk + cream ⠕ dots.
+
+    Sage fill instead of cream → maximum legibility at toolbar size
+    (16 px) where thin strokes vanish into the browser chrome. Cream
+    dots provide high-contrast brand mark legibility.
+    """
     work_size, scale = _scaled(canvas_size)
     img = Image.new("RGBA", (work_size, work_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    bg = _hex_to_rgb(COLORS["bg_base"])         # cream — #f5efe3
-    stroke = _hex_to_rgb(COLORS["action_primary"])  # sage — #255847
+    fill = _hex_to_rgb(COLORS["action_primary"])  # sage — #255847 — disk
+    glyph = _hex_to_rgb(COLORS["bg_base"])        # cream — #f5efe3 — ⠕ dots
 
-    # Circle fill (cream) with a sage stroke. Stroke width scales with
-    # canvas so the ring stays readable at 16 px.
-    stroke_w = max(2, work_size // 24)
-    inset = stroke_w // 2
+    # Solid sage disk. No outer ring — the filled treatment IS the
+    # silhouette (mass beats stroke at 16 px). 1 px inset prevents
+    # the LANCZOS downsize from clipping anti-aliased edges.
+    inset = 1
     draw.ellipse(
         (inset, inset, work_size - inset, work_size - inset),
-        fill=bg,
-        outline=stroke,
-        width=stroke_w,
+        fill=fill,
     )
 
-    # Center the ⠕ glyph. Braille glyphs sit high in the em-box, so we
-    # measure the actual ink bbox (not the font bbox) and translate
-    # accordingly — keeps the mark visually centered, not just baseline-
-    # aligned.
+    # Center the ⠕ glyph in cream. Braille glyphs sit high in the
+    # em-box, so we measure the actual ink bbox (not the font bbox)
+    # and translate accordingly — keeps the mark visually centered,
+    # not just baseline-aligned.
     glyph_size = int(work_size * 0.58)
     font = _font_with_braille(glyph_size)
     bbox = draw.textbbox((0, 0), MARK, font=font)
@@ -113,7 +124,7 @@ def render_icon(canvas_size: int) -> Image.Image:
     glyph_h = bbox[3] - bbox[1]
     cx = (work_size - glyph_w) // 2 - bbox[0]
     cy = (work_size - glyph_h) // 2 - bbox[1]
-    draw.text((cx, cy), MARK, fill=stroke, font=font)
+    draw.text((cx, cy), MARK, fill=glyph, font=font)
 
     if scale != 1:
         img = img.resize((canvas_size, canvas_size), Image.LANCZOS)
