@@ -100,7 +100,7 @@ No listening port, no daemon. The v1.6 extension uses Chrome's Native Messaging 
 
 ### Why should I trust your eval numbers?
 
-You don't have to — `eval-build` produces the suite from *your* `~/.trinity/me/rejections.jsonl`, not ours. The mechanic: Stage 0 mines (prompt, rejected_response, rejection_type) triples from your transcripts (REFRAME / COMPRESSION / REDIRECT / SHARPENING). `eval-run --target <provider>` dispatches each prompt and scores via judge against *your* `lens.md`. Output is "Model X scored 0.66 on YOUR COMPRESSION-prone prompts" — and the *per-axis* breakdown reveals where each model actually struggles. Real run on Vishi's corpus (2026-05-15): claude N=20 → 0.66 aggregate, with COMPRESSION 0.50 (real over-engineering weakness) vs SHARPENING 0.93. Codex N=4 → 0.74. Provider can't game it — only Trinity has cross-provider rejection signal.
+You don't have to — `eval-build` produces the suite from *your* `~/.trinity/me/rejections.jsonl`, not ours. The mechanic: Stage 0 mines (prompt, rejected_response, rejection_type) triples from your transcripts (REFRAME / COMPRESSION / REDIRECT / SHARPENING). `eval-run --target <provider>` dispatches each prompt and scores via judge against *your* `lens.md`. Output is "Model X scored 0.79 on YOUR 45-item rejection corpus" — and the *per-axis* breakdown reveals where each model actually struggles. Freshest run on Vishi's corpus (2026-05-22): claude N=45 → 0.79 aggregate, with SHARPENING 0.82 / REFRAME 0.81 / REDIRECT 0.80 strong, COMPRESSION 0.48 weaker on a small n=2 sample. Codex N=5 → 0.70 (May 19 subset, full-suite re-run is v1.7.6 polish). Provider can't game it — only Trinity has cross-provider rejection signal.
 
 ### The basin labels look fake — "Hello.", "thanks!", greeting noise.
 

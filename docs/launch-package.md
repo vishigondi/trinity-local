@@ -262,11 +262,13 @@ rating UX (per `src/trinity_local/retired_names.py` `_rate_limit_saves` +
 `pageData.rateLimitSaves`); the rate-prompting UX it surfaced created agent
 friction that wasn't earning its keep. The successor case-study metric is the
 **personalized benchmark from `trinity-local eval-run --target <provider>`**
-(task #122, shipped): "Claude scored 0.66 on YOUR kind of question" — a real
-empirical number computed against the user's own rejection signal, not a
-heuristic save-counter. Same use case (verifiable single-number case study),
-stronger surface (provider-comparative, structurally non-refutable because
-only Trinity has cross-provider rejection signal).
+(task #122, shipped): "Claude scored 0.79 aggregate on YOUR 45-item
+rejection corpus" — a real empirical number computed against the user's
+own rejection signal, not a heuristic save-counter. Same use case
+(verifiable single-number case study), stronger surface
+(provider-comparative, structurally non-refutable because only Trinity
+has cross-provider rejection signal). See `docs/launch-day/00_leaderboard.md`
+for the freshest run details (claude N=45 / codex N=5 / gemini N=17).
 
 ## Cross-references
 

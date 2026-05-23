@@ -10,7 +10,7 @@ eval-run against Vishi's actual rejection corpus.
 
 | # | File | Use it for |
 |---|---|---|
-| 00 | `00_leaderboard.md` | Real numbers from the eval-run (claude N=20 → 0.66 aggregate; COMPRESSION 0.50 = over-engineering when user wanted brevity). Codex N=4 → 0.74 (small-sample). Gemini quota exhausted (free tier; ~22h reset). |
+| 00 | `00_leaderboard.md` | Real numbers from the eval-run (claude N=45 → 0.79 aggregate, freshest 2026-05-22; SHARPENING 0.82 / REFRAME 0.81 / REDIRECT 0.80 strong, COMPRESSION 0.48 weak n=2). Codex N=5 → 0.70 (May 19, re-run pending). Gemini N=17 → 0.44 (May 19, COMPRESSION 0.30 — clear weakness on the wider slice). |
 | 01 | `01_tweet_thread.md` | 12-tweet launch thread (each ≤280c). Tweet 1 is the hero opener. |
 | 02 | `02_show_hn_post.md` | "Show HN" title + opener + closer |
 | 03 | `03_hn_objection_faq.md` | Top-5 anticipated objections + named-author rebuttals |
