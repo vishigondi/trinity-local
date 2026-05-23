@@ -270,9 +270,21 @@ function memberRow(provider, status, detail) {
 function updateMemberRow(provider, status) {
   const rows = $("member-rows");
   const existing = Array.from(rows.children).find((c) => c.dataset.provider === provider);
-  const next = memberRow(provider, status);
-  if (existing) rows.replaceChild(next, existing);
-  else rows.appendChild(next);
+  if (!existing) {
+    rows.appendChild(memberRow(provider, status));
+    return;
+  }
+  const dot = existing.querySelector(".dot");
+  const pill = existing.querySelector(".pill");
+  if (dot) dot.className = "dot " + status;
+  if (pill) {
+    pill.className = "pill " + status;
+    pill.textContent = (
+      status === "done" ? "Done" :
+      status === "failed" ? "Failed" :
+      status === "running" ? "Running" : "Queued"
+    );
+  }
 }
 
 function rotateTip() {

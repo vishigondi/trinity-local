@@ -2,14 +2,25 @@
 
 The browser-extension/manifest.json had no `icons` block, so Chrome
 rendered the gray puzzle-piece placeholder in the toolbar and the
-extensions list. This script generates a brand-coherent set —
-cream background, sage accent, serif "T" — at 16/32/48/128 px.
+extensions list. This script generates the canonical ⠕ Trinity mark
+(U+2815 — Braille pattern dots-135) inside a cream/sage circle, at
+16/32/48/128 px.
+
+⠕ is the brand mark Trinity carries on every share artifact (see
+`share_card_base.FOOTER_TAGLINE`) and the launchpad eyebrow
+(`launchpad_template.py`). Bringing the same glyph onto the toolbar
+icon makes the visual language consistent end-to-end — same character
+in the README badge, share cards, launchpad eyebrow, and Chrome
+extension chip.
 
 Re-run if `design_system.COLORS` palette changes or the mark needs
-updating. Output lands under `browser-extension/icons/`.
+updating. Output lands under `browser-extension/icons/` (4 PNGs)
+plus a sibling `docs/favicon.png` rendered at 64 px for the site.
 
-The same brand cues are used across the launchpad CSS, share cards,
-and (now) the toolbar icon — one visual language across surfaces.
+Font fallback chain: Apple Braille → Apple Symbols → DejaVu Sans →
+Pillow default bitmap. Most system sans fonts render ⠕ as the
+tofu-box "missing glyph"; the chain ensures real Braille rendering
+on macOS dev machines AND Linux CI / contributor machines.
 """
 from __future__ import annotations
 
@@ -26,60 +37,101 @@ from trinity_local.design_system import COLORS
 
 SIZES = [16, 32, 48, 128]
 OUT_DIR = REPO_ROOT / "browser-extension" / "icons"
+FAVICON_PATH = REPO_ROOT / "docs" / "favicon.png"
+FAVICON_SIZE = 64
+
+# ⠕ — U+2815, Braille pattern dots-135. The Trinity brand mark.
+MARK = "⠕"
+
+# Font candidates that actually carry Braille glyphs. Order: macOS
+# Braille-specific, macOS symbol, Linux DejaVu, then ultimate fallback.
+_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Apple Braille.ttf",
+    "/System/Library/Fonts/Apple Symbols.ttf",
+    "/Library/Fonts/Apple Braille.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+]
 
 
-def _font_for_size(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Find a serif font that exists on this machine; fallback to default."""
-    candidates = [
-        "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
-        "/System/Library/Fonts/Times.ttc",
-        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-    ]
-    glyph_size = int(size * 0.72)
-    for path in candidates:
-        if Path(path).exists():
-            try:
-                return ImageFont.truetype(path, glyph_size)
-            except OSError:
-                continue
+def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.lstrip("#")
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _scaled(size: int) -> tuple[int, int]:
+    """Supersample dimensions so tiny icons stay crisp after downsize."""
+    scale = 4 if size <= 48 else 2
+    return size * scale, scale
+
+
+def _font_with_braille(pixel_size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path in _FONT_CANDIDATES:
+        if not Path(path).exists():
+            continue
+        try:
+            font = ImageFont.truetype(path, pixel_size)
+            # Verify the font actually renders ⠕ — Pillow will return
+            # zero width for missing glyphs, so we check the bbox.
+            bbox = font.getbbox(MARK)
+            if bbox and (bbox[2] - bbox[0]) > 0:
+                return font
+        except OSError:
+            continue
+    # Last-resort fallback. Will likely render a tofu box; ship a
+    # placeholder so the script doesn't crash in CI.
     return ImageFont.load_default()
 
 
-def render_icon(size: int) -> Image.Image:
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+def render_icon(canvas_size: int) -> Image.Image:
+    work_size, scale = _scaled(canvas_size)
+    img = Image.new("RGBA", (work_size, work_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    bg = COLORS["bg_base"]
-    fg = COLORS["action_primary"]
+    bg = _hex_to_rgb(COLORS["bg_base"])         # cream — #f5efe3
+    stroke = _hex_to_rgb(COLORS["action_primary"])  # sage — #255847
 
-    pad = max(1, size // 16)
+    # Circle fill (cream) with a sage stroke. Stroke width scales with
+    # canvas so the ring stays readable at 16 px.
+    stroke_w = max(2, work_size // 24)
+    inset = stroke_w // 2
     draw.ellipse(
-        (pad, pad, size - pad - 1, size - pad - 1),
+        (inset, inset, work_size - inset, work_size - inset),
         fill=bg,
-        outline=fg,
-        width=max(1, size // 24),
+        outline=stroke,
+        width=stroke_w,
     )
 
-    font = _font_for_size(size)
-    text = "T"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = (size - text_w) // 2 - bbox[0]
-    y = (size - text_h) // 2 - bbox[1]
-    draw.text((x, y), text, fill=fg, font=font)
+    # Center the ⠕ glyph. Braille glyphs sit high in the em-box, so we
+    # measure the actual ink bbox (not the font bbox) and translate
+    # accordingly — keeps the mark visually centered, not just baseline-
+    # aligned.
+    glyph_size = int(work_size * 0.58)
+    font = _font_with_braille(glyph_size)
+    bbox = draw.textbbox((0, 0), MARK, font=font)
+    glyph_w = bbox[2] - bbox[0]
+    glyph_h = bbox[3] - bbox[1]
+    cx = (work_size - glyph_w) // 2 - bbox[0]
+    cy = (work_size - glyph_h) // 2 - bbox[1]
+    draw.text((cx, cy), MARK, fill=stroke, font=font)
 
+    if scale != 1:
+        img = img.resize((canvas_size, canvas_size), Image.LANCZOS)
     return img
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for size in SIZES:
-        img = render_icon(size)
         path = OUT_DIR / f"icon-{size}.png"
-        img.save(path, "PNG")
-        print(f"  wrote {path} ({size}x{size})")
+        img = render_icon(size)
+        img.save(path, format="PNG")
+        print(f"  → {path.relative_to(REPO_ROOT)}  ({size}×{size})")
+
+    FAVICON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    favicon = render_icon(FAVICON_SIZE)
+    favicon.save(FAVICON_PATH, format="PNG")
+    print(f"  → {FAVICON_PATH.relative_to(REPO_ROOT)}  ({FAVICON_SIZE}×{FAVICON_SIZE})")
     return 0
 
 
