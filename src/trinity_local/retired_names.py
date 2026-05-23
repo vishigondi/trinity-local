@@ -180,6 +180,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
         kind="module",
     ),
+    "implementation-notes.html": RetirementRecord(
+        name="implementation-notes.html",
+        retired_at="2026-05-22",
+        commit="(see git log — orphan HTML sunset in iter #124 of post-launch sweep)",
+        replacement="(none — the historical iter #15-#72 consistency-sweep write-up lives in git history; no live surface needs it)",
+        reason="implementation-notes.html lived at repo root, titled 'Implementation Notes — Consistency Sweep (iters #15-#72)'. Carried canonical-placeholder blocks so the test-count and doc-consistency-guard numbers stayed fresh — but the file was referenced from nowhere. The static site at keepwhatworks.com is rooted at docs/, not repo root, so this HTML was structurally orphaned: it auto-rendered on every test-count change (cache-busting churn) without any navigation surface. Sunset confirmed via AskUserQuestion in iter #124 — user picked 'Sunset — delete the file'. Net cleanup: -17 KB tracked HTML + stops auto-render churn from rippling 1 surface on every test-count shift.",
+        kind="file",
+    ),
     "trust.schema.json": RetirementRecord(
         name="trust.schema.json",
         retired_at="2026-05-22",
