@@ -126,7 +126,7 @@ Ratified by the council:
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
   (`council_outcome`, `eval_set`, `rejection_signal`, `trust` —
   the `trust.schema.json` shipped 2026-05-18 alongside the trust
-  substrate; see "What v1.0 shipped" in [`TRUST-MODE.md`](TRUST-MODE.md)).
+  substrate; see "What v1.0 shipped" in [`historical/trust-mode.md`](historical/trust-mode.md)).
 - Extension as-is (Phase 4b shipped — see MIGRATION.md).
 - `docs/three-tier-architecture.md` (this file) — full vision,
   marks shared `scripts/` substrate as v1.1.
@@ -154,7 +154,7 @@ What v1.1 picks up:
   daemon. ~40 modules stay (commands, MCP server, launchpad
   templates).
 - Trust-mode finishing touches. The substrate ITSELF shipped in v1.0
-  (per [`TRUST-MODE.md`](TRUST-MODE.md) — `trust.toml` schema, `audit.log`
+  (per [`historical/trust-mode.md`](historical/trust-mode.md) — `trust.toml` schema, `audit.log`
   JSONL writer, `--dangerously-trust-all` env-var gate, `trinity_local.trust`
   library, cross-tier `TRINITY_ORIGIN_TIER` propagation, loud-fail on
   audit-write errors). What v1.1 picks up are the rough edges around the

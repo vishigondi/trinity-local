@@ -60,7 +60,7 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/spec-v1.md",
     "docs/three-tier-architecture.md",
     "docs/training-data.md",
-    "docs/TRUST-MODE.md",
+    "docs/historical/trust-mode.md",
     "docs/SITE_README.md",
     # ── Other tracked user-facing READMEs ──
     "browser-extension/README.md",

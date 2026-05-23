@@ -105,9 +105,9 @@ The pip tier writes to `~/.trinity/audit.log` via
 The trust-gating library (`trinity_local.trust`) was retired
 2026-05-22 (post-launch sweep iter #117) — `~/.trinity/trust.toml` is
 no longer consulted by any tier. Gating config + the dedicated CLI
-land in v1.1 as a fresh build. See [`TRUST-MODE.md`](TRUST-MODE.md)
-for the originally-shipped substrate description (pending
-reconciliation with the library retirement).
+land in v1.1 as a fresh build. See [`historical/trust-mode.md`](historical/trust-mode.md)
+for the original design — preserved as the historical record of the
+substrate Trinity moved away from.
 
 ## Heavy ops as standalone scripts
 

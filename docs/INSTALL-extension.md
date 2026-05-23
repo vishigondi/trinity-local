@@ -97,7 +97,7 @@ Per the council-ratified roadmap (see
   rather than at install)
 - Chrome Web Store listing
 - Visible trust indicators in the popup (green/yellow/red badge per
-  the trust mode config — see [`TRUST-MODE.md`](TRUST-MODE.md))
+  the trust mode config — see [`historical/trust-mode.md`](historical/trust-mode.md))
 - Audit-log read surface in the popup ("last 10 operations")
 
 ## Audit log
@@ -115,9 +115,9 @@ The trust-*gating* library (`trinity_local.trust`) was retired
 tier. The extension's allowlist (`background.js`
 `ACTION_ALLOWLIST`) is its current gating surface. A unified gating
 config + the `trust-init` / `trust-show` / `audit-show` CLI lands in
-v1.1 as a fresh build. See [`TRUST-MODE.md`](TRUST-MODE.md) for the
-originally-shipped substrate description (pending reconciliation
-with the library retirement).
+v1.1 as a fresh build. See [`historical/trust-mode.md`](historical/trust-mode.md) for the
+original design — preserved as the historical record of the
+substrate Trinity moved away from.
 
 ## Limitations and what to expect
 

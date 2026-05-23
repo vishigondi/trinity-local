@@ -57,7 +57,7 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/spec-v1.md": "live",
     "docs/three-tier-architecture.md": "live",
     "docs/training-data.md": "live",
-    "docs/TRUST-MODE.md": "live",
+    "docs/historical/trust-mode.md": "historical",
     "docs/SITE_README.md": "live",
     # ── Other tracked user-facing READMEs ──
     "browser-extension/README.md": "live",

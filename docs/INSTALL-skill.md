@@ -101,10 +101,10 @@ a fresh implementation in v1.1. Until then, operations don't
 pre-grant from a config; the Claude Code permission dialog (skill
 tier) is the gating surface.
 
-See [`TRUST-MODE.md`](TRUST-MODE.md) for the originally-shipped
-trust model; that doc describes the substrate as it was on
-2026-05-16 (council `c18f739a0234aa58`) and is pending reconciliation
-with the library retirement.
+See [`historical/trust-mode.md`](historical/trust-mode.md) for the
+original design (council `c18f739a0234aa58`, 2026-05-16); preserved
+as the historical record of the substrate Trinity moved away from
+when the library was retired.
 
 ## What runs locally vs. what doesn't
 
@@ -130,4 +130,4 @@ with the library retirement.
 - `INSTALL-extension.md` — install the Chrome extension for cross-
   surface capture + one-click UI
 - `three-tier-architecture.md` — full architecture
-- `TRUST-MODE.md` — trust + audit substrate
+- `historical/trust-mode.md` — trust + audit substrate (HISTORICAL, retired 2026-05-22)

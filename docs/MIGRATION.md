@@ -77,9 +77,9 @@ The trust-*gating* library (`trinity_local.trust`) was retired
 2026-05-22 in the post-launch consistency sweep (iter #117) — nothing
 currently reads `~/.trinity/trust.toml`. The gating config + the
 user-facing CLI (`trust-init` / `trust-show` / `audit-show`) rebuild
-fresh in v1.1. See [`TRUST-MODE.md`](TRUST-MODE.md) for the
-originally-shipped substrate description (pending reconciliation
-with the library retirement).
+fresh in v1.1. See [`historical/trust-mode.md`](historical/trust-mode.md) for the
+original design — preserved as the historical record of the
+substrate Trinity moved away from.
 
 ---
 
