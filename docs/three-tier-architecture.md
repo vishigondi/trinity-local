@@ -124,13 +124,12 @@ Ratified by the council:
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
-  (`council_outcome`, `eval_set`, `rejection_signal`, `trust` —
-  `trust.schema.json` shipped 2026-05-18 alongside the trust
-  substrate; the substrate was retired 2026-05-22 alongside the
-  rating-UX retirement (iter #117 of the post-launch sweep) — the
-  schema files are now orphan reference material pending the v1.1
-  rebuild. See [`historical/trust-mode.md`](historical/trust-mode.md)
-  for the original design).
+  (`council_outcome`, `eval_set`, `rejection_signal`). The
+  `trust.schema.json` that shipped 2026-05-18 alongside the trust
+  substrate was deleted 2026-05-22 (iter #121 of the post-launch
+  sweep) after the library was retired — v1.1 will design its own
+  gating schema fresh, see [`historical/trust-mode.md`](historical/trust-mode.md)
+  for the original design.
 - Extension as-is (Phase 4b shipped — see MIGRATION.md).
 - `docs/three-tier-architecture.md` (this file) — full vision,
   marks shared `scripts/` substrate as v1.1.

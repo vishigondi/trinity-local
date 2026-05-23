@@ -4793,12 +4793,15 @@ class TestCanonicalPlaceholdersAreRendered:
         Drift caught 2026-05-21 iter #26: the doc ratified 2026-05-16
         with three schemas (`council_outcome`, `eval_set`,
         `rejection_signal`). `trust.schema.json` shipped 2026-05-18
-        alongside the trust substrate (per TRUST-MODE.md "What v1.0
-        shipped"), but the doc's enumeration never got updated. Same
-        shape as test_bundled_config_example_matches_top_level: a
-        load-bearing fact lives in N≥2 surfaces (the schemas/
-        directory + the doc's enumeration), drift accumulates in the
-        slower-moving surface. Pattern #20.
+        alongside the trust substrate, the doc's enumeration was
+        updated to match, then iter #121 deleted both
+        `trust.schema.json` files 2026-05-22 after the trust library
+        retirement (the schema was orphan reference for a library
+        that no longer existed). Same drift shape as
+        test_bundled_config_example_matches_top_level: a load-bearing
+        fact lives in N≥2 surfaces (the schemas/ directory + the
+        doc's enumeration), drift accumulates in the slower-moving
+        surface. Pattern #20.
 
         Why this matters: three-tier-architecture.md is the architecture
         spec other tools read for the `~/.trinity/` cross-tool contract
@@ -5059,9 +5062,11 @@ class TestSchemaMirrorsStaySynchronized:
 
     Guard: for every JSON schema file in `schemas/`, the bundled
     copy at `skills/trinity/schemas/` must exist and be byte-
-    identical. `trust.schema.json` lives ONLY at skills/ today (the
-    only schema with that asymmetry); the guard tolerates extra
-    files in skills/ but not drift between the matched pair.
+    identical. The guard tolerates extra files in skills/ but not
+    drift between the matched pair. (Historical note: `trust.schema.
+    json` previously had a skills/-only asymmetry, then a matched
+    pair, then both deleted 2026-05-22 in iter #121 after the trust
+    library retirement.)
     """
 
     def test_schemas_directories_stay_byte_identical(self):

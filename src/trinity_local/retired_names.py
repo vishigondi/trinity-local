@@ -180,6 +180,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
         kind="module",
     ),
+    "trust.schema.json": RetirementRecord(
+        name="trust.schema.json",
+        retired_at="2026-05-22",
+        commit="(see git log — same iter as TRUST-MODE.md sunset follow-on)",
+        replacement="(none — v1.1 trust gating will design its own schema fresh; v1.0 shape preserved in docs/historical/trust-mode.md text)",
+        reason="The trust.toml JSON Schema (schemas/trust.schema.json + skills/trinity/schemas/trust.schema.json byte-identical mirror) defined the v1.0 trust.toml gating-config shape. With the trinity_local.trust library retired 2026-05-22 (iter #117) and ~/.trinity/trust.toml having zero consumers, the schemas became orphan reference material. TRUST-MODE.md was moved to docs/historical/ in iter #119 (commit bb32ffa); iter #121 finished the substrate cleanup by deleting the schema files. v1.1 trust-mode rebuild was already explicitly framed as 'from scratch' in iter #120 (commit 501f9fc, three-tier-architecture.md), so preserving the v1.0 schema as forward reference offered no value. The original shape is shown verbatim in the historical doc text if v1.1 contributor wants reference. Sunset confirmed via AskUserQuestion in iter #121 — user picked 'Sunset — delete both files'.",
+        kind="file",
+    ),
     "trinity_local.trust": RetirementRecord(
         name="trinity_local.trust",
         retired_at="2026-05-22",
