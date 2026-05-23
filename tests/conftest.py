@@ -26,9 +26,13 @@ def _disable_cold_start_autoscan(monkeypatch: pytest.MonkeyPatch) -> None:
 def tmp_state_dir(tmp_path: Path) -> Path:
     """Create a temporary state directory mimicking trinity-local's ~/.trinity/ layout."""
     state = tmp_path / "trinity_home"
+    # `watcher` was here historically but watcher_dir() retired
+    # 2026-05-17 (see state_paths.py L217). The fixture kept creating
+    # the dir long after — harmless but dead, and the post-launch
+    # consistency loop caught it 2026-05-23.
     for sub in [
         "todos", "actions", "prompt_bundles", "council_outcomes",
-        "task_sync", "portal_pages", "review_pages", "watcher",
+        "task_sync", "portal_pages", "review_pages",
     ]:
         (state / sub).mkdir(parents=True)
     return state
