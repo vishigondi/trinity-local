@@ -7,6 +7,52 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.6 — Trinity heals itself: `extension repair` flagship demo] — 2026-05-23
+
+Drift caught live this session: ChatGPT moved their streaming endpoint
+from `/backend-api/conversation` to `/backend-api/f/conversation`
+(added `/f/` segment, ~2026-05). Page-hook.js's exact-string `streamPath`
+silently failed to classify — wrapper installed correctly, captures
+stopped. Per the principle "third-party endpoint moves are unbounded
+drift the canonical renderer can't catch", shipped a flagship demo
+showing that Trinity is the right shape to heal itself:
+
+**New: `trinity-local extension repair`** (task #136, ~250 LOC + 15 tests):
+
+- **Diagnose mode (default):** reads `~/.trinity/conversations/<provider>/`
+  for each of claude / chatgpt / gemini, reports capture count + hours
+  since last write. ⚠ flag when last capture > 24h.
+- **HAR + council mode (`--har <path>`):** parses HAR 1.2 export from
+  Chrome DevTools, strips telemetry noise (`/ces/`, `/sentinel/`,
+  `/statsc/`, `/lat/`), extracts chat-domain POSTs, dispatches a council
+  (Claude + Codex + Antigravity) with the current page-hook.js source
+  + the observed POSTs. Asks the chairman to synthesize a unified-diff
+  patch to PROVIDER_PATTERNS.
+- **Structural pitch:** only Trinity has the council + the local code +
+  the cross-provider signal. The labs themselves are commercially
+  prevented from cross-recommending — someone outside has to ship the
+  layer that heals breakage from any one of them.
+- `--apply` (auto-write the patch) intentionally NOT wired in MVP —
+  patches are printed, user reviews + applies + reloads the extension.
+
+**Other drift caught this iter:**
+
+- `browser-extension/page-hook.js` PROVIDER_PATTERNS gained
+  `/backend-api/f/conversation` entries for chatgpt.com and
+  chat.openai.com; legacy `/backend-api/conversation` entries kept for
+  accounts still on prior rollouts.
+- `browser-extension/manifest.json` 0.2.1 → 0.2.2.
+- `docs/INSTALL-extension.md` extension version reference synced.
+- `browser-extension/page-hook.js` install path moved from
+  `window.fetch = trinityFetch` to `Object.defineProperty(window,
+  "fetch", { writable: false, configurable: false })` — chatgpt's
+  bundle was reassigning the property after install (caught via
+  DevTools probe of `window.fetch.name`).
+
+CLI subcommands across user-facing modules: 42 → 43; module count
+21 → 22 (the new `extension_repair` module). Canonical placeholders
+re-rendered.
+
 ## [v1.7.5 — rating-surface retirement + claude.md cut to 200 lines + Auto-Dream cite] — 2026-05-22
 
 Post-launch cleanup pass driven by three user directives:
@@ -371,7 +417,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1649<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1664<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
