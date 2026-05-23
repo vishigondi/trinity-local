@@ -152,7 +152,7 @@ Set `TRINITY_MCP_WATCH=1` to enable a file watcher that calls `os._exit(0)` on a
 
 ## Launch arc
 
-The five-workstream distribution arc and full forward-arc narrative now live in [`docs/historical/brand-evolution.md`](docs/historical/brand-evolution.md) and [`docs/scale-plan.md`](docs/scale-plan.md). Known-shipped workstreams: task #117 (Standardize `~/.trinity/` — ✓ shipped), task #118 (Subsidy-window narrative — ✓ shipped), task #119 (Handoff mechanism — ✓ shipped 2026-05-14), task #122 (Corpus-based eval harness — ✓ shipped). Open: #114 MCP-dropdown distribution, #115/#120/#121 first-run wow + Gemini-Google branch, #116 real-corpus benchmarks on shipped installs, #109 `principles.md` pipeline (data-gated, needs ≥100 council outcomes).
+The five-workstream distribution arc and full forward-arc narrative now live in [`docs/historical/brand-evolution.md`](docs/historical/brand-evolution.md) and [`docs/scale-plan.md`](docs/scale-plan.md). Known-shipped workstreams: task #114 (MCP-dropdown distribution — ✓ shipped), #115 (First-run wow / 60s cross-provider continuity demo — ✓ shipped), #117 (Standardize `~/.trinity/` — ✓ shipped), #118 (Subsidy-window narrative — ✓ shipped), #119 (Handoff mechanism — ✓ shipped 2026-05-14), #122 (Corpus-based eval harness — ✓ shipped), #135 (gemini.google.com Chrome-capture adapter — ✓ shipped), #136 (`trinity-local extension repair` flagship demo — ✓ shipped). Open: #116 real-corpus benchmarks on shipped installs (in-progress), #120 60-second handoff demo path (record + host), #121 Gemini-Google handoff (Gmail/Drive/Calendar). The `principles.md` pipeline remains data-gated (needs ≥100 council outcomes) — not on a numbered task yet.
 
 ## Verified status
 
