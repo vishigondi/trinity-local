@@ -69,13 +69,16 @@ context in claude.md "Launch arc" section):
   data integration surfaces correctly through `dispatch_runner` when
   Trinity hands off mid-conversation. Lights up Gmail / Drive /
   Calendar context Claude can't see.
-- **#116 Cross-provider benchmark publication** — use the eval
-  harness (`trinity-local eval-run --target <provider>`, task #122)
-  to score each provider against the user's actual rejection signal,
-  publish the per-axis deltas. Empirical, defensible, structurally
-  non-refutable.
-- **#118 Subsidy-window narrative** — weave "build the corpus while
-  credits are cheap" through README hero + onboarding ribbon.
+- **#116 Cross-provider benchmark publication** (shipped 2026-05-22,
+  commit `ba41133`) — three provider eval cards live at
+  `docs/launch_assets/eval_card_claude.png` /
+  `eval_card_codex.png` / `eval_card_gemini.png` with the May 19 data
+  (claude 0.786 / codex 0.700 / gemini 0.442 aggregate). v1.7.6
+  polish queued: apples-to-apples re-run across all 3 providers on
+  the full eval suite (the gemini run used a wider 17-item slice
+  including COMPRESSION; claude/codex used the same 5-item subset).
+- **#118 Subsidy-window narrative** (shipped) — woven through README
+  hero + Privacy section + onboarding ribbon.
 - **Adopting the Preference Corpus Spec** — `docs/PREFERENCE_CORPUS_SPEC.md`
   + `schemas/*.schema.json`. CC0. Outreach to Aider / Cline / Continue
   maintainers welcome; PRs against the schemas for translation tables
