@@ -34,6 +34,7 @@ from .basins import Basin, basin_for_prompt, me_dir
 
 
 VALID_VALENCES = {"satisfaction", "regret", "unresolved", "correction", "cost"}
+VALID_HORIZONS = {"tactical", "strategic", "philosophical"}
 
 
 @dataclass
@@ -45,9 +46,32 @@ class Decision:
     basin: str | None
     verbatim: str
     prompt_id: str | None = None
+    # Plan iter 1 (2026-05-23): post-launch lens-build extensions.
+    # `would_flip_if`: counterfactual reasoning attached to the decision —
+    # "what evidence would have flipped this trade-off?" Captured live via
+    # `trinity-local decision-log` (HIGH-QUALITY signal, source='user_logged');
+    # backfilled retroactively from transcripts via Stage 2 prompt
+    # (LOWER-QUALITY — chairman may rationalize; prompt explicit "leave
+    # blank if unclear, do not rationalize"). The pattern: capture the
+    # highest-quality signal where it lives (at the decision), not where
+    # it's cheapest to extract (in the transcript).
+    would_flip_if: str = ""
+    # `source`: provenance of this decision.
+    #   "transcript"   = Stage 2 chairman extracted from prompt history (default)
+    #   "user_logged"  = user invoked `trinity-local decision-log` interactively
+    #   "lens_edit"    = derived from a user edit to lens.md (Extension #4)
+    # Stage 2 corpus augmentation prioritizes user_logged + lens_edit at 2x weight.
+    source: str = "transcript"
+    # `logged_at`: ISO8601 timestamp for user_logged / lens_edit decisions;
+    # blank for transcript-extracted (the prompt_id already provides chronology).
+    logged_at: str = ""
+    # `weight`: pair-mining evidence weight. Defaults to 1.0; user-logged
+    # decisions get 2.0 so the pair-miner treats them as load-bearing
+    # evidence over transcript-derived decisions.
+    weight: float = 1.0
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "id": self.id,
             "privileged": self.privileged,
             "sacrificed": self.sacrificed,
@@ -56,10 +80,33 @@ class Decision:
             "verbatim": self.verbatim,
             "prompt_id": self.prompt_id,
         }
+        # Only emit non-default fields to keep transcript-extracted lines compact.
+        # User-logged + lens-edit decisions always emit the full shape.
+        if self.would_flip_if:
+            out["would_flip_if"] = self.would_flip_if
+        if self.source != "transcript":
+            out["source"] = self.source
+        if self.logged_at:
+            out["logged_at"] = self.logged_at
+        if self.weight != 1.0:
+            out["weight"] = self.weight
+        return out
 
 
 def decisions_path() -> Path:
     return me_dir() / "decisions.jsonl"
+
+
+def decision_log_path() -> Path:
+    """Append-only JSONL of live-captured strategic decisions.
+
+    User invokes `trinity-local decision-log` interactively to capture a
+    trade-off at the moment they make it — vs. retroactive chairman
+    extraction from transcripts which is prone to rationalization. The
+    pair-miner reads this log first at 2x weight; existing pair-mining
+    backfills the long tail from transcripts at default 1x weight.
+    """
+    return me_dir() / "decision_log.jsonl"
 
 
 def render_extraction_prompt(samples: list[dict], basins: list[Basin]) -> str:
@@ -193,6 +240,15 @@ def parse_decisions(raw: str, basins: list[Basin]) -> list[Decision]:
         seen_ids.add(d_id)
         next_auto_id += 1
 
+        # Optional new fields (back-compat: missing → defaults).
+        would_flip_if = (obj.get("would_flip_if") or "").strip()
+        source = (obj.get("source") or "transcript").strip() or "transcript"
+        logged_at = (obj.get("logged_at") or "").strip()
+        try:
+            weight = float(obj.get("weight", 1.0))
+        except (TypeError, ValueError):
+            weight = 1.0
+
         decisions.append(Decision(
             id=d_id,
             privileged=privileged,
@@ -201,8 +257,74 @@ def parse_decisions(raw: str, basins: list[Basin]) -> list[Decision]:
             basin=basin_id,
             verbatim=verbatim,
             prompt_id=prompt_id,
+            would_flip_if=would_flip_if,
+            source=source,
+            logged_at=logged_at,
+            weight=weight,
         ))
     return decisions
+
+
+def load_decision_log(basins: list[Basin]) -> list[Decision]:
+    """Read user-logged decisions from decision_log.jsonl.
+
+    Returns Decision objects with `source='user_logged'` and weight=2.0
+    (pair-miner treats these as load-bearing). Re-tags basin via basins
+    list when prompt_id_hint resolves; otherwise leaves basin as None
+    and the pair-miner uses cross-basin matching as usual.
+
+    Missing or empty file → empty list (cold-start behavior, no crash).
+    """
+    path = decision_log_path()
+    if not path.exists():
+        return []
+    out: list[Decision] = []
+    next_auto_id = 1
+    seen_ids: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        privileged = (obj.get("privileged") or "").strip()
+        sacrificed = (obj.get("sacrificed") or "").strip()
+        verbatim = (obj.get("verbatim") or "").strip()
+        if not privileged or not sacrificed or not verbatim:
+            continue
+        valence = (obj.get("valence") or "unresolved").strip().lower()
+        if valence not in VALID_VALENCES:
+            valence = "unresolved"
+        prompt_id_hint = (obj.get("prompt_id") or "").strip() or None
+        basin_id = basin_for_prompt(basins, prompt_id_hint) if prompt_id_hint else None
+        if basin_id is None:
+            raw_basin = (obj.get("basin") or "").strip()
+            if raw_basin and raw_basin.lower() not in {"?", "unknown", "none", "n/a"}:
+                basin_id = raw_basin
+        d_id = (obj.get("id") or "").strip()
+        if not d_id or d_id in seen_ids:
+            d_id = f"u_{next_auto_id:03d}"
+            while d_id in seen_ids:
+                next_auto_id += 1
+                d_id = f"u_{next_auto_id:03d}"
+        seen_ids.add(d_id)
+        next_auto_id += 1
+        out.append(Decision(
+            id=d_id,
+            privileged=privileged,
+            sacrificed=sacrificed,
+            valence=valence,
+            basin=basin_id,
+            verbatim=verbatim,
+            prompt_id=prompt_id_hint,
+            would_flip_if=(obj.get("would_flip_if") or "").strip(),
+            source="user_logged",
+            logged_at=(obj.get("logged_at") or "").strip(),
+            weight=float(obj.get("weight", 2.0)),
+        ))
+    return out
 
 
 def save_decisions(decisions: list[Decision]) -> Path:

@@ -33,6 +33,7 @@ CORE_COMMAND_MODULES = (
     "cortex",
     "council",
     "debug",
+    "decision_log",
     "download_embedder",
     "dream",
     "eval",

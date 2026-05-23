@@ -535,7 +535,38 @@ def build_me_via_lens_pipeline(
     stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
     stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
     decisions = stage2_parse(stage2_result.stdout or "", basins)
-    print(f"           → {len(decisions)} decisions extracted", flush=True)
+
+    # Prepend user-logged decisions from `trinity-local decision-log`.
+    # These carry the highest-quality counterfactual signal because
+    # they were captured at decision-time (vs. retroactive chairman
+    # extraction which rationalizes). Weight 2.0 → pair-miner treats
+    # them as load-bearing evidence. Plan iter 1 (2026-05-23), task #137.
+    try:
+        from .me.decisions import load_decision_log
+        logged = load_decision_log(basins)
+    except Exception:
+        logged = []
+    if logged:
+        # Prepend so any id collisions resolve in favor of the logged
+        # entry (it's the canonical version). De-dupe by (privileged,
+        # sacrificed, verbatim) — same trade-off logged twice survives
+        # as one entry.
+        seen_keys: set[tuple[str, str, str]] = set()
+        deduped: list = []
+        for d in logged + decisions:
+            key = (d.privileged.lower(), d.sacrificed.lower(), d.verbatim.lower())
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            deduped.append(d)
+        print(
+            f"           → {len(decisions)} decisions extracted, "
+            f"+ {len(logged)} from decision_log.jsonl (weight=2.0)",
+            flush=True,
+        )
+        decisions = deduped
+    else:
+        print(f"           → {len(decisions)} decisions extracted", flush=True)
 
     if not decisions:
         return me_path(), {
