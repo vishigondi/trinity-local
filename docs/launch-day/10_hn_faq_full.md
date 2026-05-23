@@ -40,7 +40,7 @@ LiteLLM is a unified API gateway — same SDK shape, swap providers, pay-per-cal
 
 ### How is this different from OpenRouter?
 
-OpenRouter is hosted, per-call billed, and your prompts route through their servers — which means OpenRouter sees every prompt you send. Trinity is local-first: prompts and answers never leave your machine, MCP child is stdio, no listening port. OpenRouter optimizes for *cheapest route given quality floor*; Trinity optimizes for *which model wins YOUR kind of question based on your verdicts*. Different wedge entirely. The comparison table in the README has the full matrix — privacy, cost basis, output shape, personalization.
+OpenRouter is hosted, per-call billed, and your prompts route through their servers — which means OpenRouter sees every prompt you send. Trinity is local-first: prompts and answers never leave your machine, MCP child is stdio, no listening port. OpenRouter optimizes for *cheapest route given quality floor*; Trinity optimizes for *which model wins YOUR kind of question* — the chairman picks through your lens (distilled from how you've rephrased, judged, and rejected past answers), and the personal routing table aggregates those picks per task type. Different wedge entirely. The comparison table in the README has the full matrix — privacy, cost basis, output shape, personalization.
 
 ### How is this different from Anthropic's Dreaming?
 
