@@ -23,7 +23,15 @@
 
   const PROVIDER_PATTERNS = [
     { provider: "claude", host: "claude.ai", streamPath: "/completion" },
+    // chatgpt.com streaming endpoint moved to /backend-api/f/conversation
+    // (the /f/ segment was added 2026-05 — live DevTools probe caught it
+    // returning 503 then 200 in capture-host audit log). Keep the legacy
+    // /backend-api/conversation entry so older accounts on the prior
+    // rollout still capture; the canonical GET regex below stays
+    // anchored to /backend-api/conversation/<id> which is untouched.
+    { provider: "chatgpt", host: "chatgpt.com", streamPath: "/backend-api/f/conversation" },
     { provider: "chatgpt", host: "chatgpt.com", streamPath: "/backend-api/conversation" },
+    { provider: "chatgpt", host: "chat.openai.com", streamPath: "/backend-api/f/conversation" },
     { provider: "chatgpt", host: "chat.openai.com", streamPath: "/backend-api/conversation" },
     { provider: "gemini", host: "gemini.google.com", streamPath: "/_/BardChatUi/data/batchexecute" },
   ];
