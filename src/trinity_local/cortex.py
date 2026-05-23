@@ -639,7 +639,11 @@ def build_extraction_prompt(
             "routing_lesson": label.get("routing_lesson", ""),
             "agreed_claims": label.get("agreed_claims", []),
             "disagreed_claims": label.get("disagreed_claims", []),
-            "user_verdict": (o.get("metadata") or {}).get("user_verdict", {}).get("user_winner"),
+            # user_verdict field removed 2026-05-23 (post-launch sweep).
+            # metadata.user_verdict is wipe-on-read in
+            # council_runtime.load_council_outcome since #134
+            # (rating-surface retirement) — the value was always None
+            # here, just adding noise to the chairman's extraction prompt.
         }
         compressed.append(entry)
 
@@ -789,7 +793,9 @@ def build_audit_prompt(rule: "RoutingRule", outcomes: list[dict]) -> str:
             "council_id": o.get("council_run_id") or o.get("council_id"),
             "winner": label.get("winner") or o.get("winner_provider"),
             "routing_lesson": label.get("routing_lesson", ""),
-            "user_verdict": (o.get("metadata") or {}).get("user_verdict", {}).get("user_winner"),
+            # user_verdict field removed 2026-05-23 — same dead-read
+            # pattern as the extraction prompt above (#134 wiped this
+            # field on read; chairman audit never saw a real value).
         })
     return f"""You are auditing a routing rule another chairman extracted from real council outcomes. Reply with exactly ONE word: agreed, disagreed, or unclear.
 
