@@ -1675,7 +1675,17 @@ class TestV16BrowserExtensionArtifactsExist:
             "docs/favicon.png missing — every keepwhatworks.com tab "
             "loses its brand mark."
         )
+        # Non-Trinity scratchpads / experiment HTML pages in docs/
+        # are explicitly allowlisted. Keeping a small list (not a glob
+        # pattern) so adding a new Trinity docs page still requires a
+        # `<link rel="icon">` — only known unrelated experiments slip
+        # past. Maintained as drift is found in the post-launch sweep
+        # 2026-05-23 (drift class: ad-hoc scratch HTML in docs/ ships
+        # with no favicon and no Trinity branding).
+        _SCRATCH_HTML_EXCLUSIONS = {"maxroom-redesign.html"}
         for html_path in sorted((repo / "docs").glob("*.html")):
+            if html_path.name in _SCRATCH_HTML_EXCLUSIONS:
+                continue
             content = html_path.read_text(encoding="utf-8")
             assert 'rel="icon"' in content, (
                 f"{html_path.name} has no <link rel='icon'> — "
