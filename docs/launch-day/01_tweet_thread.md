@@ -21,7 +21,7 @@ The 60-second demo:
 
 Ask Claude a hard question. Mid-conversation:
 
-  trinity-local handoff gemini
+  trinity-local handoff antigravity
 
 Gemini picks up where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, Drive, Calendar). Then hand off to GPT. Same thread.
 
