@@ -25,7 +25,7 @@ Trinity is a **routing substrate** — the layer underneath every AI harness tha
 
 1. **Trust layer** (the value) — *"models agreed on X, disagreed on Y, here's why."*
 2. **Verifier** (the engine) — chairman synthesis emitting structured Routing JSON.
-3. **Personal preference graph** (the moat) — every rated council outcome aggregates on demand into a `task_type → strongest provider` table. No durable state file; the council outcomes directory IS canonical.
+3. **Personal preference graph** (the moat) — every council's chairman pick (lens-governed, so it already reflects the user's taste) aggregates on demand into a `task_type → strongest provider` table. No durable state file; the council outcomes directory IS canonical. Post task #134 (rating retirement 2026-05-22) `compute_personal_routing_table()` aggregates from `routing_label.winner` directly — no user-rating step.
 4. **Router** (the implementation) — `route()` / chain mode / cost optimization.
 5. **Closed loop with state and replay** — the v2 product: agents that don't drift over long horizons because Trinity retains state and can replay failures.
 
