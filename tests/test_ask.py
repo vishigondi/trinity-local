@@ -142,6 +142,14 @@ class TestDecideRoute:
 
 
 class TestRunAsk:
+    # All tests in this class set `use_cortex=False` to isolate from the
+    # contributor's real ~/.trinity/scoreboard/picks.json. Tests were green
+    # pre-launch when no cortex patterns existed; post-launch this loop
+    # caught silent failures (test set fake_hits → user_winner=claude, but
+    # the user's cortex had a "capital of France"-adjacent basin → routed
+    # to codex regardless of the fake hits). Pattern matches every other
+    # run_ask test in this file from L612 onward.
+
     def test_end_to_end_dispatches_and_returns_structured(self, monkeypatch):
         fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
@@ -149,7 +157,7 @@ class TestRunAsk:
         def fake_dispatch(provider: str, prompt: str) -> str:
             return f"[{provider}]: answer to '{prompt}'"
 
-        result = run_ask("what is the capital of France?", dispatch_fn=fake_dispatch)
+        result = run_ask("what is the capital of France?", dispatch_fn=fake_dispatch, use_cortex=False)
         assert result.routed_to == "claude"
         assert "claude" in result.answer
         assert result.trust_score > 0.8
@@ -163,7 +171,7 @@ class TestRunAsk:
         # can call it directly; "compare" was the spec-v1.5.md proposed name.
         fake_hits = [_hit(prompt_id="p1", chairman_winner="claude")]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
-        result = run_ask("complex question", dispatch_fn=lambda p, q: "answer")
+        result = run_ask("complex question", dispatch_fn=lambda p, q: "answer", use_cortex=False)
         assert result.escalate_hint == "run_council"
         assert result.trust_score < ESCALATE_HINT_THRESHOLD
 
@@ -173,7 +181,7 @@ class TestRunAsk:
         fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
         long_answer = "x" * 10000
-        result = run_ask("q", dispatch_fn=lambda p, q: long_answer)
+        result = run_ask("q", dispatch_fn=lambda p, q: long_answer, use_cortex=False)
         payload = result.to_dict()
         assert len(payload["answer"]) <= ASK_ANSWER_CHAR_BUDGET
         assert "truncated by Trinity" in payload["answer"]
@@ -181,14 +189,14 @@ class TestRunAsk:
     def test_short_answer_passes_through_unchanged(self, monkeypatch):
         fake_hits = [_hit(prompt_id=f"p{i}", user_winner="claude") for i in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
-        result = run_ask("q", dispatch_fn=lambda p, q: "short and clear")
+        result = run_ask("q", dispatch_fn=lambda p, q: "short and clear", use_cortex=False)
         payload = result.to_dict()
         assert payload["answer"] == "short and clear"
 
     def test_to_dict_is_compact(self, monkeypatch):
         fake_hits = [_hit(prompt_id="p1", user_winner="codex") for _ in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
-        result = run_ask("q", dispatch_fn=lambda p, q: "a")
+        result = run_ask("q", dispatch_fn=lambda p, q: "a", use_cortex=False)
         payload = result.to_dict()
         # Token-economy: only the keys Claude needs.
         assert set(payload.keys()).issubset(
@@ -1101,6 +1109,11 @@ class TestMcpAskHandler:
             "_dispatch_via_config",
             lambda provider, prompt: f"[stub-{provider}] {prompt}",
         )
+        # Isolate from the contributor's real cortex picks (the MCP _ask
+        # handler doesn't expose use_cortex). Without this, a real
+        # ~/.trinity/scoreboard/picks.json entry whose centroid matches
+        # the test query overrides the fake_hits setup.
+        monkeypatch.setattr(ask_module, "_try_cortex_route", lambda q, p: None)
 
         result = asyncio.run(mcp_server._ask({"query": "what's the migration path?"}))
         assert isinstance(result, list) and len(result) == 1
