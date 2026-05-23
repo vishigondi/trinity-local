@@ -704,12 +704,7 @@ def main() -> int:
                   routingHrefOk: !!routingLink && /memory\\.html\\?file=routing\\.json&task=/.test(routingLink.getAttribute('href') || ''),
                 };
               });
-              // Count the Unrated badges across ALL cards (not just the
-              // sampled 3) — the badge is a global signal, not per-card-
-              // sample. If 0 badges appear AND the real corpus has unrated
-              // threads, the badge plumbing broke.
-              const unratedBadges = document.querySelectorAll('.unrated-badge').length;
-              return {count: wrappers.length, sample, unratedBadges};
+              return {count: wrappers.length, sample};
             }"""
         )
         sample = cards_state.get("sample", [])
@@ -730,38 +725,19 @@ def main() -> int:
             s.get("xlinkCount", 0) >= 2 and s.get("pickHrefOk") and s.get("routingHrefOk")
             for s in sample
         )
-        # Unrated badge plumbing (tick #94/#95): query the real corpus
-        # for the unrated count. If > 0, at least one badge must render.
-        # If == 0 (fresh install or fully-rated user), badges may be 0
-        # — that's the correct state, not a regression.
-        try:
-            from trinity_local.launchpad_data import _verdict_stats
-            verdict = _verdict_stats()
-            expected_unrated = max(0, verdict["total"] - verdict["rated"])
-        except Exception:
-            expected_unrated = 0  # unknown — don't enforce
-        unrated_badges = cards_state.get("unratedBadges", 0)
-        badge_ok = (expected_unrated == 0) or (unrated_badges >= 1)
+        # Unrated-badge plumbing (tick #94/#95) retired 2026-05-21 with
+        # the rating UX sunset (rating-retirement #134). The
+        # `.unrated-badge` DOM class, the `unratedBadges` JS counter,
+        # _verdict_stats() helper, and the badge_ok check were all
+        # dead code that escaped that sweep — caught by the
+        # post-launch consistency loop 2026-05-23.
 
-        if cards_ok and xlinks_ok and badge_ok:
+        if cards_ok and xlinks_ok:
             xlink_card = next(
                 (i for i, s in enumerate(sample) if s.get("xlinkCount", 0) >= 2),
                 None,
             )
-            badge_note = (
-                f" · {unrated_badges} unrated badge(s)"
-                if expected_unrated > 0
-                else " · all rated"
-            )
-            print(f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards with title/meta/thread_id; xlinks present on card {xlink_card}{badge_note}")
-        elif cards_ok and xlinks_ok and not badge_ok:
-            reason = (
-                f"Unrated badge missing — corpus has {expected_unrated} unrated "
-                f"councils but rendered {unrated_badges} badges. Pillar 4 visual "
-                f"signal regressed (see tick #94)."
-            )
-            print(f"[ ✗ ] Surface 10 recent cards: {reason}")
-            fails.append((10, "unrated badge plumbing", reason))
+            print(f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards with title/meta/thread_id; xlinks present on card {xlink_card}")
         elif cards_ok:
             # Card content correct but xlinks missing — typically means
             # all sampled councils predate the task_type plumbing.
