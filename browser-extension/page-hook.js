@@ -62,7 +62,7 @@
   }
 
   const originalFetch = window.fetch;
-  window.fetch = async function trinityFetch(input, init) {
+  async function trinityFetch(input, init) {
     const url = typeof input === "string" ? input : input?.url;
     const method = (init?.method || (typeof input !== "string" && input?.method) || "GET").toUpperCase();
     const classification = classifyRequest(url, method);
@@ -160,7 +160,36 @@
     })();
 
     return response;
-  };
+  }
 
-  console.log("[trinity-hook] fetch wrapper installed on", location.hostname);
+  // Install the wrapper using Object.defineProperty with writable:false +
+  // configurable:false so chatgpt's bundle can't reassign window.fetch to
+  // its own minified version (which was the 100% capture-fail bug on
+  // chatgpt.com — chatgpt does `window.fetch = o` after page-hook
+  // installs at document_start; with writable:false that assignment
+  // silently no-ops and trinity's wrapper stays live).
+  //
+  // We still expose `originalFetch` to ourselves via closure so trinityFetch
+  // can delegate to the real network call. chatgpt's bundle, if it tries
+  // `window.fetch = ourFetch`, hits the immutable property — the page
+  // continues to call `window.fetch(...)` which is trinityFetch, which
+  // delegates to originalFetch. No observable behavior change for the
+  // page; trinity captures the request.
+  try {
+    Object.defineProperty(window, "fetch", {
+      value: trinityFetch,
+      writable: false,
+      configurable: false,
+    });
+  } catch (e) {
+    // Fallback for environments where defineProperty fails (some old
+    // browsers / iframes with strict CSP). Falls back to plain assignment
+    // which is what the v0.2 code did before this fix; chatgpt will
+    // re-patch but at least claude.ai keeps working.
+    window.fetch = trinityFetch;
+    console.warn("[trinity-hook] defineProperty failed, falling back to writable assignment", e);
+  }
+
+  console.log("[trinity-hook] fetch wrapper installed on", location.hostname,
+              "— window.fetch.name:", window.fetch.name);
 })();
