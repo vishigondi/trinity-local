@@ -70,13 +70,16 @@ context in claude.md "Launch arc" section):
   Trinity hands off mid-conversation. Lights up Gmail / Drive /
   Calendar context Claude can't see.
 - **#116 Cross-provider benchmark publication** (shipped 2026-05-22,
-  commit `ba41133`) — three provider eval cards live at
+  commit `ba41133`; claude card refreshed same day from a fresh N=45
+  run) — three provider eval cards live at
   `docs/launch_assets/eval_card_claude.png` /
-  `eval_card_codex.png` / `eval_card_gemini.png` with the May 19 data
-  (claude 0.786 / codex 0.700 / gemini 0.442 aggregate). v1.7.6
-  polish queued: apples-to-apples re-run across all 3 providers on
-  the full eval suite (the gemini run used a wider 17-item slice
-  including COMPRESSION; claude/codex used the same 5-item subset).
+  `eval_card_codex.png` / `eval_card_gemini.png`. Current numbers:
+  claude **0.788 (N=45, May 22)** — the freshest, ship-substantive
+  data; codex **0.700 (N=5, May 19)**; gemini **0.442 (N=17, May 19)**.
+  v1.7.6 polish queued: re-run codex + gemini on the full 45-item
+  eval suite so all three are matched-coverage comparable. The
+  `docs/launch-day/00_leaderboard.md` headline + per-axis tables
+  are anchored to the freshest claude data.
 - **#118 Subsidy-window narrative** (shipped) — woven through README
   hero + Privacy section + onboarding ribbon.
 - **Adopting the Preference Corpus Spec** — `docs/PREFERENCE_CORPUS_SPEC.md`

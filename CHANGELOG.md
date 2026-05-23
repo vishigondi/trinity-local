@@ -114,13 +114,16 @@ would have picked."*
   smoke gallery for the Phase 3d "Lens pick" badge UI swap;
   cleared the intentional `TestLaunchpadScreenshotFreshness` fail.
 - `ba41133` cross-provider eval share cards committed to
-  `docs/launch_assets/` (task #116). Real numbers from the May 19
-  sweep: claude 0.786 aggregate (5/5 items: REDIRECT n=1
-  mean=0.92, REFRAME n=4 mean=0.75), codex 0.700 (same 5-item
-  subset), gemini 0.442 (wider 17-item slice including COMPRESSION).
-  `.gitignore` extended to whitelist `docs/launch_assets/*.png` +
-  `docs/smoke/*.png`. Apples-to-apples re-run on the full suite
-  queued as v1.7.6 polish.
+  `docs/launch_assets/` (task #116). Claude card refreshed
+  2026-05-22 same day from a fresh N=45 run: claude **0.788
+  aggregate (N=45 — COMPRESSION n=2 mean=0.48, REDIRECT n=17
+  mean=0.80, REFRAME n=20 mean=0.81, SHARPENING n=6 mean=0.82)**,
+  codex 0.700 (N=5, May 19 — re-run pending), gemini 0.442
+  (N=17, May 19 wider slice — re-run pending). `00_leaderboard.md`
+  rewritten to anchor on the N=45 claude run. `.gitignore` extended
+  to whitelist `docs/launch_assets/*.png` + `docs/smoke/*.png`.
+  Codex + gemini full-suite re-runs queued as v1.7.6 polish for
+  matched-N comparability.
 - `0da50df` 15 new smoke surface PNGs (14, 17-30) tracked,
   completing the visual gallery per principle #14 ("every shipped
   feature gets a smoke regression guard within one tick").
