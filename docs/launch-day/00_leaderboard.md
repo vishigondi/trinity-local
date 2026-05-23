@@ -39,14 +39,14 @@ is now apples-to-apples.
 | REFRAME | 20 | 0.738 | trails claude (0.805) by 7 points on the largest axis |
 | SHARPENING | 6 | **0.863** | codex's peak axis — beats claude (0.815) here |
 
-## By rejection axis (antigravity N=45)
+## By rejection axis (antigravity N=42 of 45 — 3 dispatch failures)
 
 | axis | n | mean | observation |
 |---|---|---|---|
 | COMPRESSION | 2 | **0.075** | dominant weakness — antigravity over-elaborates when brevity is the rejection |
 | REDIRECT | 15 | 0.675 | trails the trio but stays competitive |
-| REFRAME | 17 | 0.682 | similar gap on the largest axis |
-| SHARPENING | 5 | 0.752 | closest to the others — antigravity matches when the ask is specificity |
+| REFRAME | 19 | 0.611 | clear gap on the largest axis (claude 0.81, codex 0.74) |
+| SHARPENING | 6 | 0.627 | gap closes here vs the other axes but antigravity still trails |
 
 ## What the launch headline can claim
 
