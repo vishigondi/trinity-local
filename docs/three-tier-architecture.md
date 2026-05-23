@@ -116,7 +116,7 @@ The falsifiable v1.0 invariant:
 Verified by `tests/test_phase8_integration.py` for the launchpad
 dispatch contract; the broader cross-backend matrix lands in v1.1.
 
-## v1.0 floor (this weekend)
+## v1.0 floor (shipped May 13–15, 2026)
 
 Ratified by the council:
 
@@ -140,9 +140,10 @@ Ratified by the council:
 
 ## v1.1 stretch (post-launch)
 
-**Do NOT attempt this weekend.** Council verdict was unambiguous:
-the 70-module refactor under deadline pressure puts the 1290-test
-green gate at risk for a reframe that doesn't require code motion.
+**Do NOT attempt during a launch window.** Council verdict was
+unambiguous: the 70-module refactor under deadline pressure puts
+the 1290-test green gate at risk for a reframe that doesn't require
+code motion.
 
 What v1.1 picks up:
 

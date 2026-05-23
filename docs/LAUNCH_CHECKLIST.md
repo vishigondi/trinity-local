@@ -39,8 +39,9 @@ launch live.
 
 - [ ] **github.com/vishigondi/trinity-local goes public.** Repo is
       private. Every launch URL points here — including the
-      `curl -fsSL .../install.sh | bash` lead. Make public Sunday
-      night / Monday morning. This is the ONLY external gate that
+      `curl -fsSL .../install.sh | bash` lead. Flip this whenever
+      you're ready to start the hard-launch sequence. This is the
+      ONLY external gate that
       MUST flip — no PyPI publish, no npm publish; Trinity ships as
       a git clone via curl|sh.
 - [ ] **Demo recording shot + hosted.** Task #120: the 60-second
@@ -50,7 +51,7 @@ launch live.
       vishigondi.com/trinity-demo or wherever; update the README +
       docs/launch.md to embed.
 
-## Sunday polish (loop-doable, low-risk)
+## Polish before hard launch (loop-doable, low-risk)
 
 - [ ] Review docs/founder-essay-draft.md for stale framing — should
       probably mention the three-tier architecture in the technical-
@@ -67,7 +68,7 @@ launch live.
       want full automation; the structural contract guard already
       runs in CI without Chrome.
 
-## Monday morning final-mile
+## Hard-launch final-mile (when ready to flip the gates above)
 
 - [ ] Flip the gates above.
 - [ ] Tweet the locked thread from docs/launch.md "Twitter / X thread".
