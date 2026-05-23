@@ -420,14 +420,14 @@ Future transport:
 
 ### Mobile API Contract
 
-The desktop exposes a small paired-device API. The MVP only needs review,
-rating, and pick-veto endpoints.
+The desktop exposes a small paired-device API. The MVP only needs review
+and pick-veto endpoints (the rating UX retired 2026-05-21/22 — chairman
+pick is the supervision signal; the phone has no rating button).
 
 ```text
 GET  /v1/status
 GET  /v1/reviews/{id}
-GET  /v1/councils?status=unrated|recent
-POST /v1/councils/{id}/rate
+GET  /v1/councils?limit=N
 POST /v1/picks/{basin_id}/mark-wrong
 ```
 
@@ -488,7 +488,7 @@ access.
 ### Milestone 0: Terminal Readiness
 
 - Keep `status --json` stable enough for setup UIs.
-- Add or verify JSON output for unrated, recent, active, memory health,
+- Add or verify JSON output for recent, active, memory health,
   provider health, review links, and device management.
 - Make `handoff` reliable enough to be the cross-surface demo primitive.
 - Define stable error envelopes for app callers.
@@ -499,14 +499,14 @@ scraping prose or importing internals.
 ### Milestone 1: Desktop Shell
 
 - Package the Cowork-style desktop app.
-- Render setup, provider health, active councils, recent councils, unrated
-  queue, and memory health.
+- Render setup, provider health, active councils, recent councils, and
+  memory health.
 - Launch council/handoff through the command adapter.
 - Register `trinity://` review and handoff routes.
 - Preserve static HTML artifact generation.
 
 Exit gate: a non-coder can install once, open Trinity from a normal desktop app
-entry point, run a council, and review/rate it without touching the terminal.
+entry point, run a council, and review it without touching the terminal.
 
 ### Milestone 2: Desktop Supervision
 
@@ -546,13 +546,14 @@ it under `remote_actions/` with a verifiable audit trail.
 ### Milestone 5: Mobile Controller
 
 - Ship prompt composer.
-- Show active councils and recent/unrated queues.
+- Show active councils and recent queue.
 - Dispatch `ask`, `council`, and `handoff` through desktop.
 - Add generic completion notifications.
 - Keep offline queue status explicit.
 
-Exit gate: phone -> desktop -> council -> phone rating closes the loop without
-a hosted controller.
+Exit gate: phone -> desktop -> council -> phone review closes the loop without
+a hosted controller (rating UX retired #134; phone shows the chairman's pick
++ routing_lesson, no rating step).
 
 ## Non-Goals For The First Cross-Platform Wave
 
