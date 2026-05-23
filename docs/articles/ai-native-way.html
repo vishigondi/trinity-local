@@ -131,10 +131,12 @@
         Trinity Local is what this essay looks like when you build it.
         Every council emits structured Routing JSON — agreed claims,
         disagreed claims with <em>why_matters</em>, winner,
-        provider_scores. Every override you click feeds
-        <code>record_outcome</code>. The five-step loop becomes:
-        chairman synthesizes → user verdicts catch the edges → personal
-        routing table updates → next council picks the right chairman →
+        provider_scores. The chairman's pick (lens-governed) IS the
+        supervision signal — no separate rating step. The five-step
+        loop becomes: chairman synthesizes through your lens →
+        <code>routing_label.winner</code> persists to <code>~/.trinity/council_outcomes/</code>
+        → <code>compute_personal_routing_table()</code> aggregates
+        per task_type → next council picks the right chairman →
         repeat.
       </p>
       <p>
