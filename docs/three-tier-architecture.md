@@ -120,7 +120,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1647<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1648<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
@@ -164,8 +164,11 @@ What v1.1 picks up:
   — the active audit-log surface is `scripts/_runtime.py::audit_log()`,
   an independent stdlib-only implementation that never went through
   the library. What v1.1 picks up is a clean rebuild: gating config
-  (probably reusing the `trust.toml` shape since the schema is intact),
-  user-facing CLI (`trust-init` / `trust-show` / `audit-show`),
+  (v1.1 will design the shape fresh — the v1.0 `trust.schema.json`
+  was deleted 2026-05-22 alongside the library; the v1.0 toml example
+  is preserved in [`historical/trust-mode.md`](historical/trust-mode.md)
+  if reference is wanted), user-facing CLI
+  (`trust-init` / `trust-show` / `audit-show`),
   automatic audit rotation, visible trust indicators in launchpad +
   extension popup, cross-tier `TRINITY_ORIGIN_TIER` propagation (the
   audit-log writer already stamps this), `--tier`/`--operation`/
