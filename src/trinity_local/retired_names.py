@@ -549,6 +549,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Council pipeline simplification — the v1.0 peer-review subsystem (`render_peer_review_prompt` + `parse_peer_review_sections` + `parse_ranking_labels` + `aggregate_peer_rankings`) was an extra round before synthesis, retired in the v1.1 4-iteration council audit (commit 623f592). The surviving `parse_synthesis_sections` (hardened to case-insensitive + numbered variants + `raw` fallback) is the live parser. `docs/scale-plan.md` §10 narrates the retirement but until now it wasn't formally in the registry. Caught by the post-launch consistency loop 2026-05-23 (iter #30) — same doc-vs-registry cross-reference probe that caught iter #29's `shortcut_setup`/`dispatch_runner`/`commands.shortcuts` gap.",
         kind="function",
     ),
+    "watcher_dir": RetirementRecord(
+        name="watcher_dir",
+        retired_at="2026-05-18",
+        commit="70bfafa",
+        replacement="(none — watcher subsystem killed; MCP `ask` triggers ingestion passively via cursor-based incremental ingest in `watch_runtime.py`)",
+        reason="`watcher_dir()` returned `~/.trinity/watcher/` — the cursor directory for the v1.0 `watch-once` / `watch-loop` CLIs (which were also retired in the same commit). Removed in 70bfafa as part of the state_paths lean (sweep iters Q+R+S+U). state_paths.py L217 still narrates the retirement in a comment but the registry never recorded it. Caught by the source-code-comment-vs-registry probe (iter #31) — same drift class as iters #29 + #30 (registry coverage gap behind retirement-narrating prose).",
+        kind="function",
+    ),
     "trinity-dispatch": RetirementRecord(
         name="trinity-dispatch",
         retired_at="2026-05-17",
