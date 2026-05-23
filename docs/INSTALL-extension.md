@@ -78,17 +78,20 @@ not from the Chrome Web Store). Web Store publish is post-launch.
    Or click the Trinity toolbar icon — the launchpad opens in a
    new tab; the "Send to council" button should fire end-to-end.
 
-## What v0.1 ships
+## What v0.2 ships (current — `browser-extension/manifest.json` version `0.2.0`)
 
 - Toolbar icon → opens launchpad (chrome-extension:// origin)
 - Popup → "Send to council" quick action
 - Action dispatch via Native Messaging (replaces the macOS Shortcut
-  dispatcher; works cross-platform)
+  dispatcher; works cross-platform). 12-entry `ACTION_ALLOWLIST` in
+  `src/trinity_local/capture_host.py` gates which CLI surfaces are
+  callable — defense in depth.
 - Conversation capture content-scripts loaded on claude.ai /
   chatgpt.com / gemini.google.com (writes to
-  `~/.trinity/conversations/<provider>/`)
+  `~/.trinity/conversations/<provider>/`). The gemini.google.com
+  adapter shipped 2026-05-22 as part of v0.2 (task #135).
 
-## What v0.2 picks up
+## What's deferred (post-v0.2)
 
 Per the council-ratified roadmap (see
 `docs/three-tier-architecture.md`):
@@ -96,9 +99,12 @@ Per the council-ratified roadmap (see
 - Per-site permission opt-in flow (user grants capture per origin
   rather than at install)
 - Chrome Web Store listing
-- Visible trust indicators in the popup (green/yellow/red badge per
-  the trust mode config — see [`historical/trust-mode.md`](historical/trust-mode.md))
 - Audit-log read surface in the popup ("last 10 operations")
+
+(Trust-indicator badges in the popup were on the original v0.2
+pickup list but the underlying substrate was retired 2026-05-22 —
+see [`historical/trust-mode.md`](historical/trust-mode.md). Whatever
+gating UX v1.1 rebuilds will dictate the indicator shape.)
 
 ## Audit log
 

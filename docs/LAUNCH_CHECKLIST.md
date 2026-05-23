@@ -108,7 +108,7 @@ Per council verdict, deferred:
   gating + CLI fresh; the original design is preserved at
   [`historical/trust-mode.md`](historical/trust-mode.md).
 - Cross-backend equivalence test harness (MLX / torch CPU / CUDA)
-- Web-chat capture in extension v0.2 (separate per-site permission
-  opt-in)
+- Per-site permission opt-in for extension web-chat capture (post-v0.2;
+  v0.2 grants all three sites at install time)
 
 See `docs/three-tier-architecture.md` for the full v1.1 spec.
