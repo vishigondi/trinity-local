@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ..config import load_config
-from ..council_review import write_live_council_page, write_unified_council_page
+from ..council_review import write_live_council_page
 from ..council_runner import run_council
 from ..council_runtime import (
     create_prompt_bundle,
