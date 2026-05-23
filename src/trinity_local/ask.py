@@ -285,16 +285,27 @@ def _decide_from_hits(
             reason="no_history",
         )
 
-    # Pass 1: council-derived signals (user verdict + chairman pick).
-    # These are highest-signal because they came out of explicit evaluation.
+    # Pass 1: council-derived signals (chairman pick + user verdict).
+    # Post task #134 (rating retirement, 2026-05-22) the user_winner path
+    # is structurally dead — no surface writes hit.user_winner anymore
+    # (`record_outcome` MCP tool retired, `council-rate` CLI retired,
+    # `metadata.user_verdict` wipe-on-read in council_runtime.load_council_
+    # outcome). The 1.5-weight branch survives only because the field
+    # itself remains on PromptNode/SearchResult pending the v1.8 cascade
+    # (UserVerdict dataclass cleanup through ~14 source files). The
+    # chairman_winner at 1.0 is the live signal that actually gets used
+    # — it's what `compute_personal_routing_table()` aggregates from
+    # `~/.trinity/council_outcomes/<id>.json`. Mirror of the annotation
+    # at launchpad_data.py:278-282.
     votes: dict[str, float] = {}
     evidence: list[str] = []
     for hit in hits:
         # Each signal carries 1.0/1.5 if present. Same hit can vote multiple
-        # times via different signals (chairman + user verdict).
+        # times via different signals. In practice post-2026-05-22 only the
+        # chairman_winner branch fires (see retirement note above).
         winner_signals = [
-            (hit.user_winner, 1.5),     # strongest — user actively picked
-            (hit.chairman_winner, 1.0),
+            (hit.user_winner, 1.5),     # dead path; v1.8 cascade removes the field
+            (hit.chairman_winner, 1.0),  # live — the post-retirement supervision signal
         ]
         for provider, weight in winner_signals:
             if provider:
