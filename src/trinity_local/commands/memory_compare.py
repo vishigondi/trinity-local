@@ -52,7 +52,6 @@ def register(subparsers):
 def handle_memory_compare(args) -> int:
     from ..memory_compare import compare_memories
     from ..state_paths import share_dir
-    from ..utils import now_iso
 
     claude_root = _resolve_claude_root(args)
     report = compare_memories(
