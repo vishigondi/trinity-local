@@ -1,35 +1,27 @@
 // Trinity Local — sync-pill.js (ISOLATED world)
 //
-// In-provider awareness UI. Polls the capture host for "how many
-// threads are in your sidebar but not captured locally?" — if > 0,
-// shows a bottom-right pill. Click opens the launchpad (the actual
-// sync mechanic lives there until the iframe-based per-provider
-// auto-sync ships).
+// In-provider sync UI. On each page load:
 //
-// History: 4b4b05f shipped a sync-on-click that fetched canonical
-// URLs from content-script context. Verified 2026-05-23 against
-// chatgpt.com — fetches returned 404 "conversation_inaccessible"
-// because provider APIs require Bearer auth headers that the
-// provider's own fetch wrapper injects; our content-script fetch
-// bypasses that wrapper and so authenticates as logged-out. Same
-// architecture for claude (different shape, same problem) and
-// gemini (no direct fetch path at all).
+//   1) Ask background.js whether a current-tab sync is in flight
+//      (background owns the state machine — it survives our content-
+//      script being destroyed on every navigation).
+//   2) If yes: render the in-flight progress pill.
+//   3) If no: query capture-host for sidebar-vs-on-disk diff. If
+//      missing > 0, render the "⠕ N to sync" pill. Click starts the
+//      current-tab sync.
 //
-// Correct fix is iframe-based: open hidden iframes pointed at each
-// missing conv_id's canonical URL, let the provider's own bundle
-// load (with its own auth-injecting fetch wrapper), page-hook in
-// MAIN-world of the iframe (needs all_frames: true) catches the
-// natural canonical fetch, captures land. Tracked as a follow-up.
-//
-// Until then: pill shows the count, click opens launchpad.
-// Self-suppressing when count=0. Re-polls on every page load / 60s.
+// History:
+// - 4b4b05f: direct fetch from content-script (failed — auth headers)
+// - b09dadb: iframes (failed for gemini — bundle detects iframe ctx)
+// - c11dc9e: background tabs (works but visible tab thrashing)
+// - THIS:    current-tab orchestrated by background.js (no tab spam;
+//            user watches their own tab tour their conversations,
+//            ends back where they started)
 
 (() => {
-  // CRITICAL: bail in iframes. With manifest's `all_frames: true` we
-  // also inject into iframes — including the ones THIS pill creates
-  // during a sync. Without this guard, each sync iframe would mount
-  // its own pill, query its own sync_status, kick off its own
-  // sync iframes, etc. Infinite recursion.
+  // Bail in iframes — all_frames:true means we inject everywhere,
+  // including any embedded provider frames. Pill only belongs in
+  // the top-level page.
   if (window !== window.top) return;
 
   const PROVIDER_HOSTS = {
@@ -46,131 +38,8 @@
   const PILL_ID = "__trinity_sync_pill__";
   const POLL_INTERVAL_MS = 60_000;
   const FIRST_POLL_DELAY_MS = 3_000;
-  const SYNC_CONCURRENCY = 2;             // parallel background tabs (gentle)
-  const CONFIRM_POLL_MS = 500;            // disk-confirmation poll cadence
-  const PER_TAB_TIMEOUT_MS = 12_000;      // give up if no capture lands in 12s
-                                           // (tabs need longer than iframes —
-                                           // full page-load including JS bundle)
-  const SYNCED_FADE_AFTER_MS = 4_000;     // brief success banner before hide
-
-  let syncing = false;
-
-  function providerThreadUrl(conv_id) {
-    if (provider === "claude") return `${location.origin}/chat/${conv_id}`;
-    if (provider === "chatgpt") return `${location.origin}/c/${conv_id}`;
-    if (provider === "gemini") return `${location.origin}/app/${conv_id}`;
-    return null;
-  }
-
-  function openSyncTab(url) {
-    return new Promise((resolve) => {
-      if (!chrome?.runtime?.id) return resolve(null);
-      try {
-        chrome.runtime.sendMessage({ type: "open_sync_tab", url }, (resp) => {
-          if (chrome.runtime.lastError) return resolve(null);
-          resolve(resp?.ok ? resp.tabId : null);
-        });
-      } catch {
-        resolve(null);
-      }
-    });
-  }
-
-  function closeSyncTab(tabId) {
-    if (tabId == null) return;
-    try {
-      chrome.runtime.sendMessage({ type: "close_sync_tab", tabId }, () => {});
-    } catch { /* tab might already be gone */ }
-  }
-
-  // Open the conv_id in a background tab + poll capture-host every
-  // CONFIRM_POLL_MS for it to land. Resolve true when it lands
-  // (early-exit, destroy tab), false on timeout (destroy tab anyway).
-  // Honest signal: success means a capture file exists on disk.
-  //
-  // Background tabs instead of iframes because gemini's bundle
-  // detects iframe context and skips the canonical hNvQHb fetch
-  // (verified 2026-05-23 — gemini iframes captured ZERO conv_ids
-  // beyond the ones already on disk). Tabs use real top-level
-  // navigation which fires the full page-load flow including all
-  // auth-injected fetches. active:false keeps them out of focus.
-  // Claude + chatgpt also moved off iframes to keep one code path.
-  function syncOne(conv_id) {
-    return new Promise(async (resolve) => {
-      const url = providerThreadUrl(conv_id);
-      if (!url) return resolve(false);
-      const tabId = await openSyncTab(url);
-      if (tabId == null) return resolve(false);
-
-      let settled = false;
-      const settle = (ok) => {
-        if (settled) return;
-        settled = true;
-        closeSyncTab(tabId);
-        resolve(ok);
-      };
-
-      const startedAt = Date.now();
-      const poll = async () => {
-        if (settled) return;
-        const status = await queryStatus();
-        const stillMissing = status && status.ok && Array.isArray(status.missing_ids)
-          ? status.missing_ids.includes(conv_id)
-          : true;
-        if (!stillMissing) return settle(true);
-        if (Date.now() - startedAt >= PER_TAB_TIMEOUT_MS) {
-          return settle(false);
-        }
-        setTimeout(poll, CONFIRM_POLL_MS);
-      };
-      setTimeout(poll, CONFIRM_POLL_MS);
-    });
-  }
-
-  async function runSync(missing_ids) {
-    if (syncing) return;
-    syncing = true;
-    const el = document.getElementById(PILL_ID);
-    if (el) {
-      el.style.cursor = "default";
-      el.removeAttribute("title");
-    }
-    const total = missing_ids.length;
-    let landed = 0;
-    let attempted = 0;
-    const updatePill = () => {
-      if (!el) return;
-      el.textContent = `⠕ Syncing ${landed}/${total}…`;
-    };
-    updatePill();
-
-    // Worker-pool pattern: SYNC_CONCURRENCY workers each pull from
-    // the queue. Each call to syncOne() spawns one iframe + waits
-    // for its capture to land (or times out). Workers exit when the
-    // queue is empty.
-    const queue = [...missing_ids];
-    const workers = Array.from({ length: SYNC_CONCURRENCY }, async () => {
-      while (queue.length > 0) {
-        const conv_id = queue.shift();
-        attempted += 1;
-        const ok = await syncOne(conv_id);
-        if (ok) landed += 1;
-        updatePill();
-      }
-    });
-    await Promise.all(workers);
-
-    if (el) {
-      el.textContent = landed === total
-        ? `⠕ ✓ Synced ${landed}`
-        : `⠕ ✓ Synced ${landed}/${total}`;
-      setTimeout(() => {
-        const live = document.getElementById(PILL_ID);
-        if (live) live.hidden = true;
-      }, SYNCED_FADE_AFTER_MS);
-    }
-    syncing = false;
-  }
+  const SYNC_PROGRESS_POLL_MS = 750;     // when sync is in-flight, refresh pill
+  const SYNCED_FADE_AFTER_MS = 4_000;
 
   function queryStatus() {
     return new Promise((resolve) => {
@@ -183,10 +52,40 @@
             resolve(response || null);
           },
         );
-      } catch {
-        resolve(null);
-      }
+      } catch { resolve(null); }
     });
+  }
+
+  function getCurrentSyncState() {
+    return new Promise((resolve) => {
+      if (!chrome?.runtime?.id) return resolve(null);
+      try {
+        chrome.runtime.sendMessage(
+          { type: "get_current_tab_sync_state" },
+          (response) => {
+            if (chrome.runtime.lastError) return resolve(null);
+            resolve(response || null);
+          },
+        );
+      } catch { resolve(null); }
+    });
+  }
+
+  function startCurrentTabSync(missing_ids) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(
+          { type: "start_current_tab_sync", provider, missing_ids },
+          (response) => resolve(!!response?.ok),
+        );
+      } catch { resolve(false); }
+    });
+  }
+
+  function cancelCurrentTabSync() {
+    try {
+      chrome.runtime.sendMessage({ type: "cancel_current_tab_sync" }, () => {});
+    } catch { /* ignore */ }
   }
 
   function ensurePillStyles() {
@@ -203,50 +102,100 @@
         cursor: pointer; user-select: none;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         opacity: 0.92; transition: opacity 0.15s ease;
+        display: inline-flex; align-items: center; gap: 8px;
       }
       #${PILL_ID}:hover { opacity: 1.0; }
       #${PILL_ID}[hidden] { display: none !important; }
+      #${PILL_ID} .__trinity_cancel {
+        background: rgba(245, 239, 227, 0.15); border: 0; color: inherit;
+        font: inherit; padding: 0 8px; border-radius: 999px; cursor: pointer;
+      }
+      #${PILL_ID} .__trinity_cancel:hover { background: rgba(245, 239, 227, 0.3); }
     `;
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function ensurePillEl(onClick) {
+  function ensurePillEl() {
     let el = document.getElementById(PILL_ID);
     if (el) return el;
     ensurePillStyles();
     el = document.createElement("div");
     el.id = PILL_ID;
     el.hidden = true;
-    el.setAttribute("role", "button");
-    el.setAttribute("aria-label", "Trinity sync");
-    el.addEventListener("click", onClick);
+    el.setAttribute("role", "status");
     (document.body || document.documentElement).appendChild(el);
     return el;
   }
 
-  function renderPill(status) {
-    if (!status || !status.ok) return;
-    const count = Number(status.missing_count) || 0;
-    const missing_ids = status.missing_ids || [];
-
-    const el = ensurePillEl(() => {
-      if (syncing) return;
-      runSync(missing_ids);
-    });
-
-    if (count <= 0 || syncing) {
-      if (!syncing) el.hidden = true;
-      return;
-    }
-    el.textContent = `⠕ ${count} to sync`;
-    el.title = "Trinity: click to sync missing threads locally";
+  function renderIdle(missingCount, missingIds) {
+    const el = ensurePillEl();
+    if (missingCount <= 0) { el.hidden = true; return; }
+    el.replaceChildren();  // clear (no innerHTML; XSS-safe)
+    el.textContent = `⠕ ${missingCount} to sync`;
+    el.title = "Trinity: click to sync missing threads into this tab";
+    el.style.cursor = "pointer";
+    el.onclick = async () => {
+      el.onclick = null;
+      el.textContent = `⠕ Starting…`;
+      await startCurrentTabSync(missingIds);
+      // Background will navigate this tab almost immediately; pill
+      // re-renders in the next page-load lifecycle.
+    };
     el.hidden = false;
   }
 
+  function renderActive(state) {
+    const el = ensurePillEl();
+    el.replaceChildren();
+    el.style.cursor = "default";
+    el.removeAttribute("title");
+    el.appendChild(document.createTextNode(
+      `⠕ Syncing ${state.landed}/${state.total}…`,
+    ));
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "__trinity_cancel";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.onclick = (e) => { e.stopPropagation(); cancelCurrentTabSync(); };
+    el.appendChild(cancelBtn);
+    el.hidden = false;
+  }
+
+  function renderJustFinished(state) {
+    const el = ensurePillEl();
+    el.replaceChildren();
+    el.style.cursor = "default";
+    el.textContent = state.landed === state.total
+      ? `⠕ ✓ Synced ${state.landed}`
+      : `⠕ ✓ Synced ${state.landed}/${state.total}`;
+    el.hidden = false;
+    setTimeout(() => {
+      const live = document.getElementById(PILL_ID);
+      if (live) live.hidden = true;
+    }, SYNCED_FADE_AFTER_MS);
+  }
+
   async function tick() {
-    if (syncing) return;  // don't overwrite the sync UI mid-flight
+    // 1) Sync in flight? Render progress, schedule fast re-tick.
+    const syncState = await getCurrentSyncState();
+    if (syncState && syncState.active && syncState.provider === provider) {
+      renderActive(syncState);
+      setTimeout(tick, SYNC_PROGRESS_POLL_MS);
+      return;
+    }
+    // 1b) Recently finished? Show the success banner briefly, once.
+    if (
+      syncState && !syncState.active && syncState.provider === provider &&
+      syncState.finished_at && (Date.now() - syncState.finished_at < 10_000) &&
+      syncState.total > 0
+    ) {
+      renderJustFinished(syncState);
+      return;
+    }
+    // 2) No sync in flight — render the idle "N to sync" pill from
+    //    the sidebar-vs-on-disk diff.
     const status = await queryStatus();
-    renderPill(status);
+    if (!status || !status.ok) return;
+    renderIdle(Number(status.missing_count) || 0, status.missing_ids || []);
   }
 
   setTimeout(() => {

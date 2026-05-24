@@ -19,6 +19,97 @@ const NATIVE_HOST = "local.trinity.capture";
 
 let port = null;
 
+// ─── Current-tab sync state (survives content-script reloads) ─────────
+// The sync orchestrator drives the user's current tab through each
+// missing conv_id. State lives here in the service worker because
+// content-script context is destroyed on each navigation. The pill
+// re-queries us for state when it re-injects via get_current_tab_sync_state.
+const CURRENT_TAB_SYNC_STATE = {
+  active: false,
+  provider: null,
+  total: 0,
+  landed: 0,
+  currentIndex: 0,
+  tabId: null,
+  originalUrl: null,
+  canceled: false,
+  finishedAt: 0,
+};
+
+const SYNC_NAV_TIMEOUT_MS = 12_000;
+const SYNC_CAPTURE_POLL_MS = 500;
+
+function providerThreadUrl(provider, conv_id) {
+  if (provider === "claude") return `https://claude.ai/chat/${conv_id}`;
+  if (provider === "chatgpt") return `https://chatgpt.com/c/${conv_id}`;
+  if (provider === "gemini") return `https://gemini.google.com/app/${conv_id}`;
+  return null;
+}
+
+function querySyncStatus(provider) {
+  return new Promise((resolve) => {
+    const payload = { kind: "query", query_kind: "sync_status", provider };
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, payload, (resp) => {
+        if (chrome.runtime.lastError) return resolve(null);
+        resolve(resp || null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function pollForCapture(provider, conv_id, deadline) {
+  return new Promise((resolve) => {
+    (async function poll() {
+      if (Date.now() >= deadline || CURRENT_TAB_SYNC_STATE.canceled) {
+        return resolve(false);
+      }
+      const status = await querySyncStatus(provider);
+      const stillMissing = status && status.ok && Array.isArray(status.missing_ids)
+        ? status.missing_ids.includes(conv_id)
+        : true;
+      if (!stillMissing) return resolve(true);
+      setTimeout(poll, SYNC_CAPTURE_POLL_MS);
+    })();
+  });
+}
+
+async function runCurrentTabSync({ tabId, originalUrl, provider, missing_ids }) {
+  Object.assign(CURRENT_TAB_SYNC_STATE, {
+    active: true, provider, total: missing_ids.length, landed: 0,
+    currentIndex: 0, tabId, originalUrl, canceled: false, finishedAt: 0,
+  });
+
+  for (let i = 0; i < missing_ids.length; i++) {
+    if (CURRENT_TAB_SYNC_STATE.canceled) break;
+    const conv_id = missing_ids[i];
+    CURRENT_TAB_SYNC_STATE.currentIndex = i;
+    const url = providerThreadUrl(provider, conv_id);
+    if (!url) continue;
+    try {
+      await chrome.tabs.update(tabId, { url });
+    } catch {
+      break;  // tab probably closed
+    }
+    const ok = await pollForCapture(
+      provider, conv_id, Date.now() + SYNC_NAV_TIMEOUT_MS,
+    );
+    if (ok) CURRENT_TAB_SYNC_STATE.landed += 1;
+  }
+
+  // Restore the user's original URL
+  try {
+    if (!CURRENT_TAB_SYNC_STATE.canceled) {
+      await chrome.tabs.update(tabId, { url: originalUrl });
+    }
+  } catch { /* tab closed */ }
+
+  CURRENT_TAB_SYNC_STATE.active = false;
+  CURRENT_TAB_SYNC_STATE.finishedAt = Date.now();
+}
+
 function ensurePort() {
   if (port) return port;
   try {
@@ -67,7 +158,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // ─── Background-tab sync (new — gemini fallback for sync pill) ────────
+  // ─── Current-tab sync orchestrator (used by sync pill) ──────────────
+  // The pill sends start_current_tab_sync; this handler takes over the
+  // user's current tab, navigates it through each missing conv_id,
+  // polls capture-host for each capture to land, then restores the
+  // original URL. State lives here (the service worker survives navi-
+  // gations; the pill's content-script context is destroyed on each
+  // page load and re-queries us for state when it re-injects).
+  //
+  // Why current-tab instead of background tabs: user sees the sync
+  // happen visually (informative + trustworthy) and there's no tab-bar
+  // thrashing. Trade-off: user's tab is "borrowed" during sync. The
+  // pill renders a "Syncing N/M — cancel" overlay during the run.
+  if (message?.type === "start_current_tab_sync") {
+    const senderTabId = sender?.tab?.id;
+    const originalUrl = sender?.tab?.url;
+    if (!senderTabId || !originalUrl) {
+      sendResponse({ ok: false, error: "no-tab-context" });
+      return false;
+    }
+    if (CURRENT_TAB_SYNC_STATE.active) {
+      sendResponse({ ok: false, error: "sync-already-running" });
+      return false;
+    }
+    const { provider, missing_ids } = message;
+    if (!Array.isArray(missing_ids) || !missing_ids.length) {
+      sendResponse({ ok: false, error: "no-missing-ids" });
+      return false;
+    }
+    runCurrentTabSync({
+      tabId: senderTabId,
+      originalUrl,
+      provider,
+      missing_ids,
+    });
+    sendResponse({ ok: true });
+    return false;
+  }
+  if (message?.type === "get_current_tab_sync_state") {
+    sendResponse({
+      ok: true,
+      active: CURRENT_TAB_SYNC_STATE.active,
+      provider: CURRENT_TAB_SYNC_STATE.provider,
+      total: CURRENT_TAB_SYNC_STATE.total,
+      landed: CURRENT_TAB_SYNC_STATE.landed,
+      current_index: CURRENT_TAB_SYNC_STATE.currentIndex,
+      finished_at: CURRENT_TAB_SYNC_STATE.finishedAt,
+    });
+    return false;
+  }
+  if (message?.type === "cancel_current_tab_sync") {
+    CURRENT_TAB_SYNC_STATE.canceled = true;
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  // ─── Background-tab sync (kept for callers that prefer it) ───────────
   // Gemini blocks iframe-based sync (the bundle detects iframe context
   // and doesn't fire its canonical hNvQHb fetch). Background tabs
   // bypass this: real top-level navigation that triggers the full

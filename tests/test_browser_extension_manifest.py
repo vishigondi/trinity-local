@@ -190,21 +190,23 @@ def test_sync_pill_content_script_present_and_wired():
     assert '"sync_status"' in src, "pill must call query_kind=sync_status"
     assert 'missing_count' in src, "pill must read missing_count from response"
     assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
-    # Click action — runs background-tab-based sync. Three evolutions:
-    # 1) Direct-fetch (4b4b05f) failed: content-script fetch lacks
-    #    Bearer auth that provider bundles inject.
-    # 2) Iframe-based (b09dadb): worked for claude/chatgpt but gemini
-    #    detects iframe context and skips its canonical fetch.
-    # 3) Background-tab (current): real top-level navigation fires
-    #    full page-load including auth-injected fetches. active:false
-    #    keeps tabs out of focus. Works for all 3 providers uniformly.
-    assert 'open_sync_tab' in src, (
-        "pill must use background-tab sync via the open_sync_tab "
-        "background message (uniform across all 3 providers)"
+    # Click action — runs current-tab orchestrated sync (background.js
+    # owns the state machine; pill is stateless renderer).
+    # Evolution: 4b4b05f direct-fetch (auth blocker) → b09dadb iframes
+    # (gemini detection) → c11dc9e background tabs (tab thrashing) →
+    # current: orchestrated current-tab navigation (user watches their
+    # own tab tour their conversations + ends back where they started).
+    assert 'start_current_tab_sync' in src, (
+        "pill click must dispatch start_current_tab_sync to background "
+        "(background owns the orchestrator state machine)"
     )
-    assert 'PER_TAB_TIMEOUT_MS' in src, (
-        "pill must guard each tab with a timeout (provider page-load "
-        "can hang, slow, or never fire the canonical fetch)"
+    assert 'get_current_tab_sync_state' in src, (
+        "pill must query background for sync state since content-script "
+        "is destroyed on every navigation during sync"
+    )
+    assert 'cancel_current_tab_sync' in src, (
+        "pill must offer cancel during in-flight sync (user took over "
+        "their tab; they can take it back)"
     )
     assert 'window !== window.top' in src, (
         "pill must bail in iframes — all_frames:true is still set so "
