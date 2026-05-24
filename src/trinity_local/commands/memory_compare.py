@@ -98,8 +98,14 @@ def _resolve_claude_root(args) -> Path | None:
     if args.claude_project:
         candidate = base / args.claude_project / "memory"
         return candidate if candidate.exists() else None
+    # Claude Code's project-key encoding for `~/.claude/projects/<key>`
+    # is just `str(path).replace("/", "-")`. An absolute path like
+    # `/Users/foo/x` already starts with `/`, so the encoding yields
+    # `-Users-foo-x` — ONE leading dash, not two. The previous
+    # implementation prepended `-` unconditionally, producing
+    # `--Users-foo-x` and failing to find any real project dir.
     cwd = Path(os.getcwd()).resolve()
-    encoded = "-" + str(cwd).replace("/", "-")
+    encoded = str(cwd).replace("/", "-")
     candidate = base / encoded / "memory"
     if candidate.exists():
         return candidate
