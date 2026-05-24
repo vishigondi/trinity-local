@@ -7,6 +7,60 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.9 — gemini parser fix: brace-depth scan beats Google's unreliable length prefix] — 2026-05-23
+
+Closes #144. v1.7.8's per-RPC file_stem revealed the real problem: even
+with each RPC landing distinctly, `frames_count: 0` across the board.
+Direct inspection of an `hNvQHb` capture (39KB, contains literal user
+prompts + assistant replies in `_raw_body`) showed the parser was
+bailing on every frame.
+
+Root cause: Google's length-prefix in batchexecute framing is **off by
+±2 chars** from the actual JSON value length (live capture: declared
+`36816`, actual `36814`). The old `parseFrames()` trusted the prefix
+verbatim, sliced too far, JSON.parse hit "Extra data" on trailing
+chars, frame dropped. Whether the drift is UTF-8/UTF-16 byte-vs-char
+mismatch or a Google-side count semantic that includes trailing
+separators is unknown — and irrelevant.
+
+Fix: brace-depth structural scan to find the actual end of each JSON
+value. Reads (and skips past) the length prefix as a hint that "a JSON
+value follows here," but does NOT trust its numeric value. Sidesteps
+the byte/char/encoding question entirely.
+
+- `browser-extension/adapters/gemini.js`: new `findJsonValueEnd(text,
+  start)` walks brace/bracket depth + string-escape state to locate
+  the closing bracket. `parseFrames()` rewritten to use it. Same wire
+  protocol assumptions; just stops trusting one untrustworthy field.
+- `browser-extension/manifest.json` 0.2.6 → 0.2.7.
+- `docs/INSTALL-extension.md` version synced.
+
+Guards (so this can't silently regress):
+
+- `tests/test_browser_extension_gemini_adapter.py` adds 2 tests:
+  `test_parser_ignores_unreliable_length_prefix` — synthesizes a body
+  with deliberately-wrong length (off-by-2, matches live drift exactly)
+  and asserts the parser still extracts.
+  `test_parser_handles_multi_frame_body` — multiple frames with mixed
+  off-by-N prefixes (+2, exact, −1) to stress the brace-depth scan.
+
+What's resolved + what remains:
+
+- #144 **resolved** — verified live by running the patched parser
+  against an existing 39KB hNvQHb capture: extracts the full Oracle-
+  earnings assistant reply (~2KB prose).
+- `user_text` still falls back to `"generic"` for many RPCs — that's a
+  separate looksLikePrompt heuristic issue in `extractUserPrompt`. The
+  fix for the response-side parser unblocks reading what's there;
+  tightening the request-side prompt extraction is a smaller follow-up.
+
+Pattern reinforced: don't trust upstream length prefixes verbatim when
+you have structural cues (matched brackets, JSON validity) that let you
+verify. Same principle as the chatgpt URL-pattern drift the
+`extension repair` flow catches — provider wire formats drift, the
+adapter must be structurally robust to the drift class, not just the
+current shape.
+
 ## [v1.7.8 — gemini capture: per-RPC file_stem unblocks #144 verification] — 2026-05-23
 
 #145 (captures overwriting per conv_id) caused #144 (empty user_text /
@@ -568,7 +622,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1691<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1693<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

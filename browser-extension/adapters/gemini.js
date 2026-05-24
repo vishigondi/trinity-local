@@ -88,6 +88,44 @@
   // prefix (depends on the Google frontend variant), so we accept
   // both. Returns parsed JSON arrays — frames that don't parse are
   // skipped silently.
+  // Find the index just past the end of the JSON value starting at `start`.
+  // Tracks brace/bracket depth + string escape state. Returns -1 if no
+  // complete value is found before end-of-text. Treats this byte-level
+  // structural scan as more authoritative than Google's declared length
+  // prefix because the prefix is unreliable: live captures (2026-05-23)
+  // showed prefixes off by ±2 chars from the actual JSON value length —
+  // unknown whether it's a UTF-8/UTF-16 mismatch or a Google-side count
+  // semantic that includes trailing separators. Brace-depth scan
+  // sidesteps the question.
+  function findJsonValueEnd(text, start) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let started = false;
+    for (let i = start; i < text.length; i++) {
+      const c = text[i];
+      if (escape) { escape = false; continue; }
+      if (inString) {
+        if (c === "\\") escape = true;
+        else if (c === "\"") inString = false;
+        continue;
+      }
+      if (c === "\"") { inString = true; started = true; }
+      else if (c === "[" || c === "{") { depth++; started = true; }
+      else if (c === "]" || c === "}") {
+        depth--;
+        if (started && depth === 0) return i + 1;
+      } else if (!started && (c === "\n" || c === "\r" || c === " " || c === "\t")) {
+        // skip leading whitespace before the value starts
+        continue;
+      } else if (!started && (c >= "0" && c <= "9")) {
+        // bare-number value (rare for our use case but handle anyway)
+        started = true;
+      }
+    }
+    return -1;
+  }
+
   function parseFrames(bodyText) {
     if (!bodyText) return [];
     let text = bodyText;
@@ -103,14 +141,23 @@
         i++;
       }
       if (i >= text.length) break;
-      // Read decimal length
-      let lenStart = i;
+      // The conventional gemini framing is `<length>\n<json>`. We READ the
+      // length prefix (to skip past it) but DON'T trust its value — see
+      // findJsonValueEnd above. The prefix is purely a hint that "a JSON
+      // value follows"; the scan finds the actual end.
       while (i < text.length && text[i] >= "0" && text[i] <= "9") {
         i++;
       }
-      if (i === lenStart) {
-        // Not a length — best effort: try parsing the rest as one frame
-        const tail = text.slice(lenStart).trim();
+      // Skip the newline(s) after the length
+      while (i < text.length && (text[i] === "\n" || text[i] === "\r")) {
+        i++;
+      }
+      if (i >= text.length) break;
+      // Brace-depth scan to find the actual end of the JSON value.
+      const end = findJsonValueEnd(text, i);
+      if (end < 0) {
+        // Truncated body — best effort: try parsing the rest as one frame.
+        const tail = text.slice(i).trim();
         if (tail) {
           try {
             frames.push(JSON.parse(tail));
@@ -118,21 +165,12 @@
         }
         break;
       }
-      const length = parseInt(text.slice(lenStart, i), 10);
-      // Skip the newline after the length
-      while (i < text.length && (text[i] === "\n" || text[i] === "\r")) {
-        i++;
-      }
-      if (!Number.isFinite(length) || length <= 0) break;
-      const frameText = text.slice(i, i + length);
-      i += length;
       try {
-        frames.push(JSON.parse(frameText));
+        frames.push(JSON.parse(text.slice(i, end)));
       } catch {
-        // Truncated or shape-shifted frame — skip and try the next length prefix.
-        // Don't crash; partial captures should still produce some text.
-        continue;
+        // Shape-shifted frame — skip silently; don't crash on partials.
       }
+      i = end;
     }
     return frames;
   }

@@ -313,6 +313,73 @@ def test_adapter_file_stem_falls_back_to_captured_at():
     assert result["file_stem"].startswith("conv-no-msg__2026052400")
 
 
+def test_parser_ignores_unreliable_length_prefix():
+    """Google's framing prefix is off-by-N in live captures (2026-05-23):
+    declared `36816`, actual JSON char count `36814`. Old parser sliced
+    by the declared length → trailing chars made JSON.parse fail →
+    `frames_count: 0` → empty content. New parser uses a brace-depth
+    scan to find the real end of each JSON value and ignores the prefix.
+
+    This test synthesizes a body with a deliberately-wrong length prefix
+    (claims 2 chars too many — matches the live drift exactly) and
+    asserts the parser still extracts the frame.
+    """
+    if not _node_available():
+        import pytest
+        pytest.skip("node not available")
+    inner = json.dumps([[
+        "irrelevant_envelope",
+        ["candidate_id", "An assistant reply with enough prose to pass the length filter."],
+    ]])
+    frame = json.dumps([["wrb.fr", "vfBeAd", inner, None, None, "msg-test123"]])
+    # Lie about the length: claim 2 chars too many (matches the
+    # live-capture off-by-2 drift). Real parser must still extract.
+    fake_length = len(frame) + 2
+    body = f")]}}'\n\n{fake_length}\n{frame}\n"
+    result = _run_adapter({
+        "url": "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+        "body_text": body,
+        "method": "POST",
+        "page_href": "https://gemini.google.com/app/conv-test",
+    })
+    assert result["frames_count"] >= 1, (
+        f"parser bailed on off-by-N length prefix; got frames_count="
+        f"{result['frames_count']}"
+    )
+    assert "An assistant reply" in (result["assistant_text"] or "")
+
+
+def test_parser_handles_multi_frame_body():
+    """Real gemini responses contain multiple length-prefixed frames
+    (the main wrb.fr row + housekeeping `di` + `af.httprm` + `e` frames).
+    Parser must walk all of them, not stop at the first."""
+    if not _node_available():
+        import pytest
+        pytest.skip("node not available")
+    main_inner = json.dumps([["x", ["cand", "Long assistant reply prose with multiple words."]]])
+    main_frame = json.dumps([["wrb.fr", "vfBeAd", main_inner, None, None, "msg-main"]])
+    di_frame = json.dumps([["di", 208], ["af.httprm", 208, "-839", 18]])
+    e_frame = json.dumps([["e", 4, None, None, 166]])
+    # Off-by-1 / off-by-2 / exact — mix to stress the brace-depth scan.
+    body = (
+        f")]}}'\n\n"
+        f"{len(main_frame) + 2}\n{main_frame}\n"
+        f"{len(di_frame)}\n{di_frame}\n"
+        f"{len(e_frame) - 1}\n{e_frame}\n"
+    )
+    result = _run_adapter({
+        "url": "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+        "body_text": body,
+        "method": "POST",
+        "page_href": "https://gemini.google.com/app/conv-multi",
+    })
+    assert result["frames_count"] >= 2, (
+        f"parser stopped early on multi-frame body; got frames_count="
+        f"{result['frames_count']}"
+    )
+    assert "Long assistant reply" in (result["assistant_text"] or "")
+
+
 def test_adapter_file_stem_null_when_no_conv_id():
     """No conv_id (user on /app root) → file_stem null → capture host's
     conv_id-required gate still drops it (per existing semantics)."""
