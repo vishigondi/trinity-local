@@ -282,6 +282,47 @@ class TestCompareMemoriesIntegration:
         )
         assert _resolve_claude_root(ns) is None
 
+    def test_resolve_claude_root_auto_detect_encodes_cwd_correctly(
+        self, tmp_path, monkeypatch
+    ):
+        """Auto-detect mode: cwd → `~/.claude/projects/<encoded>/memory`.
+
+        Claude Code encodes the project key as `str(path).replace("/", "-")`.
+        For an absolute path like `/Users/foo/x` that yields `-Users-foo-x`
+        (ONE leading dash from the leading "/"). The first-cut implementation
+        prepended `-` unconditionally, producing `--Users-foo-x` and missing
+        every real Claude project. Regression: pretend `~/.claude/projects`
+        lives under tmp_path, plant the correctly-encoded dir, point cwd
+        at a path the encoder will hit, and assert auto-detect lands.
+        """
+        from trinity_local.commands.memory_compare import _resolve_claude_root
+        from argparse import Namespace
+
+        # Stage a fake $HOME so `Path.home() / ".claude/projects/<key>"`
+        # lands inside tmp_path. Avoids the bleed into real ~/.claude.
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setenv("HOME", str(fake_home))
+
+        # The cwd that the encoder will see — pick a deterministic path
+        # under tmp_path so test-host paths don't leak in.
+        target_cwd = tmp_path / "some" / "project"
+        target_cwd.mkdir(parents=True)
+        monkeypatch.chdir(target_cwd)
+
+        encoded = str(target_cwd.resolve()).replace("/", "-")
+        project_memory = (
+            fake_home / ".claude" / "projects" / encoded / "memory"
+        )
+        project_memory.mkdir(parents=True)
+
+        ns = Namespace(claude_memory_path=None, claude_project=None)
+        resolved = _resolve_claude_root(ns)
+        assert resolved == project_memory, (
+            f"Auto-detect expected to find {project_memory!s} but got {resolved!s}. "
+            "If the bug regresses, you'll see a path with an extra leading dash."
+        )
+
     def test_cli_handler_writes_markdown_report(self, claude_memory_root, tmp_path, monkeypatch, capsys):
         """End-to-end: CLI handler writes a real markdown report and
         prints the headline. The output structure should match what the
