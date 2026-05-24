@@ -438,3 +438,48 @@ class TestRefreshMemoryButton:
             "with no health issues, contradicting the council's rejection "
             "of auto-fire / always-on dream surfacing."
         )
+
+    def test_repair_extension_button_renders_in_health_card(self):
+        """#147 self-healing UI: same shape guard as the refresh-memory
+        button. The repair-extension button must be wired into the
+        memory-health-card section with the full state machine + the
+        extension-repair-auto extensionAction kind. The whole reason
+        the button sits inside the v-if (alongside refresh-memory) is
+        the same principle the council ratified: don't auto-fire the
+        expensive council; surface the trigger only when there's a
+        signal to repair (i.e. when memoryHealth.issues isn't empty)."""
+        from trinity_local.launchpad_template import render_launchpad_html
+        html = render_launchpad_html(
+            page_data={
+                "memoryHealth": {
+                    "issues": [{
+                        "name": "lens.md",
+                        "status": "STALE",
+                        "hint": "Hasn't been refreshed in a week",
+                    }],
+                    "ok_count": 3,
+                    "total_count": 4,
+                }
+            },
+            recent_cards="",
+        )
+        # Idle + transient state labels
+        assert "Repair extension" in html, "idle label missing"
+        assert "Repairing" in html, "running-state label missing"
+        assert "Dispatched" in html, "done-state label missing"
+        # Vue plumbing
+        assert "@click=\"repairExtension\"" in html, "click handler missing"
+        assert "repairExtensionStatus" in html, "state field missing"
+        # Dispatch path — Chrome extension allowlist kind from #147
+        assert "kind: 'extension-repair-auto'" in html, "extensionAction kind missing"
+        # Same v-if invariant: button MUST sit inside memory-health-card
+        # so it only renders when there's a signal to repair.
+        card_start = html.index('<section class="card memory-health-card"')
+        card_end = html.index("</section>", card_start)
+        button_pos = html.index("Repair extension", card_start)
+        assert button_pos < card_end, (
+            "'Repair extension' button must render inside memory-health-card; "
+            "hoisting it outside the v-if would surface it on installs "
+            "with no health issues, contradicting the same auto-fire / "
+            "always-on rejection that gates the refresh-memory button."
+        )

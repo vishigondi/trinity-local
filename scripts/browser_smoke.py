@@ -1029,7 +1029,12 @@ def main() -> int:
             # confirming the captured value matches issue.command.
             copy_state = page.evaluate(
                 """() => new Promise(resolve => {
-                  const btn = document.querySelector('.memory-health-card button');
+                  // Target the per-issue copy-to-clipboard chip in the
+                  // issues list, not the action buttons in the card
+                  // eyebrow (Refresh memory / Repair extension — those
+                  // dispatch via Chrome extension and don't write to
+                  // the clipboard).
+                  const btn = document.querySelector('.memory-health-list button');
                   if (!btn) { resolve({skipped: true, reason: 'no chip (issue may be href-only)'}); return; }
                   const expected = btn.textContent.trim();
                   let captured = null;

@@ -1064,6 +1064,31 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span v-else-if="refreshMemoryStatus === 'failed'">⚠ Failed</span>
             <span v-else>Refresh memory</span>
           </button>
+          <!-- #147 self-healing UI surface: "Repair extension" button.
+               Fires extension-repair-auto via Chrome extension dispatch.
+               When the capture pipeline has detected a code-patch drift
+               pattern (provider-extended-silence), the dispatched
+               council reads page-hook.js + the diagnosis and proposes
+               a unified-diff patch (no HAR required). When only
+               user-action patterns surface (stale-auth-cookie), the
+               result message tells the user what to refresh manually.
+               When no patterns surface, the result message says
+               "no actionable patterns found." Same async/launch
+               semantics as Refresh memory — finishes on dispatch
+               return, the actual council runs minutes later. -->
+          <button type="button"
+                  class="suggestion-chip"
+                  style="padding: 4px 10px; font-size: 12px; cursor: pointer;"
+                  :disabled="repairExtensionStatus === 'running'"
+                  @click="repairExtension">
+            <span v-if="repairExtensionStatus === 'running'">
+              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
+              Repairing…
+            </span>
+            <span v-else-if="repairExtensionStatus === 'done'">✓ Dispatched</span>
+            <span v-else-if="repairExtensionStatus === 'failed'">⚠ Failed</span>
+            <span v-else>Repair extension</span>
+          </button>
         </div>
         <h2 style="margin-top: 4px; font-size: 18px;">
           {{{{ memoryHealth.issues.length }}}} memor{{{{ memoryHealth.issues.length === 1 ? 'y' : 'ies' }}}} need{{{{ memoryHealth.issues.length === 1 ? 's' : '' }}}} attention
@@ -2041,6 +2066,11 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         // — fires dream via Chrome extension; flips to 'done' for ~3s on
         // success, 'failed' on dispatch error. NEVER auto-fires.
         refreshMemoryStatus: 'idle',
+        // #147 self-healing UI surface — same shape as refreshMemoryStatus.
+        // Set by repairExtension(); fires extension-repair-auto via Chrome
+        // extension dispatch. NEVER auto-fires (council call is expensive
+        // and surprising — same intent the dream button respects).
+        repairExtensionStatus: 'idle',
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
@@ -2804,6 +2834,45 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 // honest signal; the user re-renders the launchpad later
                 // to see the issues clear. This matches how ingest-recent
                 // behaves on this page.
+                this.handleDispatchResult(r);
+                finish(r && r.ok !== false);
+              }},
+            }});
+          }} else {{
+            this.triggerShortcut(buildShortcutUrl(payload));
+            finish(true);
+          }}
+        }},
+        repairExtension() {{
+          // #147 self-healing UI: dispatches extension-repair-auto. The
+          // CLI runs `trinity-local extension repair --auto --json` which
+          // diagnoses + detects code-patch patterns + dispatches the
+          // repair council with the diagnostic context only (no HAR
+          // required). Same async/launch semantics as refreshMemory —
+          // the dispatch return only confirms subprocess launch, the
+          // council itself runs minutes later. User re-renders the
+          // launchpad to see the proposed patch when ready.
+          if (this.repairExtensionStatus === 'running') return;
+          this.repairExtensionStatus = 'running';
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const payload = {{
+            name: 'run_command',
+            args: {{ command: 'trinity-local extension repair --auto --json' }},
+            metadata: {{ kind: 'launchpad_repair_extension', source: 'launchpad' }},
+          }};
+          const finish = (ok) => {{
+            this.repairExtensionStatus = ok ? 'done' : 'failed';
+            setTimeout(() => {{
+              if (this.repairExtensionStatus === 'done' || this.repairExtensionStatus === 'failed') {{
+                this.repairExtensionStatus = 'idle';
+              }}
+            }}, ok ? 3000 : 4000);
+          }};
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'extension-repair-auto' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => {{
                 this.handleDispatchResult(r);
                 finish(r && r.ok !== false);
               }},
