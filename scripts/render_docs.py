@@ -224,6 +224,20 @@ CANONICAL: dict[str, callable] = {
     "version": canonical_version,
 }
 
+# #131: extend the canonical-placeholder registry with string-valued
+# facts that recur across ≥2 user-facing surfaces. Counts stay above
+# (they're computed via codebase introspection); string facts live in
+# src/trinity_local/facts.py so Python code can `import LANDING_DOMAIN`
+# directly while doc surfaces stay in sync via the same placeholder
+# syntax. New facts: add to facts.FACTS, no render_docs.py change needed.
+sys.path.insert(0, str(REPO / "src"))
+try:
+    from trinity_local.facts import FACTS as _FACTS  # noqa: E402
+
+    CANONICAL.update(_FACTS)
+finally:
+    sys.path.pop(0)
+
 
 # ───────────────────────────────────────────────────────────────────────
 # Renderer

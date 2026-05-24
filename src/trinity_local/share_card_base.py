@@ -28,13 +28,16 @@ COLOR_INK = (26, 26, 26)          # deep ink for headlines
 COLOR_MUTED = (95, 95, 95)        # muted ink for body
 COLOR_ACCENT = (37, 88, 71)       # sage green for accents
 
-# Single source of truth for the public landing URL and footer tagline
-# on share artifacts. Mirrored across all three cards by importing here
-# — any future brand pivot stays consistent.
-LANDING_URL = "keepwhatworks.com"
+# Public landing URL + footer tagline for share artifacts. The domain
+# constant lives in facts.py (#131) so doc surfaces and Python code
+# both pull from one place; this module re-exports as LANDING_URL for
+# back-compat with the existing share-card consumers.
+from .facts import LANDING_DOMAIN
+
+LANDING_URL = LANDING_DOMAIN
 # Logo char: ⠕ (U+2815, Braille pattern dots-135). Per user direction
 # 2026-05-22 — the brand mark Trinity carries on every share artifact.
-FOOTER_TAGLINE = "⠕ Trinity · keepwhatworks.com"
+FOOTER_TAGLINE = f"⠕ Trinity · {LANDING_DOMAIN}"
 
 
 # Font path candidates — try macOS first, fall back to Linux DejaVu, then
