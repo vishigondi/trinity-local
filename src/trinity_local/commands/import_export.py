@@ -73,6 +73,14 @@ def register(subparsers):
         "--dim", type=int, default=768,
         help="Embedding dimension (default 768 — Nomic).",
     )
+    parser.add_argument(
+        "--progress", action="store_true",
+        help=(
+            "Stream per-chunk progress lines to stderr "
+            "(default off — JSON on stdout stays clean for "
+            "the launchpad dispatch path)."
+        ),
+    )
     parser.set_defaults(handler=handle_import_export)
 
 
@@ -240,6 +248,14 @@ def handle_import_export(args):
             1 for s in chunk
             if not s["already_indexed"] and s["keepers"]
         )
+        if args.progress:
+            import sys
+            print(
+                f"  ingested {sessions_indexed} sessions / "
+                f"{prompts_indexed} prompts",
+                file=sys.stderr,
+                flush=True,
+            )
         chunk.clear()
 
     chunk_size_target = 32

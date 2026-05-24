@@ -130,6 +130,7 @@ class TestCliHandler:
         defaults = dict(
             path=None, source=None, dry_run=True,
             limit=None, batch_size=64, dim=768,
+            progress=False,
         )
         defaults.update(overrides)
         return argparse.Namespace(**defaults)
