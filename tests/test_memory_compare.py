@@ -261,6 +261,105 @@ class TestCompareMemoriesIntegration:
         assert report.overlap_count == 0
         assert report.jaccard == 0.0
 
+    def test_resolve_claude_root_uses_explicit_path(self, claude_memory_root, monkeypatch):
+        """--claude-memory-path wins over auto-detection."""
+        from trinity_local.commands.memory_compare import _resolve_claude_root
+        from argparse import Namespace
+
+        ns = Namespace(
+            claude_memory_path=str(claude_memory_root),
+            claude_project=None,
+        )
+        assert _resolve_claude_root(ns) == claude_memory_root
+
+    def test_resolve_claude_root_returns_none_when_nothing_exists(self, tmp_path, monkeypatch):
+        from trinity_local.commands.memory_compare import _resolve_claude_root
+        from argparse import Namespace
+
+        ns = Namespace(
+            claude_memory_path=str(tmp_path / "missing"),
+            claude_project=None,
+        )
+        assert _resolve_claude_root(ns) is None
+
+    def test_cli_handler_writes_markdown_report(self, claude_memory_root, tmp_path, monkeypatch, capsys):
+        """End-to-end: CLI handler writes a real markdown report and
+        prints the headline. The output structure should match what the
+        plan's measurement-protocol section specified."""
+        from trinity_local.commands.memory_compare import handle_memory_compare
+        from argparse import Namespace
+
+        # Isolate TRINITY_HOME so the report doesn't pollute real state
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        out_path = tmp_path / "report.md"
+        ns = Namespace(
+            claude_memory_path=str(claude_memory_root),
+            claude_project=None,
+            output=str(out_path),
+            top_n=3,
+            json=False,
+        )
+        rc = handle_memory_compare(ns)
+        assert rc == 0
+
+        # Markdown report written
+        assert out_path.exists()
+        report_md = out_path.read_text(encoding="utf-8")
+        assert "# Memory comparison" in report_md
+        assert "Headline" in report_md
+        assert "Coverage" in report_md
+        assert "Specificity" in report_md
+
+        # Headline printed to stdout
+        captured = capsys.readouterr()
+        assert "captured" in captured.out
+        assert str(out_path) in captured.out  # "Wrote /path/to/report.md"
+
+    def test_cli_handler_json_mode_omits_markdown_file(self, claude_memory_root, tmp_path, monkeypatch, capsys):
+        """--json flag skips disk write, prints serialized report."""
+        import json as _json
+        from trinity_local.commands.memory_compare import handle_memory_compare
+        from argparse import Namespace
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        out_path = tmp_path / "should_not_be_written.md"
+        ns = Namespace(
+            claude_memory_path=str(claude_memory_root),
+            claude_project=None,
+            output=str(out_path),
+            top_n=5,
+            json=True,
+        )
+        rc = handle_memory_compare(ns)
+        assert rc == 0
+        assert not out_path.exists()
+
+        captured = capsys.readouterr()
+        # stdout is parseable JSON with the expected schema
+        parsed = _json.loads(captured.out)
+        assert "trinity_count" in parsed
+        assert "claude_count" in parsed
+        assert "jaccard" in parsed
+
+    def test_cli_handler_no_claude_root_surfaces_hint(self, tmp_path, monkeypatch, capsys):
+        """When neither auto-detect nor explicit path resolves, the
+        handler must print a hint (not crash, not silently succeed)."""
+        from trinity_local.commands.memory_compare import handle_memory_compare
+        from argparse import Namespace
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        ns = Namespace(
+            claude_memory_path=str(tmp_path / "definitely_missing"),
+            claude_project=None,
+            output=None,
+            top_n=5,
+            json=False,
+        )
+        rc = handle_memory_compare(ns)
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Auto-Dream memory directory not found" in captured.out
+
     def test_to_dict_serializable(self, claude_memory_root):
         report = compare_memories(
             trinity_lens_text=SYNTHETIC_LENS,

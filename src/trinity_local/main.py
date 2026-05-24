@@ -42,6 +42,7 @@ CORE_COMMAND_MODULES = (
     "install_umbrella",
     "me",
     "me_card",
+    "memory_compare",
     "portal",
     "replay",
     "review",
