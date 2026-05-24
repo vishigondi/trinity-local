@@ -39,6 +39,7 @@ CORE_COMMAND_MODULES = (
     "eval",
     "extension_repair",
     "handoff",
+    "import_export",
     "install_umbrella",
     "me",
     "me_card",
