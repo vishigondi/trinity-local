@@ -850,6 +850,64 @@ class TestMcpGetCortexRules:
         assert set(payload["rules"].keys()) == {"system_design", "code_review"}
         assert payload["total_basins"] == 2
 
+    def test_strips_internal_cortex_fields_from_response(self, tmp_path, monkeypatch):
+        """basin_centroid is a 768-dim embedding (~17KB serialized per
+        basin). Useful for cortex's internal semantic matcher; useless
+        to a calling agent. Without stripping, get_picks returned ~175KB
+        for 9 basins — way past any sane MCP payload size, with the
+        majority of the bytes being float lists the agent can't act on.
+        Same logic for manifold_dim / bimodal_flag (internal geometry).
+
+        Pin the strip + the response-size discipline that follows from it.
+        """
+        import asyncio
+        import json as _json
+        from trinity_local import mcp_server, cortex
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        p = cortex.RoutingPattern(
+            basin_id="system_design",
+            consolidated_at="2026-05-20T10:30:00Z",
+            n_episodes=20,
+            task_types=["system_design"],
+            winner_distribution={"codex": 1.0},
+            routing_rule=cortex.RoutingRule(
+                primary="codex", challenger=None, reason="r", subroutes=[]
+            ),
+            trust_score=cortex.TrustScore(
+                value=0.5,
+                components={
+                    "n_episodes_norm": 1.0, "consistency_score": 0.8,
+                    "recency_agreement": 0.8, "diversity": 0.5,
+                },
+            ),
+            basin_centroid=[0.01] * 768,
+            manifold_dim=42.0,
+            bimodal_flag=True,
+        )
+        cortex.save_routing_patterns({"system_design": p})
+
+        result = asyncio.run(mcp_server._get_picks({}))
+        text = result[0]["text"]
+        payload = _json.loads(text)
+        rule = payload["rules"]["system_design"]
+        assert "basin_centroid" not in rule, (
+            "basin_centroid leaked into MCP response — payload size will "
+            "balloon ~17KB per basin"
+        )
+        assert "manifold_dim" not in rule
+        assert "bimodal_flag" not in rule
+        # Agent-facing fields MUST still be present.
+        assert "routing_rule" in rule
+        assert "trust_score" in rule
+        assert "failure_modes" in rule
+        # Discipline: per-basin payload stays small without the 768d vector.
+        # Plenty of headroom — the bug had a single basin at ~19KB.
+        assert len(_json.dumps(rule)) < 4000, (
+            f"per-basin payload too large ({len(_json.dumps(rule))} chars) — "
+            "another internal field may have leaked in"
+        )
+
     def test_filters_by_basin_id(self, tmp_path, monkeypatch):
         import asyncio
         import json as _json

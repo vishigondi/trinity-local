@@ -685,6 +685,15 @@ async def _get_picks(args: dict) -> list[Any]:
     if not patterns:
         return [_text({"rules": {}, "note": "No cortex consolidation yet. Run `trinity-local consolidate`."})]
 
+    # Strip cortex-internal fields from the MCP response. basin_centroid
+    # is a 768-dim embedding vector (~17KB serialized per basin) — only
+    # used inside _best_centroid_match for semantic routing; an agent
+    # reading get_picks wants the routing rule + failure modes + trust
+    # score, not the raw vector. Without this, 9 basins returned ~175KB
+    # / 7600 lines of JSON to the agent — far past any sane MCP payload.
+    # manifold_dim / bimodal_flag are also internal geometry hints.
+    _INTERNAL_FIELDS = ("basin_centroid", "manifold_dim", "bimodal_flag")
+
     # Filter
     filtered: dict[str, dict] = {}
     for bid, pattern in patterns.items():
@@ -692,7 +701,10 @@ async def _get_picks(args: dict) -> list[Any]:
             continue
         if pattern.trust_score.value < min_trust:
             continue
-        filtered[bid] = pattern.to_dict()
+        d = pattern.to_dict()
+        for k in _INTERNAL_FIELDS:
+            d.pop(k, None)
+        filtered[bid] = d
 
     return [_text({
         "rules": filtered,
