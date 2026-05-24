@@ -137,6 +137,11 @@ class TestDecideRoute:
             _hit(prompt_id="p2", user_winner="codex"),
         ]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+        # Isolate from real ~/.trinity/scoreboard/picks.json — without
+        # this, decide_route's _try_cortex_route walks the dev install's
+        # real cortex (4s on 40k-prompt corpus). Same fix as the
+        # surrounding tests at L1116, L1107 etc.
+        monkeypatch.setattr(ask_module, "_try_cortex_route", lambda q, p: None)
         decision = decide_route("test query", top_k=2)
         assert decision.routed_to == "codex"
 
@@ -1114,6 +1119,13 @@ class TestMcpAskHandler:
         # ~/.trinity/scoreboard/picks.json entry whose centroid matches
         # the test query overrides the fake_hits setup.
         monkeypatch.setattr(ask_module, "_try_cortex_route", lambda q, p: None)
+        # Stub mcp_server's preamble work to skip:
+        # - _trigger_incremental_ingest: 1s ingest_recent() walk
+        # - _full_provider_pool: subprocess detection of ollama/mlx models
+        # Both are upstream of the routing logic the test asserts on.
+        # Was the suite's #6 slowest at 6.7s; brings it to <0.1s.
+        monkeypatch.setattr(mcp_server, "_trigger_incremental_ingest", lambda: None)
+        monkeypatch.setattr(mcp_server, "_full_provider_pool", lambda: ["claude", "codex", "antigravity"])
 
         result = asyncio.run(mcp_server._ask({"query": "what's the migration path?"}))
         assert isinstance(result, list) and len(result) == 1
@@ -1139,6 +1151,12 @@ class TestMcpAskHandler:
 
         fake_hits = [_hit(prompt_id="p1", user_winner="codex") for _ in range(5)]
         monkeypatch.setattr(ask_module, "search_prompt_nodes", lambda q, top_k: fake_hits)
+        # Same preamble-stubs as test_returns_compact_json_text_payload —
+        # skip the 1s ingest + ollama detection upstream of routing.
+        monkeypatch.setattr(mcp_server, "_trigger_incremental_ingest", lambda: None)
+        monkeypatch.setattr(mcp_server, "_full_provider_pool", lambda: ["claude", "codex", "antigravity"])
+        # Cortex routing patch — isolate from real picks.json.
+        monkeypatch.setattr(ask_module, "_try_cortex_route", lambda q, p: None)
 
         def broken_dispatch(provider, prompt):
             raise RuntimeError("rate limit exceeded")
