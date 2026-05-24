@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .config import ProviderConfig
-from .memory.store import iter_prompt_nodes
+from .memory.store import tail_prompt_nodes_fast
 from .memory.schemas import PromptNode
 from .providers import ProviderResult, make_provider
 
@@ -79,13 +79,17 @@ def _truncate(text: str, budget: int = PER_TURN_CONTEXT_BUDGET_CHARS) -> str:
 def _select_recent_turns(num_turns: int) -> list[PromptNode]:
     """Pull the N most-recent prompt nodes across all providers.
 
-    Uses `iter_prompt_nodes` which already returns capped, mtime-cached
-    nodes sorted by timestamp. We over-fetch a small buffer to tolerate
-    nodes that lack assistant text (skipped from the handoff context).
+    Tail-read fast path (~50ms on the live 1GB corpus) vs the prior
+    iter_prompt_nodes(limit=K) which parses the full corpus first
+    then truncates (~3.5s cold). Handoff is THE 60-second-demo CLI;
+    cold-start latency is the user's first impression.
+
+    We over-fetch a small buffer to tolerate nodes that lack assistant
+    text (skipped from the handoff context).
     """
     over_fetch = max(num_turns * 3, 10)
-    nodes = list(iter_prompt_nodes(limit=over_fetch))
-    # iter_prompt_nodes already returns most-recent-first; we want
+    nodes = tail_prompt_nodes_fast(limit=over_fetch)
+    # tail_prompt_nodes_fast already returns most-recent-first; we want
     # chronological for the conversation log so the receiving model
     # sees the actual order.
     usable = [n for n in nodes if (n.text or "").strip()]
