@@ -46,9 +46,10 @@
   const PILL_ID = "__trinity_sync_pill__";
   const POLL_INTERVAL_MS = 60_000;
   const FIRST_POLL_DELAY_MS = 3_000;
-  const IFRAME_LOAD_MS = 6_000;          // wait per-iframe for canonical fetch to fire
-  const IFRAME_GAP_MS = 500;             // pause between iframes — gentle on provider API
-  const SYNCED_FADE_AFTER_MS = 4_000;    // brief success banner before hide
+  const SYNC_CONCURRENCY = 3;             // parallel iframes (gentle but not slow)
+  const CONFIRM_POLL_MS = 500;            // disk-confirmation poll cadence
+  const PER_IFRAME_TIMEOUT_MS = 8_000;    // give up if no capture lands in 8s
+  const SYNCED_FADE_AFTER_MS = 4_000;     // brief success banner before hide
 
   let syncing = false;
 
@@ -59,36 +60,49 @@
     return null;
   }
 
-  function spawnSyncIframe(conv_id) {
+  function makeIframe(url) {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText =
+      "position:absolute;width:1px;height:1px;opacity:0;visibility:hidden;pointer-events:none;border:0;top:-9999px;";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.dataset.trinitySync = "1";
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    return iframe;
+  }
+
+  // Spawn iframe + poll capture-host every CONFIRM_POLL_MS for the
+  // conv_id to land. Resolve true when it lands (early-exit), false on
+  // timeout. Honest signal: success means a capture file exists on
+  // disk, not just "iframe load fired".
+  function syncOne(conv_id) {
     return new Promise((resolve) => {
       const url = providerThreadUrl(conv_id);
       if (!url) return resolve(false);
-      const iframe = document.createElement("iframe");
-      iframe.style.cssText =
-        "position:absolute;width:1px;height:1px;opacity:0;visibility:hidden;pointer-events:none;border:0;top:-9999px;";
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.dataset.trinitySync = "1";
+      const iframe = makeIframe(url);
 
-      let finished = false;
-      const finish = (ok) => {
-        if (finished) return;
-        finished = true;
+      let settled = false;
+      const settle = (ok) => {
+        if (settled) return;
+        settled = true;
         try { iframe.remove(); } catch {}
         resolve(ok);
       };
 
-      iframe.onload = () => {
-        // Provider's bundle loads, fires its own auth-injected canonical
-        // fetch which page-hook (now in this iframe via all_frames:true)
-        // catches. Give it a window to land, then destroy.
-        setTimeout(() => finish(true), IFRAME_LOAD_MS);
+      const startedAt = Date.now();
+      const poll = async () => {
+        if (settled) return;
+        const status = await queryStatus();
+        const stillMissing = status && status.ok && Array.isArray(status.missing_ids)
+          ? status.missing_ids.includes(conv_id)
+          : true;
+        if (!stillMissing) return settle(true);          // landed on disk
+        if (Date.now() - startedAt >= PER_IFRAME_TIMEOUT_MS) {
+          return settle(false);
+        }
+        setTimeout(poll, CONFIRM_POLL_MS);
       };
-      iframe.onerror = () => finish(false);
-      // Safety timeout in case onload never fires (X-Frame-Options / CSP)
-      setTimeout(() => finish(false), IFRAME_LOAD_MS + 4_000);
-
-      iframe.src = url;
-      document.body.appendChild(iframe);
+      setTimeout(poll, CONFIRM_POLL_MS);  // first check after one tick
     });
   }
 
@@ -101,37 +115,34 @@
       el.removeAttribute("title");
     }
     const total = missing_ids.length;
-    let done = 0;
+    let landed = 0;
+    let attempted = 0;
     const updatePill = () => {
       if (!el) return;
-      el.textContent = `⠕ Syncing ${done}/${total}…`;
+      el.textContent = `⠕ Syncing ${landed}/${total}…`;
     };
     updatePill();
 
-    // Concurrency = 1 (gentle, looks like a single normal user
-    // browsing thread-by-thread). For 20-30 threads that's 2-3 minutes;
-    // acceptable for a one-click backfill.
-    for (const conv_id of missing_ids) {
-      await spawnSyncIframe(conv_id);
-      done += 1;
-      updatePill();
-      if (done < total) {
-        await new Promise((r) => setTimeout(r, IFRAME_GAP_MS));
+    // Worker-pool pattern: SYNC_CONCURRENCY workers each pull from
+    // the queue. Each call to syncOne() spawns one iframe + waits
+    // for its capture to land (or times out). Workers exit when the
+    // queue is empty.
+    const queue = [...missing_ids];
+    const workers = Array.from({ length: SYNC_CONCURRENCY }, async () => {
+      while (queue.length > 0) {
+        const conv_id = queue.shift();
+        attempted += 1;
+        const ok = await syncOne(conv_id);
+        if (ok) landed += 1;
+        updatePill();
       }
-    }
-
-    // Re-query the host to see how many ACTUALLY landed (in case some
-    // iframes failed silently — X-Frame, network, etc.). The honest
-    // success count is the diff between before/after.
-    const after = await queryStatus();
-    const actualSynced = after && after.ok
-      ? Math.max(0, total - Number(after.missing_count || 0))
-      : total;
+    });
+    await Promise.all(workers);
 
     if (el) {
-      el.textContent = actualSynced === total
-        ? `⠕ ✓ Synced ${total}`
-        : `⠕ ✓ Synced ${actualSynced}/${total}`;
+      el.textContent = landed === total
+        ? `⠕ ✓ Synced ${landed}`
+        : `⠕ ✓ Synced ${landed}/${total}`;
       setTimeout(() => {
         const live = document.getElementById(PILL_ID);
         if (live) live.hidden = true;
