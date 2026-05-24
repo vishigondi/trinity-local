@@ -226,6 +226,34 @@ class TestActionAllowlist:
         constant_flags = entry[2] if len(entry) == 3 else []
         assert "--dry-run" in constant_flags
 
+    def test_launchpad_renders_import_card_with_dispatch_wiring(self):
+        """#148 UI slice: the launchpad import-export card must render
+        with the paste-path input, Probe/Import buttons, and both
+        extensionAction kinds wired (dry-run + full). The Vue state
+        machine must include importPath / importStatus / importProbeResult.
+        Same guard pattern as memory-health's button test."""
+        from trinity_local.launchpad_template import render_launchpad_html
+
+        html = render_launchpad_html(page_data={}, recent_cards="")
+        # Card header + intro copy
+        assert "Bulk import (#148)" in html, "card eyebrow missing"
+        assert "Import old Claude / ChatGPT / Gemini exports" in html, "h2 missing"
+        # Paste-path input
+        assert 'v-model="importPath"' in html, "path input missing"
+        # Both action buttons
+        assert '@click="probeImportPath"' in html, "Probe handler missing"
+        assert '@click="confirmImport"' in html, "Import handler missing"
+        # Both extensionAction kinds — dry-run for probe + full for confirm
+        assert "kind: 'import-export-dry-run'" in html, "dry-run kind missing"
+        assert "kind: 'import-export'" in html, "full-import kind missing"
+        # Vue state machine fields
+        assert "importPath:" in html, "importPath state field missing"
+        assert "importStatus:" in html, "importStatus state field missing"
+        assert "importProbeResult:" in html, "importProbeResult state field missing"
+        # Path is passed through the dispatch payload — required for the
+        # capture-host action allowlist to receive a real value.
+        assert "path: this.importPath" in html, "path payload not threaded"
+
     def test_path_flag_alias_works(self, tmp_path, capsys):
         """The launchpad action dispatcher invokes the CLI via
         --flag VALUE pairs, so --path must work as an alias for the

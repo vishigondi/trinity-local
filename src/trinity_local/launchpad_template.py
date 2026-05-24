@@ -1578,6 +1578,72 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           Full ritual in <code>browser-extension/README.md</code>.
         </p>
       </section>
+
+      <!-- #148 bulk Takeout import UI — sibling to browser-capture
+           since both are "get conversation data in" surfaces. Two-step
+           flow: (1) user pastes an absolute filesystem path → click
+           Probe → fires import-export-dry-run which prints the detected
+           exports; (2) on confirm → click Import → fires import-export
+           (full ingest). The Probe step exists because the CLI
+           auto-detects multiple sources from a directory, and we want
+           the user to confirm what got detected before paying the
+           embedding cost.
+           Browsers don't expose absolute paths via <input type="file">
+           for security, so paste-path is the simplest UX that works
+           with the existing capture-host action dispatcher (which
+           takes --flag VALUE pairs and runs subprocesses on the
+           user's machine). -->
+      <section class="card import-export-card"
+               style="border-left: 3px solid rgba(49, 92, 133, 0.3);">
+        <div class="eyebrow" style="color: #315c85;">Bulk import (#148)</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Import old Claude / ChatGPT / Gemini exports
+        </h2>
+        <p class="meta" style="margin-top: 4px; margin-bottom: 12px;">
+          Got a Takeout zip or a <code>conversations.json</code> from years of chats? Paste the path —
+          Trinity auto-detects the export type and indexes everything into your prompt corpus.
+        </p>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input v-model="importPath"
+                 type="text"
+                 placeholder="/Users/you/Downloads/Takeout"
+                 style="flex: 1; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; background: var(--bg-base, #f5efe3);" />
+          <button type="button"
+                  @click="probeImportPath"
+                  :disabled="!importPath || importStatus === 'probing' || importStatus === 'importing'"
+                  class="suggestion-chip"
+                  style="padding: 6px 14px; cursor: pointer; font-size: 13px;">
+            <span v-if="importStatus === 'probing'">Probing…</span>
+            <span v-else>Probe</span>
+          </button>
+        </div>
+        <div v-if="importProbeResult && !importProbeResult.error"
+             style="padding: 10px 12px; background: rgba(45, 106, 79, 0.06); border-left: 3px solid var(--success, #2d6a4f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px;">
+          <strong style="color: var(--success, #2d6a4f);">✓ Detected {{{{ importProbeResult.detected.length }}}} export(s)</strong>
+          <ul style="list-style: none; padding: 8px 0 0; margin: 0; font-size: 12px;">
+            <li v-for="(e, i) in importProbeResult.detected" :key="'imp-' + i"
+                style="font-family: ui-monospace, monospace; opacity: 0.8;">
+              <span style="color: var(--accent, #b57438);">{{{{ e.source }}}}</span> · {{{{ e.hint }}}}
+            </li>
+          </ul>
+          <button type="button"
+                  @click="confirmImport"
+                  :disabled="importStatus === 'importing'"
+                  class="suggestion-chip"
+                  style="padding: 6px 14px; cursor: pointer; font-size: 13px; margin-top: 8px;">
+            <span v-if="importStatus === 'importing'">Importing…</span>
+            <span v-else-if="importStatus === 'imported'">✓ Dispatched</span>
+            <span v-else>Import {{{{ importProbeResult.detected.length }}}} source(s)</span>
+          </button>
+        </div>
+        <div v-if="importProbeResult && importProbeResult.error"
+             style="padding: 10px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px; color: var(--warning, #b26a1f);">
+          ⚠ {{{{ importProbeResult.error }}}}
+          <span v-if="importProbeResult.hint" style="display: block; margin-top: 4px; font-size: 12px; opacity: 0.85; color: var(--text-primary, #1f1a17);">
+            {{{{ importProbeResult.hint }}}}
+          </span>
+        </div>
+      </section>
       </details>
 
       <section class="card taste-card" v-if="tasteLenses">
@@ -2071,6 +2137,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         // extension dispatch. NEVER auto-fires (council call is expensive
         // and surprising — same intent the dream button respects).
         repairExtensionStatus: 'idle',
+        // #148 bulk-import UI state. Two-step probe → confirm flow:
+        // importPath: text input the user pastes a filesystem path into
+        // importStatus: 'idle' | 'probing' | 'importing' | 'imported'
+        // importProbeResult: response object from import-export-dry-run
+        //   ({{detected: [...], error: '...', hint: '...'}}). Renders the
+        //   per-source detected list + Import button on success, or a
+        //   warning banner on failure.
+        importPath: '',
+        importStatus: 'idle',
+        importProbeResult: null,
         liveReviewUrlBase: pageData.liveReviewUrl || '',
         globalBenchmarks: pageData.globalBenchmarks || {{}},
         benchmarkProviders: pageData.benchmarkProviders || [],
@@ -2881,6 +2957,86 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             this.triggerShortcut(buildShortcutUrl(payload));
             finish(true);
           }}
+        }},
+        probeImportPath() {{
+          // #148 bulk-import probe step. Fires import-export-dry-run
+          // via Chrome extension dispatch. The CLI walks the path,
+          // detects export types (ChatGPT / Claude.ai / Gemini Takeout),
+          // and returns the list WITHOUT ingesting. User sees what was
+          // found, then clicks Import to actually pull it in.
+          //
+          // The response is a JSON dict; we parse `r.stdout` (the host
+          // returns the subprocess's stdout verbatim in the dispatch
+          // result). On parse failure or {{ok: false}} we surface the
+          // error text in the warning banner.
+          if (!this.importPath || this.importStatus === 'probing') return;
+          this.importStatus = 'probing';
+          this.importProbeResult = null;
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (!dispatcher) {{
+            this.importProbeResult = {{
+              error: 'No Chrome extension or Shortcut dispatcher available.',
+              hint: 'Install the Trinity browser extension (see browser-extension/README.md) or run `trinity-local import-export --path <PATH> --dry-run` directly from the terminal.',
+            }};
+            this.importStatus = 'idle';
+            return;
+          }}
+          dispatcher.dispatch({{
+            extensionAction: {{ kind: 'import-export-dry-run', path: this.importPath }},
+            onResult: (r) => {{
+              this.importStatus = 'idle';
+              if (!r || r.ok === false) {{
+                this.importProbeResult = {{
+                  error: (r && r.error) || 'Dispatch failed.',
+                  hint: 'Make sure the path exists and points at an export file or directory.',
+                }};
+                return;
+              }}
+              // The host returns stdout; parse the JSON the CLI prints.
+              const raw = (r.stdout || '').trim();
+              if (!raw) {{
+                this.importProbeResult = {{ error: 'Empty response from import-export probe.' }};
+                return;
+              }}
+              try {{
+                this.importProbeResult = JSON.parse(raw);
+              }} catch (e) {{
+                this.importProbeResult = {{ error: 'Could not parse probe output as JSON: ' + e.message }};
+              }}
+            }},
+          }});
+        }},
+        confirmImport() {{
+          // #148 full-ingest step. Fires import-export (no --dry-run)
+          // with the same path the probe was run against. Async: the
+          // dispatch return only confirms subprocess launch. User
+          // re-renders the launchpad later to see the new captures
+          // surfaced in the Browser-capture card / cortex.
+          if (!this.importPath || this.importStatus === 'importing') return;
+          this.importStatus = 'importing';
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          if (!dispatcher) {{
+            this.importStatus = 'idle';
+            return;
+          }}
+          dispatcher.dispatch({{
+            extensionAction: {{ kind: 'import-export', path: this.importPath }},
+            onResult: (r) => {{
+              if (r && r.ok !== false) {{
+                this.importStatus = 'imported';
+                setTimeout(() => {{
+                  if (this.importStatus === 'imported') {{
+                    this.importStatus = 'idle';
+                  }}
+                }}, 4000);
+              }} else {{
+                this.importStatus = 'idle';
+                this.importProbeResult = {{
+                  error: (r && r.error) || 'Import dispatch failed.',
+                }};
+              }}
+            }},
+          }});
         }},
       }};
     }}
