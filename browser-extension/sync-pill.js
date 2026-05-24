@@ -46,9 +46,11 @@
   const PILL_ID = "__trinity_sync_pill__";
   const POLL_INTERVAL_MS = 60_000;
   const FIRST_POLL_DELAY_MS = 3_000;
-  const SYNC_CONCURRENCY = 3;             // parallel iframes (gentle but not slow)
+  const SYNC_CONCURRENCY = 2;             // parallel background tabs (gentle)
   const CONFIRM_POLL_MS = 500;            // disk-confirmation poll cadence
-  const PER_IFRAME_TIMEOUT_MS = 8_000;    // give up if no capture lands in 8s
+  const PER_TAB_TIMEOUT_MS = 12_000;      // give up if no capture lands in 12s
+                                           // (tabs need longer than iframes —
+                                           // full page-load including JS bundle)
   const SYNCED_FADE_AFTER_MS = 4_000;     // brief success banner before hide
 
   let syncing = false;
@@ -60,32 +62,51 @@
     return null;
   }
 
-  function makeIframe(url) {
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText =
-      "position:absolute;width:1px;height:1px;opacity:0;visibility:hidden;pointer-events:none;border:0;top:-9999px;";
-    iframe.setAttribute("aria-hidden", "true");
-    iframe.dataset.trinitySync = "1";
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    return iframe;
+  function openSyncTab(url) {
+    return new Promise((resolve) => {
+      if (!chrome?.runtime?.id) return resolve(null);
+      try {
+        chrome.runtime.sendMessage({ type: "open_sync_tab", url }, (resp) => {
+          if (chrome.runtime.lastError) return resolve(null);
+          resolve(resp?.ok ? resp.tabId : null);
+        });
+      } catch {
+        resolve(null);
+      }
+    });
   }
 
-  // Spawn iframe + poll capture-host every CONFIRM_POLL_MS for the
-  // conv_id to land. Resolve true when it lands (early-exit), false on
-  // timeout. Honest signal: success means a capture file exists on
-  // disk, not just "iframe load fired".
+  function closeSyncTab(tabId) {
+    if (tabId == null) return;
+    try {
+      chrome.runtime.sendMessage({ type: "close_sync_tab", tabId }, () => {});
+    } catch { /* tab might already be gone */ }
+  }
+
+  // Open the conv_id in a background tab + poll capture-host every
+  // CONFIRM_POLL_MS for it to land. Resolve true when it lands
+  // (early-exit, destroy tab), false on timeout (destroy tab anyway).
+  // Honest signal: success means a capture file exists on disk.
+  //
+  // Background tabs instead of iframes because gemini's bundle
+  // detects iframe context and skips the canonical hNvQHb fetch
+  // (verified 2026-05-23 — gemini iframes captured ZERO conv_ids
+  // beyond the ones already on disk). Tabs use real top-level
+  // navigation which fires the full page-load flow including all
+  // auth-injected fetches. active:false keeps them out of focus.
+  // Claude + chatgpt also moved off iframes to keep one code path.
   function syncOne(conv_id) {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       const url = providerThreadUrl(conv_id);
       if (!url) return resolve(false);
-      const iframe = makeIframe(url);
+      const tabId = await openSyncTab(url);
+      if (tabId == null) return resolve(false);
 
       let settled = false;
       const settle = (ok) => {
         if (settled) return;
         settled = true;
-        try { iframe.remove(); } catch {}
+        closeSyncTab(tabId);
         resolve(ok);
       };
 
@@ -96,13 +117,13 @@
         const stillMissing = status && status.ok && Array.isArray(status.missing_ids)
           ? status.missing_ids.includes(conv_id)
           : true;
-        if (!stillMissing) return settle(true);          // landed on disk
-        if (Date.now() - startedAt >= PER_IFRAME_TIMEOUT_MS) {
+        if (!stillMissing) return settle(true);
+        if (Date.now() - startedAt >= PER_TAB_TIMEOUT_MS) {
           return settle(false);
         }
         setTimeout(poll, CONFIRM_POLL_MS);
       };
-      setTimeout(poll, CONFIRM_POLL_MS);  // first check after one tick
+      setTimeout(poll, CONFIRM_POLL_MS);
     });
   }
 

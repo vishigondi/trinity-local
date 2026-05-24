@@ -67,6 +67,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // ─── Background-tab sync (new — gemini fallback for sync pill) ────────
+  // Gemini blocks iframe-based sync (the bundle detects iframe context
+  // and doesn't fire its canonical hNvQHb fetch). Background tabs
+  // bypass this: real top-level navigation that triggers the full
+  // page-load flow including all auth-injected fetches, while
+  // active:false keeps them out of the user's focus.
+  if (message?.type === "open_sync_tab") {
+    try {
+      chrome.tabs.create({ url: message.url, active: false }, (tab) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        sendResponse({ ok: true, tabId: tab?.id });
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: String(e) });
+    }
+    return true;
+  }
+  if (message?.type === "close_sync_tab") {
+    try {
+      chrome.tabs.remove(message.tabId, () => {
+        sendResponse({ ok: !chrome.runtime.lastError });
+      });
+    } catch {
+      sendResponse({ ok: false });
+    }
+    return true;
+  }
+
   // ─── Read-only query path (new — used by the in-provider sync pill) ──
   // Content scripts ask the host for cheap read-only info like
   // "how many threads in the sidebar aren't captured locally?" Same

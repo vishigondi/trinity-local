@@ -190,18 +190,25 @@ def test_sync_pill_content_script_present_and_wired():
     assert '"sync_status"' in src, "pill must call query_kind=sync_status"
     assert 'missing_count' in src, "pill must read missing_count from response"
     assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
-    # Click action — runs iframe-based sync. Direct-fetch was tried
-    # in 4b4b05f and reverted because provider APIs require Bearer
-    # auth headers their own bundles inject (content-script fetch
-    # bypasses that wrapper). Iframe loads the provider's own bundle
-    # WITH its auth-injecting fetch wrapper intact → natural canonical
-    # fetches fire and page-hook (all_frames:true) catches them.
-    assert 'spawnSyncIframe' in src or 'iframe' in src.lower(), (
-        "pill must use iframe-based sync to inherit provider auth"
+    # Click action — runs background-tab-based sync. Three evolutions:
+    # 1) Direct-fetch (4b4b05f) failed: content-script fetch lacks
+    #    Bearer auth that provider bundles inject.
+    # 2) Iframe-based (b09dadb): worked for claude/chatgpt but gemini
+    #    detects iframe context and skips its canonical fetch.
+    # 3) Background-tab (current): real top-level navigation fires
+    #    full page-load including auth-injected fetches. active:false
+    #    keeps tabs out of focus. Works for all 3 providers uniformly.
+    assert 'open_sync_tab' in src, (
+        "pill must use background-tab sync via the open_sync_tab "
+        "background message (uniform across all 3 providers)"
+    )
+    assert 'PER_TAB_TIMEOUT_MS' in src, (
+        "pill must guard each tab with a timeout (provider page-load "
+        "can hang, slow, or never fire the canonical fetch)"
     )
     assert 'window !== window.top' in src, (
-        "pill must bail in iframes to avoid recursive pill-mount when "
-        "all_frames:true is set on the content_scripts entry"
+        "pill must bail in iframes — all_frames:true is still set so "
+        "page-hook injects into any embedded provider frames"
     )
 
     m = _load_manifest()
