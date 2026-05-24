@@ -131,3 +131,45 @@ class TestParseTasteLenses:
         # The well-formed second rejection should still parse.
         titles = [r.title for r in lenses.rejections]
         assert "Don't lecture math, audit it" in titles
+
+    def test_abstract_lens_horizon_round_trip(self):
+        """#139: lens.md may suffix bullets with [horizon] tags. Parser
+        extracts them; pre-#139 bullets without tags default to tactical."""
+        md = """# /me
+
+## Abstract lenses
+- Source over synthesis [philosophical]
+- Locked corpus over forward theory [strategic]
+- Concrete examples beat prose explanations [tactical]
+- Pre-#139 lens without tag
+- Mixed case still works [Strategic]
+- Invalid tag falls through [whimsical]
+"""
+        lenses = parse_taste_lenses(md)
+        by_statement = {l.statement: l.horizon for l in lenses.abstract_lenses}
+        assert by_statement["Source over synthesis"] == "philosophical"
+        assert by_statement["Locked corpus over forward theory"] == "strategic"
+        assert by_statement["Concrete examples beat prose explanations"] == "tactical"
+        # Pre-#139 (no tag) defaults to tactical
+        assert by_statement["Pre-#139 lens without tag"] == "tactical"
+        # Case is normalized
+        assert by_statement["Mixed case still works"] == "strategic"
+        # Invalid bracket tag falls through to "no match" → defaults to tactical;
+        # the bracket text remains in the statement since regex didn't capture it.
+        # Statement = "Invalid tag falls through [whimsical]" with horizon=tactical.
+        invalid_entry = next(
+            (l for l in lenses.abstract_lenses if "Invalid tag" in l.statement),
+            None,
+        )
+        assert invalid_entry is not None
+        assert invalid_entry.horizon == "tactical"
+
+    def test_abstract_lens_to_dict_carries_horizon(self):
+        md = """# /me
+
+## Abstract lenses
+- Tagged principle [strategic]
+"""
+        lenses = parse_taste_lenses(md)
+        d = lenses.abstract_lenses[0].to_dict()
+        assert d == {"statement": "Tagged principle", "horizon": "strategic"}

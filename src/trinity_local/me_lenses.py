@@ -177,7 +177,14 @@ _VOCAB_ITEM = re.compile(
 )
 
 # Abstract lenses: `- statement ...`
-_LENS_ITEM = re.compile(r"^-\s+(.+?)\.?\s*$", re.MULTILINE)
+# Abstract-lens line: `- statement [horizon]` where horizon is optional
+# and ∈ {tactical, strategic, philosophical}. Pre-#139 lens.md emits
+# bullets without the bracket — we default those to "tactical" (the
+# safe always-applies floor). Bracket may use any case; we normalize.
+_LENS_ITEM = re.compile(
+    r"^-\s+(.+?)\.?\s*(?:\[(tactical|strategic|philosophical)\]\s*)?$",
+    re.MULTILINE | re.IGNORECASE,
+)
 
 
 def _section_body(text: str, header_re: re.Pattern[str]) -> str:
@@ -249,8 +256,9 @@ def parse_abstract_lenses(text: str) -> list[AbstractLens]:
     items: list[AbstractLens] = []
     for m in _LENS_ITEM.finditer(body):
         statement = m.group(1).strip().rstrip(".")
+        horizon = (m.group(2) or "tactical").strip().lower()
         if statement:
-            items.append(AbstractLens(statement=statement))
+            items.append(AbstractLens(statement=statement, horizon=horizon))
     return items
 
 

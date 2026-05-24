@@ -277,7 +277,11 @@ OUTPUT FORMAT — emit a single markdown document with these exact sections, and
 2–5 entries. Format: domain A ↔ domain B: structural move (1 sentence). Example: "software-business ↔ construction-business: front-load design investment, amortize across deployments, capture recurring revenue via embedded software."
 
 ## Abstract lenses
-3–6 1-line constraint principles the rejections collectively encode (e.g. "infrastructure over interface", "locked corpus over forward theory").
+3–6 1-line constraint principles the rejections collectively encode. Suffix each with a horizon tag in square brackets:
+- `[tactical]` — local response-shape preference (format, length, what to include)
+- `[strategic]` — quarter-to-year trajectory preference (which trade-off to make, what to bet on)
+- `[philosophical]` — identity-level frame (what kind of work/person/world the user is building toward)
+Examples: "infrastructure over interface [strategic]", "locked corpus over forward theory [philosophical]", "concrete examples beat prose explanations [tactical]". When unsure, prefer `[strategic]` — it's the load-bearing default and avoids over-claiming philosophical.
 
 CONSTRAINTS:
 - Hard cap: {budget_chars} characters. Be tight.
