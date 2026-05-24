@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 
 from ..adapters import check_all_adapters
-from ..action_runtime import list_actions
+from ..action_runtime import count_actions_by_status
 from ..doctor import format_one_line, run_doctor
 from ..drift import check_drift
 from ..state_paths import state_dir, tasks_dir
@@ -70,9 +70,13 @@ def handle_status(args):
     # Tasks
     task_count = _count_files(tasks_dir())
 
-    # Actions
-    pending_actions = list_actions(status="pending")
-    completed_actions = list_actions(status="completed")
+    # Actions — use the count-only fast path. The full PendingAction
+    # objects aren't needed here (only `len()` ever shows up below);
+    # the previous `list_actions(status=...)` twice opened every JSON
+    # twice (~36K file reads on a real 18K-file install for ~1.5s).
+    action_counts = count_actions_by_status()
+    pending_action_count = action_counts.get("pending", 0)
+    completed_action_count = action_counts.get("completed", 0)
 
     # Drift
     drift_alerts = check_drift()
@@ -191,8 +195,8 @@ def handle_status(args):
             # rename; external surfaces use the post-rename "todos".
             "todos": task_count,
             "actions": {
-                "pending": len(pending_actions),
-                "completed": len(completed_actions),
+                "pending": pending_action_count,
+                "completed": completed_action_count,
             },
             "reviews": review_count,
             "councils": council_count,
@@ -283,7 +287,7 @@ def handle_status(args):
     # Display label matches the on-disk directory (~/.trinity/todos/);
     # internal Python name `tasks_dir()` retained for back-compat.
     print(f"  Todos:     {task_count}")
-    print(f"  Actions:   {len(pending_actions)} pending, {len(completed_actions)} completed")
+    print(f"  Actions:   {pending_action_count} pending, {completed_action_count} completed")
     print(f"  Reviews:   {review_count}")
     print(f"  Councils:  {council_count}")
     print()

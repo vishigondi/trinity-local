@@ -44,9 +44,9 @@ class TestStatusCommand:
                         )
                     ]
                     with patch(
-                        "trinity_local.commands.status.list_actions"
+                        "trinity_local.commands.status.count_actions_by_status"
                     ) as mock_actions:
-                        mock_actions.return_value = []
+                        mock_actions.return_value = {}
                         with patch(
                             "trinity_local.commands.status.check_drift"
                         ) as mock_drift:
@@ -88,9 +88,9 @@ class TestStatusCommand:
                         )
                     ]
                     with patch(
-                        "trinity_local.commands.status.list_actions"
+                        "trinity_local.commands.status.count_actions_by_status"
                     ) as mock_actions:
-                        mock_actions.return_value = []
+                        mock_actions.return_value = {}
                         with patch(
                             "trinity_local.commands.status.check_drift"
                         ) as mock_drift:

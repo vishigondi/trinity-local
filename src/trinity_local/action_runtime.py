@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from .action_schema import PendingAction
@@ -8,6 +9,16 @@ from .dispatch_registry import command_for_dispatch, make_dispatch_action
 from .state_paths import actions_dir
 from .task_schema import TaskRecord
 from .utils import now_iso, stable_id
+
+
+# `status` is one of the first 4-5 fields in the JSON, but
+# task_cluster_id sometimes holds a long absolute file path (~250
+# bytes alone), so a 256-byte head window misses ~0.1% of files.
+# A 2KB window covers every action file observed on real installs
+# (largest seen ~2.7KB) without paying for a full json.loads on
+# each of the (potentially tens of thousands of) entries.
+_STATUS_RE = re.compile(rb'"status"\s*:\s*"([a-z_]+)"')
+_STATUS_READ_WINDOW = 2048
 
 
 def create_recommendation_action(
@@ -167,6 +178,35 @@ def list_actions(*, status: str | None = None) -> list[PendingAction]:
             continue
         items.append(action)
     return items
+
+
+def count_actions_by_status() -> dict[str, int]:
+    """Count actions per status WITHOUT loading the full PendingAction.
+
+    Status callers (`trinity-local status`, launchpad) only need `len()`
+    of pending + completed. The previous path went through
+    list_actions(status=X) twice, calling load_action() once per file —
+    10× slower on real installs than necessary. Skim the first 256 bytes
+    instead, regex-extract `status`, count. Files with malformed prefix
+    silently fall through (counted under no status — same shape as the
+    full-load path's exception handling).
+    """
+    counts: dict[str, int] = {}
+    try:
+        for path in actions_dir().glob("*.json"):
+            try:
+                with path.open("rb") as fh:
+                    head = fh.read(_STATUS_READ_WINDOW)
+            except OSError:
+                continue
+            m = _STATUS_RE.search(head)
+            if not m:
+                continue
+            key = m.group(1).decode("ascii", errors="replace")
+            counts[key] = counts.get(key, 0) + 1
+    except OSError:
+        pass
+    return counts
 
 
 def find_action(*, task_id: str, kind: str, status: str | None = "pending") -> PendingAction | None:
