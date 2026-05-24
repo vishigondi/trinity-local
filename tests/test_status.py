@@ -183,6 +183,93 @@ class TestActionableSignals:
         assert "auth-cookie stale" in out
         assert "refresh login" in out
 
+    def test_browser_captures_section_silent_on_cold_install(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """No conversations/ directories exist (cold install) →
+        Captures section silent. Keeps a clean fresh install from
+        rendering an empty/zero-noise block."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+
+        # Stub the diagnose() result with no providers existing
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": False, "captures": 0, "hours_since_last": None},
+                "chatgpt": {"exists": False, "captures": 0, "hours_since_last": None},
+                "gemini":  {"exists": False, "captures": 0, "hours_since_last": None},
+            }},
+        )
+
+        args = Args(as_json=False)
+        handle_status(args)
+        out = capsys.readouterr().out
+        assert "Captures:" not in out, (
+            "Captures section must stay silent when no extension data exists"
+        )
+
+    def test_browser_captures_section_renders_with_per_provider_rows(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """When the extension is active, status shows per-provider
+        counts + hours-since-last with the same shape as the launchpad
+        browser-capture card."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": True, "captures": 50, "hours_since_last": 1.5,
+                            "last_capture": "2026-05-24T00:00:00"},
+                "chatgpt": {"exists": True, "captures": 12, "hours_since_last": 8.0,
+                            "last_capture": "2026-05-23T18:00:00"},
+                "gemini":  {"exists": True, "captures": 200, "hours_since_last": 0.2,
+                            "last_capture": "2026-05-24T01:50:00"},
+            }},
+        )
+
+        args = Args(as_json=False)
+        handle_status(args)
+        out = capsys.readouterr().out
+        assert "Captures:" in out
+        # Total across the 3 providers
+        assert "262" in out
+        # Per-provider rows present
+        for slug in ("claude", "chatgpt", "gemini"):
+            assert slug in out
+        # Last-capture time surfaced
+        assert "1.5h ago" in out
+        assert "0.2h ago" in out
+
+    def test_browser_captures_directory_exists_but_empty(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """If a provider's directory exists but has zero files (extension
+        installed, never captured anything yet for that provider),
+        surface the "installed but no captures yet" hint so the user
+        knows to check for capture failures."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": True, "captures": 5, "hours_since_last": 1.0},
+                "chatgpt": {"exists": True, "captures": 0, "hours_since_last": None},
+                "gemini":  {"exists": False, "captures": 0, "hours_since_last": None},
+            }},
+        )
+
+        args = Args(as_json=False)
+        handle_status(args)
+        out = capsys.readouterr().out
+        # chatgpt → installed but no captures yet
+        assert "extension installed but no captures yet" in out
+        # gemini → never captured (directory missing)
+        assert "not yet captured" in out
+
     def test_signal_block_failure_does_not_break_status(self, tmp_path, monkeypatch, capsys):
         """Each signal helper is wrapped in try/except — a bug in one
         must not break the whole status command. Steady-state diagnostic

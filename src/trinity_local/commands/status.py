@@ -134,6 +134,46 @@ def handle_status(args):
         print(f"    {icon} {a.provider}{ver}{count}")
     print()
 
+    # Browser captures — distinct from CLI adapters: these come from
+    # the Chrome extension capturing claude.ai / chatgpt.com /
+    # gemini.google.com sessions into ~/.trinity/conversations/. CLI-
+    # only users running `status` had no visibility into this side
+    # before — they'd see CLI claude (Claude Code) but not web claude
+    # (claude.ai). Surfaces only when at least one provider has
+    # captures or its directory exists (keeps clean installs terse).
+    try:
+        from .extension_repair import diagnose
+
+        cap_diag = diagnose()
+        provider_rows = cap_diag.get("providers", {})
+        any_capture_state = any(
+            info.get("exists") for info in provider_rows.values()
+        )
+        if any_capture_state:
+            total_captures = sum(
+                info.get("captures", 0) for info in provider_rows.values()
+            )
+            print(f"  Captures:  {total_captures:,} from Chrome extension (browser side)")
+            for slug in ("claude", "chatgpt", "gemini"):
+                info = provider_rows.get(slug, {})
+                if not info.get("exists"):
+                    icon = "·"
+                    suffix = "not yet captured"
+                elif info.get("captures", 0) == 0:
+                    icon = "·"
+                    suffix = "0 files (extension installed but no captures yet)"
+                else:
+                    icon = "✅"
+                    h = info.get("hours_since_last")
+                    h_str = f"{h}h ago" if h is not None else "unknown when"
+                    suffix = f"{info['captures']:,} files · last {h_str}"
+                print(f"    {icon} {slug:10s} {suffix}")
+            print()
+    except Exception:
+        # Same try/except invariant as the Signals section — capture
+        # diagnostic must not break the steady-state status command.
+        pass
+
     # Tasks & Actions
     # Display label matches the on-disk directory (~/.trinity/todos/);
     # internal Python name `tasks_dir()` retained for back-compat.
