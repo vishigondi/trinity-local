@@ -192,7 +192,7 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~<!-- canonical:test_count -->1860<!-- /canonical --> tests
+  #   pytest -q                                  # ~<!-- canonical:test_count -->1862<!-- /canonical --> tests
   #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->104<!-- /canonical --> doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check
@@ -212,11 +212,11 @@ all point at the same architectural claim.
   # 4. (No PyPI publish — Trinity ships as a git clone via curl-bash; see
   #    docs/INSTALL-pip.md "Why no PyPI publish?" for the architectural reasons.)
   #    Verify the install.sh works end-to-end on a fresh machine:
-  curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+  <!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
   trinity-local status    # everything green
 
   # 5. Verify the live state
-  curl -sf -o /dev/null -w "%{http_code}\n" https://github.com/vishigondi/trinity-local # → 200
+  curl -sf -o /dev/null -w "%{http_code}\n" <!-- canonical:github_repo_url -->https://github.com/vishigondi/trinity-local<!-- /canonical --> # → 200
   curl -sf -o /dev/null -w "%{http_code}\n" https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh # → 200
   curl -sf -o /dev/null -w "%{http_code}\n" https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/council_outcome.schema.json # → 200
 

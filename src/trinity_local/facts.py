@@ -48,6 +48,21 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 # with existing share-card consumers.
 LANDING_DOMAIN: str = "keepwhatworks.com"
 
+# The GitHub repo URL — appears in 20+ surfaces (install docs,
+# launch-day artifacts, README, launch-package). Trinity's `install.sh`
+# at scripts/install.sh references this implicitly; if the repo ever
+# moves (rename, org transfer, fork), every surface needs updating.
+# Single source here, embedded into install_command below.
+GITHUB_REPO_URL: str = "https://github.com/vishigondi/trinity-local"
+
+# The canonical curl-bash install command, appears in README hero +
+# every INSTALL-*.md + launch-day artifacts. Derived from
+# GITHUB_REPO_URL so a repo move only requires one edit upstream.
+INSTALL_COMMAND: str = (
+    f"curl -fsSL {GITHUB_REPO_URL.replace('https://github.com', 'https://raw.githubusercontent.com')}"
+    "/main/scripts/install.sh | bash"
+)
+
 
 # ───────────────────────────────────────────────────────────────────────
 # Fact derivers — computed at render time
@@ -79,4 +94,6 @@ def chrome_extension_version() -> str:
 FACTS: dict[str, Callable[[], str]] = {
     "landing_domain": lambda: LANDING_DOMAIN,
     "chrome_extension_version": chrome_extension_version,
+    "github_repo_url": lambda: GITHUB_REPO_URL,
+    "install_command": lambda: INSTALL_COMMAND,
 }
