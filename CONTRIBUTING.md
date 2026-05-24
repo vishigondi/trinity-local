@@ -132,7 +132,7 @@ Documented here so a future contributor sees the design space:
 ## Priority 6 — Docs and tests
 
 Always welcome. Tests live in `tests/`. `pytest -q` is the gate — it must stay
-green on every commit, and the gate currently runs <!-- canonical:test_count -->1888<!-- /canonical --> tests in ~150s.
+green on every commit, and the gate currently runs <!-- canonical:test_count -->1891<!-- /canonical --> tests in ~150s.
 
 **Writing tests:** scope all test state via fixtures. Specifically, never set
 `os.environ` (especially `TRINITY_HOME`) or mutate `sys.path` at module
@@ -151,7 +151,7 @@ git clone https://github.com/vishigondi/trinity-local
 cd trinity-local
 python3 -m venv .venv               # contributors use a venv for the dev install
 .venv/bin/pip install -e ".[test]"  # editable install + test deps (pytest, etc.)
-.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1888<!-- /canonical --> tests, ~140s; gate must stay green
+.venv/bin/python -m pytest -q       # <!-- canonical:test_count -->1891<!-- /canonical --> tests, ~140s; gate must stay green
 python scripts/browser_smoke.py     # <!-- canonical:smoke_surface_count -->34<!-- /canonical -->-surface UI verification (Playwright)
 ```
 

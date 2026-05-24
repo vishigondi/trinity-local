@@ -858,6 +858,66 @@ def format_one_line(report: DoctorReport) -> str:
     return f"green — {ok_count}/{total} checks pass"
 
 
+def _check_retired_dirs_reclaimable() -> CheckResult:
+    """Surface disk space held by directories Trinity no longer writes to.
+
+    The persistent embedding cache (`~/.trinity/cache/`, retired
+    2026-05-17 with the embedding-cache kill) and the empty-models
+    directory (`~/.trinity/models/`, retired 2026-05-20 — model lives
+    in HF cache now) keep growing on installs that pre-date those
+    retirements. Real install observed: 786 MB in cache/, 2.1 GB in
+    models/ — 2.9 GB of dead disk.
+
+    Soft check (ok=True). Just informs the user; the dirs aren't
+    breaking anything. Suggests `rm -rf` rather than executing it so
+    the user keeps the choice.
+    """
+    from .state_paths import trinity_home
+
+    home = trinity_home()
+    candidates = [
+        ("cache/", home / "cache",
+         "embedding cache retired 2026-05-17"),
+        ("models/", home / "models",
+         "models dir retired 2026-05-20; nomic lives in ~/.cache/huggingface/"),
+    ]
+    reclaimable = []
+    for label, path, reason in candidates:
+        if not path.exists():
+            continue
+        try:
+            total = sum(
+                p.stat().st_size for p in path.rglob("*") if p.is_file()
+            )
+        except OSError:
+            continue
+        if total > 0:
+            reclaimable.append((label, total, reason, path))
+
+    if not reclaimable:
+        return CheckResult(
+            name="retired_dirs_reclaimable",
+            ok=True,
+            detail="no retired-feature directories holding disk",
+        )
+
+    def _fmt(n: int) -> str:
+        for unit in ("B", "KB", "MB", "GB"):
+            if n < 1024:
+                return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
+            n /= 1024
+        return f"{n:.1f}TB"
+
+    parts = [f"{label} {_fmt(size)} ({reason})" for label, size, reason, _ in reclaimable]
+    cmd_list = " ".join(f'"{path}"' for _, _, _, path in reclaimable)
+    return CheckResult(
+        name="retired_dirs_reclaimable",
+        ok=True,  # soft — not blocking, just informational
+        detail=f"reclaimable: {'; '.join(parts)}",
+        fix=f"rm -rf {cmd_list}",
+    )
+
+
 def run_doctor() -> DoctorReport:
     """Sequential checks — fast (<1s), no network, no chairman calls."""
     report = DoctorReport()
@@ -877,6 +937,7 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_handoff_ready())
     report.checks.append(_check_browser_capture())
     report.checks.append(_check_vendor_published())
+    report.checks.append(_check_retired_dirs_reclaimable())
     return report
 
 

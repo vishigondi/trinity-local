@@ -612,3 +612,51 @@ class TestVendorPublishedCheck:
         report = run_doctor()
         names = {c.name for c in report.checks}
         assert "vendor_published" in names
+
+
+class TestRetiredDirsReclaimableCheck:
+    """Surface disk held by post-retirement state directories.
+
+    Real install observed: 786MB in cache/ + 2.1GB in models/, both
+    held by features retired weeks ago (embedding-cache kill
+    2026-05-17, models dir kill 2026-05-20). No surface anywhere told
+    the user they could reclaim 3GB by deleting these dirs. Doctor
+    check fills the gap.
+    """
+
+    def test_clean_install_returns_no_reclaimable(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        (tmp_path / "trinity").mkdir()
+        from trinity_local.doctor import _check_retired_dirs_reclaimable
+        result = _check_retired_dirs_reclaimable()
+        assert result.ok is True
+        assert "no retired-feature directories" in result.detail
+
+    def test_legacy_cache_surface_emits_size_and_fix(self, tmp_path, monkeypatch):
+        """If a legacy ~/.trinity/cache/embeddings.jsonl exists, the
+        detail names it + the size + the retirement reason, and the
+        fix is a copy-pasteable rm -rf."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
+        home = tmp_path / "trinity"
+        home.mkdir()
+        cache = home / "cache"
+        cache.mkdir()
+        # Plant a fake legacy file — content size doesn't matter for the
+        # surface assertion; just non-empty.
+        (cache / "embeddings.jsonl").write_bytes(b"x" * 1024)
+
+        from trinity_local.doctor import _check_retired_dirs_reclaimable
+        result = _check_retired_dirs_reclaimable()
+        assert result.ok is True  # soft, not blocking
+        assert "cache/" in result.detail
+        assert "1.0KB" in result.detail
+        assert "retired 2026-05-17" in result.detail
+        assert result.fix is not None
+        assert "rm -rf" in result.fix
+        assert str(cache) in result.fix
+
+    def test_check_is_registered_in_run_doctor(self):
+        from trinity_local.doctor import run_doctor
+        report = run_doctor()
+        names = {c.name for c in report.checks}
+        assert "retired_dirs_reclaimable" in names
