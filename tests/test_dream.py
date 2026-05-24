@@ -224,6 +224,19 @@ class TestDreamMaxClusters:
 
         from trinity_local import mcp_server
         from trinity_local.commands import dream
+        from trinity_local import embeddings as embeddings_mod
+
+        # Stub the heavy downstream phases so the test only exercises
+        # what it actually asserts on (synthesis call count). Was the
+        # suite's #1 slowest test at 30s before these patches:
+        # - require_embedder_ready: ~22s nomic model cold-load
+        # - _vocabulary_scan (Phase 2.5): another real chairman dispatch
+        # - _distill (Phase 5): another real chairman dispatch + writes
+        # Test only asserts the synthesis_call_count cap — those
+        # downstream phases aren't part of the contract being verified.
+        monkeypatch.setattr(embeddings_mod, "require_embedder_ready", lambda: None)
+        monkeypatch.setattr(dream, "_vocabulary_scan", lambda: {"skipped_in_test": True})
+        monkeypatch.setattr(dream, "_distill", lambda provider: {"skipped_in_test": True})
 
         call_count = [0]
         async def fake_synth(args, responses):
