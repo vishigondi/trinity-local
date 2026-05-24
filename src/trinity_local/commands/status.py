@@ -194,6 +194,64 @@ def handle_status(args):
         print("  Drift:     no alerts")
     print()
 
+    # Actionable signals — surfaces the same per-feature counts the
+    # launchpad shows so CLI-only users see "you have N edits queued"
+    # without opening the file:// surface. Each line silently hidden
+    # when its count is 0; the section header shows only when ≥1
+    # signal fires so the steady-green state stays terse.
+    signals: list[tuple[str, str, str]] = []
+    try:
+        from ..me.lens_edits import pending_lens_edits_count
+
+        n_edits = pending_lens_edits_count()
+        if n_edits > 0:
+            signals.append((
+                "lens.md edits",
+                f"{n_edits} pending",
+                "run `trinity-local lens-build` to fold them in (weight=3.0)",
+            ))
+    except Exception:
+        pass
+    try:
+        from ..me.conflicts import count_active_conflicts
+
+        n_conflicts = count_active_conflicts()
+        if n_conflicts > 0:
+            signals.append((
+                "lens contradictions",
+                f"{n_conflicts} same-horizon",
+                "see ⚠ Tensions in tension in lens.md",
+            ))
+    except Exception:
+        pass
+    try:
+        from .extension_repair import detect_failure_patterns, diagnose
+
+        patterns = detect_failure_patterns(diagnose())
+        code_patches = sum(1 for p in patterns if p.get("fix_kind") == "code-patch")
+        user_actions = sum(1 for p in patterns if p.get("fix_kind") == "user-action")
+        if code_patches:
+            signals.append((
+                "capture drift",
+                f"{code_patches} code-patch pattern(s)",
+                "run `trinity-local extension repair --auto` (no HAR)",
+            ))
+        if user_actions:
+            signals.append((
+                "auth-cookie stale",
+                f"{user_actions} provider(s)",
+                "refresh login + send a test message",
+            ))
+    except Exception:
+        pass
+
+    if signals:
+        print("  Signals:   action-takeable")
+        for name, count, hint in signals:
+            print(f"    ⚠ {name:<22} {count}")
+            print(f"       └─ {hint}")
+        print()
+
     # State location
     print(f"  State:     {home}")
     print()
