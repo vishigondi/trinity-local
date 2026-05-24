@@ -22,10 +22,18 @@ class TestReplayCandidates:
         assert len(result) > 0
 
     def test_returns_dicts_when_memory_populated(self, home: Path):
-        from trinity_local.embeddings import embed
         from trinity_local.memory import PromptNode, upsert_prompt_node
         from trinity_local.launchpad_data import _load_replay_candidates
         from trinity_local.utils import now_iso
+
+        # The test asserts on _load_replay_candidates' OUTPUT SHAPE (dict
+        # with keys {text, reasons, score, council_count, winner,
+        # prompt_id}), not on embedding ranking. Real `embed()` calls
+        # would load the ~600MB nomic model (~5s here; was 6s suite-#5
+        # slow). Constant fake 768d vectors satisfy the PromptNode
+        # schema and search_prompt_nodes' shape requirements without
+        # the model-load cost.
+        fake_embed = [0.001] * 768
 
         upsert_prompt_node(PromptNode(
             id="p1",
@@ -34,7 +42,7 @@ class TestReplayCandidates:
             source_path="/tmp/x",
             turn_index=0,
             text="design a model router for trinity",
-            embedding=embed("search_document: design a model router for trinity"),
+            embedding=fake_embed,
             created_at=now_iso(),
             user_winner="claude",
             council_run_ids=["c1"],
@@ -46,7 +54,7 @@ class TestReplayCandidates:
             source_path="/tmp/x",
             turn_index=1,
             text="write a launch announcement",
-            embedding=embed("search_document: write a launch announcement"),
+            embedding=fake_embed,
             created_at=now_iso(),
         ))
 
