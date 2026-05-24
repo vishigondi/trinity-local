@@ -352,6 +352,27 @@ def render_primary_council_prompt(
                 )
     except Exception:
         pass
+    # Horizon hint (#139): classify the query and tell chairman which
+    # lens-card resolution to weight. lens.md emits `[tactical]` /
+    # `[strategic]` / `[philosophical]` tags on abstract lenses; without
+    # a hint, chairman has no signal about which to prioritize for THIS
+    # query. The hint is one line — cheap, transparent, easy to ignore
+    # if the lens.md isn't horizon-tagged yet (pre-#139 lens still works,
+    # everything defaults to tactical).
+    try:
+        from .task_types import guess_horizon
+
+        horizon = guess_horizon(bundle.task_text)
+        if horizon != "tactical":
+            sections.append(
+                f"Query horizon: {horizon}. When the user profile contains "
+                f"lens cards tagged `[{horizon}]`, weight those heavier than "
+                f"local-shape (tactical) lenses — they encode the user's "
+                f"trajectory-level preferences which is what this query "
+                f"reads as. Tactical lenses still apply for response shape."
+            )
+    except Exception:
+        pass
     sections.append(f"Original task:\n{bundle.task_text}")
     if bundle.goal:
         sections.append(f"Goal:\n{bundle.goal}")

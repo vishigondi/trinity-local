@@ -62,6 +62,80 @@ _POLISH_HINTS_SHORT_ONLY = (
 )
 
 
+VALID_HORIZONS = ("tactical", "strategic", "philosophical")
+
+
+# Horizon classification — used by council_runtime to hint chairman which
+# lens-card resolution to weight (per #139). Heuristic v1: keyword/regex
+# over query text. The plan named "LLM-tagged v2 if v1 is too noisy" as
+# the upgrade path; today v1 is cheap and good enough to start surfacing
+# the signal.
+_PHILOSOPHICAL_PHRASES = (
+    "what kind of",
+    "what should i build",
+    "what do i want",
+    "who am i",
+    "what's my",
+    "what is my",
+    "should i become",
+    "should i be the kind",
+    "what's the point",
+    "what matters",
+    "is this the right life",
+    "is this the right path",
+    "what's the meaning",
+    "five years from now",
+    "ten years from now",
+    "10 years from now",
+    "long arc",
+    "long-arc",
+    "identity",
+    "value system",
+)
+_STRATEGIC_PHRASES = (
+    "should i",
+    "trade-off",
+    "tradeoff",
+    "bet on",
+    "betting on",
+    "this quarter",
+    "next quarter",
+    "this year",
+    "next year",
+    "roadmap",
+    "long-term",
+    "longterm",
+    "strategy",
+    "strategic",
+    "pivot",
+    "moat",
+    "build vs buy",
+    "build vs. buy",
+    "or should i",
+    "or should we",
+)
+
+
+def guess_horizon(text: str) -> str:
+    """Classify a query into tactical | strategic | philosophical.
+
+    Used by chairman context to hint which lens-cards to weight (#139).
+    Heuristic: most specific (philosophical) → least specific (strategic) →
+    default (tactical). "Tactical" is the safe always-applies floor;
+    misclassifying a strategic question as tactical means chairman uses
+    the local-shape lenses, which still helps; misclassifying tactical
+    as philosophical drowns the signal.
+    """
+    if not text:
+        return "tactical"
+    lowered = text.lower()
+    if any(phrase in lowered for phrase in _PHILOSOPHICAL_PHRASES):
+        return "philosophical"
+    if any(phrase in lowered for phrase in _STRATEGIC_PHRASES):
+        return "strategic"
+    return "tactical"
+
+
 def is_polish_task(text: str) -> bool:
     """True when the task smells like editing/polishing existing copy.
 

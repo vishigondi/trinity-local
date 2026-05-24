@@ -174,6 +174,50 @@ class TestChairmanPromptOrdering:
         )
 
 
+class TestHorizonHint:
+    """#139: chairman context appends a horizon hint so lens-card weighting
+    matches the query's resolution. Strategic/philosophical queries get an
+    explicit hint; tactical (the default) gets no hint — keeps the prompt
+    quiet on the common case."""
+
+    def _bundle(self, task: str):
+        from trinity_local.council_schema import CouncilMemberResult, PromptBundle
+
+        return (
+            PromptBundle(bundle_id="b", task_cluster_id="c", task_text=task),
+            [CouncilMemberResult(provider="claude", model="opus", output_text="x")],
+        )
+
+    def test_strategic_query_gets_horizon_hint(self, tmp_path, monkeypatch):
+        from trinity_local.council_runtime import render_primary_council_prompt
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        bundle, members = self._bundle("Should I bet on Antigravity this quarter?")
+        prompt = render_primary_council_prompt(bundle, members)
+        assert "Query horizon: strategic" in prompt
+        assert "[strategic]" in prompt  # points chairman at the tag
+
+    def test_philosophical_query_gets_horizon_hint(self, tmp_path, monkeypatch):
+        from trinity_local.council_runtime import render_primary_council_prompt
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        bundle, members = self._bundle("What kind of company do I want to be building five years from now?")
+        prompt = render_primary_council_prompt(bundle, members)
+        assert "Query horizon: philosophical" in prompt
+        assert "[philosophical]" in prompt
+
+    def test_tactical_query_omits_hint(self, tmp_path, monkeypatch):
+        """Tactical is the default — chairman doesn't need a hint to use
+        local-shape lenses. Suppress the line to keep the prompt quiet on
+        the 80% case."""
+        from trinity_local.council_runtime import render_primary_council_prompt
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        bundle, members = self._bundle("How do I write a regex for email validation?")
+        prompt = render_primary_council_prompt(bundle, members)
+        assert "Query horizon:" not in prompt
+
+
 class TestThreadManifest:
     def _outcome(self, council_id: str, *, root: str | None = None, parent: str | None = None, round_number: int = 1, started_at: str = ""):
         from trinity_local.council_schema import CouncilOutcome
