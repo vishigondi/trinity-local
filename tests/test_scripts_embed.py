@@ -69,6 +69,10 @@ def test_cli_round_trip_via_stdin_stdout(isolated_home):
         env={**__import__("os").environ,
              "TRINITY_HOME": str(isolated_home),
              "TRINITY_SKIP_VENV_BOOTSTRAP": "1",
+             # Force TF-IDF backend in child subprocess — pins the CLI
+             # I/O contract without paying the ~5s nomic model load.
+             # Same fallback path that ships without `[mlx]` extras.
+             "TRINITY_DISABLE_MLX": "1",
              "PYTHONPATH": f"{REPO_ROOT}:{REPO_ROOT / 'src'}"},
         timeout=120,
     )
@@ -91,6 +95,10 @@ def test_cli_bad_input_missing_texts_field_returns_2(isolated_home):
         env={**__import__("os").environ,
              "TRINITY_HOME": str(isolated_home),
              "TRINITY_SKIP_VENV_BOOTSTRAP": "1",
+             # Force TF-IDF backend in child subprocess — pins the CLI
+             # I/O contract without paying the ~5s nomic model load.
+             # Same fallback path that ships without `[mlx]` extras.
+             "TRINITY_DISABLE_MLX": "1",
              "PYTHONPATH": f"{REPO_ROOT}:{REPO_ROOT / 'src'}"},
         timeout=15,
     )
@@ -114,6 +122,10 @@ def test_cli_bad_texts_type_returns_2(isolated_home):
         env={**__import__("os").environ,
              "TRINITY_HOME": str(isolated_home),
              "TRINITY_SKIP_VENV_BOOTSTRAP": "1",
+             # Force TF-IDF backend in child subprocess — pins the CLI
+             # I/O contract without paying the ~5s nomic model load.
+             # Same fallback path that ships without `[mlx]` extras.
+             "TRINITY_DISABLE_MLX": "1",
              "PYTHONPATH": f"{REPO_ROOT}:{REPO_ROOT / 'src'}"},
         timeout=15,
     )
@@ -131,6 +143,10 @@ def test_cli_writes_audit_log_on_success(isolated_home):
         env={**__import__("os").environ,
              "TRINITY_HOME": str(isolated_home),
              "TRINITY_SKIP_VENV_BOOTSTRAP": "1",
+             # Force TF-IDF backend in child subprocess — pins the CLI
+             # I/O contract without paying the ~5s nomic model load.
+             # Same fallback path that ships without `[mlx]` extras.
+             "TRINITY_DISABLE_MLX": "1",
              "PYTHONPATH": f"{REPO_ROOT}:{REPO_ROOT / 'src'}"},
         timeout=120,
     )

@@ -29,14 +29,22 @@ from .backend_tfidf import embed_tfidf, cosine_similarity
 _mlx_backend = None
 _backend_name = "tfidf"
 
-try:
-    from .backend_mlx import MlxEmbedder
-    _mlx_backend = MlxEmbedder()
-    _backend_name = "mlx"  # Optimistic; embed() will fall back if it fails
-except ImportError:
-    _mlx_backend = None
-except Exception:
-    _mlx_backend = None
+# Test-speed escape hatch: TRINITY_DISABLE_MLX=1 forces the TF-IDF
+# fallback path without ever importing backend_mlx. Mirrors what users
+# without the `[mlx]` extras experience — same fallback code path that
+# ships in default pip installs. Used by tests that pin the CLI
+# contract but don't need real semantic embeddings (subprocess-spawned
+# tests where monkeypatching the parent process can't reach the child).
+import os as _os
+if _os.environ.get("TRINITY_DISABLE_MLX") != "1":
+    try:
+        from .backend_mlx import MlxEmbedder
+        _mlx_backend = MlxEmbedder()
+        _backend_name = "mlx"  # Optimistic; embed() will fall back if it fails
+    except ImportError:
+        _mlx_backend = None
+    except Exception:
+        _mlx_backend = None
 
 
 def is_available() -> bool:
