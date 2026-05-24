@@ -159,6 +159,54 @@ Why this matters: SAME PRINCIPLE.
         normalized = [c.lower().strip().rstrip(".") for c in claims]
         assert normalized.count("same principle") == 1
 
+    def test_extracts_paired_lenses_and_orderings_from_disk(
+        self, tmp_path, monkeypatch
+    ):
+        """Modern format: lens state lives in lenses.json + orderings.json
+        on disk (post pair-mining). parse_lens() reads them when
+        lens_text=None and extracts each LensPair as 'pole_a ↔ pole_b'
+        (lenses) or 'pole_a > pole_b' (orderings).
+
+        Regression guard for the bug fixed in 030bad4: parse_lens used
+        to ONLY call legacy parse_taste_lenses, which expects different
+        header text than what lens-build emits. Result was silent 0.
+        """
+        import json as _json
+        from trinity_local import state_paths
+
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        me_dir = state_paths.trinity_home() / "me"
+        me_dir.mkdir(parents=True, exist_ok=True)
+
+        (me_dir / "lenses.json").write_text(_json.dumps({"lenses": [{
+            "pole_a": "concrete specificity",
+            "pole_b": "abstract pattern",
+            "failure_a": "tunnel vision",
+            "failure_b": "hand-waving",
+            "basins_spanned": ["b00"],
+            "verdict": "accepted",
+            "horizon": "strategic",
+        }]}), encoding="utf-8")
+
+        (me_dir / "orderings.json").write_text(_json.dumps({"orderings": [{
+            "pole_a": "shipping velocity",
+            "pole_b": "polish",
+            "failure_a": "rough edges",
+            "failure_b": "missed window",
+            "basins_spanned": ["b01"],
+            "verdict": "ordering",
+            "horizon": "tactical",
+        }]}), encoding="utf-8")
+
+        # No explicit lens_text → parse_lens reads from disk
+        claims = parse_lens()
+        assert any("concrete specificity ↔ abstract pattern" in c for c in claims), (
+            f"expected the paired lens as a single ↔-joined claim; got {claims}"
+        )
+        assert any("shipping velocity > polish" in c for c in claims), (
+            f"expected the ordering as a single >-joined claim; got {claims}"
+        )
+
 
 class TestParseClaudeMemory:
     def test_extracts_bullet_descriptions(self, claude_memory_root):
