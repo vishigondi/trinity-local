@@ -270,6 +270,110 @@ class TestActionableSignals:
         # gemini → never captured (directory missing)
         assert "not yet captured" in out
 
+    def test_signals_in_json_output_when_active(self, tmp_path, monkeypatch, capsys):
+        """JSON output must include the same signals the human output
+        renders — scripts/agents parsing JSON otherwise have no
+        visibility into the action-takeable items.
+
+        The `signals` key is always present (empty list when nothing
+        fires), so callers can `len(status["signals"])` without an
+        existence branch."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.me import lens_edits as le_mod
+        from trinity_local.me import conflicts as conflicts_mod
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(le_mod, "pending_lens_edits_count", lambda: 7)
+        monkeypatch.setattr(conflicts_mod, "count_active_conflicts", lambda: 1)
+        monkeypatch.setattr(repair_mod, "detect_failure_patterns", lambda d: [
+            {"fix_kind": "code-patch", "provider": "gemini"},
+        ])
+        monkeypatch.setattr(repair_mod, "diagnose", lambda: {"providers": {}})
+
+        args = Args(as_json=True)
+        handle_status(args)
+        payload = json.loads(capsys.readouterr().out)
+
+        assert "signals" in payload
+        kinds = [s["kind"] for s in payload["signals"]]
+        assert "lens_edits_pending" in kinds
+        assert "lens_contradictions" in kinds
+        assert "capture_drift" in kinds
+
+        # Per-signal payload carries count + fix_command
+        edits = next(s for s in payload["signals"] if s["kind"] == "lens_edits_pending")
+        assert edits["count"] == 7
+        assert edits["fix_command"] == "trinity-local lens-build"
+
+    def test_signals_empty_list_when_steady_green_in_json(
+        self, tmp_path, monkeypatch, capsys,
+    ):
+        """The empty case is `signals: []`, not absent. Scripts must be
+        able to `len(...)` without `if "signals" in payload` branch."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.me import lens_edits as le_mod
+        from trinity_local.me import conflicts as conflicts_mod
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(le_mod, "pending_lens_edits_count", lambda: 0)
+        monkeypatch.setattr(conflicts_mod, "count_active_conflicts", lambda: 0)
+        monkeypatch.setattr(repair_mod, "detect_failure_patterns", lambda d: [])
+        monkeypatch.setattr(repair_mod, "diagnose", lambda: {"providers": {}})
+
+        args = Args(as_json=True)
+        handle_status(args)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["signals"] == []
+
+    def test_captures_in_json_when_extension_active(
+        self, tmp_path, monkeypatch, capsys,
+    ):
+        """Browser-extension captures surface via JSON `captures` key
+        when at least one provider directory exists. Absent (not empty)
+        when no extension data has ever been captured — same shape as
+        human surface's silent-when-cold."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": True, "captures": 12, "hours_since_last": 0.5},
+                "chatgpt": {"exists": True, "captures": 5, "hours_since_last": 3.0},
+                "gemini":  {"exists": True, "captures": 100, "hours_since_last": 0.1},
+            }},
+        )
+
+        args = Args(as_json=True)
+        handle_status(args)
+        payload = json.loads(capsys.readouterr().out)
+        assert "captures" in payload
+        assert payload["captures"]["total"] == 117
+        assert "claude" in payload["captures"]["by_provider"]
+        assert payload["captures"]["by_provider"]["claude"]["captures"] == 12
+
+    def test_captures_absent_in_json_when_no_extension_data(
+        self, tmp_path, monkeypatch, capsys,
+    ):
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": False, "captures": 0, "hours_since_last": None},
+                "chatgpt": {"exists": False, "captures": 0, "hours_since_last": None},
+                "gemini":  {"exists": False, "captures": 0, "hours_since_last": None},
+            }},
+        )
+
+        args = Args(as_json=True)
+        handle_status(args)
+        payload = json.loads(capsys.readouterr().out)
+        # Captures key intentionally absent (not empty dict) to keep
+        # cold-install JSON terse — same as human side staying silent.
+        assert "captures" not in payload
+
     def test_signal_block_failure_does_not_break_status(self, tmp_path, monkeypatch, capsys):
         """Each signal helper is wrapped in try/except — a bug in one
         must not break the whole status command. Steady-state diagnostic

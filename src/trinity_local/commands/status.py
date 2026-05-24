@@ -89,7 +89,75 @@ def handle_status(args):
     council_count = _count_files(council_dir) if council_dir.exists() else 0
 
     if args.as_json:
-        print(json.dumps({
+        # JSON parity with the human surface — agents/scripts parsing
+        # status need the same actionable signals + capture counts that
+        # the human format renders. Each block wrapped in try/except so
+        # a bug in one helper doesn't poison the whole JSON output.
+        signals_payload: list[dict] = []
+        try:
+            from ..me.lens_edits import pending_lens_edits_count
+
+            n_edits = pending_lens_edits_count()
+            if n_edits > 0:
+                signals_payload.append({
+                    "kind": "lens_edits_pending",
+                    "count": n_edits,
+                    "fix_command": "trinity-local lens-build",
+                })
+        except Exception:
+            pass
+        try:
+            from ..me.conflicts import count_active_conflicts
+
+            n_conflicts = count_active_conflicts()
+            if n_conflicts > 0:
+                signals_payload.append({
+                    "kind": "lens_contradictions",
+                    "count": n_conflicts,
+                    "fix_command": None,
+                    "fix_hint": "see ⚠ Tensions in tension in lens.md",
+                })
+        except Exception:
+            pass
+        try:
+            from .extension_repair import detect_failure_patterns, diagnose
+
+            patterns = detect_failure_patterns(diagnose())
+            code = [p for p in patterns if p.get("fix_kind") == "code-patch"]
+            user = [p for p in patterns if p.get("fix_kind") == "user-action"]
+            if code:
+                signals_payload.append({
+                    "kind": "capture_drift",
+                    "count": len(code),
+                    "fix_command": "trinity-local extension repair --auto",
+                })
+            if user:
+                signals_payload.append({
+                    "kind": "auth_cookie_stale",
+                    "count": len(user),
+                    "fix_command": None,
+                    "fix_hint": "refresh login + send a test message",
+                })
+        except Exception:
+            pass
+
+        # Browser-extension captures — parallel to the Adapters: side
+        # for JSON parity with the human surface.
+        captures_payload: dict | None = None
+        try:
+            from .extension_repair import diagnose as _diag
+
+            cap = _diag()
+            providers = cap.get("providers", {})
+            if any(info.get("exists") for info in providers.values()):
+                captures_payload = {
+                    "total": sum(p.get("captures", 0) for p in providers.values()),
+                    "by_provider": providers,
+                }
+        except Exception:
+            pass
+
+        payload: dict = {
             "trinity_home": str(home),
             "health": health.to_dict(),
             "adapters": {
@@ -110,7 +178,14 @@ def handle_status(args):
             "reviews": review_count,
             "councils": council_count,
             "drift_alerts": len(drift_alerts),
-        }, indent=2))
+            # Empty list when no signals fire — parallel to human
+            # surface staying silent. Always present in payload so
+            # scripts can `len(status["signals"])` without branch.
+            "signals": signals_payload,
+        }
+        if captures_payload is not None:
+            payload["captures"] = captures_payload
+        print(json.dumps(payload, indent=2))
         return
 
     # Human-readable output
