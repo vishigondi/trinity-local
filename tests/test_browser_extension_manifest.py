@@ -177,6 +177,29 @@ def test_page_hook_classifies_sidebar_list_endpoints():
     )
 
 
+def test_content_script_includes_gemini_sidebar_dom_scrape():
+    """content-script.js must include the gemini sidebar DOM-scrape path.
+
+    Gemini doesn't expose its sidebar conversation list via any
+    batchexecute RPC (verified 2026-05-23 — inspected all 22 distinct
+    rpcids in captures, none carry conv_ids). The list lives only in
+    the rendered DOM. content-script reads it on gemini.google.com
+    pages and emits a sidebar_list payload in the same shape as the
+    network-intercept path used for claude.ai + chatgpt.com.
+    """
+    src = (EXT_DIR / "content-script.js").read_text()
+    assert 'gemini.google.com' in src, (
+        "content-script.js missing gemini host check for DOM-scrape path"
+    )
+    assert 'readGeminiSidebar' in src or 'sidebar' in src.lower(), (
+        "content-script.js missing gemini sidebar DOM-scrape function"
+    )
+    assert '"sidebar_list"' in src, (
+        "content-script.js must emit kind: 'sidebar_list' for gemini "
+        "DOM scrape — same schema as claude/chatgpt network captures"
+    )
+
+
 def test_content_script_guards_against_invalidated_context():
     """content-script.js must check chrome.runtime.id before sendMessage.
 

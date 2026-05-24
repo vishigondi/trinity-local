@@ -11,6 +11,66 @@
 // So we relay: page-hook emits via window.postMessage → here →
 // chrome.runtime.sendMessage → background.
 
+// Gemini sidebar DOM scrape — gemini.google.com renders the recent-
+// conversations sidebar directly into the DOM (no batchexecute RPC
+// returns the list; we verified this 2026-05-23 — 22 distinct
+// batchexecute rpcids inspected, none carry conv_ids). claude.ai and
+// chatgpt.com use the network-intercept path in page-hook.js
+// (kind="sidebar_list"); gemini gets DOM-scrape as the equivalent.
+// Same output payload shape so capture-host writes _sidebar.json
+// uniformly across providers.
+if (location.hostname === "gemini.google.com") {
+  function readGeminiSidebar() {
+    const seen = new Set();
+    const items = [];
+    for (const a of document.querySelectorAll('a[href*="/app/"]')) {
+      const m = (a.getAttribute("href") || "").match(/\/app\/([0-9a-f]{8,})/);
+      if (!m) continue;
+      const conv_id = m[1];
+      if (seen.has(conv_id)) continue;
+      seen.add(conv_id);
+      const title = (a.textContent || a.getAttribute("title") || "").trim();
+      if (!title) continue;
+      items.push({ conv_id, title });
+    }
+    return items;
+  }
+
+  function emitSidebar(items) {
+    if (!chrome?.runtime?.id) return;
+    if (!items || items.length === 0) return;
+    try {
+      chrome.runtime.sendMessage({
+        type: "captured",
+        payload: {
+          provider: "gemini",
+          kind: "sidebar_list",
+          url: location.href,
+          method: "DOM",
+          sidebar: { items, source: "dom_scrape" },
+          captured_at: new Date().toISOString(),
+        },
+      }).catch(() => {});
+    } catch {}
+  }
+
+  // Poll for sidebar render — React mounts asynchronously after the
+  // page is interactive. Check every 1s for up to 10s; emit when
+  // we have a non-empty list AND it differs from the last snapshot.
+  let lastSnapshot = "";
+  let polls = 0;
+  const sidebarTimer = setInterval(() => {
+    polls++;
+    const items = readGeminiSidebar();
+    const snapshot = JSON.stringify(items);
+    if (items.length > 0 && snapshot !== lastSnapshot) {
+      lastSnapshot = snapshot;
+      emitSidebar(items);
+    }
+    if (polls >= 10) clearInterval(sidebarTimer);
+  }, 1000);
+}
+
 window.addEventListener("message", (event) => {
   // Only accept messages from the same page and from our own hook.
   if (event.source !== window) return;
