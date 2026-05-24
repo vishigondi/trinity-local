@@ -319,6 +319,133 @@ class TestDetectFailurePatterns:
         assert any(p["pattern"] == "stale-auth-cookie" for p in payload["recoverable_patterns"])
 
 
+class TestAutoRepair:
+    """#147: self-healing — `extension repair --auto` dispatches the
+    council on code-patch patterns without requiring HAR."""
+
+    def _stale_provider_dir(self, trinity_home, slug: str, count: int, hours_ago: float):
+        import os
+        provider_dir = trinity_home / "conversations" / slug
+        provider_dir.mkdir(parents=True)
+        for i in range(count):
+            f = provider_dir / f"cap_{i}.json"
+            f.write_text("{}")
+            stale_time = __import__("time").time() - hours_ago * 3600
+            os.utime(f, (stale_time, stale_time))
+
+    def test_fix_kind_field_present_on_all_patterns(self, trinity_home):
+        """Every detected pattern must carry fix_kind so --auto can
+        filter user-action vs code-patch correctly."""
+        self._stale_provider_dir(trinity_home, "claude", count=10, hours_ago=48.0)
+        self._stale_provider_dir(trinity_home, "gemini", count=10, hours_ago=300.0)
+        diag = extension_repair.diagnose()
+        patterns = extension_repair.detect_failure_patterns(diag)
+        for p in patterns:
+            assert "fix_kind" in p, f"missing fix_kind: {p}"
+            assert p["fix_kind"] in ("user-action", "code-patch"), p["fix_kind"]
+
+    def test_stale_auth_cookie_is_user_action(self, trinity_home):
+        self._stale_provider_dir(trinity_home, "claude", count=10, hours_ago=48.0)
+        diag = extension_repair.diagnose()
+        patterns = extension_repair.detect_failure_patterns(diag)
+        cookie_patterns = [p for p in patterns if p["pattern"] == "stale-auth-cookie"]
+        assert len(cookie_patterns) == 1
+        assert cookie_patterns[0]["fix_kind"] == "user-action"
+
+    def test_extended_silence_is_code_patch(self, trinity_home):
+        """>168h + enough captures (≥5) to rule out 'user just doesn't
+        use this provider' surfaces as code-patch — the
+        PROVIDER_PATTERNS regex likely needs updating."""
+        self._stale_provider_dir(trinity_home, "gemini", count=10, hours_ago=300.0)
+        diag = extension_repair.diagnose()
+        patterns = extension_repair.detect_failure_patterns(diag)
+        silence_patterns = [p for p in patterns if p["pattern"] == "provider-extended-silence"]
+        assert len(silence_patterns) == 1
+        assert silence_patterns[0]["fix_kind"] == "code-patch"
+        assert "PROVIDER_PATTERNS" in silence_patterns[0]["hint"]
+
+    def test_extended_silence_below_threshold_does_not_fire(self, trinity_home):
+        """4 captures = not enough history to rule out 'user just
+        doesn't use this provider.' Don't flag as code-patch."""
+        self._stale_provider_dir(trinity_home, "gemini", count=4, hours_ago=300.0)
+        diag = extension_repair.diagnose()
+        patterns = extension_repair.detect_failure_patterns(diag)
+        assert not any(p["pattern"] == "provider-extended-silence" for p in patterns)
+
+    def test_build_auto_repair_bundle_omits_har_includes_patterns(self, trinity_home):
+        """Auto-repair bundle must NOT include HAR data but MUST
+        include the code-patch pattern hints in lieu."""
+        self._stale_provider_dir(trinity_home, "gemini", count=10, hours_ago=300.0)
+        diag = extension_repair.diagnose()
+        patterns = extension_repair.detect_failure_patterns(diag)
+        bundle = extension_repair.build_auto_repair_bundle(
+            diag=diag,
+            patterns=patterns,
+            page_hook_source="// fake page-hook contents",
+        )
+        # No HAR data
+        assert "HAR_POSTS" not in bundle.task_text
+        # But pattern hints ARE present
+        assert "DETECTED_PATTERNS" in bundle.task_text
+        assert "provider-extended-silence" in bundle.task_text
+        # Self-healing path tagged in metadata so council outcome can
+        # be filtered later
+        assert bundle.metadata.get("kind") == "extension_repair_auto"
+
+    def test_auto_with_no_patterns_falls_through(self, trinity_home, capsys):
+        """When no patterns surface, --auto prints the diagnose +
+        "all healthy" note. Does NOT dispatch council."""
+        # Fresh state — no providers
+        class _Args:
+            har = None
+            provider = None
+            as_json = False
+            auto = True
+
+        extension_repair.handle_repair(_Args())
+        out = capsys.readouterr().out
+        assert "Chrome extension capture diagnosis" in out
+        assert "no actionable patterns" in out
+        assert "Dispatching" not in out  # council NOT dispatched
+
+    def test_auto_with_only_user_action_skips_council(self, trinity_home, capsys):
+        """User-action patterns shouldn't trigger council dispatch —
+        the fix is on the user's side, not in Trinity's code."""
+        self._stale_provider_dir(trinity_home, "claude", count=10, hours_ago=48.0)
+        class _Args:
+            har = None
+            provider = None
+            as_json = False
+            auto = True
+
+        extension_repair.handle_repair(_Args())
+        out = capsys.readouterr().out
+        assert "user-action pattern" in out
+        assert "Dispatching" not in out
+
+    def test_auto_json_mode_returns_pattern_payload(self, trinity_home, capsys):
+        """--auto --json on a code-patch hit emits the bundle preview
+        + patterns + bundle_id without dispatching the council. Useful
+        for scripting / dry-run inspection."""
+        import json as _json
+        self._stale_provider_dir(trinity_home, "gemini", count=10, hours_ago=300.0)
+
+        class _Args:
+            har = None
+            provider = None
+            as_json = True
+            auto = True
+
+        extension_repair.handle_repair(_Args())
+        payload = _json.loads(capsys.readouterr().out)
+        assert "diagnosis" in payload
+        assert "patterns" in payload
+        assert "bundle_id" in payload
+        # Pattern hints surfaced
+        kinds = [p.get("fix_kind") for p in payload["patterns"]]
+        assert "code-patch" in kinds
+
+
 def test_cli_registration_lists_extension_subcommand():
     import argparse
     parser = argparse.ArgumentParser()
