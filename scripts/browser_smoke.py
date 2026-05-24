@@ -675,15 +675,17 @@ def main() -> int:
             page.goto(f"{base_url}/portal_pages/launchpad.html", wait_until="networkidle", timeout=10000)
             page.wait_for_timeout(800)
 
-        # ─── Surface 10: Recent council card content + cross-memory chips ─────
+        # ─── Surface 10: Recent council card content ──────────────────────────
         # Surface 5 confirms cards click through; this confirms each card
-        # actually carries the title + meta block ("winner · date · N rounds"),
-        # AND that the cross-memory chips from tick #15 (→ pick / → routing)
-        # are present + point at memory.html with a task= param.
-        # Tick #95: also asserts the "Unrated" badge from tick #94 renders
-        # when at least one card is unrated. The badge surfaces Pillar 4
-        # (rate funnel) per-card; if it disappears, the launchpad loses
-        # the per-card discoverability of the rating backlog.
+        # actually carries the title + meta block ("winner · date · N rounds")
+        # and the href routes to live_council.html with a thread_id param.
+        #
+        # Per-card cross-memory chips (→ pick / → routing / → topology /
+        # → share PNG) AND the "Unrated" badge were retired 2026-05-21
+        # along with the rating UX sunset (rating-retirement #134). The
+        # card is now: title, winner, date — see
+        # launchpad_data.build_recent_cards_html for the canonical shape.
+        # The xlink/badge_ok assertions are gone with them.
         cards_state = page.evaluate(
             """() => {
               const wrappers = Array.from(document.querySelectorAll('a.council-card-link')).map(a => a.parentElement);
@@ -692,58 +694,26 @@ def main() -> int:
                 const title = a?.querySelector('.council-title')?.textContent?.trim();
                 const meta = a?.querySelector('.meta')?.textContent?.trim();
                 const hrefHasThread = (a?.getAttribute('href') || '').includes('thread_id=');
-                const xlinks = Array.from(wrap.querySelectorAll('.council-xlink'));
-                const pickLink = xlinks.find(x => x.textContent.includes('pick'));
-                const routingLink = xlinks.find(x => x.textContent.includes('routing'));
                 return {
                   title_ok: !!title && title.length > 0,
                   meta_ok: !!meta && meta.length > 0,
                   hrefHasThread,
-                  xlinkCount: xlinks.length,
-                  pickHrefOk: !!pickLink && /memory\\.html\\?file=picks\\.json&task=/.test(pickLink.getAttribute('href') || ''),
-                  routingHrefOk: !!routingLink && /memory\\.html\\?file=routing\\.json&task=/.test(routingLink.getAttribute('href') || ''),
                 };
               });
               return {count: wrappers.length, sample};
             }"""
         )
         sample = cards_state.get("sample", [])
-        # task_type is plumbed from routing_label — older councils that
-        # predate that schema have no task_type, so xlinks are optional
-        # per-card. The surface passes when EITHER all checked cards have
-        # them, OR at least one card has them (proves the plumbing works
-        # on this install). Same forgiving stance as Surface 13 for the
-        # lens card's empty-state variant.
         cards_ok = (
             cards_state.get("count", 0) >= 1
             and all(s.get("title_ok") and s.get("meta_ok") and s.get("hrefHasThread") for s in sample)
         )
-        # tick #34: cards may carry 2 chips (→ pick, → routing) or 3
-        # (above + → topology when the task_type has a centroid match).
-        # Accept >=2 so Surface 10 doesn't fight Surface 25.
-        xlinks_ok = any(
-            s.get("xlinkCount", 0) >= 2 and s.get("pickHrefOk") and s.get("routingHrefOk")
-            for s in sample
-        )
-        # Unrated-badge plumbing (tick #94/#95) retired 2026-05-21 with
-        # the rating UX sunset (rating-retirement #134). The
-        # `.unrated-badge` DOM class, the `unratedBadges` JS counter,
-        # _verdict_stats() helper, and the badge_ok check were all
-        # dead code that escaped that sweep — caught by the
-        # post-launch consistency loop 2026-05-23.
 
-        if cards_ok and xlinks_ok:
-            xlink_card = next(
-                (i for i, s in enumerate(sample) if s.get("xlinkCount", 0) >= 2),
-                None,
+        if cards_ok:
+            print(
+                f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards "
+                "with title/meta/thread_id"
             )
-            print(f"[ ✓ ] Surface 10 recent cards: {cards_state['count']} cards with title/meta/thread_id; xlinks present on card {xlink_card}")
-        elif cards_ok:
-            # Card content correct but xlinks missing — typically means
-            # all sampled councils predate the task_type plumbing.
-            reason = f"cards OK but no xlinks on sampled councils (legacy data?): sample={sample}"
-            print(f"[ ✗ ] Surface 10 recent cards: {reason}")
-            fails.append((10, "recent card cross-memory chips", reason))
         else:
             reason = f"count={cards_state.get('count')} sample={sample}"
             print(f"[ ✗ ] Surface 10 recent cards: {reason}")
@@ -1875,11 +1845,16 @@ def main() -> int:
               const script = document.getElementById('page-data');
               const data = script ? JSON.parse(script.textContent || '{}') : {};
               const summary = data.evalSummary || {};
-              // Find the card via its eyebrow text — same anchor approach
-              // as Surface 29 to stay robust against CSS-class refactors.
-              const eyebrows = Array.from(document.querySelectorAll('.eyebrow'));
-              const eyebrow = eyebrows.find(el => /Personalized benchmark/i.test(el.textContent || ''));
-              const card = eyebrow ? eyebrow.closest('section.card') : null;
+              // When evalSummary.has_results, the template emits TWO
+              // "Personalized benchmark" eyebrow chips — one in the
+              // <details><summary> collapsed-pill header, one inside
+              // the wrapped <section.card>. The summary chip has no
+              // section.card ancestor (it's a sibling within details),
+              // so the old eyebrow-then-closest() approach picked the
+              // first match and got null. Query the card directly by
+              // its dedicated class — added precisely for this anchor.
+              const card = document.querySelector('section.eval-summary-card');
+              const eyebrow = card ? card.querySelector('.eyebrow') : null;
               const headline = card ? card.querySelector('h2') : null;
               const codes = card ? Array.from(card.querySelectorAll('code')).map(c => c.textContent) : [];
               return {
