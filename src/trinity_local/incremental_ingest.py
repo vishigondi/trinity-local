@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 
 from .ingest import iter_prompt_turns
 from .memory import PromptNode, upsert_prompt_node
-from .memory.store import iter_prompt_nodes
+from .memory.store import iter_prompt_nodes_no_embedding
 from .state_paths import ingest_cursors_path
 from .task_types import guess_task_type
 from .utils import now_iso, stable_id
@@ -88,7 +88,11 @@ def _existing_prompt_node_ids() -> set[str]:
     # Uncapped: dedup needs every existing ID, not the 5000 most-recent.
     # Otherwise incremental_ingest reappends prompts whose IDs sit below
     # the cap (most of the user's corpus on a populated install).
-    return {node.id for node in iter_prompt_nodes(limit=None)}
+    #
+    # Skinny variant: only the `id` field is read from each record, so
+    # paying ~1.85s of embedding-array parse per cold call (real 1GB
+    # corpus) is pure waste. Skip embeddings.
+    return {node.id for node in iter_prompt_nodes_no_embedding(limit=None)}
 
 
 def ingest_recent(
