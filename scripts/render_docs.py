@@ -182,6 +182,18 @@ def canonical_smoke_surface_count() -> int:
     return len(ids)
 
 
+def canonical_py_file_count() -> int:
+    """Count .py source files under src/trinity_local/ (excluding __pycache__).
+
+    Drift caught in post-launch sweep: claude.md L132's tree summary
+    said "113 .py files" while reality was 119. The number ticks every
+    time a module lands or is sunset; pinning it via canonical avoids
+    silently stale architecture counts.
+    """
+    src_dir = REPO / "src" / "trinity_local"
+    return sum(1 for p in src_dir.rglob("*.py") if "__pycache__" not in p.parts)
+
+
 def canonical_command_module_count() -> int:
     """Count user-facing command modules from main.py's tuples.
 
@@ -208,6 +220,7 @@ CANONICAL: dict[str, callable] = {
     "command_module_count": canonical_command_module_count,
     "chrome_action_allowlist_count": canonical_chrome_action_allowlist_count,
     "smoke_surface_count": canonical_smoke_surface_count,
+    "py_file_count": canonical_py_file_count,
     "version": canonical_version,
 }
 
