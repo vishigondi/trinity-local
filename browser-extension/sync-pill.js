@@ -25,6 +25,13 @@
 // Self-suppressing when count=0. Re-polls on every page load / 60s.
 
 (() => {
+  // CRITICAL: bail in iframes. With manifest's `all_frames: true` we
+  // also inject into iframes — including the ones THIS pill creates
+  // during a sync. Without this guard, each sync iframe would mount
+  // its own pill, query its own sync_status, kick off its own
+  // sync iframes, etc. Infinite recursion.
+  if (window !== window.top) return;
+
   const PROVIDER_HOSTS = {
     "claude.ai": "claude",
     "chatgpt.com": "chatgpt",
@@ -39,6 +46,99 @@
   const PILL_ID = "__trinity_sync_pill__";
   const POLL_INTERVAL_MS = 60_000;
   const FIRST_POLL_DELAY_MS = 3_000;
+  const IFRAME_LOAD_MS = 6_000;          // wait per-iframe for canonical fetch to fire
+  const IFRAME_GAP_MS = 500;             // pause between iframes — gentle on provider API
+  const SYNCED_FADE_AFTER_MS = 4_000;    // brief success banner before hide
+
+  let syncing = false;
+
+  function providerThreadUrl(conv_id) {
+    if (provider === "claude") return `${location.origin}/chat/${conv_id}`;
+    if (provider === "chatgpt") return `${location.origin}/c/${conv_id}`;
+    if (provider === "gemini") return `${location.origin}/app/${conv_id}`;
+    return null;
+  }
+
+  function spawnSyncIframe(conv_id) {
+    return new Promise((resolve) => {
+      const url = providerThreadUrl(conv_id);
+      if (!url) return resolve(false);
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText =
+        "position:absolute;width:1px;height:1px;opacity:0;visibility:hidden;pointer-events:none;border:0;top:-9999px;";
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.dataset.trinitySync = "1";
+
+      let finished = false;
+      const finish = (ok) => {
+        if (finished) return;
+        finished = true;
+        try { iframe.remove(); } catch {}
+        resolve(ok);
+      };
+
+      iframe.onload = () => {
+        // Provider's bundle loads, fires its own auth-injected canonical
+        // fetch which page-hook (now in this iframe via all_frames:true)
+        // catches. Give it a window to land, then destroy.
+        setTimeout(() => finish(true), IFRAME_LOAD_MS);
+      };
+      iframe.onerror = () => finish(false);
+      // Safety timeout in case onload never fires (X-Frame-Options / CSP)
+      setTimeout(() => finish(false), IFRAME_LOAD_MS + 4_000);
+
+      iframe.src = url;
+      document.body.appendChild(iframe);
+    });
+  }
+
+  async function runSync(missing_ids) {
+    if (syncing) return;
+    syncing = true;
+    const el = document.getElementById(PILL_ID);
+    if (el) {
+      el.style.cursor = "default";
+      el.removeAttribute("title");
+    }
+    const total = missing_ids.length;
+    let done = 0;
+    const updatePill = () => {
+      if (!el) return;
+      el.textContent = `⠕ Syncing ${done}/${total}…`;
+    };
+    updatePill();
+
+    // Concurrency = 1 (gentle, looks like a single normal user
+    // browsing thread-by-thread). For 20-30 threads that's 2-3 minutes;
+    // acceptable for a one-click backfill.
+    for (const conv_id of missing_ids) {
+      await spawnSyncIframe(conv_id);
+      done += 1;
+      updatePill();
+      if (done < total) {
+        await new Promise((r) => setTimeout(r, IFRAME_GAP_MS));
+      }
+    }
+
+    // Re-query the host to see how many ACTUALLY landed (in case some
+    // iframes failed silently — X-Frame, network, etc.). The honest
+    // success count is the diff between before/after.
+    const after = await queryStatus();
+    const actualSynced = after && after.ok
+      ? Math.max(0, total - Number(after.missing_count || 0))
+      : total;
+
+    if (el) {
+      el.textContent = actualSynced === total
+        ? `⠕ ✓ Synced ${total}`
+        : `⠕ ✓ Synced ${actualSynced}/${total}`;
+      setTimeout(() => {
+        const live = document.getElementById(PILL_ID);
+        if (live) live.hidden = true;
+      }, SYNCED_FADE_AFTER_MS);
+    }
+    syncing = false;
+  }
 
   function queryStatus() {
     return new Promise((resolve) => {
@@ -95,34 +195,24 @@
   function renderPill(status) {
     if (!status || !status.ok) return;
     const count = Number(status.missing_count) || 0;
+    const missing_ids = status.missing_ids || [];
 
     const el = ensurePillEl(() => {
-      // Click opens the launchpad — actual sync mechanic lives there
-      // until the iframe-based per-provider auto-sync ships (the
-      // direct-fetch approach failed because provider APIs require
-      // Bearer auth headers their own bundles inject; our content-
-      // script fetch bypasses that wrapper and so authenticates as
-      // logged-out).
-      try {
-        chrome.runtime.sendMessage(
-          { type: "action", kind: "open-launchpad" },
-          () => { /* fire-and-forget */ },
-        );
-      } catch {
-        // ignore — clicking shouldn't break anything even if dispatch fails
-      }
+      if (syncing) return;
+      runSync(missing_ids);
     });
 
-    if (count <= 0) {
-      el.hidden = true;
+    if (count <= 0 || syncing) {
+      if (!syncing) el.hidden = true;
       return;
     }
     el.textContent = `⠕ ${count} to sync`;
-    el.title = "Trinity: open launchpad to sync missing threads";
+    el.title = "Trinity: click to sync missing threads locally";
     el.hidden = false;
   }
 
   async function tick() {
+    if (syncing) return;  // don't overwrite the sync UI mid-flight
     const status = await queryStatus();
     renderPill(status);
   }

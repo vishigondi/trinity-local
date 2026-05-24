@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Trinity Local",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Your taste, ported. Captures conversations from Claude, ChatGPT, and Gemini, and dispatches CLI actions (run council, ingest recent prompts) from the toolbar \u2014 all to your local ~/.trinity/ install. No server, no account.",
   "permissions": [
     "nativeMessaging",
@@ -61,7 +61,8 @@
         "sync-pill.js"
       ],
       "run_at": "document_start",
-      "world": "ISOLATED"
+      "world": "ISOLATED",
+      "all_frames": true
     },
     {
       "matches": [
@@ -77,7 +78,8 @@
         "page-hook.js"
       ],
       "run_at": "document_start",
-      "world": "MAIN"
+      "world": "MAIN",
+      "all_frames": true
     }
   ],
   "minimum_chrome_version": "111"

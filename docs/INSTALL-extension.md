@@ -78,7 +78,7 @@ not from the Chrome Web Store). Web Store publish is post-launch.
    Or click the Trinity toolbar icon — the launchpad opens in a
    new tab; the "Send to council" button should fire end-to-end.
 
-## What v0.2 ships (current — `browser-extension/manifest.json` version `0.2.13`)
+## What v0.2 ships (current — `browser-extension/manifest.json` version `0.2.14`)
 
 - Toolbar icon → opens launchpad (chrome-extension:// origin)
 - Popup → "Send to council" quick action

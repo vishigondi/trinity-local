@@ -190,13 +190,18 @@ def test_sync_pill_content_script_present_and_wired():
     assert '"sync_status"' in src, "pill must call query_kind=sync_status"
     assert 'missing_count' in src, "pill must read missing_count from response"
     assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
-    # Click action — opens launchpad. (Direct-fetch sync rolled back
-    # 4b4b05f→THIS commit because provider APIs require Bearer auth
-    # headers their own bundles inject; content-script fetch bypasses
-    # that. Iframe-based sync is the proper fix; tracked separately.)
-    assert '"open-launchpad"' in src, (
-        "pill click must dispatch action=open-launchpad until the "
-        "iframe-based sync mechanic ships"
+    # Click action — runs iframe-based sync. Direct-fetch was tried
+    # in 4b4b05f and reverted because provider APIs require Bearer
+    # auth headers their own bundles inject (content-script fetch
+    # bypasses that wrapper). Iframe loads the provider's own bundle
+    # WITH its auth-injecting fetch wrapper intact → natural canonical
+    # fetches fire and page-hook (all_frames:true) catches them.
+    assert 'spawnSyncIframe' in src or 'iframe' in src.lower(), (
+        "pill must use iframe-based sync to inherit provider auth"
+    )
+    assert 'window !== window.top' in src, (
+        "pill must bail in iframes to avoid recursive pill-mount when "
+        "all_frames:true is set on the content_scripts entry"
     )
 
     m = _load_manifest()
@@ -205,6 +210,11 @@ def test_sync_pill_content_script_present_and_wired():
     assert "sync-pill.js" in isolated["js"], (
         "sync-pill.js must be in the ISOLATED content_scripts list — "
         "otherwise it won't load on provider pages"
+    )
+    # Iframes only work with all_frames so page-hook injects into them too
+    assert any(entry.get("all_frames") for entry in m["content_scripts"]), (
+        "manifest must enable all_frames:true so page-hook catches "
+        "canonical fetches fired by sync iframes"
     )
 
 
