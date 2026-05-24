@@ -40,7 +40,7 @@ shell wrappers in `~/.local/bin/`, registers MCP in every harness it
 finds, and runs `status` to verify:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+<!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 ```
 
 Prefer to inspect before piping to bash? Same install in two steps:

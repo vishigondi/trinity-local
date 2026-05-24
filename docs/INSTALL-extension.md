@@ -40,7 +40,7 @@ not from the Chrome Web Store). Web Store publish is post-launch.
 
 1. Clone the repo if you haven't already:
    ```bash
-   git clone https://github.com/vishigondi/trinity-local
+   git clone <!-- canonical:github_repo_url -->https://github.com/vishigondi/trinity-local<!-- /canonical -->
    cd trinity-local
    ```
 

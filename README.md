@@ -28,7 +28,7 @@ The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Ge
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+<!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 ```
 
 **Easiest** — install the Chrome extension first, then paste its setup brief into Claude Code or Claude Desktop. The agent runs the rest. No terminal expertise required. See [docs/INSTALL-extension.md](docs/INSTALL-extension.md).

@@ -56,7 +56,7 @@ bloating the agent's tool list.
 # One-liner — clones to ~/.trinity/code/ (with a back-compat symlink
 # at ~/.claude/skills/trinity/), drops wrappers in ~/.local/bin/,
 # registers MCP in every harness you have, runs status.
-curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+<!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 
 # Then, in Claude Code, just type:  /trinity
 # The skill walks you through status + ingest + dream + your first council.
