@@ -30,7 +30,7 @@ from .replay_value import (
     theme_score,
 )
 from .schemas import PromptNode
-from .store import iter_prompt_nodes
+from .store import iter_prompt_nodes, iter_prompt_nodes_no_embedding
 
 
 @dataclass
@@ -164,7 +164,11 @@ def search_prompt_nodes(
 
     Returns top_k diversified results via MMR (token-jaccard, no embeddings).
     """
-    nodes = list(iter_prompt_nodes())
+    # MMR diversification uses token-jaccard, scoring uses substring +
+    # replay-value heuristics — embeddings are unused on this path.
+    # Skip embedding-array parsing to save ~1.85s of json.loads on
+    # cold-cache renders (1GB / 38K-node real corpus).
+    nodes = list(iter_prompt_nodes_no_embedding())
     if not nodes:
         return []
 

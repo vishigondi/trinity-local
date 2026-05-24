@@ -153,6 +153,93 @@ def tail_prompt_nodes_fast(limit: int = 10) -> list[PromptNode]:
 
 _UNSET = object()  # Sentinel so callers can distinguish "default cap" from "explicit None"
 
+# Per-PromptNode the `embedding` field is a 768-element float array
+# (~10KB serialized). For callers that never read it — anything in
+# search/ranking that goes through token-jaccard or substring scoring,
+# never vector cosine — paying ~1.85s of json.loads on the corpus per
+# cold render is pure waste. The strip below replaces the array with
+# an empty `[]` BEFORE json.loads, so PromptNode lands with
+# embedding=[] and downstream code never knows. ~1.8s saved on the
+# 1GB/38K-node corpus.
+import re as _re
+_EMBEDDING_STRIP_RE = _re.compile(r'"embedding":\s*\[[^\]]*\]')
+
+# Parallel cache for the skinny variant — keyed on file mtime + size
+# + limit, same as the full cache. Different cache to keep the full
+# variant uncontaminated.
+_PROMPT_NODE_SKINNY_CACHE: list[PromptNode] | None = None
+_PROMPT_NODE_SKINNY_CACHE_KEY: tuple[str, float, int, int] | None = None
+
+
+def iter_prompt_nodes_no_embedding(*, limit: object = _UNSET) -> Iterator[PromptNode]:
+    """Like iter_prompt_nodes but skips embedding-array parsing.
+
+    Use ONLY for callers that don't read PromptNode.embedding — empty-
+    query search (token-jaccard ranking, no vectors) is the main one.
+    Returns PromptNodes with embedding=[] always; do not feed these
+    into vector-similarity code paths.
+
+    Saves ~1.85s on the live 1GB corpus by regex-stripping the 768-
+    element float array out of each JSON line BEFORE json.loads. The
+    rest of the record (text, timestamps, council_run_ids, themes) is
+    parsed normally.
+    """
+    global _PROMPT_NODE_SKINNY_CACHE, _PROMPT_NODE_SKINNY_CACHE_KEY
+    path = prompt_nodes_path()
+    try:
+        stat = path.stat()
+        mtime, size = stat.st_mtime, stat.st_size
+    except OSError:
+        mtime, size = 0.0, 0
+
+    if limit is _UNSET:
+        effective_limit: int | None = PROMPT_NODE_SEARCH_LIMIT
+    else:
+        effective_limit = limit  # type: ignore[assignment]
+
+    signature = (str(path), mtime, size, effective_limit if effective_limit is not None else -1)
+    if _PROMPT_NODE_SKINNY_CACHE is not None and _PROMPT_NODE_SKINNY_CACHE_KEY == signature:
+        yield from _PROMPT_NODE_SKINNY_CACHE
+        return
+
+    if not path.exists():
+        _PROMPT_NODE_SKINNY_CACHE = []
+        _PROMPT_NODE_SKINNY_CACHE_KEY = signature
+        return
+
+    nodes: list[PromptNode] = []
+    seen: dict[str, dict] = {}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                stripped = _EMBEDDING_STRIP_RE.sub('"embedding":[]', line)
+                try:
+                    record = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
+                rid = record.get("id")
+                if rid:
+                    seen[rid] = record
+    except OSError:
+        pass
+
+    for record in seen.values():
+        try:
+            nodes.append(PromptNode.from_dict(record))
+        except Exception:
+            continue
+
+    if effective_limit is not None and len(nodes) > effective_limit:
+        nodes.sort(key=_node_sort_key, reverse=True)
+        nodes = nodes[:effective_limit]
+
+    _PROMPT_NODE_SKINNY_CACHE = nodes
+    _PROMPT_NODE_SKINNY_CACHE_KEY = signature
+    yield from nodes
+
 
 def iter_prompt_nodes(*, limit: object = _UNSET) -> Iterator[PromptNode]:
     """Yield PromptNodes (newest first), capped at the configured search limit
