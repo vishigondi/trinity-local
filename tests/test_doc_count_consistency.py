@@ -2140,16 +2140,51 @@ class TestNoBannedSynonyms:
          "10_hn_faq_full.md. Future drift caught by this BANNED entry."),
     ]
 
-    # Files that get the scan. User-facing surfaces only.
-    # pyproject.toml included because tick 116 found "Gemini CLI" in
-    # an inline comment that PyPI users see when reading the build
-    # config — same drift class as a docs reference. SECURITY.md /
-    # CODE_OF_CONDUCT.md / docs/teams.md added in tick 118 after the
-    # @openclaw.dev contact-domain drift surfaced across 5 surfaces.
-    # The GitHub issue-template config.yml added in tick 119 after
-    # the same domain rename quietly stayed in the .yml surface that
-    # tick 118's glob (only .md/.py/.toml/.json) missed — every
-    # `New issue` click on GitHub shows that contact link verbatim.
+    # ----- #130: discovery-driven scan via SCAN_EXCLUSIONS -----
+    #
+    # Past pattern (SCAN_FILES allowlist): every new user-facing doc had
+    # to be manually added; missing → drift goes undetected. The history
+    # of this list shows that exact failure mode 20+ times — each
+    # surface joined the list only AFTER a drift hunt found a leak in it
+    # (every per-file entry below carries the iter # that caught it).
+    #
+    # Flipped pattern (council_76e5aef79bb9f241 #2): glob-discover all
+    # files of the right extension under the repo, then subtract a
+    # SCAN_EXCLUSIONS denylist. New docs join the scan automatically;
+    # only intentional opt-outs need explicit entries.
+    #
+    # SCAN_FILES is preserved as a SANITY CHECK list: every entry here
+    # must still appear in the discovered set after exclusions. Catches
+    # accidental over-broadening of SCAN_EXCLUSIONS that would silently
+    # drop a known load-bearing doc out of the scan.
+    SCAN_GLOBS: tuple[str, ...] = (
+        "*.md",
+        "pyproject.toml",
+        ".github/**/*.yml",
+        ".github/**/*.md",
+        "docs/**/*.md",
+        "skills/**/*.md",
+        "src/trinity_local/data/skills/**/*.md",
+        "scripts/*.sh",
+        "browser-extension/*.md",
+    )
+    # Path-prefix excludes (directory roots Trinity should never scan).
+    # `node_modules/`, `.venv/`, `.git/`, etc. handled by glob roots.
+    SCAN_EXCLUDED_PREFIXES: tuple[str, ...] = (
+        # Historical surfaces — banned strings appear intentionally as
+        # the record of what was retired
+        "docs/historical/",
+        # Local dev state, not user-facing
+        "state/",
+        # Bundled skill mirror — covered by test_bundled_skill_matches_top_level
+        # which pins it byte-identical to the top-level copy. Don't
+        # double-scan; if the top-level passes, the mirror passes too.
+        "src/trinity_local/data/skills/",
+        # Test/build/cache directories that occasionally slip past glob roots
+        ".claude/",
+        ".pytest_cache/",
+        ".playwright-mcp/",
+    )
     SCAN_FILES = [
         "README.md",
         "claude.md",
@@ -2230,7 +2265,12 @@ class TestNoBannedSynonyms:
         # test_bundled_skill_matches_top_level guard); scanning both
         # catches drift if a future edit only touches one half.
         "skills/trinity/SKILL.md",
-        "src/trinity_local/data/skills/trinity/SKILL.md",
+        # The bundled mirror src/trinity_local/data/skills/trinity/SKILL.md
+        # used to live in this list. Removed under #130: it's pinned
+        # byte-identical to the top-level skills/trinity/SKILL.md by
+        # test_bundled_skill_matches_top_level. Scanning the top-level
+        # copy + that pin is equivalent — and SCAN_EXCLUDED_PREFIXES
+        # now drops the bundled path explicitly to avoid double-scan.
         # docs/INSTALL-*.md added 2026-05-21 after iter 52 caught
         # "Skill tier — primary" in INSTALL-skill.md L5 + L9 (pre-
         # 2026-05-19 pivot framing — MCP is the primary tier now).
@@ -2265,11 +2305,52 @@ class TestNoBannedSynonyms:
         "tests/test_doc_count_consistency.py",
     }
 
+    @classmethod
+    def _discover_scan_files(cls) -> list[str]:
+        """Discovery-driven file list (#130).
+
+        Walks the repo using SCAN_GLOBS; drops any path matching
+        SCAN_EXCLUDED_PREFIXES or appearing in EXEMPT_FILES. Returns
+        repo-relative posix-style paths, sorted for deterministic
+        ordering across test runs.
+        """
+        seen: set[str] = set()
+        for pattern in cls.SCAN_GLOBS:
+            for path in REPO.glob(pattern):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(REPO).as_posix()
+                if rel in cls.EXEMPT_FILES:
+                    continue
+                if any(rel.startswith(pfx) for pfx in cls.SCAN_EXCLUDED_PREFIXES):
+                    continue
+                seen.add(rel)
+        return sorted(seen)
+
+    def test_scan_files_subset_of_discovery(self):
+        """Sanity: every explicit SCAN_FILES entry must still be picked
+        up by the discovery walk. Catches regressions where an
+        over-broad SCAN_EXCLUDED_PREFIXES would silently drop a known
+        load-bearing doc out of the scan."""
+        discovered = set(self._discover_scan_files())
+        missing = [
+            rel for rel in self.SCAN_FILES
+            if rel not in self.EXEMPT_FILES and rel not in discovered
+        ]
+        if missing:
+            raise AssertionError(
+                "These SCAN_FILES entries are no longer in the discovered "
+                "set (likely SCAN_EXCLUDED_PREFIXES is too broad, OR a "
+                "SCAN_GLOBS root no longer covers them): "
+                + ", ".join(missing)
+            )
+
     def test_no_banned_synonyms_in_user_facing_docs(self):
         leaks: list[tuple[str, int, str, str]] = []
-        for rel in self.SCAN_FILES:
-            if rel in self.EXEMPT_FILES:
-                continue
+        # Use the discovered set rather than the explicit SCAN_FILES
+        # allowlist. New user-facing docs automatically join the scan
+        # without needing a manual SCAN_FILES update.
+        for rel in self._discover_scan_files():
             path = REPO / rel
             try:
                 lines = path.read_text(encoding="utf-8").splitlines()
