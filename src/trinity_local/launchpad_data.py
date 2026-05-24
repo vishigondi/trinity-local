@@ -240,6 +240,29 @@ def _load_council_query_suggestions_fallback(limit: int = 8) -> list[str]:
     return suggestions[:limit]
 
 
+def _replay_candidates_cache_path() -> Path:
+    """Disk cache for _load_replay_candidates. Lives under portal_pages/
+    rather than trinity_home/cache/ (which is flagged as retired by
+    the doctor surface — would conflict)."""
+    from .state_paths import portal_pages_dir
+    cache_dir = portal_pages_dir() / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "launchpad_suggestions.json"
+
+
+def _prompt_nodes_cache_signature(limit: int) -> tuple[int, int, int] | None:
+    """Stat signature of prompt_nodes.jsonl (mtime + size) plus the
+    requested limit. None when the file is missing — caller skips
+    the cache path entirely."""
+    from .state_paths import prompts_dir
+    p = prompts_dir() / "prompt_nodes.jsonl"
+    try:
+        st = p.stat()
+    except OSError:
+        return None
+    return (int(st.st_mtime), st.st_size, limit)
+
+
 def _load_replay_candidates(limit: int = 200) -> list:
     """Memory-backed autofill candidates ranked by replay_value_score.
 
@@ -249,7 +272,27 @@ def _load_replay_candidates(limit: int = 200) -> list:
 
     Falls back to the string list from _load_council_query_suggestions_fallback
     when the memory index is empty (cold start). Template handles either shape.
+
+    Disk-cached by prompt_nodes.jsonl mtime + size + limit — the
+    search_prompt_nodes call walks up to 5000 nodes (~3.5s on a real
+    1GB / 38K-prompt install) and EVERY launchpad render previously
+    paid the full cost because each portal-html invocation is its own
+    process. With the cache, only renders AFTER new ingest pay it.
     """
+    cache_path = _replay_candidates_cache_path()
+    signature = _prompt_nodes_cache_signature(limit)
+    if signature is not None and cache_path.exists():
+        try:
+            blob = json.loads(cache_path.read_text(encoding="utf-8"))
+            if (
+                isinstance(blob, dict)
+                and tuple(blob.get("signature") or ()) == signature
+                and isinstance(blob.get("candidates"), list)
+            ):
+                return blob["candidates"]
+        except (OSError, json.JSONDecodeError):
+            pass  # treat as cache miss
+
     try:
         from .memory import search_prompt_nodes
 
@@ -287,6 +330,15 @@ def _load_replay_candidates(limit: int = 200) -> list:
             "transcriptId": hit.transcript_id or "",
             "turnIndex": int(hit.turn_index or 0),
         })
+
+    if signature is not None:
+        try:
+            cache_path.write_text(
+                json.dumps({"signature": list(signature), "candidates": candidates}),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass  # caching is best-effort, never block the render
     return candidates
 
 
