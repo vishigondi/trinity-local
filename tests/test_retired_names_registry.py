@@ -97,19 +97,35 @@ class TestRegistryIntegrity:
         except FileNotFoundError:
             pytest.skip("git binary not found")
 
-        bad: list[tuple[str, str]] = []
+        # Was N subprocess calls (one per SHA, ~70ms each → ~2s for 72
+        # registry entries). `git cat-file --batch-check` reads SHAs on
+        # stdin and emits one line per input — single subprocess.
+        # Each output line is `<sha> <type> <size>` for resolvable
+        # objects, or `<sha> missing` for unknown SHAs.
+        candidates: list[tuple[str, str]] = []
         for name, record in sorted(RETIRED.items()):
             sha = record.commit
-            # Skip the per-record placeholder check (already handled
-            # by test_record_has_required_fields); we only verify
-            # things that LOOK like SHAs actually resolve.
             if not re.match(r"^[0-9a-f]{7,40}$", sha):
                 continue
-            result = subprocess.run(
-                ["git", "cat-file", "-t", sha],
-                cwd=repo, capture_output=True, text=True, check=False,
-            )
-            if result.returncode != 0 or result.stdout.strip() != "commit":
+            candidates.append((name, sha))
+
+        if not candidates:
+            return
+
+        batch_input = "\n".join(sha for _, sha in candidates) + "\n"
+        result = subprocess.run(
+            ["git", "cat-file", "--batch-check"],
+            cwd=repo, capture_output=True, text=True, check=False,
+            input=batch_input,
+        )
+        bad: list[tuple[str, str]] = []
+        # Lines come back in input order (one output line per input SHA).
+        out_lines = result.stdout.splitlines()
+        for (name, sha), line in zip(candidates, out_lines):
+            parts = line.split()
+            # `<sha> commit <size>` for valid commits; `<sha> missing`
+            # or `<sha> tag/blob/tree <size>` otherwise.
+            if len(parts) < 2 or parts[1] != "commit":
                 bad.append((name, sha))
         assert not bad, (
             "Retirement entries with commit SHAs that don't resolve "
