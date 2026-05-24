@@ -183,6 +183,142 @@ def test_handle_repair_json_mode_emits_valid_json_for_diagnose(trinity_home, cap
     assert set(payload["providers"].keys()) == {"claude", "chatgpt", "gemini"}
 
 
+class TestDetectFailurePatterns:
+    """#150: stale-auth-cookie surfaces as a recoverable failure pattern
+    before the user is asked to capture a HAR.
+
+    The detection band is 24h ≤ hours_since_last ≤ 168h:
+    - Below 24h: captures are fresh, no diagnosis needed
+    - Above 168h (7 days): can't distinguish stale-cookie from "user
+      just hasn't visited" — don't false-alarm
+    - In between: high likelihood the auth cookie expired since the
+      provider previously WAS capturing successfully
+    """
+
+    def _diag(self, slug: str, captures: int, hours: float | None):
+        return {
+            "providers": {
+                slug: {
+                    "exists": True,
+                    "captures": captures,
+                    "last_capture": "2026-05-23T00:00:00",
+                    "hours_since_last": hours,
+                }
+            }
+        }
+
+    def test_fresh_capture_no_pattern_surfaced(self):
+        diag = self._diag("claude", captures=5, hours=2.5)
+        assert extension_repair.detect_failure_patterns(diag) == []
+
+    def test_in_band_stale_surfaces_stale_auth_cookie(self):
+        diag = self._diag("claude", captures=10, hours=48.0)
+        patterns = extension_repair.detect_failure_patterns(diag)
+        assert len(patterns) == 1
+        p = patterns[0]
+        assert p["pattern"] == "stale-auth-cookie"
+        assert p["provider"] == "claude"
+        assert "auth cookie" in p["hint"].lower()
+        assert "claude.ai" in p["fix_command"]
+        assert "log out" in p["fix_command"].lower()
+
+    def test_very_old_above_band_does_not_false_alarm(self):
+        diag = self._diag("chatgpt", captures=3, hours=500.0)
+        # 500h > 168h → user probably just hasn't used the provider
+        assert extension_repair.detect_failure_patterns(diag) == []
+
+    def test_zero_captures_no_pattern_surfaced(self):
+        """If a provider has never captured anything, the stale-cookie
+        framing doesn't apply — there's nothing to be stale from."""
+        d = {
+            "providers": {
+                "claude": {
+                    "exists": True,
+                    "captures": 0,
+                    "last_capture": None,
+                    "hours_since_last": None,
+                }
+            }
+        }
+        assert extension_repair.detect_failure_patterns(d) == []
+
+    def test_each_stale_provider_gets_its_own_pattern(self):
+        diag = {
+            "providers": {
+                "claude": {
+                    "exists": True, "captures": 5,
+                    "last_capture": "...", "hours_since_last": 50.0,
+                },
+                "chatgpt": {
+                    "exists": True, "captures": 2,
+                    "last_capture": "...", "hours_since_last": 100.0,
+                },
+                "gemini": {
+                    "exists": True, "captures": 1,
+                    "last_capture": "...", "hours_since_last": 5.0,
+                },
+            }
+        }
+        patterns = extension_repair.detect_failure_patterns(diag)
+        providers = {p["provider"] for p in patterns}
+        assert providers == {"claude", "chatgpt"}  # gemini is fresh, not flagged
+
+    def test_printed_diagnose_surfaces_pattern_before_har_ask(
+        self, trinity_home, monkeypatch, capsys,
+    ):
+        """The recoverable-pattern block must appear BEFORE the HAR
+        instructions — users shouldn't be told to capture a HAR for
+        issues an auth-refresh fixes."""
+        # Build a real on-disk state: 5 capture files, mtime 48h ago.
+        import os
+        claude_dir = trinity_home / "conversations" / "claude"
+        claude_dir.mkdir(parents=True)
+        for i in range(5):
+            f = claude_dir / f"cap_{i}.json"
+            f.write_text("{}")
+            # Backdate mtime to 48h ago
+            stale_time = (
+                __import__("time").time() - 48 * 3600
+            )
+            os.utime(f, (stale_time, stale_time))
+
+        class _Args:
+            har = None
+            provider = None
+            as_json = False
+
+        extension_repair.handle_repair(_Args())
+        out = capsys.readouterr().out
+
+        assert "[stale-auth-cookie]" in out
+        assert "Likely-recoverable patterns" in out
+        # Ordering: pattern block must come before the HAR instructions
+        pattern_pos = out.find("Likely-recoverable patterns")
+        har_pos = out.find("trinity-local extension repair --har")
+        assert pattern_pos > 0
+        assert har_pos > 0
+        assert pattern_pos < har_pos
+
+    def test_json_mode_includes_recoverable_patterns(self, trinity_home, capsys):
+        import os
+        claude_dir = trinity_home / "conversations" / "claude"
+        claude_dir.mkdir(parents=True)
+        f = claude_dir / "cap.json"
+        f.write_text("{}")
+        stale_time = __import__("time").time() - 50 * 3600
+        os.utime(f, (stale_time, stale_time))
+
+        class _Args:
+            har = None
+            provider = None
+            as_json = True
+
+        extension_repair.handle_repair(_Args())
+        payload = json.loads(capsys.readouterr().out)
+        assert "recoverable_patterns" in payload
+        assert any(p["pattern"] == "stale-auth-cookie" for p in payload["recoverable_patterns"])
+
+
 def test_cli_registration_lists_extension_subcommand():
     import argparse
     parser = argparse.ArgumentParser()

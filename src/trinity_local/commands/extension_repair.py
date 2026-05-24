@@ -298,9 +298,72 @@ def dispatch_repair_council(bundle) -> str | None:
     return result.outcome.synthesis_output or "(chairman produced no synthesis text — check council_outcomes/)"
 
 
+# Threshold for "this provider was working but suddenly stopped." Below
+# 24h we still consider captures fresh. Above 168h (7 days) we can't
+# distinguish stale-auth-cookie from "user simply hasn't used this
+# provider in a while" — so we only flag the recoverable pattern in the
+# middle band.
+STALE_RECOVERABLE_LOW_HOURS = 24
+STALE_RECOVERABLE_HIGH_HOURS = 168
+
+
+def detect_failure_patterns(diag: dict[str, Any]) -> list[dict[str, str]]:
+    """Surface known-recoverable failure patterns from a diagnose() dict.
+
+    Each pattern returns ``{provider, pattern, hint, fix_command}``. The
+    repair flow surfaces these BEFORE asking the user to capture a HAR
+    — many issues are recoverable without the heavy HAR + council loop.
+
+    Currently detected:
+    - **stale-auth-cookie** (#150): provider has prior captures but
+      hasn't fired in 24h–168h. The dominant cause is an expired auth
+      cookie — the provider page loads but the bundle's authed fetches
+      fail before reaching the network calls our page-hook intercepts.
+      Recovery: log out + log back in to refresh the cookie. Encoded
+      from in-session debugging where claude.ai's loading-skeleton bug
+      turned out to be stale cookies, not a Trinity-side regression.
+    """
+    patterns: list[dict[str, str]] = []
+    for slug, info in diag.get("providers", {}).items():
+        if not info.get("exists") or info.get("captures", 0) == 0:
+            continue
+        h = info.get("hours_since_last")
+        if h is None:
+            continue
+        if STALE_RECOVERABLE_LOW_HOURS <= h <= STALE_RECOVERABLE_HIGH_HOURS:
+            patterns.append({
+                "provider": slug,
+                "pattern": "stale-auth-cookie",
+                "hint": (
+                    f"{slug} hasn't captured in {h}h despite having "
+                    f"{info['captures']} prior captures. The dominant cause "
+                    f"is an expired auth cookie — the provider page loads "
+                    f"but its bundle's authed fetches fail before reaching "
+                    f"page-hook's interceptor."
+                ),
+                "fix_command": (
+                    f"Log out of {_provider_url(slug)}, log back in, refresh "
+                    f"the page, send a test message. If captures still don't "
+                    f"resume, fall through to `trinity-local extension repair "
+                    f"--har <file>`."
+                ),
+            })
+    return patterns
+
+
+def _provider_url(slug: str) -> str:
+    return {
+        "claude": "claude.ai",
+        "chatgpt": "chatgpt.com",
+        "gemini": "gemini.google.com",
+    }.get(slug, slug)
+
+
 def _print_diagnose(diag: dict[str, Any], *, as_json: bool) -> None:
     if as_json:
-        print(json.dumps(diag, indent=2))
+        out = dict(diag)
+        out["recoverable_patterns"] = detect_failure_patterns(diag)
+        print(json.dumps(out, indent=2))
         return
     print("Chrome extension capture diagnosis")
     print("-" * 40)
@@ -315,6 +378,19 @@ def _print_diagnose(diag: dict[str, Any], *, as_json: bool) -> None:
         warn = " ⚠ stale" if h is not None and h > 24 else ""
         print(f"  {slug:10s}  {info['captures']} captures, last {info['last_capture']} ({h}h ago){warn}")
     print()
+
+    # #150: surface recoverable patterns BEFORE the HAR ask. Don't make
+    # users export HARs for issues that an auth-refresh fixes.
+    patterns = detect_failure_patterns(diag)
+    if patterns:
+        print("Likely-recoverable patterns detected:")
+        print("-" * 40)
+        for p in patterns:
+            print(f"  [{p['pattern']}] {p['provider']}")
+            print(f"    {p['hint']}")
+            print(f"    Try first: {p['fix_command']}")
+            print()
+
     print("Repair: open the affected chat in Chrome, DevTools → Network, reproduce the broken flow,")
     print("        right-click → 'Save all as HAR with content', then re-run:")
     print("          trinity-local extension repair --har <path>")
