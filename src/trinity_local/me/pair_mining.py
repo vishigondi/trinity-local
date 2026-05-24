@@ -34,6 +34,9 @@ from .basins import me_dir
 from .decisions import Decision
 
 
+VALID_HORIZONS = {"tactical", "strategic", "philosophical"}
+
+
 @dataclass
 class LensPair:
     pole_a: str
@@ -44,6 +47,14 @@ class LensPair:
     dual_evidence: dict[str, list[str]] = field(default_factory=dict)
     basins_spanned: list[str] = field(default_factory=list)
     verdict: str = "accepted"
+    # #139 (#1 multi-resolution horizon): tactical = response-format /
+    # turn-scale preferences ("be terse", "show code first"); strategic
+    # = quarter-scale trajectory choices ("ship MVP over polish");
+    # philosophical = year-scale identity / framing ("intelligence is
+    # infrastructure not interface"). Lets council_runtime weight which
+    # lens applies based on query horizon — without it, philosophical
+    # lenses fire on tactical questions and drown the signal.
+    horizon: str = "tactical"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +66,7 @@ class LensPair:
             "dual_evidence": self.dual_evidence,
             "basins_spanned": self.basins_spanned,
             "verdict": self.verdict,
+            "horizon": self.horizon,
         }
 
 
@@ -136,8 +148,23 @@ a verdict object — JSON array, one element per pair, schema below:
     "pole_a": ["<decision_id with regret/correction/cost on A>", ...],
     "pole_b": ["<decision_id with regret/correction/cost on B>", ...]
   }},
+  "horizon": "tactical | strategic | philosophical",
   "verdict": "accepted | preserve_as_ordering | dropped"
 }}
+
+HORIZON GUIDE — what time-scale does this lens operate at?
+- tactical: response-format / turn-scale preferences. ("be terse vs
+  comprehensive", "code first vs explanation first", "JSON vs prose")
+- strategic: quarter-scale trajectory / project-level direction.
+  ("ship MVP over polish", "build leverage over manual ops",
+  "specialize over generalize")
+- philosophical: year-scale identity / framing / world-model.
+  ("intelligence is infrastructure not interface", "patient capital
+  over conventional venture", "generative grammar over selected
+  instance")
+
+If unsure: prefer "strategic". Don't claim "philosophical" unless
+the lens reframes how the user sees a whole domain.
 
 VERDICT GUIDE:
 - accepted: passes all three tests
@@ -181,6 +208,13 @@ def parse_pair_mining_output(raw: str) -> list[LensPair]:
         verdict = (obj.get("verdict") or "accepted").strip().lower()
         if verdict not in {"accepted", "preserve_as_ordering", "dropped"}:
             verdict = "accepted"
+        horizon = (obj.get("horizon") or "tactical").strip().lower()
+        if horizon not in VALID_HORIZONS:
+            # Chairman invented a label outside the enum (or pre-#139
+            # data missing the field) — default to tactical, which is
+            # the safe "always-applies" floor. Strategic/philosophical
+            # would over-claim; tactical never wrongly suppresses.
+            horizon = "tactical"
         tension = obj.get("tension_decisions") or []
         if not isinstance(tension, list):
             tension = []
@@ -199,6 +233,7 @@ def parse_pair_mining_output(raw: str) -> list[LensPair]:
             },
             basins_spanned=[],  # filled by basin_post_filter
             verdict=verdict,
+            horizon=horizon,
         ))
     return pairs
 

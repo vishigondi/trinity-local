@@ -321,3 +321,47 @@ class TestPairMiningParser:
         # First skipped (poles equal), second kept
         assert len(pairs) == 1
         assert pairs[0].pole_a == "a"
+
+    def test_horizon_field_parsed_and_clamped(self):
+        """#139 (#1): chairman emits horizon per pair (tactical /
+        strategic / philosophical). Invalid or missing horizons clamp
+        to 'tactical' (the safe always-applies floor; strategic /
+        philosophical would over-claim)."""
+        from trinity_local.me.pair_mining import parse_pair_mining_output, VALID_HORIZONS
+
+        raw = (
+            '['
+            '{"pole_a":"a","pole_b":"b","horizon":"strategic","verdict":"accepted"},'
+            '{"pole_a":"c","pole_b":"d","horizon":"philosophical","verdict":"accepted"},'
+            '{"pole_a":"e","pole_b":"f","horizon":"tactical","verdict":"accepted"},'
+            '{"pole_a":"g","pole_b":"h","horizon":"BOGUS","verdict":"accepted"},'
+            '{"pole_a":"i","pole_b":"j","verdict":"accepted"}'
+            ']'
+        )
+        pairs = parse_pair_mining_output(raw)
+        assert len(pairs) == 5
+        assert pairs[0].horizon == "strategic"
+        assert pairs[1].horizon == "philosophical"
+        assert pairs[2].horizon == "tactical"
+        assert pairs[3].horizon == "tactical"  # clamped from BOGUS
+        assert pairs[4].horizon == "tactical"  # missing → tactical default
+        assert VALID_HORIZONS == {"tactical", "strategic", "philosophical"}
+
+    def test_horizon_in_to_dict_and_prompt(self):
+        """Horizon survives serialization (so lenses.json carries it)
+        AND chairman is asked for it in the prompt (so new lens-builds
+        produce it from real corpus, not just from default-tactical)."""
+        from trinity_local.me.pair_mining import (
+            LensPair, render_pair_mining_prompt,
+        )
+
+        p = LensPair(pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+                     horizon="philosophical")
+        assert p.to_dict()["horizon"] == "philosophical"
+
+        prompt = render_pair_mining_prompt(decisions=[])
+        assert '"horizon"' in prompt
+        assert "tactical" in prompt and "strategic" in prompt and "philosophical" in prompt
+        # The "prefer strategic if unsure" guidance must be present —
+        # otherwise chairman over-claims philosophical for everything.
+        assert "prefer" in prompt.lower() and "strategic" in prompt.lower()
