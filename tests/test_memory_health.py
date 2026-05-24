@@ -28,10 +28,12 @@ def _import_health():
 
 
 class TestMemoryHealthEmptyState:
-    """All six signals fresh / never-built — issues list is empty.
+    """All seven signals fresh / never-built — issues list is empty.
 
     Sixth signal (lens-edits-pending, #140 slice 3) is silent on cold
-    install because there's no lens.md or snapshot to diff.
+    install because there's no lens.md or snapshot to diff. Seventh
+    signal (lens contradictions, #141 slice 3) is silent because no
+    conflicts.json file exists pre-first-build.
     """
 
     def test_cold_install_has_no_issues(self, isolated_home):
@@ -40,8 +42,8 @@ class TestMemoryHealthEmptyState:
         assert result["issues"] == []
         # ok_count tracks healthy signals (total minus issues). With no
         # data at all every signal is in "empty" state → not surfaced.
-        assert result["total_count"] == 6
-        assert result["ok_count"] == 6
+        assert result["total_count"] == 7
+        assert result["ok_count"] == 7
 
 
 class TestCoreStalenessSignal:

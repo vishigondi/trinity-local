@@ -211,6 +211,48 @@ def render_me_markdown(
         for p in orderings:
             lines.append(f"- {p.pole_a} > {p.pole_b}")
         lines.append("")
+    # Stage 4b (#141 slice 3): if conflicts.json exists, surface them
+    # here. We read from disk rather than thread the conflicts list
+    # through the call signature — Stage 4b persisted them just before
+    # render_me_markdown runs, so disk IS the source of truth.
+    try:
+        from .conflicts import load_conflicts
+
+        conflicts = load_conflicts()
+    except Exception:
+        conflicts = []
+    if conflicts:
+        lines.append("## ⚠ Tensions in tension")
+        lines.append("")
+        same_horizon = [c for c in conflicts if c.horizon_match]
+        cross_horizon = [c for c in conflicts if not c.horizon_match]
+        if same_horizon:
+            lines.append(
+                "_Same-horizon contradictions — your decisions privilege "
+                "opposite poles of the same axis. Resolving requires a "
+                "meta-judgment about which basin's evidence is more "
+                "load-bearing._"
+            )
+            lines.append("")
+            for c in same_horizon:
+                lines.append(
+                    f"- **{c.pole_a_axis} ↔ {c.pole_b_axis}** "
+                    f"({c.horizon_a}): basins `{', '.join(c.basins_a) or '—'}` "
+                    f"vs `{', '.join(c.basins_b) or '—'}`"
+                )
+            lines.append("")
+        if cross_horizon:
+            lines.append(
+                "_Cross-horizon notes — multi-resolution preference (not "
+                "contradiction). #139's lens-weighting handles these._"
+            )
+            lines.append("")
+            for c in cross_horizon:
+                lines.append(
+                    f"- {c.pole_a_axis} ↔ {c.pole_b_axis} "
+                    f"({c.horizon_a} vs {c.horizon_b})"
+                )
+            lines.append("")
     if rejections:
         # Group by type so the chairman sees the signal-type distribution.
         from collections import defaultdict

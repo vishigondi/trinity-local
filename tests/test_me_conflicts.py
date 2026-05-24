@@ -209,6 +209,106 @@ class TestStage4bWrapper:
         assert len(conflicts) == 1
 
 
+class TestLensMdRender:
+    """Slice 3: lens.md surfaces the ⚠ Tensions in tension section."""
+
+    def test_no_conflicts_no_section(self, conflicts_env):
+        from trinity_local.me.pipeline import render_me_markdown
+
+        # No conflicts.json → no Tensions section
+        save_conflicts([])
+        md = render_me_markdown(
+            accepted=[_pair("a", "b")],
+            orderings=[],
+            rejections=None,
+        )
+        assert "Tensions in tension" not in md
+
+    def test_same_horizon_renders_with_alarm_header(self, conflicts_env):
+        from trinity_local.me.pipeline import render_me_markdown
+
+        save_conflicts([
+            Conflict(
+                pair_a_id="p_aaa", pair_b_id="p_bbb",
+                pole_a_axis="infrastructure", pole_b_axis="interface",
+                horizon_a="strategic", horizon_b="strategic",
+                horizon_match=True,
+                basins_a=["b00"], basins_b=["b01"],
+            )
+        ])
+        md = render_me_markdown(
+            accepted=[_pair("infrastructure", "interface")],
+            orderings=[],
+            rejections=None,
+        )
+        assert "⚠ Tensions in tension" in md
+        assert "infrastructure ↔ interface" in md
+        assert "meta-judgment" in md  # the explanatory prose
+
+    def test_cross_horizon_uses_softer_label(self, conflicts_env):
+        from trinity_local.me.pipeline import render_me_markdown
+
+        save_conflicts([
+            Conflict(
+                pair_a_id="p_aaa", pair_b_id="p_bbb",
+                pole_a_axis="speed", pole_b_axis="safety",
+                horizon_a="tactical", horizon_b="strategic",
+                horizon_match=False,
+                basins_a=["b00"], basins_b=["b01"],
+            )
+        ])
+        md = render_me_markdown(
+            accepted=[_pair("speed", "safety")],
+            orderings=[],
+            rejections=None,
+        )
+        assert "Tensions in tension" in md
+        # Cross-horizon should be framed as multi-resolution, NOT alarm
+        assert "multi-resolution" in md
+        assert "not contradiction" in md
+
+
+class TestLaunchpadHealthSurfacing:
+    """Slice 3: launchpad health signal #7 = active contradictions."""
+
+    def test_active_conflicts_surface_as_issue(self, conflicts_env):
+        from trinity_local.launchpad_data import _memory_health
+
+        save_conflicts([
+            Conflict(
+                pair_a_id="p1", pair_b_id="p2",
+                pole_a_axis="x", pole_b_axis="y",
+                horizon_a="strategic", horizon_b="strategic",
+                horizon_match=True,
+            )
+        ])
+        health = _memory_health()
+        lens_issues = [i for i in health["issues"] if i["name"] == "lenses.json"]
+        assert len(lens_issues) == 1
+        assert lens_issues[0]["status"] == "contradictions"
+        assert "1" in lens_issues[0]["hint"]
+        # Total bumped 6 → 7
+        assert health["total_count"] == 7
+
+    def test_cross_horizon_only_does_not_surface(self, conflicts_env):
+        """Cross-horizon conflicts are NOT real alarms — they're
+        multi-resolution preferences. Should not appear as launchpad
+        health issue."""
+        from trinity_local.launchpad_data import _memory_health
+
+        save_conflicts([
+            Conflict(
+                pair_a_id="p1", pair_b_id="p2",
+                pole_a_axis="x", pole_b_axis="y",
+                horizon_a="tactical", horizon_b="strategic",
+                horizon_match=False,
+            )
+        ])
+        health = _memory_health()
+        lens_issues = [i for i in health["issues"] if i["name"] == "lenses.json"]
+        assert lens_issues == []
+
+
 class TestActiveCount:
     def test_count_only_includes_horizon_match(self, conflicts_env):
         save_conflicts([

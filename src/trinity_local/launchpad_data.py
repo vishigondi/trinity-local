@@ -1256,7 +1256,7 @@ def _core_status() -> dict:
 
 
 def _memory_health() -> dict:
-    """Aggregate the six staleness signals the launchpad surfaces:
+    """Aggregate the seven staleness signals the launchpad surfaces:
       - core.md staleness (vs the three thinking memories) via _core_status
       - picks override_count > 0 (user-marked rules to demote)
       - picks audit_status == "disagreed" (chairman-audit caught drift)
@@ -1268,6 +1268,10 @@ def _memory_health() -> dict:
         current lens.md and the post-last-build snapshot. Surfaced so
         the user knows their hand-edits will be picked up by the next
         lens-build (closes the lens-edit-as-signal loop).
+      - lenses.json same-horizon conflicts (#141 slice 3): Stage 4b
+        detected pairs that privilege opposite poles of the same axis
+        at the same horizon — real contradictions worth a meta-judgment
+        rather than silent averaging.
 
     Returns:
       {
@@ -1288,7 +1292,7 @@ def _memory_health() -> dict:
     #             the action is "navigate somewhere" rather than "run a CLI".
     #   href    — optional in-app navigation target (e.g. memory.html link)
     issues: list[dict[str, str | None]] = []
-    total = 6
+    total = 7
     # 1. core.md freshness
     core = _core_status()
     state = core.get("state")
@@ -1415,6 +1419,26 @@ def _memory_health() -> dict:
             })
     except Exception:
         pass  # capture pipeline must not break launchpad rendering
+
+    # 7. lenses.json same-horizon conflicts — #141 slice 3. Stage 4b
+    # detected structural contradictions. Surfaced only when same-
+    # horizon (real contradiction, not multi-resolution preference);
+    # cross-horizon notes stay in lens.md but don't fire as launchpad
+    # signal — #139 already handles them via lens weighting.
+    try:
+        from .me.conflicts import count_active_conflicts
+
+        n_active = count_active_conflicts()
+        if n_active > 0:
+            issues.append({
+                "name": "lenses.json",
+                "status": "contradictions",
+                "hint": f"{n_active} same-horizon contradiction(s) detected. See lens.md → ⚠ Tensions in tension.",
+                "command": None,
+                "href": "../portal_pages/memory.html?file=lens.md",
+            })
+    except Exception:
+        pass  # detection must not break launchpad rendering
 
     return {
         "issues": issues,
