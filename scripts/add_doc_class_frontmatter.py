@@ -56,7 +56,15 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/REPO_PUBLIC_RUNBOOK.md": "live",
     "docs/spec-v1.md": "live",
     "docs/three-tier-architecture.md": "live",
-    "docs/training-data.md": "live",
+    # training-data.md was retired 2026-05-11 (the trained-coordinator
+    # Phase 9 path was sunset; v1.5 ships routing via context
+    # engineering instead). The doc's first paragraph carries that
+    # sunset notice. Marked historical to match the content; left
+    # outside docs/historical/ because incoming docs still cross-link
+    # to docs/training-data.md and breaking those links isn't worth
+    # the relocation. Same precedent as v2-loop-constitution.md /
+    # PUBLIC_READINESS_PLAN.md / simplification_log.md.
+    "docs/training-data.md": "historical",
     "docs/historical/trust-mode.md": "historical",
     "docs/SITE_README.md": "live",
     # ── Other tracked user-facing READMEs ──
