@@ -1,24 +1,28 @@
 // Trinity Local — sync-pill.js (ISOLATED world)
 //
-// In-provider sync UI. Polls the capture host for "how many threads
-// are in your sidebar but not captured locally?" — if > 0, shows a
-// bottom-right pill. Click runs the actual sync: fetches each
-// missing thread's canonical URL, sends the response to the capture
-// host as a `kind: "canonical"` payload (same code path used by the
-// fetch wrapper for naturally-observed canonical fetches).
+// In-provider awareness UI. Polls the capture host for "how many
+// threads are in your sidebar but not captured locally?" — if > 0,
+// shows a bottom-right pill. Click opens the launchpad (the actual
+// sync mechanic lives there until the iframe-based per-provider
+// auto-sync ships).
 //
-// Self-suppressing when count=0. Hidden during sync after final
-// "✓ Synced N" fades. Re-polls on every page load / 60s.
+// History: 4b4b05f shipped a sync-on-click that fetched canonical
+// URLs from content-script context. Verified 2026-05-23 against
+// chatgpt.com — fetches returned 404 "conversation_inaccessible"
+// because provider APIs require Bearer auth headers that the
+// provider's own fetch wrapper injects; our content-script fetch
+// bypasses that wrapper and so authenticates as logged-out. Same
+// architecture for claude (different shape, same problem) and
+// gemini (no direct fetch path at all).
 //
-// Per-provider sync mechanics differ:
-//   - claude.ai: fetch GET /api/organizations/<org_id>/chat_conversations/
-//     <conv_id> — same canonical endpoint PROVIDER_PATTERNS classifies.
-//   - chatgpt.com: fetch GET /backend-api/conversation/<conv_id> — same.
-//   - gemini.google.com: NO clean direct API. Gemini's RPCs require
-//     navigation context; we can't auto-sync without disrupting the
-//     user's tab. Pill shows a different message there: "click any
-//     sidebar thread to capture it" — manual fallback. The threads
-//     DO capture cleanly on user click (verified end-to-end).
+// Correct fix is iframe-based: open hidden iframes pointed at each
+// missing conv_id's canonical URL, let the provider's own bundle
+// load (with its own auth-injecting fetch wrapper), page-hook in
+// MAIN-world of the iframe (needs all_frames: true) catches the
+// natural canonical fetch, captures land. Tracked as a follow-up.
+//
+// Until then: pill shows the count, click opens launchpad.
+// Self-suppressing when count=0. Re-polls on every page load / 60s.
 
 (() => {
   const PROVIDER_HOSTS = {
@@ -35,11 +39,6 @@
   const PILL_ID = "__trinity_sync_pill__";
   const POLL_INTERVAL_MS = 60_000;
   const FIRST_POLL_DELAY_MS = 3_000;
-  const SYNC_CONCURRENCY = 3;          // parallel fetches per provider
-  const SYNC_INTERVAL_MS = 250;         // throttle between batches
-  const SYNCED_FADE_AFTER_MS = 4_000;   // brief success banner
-
-  let syncing = false;  // single in-flight guard
 
   function queryStatus() {
     return new Promise((resolve) => {
@@ -56,94 +55,6 @@
         resolve(null);
       }
     });
-  }
-
-  function sendCapture(payload) {
-    return new Promise((resolve) => {
-      if (!chrome?.runtime?.id) return resolve(false);
-      try {
-        chrome.runtime.sendMessage({ type: "captured", payload }, (response) => {
-          if (chrome.runtime.lastError) return resolve(false);
-          resolve(!!response?.ok);
-        });
-      } catch {
-        resolve(false);
-      }
-    });
-  }
-
-  function canonicalUrl(conv_id, status) {
-    if (provider === "claude") {
-      const org = status.org_id;
-      if (!org) return null;
-      // Tree=true + render flags match what claude.ai's UI itself uses
-      // to render a conversation — gives back the full message list.
-      return `${location.origin}/api/organizations/${org}/chat_conversations/${conv_id}?tree=true&rendering_mode=messages&render_all_tools=true`;
-    }
-    if (provider === "chatgpt") {
-      return `${location.origin}/backend-api/conversation/${conv_id}`;
-    }
-    return null;  // gemini: no clean canonical URL
-  }
-
-  async function fetchOne(conv_id, status) {
-    const url = canonicalUrl(conv_id, status);
-    if (!url) return false;
-    try {
-      const resp = await fetch(url, { credentials: "include" });
-      if (!resp.ok) return false;
-      const json = await resp.json();
-      return await sendCapture({
-        provider,
-        kind: "canonical",
-        url,
-        method: "GET",
-        conversation: json,
-        captured_at: new Date().toISOString(),
-      });
-    } catch {
-      return false;
-    }
-  }
-
-  async function runSync(missing_ids, status) {
-    if (syncing) return;
-    syncing = true;
-    const el = document.getElementById(PILL_ID);
-    if (el) {
-      el.style.cursor = "default";
-      el.removeAttribute("title");
-    }
-
-    const total = missing_ids.length;
-    let done = 0;
-    const updatePill = () => {
-      if (!el) return;
-      el.textContent = `⠕ Syncing ${done}/${total}…`;
-    };
-    updatePill();
-
-    // Sequential batches of SYNC_CONCURRENCY, with a throttle between
-    // batches. Sequential-with-batching avoids slamming the provider
-    // API while keeping the sync responsive.
-    for (let i = 0; i < missing_ids.length; i += SYNC_CONCURRENCY) {
-      const batch = missing_ids.slice(i, i + SYNC_CONCURRENCY);
-      const results = await Promise.all(batch.map((id) => fetchOne(id, status)));
-      done += results.length;  // count attempts whether or not they succeeded
-      updatePill();
-      if (i + SYNC_CONCURRENCY < missing_ids.length) {
-        await new Promise((r) => setTimeout(r, SYNC_INTERVAL_MS));
-      }
-    }
-
-    if (el) {
-      el.textContent = `⠕ ✓ Synced ${total}`;
-      setTimeout(() => {
-        const live = document.getElementById(PILL_ID);
-        if (live) live.hidden = true;
-      }, SYNCED_FADE_AFTER_MS);
-    }
-    syncing = false;
   }
 
   function ensurePillStyles() {
@@ -184,38 +95,34 @@
   function renderPill(status) {
     if (!status || !status.ok) return;
     const count = Number(status.missing_count) || 0;
-    const missing_ids = status.missing_ids || [];
 
     const el = ensurePillEl(() => {
-      if (syncing) return;
-      // Gemini fallback: no canonical URL we can fetch programmatically.
-      // Surface a one-shot tooltip-style message that fades.
-      if (provider === "gemini") {
-        const live = document.getElementById(PILL_ID);
-        if (live) {
-          live.textContent = `⠕ Click sidebar threads to capture`;
-          setTimeout(() => {
-            if (live) live.textContent = `⠕ ${count} to sync`;
-          }, 3500);
-        }
-        return;
+      // Click opens the launchpad — actual sync mechanic lives there
+      // until the iframe-based per-provider auto-sync ships (the
+      // direct-fetch approach failed because provider APIs require
+      // Bearer auth headers their own bundles inject; our content-
+      // script fetch bypasses that wrapper and so authenticates as
+      // logged-out).
+      try {
+        chrome.runtime.sendMessage(
+          { type: "action", kind: "open-launchpad" },
+          () => { /* fire-and-forget */ },
+        );
+      } catch {
+        // ignore — clicking shouldn't break anything even if dispatch fails
       }
-      runSync(missing_ids, status);
     });
 
-    if (count <= 0 || syncing) {
-      if (!syncing) el.hidden = true;
+    if (count <= 0) {
+      el.hidden = true;
       return;
     }
     el.textContent = `⠕ ${count} to sync`;
-    el.title = provider === "gemini"
-      ? "Trinity: click sidebar threads to capture them"
-      : "Trinity: click to sync missing threads locally";
+    el.title = "Trinity: open launchpad to sync missing threads";
     el.hidden = false;
   }
 
   async function tick() {
-    if (syncing) return;  // don't overwrite the sync UI mid-flight
     const status = await queryStatus();
     renderPill(status);
   }

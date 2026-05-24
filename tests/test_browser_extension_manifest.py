@@ -190,15 +190,13 @@ def test_sync_pill_content_script_present_and_wired():
     assert '"sync_status"' in src, "pill must call query_kind=sync_status"
     assert 'missing_count' in src, "pill must read missing_count from response"
     assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
-    # Sync flow primitives — click triggers programmatic capture
-    assert 'canonicalUrl' in src, (
-        "pill must construct canonical URLs for claude/chatgpt sync"
-    )
-    assert 'fetchOne' in src or '"canonical"' in src, (
-        "pill must fetch + emit kind=canonical for missing threads"
-    )
-    assert 'syncing' in src, (
-        "pill must guard against concurrent syncs (single in-flight)"
+    # Click action — opens launchpad. (Direct-fetch sync rolled back
+    # 4b4b05f→THIS commit because provider APIs require Bearer auth
+    # headers their own bundles inject; content-script fetch bypasses
+    # that. Iframe-based sync is the proper fix; tracked separately.)
+    assert '"open-launchpad"' in src, (
+        "pill click must dispatch action=open-launchpad until the "
+        "iframe-based sync mechanic ships"
     )
 
     m = _load_manifest()
