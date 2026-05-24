@@ -434,7 +434,7 @@ def main() -> int:
             }"""
         )
         if recent_state.get("count", 0) == 0:
-            print(f"[ ✗ ] Surface 5 recent council: no cards (need to run trinity-local council-launch first)")
+            print("[ ✗ ] Surface 5 recent council: no cards (need to run trinity-local council-launch first)")
             fails.append((5, "recent council click", "no cards rendered"))
             council_page_loaded = False
         else:
@@ -472,7 +472,7 @@ def main() -> int:
                 """() => !!document.querySelector('.trinity-topbar a.topbar-back')"""
             )
             if not back_present:
-                print(f"[ ✗ ] Surface 6 live council back-trip: back btn missing")
+                print("[ ✗ ] Surface 6 live council back-trip: back btn missing")
                 fails.append((6, "live council back-trip", "back btn missing"))
             else:
                 try:
@@ -482,7 +482,7 @@ def main() -> int:
                         )
                     page.wait_for_timeout(500)
                     if "launchpad.html" in page.url:
-                        print(f"[ ✓ ] Surface 6 live council back-trip: returned to launchpad")
+                        print("[ ✓ ] Surface 6 live council back-trip: returned to launchpad")
                         # Focused capture — launchpad-after-back-from-council.
                         # Should look identical to the cold-render except scroll
                         # position; visual review catches state leakage.
@@ -493,7 +493,7 @@ def main() -> int:
                     print(f"[ ✗ ] Surface 6 live council back-trip: navigation failed ({exc})")
                     fails.append((6, "live council back-trip", str(exc)[:120]))
         else:
-            print(f"[ - ] Surface 6 live council back-trip: SKIPPED (surface 5 failed)")
+            print("[ - ] Surface 6 live council back-trip: SKIPPED (surface 5 failed)")
             fails.append((6, "live council back-trip", "skipped (s5 failed)"))
 
         # ─── Surface 7: Launch Council button presence ───────────────────────
@@ -510,7 +510,7 @@ def main() -> int:
             }"""
         )
         if launch_state.get("present") and not launch_state.get("disabled"):
-            print(f"[ ✓ ] Surface 7 Launch Council button: present + enabled (e2e gated on macOS Shortcut, not asserted)")
+            print("[ ✓ ] Surface 7 Launch Council button: present + enabled (e2e gated on macOS Shortcut, not asserted)")
         else:
             print(f"[ ✗ ] Surface 7 Launch Council button: {launch_state}")
             fails.append((7, "Launch Council button", str(launch_state)))
@@ -528,7 +528,7 @@ def main() -> int:
         # ─── Surface 8: Telemetry guard (no example.invalid in console) ──────
         invalid_errs = [e for e in console_errors if "example.invalid" in e or "ERR_NAME_NOT_RESOLVED" in e]
         if not invalid_errs:
-            print(f"[ ✓ ] Surface 8 telemetry guard: no example.invalid console errors")
+            print("[ ✓ ] Surface 8 telemetry guard: no example.invalid console errors")
         else:
             print(f"[ ✗ ] Surface 8 telemetry guard: {len(invalid_errs)} stray errors")
             fails.append((8, "telemetry guard", f"{len(invalid_errs)} errors: {invalid_errs[:2]}"))
@@ -578,7 +578,7 @@ def main() -> int:
         # workflow this surface protects.
         thread_id = _find_multi_round_thread()
         if thread_id is None:
-            print(f"[ - ] Surface 9 multi-round thread: SKIPPED (no 3+ round bundle on disk)")
+            print("[ - ] Surface 9 multi-round thread: SKIPPED (no 3+ round bundle on disk)")
         else:
             page.goto(
                 f"{base_url}/review_pages/live_council.html?thread_id={thread_id}",
@@ -906,7 +906,7 @@ def main() -> int:
                 print(f"[ ✗ ] Surface 13 lens card: {reason}")
                 fails.append((13, "lens card render", reason))
         elif lens_state.get("variant") == "empty-state" and lens_state.get("has_cta"):
-            print(f"[ ✓ ] Surface 13 lens card: empty-state CTA shown (lens-build not run on this install)")
+            print("[ ✓ ] Surface 13 lens card: empty-state CTA shown (lens-build not run on this install)")
         else:
             reason = f"neither lens card nor empty-state CTA: {lens_state}"
             print(f"[ ✗ ] Surface 13 lens card: {reason}")
@@ -1487,7 +1487,7 @@ def main() -> int:
         )
         page.screenshot(path=str(SHOTS_DIR / "22-pick-basin-style.png"))
         if node_state.get("total", 0) == 0:
-            print(f"[ - ] Surface 22 pick-basin styling: SKIPPED (no graph nodes)")
+            print("[ - ] Surface 22 pick-basin styling: SKIPPED (no graph nodes)")
         elif node_state.get("marked", 0) == 0:
             # Topology has nodes but none mapped to picks — same shape as
             # Surface 21's no-pick skip.
@@ -1847,7 +1847,7 @@ def main() -> int:
                     f"sources={nudge_state['data_source_count']} command rendered"
                 )
         elif not applicable and not rendered:
-            print(f"[ ✓ ] Surface 29 handoff nudge: silent (conditions not met)")
+            print("[ ✓ ] Surface 29 handoff nudge: silent (conditions not met)")
         else:
             reason = (
                 f"data/DOM mismatch: applicable={applicable} rendered={rendered} "
