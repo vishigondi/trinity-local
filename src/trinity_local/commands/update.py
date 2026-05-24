@@ -308,8 +308,16 @@ def _emit_updated(applied: int, mcp_rc: int, status_rc: int,
         print(f"⚠ status returned {status_rc} — "
               "run `trinity-local status` to see what's wrong")
     print()
-    print("Note: Claude Code / Codex CLI / Antigravity / Cursor may need a "
-          "restart to pick up new MCP tools.")
+    # "new MCP tools" undersells the restart need — the MCP server
+    # process loads Trinity's Python source ONCE at child-spawn time;
+    # any code change (new tools, fixed tool behavior, bug patches in
+    # existing handlers, retired hint surfaces) only takes effect on
+    # the next spawn. Without a harness restart, users hit yesterday's
+    # bugs against today's source.
+    print("Note: restart Claude Code / Codex CLI / Antigravity / Cursor to "
+          "pick up the new MCP server code. Each harness spawns the MCP "
+          "child once at startup; without a restart, tool calls hit the "
+          "previous Trinity version's handlers.")
     print("Note: Chrome extension users may need to reload the unpacked "
           "extension at chrome://extensions.")
     return 0
