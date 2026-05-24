@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .registry import CAPTURE_PROVIDERS
 from .state_paths import conversations_dir
 
 
@@ -612,7 +613,7 @@ def _query_sync_status(payload: dict[str, Any]) -> dict[str, Any]:
     whether to show + what count to display.
     """
     provider = str(payload.get("provider") or "").strip()
-    if provider not in {"claude", "chatgpt", "gemini"}:
+    if provider not in CAPTURE_PROVIDERS:
         return {"ok": False, "error": "invalid_provider"}
     try:
         provider = _sanitize_id(provider, "provider")

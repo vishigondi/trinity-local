@@ -36,6 +36,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ..registry import CAPTURE_PROVIDERS
 from ..state_paths import conversations_dir
 from ..utils import now_iso, stable_id
 
@@ -71,7 +72,7 @@ def register(subparsers):
     )
     repair_sp.add_argument(
         "--provider",
-        choices=["claude", "chatgpt", "gemini"],
+        choices=list(CAPTURE_PROVIDERS),
         default=None,
         help="Restrict HAR analysis to a single provider's domains (default: all three).",
     )
@@ -158,7 +159,7 @@ def diagnose() -> dict[str, Any]:
     home = conversations_dir()
     summary: dict[str, Any] = {"generated_at": now_iso(), "providers": {}}
     now = time.time()
-    for slug in ("claude", "chatgpt", "gemini"):
+    for slug in CAPTURE_PROVIDERS:
         provider_dir = home / slug
         if not provider_dir.exists():
             summary["providers"][slug] = {

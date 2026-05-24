@@ -29,6 +29,7 @@ import math
 from dataclasses import dataclass, field, asdict
 from typing import Any, Callable
 
+from .registry import CANONICAL_LAB_PROVIDERS
 from .state_paths import cortex_routing_patterns_path, council_outcomes_dir
 
 
@@ -375,7 +376,7 @@ def _pattern_from_dict(raw: dict) -> RoutingPattern:
         claude=fm_raw.get("claude"),
         codex=fm_raw.get("codex"),
         antigravity=_ag_or_gemini,
-        other={k: v for k, v in fm_raw.items() if k not in {"claude", "codex", "antigravity", "gemini"}},
+        other={k: v for k, v in fm_raw.items() if k not in set(CANONICAL_LAB_PROVIDERS)},
     )
     return RoutingPattern(
         basin_id=raw["basin_id"],
@@ -486,7 +487,7 @@ def consolidate_basin(
         claude=fm_dict.get("claude"),
         codex=fm_dict.get("codex"),
         antigravity=_ag_or_gemini,
-        other={k: v for k, v in fm_dict.items() if k not in {"claude", "codex", "antigravity", "gemini"}},
+        other={k: v for k, v in fm_dict.items() if k not in set(CANONICAL_LAB_PROVIDERS)},
     )
     successful_prompts = extracted.get("successful_prompts", {})
 

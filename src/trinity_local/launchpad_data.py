@@ -341,9 +341,12 @@ def _provider_health_data() -> dict[str, object]:
     }
 
 
-# Canonical council providers, in chairman-preference order. Mirror of
-# config.CANONICAL_COUNCIL_PROVIDERS — re-declared at module level so
-# the tier-card renderer doesn't reach into config every render.
+# Tier-card display order for the launchpad — visually distinct from
+# config.CANONICAL_COUNCIL_PROVIDERS / registry.CANONICAL_COUNCIL_PROVIDERS
+# (which use a chairman-preference order). The launchpad's order here is
+# UI-led, not load-bearing for routing. Membership is the same; if either
+# the launchpad order OR the canonical order changes, both call sites
+# must be checked.
 _TIER_PROVIDERS: tuple[str, ...] = ("claude", "codex", "antigravity")
 
 # Provider slug → on-PATH binary name. Most providers use the same string,
