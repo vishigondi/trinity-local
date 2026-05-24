@@ -1259,7 +1259,7 @@ def _core_status() -> dict:
 
 
 def _memory_health() -> dict:
-    """Aggregate the seven staleness signals the launchpad surfaces:
+    """Aggregate the nine staleness signals the launchpad surfaces:
       - core.md staleness (vs the three thinking memories) via _core_status
       - picks override_count > 0 (user-marked rules to demote)
       - picks audit_status == "disagreed" (chairman-audit caught drift)
@@ -1275,6 +1275,14 @@ def _memory_health() -> dict:
         detected pairs that privilege opposite poles of the same axis
         at the same horizon — real contradictions worth a meta-judgment
         rather than silent averaging.
+      - extension capture-drift (#147): code-patch patterns where a
+        provider's streaming endpoint regex no longer matches. Gives
+        the "Repair extension" button a trigger so the user knows
+        WHEN to click.
+      - extension auth-cookie-stale (#150): user-action pattern where
+        the provider's auth cookie expired. Hint points at manual
+        login refresh (council dispatch wouldn't help — fix is
+        browser-side).
 
     Returns:
       {
@@ -1295,7 +1303,7 @@ def _memory_health() -> dict:
     #             the action is "navigate somewhere" rather than "run a CLI".
     #   href    — optional in-app navigation target (e.g. memory.html link)
     issues: list[dict[str, str | None]] = []
-    total = 7
+    total = 9
     # 1. core.md freshness
     core = _core_status()
     state = core.get("state")
@@ -1442,6 +1450,51 @@ def _memory_health() -> dict:
             })
     except Exception:
         pass  # detection must not break launchpad rendering
+
+    # 8 + 9. Extension-repair patterns — #147/#150. The status CLI
+    # already surfaces these; bringing them to the launchpad closes
+    # the parity gap. Two signal kinds:
+    #   - stale-auth-cookie (user-action): hint points at manual
+    #     refresh; no auto-dispatch (login is on the user's side).
+    #   - provider-extended-silence (code-patch): hint points at the
+    #     auto-repair flow which the "Repair extension" button on this
+    #     same card fires. Surfacing this signal gives that button a
+    #     trigger — without it, the user doesn't know WHEN to click.
+    try:
+        from .commands.extension_repair import detect_failure_patterns, diagnose
+
+        patterns = detect_failure_patterns(diagnose())
+        code_patches = [p for p in patterns if p.get("fix_kind") == "code-patch"]
+        user_actions = [p for p in patterns if p.get("fix_kind") == "user-action"]
+        if code_patches:
+            providers = ", ".join(p["provider"] for p in code_patches)
+            issues.append({
+                "name": "extension",
+                "status": "capture-drift",
+                "hint": (
+                    f"{len(code_patches)} provider(s) with code-patch "
+                    f"pattern ({providers}). Click 'Repair extension' "
+                    f"above to dispatch the self-healing council "
+                    f"(no HAR needed)."
+                ),
+                "command": "trinity-local extension repair --auto",
+                "href": None,
+            })
+        if user_actions:
+            providers = ", ".join(p["provider"] for p in user_actions)
+            issues.append({
+                "name": "extension",
+                "status": "auth-cookie-stale",
+                "hint": (
+                    f"{len(user_actions)} provider(s) with stale auth "
+                    f"({providers}). Log out + log back in to refresh — "
+                    f"council dispatch wouldn't help (fix is browser-side)."
+                ),
+                "command": None,
+                "href": None,
+            })
+    except Exception:
+        pass  # extension diagnostic must not break launchpad rendering
 
     return {
         "issues": issues,

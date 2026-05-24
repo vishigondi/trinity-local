@@ -28,12 +28,13 @@ def _import_health():
 
 
 class TestMemoryHealthEmptyState:
-    """All seven signals fresh / never-built — issues list is empty.
+    """All nine signals fresh / never-built — issues list is empty.
 
-    Sixth signal (lens-edits-pending, #140 slice 3) is silent on cold
-    install because there's no lens.md or snapshot to diff. Seventh
-    signal (lens contradictions, #141 slice 3) is silent because no
-    conflicts.json file exists pre-first-build.
+    Signals 6–9 are silent on cold install because:
+      6 (lens-edits-pending, #140 slice 3) — no lens.md/snapshot to diff
+      7 (lens contradictions, #141 slice 3) — no conflicts.json pre-build
+      8 (extension capture-drift, #147) — no captures = no drift to detect
+      9 (extension auth-cookie-stale, #150) — same — silent without captures
     """
 
     def test_cold_install_has_no_issues(self, isolated_home):
@@ -42,8 +43,8 @@ class TestMemoryHealthEmptyState:
         assert result["issues"] == []
         # ok_count tracks healthy signals (total minus issues). With no
         # data at all every signal is in "empty" state → not surfaced.
-        assert result["total_count"] == 7
-        assert result["ok_count"] == 7
+        assert result["total_count"] == 9
+        assert result["ok_count"] == 9
 
 
 class TestCoreStalenessSignal:
@@ -229,6 +230,66 @@ class TestGracefulDegradation:
         assert isinstance(result["total_count"], int)
         # Sanity: counts add up
         assert result["ok_count"] + len(result["issues"]) == result["total_count"]
+
+
+class TestExtensionPatternSignals:
+    """Signals 8 + 9 (#147/#150): launchpad surfaces extension-repair
+    patterns as health signals, parity with the status command.
+
+    capture-drift (code-patch) → points at the auto-repair flow.
+    auth-cookie-stale (user-action) → points at manual login refresh.
+    """
+
+    def test_capture_drift_surfaces_with_repair_command(self, isolated_home, monkeypatch):
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(repair_mod, "diagnose", lambda: {"providers": {}})
+        monkeypatch.setattr(repair_mod, "detect_failure_patterns", lambda d: [
+            {"fix_kind": "code-patch", "provider": "gemini", "pattern": "provider-extended-silence"},
+        ])
+        _memory_health = _import_health()
+        result = _memory_health()
+        ext_issues = [i for i in result["issues"] if i["name"] == "extension"]
+        assert len(ext_issues) == 1
+        assert ext_issues[0]["status"] == "capture-drift"
+        assert "gemini" in ext_issues[0]["hint"]
+        assert ext_issues[0]["command"] == "trinity-local extension repair --auto"
+
+    def test_auth_cookie_stale_surfaces_without_command(self, isolated_home, monkeypatch):
+        """user-action patterns have no command (the fix is browser-side);
+        only a hint pointing at manual login refresh. Same separation
+        the status CLI maintains."""
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(repair_mod, "diagnose", lambda: {"providers": {}})
+        monkeypatch.setattr(repair_mod, "detect_failure_patterns", lambda d: [
+            {"fix_kind": "user-action", "provider": "claude", "pattern": "stale-auth-cookie"},
+        ])
+        _memory_health = _import_health()
+        result = _memory_health()
+        ext_issues = [i for i in result["issues"] if i["name"] == "extension"]
+        assert len(ext_issues) == 1
+        assert ext_issues[0]["status"] == "auth-cookie-stale"
+        assert ext_issues[0]["command"] is None
+        assert "claude" in ext_issues[0]["hint"]
+        assert "Log out" in ext_issues[0]["hint"] or "log back in" in ext_issues[0]["hint"].lower()
+
+    def test_both_pattern_kinds_surface_as_separate_issues(self, isolated_home, monkeypatch):
+        """code-patch and user-action have different fixes, so they
+        get their own issue rows. The launchpad renders each as a
+        distinct hint."""
+        from trinity_local.commands import extension_repair as repair_mod
+
+        monkeypatch.setattr(repair_mod, "diagnose", lambda: {"providers": {}})
+        monkeypatch.setattr(repair_mod, "detect_failure_patterns", lambda d: [
+            {"fix_kind": "code-patch", "provider": "gemini", "pattern": "provider-extended-silence"},
+            {"fix_kind": "user-action", "provider": "claude", "pattern": "stale-auth-cookie"},
+        ])
+        _memory_health = _import_health()
+        result = _memory_health()
+        ext_issues = [i for i in result["issues"] if i["name"] == "extension"]
+        statuses = {i["status"] for i in ext_issues}
+        assert statuses == {"capture-drift", "auth-cookie-stale"}
 
 
 class TestIssueSchema:

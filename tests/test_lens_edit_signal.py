@@ -367,13 +367,14 @@ class TestMemoryHealthSurfacing:
         lens_issues = [i for i in health["issues"] if i["name"] == "lens.md"]
         assert lens_issues == []
 
-    def test_total_count_is_seven_after_141_slice_3(self, lens_edit_env):
-        """Bumped to 7: 6 = lens-edits-pending (#140), 7 = lens
-        contradictions (#141 slice 3)."""
+    def test_total_count_is_nine_after_extension_signals(self, lens_edit_env):
+        """Bumped to 9: 6 = lens-edits-pending (#140), 7 = lens
+        contradictions (#141 slice 3), 8 = extension capture-drift
+        (#147), 9 = extension auth-cookie-stale (#150)."""
         from trinity_local.launchpad_data import _memory_health
 
         health = _memory_health()
-        assert health["total_count"] == 7
+        assert health["total_count"] == 9
 
 
 class TestBuildIntegration:

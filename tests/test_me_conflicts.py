@@ -287,8 +287,8 @@ class TestLaunchpadHealthSurfacing:
         assert len(lens_issues) == 1
         assert lens_issues[0]["status"] == "contradictions"
         assert "1" in lens_issues[0]["hint"]
-        # Total bumped 6 → 7
-        assert health["total_count"] == 7
+        # Total: 9 signals after the extension-signals add
+        assert health["total_count"] == 9
 
     def test_cross_horizon_only_does_not_surface(self, conflicts_env):
         """Cross-horizon conflicts are NOT real alarms — they're
