@@ -2,15 +2,45 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from threading import Lock
 from typing import Any
 
 from .markdown_utils import render_markdown
-from .state_paths import council_status_js_path, council_status_json_path
+from .state_paths import council_status_dir, council_status_js_path, council_status_json_path
 from .utils import now_iso
 
 
 _STATUS_LOCK = Lock()
+
+# Status files outlive their usefulness as soon as the council completes
+# and the canonical outcome lands in council_outcomes/. But they stayed
+# on disk forever — observed on a real install: 250 files / 5.8MB after
+# ~30 days. Linear growth with council launches. Prune on launch (free
+# rate-limiting via launch cadence) anything older than the polling
+# window. 14 days is generous: in-flight councils complete in minutes,
+# users re-polling a recent council have well under 14 days of recency.
+_STATUS_FILE_MAX_AGE_S = 14 * 24 * 3600
+
+
+def _prune_old_status_files() -> None:
+    cutoff = time.time() - _STATUS_FILE_MAX_AGE_S
+    try:
+        for path in council_status_dir().iterdir():
+            if not path.is_file():
+                continue
+            name = path.name
+            # Only target our own naming convention — leave anything
+            # else (manual notes, sibling state) alone.
+            if not name.startswith("council_status_"):
+                continue
+            try:
+                if path.stat().st_mtime < cutoff:
+                    path.unlink()
+            except OSError:
+                continue
+    except OSError:
+        pass
 
 
 def _runner_is_alive(payload: dict[str, Any]) -> bool:
@@ -174,6 +204,9 @@ def init_council_run_state(
         "runner_pgid": runner_pgid,
         "metadata": metadata or {},
     }
+    # Opportunistic GC on every council launch — keeps the status dir
+    # from accumulating without bound. No-op when the dir is small.
+    _prune_old_status_files()
     with _STATUS_LOCK:
         return _write_status(status_token, payload)
 
