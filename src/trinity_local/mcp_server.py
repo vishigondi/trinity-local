@@ -194,7 +194,13 @@ async def handle_list_tools() -> list[Tool]:
                 "Pull this once at session start and use it as latent context to tailor responses, "
                 "terseness, vocabulary, and standing decisions to THIS user. Empty string when not "
                 "built — run `trinity-local lens-build` to (re)build, or `trinity-local dream` for "
-                "the full memory-rebuild pass."
+                "the full memory-rebuild pass.\n\n"
+                "Abstract-lens cards may carry a horizon suffix tag `[tactical]` / `[strategic]` / "
+                "`[philosophical]` (task #139). Tactical = response-shape preference (format, length, "
+                "what to include); strategic = quarter-scale trajectory choices; philosophical = "
+                "year-scale identity / framing. When the user's query reads as a particular horizon, "
+                "weight matching lens cards heavier than non-matching ones — that's the lens "
+                "prioritization the local chairman does too. Untagged cards default to tactical."
             ),
             inputSchema={"type": "object", "properties": {}},
         ),
