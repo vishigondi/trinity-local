@@ -69,7 +69,11 @@ def register(subparsers):
         help="Basin id hint (optional).",
     )
     sp.add_argument(
-        "--json", dest="from_json", action="store_true",
+        # Was `--json` originally — collided with every other Trinity
+        # CLI's `--json` "output JSON" convention (status, eval-show,
+        # memory-compare, me-card, etc.). Renamed to `--from-json` so
+        # the name describes the actual direction (stdin INTO Trinity).
+        "--from-json", dest="from_json", action="store_true",
         help="Read a single JSON object from stdin instead of prompting. Bypasses interactive flow.",
     )
     sp.set_defaults(handler=handle_decision_log)

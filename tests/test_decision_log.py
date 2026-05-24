@@ -352,7 +352,7 @@ def test_cli_registration():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     register(subparsers)
-    args = parser.parse_args(["decision-log", "--json"])
+    args = parser.parse_args(["decision-log", "--from-json"])
     assert args.command == "decision-log"
     assert args.from_json is True
 
