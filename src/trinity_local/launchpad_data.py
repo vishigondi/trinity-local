@@ -16,7 +16,7 @@ from .council_runtime import load_prompt_bundle
 from .council_status import load_council_status
 from .dispatch_registry import make_dispatch_action
 from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
-from .memory.store import iter_prompt_nodes
+from .memory.store import iter_prompt_nodes, tail_prompt_nodes_fast
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir, trinity_home
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
@@ -830,9 +830,15 @@ def _handoff_nudge() -> dict:
     # Prefer a non-claude target so the demo demonstrates the wedge.
     non_claude = [name for name in enabled if name != "claude"]
     target = non_claude[0] if non_claude else enabled[1]
-    # Count indexed prompts cheaply — mtime-cached at the store layer.
+    # Probe for ≥5 indexed prompts. iter_prompt_nodes(limit=5) parses
+    # the entire 1GB corpus before truncating (~3.5s on real installs);
+    # the launchpad UI only renders this as "N+" when N≥5 anyway, so a
+    # cheap tail-read of the last 5 lines answers the same question in
+    # ~50ms. The previous comment claimed "mtime-cached at the store
+    # layer" — true on warm cache, but the launchpad render path is
+    # often the FIRST call (cold cache) and ate the full parse.
     try:
-        prompt_count = sum(1 for _ in iter_prompt_nodes(limit=5))
+        prompt_count = len(tail_prompt_nodes_fast(limit=5))
     except Exception:
         prompt_count = 0
     return {
