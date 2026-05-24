@@ -63,11 +63,20 @@ class VocabularyItem:
 
 @dataclass
 class AbstractLens:
-    """A short principle the user's interactions encode."""
+    """A short principle the user's interactions encode.
+
+    `horizon` (#139): tactical | strategic | philosophical. Lets
+    chairman context weight lenses by query horizon — without it,
+    philosophical lenses fire on tactical questions and drown the
+    signal. Default "tactical" is the safe always-applies floor;
+    pre-#139 lens.md entries read as tactical until the next
+    `lens-build` re-emits horizon-tagged entries.
+    """
     statement: str
+    horizon: str = "tactical"
 
     def to_dict(self) -> dict[str, str]:
-        return {"statement": self.statement}
+        return {"statement": self.statement, "horizon": self.horizon}
 
 
 @dataclass
