@@ -662,8 +662,21 @@ def _query_sync_status(payload: dict[str, Any]) -> dict[str, Any]:
             if stem:
                 on_disk_ids.add(stem)
 
+    # claude.ai canonical URLs need the org_id (which isn't in conv_ids).
+    # The _sidebar.json's stored URL has it — extract once here so the
+    # pill can construct canonical URLs without a second roundtrip.
+    org_id: str | None = None
+    if provider == "claude" and (provider_dir / "_sidebar.json").exists():
+        try:
+            sidebar_url = json.loads((provider_dir / "_sidebar.json").read_text()).get("url", "")
+            m = re.search(r"/api/organizations/([a-f0-9-]{16,})/", sidebar_url)
+            if m:
+                org_id = m.group(1)
+        except (json.JSONDecodeError, OSError):
+            pass
+
     missing = sorted(sidebar_ids - on_disk_ids)
-    return {
+    result = {
         "ok": True,
         "provider": provider,
         "sidebar_count": len(sidebar_ids),
@@ -671,6 +684,9 @@ def _query_sync_status(payload: dict[str, Any]) -> dict[str, Any]:
         "missing_count": len(missing),
         "missing_ids": missing[:50],  # cap so payload stays small
     }
+    if org_id:
+        result["org_id"] = org_id
+    return result
 
 
 QUERY_HANDLERS: dict[str, Any] = {

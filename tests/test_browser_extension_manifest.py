@@ -180,8 +180,9 @@ def test_page_hook_classifies_sidebar_list_endpoints():
 def test_sync_pill_content_script_present_and_wired():
     """The in-provider sync-pill content-script (`sync-pill.js`) must
     exist and be registered in the ISOLATED-world content_scripts
-    entry so it loads on all 3 provider pages. Polls the host for
-    sync_status, injects a bottom-right pill when count > 0.
+    entry. Click runs sync (fetch canonical URLs → send as captured
+    payloads) for claude+chatgpt; gemini falls back to a click-each-
+    sidebar message since gemini has no clean direct canonical URL.
     """
     pill = EXT_DIR / "sync-pill.js"
     assert pill.exists(), f"missing {pill}"
@@ -189,6 +190,16 @@ def test_sync_pill_content_script_present_and_wired():
     assert '"sync_status"' in src, "pill must call query_kind=sync_status"
     assert 'missing_count' in src, "pill must read missing_count from response"
     assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
+    # Sync flow primitives — click triggers programmatic capture
+    assert 'canonicalUrl' in src, (
+        "pill must construct canonical URLs for claude/chatgpt sync"
+    )
+    assert 'fetchOne' in src or '"canonical"' in src, (
+        "pill must fetch + emit kind=canonical for missing threads"
+    )
+    assert 'syncing' in src, (
+        "pill must guard against concurrent syncs (single in-flight)"
+    )
 
     m = _load_manifest()
     isolated = next((e for e in m["content_scripts"] if e.get("world") == "ISOLATED"), None)

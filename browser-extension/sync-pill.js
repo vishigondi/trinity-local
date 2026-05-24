@@ -1,23 +1,24 @@
 // Trinity Local — sync-pill.js (ISOLATED world)
 //
-// In-provider awareness UI. Polls the capture host for "how many
-// threads are in your sidebar that aren't captured locally yet?"
-// for the current host. If > 0, injects a small bottom-right pill:
+// In-provider sync UI. Polls the capture host for "how many threads
+// are in your sidebar but not captured locally?" — if > 0, shows a
+// bottom-right pill. Click runs the actual sync: fetches each
+// missing thread's canonical URL, sends the response to the capture
+// host as a `kind: "canonical"` payload (same code path used by the
+// fetch wrapper for naturally-observed canonical fetches).
 //
-//     ⠕ N to sync
+// Self-suppressing when count=0. Hidden during sync after final
+// "✓ Synced N" fades. Re-polls on every page load / 60s.
 //
-// Click → opens the launchpad. Self-suppressing when count is 0 so
-// the user only sees it when there's actually something to do.
-//
-// Per-provider sidebar acquisition runs separately:
-//   - claude.ai / chatgpt.com: page-hook.js intercepts the network
-//     fetch for the sidebar-list endpoint (kind="sidebar_list") and
-//     forwards via "captured" channel.
-//   - gemini.google.com: content-script.js scrapes the DOM and emits
-//     the same sidebar_list payload (no batchexecute RPC carries it).
-//
-// This file is only the consumer: it asks the host for the diff
-// (sidebar conv_ids - on-disk conv_ids) and renders the count.
+// Per-provider sync mechanics differ:
+//   - claude.ai: fetch GET /api/organizations/<org_id>/chat_conversations/
+//     <conv_id> — same canonical endpoint PROVIDER_PATTERNS classifies.
+//   - chatgpt.com: fetch GET /backend-api/conversation/<conv_id> — same.
+//   - gemini.google.com: NO clean direct API. Gemini's RPCs require
+//     navigation context; we can't auto-sync without disrupting the
+//     user's tab. Pill shows a different message there: "click any
+//     sidebar thread to capture it" — manual fallback. The threads
+//     DO capture cleanly on user click (verified end-to-end).
 
 (() => {
   const PROVIDER_HOSTS = {
@@ -29,16 +30,16 @@
 
   const provider = PROVIDER_HOSTS[location.hostname];
   if (!provider) return;
-
-  // Don't re-install if another content-script instance already
-  // injected this pill (defensive — Chrome usually injects each
-  // content-script once per page, but iframes + history.pushState
-  // navigations can replay it).
   if (document.getElementById("__trinity_sync_pill__")) return;
 
   const PILL_ID = "__trinity_sync_pill__";
-  const POLL_INTERVAL_MS = 60_000;  // refresh diff every minute
-  const FIRST_POLL_DELAY_MS = 3_000;  // wait for sidebar fetch/scrape to land
+  const POLL_INTERVAL_MS = 60_000;
+  const FIRST_POLL_DELAY_MS = 3_000;
+  const SYNC_CONCURRENCY = 3;          // parallel fetches per provider
+  const SYNC_INTERVAL_MS = 250;         // throttle between batches
+  const SYNCED_FADE_AFTER_MS = 4_000;   // brief success banner
+
+  let syncing = false;  // single in-flight guard
 
   function queryStatus() {
     return new Promise((resolve) => {
@@ -47,8 +48,6 @@
         chrome.runtime.sendMessage(
           { type: "query", query_kind: "sync_status", provider },
           (response) => {
-            // chrome.runtime.lastError surfaces here for invalidated
-            // contexts + handler errors; treat both as null result.
             if (chrome.runtime.lastError) return resolve(null);
             resolve(response || null);
           },
@@ -57,6 +56,94 @@
         resolve(null);
       }
     });
+  }
+
+  function sendCapture(payload) {
+    return new Promise((resolve) => {
+      if (!chrome?.runtime?.id) return resolve(false);
+      try {
+        chrome.runtime.sendMessage({ type: "captured", payload }, (response) => {
+          if (chrome.runtime.lastError) return resolve(false);
+          resolve(!!response?.ok);
+        });
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
+  function canonicalUrl(conv_id, status) {
+    if (provider === "claude") {
+      const org = status.org_id;
+      if (!org) return null;
+      // Tree=true + render flags match what claude.ai's UI itself uses
+      // to render a conversation — gives back the full message list.
+      return `${location.origin}/api/organizations/${org}/chat_conversations/${conv_id}?tree=true&rendering_mode=messages&render_all_tools=true`;
+    }
+    if (provider === "chatgpt") {
+      return `${location.origin}/backend-api/conversation/${conv_id}`;
+    }
+    return null;  // gemini: no clean canonical URL
+  }
+
+  async function fetchOne(conv_id, status) {
+    const url = canonicalUrl(conv_id, status);
+    if (!url) return false;
+    try {
+      const resp = await fetch(url, { credentials: "include" });
+      if (!resp.ok) return false;
+      const json = await resp.json();
+      return await sendCapture({
+        provider,
+        kind: "canonical",
+        url,
+        method: "GET",
+        conversation: json,
+        captured_at: new Date().toISOString(),
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  async function runSync(missing_ids, status) {
+    if (syncing) return;
+    syncing = true;
+    const el = document.getElementById(PILL_ID);
+    if (el) {
+      el.style.cursor = "default";
+      el.removeAttribute("title");
+    }
+
+    const total = missing_ids.length;
+    let done = 0;
+    const updatePill = () => {
+      if (!el) return;
+      el.textContent = `⠕ Syncing ${done}/${total}…`;
+    };
+    updatePill();
+
+    // Sequential batches of SYNC_CONCURRENCY, with a throttle between
+    // batches. Sequential-with-batching avoids slamming the provider
+    // API while keeping the sync responsive.
+    for (let i = 0; i < missing_ids.length; i += SYNC_CONCURRENCY) {
+      const batch = missing_ids.slice(i, i + SYNC_CONCURRENCY);
+      const results = await Promise.all(batch.map((id) => fetchOne(id, status)));
+      done += results.length;  // count attempts whether or not they succeeded
+      updatePill();
+      if (i + SYNC_CONCURRENCY < missing_ids.length) {
+        await new Promise((r) => setTimeout(r, SYNC_INTERVAL_MS));
+      }
+    }
+
+    if (el) {
+      el.textContent = `⠕ ✓ Synced ${total}`;
+      setTimeout(() => {
+        const live = document.getElementById(PILL_ID);
+        if (live) live.hidden = true;
+      }, SYNCED_FADE_AFTER_MS);
+    }
+    syncing = false;
   }
 
   function ensurePillStyles() {
@@ -80,7 +167,7 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function ensurePillEl() {
+  function ensurePillEl(onClick) {
     let el = document.getElementById(PILL_ID);
     if (el) return el;
     ensurePillStyles();
@@ -88,21 +175,8 @@
     el.id = PILL_ID;
     el.hidden = true;
     el.setAttribute("role", "button");
-    el.setAttribute("aria-label", "Trinity sync status");
-    el.title = "Trinity: open launchpad to sync missing threads locally";
-    el.addEventListener("click", () => {
-      // Ask background to open the launchpad. The launchpad path is
-      // ~/.trinity/portal_pages/launchpad.html — the background relays
-      // an `action: open-launchpad` to the host which knows the path.
-      try {
-        chrome.runtime.sendMessage(
-          { type: "action", kind: "open-launchpad" },
-          () => { /* fire-and-forget; user already left this tab logically */ },
-        );
-      } catch {
-        // ignore — clicking shouldn't break anything even if dispatch fails
-      }
-    });
+    el.setAttribute("aria-label", "Trinity sync");
+    el.addEventListener("click", onClick);
     (document.body || document.documentElement).appendChild(el);
     return el;
   }
@@ -110,23 +184,42 @@
   function renderPill(status) {
     if (!status || !status.ok) return;
     const count = Number(status.missing_count) || 0;
-    const el = ensurePillEl();
-    if (count <= 0) {
-      el.hidden = true;
+    const missing_ids = status.missing_ids || [];
+
+    const el = ensurePillEl(() => {
+      if (syncing) return;
+      // Gemini fallback: no canonical URL we can fetch programmatically.
+      // Surface a one-shot tooltip-style message that fades.
+      if (provider === "gemini") {
+        const live = document.getElementById(PILL_ID);
+        if (live) {
+          live.textContent = `⠕ Click sidebar threads to capture`;
+          setTimeout(() => {
+            if (live) live.textContent = `⠕ ${count} to sync`;
+          }, 3500);
+        }
+        return;
+      }
+      runSync(missing_ids, status);
+    });
+
+    if (count <= 0 || syncing) {
+      if (!syncing) el.hidden = true;
       return;
     }
     el.textContent = `⠕ ${count} to sync`;
+    el.title = provider === "gemini"
+      ? "Trinity: click sidebar threads to capture them"
+      : "Trinity: click to sync missing threads locally";
     el.hidden = false;
   }
 
   async function tick() {
+    if (syncing) return;  // don't overwrite the sync UI mid-flight
     const status = await queryStatus();
     renderPill(status);
   }
 
-  // First tick after a short delay (let sidebar fetch/scrape land),
-  // then refresh on a slow cadence so the pill stays accurate as
-  // captures land without spamming the host.
   setTimeout(() => {
     tick();
     setInterval(tick, POLL_INTERVAL_MS);

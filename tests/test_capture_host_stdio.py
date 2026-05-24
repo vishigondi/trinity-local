@@ -276,6 +276,31 @@ def test_query_sync_status_returns_diff(tmp_path):
     assert set(ack["missing_ids"]) == {"conv-B", "conv-C"}
 
 
+def test_query_sync_status_extracts_org_id_for_claude(tmp_path):
+    """Claude canonical URLs need the org_id. The pill can't synthesize
+    it (it's not in any conv_id) so capture-host extracts it from the
+    _sidebar.json's stored URL and returns it inline."""
+    trinity_home = tmp_path / "trinity"
+    p_dir = trinity_home / "conversations" / "claude"
+    p_dir.mkdir(parents=True)
+    (p_dir / "_sidebar.json").write_text(json.dumps({
+        "kind": "sidebar_list",
+        "url": "https://claude.ai/api/organizations/38cce2de-a428-421c-b45d-2beebd4c4a27/chat_conversations_v2?limit=10",
+        "sidebar": {"data": [{"uuid": "u-A"}]},
+    }))
+
+    proc = _spawn_host(trinity_home)
+    proc.stdin.write(_frame({"kind": "query", "query_kind": "sync_status",
+                              "provider": "claude"}))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    assert ack["org_id"] == "38cce2de-a428-421c-b45d-2beebd4c4a27"
+
+
 def test_query_sync_status_rejects_invalid_provider(tmp_path):
     """Defense-in-depth: only known provider slugs are accepted."""
     trinity_home = tmp_path / "trinity"
