@@ -15,8 +15,13 @@ class Args:
 class TestStatusCommand:
     """Test the status command outputs."""
 
-    def test_status_json_output(self, tmp_path, capsys):
+    def test_status_json_output(self, tmp_path, monkeypatch, capsys):
         """Test status --json produces valid JSON."""
+        # Isolate TRINITY_HOME so run_doctor() + signal helpers probe
+        # tmp_path instead of the dev machine's real ~/.trinity/. Without
+        # this the test took ~4s walking real state (40k+ transcripts);
+        # with it the test runs in ~0.3s.
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         with patch("trinity_local.commands.status.state_dir") as mock_state:
             mock_state.return_value = tmp_path
             mock_state_dir = tmp_path / "test"
@@ -56,8 +61,11 @@ class TestStatusCommand:
                             assert "adapters" in output
                             assert "drift_alerts" in output
 
-    def test_status_human_output(self, tmp_path, capsys):
+    def test_status_human_output(self, tmp_path, monkeypatch, capsys):
         """Test status with human-readable output."""
+        # Same TRINITY_HOME isolation as the JSON variant — keeps the
+        # test from probing real ~/.trinity/ state.
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
         with patch("trinity_local.commands.status.state_dir") as mock_state:
             mock_state.return_value = tmp_path
             mock_state_dir = tmp_path / "test"
