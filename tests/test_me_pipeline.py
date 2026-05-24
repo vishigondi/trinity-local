@@ -136,6 +136,49 @@ class TestDecisionParser:
         # Only d_1 and d_3 should survive; d_2 has invalid valence, plus the noise lines
         assert {d.id for d in decisions} == {"d_1", "d_3"}
 
+    def test_extraction_prompt_asks_for_would_flip_if_with_blank_guard(self):
+        """#138 Track B: chairman extracts would_flip_if retroactively
+        from transcripts. The prompt MUST include the field in the
+        schema AND the 'leave blank if unclear, do not rationalize'
+        guard — without the guard, chairman invents plausible-sounding
+        counterfactuals the user never actually thought (the
+        rationalization-creep failure mode the user explicitly flagged
+        when this task was scoped)."""
+        from trinity_local.me.decisions import render_extraction_prompt
+
+        prompt = render_extraction_prompt(samples=[
+            {"prompt_id": "p1", "text": "sample text", "basin": "b00"},
+        ], basins=[])
+        # Schema must include the field
+        assert '"would_flip_if"' in prompt, (
+            "render_extraction_prompt missing would_flip_if in schema"
+        )
+        # Rationalization guard must be present
+        prompt_lower = prompt.lower()
+        assert "leave" in prompt_lower and "blank" in prompt_lower, (
+            "render_extraction_prompt missing the 'leave blank if unclear' guard"
+        )
+        assert "do not rationalize" in prompt_lower or "rationaliz" in prompt_lower, (
+            "render_extraction_prompt missing the 'do not rationalize' guard"
+        )
+
+    def test_parse_decisions_reads_chairman_would_flip_if(self):
+        """When chairman emits would_flip_if (Track B path), the parser
+        captures it on the Decision dataclass. Track A (live-logged)
+        already populated this field via decision-log CLI; this test
+        proves the chairman-extracted path also lands cleanly."""
+        from trinity_local.me.decisions import parse_decisions
+        raw = (
+            '{"id":"d_1","privileged":"momentum to close",'
+            '"sacrificed":"relational reciprocity","valence":"satisfaction",'
+            '"basin":"b00","verbatim":"pay the 2% fast",'
+            '"prompt_id":"p1",'
+            '"would_flip_if":"If we needed the buyer agent\'s repeat business"}'
+        )
+        decisions = parse_decisions(raw, basins=[])
+        assert len(decisions) == 1
+        assert decisions[0].would_flip_if.startswith("If we needed")
+
     def test_parse_decisions_re_tags_basin_from_prompt_id(self):
         # Chairman's `basin` field is NOT trusted — re-tag from
         # ground-truth basin lookup. This is what makes basin tags

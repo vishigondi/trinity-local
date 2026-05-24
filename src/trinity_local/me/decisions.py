@@ -157,7 +157,7 @@ skip it rather than emit a literal label.
 
 For each decision, emit ONE JSON line in this exact schema:
 
-{{"id": "d_001", "privileged": "<what was optimized for>", "sacrificed": "<what was traded away>", "valence": "satisfaction|regret|unresolved|correction|cost", "basin": "<basin id from list below>", "verbatim": "<≤25 word excerpt from the chunk>", "prompt_id": "<the [id] from the chunk header>"}}
+{{"id": "d_001", "privileged": "<what was optimized for>", "sacrificed": "<what was traded away>", "valence": "satisfaction|regret|unresolved|correction|cost", "basin": "<basin id from list below>", "verbatim": "<≤25 word excerpt from the chunk>", "prompt_id": "<the [id] from the chunk header>", "would_flip_if": "<see counterfactual rules>"}}
 
 Valence guide:
 - satisfaction: explicit endorsement of the trade
@@ -168,6 +168,28 @@ Valence guide:
 
 Use correction or cost when the user shows lens evidence without literal
 regret words — both count as valid evidence for pair mining.
+
+COUNTERFACTUAL (`would_flip_if`) — IMPORTANT:
+Surface the conditioning variable that gates when this decision would
+flip to the opposite pole. Examples:
+
+  privileged="momentum to close", sacrificed="relational reciprocity"
+  → would_flip_if: "If we needed the buyer-agent's repeat business
+    on the next deal"
+
+  privileged="capability hidden in structure", sacrificed="capability
+  surfaced as features"
+  → would_flip_if: "If user-facing iteration speed were the validation
+    constraint instead of architectural durability"
+
+CRITICAL: Leave `would_flip_if` blank ("") if the chunk doesn't show
+clear counterfactual reasoning. Do NOT rationalize. Retroactive
+extraction is LOW-QUALITY signal by design — better to emit empty
+than to invent a plausible-sounding counterfactual the user never
+actually thought. The HIGH-QUALITY signal comes from
+`trinity-local decision-log` captured at decision-time.
+
+When in doubt: empty string is correct.
 
 Basins from the user's corpus (id : top terms · size):
 {basin_summary}
