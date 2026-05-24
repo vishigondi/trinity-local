@@ -1412,6 +1412,72 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            benchmark is supporting evidence, not the main story. The
            card still renders identically when expanded; the demotion
            is summary + collapse-by-default. -->
+      <!-- #116 cross-provider benchmark empty-state CTA. Without this,
+           a user (or journalist) lands on the launchpad and never sees
+           the "benchmark on YOUR corpus" wedge — the eval-summary card
+           only renders when has_results === true. New users get a
+           prompt-and-CTA: build the eval set (if missing), then run
+           against each council provider. Click-to-copy chips so the
+           user can paste-and-run without typing from memory. -->
+      <section class="card eval-empty-state-card"
+               v-if="pageData.evalSummary && !pageData.evalSummary.has_results"
+               style="margin-bottom: 18px; border-left: 3px solid rgba(45, 138, 62, 0.4); background: rgba(45, 138, 62, 0.03);">
+        <div class="eyebrow" style="color: #2d8a3e;">Cross-provider benchmark (#116)</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Score the 3 providers on YOUR corpus
+        </h2>
+        <p class="meta" style="margin-top: 4px; margin-bottom: 12px;">
+          Global benchmarks (HumanEval, MMLU) tell you which model is strongest in the
+          aggregate. Trinity scores Claude / Codex / Antigravity against
+          <strong>your own rejection patterns</strong> — the same evidence the chairman uses
+          to pick winners in your councils.
+        </p>
+        <div v-if="!pageData.evalSummary.eval_set_available" style="margin-bottom: 10px;">
+          <p class="meta" style="margin-bottom: 8px; font-size: 13px;">
+            First, build the eval set from your rejections.jsonl:
+          </p>
+          <button type="button"
+                  class="suggestion-chip"
+                  style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                  @click.stop="copyText('trinity-local eval-build', 'eval-build-empty')">
+            <span v-if="copiedKey === 'eval-build-empty'">✓ Copied</span>
+            <span v-else>trinity-local eval-build</span>
+          </button>
+        </div>
+        <div v-else style="margin-bottom: 10px;">
+          <p class="meta" style="margin-bottom: 8px; font-size: 13px;">
+            Eval set built. Run against each provider — judges rotate (a model never grades itself):
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                    @click.stop="copyText('trinity-local eval-run --target claude', 'eval-run-claude')">
+              <span v-if="copiedKey === 'eval-run-claude'">✓ Copied</span>
+              <span v-else>… --target claude</span>
+            </button>
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                    @click.stop="copyText('trinity-local eval-run --target codex', 'eval-run-codex')">
+              <span v-if="copiedKey === 'eval-run-codex'">✓ Copied</span>
+              <span v-else>… --target codex</span>
+            </button>
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                    @click.stop="copyText('trinity-local eval-run --target antigravity', 'eval-run-antigravity')">
+              <span v-if="copiedKey === 'eval-run-antigravity'">✓ Copied</span>
+              <span v-else>… --target antigravity</span>
+            </button>
+          </div>
+        </div>
+        <p class="meta" style="margin-top: 8px; font-size: 12px;">
+          When ≥2 providers have results, this card flips to a leaderboard view —
+          ranked by how each model scores on your kind of question.
+        </p>
+      </section>
+
       <details class="demoted-card-wrapper" v-if="pageData.evalSummary && pageData.evalSummary.has_results" style="margin-bottom: 18px;">
         <summary style="cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.025); border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 12px;">
           <span class="eyebrow" style="margin: 0; padding: 0; opacity: 0.7;">Personalized benchmark</span>
