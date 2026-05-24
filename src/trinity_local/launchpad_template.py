@@ -1606,11 +1606,23 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </h2>
         <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
           <li v-for="row in pageData.browserCapture.providers" :key="row.provider"
-              style="display: grid; grid-template-columns: 140px 60px 1fr; gap: 8px; align-items: center;">
+              style="display: grid; grid-template-columns: 140px 60px 1fr 110px; gap: 8px; align-items: center;">
             <span>{{{{ row.provider }}}}</span>
             <span class="meta">{{{{ row.count }}}}</span>
             <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
               <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#315c85') + '; border-radius: 3px;'"></span>
+            </span>
+            <!-- Sidebar-sync diff: same data source as the in-provider
+                 auto-sync pill + status CLI's Captures: section. When
+                 missing_count > 0 the user has unsynced threads; the
+                 pill renders them as a click-to-sync trigger in the
+                 browser, but the launchpad surface lets desktop users
+                 see the same signal. Silent when fully synced. -->
+            <span v-if="row.missing_count > 0"
+                  class="meta"
+                  style="text-align: right; color: #c4791f; font-size: 12px;"
+                  :title="'sidebar has ' + row.sidebar_count + ' threads; ' + row.missing_count + ' not yet captured'">
+              {{{{ row.missing_count }}}} unsynced
             </span>
           </li>
         </ul>

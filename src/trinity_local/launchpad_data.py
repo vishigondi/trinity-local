@@ -1101,15 +1101,33 @@ def _browser_capture() -> dict:
         if latest_mtime:
             from datetime import datetime, timezone
             last_iso = datetime.fromtimestamp(latest_mtime, tz=timezone.utc).isoformat()
+        # Sidebar-sync diff per provider: surfaces "you have N unsynced
+        # threads" signal the status CLI already shows. Same data source
+        # (_query_sync_status) so launchpad + status + in-provider pill
+        # all read from one place. Skipped for providers with 0 captures
+        # (nothing to diff against — _query_sync_status returns the
+        # provider doesn't exist, which is a different state).
+        from .capture_host import _query_sync_status
+        provider_rows = []
+        for p, v in per_provider.items():
+            row = {"provider": p, "count": v["count"], "count_24h": v["count_24h"]}
+            try:
+                sync = _query_sync_status({"provider": p})
+                if sync.get("ok"):
+                    row["sidebar_count"] = sync.get("sidebar_count", 0)
+                    row["missing_count"] = sync.get("missing_count", 0)
+            except Exception:
+                # Per analytics-never-crash: sidebar lookup failure
+                # silently drops the missing-count signal for that
+                # provider; the launchpad still renders the row.
+                pass
+            provider_rows.append(row)
         return {
             "has_data": True,
             "total_captured": total,
             "captured_24h": total_24h,
             "providers": sorted(
-                [
-                    {"provider": p, "count": v["count"], "count_24h": v["count_24h"]}
-                    for p, v in per_provider.items()
-                ],
+                provider_rows,
                 key=lambda r: r["count"],
                 reverse=True,
             ),
