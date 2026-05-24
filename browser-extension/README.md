@@ -80,10 +80,9 @@ clobber the canonical file when both arrive.
 
 ## How to know it's working
 
-The launchpad (run `trinity-local portal-html`) will eventually grow a
-"Browser capture · last 24h" card (Surface 33, ships in v1.6 Week 2).
-Until then, just `ls ~/.trinity/conversations/`. If empty after sending
-a claude.ai message:
+The launchpad (run `trinity-local portal-html`) has a "Browser capture ·
+last 24h" card (Surface 33, shipped). To inspect on disk, `ls
+~/.trinity/conversations/`. If empty after sending a claude.ai message:
 
 1. **Check the extension's service worker console** — `chrome://extensions`,
    click "service worker" link under Trinity Local Capture. Should see
@@ -92,7 +91,7 @@ a claude.ai message:
    missing or has the wrong extension ID — rerun
    `trinity-local install-extension --extension-id <ID>`.
 2. **Check the page console** — F12 on claude.ai. Should see
-   `[trinity-hook] fetch wrapper installed on claude.ai` and adapter
+   `[trinity-hook] fetch + xhr wrappers installed on <host>` and adapter
    chunks logged on each turn.
 3. **Check the native host process** — when the service worker is
    connected, `ps aux | grep capture-host` shows the Python process
@@ -102,24 +101,33 @@ a claude.ai message:
 
 - `manifest.json` — MV3 manifest. Two `content_scripts` entries cover
   ISOLATED and MAIN worlds; the `world: "MAIN"` field requires Chrome 111+.
-- `page-hook.js` (MAIN world) — wraps `window.fetch`, tees streamed
-  response bodies, dispatches through `window.__TRINITY_ADAPTERS`.
-- `adapters/claude.js` + `adapters/chatgpt.js` (MAIN world, loaded
-  before page-hook) — register Anthropic + OpenAI SSE parsers on the
-  adapter registry. `gemini.js` ships in v1.7 (Google's RPC-over-JSON
-  protocol is higher fragility per spec).
+- `page-hook.js` (MAIN world) — wraps `window.fetch` AND
+  `XMLHttpRequest.prototype.open/send` (gemini.google.com dispatches
+  batchexecute via XHR, not fetch — XHR interception landed v1.7.7).
+  Tees streamed response bodies, dispatches through
+  `window.__TRINITY_ADAPTERS`. Also installs a content-script context-
+  invalidation guard so reloading the extension doesn't spam page
+  consoles with thrown `chrome.runtime.sendMessage` errors.
+- `adapters/claude.js` + `adapters/chatgpt.js` + `adapters/gemini.js`
+  (MAIN world, loaded before page-hook) — register Anthropic + OpenAI
+  SSE + Google batchexecute/StreamGenerate parsers on the adapter
+  registry. Gemini support shipped v1.7.6 (task #135) with the
+  StreamGenerate URL pattern added v1.7.7 via `trinity-local extension
+  repair --har` council dogfood (commit 57df3df).
 - `content-script.js` (ISOLATED world) — bridges `window.postMessage`
-  events to `chrome.runtime.sendMessage`.
+  events to `chrome.runtime.sendMessage`. Guards against
+  "Extension context invalidated" throws on hot-reload.
 - `background.js` (service worker) — receives captured payloads,
   forwards via `chrome.runtime.connectNative("local.trinity.capture")`.
 
 Structural validity of this directory is asserted by
-`tests/test_browser_extension_manifest.py` (9 checks: file existence,
-load-order, host permissions, MV3 version). The Anthropic SSE parser
-is validated against a saved fixture by
+`tests/test_browser_extension_manifest.py` (11 checks: file existence,
+load-order, host permissions, MV3 version, fetch + XHR wrapping
+present, content-script context guard present). The Anthropic SSE
+parser is validated against a saved fixture by
 `tests/test_browser_extension_claude_adapter.py` (8 cases). The
 stdio wire protocol round-trip is covered by
-`tests/test_capture_host_stdio.py` (4 cases).
+`tests/test_capture_host_stdio.py` (17 cases).
 
 ## Privacy invariants
 
