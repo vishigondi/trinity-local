@@ -433,8 +433,8 @@ class TestHandoffReadyCheck:
         from trinity_local.doctor import _check_handoff_ready
         self._patch_config(monkeypatch, enabled_providers=["claude", "antigravity"])
         monkeypatch.setattr(
-            "trinity_local.memory.store.iter_prompt_nodes",
-            lambda limit=None: iter([]),
+            "trinity_local.memory.store.tail_prompt_nodes_fast",
+            lambda limit=10: [],
         )
         result = _check_handoff_ready()
         assert result.ok is True
@@ -462,8 +462,8 @@ class TestHandoffReadyCheck:
             for i in range(3)
         ]
         monkeypatch.setattr(
-            "trinity_local.memory.store.iter_prompt_nodes",
-            lambda limit=None: iter(nodes),
+            "trinity_local.memory.store.tail_prompt_nodes_fast",
+            lambda limit=10: list(nodes),
         )
         result = _check_handoff_ready()
         assert result.ok is True
@@ -491,8 +491,8 @@ class TestHandoffReadyCheck:
             for i in range(3)
         ]
         monkeypatch.setattr(
-            "trinity_local.memory.store.iter_prompt_nodes",
-            lambda limit=None: iter(nodes),
+            "trinity_local.memory.store.tail_prompt_nodes_fast",
+            lambda limit=10: list(nodes),
         )
         result = _check_handoff_ready()
         assert result.ok is True
@@ -526,8 +526,8 @@ class TestHandoffReadyCheck:
             ),
         ]
         monkeypatch.setattr(
-            "trinity_local.memory.store.iter_prompt_nodes",
-            lambda limit=None: iter(nodes),
+            "trinity_local.memory.store.tail_prompt_nodes_fast",
+            lambda limit=10: list(nodes),
         )
         result = _check_handoff_ready()
         assert result.ok is True

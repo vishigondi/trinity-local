@@ -623,7 +623,7 @@ def _check_handoff_ready() -> CheckResult:
     a wall of empty ASSISTANT lines.
     """
     from .config import load_config
-    from .memory.store import iter_prompt_nodes
+    from .memory.store import tail_prompt_nodes_fast
 
     # (3) Are there ≥2 enabled providers to hand off between?
     try:
@@ -644,11 +644,13 @@ def _check_handoff_ready() -> CheckResult:
         )
 
     # (1) Do recent prompts carry assistant text the handoff can replay?
-    # iter_prompt_nodes returns most-recent-first; we want a small
-    # sample (the same shape `_select_recent_turns` uses) to mirror
-    # what handoff would actually package.
+    # Sampling check — needs ~10 most-recent prompts, not the full
+    # corpus. iter_prompt_nodes(limit=10) parses the entire 1GB
+    # prompt_nodes.jsonl first then truncates (~3.5s on live
+    # corpora). tail_prompt_nodes_fast reads from EOF backwards and
+    # only deserializes the last K records — ~50ms.
     try:
-        sample = list(iter_prompt_nodes(limit=10))
+        sample = tail_prompt_nodes_fast(limit=10)
     except Exception:
         sample = []
     if not sample:
