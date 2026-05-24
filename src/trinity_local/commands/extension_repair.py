@@ -245,7 +245,23 @@ def diagnose() -> dict[str, Any]:
                 "hours_since_last": None,
             }
             continue
-        files = sorted(p for p in provider_dir.iterdir() if p.is_file() and not p.name.startswith("."))
+        # Count canonical conversations only. _sidebar.json is the
+        # provider's per-page index sentinel (not a conversation). The
+        # `stream-<hash>.json` shape is the raw-fallback orphan written
+        # when no adapter handled the domain — also not a real capture.
+        # Mirrors doctor._check_browser_capture's filter so the
+        # human-facing "N files" matches what users picture when they
+        # think "captured conversations". (Sidebar-sync's on_disk_count
+        # uses an even tighter canonical-stem dedup; this stays at the
+        # per-file level so the existing repair-flow callers that look
+        # at hours_since_last keep their resolution.)
+        files = sorted(
+            p for p in provider_dir.iterdir()
+            if p.is_file()
+            and not p.name.startswith(".")
+            and not p.name.startswith("_")
+            and not p.name.startswith("stream-")
+        )
         if not files:
             summary["providers"][slug] = {
                 "exists": True,
