@@ -61,12 +61,15 @@ terminal. Once installed:
   / gemini.google.com into `~/.trinity/conversations/` via Native
   Messaging. No listening port, no upload — Chrome spawns a local
   capture host on demand.
-* **Dispatcher**: narrow action-allowlist (<!-- canonical:chrome_action_allowlist_count -->12<!-- /canonical --> entries
+* **Dispatcher**: narrow action-allowlist (<!-- canonical:chrome_action_allowlist_count -->15<!-- /canonical --> entries
   total — `launch-council`, `ingest-recent`, `stop-council`,
   `render-me-card`, `dream`, `council-iterate`, three settings
   toggles `telemetry-enable` / `telemetry-disable` /
-  `telemetry-reset-id`, plus the in-process popup actions
-  `open-council-page`, `get-council-status`, `open-launchpad`).
+  `telemetry-reset-id`, the in-process popup actions
+  `open-council-page`, `get-council-status`, `open-launchpad`, plus
+  the launchpad UI surfaces `extension-repair-auto` (task #147 self-
+  healing), `import-export` (task #148 bulk Takeout — full ingest),
+  and `import-export-dry-run` (task #148 — detection-only probe)).
   Each entry pins a fixed CLI subcommand and a typed arg list — no
   shell payload, no `run_command` — so spoofed Native-Messaging
   payloads can't trigger arbitrary commands. Cross-platform —
@@ -120,7 +123,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1837<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->1841<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas

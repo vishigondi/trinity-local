@@ -446,6 +446,34 @@ class TestAutoRepair:
         assert "code-patch" in kinds
 
 
+class TestAutoRepairActionAllowlist:
+    """#147 launchpad UI surface: capture-host action dispatch entry
+    so the launchpad's "Repair extension" button fires
+    `extension repair --auto --json` via Native Messaging.
+
+    Same guard shape as test_memory_health's test_dream_in_action_allowlist
+    — without the allowlist entry the dispatch silently no-ops.
+    """
+
+    def test_extension_repair_auto_in_allowlist(self):
+        from trinity_local.capture_host import ACTION_ALLOWLIST
+
+        assert "extension-repair-auto" in ACTION_ALLOWLIST
+        entry = ACTION_ALLOWLIST["extension-repair-auto"]
+        # Tuple shape: (cli_subcommand, arg_spec, [constant_flags])
+        assert entry[0] == "extension"
+        assert entry[1] == [], (
+            "extension-repair-auto should take no dynamic args — "
+            "--auto + --json are constant flags (host-controlled)"
+        )
+        constant_flags = entry[2] if len(entry) == 3 else []
+        # The nested subcommand 'repair' must be in constant_flags so
+        # the argv becomes [bin, extension, repair, --auto, --json]
+        assert "repair" in constant_flags
+        assert "--auto" in constant_flags
+        assert "--json" in constant_flags
+
+
 def test_cli_registration_lists_extension_subcommand():
     import argparse
     parser = argparse.ArgumentParser()

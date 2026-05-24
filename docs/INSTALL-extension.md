@@ -83,7 +83,7 @@ not from the Chrome Web Store). Web Store publish is post-launch.
 - Toolbar icon → opens launchpad (chrome-extension:// origin)
 - Popup → "Send to council" quick action
 - Action dispatch via Native Messaging (replaces the macOS Shortcut
-  dispatcher; works cross-platform). 12-entry `ACTION_ALLOWLIST` in
+  dispatcher; works cross-platform). <!-- canonical:chrome_action_allowlist_count -->15<!-- /canonical -->-entry `ACTION_ALLOWLIST` in
   `src/trinity_local/capture_host.py` gates which CLI surfaces are
   callable — defense in depth.
 - Conversation capture content-scripts loaded on claude.ai /

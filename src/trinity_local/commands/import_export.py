@@ -37,9 +37,20 @@ def register(subparsers):
         "import-export",
         help="Bulk-import a Takeout / web-export at any path. Auto-detects ChatGPT / Claude.ai / Gemini-Takeout (#148).",
     )
+    # Positional preserved for CLI ergonomics; `--path` mirror added so
+    # the capture-host action dispatcher (--flag VALUE shape) can fire
+    # this from the launchpad without a positional-arg special case.
     parser.add_argument(
         "path",
-        help="File OR directory containing the export. For a directory, recursively probes for known export files.",
+        nargs="?",
+        default=None,
+        help="File OR directory containing the export. For a directory, recursively probes for known export files. Same as --path.",
+    )
+    parser.add_argument(
+        "--path",
+        dest="path_flag",
+        default=None,
+        help="Alias for the positional path arg. Used when invoked via capture-host action dispatch.",
     )
     parser.add_argument(
         "--source", default=None,
@@ -164,7 +175,14 @@ def _parse_for_source(source: str, path: Path):
 
 
 def handle_import_export(args):
-    root = Path(args.path).expanduser().resolve()
+    # Accept either the positional path OR --path (capture-host
+    # action-dispatch path uses --path because the host's allowlist
+    # entry format is --flag VALUE pairs only).
+    path_arg = args.path or getattr(args, "path_flag", None)
+    if not path_arg:
+        print(json.dumps({"ok": False, "error": "path is required (pass as positional or --path)"}, indent=2))
+        raise SystemExit(2)
+    root = Path(path_arg).expanduser().resolve()
     if not root.exists():
         print(json.dumps({"ok": False, "error": f"path not found: {root}"}, indent=2))
         raise SystemExit(1)

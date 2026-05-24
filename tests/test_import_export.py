@@ -193,3 +193,58 @@ def test_cli_registration_lists_import_export_subcommand():
     assert args.command == "import-export"
     assert args.path == "/tmp/example"
     assert args.dry_run is True
+
+
+class TestActionAllowlist:
+    """#148 launchpad UI surface (slice 2 of #148): capture-host action
+    dispatch entries so the launchpad's file-picker button fires
+    `import-export` via Native Messaging.
+
+    Same guard shape as test_memory_health's test_dream_in_action_allowlist
+    — without the allowlist entry the dispatch silently no-ops.
+    """
+
+    def test_import_export_in_allowlist(self):
+        from trinity_local.capture_host import ACTION_ALLOWLIST
+        assert "import-export" in ACTION_ALLOWLIST
+        entry = ACTION_ALLOWLIST["import-export"]
+        assert entry[0] == "import-export"
+        # path is required so the dispatch can't fire blind
+        arg_spec = entry[1]
+        required_args = [name for name, _, required in arg_spec if required]
+        assert "path" in required_args
+
+    def test_import_export_dry_run_in_allowlist(self):
+        """Detection-only variant — same CLI, --dry-run as a constant
+        flag so payload can't escalate to full ingest by omitting it."""
+        from trinity_local.capture_host import ACTION_ALLOWLIST
+        assert "import-export-dry-run" in ACTION_ALLOWLIST
+        entry = ACTION_ALLOWLIST["import-export-dry-run"]
+        assert entry[0] == "import-export"
+        # Constant flags include --dry-run — that's host-controlled,
+        # not payload-influenced (the security property).
+        constant_flags = entry[2] if len(entry) == 3 else []
+        assert "--dry-run" in constant_flags
+
+    def test_path_flag_alias_works(self, tmp_path, capsys):
+        """The launchpad action dispatcher invokes the CLI via
+        --flag VALUE pairs, so --path must work as an alias for the
+        positional path argument."""
+        import argparse
+        export_dir = tmp_path / "ex"
+        export_dir.mkdir()
+        _write_chatgpt_conversations(export_dir / "conversations.json")
+
+        ns = argparse.Namespace(
+            path=None,  # positional unset
+            path_flag=str(export_dir),
+            source=None,
+            dry_run=True,
+            limit=None,
+            batch_size=64,
+            dim=768,
+        )
+        import_export.handle_import_export(ns)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["ok"] is True
+        assert payload["mode"] == "dry-run"

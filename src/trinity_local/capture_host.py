@@ -296,6 +296,47 @@ ACTION_ALLOWLIST: dict[str, tuple | None] = {
         [],
         ["--open-browser"],
     ),
+    # #147 self-healing UI surface: the launchpad's "Repair extension"
+    # button fires this. CLI runs `extension repair --auto --json` —
+    # the --json output goes back to the launchpad which renders the
+    # detected patterns + chairman's proposed patch (if any code-patch
+    # pattern triggered the dispatch). No HAR required.
+    #
+    # No dynamic args: --auto is a fixed flag; the diagnose() walk
+    # reads from ~/.trinity/conversations/ which the host already knows
+    # the location of. Anything the user might want to override would
+    # go through the CLI directly, not the launchpad surface.
+    "extension-repair-auto": (
+        "extension",
+        [],
+        ["repair", "--auto", "--json"],
+    ),
+    # #148 bulk Takeout import: the launchpad's "Import export" file-
+    # picker fires this. CLI runs `import-export --path <PATH> --dry-run`
+    # first (detection-only — no embedding cost) so the user can confirm
+    # before the actual ingest. A second button click without --dry-run
+    # runs the full ingest. Both buttons map to this same allowlist
+    # entry; --dry-run flag in payload toggles the behavior.
+    "import-export": (
+        "import-export",
+        [
+            ("path", "path", True),
+            ("source", "source", False),
+            ("limit", "limit", False),
+        ],
+    ),
+    # Variant for dry-run mode — separate allowlist entry so payload
+    # can't escalate from probe-only to full ingest by manipulating
+    # JSON. Same CLI under the hood; --dry-run is a constant flag
+    # (host-controlled, not payload-influenced).
+    "import-export-dry-run": (
+        "import-export",
+        [
+            ("path", "path", True),
+            ("source", "source", False),
+        ],
+        ["--dry-run"],
+    ),
 }
 
 
