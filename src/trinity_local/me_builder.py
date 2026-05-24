@@ -307,9 +307,19 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
     for debugging "why is /me thin."
     """
     from .config import load_config
+    from .me.lens_edits import capture_lens_edits
     from .memory import search_prompt_nodes
     from .providers import make_provider
     from .ranker import predict_strongest_chairman
+
+    # Capture user edits to lens.md since the last successful build
+    # (#140). Must run BEFORE this build overwrites lens.md, otherwise
+    # the edits are lost. Returns silently when there's no snapshot to
+    # diff against (cold start) or no diff.
+    try:
+        captured_edits = capture_lens_edits()
+    except Exception:
+        captured_edits = []
 
     # Prefer embedding-MMR sampling — gives the chairman PATTERN diversity
     # (different domains/lenses) rather than just heuristic-rank diversity
@@ -399,12 +409,22 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")
+    # Pin this build's lens.md as the baseline for next build's diff
+    # (#140). Any user edits before the next lens-build will surface
+    # as captured_edits at the top of build_me_via_council().
+    try:
+        from .me.lens_edits import write_lens_snapshot
+
+        write_lens_snapshot(me_doc)
+    except Exception:
+        pass
     return path, {
         "samples": len(samples),
         "chairman": chairman,
         "chairman_model": chairman_config.model,
         "size_chars": len(me_doc),
         "skipped": False,
+        "captured_edits": len(captured_edits),
     }
 
 
