@@ -141,6 +141,35 @@ def capture_lens_edits(current_lens_text: str | None = None) -> list[LensEdit]:
     return edits
 
 
+def pending_lens_edits_count() -> int:
+    """Return how many uncommitted line-diffs sit between lens.md and the
+    post-last-build snapshot (#140 slice 3, launchpad surfacing).
+
+    This is the *live* signal: the user opened lens.md, edited some lines,
+    and hasn't run lens-build yet. The launchpad shows the count as
+    "N edits — next dream picks them up" so they know the loop is closed.
+
+    Returns 0 when:
+    - lens.md doesn't exist (cold install)
+    - snapshot doesn't exist (cold start — pre-first build baseline)
+    - current matches snapshot (no pending edits)
+    """
+    from ..state_paths import memories_dir
+
+    lens_path = memories_dir() / "lens.md"
+    snapshot = lens_snapshot_path()
+    if not lens_path.exists() or not snapshot.exists():
+        return 0
+    try:
+        current = lens_path.read_text(encoding="utf-8")
+        previous = snapshot.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    if current == previous:
+        return 0
+    return len(_diff_to_edits(previous, current, ts=""))
+
+
 def _append_edits(edits: list[LensEdit]) -> None:
     import json
 

@@ -284,6 +284,97 @@ class TestDecisionTranslation:
         assert 3.0 > 2.0 > 1.0  # weight contract
 
 
+class TestPendingCount:
+    """Slice 3: live diff count for launchpad UI surfacing."""
+
+    def test_no_lens_md_returns_zero(self, lens_edit_env):
+        from trinity_local.me.lens_edits import pending_lens_edits_count
+
+        assert pending_lens_edits_count() == 0
+
+    def test_no_snapshot_returns_zero(self, lens_edit_env):
+        from trinity_local.me.lens_edits import pending_lens_edits_count
+        from trinity_local.state_paths import memories_dir
+
+        (memories_dir() / "lens.md").write_text("# /me\nstuff\n", encoding="utf-8")
+        # No snapshot pinned yet → cold start, no edits "pending" because
+        # there's no baseline.
+        assert pending_lens_edits_count() == 0
+
+    def test_no_diff_returns_zero(self, lens_edit_env):
+        from trinity_local.me.lens_edits import pending_lens_edits_count, write_lens_snapshot
+        from trinity_local.state_paths import memories_dir
+
+        identical = "# /me\nlens line\n"
+        (memories_dir() / "lens.md").write_text(identical, encoding="utf-8")
+        write_lens_snapshot(identical)
+        assert pending_lens_edits_count() == 0
+
+    def test_user_edited_lens_returns_diff_count(self, lens_edit_env):
+        from trinity_local.me.lens_edits import pending_lens_edits_count, write_lens_snapshot
+        from trinity_local.state_paths import memories_dir
+
+        write_lens_snapshot("# /me\nold\n")
+        (memories_dir() / "lens.md").write_text(
+            "# /me\nold\nuser-added line\n", encoding="utf-8",
+        )
+        assert pending_lens_edits_count() == 1
+
+    def test_pending_does_not_persist_to_jsonl(self, lens_edit_env):
+        """Critical: pending_lens_edits_count() must NOT write to
+        lens_edits.jsonl. Pending == live read; capture happens only
+        during lens-build."""
+        from trinity_local.me.lens_edits import (
+            lens_edits_path,
+            pending_lens_edits_count,
+            write_lens_snapshot,
+        )
+        from trinity_local.state_paths import memories_dir
+
+        write_lens_snapshot("# /me\nold\n")
+        (memories_dir() / "lens.md").write_text(
+            "# /me\nedited\n", encoding="utf-8",
+        )
+        pending_lens_edits_count()
+        pending_lens_edits_count()  # twice, to confirm no append on either call
+        assert not lens_edits_path().exists()
+
+
+class TestMemoryHealthSurfacing:
+    """Health signal #6 — pending lens edits surfaced via launchpad."""
+
+    def test_pending_edits_appear_as_health_issue(self, lens_edit_env):
+        from trinity_local.launchpad_data import _memory_health
+        from trinity_local.me.lens_edits import write_lens_snapshot
+        from trinity_local.state_paths import memories_dir
+
+        write_lens_snapshot("# /me\nbaseline\n")
+        (memories_dir() / "lens.md").write_text(
+            "# /me\nbaseline\nbrand new line\nanother new line\n",
+            encoding="utf-8",
+        )
+        health = _memory_health()
+        lens_issues = [i for i in health["issues"] if i["name"] == "lens.md"]
+        assert len(lens_issues) == 1
+        assert lens_issues[0]["status"] == "edits-pending"
+        assert "2" in lens_issues[0]["hint"]  # 2 line diffs
+        assert lens_issues[0]["command"] == "trinity-local lens-build"
+
+    def test_no_pending_edits_no_lens_issue(self, lens_edit_env):
+        from trinity_local.launchpad_data import _memory_health
+
+        health = _memory_health()
+        lens_issues = [i for i in health["issues"] if i["name"] == "lens.md"]
+        assert lens_issues == []
+
+    def test_total_count_is_six_after_slice_3(self, lens_edit_env):
+        """Bumped from 5 → 6 because lens-edits-pending is the 6th signal."""
+        from trinity_local.launchpad_data import _memory_health
+
+        health = _memory_health()
+        assert health["total_count"] == 6
+
+
 class TestBuildIntegration:
     def test_build_summary_reports_captured_edits_count(self, lens_edit_env, monkeypatch):
         """build_me_via_council should include captured_edits in its

@@ -1256,7 +1256,7 @@ def _core_status() -> dict:
 
 
 def _memory_health() -> dict:
-    """Aggregate the five staleness signals the launchpad surfaces:
+    """Aggregate the six staleness signals the launchpad surfaces:
       - core.md staleness (vs the three thinking memories) via _core_status
       - picks override_count > 0 (user-marked rules to demote)
       - picks audit_status == "disagreed" (chairman-audit caught drift)
@@ -1264,6 +1264,10 @@ def _memory_health() -> dict:
       - picks.json cortex freshness: councils newer than last consolidate
         (Pillar 3 drift surfacing — `ask` routes on stale rules until
         re-consolidate; doctor.py `_check_cortex_freshness` mirrors this)
+      - lens.md pending user edits (#140 slice 3): live diff between
+        current lens.md and the post-last-build snapshot. Surfaced so
+        the user knows their hand-edits will be picked up by the next
+        lens-build (closes the lens-edit-as-signal loop).
 
     Returns:
       {
@@ -1284,7 +1288,7 @@ def _memory_health() -> dict:
     #             the action is "navigate somewhere" rather than "run a CLI".
     #   href    — optional in-app navigation target (e.g. memory.html link)
     issues: list[dict[str, str | None]] = []
-    total = 5
+    total = 6
     # 1. core.md freshness
     core = _core_status()
     state = core.get("state")
@@ -1392,6 +1396,25 @@ def _memory_health() -> dict:
                     })
     except Exception:
         pass  # cortex freshness check must never break launchpad
+
+    # 6. lens.md pending edits — #140 slice 3. Live diff between current
+    # lens.md and snapshot baseline. Not a "staleness" issue per se but
+    # surfaced through the same channel: action-needed signal that
+    # lens-build is the way to commit the user's edits into the corpus.
+    try:
+        from .me.lens_edits import pending_lens_edits_count
+
+        pending = pending_lens_edits_count()
+        if pending > 0:
+            issues.append({
+                "name": "lens.md",
+                "status": "edits-pending",
+                "hint": f"{pending} hand-edit(s) will be picked up by the next lens-build (weight=3.0, strongest signal).",
+                "command": "trinity-local lens-build",
+                "href": None,
+            })
+    except Exception:
+        pass  # capture pipeline must not break launchpad rendering
 
     return {
         "issues": issues,
