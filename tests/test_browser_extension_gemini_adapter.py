@@ -266,3 +266,65 @@ def test_adapter_returns_empty_user_text_when_no_request_body():
         "page_href": "https://gemini.google.com/app/conv-x",
     })
     assert result["user_text"] == ""
+
+
+def test_adapter_file_stem_uses_message_id_when_present():
+    """file_stem (per-call discriminator for the on-disk filename) should
+    prefer the assistant message_id when extractable. Without this, every
+    gemini RPC for a conversation overwrites the previous on disk
+    (#145 — caught live 2026-05-23 when StreamGenerate content was
+    masked by trailing batchexecute telemetry)."""
+    if not _node_available():
+        import pytest
+        pytest.skip("node not available")
+    result = _run_adapter({
+        "url": "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+        "body_text": _make_batchexecute_body("Some reply with prose.", message_id="msg-deadbeef9999"),
+        "method": "POST",
+        "page_href": "https://gemini.google.com/app/conv-xyz",
+        "captured_at": "2026-05-24T00:30:47.199Z",
+    })
+    assert result["conv_id"] == "conv-xyz"
+    assert result["message_id"] == "msg-deadbeef9999"
+    assert result["file_stem"] == "conv-xyz__msg-deadbeef9999"
+
+
+def test_adapter_file_stem_falls_back_to_captured_at():
+    """When no message_id is extractable (some RPC frames don't carry
+    one), file_stem falls back to the captured_at timestamp so RPCs
+    still land distinctly."""
+    if not _node_available():
+        import pytest
+        pytest.skip("node not available")
+    # Synthesize a body where extractMessageId() returns null — message_id
+    # field is empty/non-hex-like.
+    frame = json.dumps([["wrb.fr", "vfBeAd", json.dumps([["x", "Some prose to pass the filter long enough"]]), None]])
+    body = f")]}}'\n{len(frame)}\n{frame}\n"
+    result = _run_adapter({
+        "url": "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+        "body_text": body,
+        "method": "POST",
+        "page_href": "https://gemini.google.com/app/conv-no-msg",
+        "captured_at": "2026-05-24T00:30:47.199Z",
+    })
+    assert result["conv_id"] == "conv-no-msg"
+    assert result["message_id"] is None
+    # YYYYMMDDHHMMSSXXX (captured_at digits, first 17)
+    assert result["file_stem"].startswith("conv-no-msg__2026052400")
+
+
+def test_adapter_file_stem_null_when_no_conv_id():
+    """No conv_id (user on /app root) → file_stem null → capture host's
+    conv_id-required gate still drops it (per existing semantics)."""
+    if not _node_available():
+        import pytest
+        pytest.skip("node not available")
+    result = _run_adapter({
+        "url": "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+        "body_text": _make_batchexecute_body("Reply"),
+        "method": "POST",
+        "page_href": "https://gemini.google.com/",
+        "captured_at": "2026-05-24T00:30:47.199Z",
+    })
+    assert result["conv_id"] is None
+    assert result["file_stem"] is None

@@ -7,7 +7,50 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
-## [unreleased — orphan-modules sunset + extension-repair dogfood patch] — 2026-05-23
+## [v1.7.8 — gemini capture: per-RPC file_stem unblocks #144 verification] — 2026-05-23
+
+#145 (captures overwriting per conv_id) caused #144 (empty user_text /
+assistant_text) to look unverified even after the v1.7.7 StreamGenerate
+pattern landed. Live evidence: file at
+`~/.trinity/conversations/gemini/087a73a78d0e878f.stream.json` grew to
+26KB after the StreamGenerate fix (more traffic flowing through wrapper),
+but the latest content was always the trailing telemetry batchexecute
+(`rpcids=ESY5D`, `user_text: bard_activity_enabled`) because every RPC
+for the same conv_id wrote to the same filename and the last write won.
+
+- `browser-extension/adapters/gemini.js`: adapter return shape gains
+  `file_stem` — a per-call discriminator built as
+  `<conv_id>__<message_id>` (preferred; stable across re-fetches of the
+  same turn) or `<conv_id>__<captured_at_compact>` (fallback when
+  message_id isn't extractable). conv_id stays a clean semantic field
+  for downstream ingest grouping.
+- `src/trinity_local/capture_host.py` (`_extract_provider_state` for
+  `kind="adapter_stream"`): prefers `raw.get("file_stem")` when present,
+  falls back to conv_id. Claude/chatgpt adapters don't set file_stem
+  so their one-stream-per-turn semantics are unchanged.
+- `browser-extension/manifest.json` 0.2.5 → 0.2.6.
+- `docs/INSTALL-extension.md` extension version synced.
+
+Guards (so this can't silently regress):
+
+- `tests/test_browser_extension_gemini_adapter.py` adds 3 file_stem
+  tests: message_id preferred, captured_at fallback, null when no conv_id.
+- `tests/test_capture_host_stdio.py` adds 2 file_stem tests:
+  override-conv_id-for-filename path + back-compat-when-absent path.
+
+What this unblocks: with each gemini RPC capture landing in its own
+file, you can now inspect what StreamGenerate actually delivers (vs
+the telemetry batchexecute that was clobbering it on disk). #144's
+"is the adapter parser actually broken or just masked" question
+becomes answerable after a single fresh gemini message post-reload.
+
+Architectural note: this is an interim fix. The structural fix for
+gemini's "no canonical full-tree fetch" gap is #149 (gemini canonical
+pattern). Until that lands, each turn lives in its own file with no
+all-turns-of-this-conversation roll-up — same fragmentation pattern
+the canonical fetch was designed to absorb for claude/chatgpt.
+
+## [v1.7.7 + v1.7.7-companion — orphan-modules sunset + extension-repair dogfood patch] — 2026-05-23
 
 Two post-launch sweep ticks, kept under one section because both shipped
 on the same day after v1.7.7.
@@ -525,7 +568,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1686<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1691<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

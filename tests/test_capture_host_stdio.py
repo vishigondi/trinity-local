@@ -168,6 +168,79 @@ def test_adapter_stream_writes_with_stream_suffix(tmp_path):
     assert saved["message_uuid"] == "msg-aa11"
 
 
+def test_adapter_stream_file_stem_overrides_conv_id_for_filename(tmp_path):
+    """When the adapter provides `file_stem`, the capture host uses it
+    as the filename stem instead of conv_id. conv_id keeps its semantic
+    meaning. Closes #145: gemini fires multiple RPCs per turn (and
+    multiple turns per conversation) all sharing the same conv_id —
+    without file_stem they overwrite each other. The adapter provides
+    `<conv_id>__<msg_id>` as file_stem so each capture lands distinctly.
+    """
+    trinity_home = tmp_path / "trinity"
+    proc = _spawn_host(trinity_home)
+
+    payload = {
+        "kind": "captured",
+        "payload": {
+            "provider": "gemini",
+            "kind": "adapter_stream",
+            "conv_id": "conv-xyz",
+            "file_stem": "conv-xyz__msg-deadbeef9999",
+            "message_id": "msg-deadbeef9999",
+            "url": "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate",
+            "method": "POST",
+            "assistant_text": "Gemini reply.",
+            "events_count": 3,
+        },
+    }
+    proc.stdin.write(_frame(payload))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    # Filename uses file_stem, not conv_id
+    assert ack["conv_id"] == "conv-xyz__msg-deadbeef9999.stream"
+    written = Path(ack["path"])
+    assert written == trinity_home / "conversations" / "gemini" / "conv-xyz__msg-deadbeef9999.stream.json"
+    saved = json.loads(written.read_text())
+    # Semantic conv_id preserved in payload — ingest can still group by it
+    assert saved["conv_id"] == "conv-xyz"
+    assert saved["file_stem"] == "conv-xyz__msg-deadbeef9999"
+
+
+def test_adapter_stream_without_file_stem_uses_conv_id(tmp_path):
+    """Back-compat: claude/chatgpt adapters don't provide file_stem
+    (one stream per turn; overwrite is fine since the canonical fetch
+    carries the full tree). Filename falls back to conv_id."""
+    trinity_home = tmp_path / "trinity"
+    proc = _spawn_host(trinity_home)
+
+    payload = {
+        "kind": "captured",
+        "payload": {
+            "provider": "claude",
+            "kind": "adapter_stream",
+            "conv_id": "conv-abc",
+            "url": "https://claude.ai/api/organizations/o/chat_conversations/conv-abc/completion",
+            "method": "POST",
+            "assistant_text": "Hi.",
+            "events_count": 2,
+        },
+    }
+    proc.stdin.write(_frame(payload))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    assert ack["conv_id"] == "conv-abc.stream"
+    written = Path(ack["path"])
+    assert written == trinity_home / "conversations" / "claude" / "conv-abc.stream.json"
+
+
 def test_unrecognized_payload_errors_but_keeps_host_alive(tmp_path):
     trinity_home = tmp_path / "trinity"
     proc = _spawn_host(trinity_home)

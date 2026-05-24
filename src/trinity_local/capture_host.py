@@ -84,9 +84,14 @@ def _extract_target(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]] 
         conv_id = raw.get("conv_id")
         if not conv_id:
             return None
-        # Save under a separate key so the canonical write doesn't get
-        # overwritten when both arrive for the same conversation.
-        return provider, f"{conv_id}.stream", dict(raw)
+        # `file_stem`, when present, is what the adapter wants on disk
+        # — typically a per-call discriminator like `<conv_id>__<msg_id>`
+        # so multiple RPCs per turn (gemini fires several) don't
+        # overwrite each other. conv_id stays the semantic field for
+        # ingest-side grouping. Falls back to conv_id when absent
+        # (claude/chatgpt one-stream-per-turn doesn't need it).
+        stem = raw.get("file_stem") or conv_id
+        return provider, f"{stem}.stream", dict(raw)
     if kind == "stream":
         # Raw (un-adapted) stream — fallback when no adapter is loaded
         # for this provider. Key by URL hash so distinct streams don't

@@ -341,18 +341,50 @@
     const payloads = extractWrbPayloads(frames);
     const conv_id = extractConvId(url, pageHref);
     const user_text = extractUserPrompt(input.request_body || "");
+    const message_id = extractMessageId(frames);
+
+    // Per-call discriminator emitted as a separate `file_stem` field
+    // so the capture host can land each RPC capture distinctly.
+    // conv_id keeps its semantic meaning (the gemini thread ID);
+    // file_stem is what capture_host prefers for the on-disk filename
+    // when present, falling back to conv_id otherwise.
+    //
+    // Without this discriminator, gemini fires multiple RPCs per user
+    // turn (telemetry batchexecute + StreamGenerate + others), all
+    // sharing the same conv_id, so each overwrites the previous.
+    // Across turns in the same thread, the SAME StreamGenerate URL
+    // fires again with the same conv_id, also overwriting. Effect:
+    // only the trailing RPC of the latest turn survives on disk.
+    //
+    // Discriminator preference: message_id (genuinely identifies the
+    // assistant message; stable across re-fetches of the same turn)
+    // → captured_at compact timestamp (unique per wrapper invocation
+    // modulo millisecond collisions, vanishingly rare).
+    let file_stem = null;
+    if (conv_id) {
+      if (message_id) {
+        file_stem = `${conv_id}__${message_id}`;
+      } else if (input.captured_at) {
+        const compact = String(input.captured_at).replace(/[^0-9]/g, "").slice(0, 17);
+        if (compact) {
+          file_stem = `${conv_id}__${compact}`;
+        }
+      }
+    }
+
     return {
       provider: "gemini",
       // adapter_stream (not "stream") — capture host writes this under
-      // `<conv_id>.stream.json` instead of the urlhash-orphan path.
-      // When conv_id can't be extracted (rare; user is on the
-      // gemini.google.com root with no thread loaded), we still tag
-      // adapter_stream and let the capture host's conv_id requirement
-      // gate writes — better to drop one orphan than to flood the
+      // `<file_stem || conv_id>.stream.json` instead of the urlhash-
+      // orphan path. When conv_id can't be extracted (rare; user is
+      // on the gemini.google.com root with no thread loaded), file_stem
+      // is null and the capture host's conv_id requirement still
+      // gates writes — better to drop one orphan than to flood the
       // captures dir with hash-keyed files.
       kind: "adapter_stream",
       conv_id,
-      message_id: extractMessageId(frames),
+      file_stem,
+      message_id,
       url,
       method: input.method || "POST",
       captured_at: input.captured_at,
