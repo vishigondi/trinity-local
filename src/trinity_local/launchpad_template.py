@@ -2394,8 +2394,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           return w.charAt(0).toUpperCase() + w.slice(1);
         }},
         suggestionPriorPreview(item) {{
+          // Derive client-side instead of shipping a duplicate
+          // pre-truncated copy from the server — same 240-char +
+          // ellipsis policy as the original Python emit, but saves
+          // ~10KB across the 49-item pageData payload.
           if (typeof item === 'string') return '';
-          return item?.priorAssistantPreview || '';
+          const full = item?.priorAssistantText || '';
+          return full.length > 240 ? full.slice(0, 240) + '…' : full;
         }},
         suggestionPriorFull(item) {{
           if (typeof item === 'string') return '';

@@ -266,10 +266,6 @@ def _load_replay_candidates(limit: int = 200) -> list:
         if len(text) < 8:
             continue
         prior = (hit.preceding_assistant_text or "").strip()
-        # Truncate prior assistant excerpt for the visible preview; the full
-        # text up to the budget is sent through to the council bundle on
-        # apply (see launchpad_template.py applySuggestion).
-        prior_preview = prior[:240] + ("…" if len(prior) > 240 else "")
         candidates.append({
             "text": text,
             "reasons": list(hit.reasons or []),
@@ -282,8 +278,12 @@ def _load_replay_candidates(limit: int = 200) -> list:
             # is the supervision signal.
             "winner": hit.chairman_winner or None,
             "prompt_id": hit.prompt_id or "",
+            # priorAssistantPreview was pre-truncated server-side and
+            # shipped alongside the full text — ~10KB of pure
+            # duplication across the 49-item payload (each preview is
+            # just text[:240] of priorAssistantText). Derived
+            # client-side now in suggestionPriorPreview().
             "priorAssistantText": prior,
-            "priorAssistantPreview": prior_preview,
             "transcriptId": hit.transcript_id or "",
             "turnIndex": int(hit.turn_index or 0),
         })
