@@ -28,7 +28,7 @@ shorthand. The path is always git-clone-then-pip-from-the-clone.
 ```bash
 # Clone (or reuse the existing skill clone if you already ran the
 # installer):
-git clone https://github.com/vishigondi/trinity-local
+git clone <!-- canonical:github_repo_url -->https://github.com/vishigondi/trinity-local<!-- /canonical -->
 cd trinity-local
 
 # Editable install — your changes to the cloned source take effect
@@ -118,7 +118,7 @@ modules in v1.0; v1.1 inverts so the scripts are the canonical
 location and the pip tier is the thin wrapper.
 
 ```bash
-git clone https://github.com/vishigondi/trinity-local
+git clone <!-- canonical:github_repo_url -->https://github.com/vishigondi/trinity-local<!-- /canonical -->
 cd trinity-local
 echo '{"texts": ["hello", "world"]}' | python3 scripts/embed.py
 ```

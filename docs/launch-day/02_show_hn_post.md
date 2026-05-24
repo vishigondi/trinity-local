@@ -20,12 +20,12 @@ What shipped May 13–15, 2026 (v1.7, MIT): multi-model councils with a chairman
 
 Install (macOS or Linux, Python 3.10+):
 
-    curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
+    <!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 
 Then `/trinity` in Claude Code, or `trinity-local council-launch --task "..."` from any shell.
 
 ## CLOSER
 
-Repo: https://github.com/vishigondi/trinity-local
+Repo: <!-- canonical:github_repo_url -->https://github.com/vishigondi/trinity-local<!-- /canonical -->
 
 Happy to answer questions in the thread — architecture decisions, the council/chairman/Routing-JSON shape, the Preference Corpus Spec, or anything about the local-first / no-hosted-controller commitment. If you build with two or more model providers, run one council and tell me what broke.
