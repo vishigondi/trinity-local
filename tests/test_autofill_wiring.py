@@ -75,7 +75,6 @@ class TestLaunchpadRenderWithAutofill:
     def test_template_renders_dict_suggestions_with_chips(self, home: Path, monkeypatch):
         """When the memory index is populated, the launchpad HTML should
         include the suggestion-chip / suggestion-winner UI structure."""
-        from trinity_local.embeddings import embed
         from trinity_local.memory import PromptNode, upsert_prompt_node
         from trinity_local.utils import now_iso
         from trinity_local.launchpad_page import write_portal_html
@@ -92,6 +91,9 @@ class TestLaunchpadRenderWithAutofill:
             ],
         )
 
+        # Constant fake 768d embedding — test asserts on rendered HTML
+        # template strings, not embedding ranking. Avoids ~4s nomic load.
+        # Same pattern as test_returns_dicts_when_memory_populated above.
         upsert_prompt_node(PromptNode(
             id="p1",
             transcript_id="t1",
@@ -99,7 +101,7 @@ class TestLaunchpadRenderWithAutofill:
             source_path="/tmp/x",
             turn_index=0,
             text="route a question to the right model",
-            embedding=embed("search_document: route a question to the right model"),
+            embedding=[0.001] * 768,
             created_at=now_iso(),
             user_winner="claude",
             council_run_ids=["c1"],
