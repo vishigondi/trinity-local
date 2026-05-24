@@ -73,7 +73,12 @@
           // fetch above. Captured under kind="sidebar_list" so the
           // capture host writes them to a sentinel filename
           // (_sidebar.json) without conflating with per-thread state.
-          if (pat.provider === "claude" && u.pathname.endsWith("/chat_conversations") && method === "GET") {
+          // Claude.ai upgraded from /chat_conversations to
+          // /chat_conversations_v2 (caught live 2026-05-23: original
+          // pattern matched nothing, v2 is the current endpoint).
+          // Match both — legacy left in case Anthropic does a rolling
+          // cohort migration and some accounts still hit v1.
+          if (pat.provider === "claude" && (u.pathname.endsWith("/chat_conversations") || u.pathname.endsWith("/chat_conversations_v2")) && method === "GET") {
             return { provider: "claude", kind: "sidebar_list" };
           }
           if (pat.provider === "chatgpt" && u.pathname.endsWith("/backend-api/conversations") && method === "GET") {

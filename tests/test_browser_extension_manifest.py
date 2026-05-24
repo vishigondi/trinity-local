@@ -160,9 +160,16 @@ def test_page_hook_classifies_sidebar_list_endpoints():
         "conversations list endpoints — needed by the mobile-to-"
         "desktop auto-sync diff pipeline"
     )
-    # Claude: ends-with check on /chat_conversations (no /<id> suffix)
+    # Claude: ends-with check on /chat_conversations (legacy) AND
+    # /chat_conversations_v2 (current as of 2026-05-23 — Anthropic
+    # upgraded the endpoint; live probe caught the v1 pattern matching
+    # nothing on /recents). Both kept to handle rolling cohort
+    # migration where some accounts hit v1, some v2.
     assert 'endsWith("/chat_conversations")' in src, (
-        "page-hook.js missing claude sidebar_list endpoint detection"
+        "page-hook.js missing legacy claude /chat_conversations match"
+    )
+    assert 'endsWith("/chat_conversations_v2")' in src, (
+        "page-hook.js missing current claude /chat_conversations_v2 match"
     )
     # ChatGPT: ends-with check on /backend-api/conversations
     assert 'endsWith("/backend-api/conversations")' in src, (
