@@ -187,9 +187,13 @@ def _render_markdown(report, claude_root: Path) -> str:
 
     lines.append("---")
     lines.append("")
+    # The report lives at ~/.trinity/share/ — relative paths into the
+    # repo don't resolve. Use the absolute GitHub URL so the link works
+    # from anywhere the user opens the markdown.
     lines.append(
         "_Mode 1 lexical comparison only. Modes 2 (differential eval) and "
         "3 (cross-fertilize injection test) are deferred — see "
-        "[plan](../../docs/historical/) for the full measurement protocol._"
+        "[plan](https://github.com/vishigondi/trinity-local/tree/main/docs/historical/) "
+        "for the full measurement protocol._"
     )
     return "\n".join(lines) + "\n"
