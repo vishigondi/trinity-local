@@ -177,6 +177,28 @@ def test_page_hook_classifies_sidebar_list_endpoints():
     )
 
 
+def test_sync_pill_content_script_present_and_wired():
+    """The in-provider sync-pill content-script (`sync-pill.js`) must
+    exist and be registered in the ISOLATED-world content_scripts
+    entry so it loads on all 3 provider pages. Polls the host for
+    sync_status, injects a bottom-right pill when count > 0.
+    """
+    pill = EXT_DIR / "sync-pill.js"
+    assert pill.exists(), f"missing {pill}"
+    src = pill.read_text()
+    assert '"sync_status"' in src, "pill must call query_kind=sync_status"
+    assert 'missing_count' in src, "pill must read missing_count from response"
+    assert 'PROVIDER_HOSTS' in src, "pill must scope to known provider hosts"
+
+    m = _load_manifest()
+    isolated = next((e for e in m["content_scripts"] if e.get("world") == "ISOLATED"), None)
+    assert isolated is not None, "missing ISOLATED content_scripts entry"
+    assert "sync-pill.js" in isolated["js"], (
+        "sync-pill.js must be in the ISOLATED content_scripts list — "
+        "otherwise it won't load on provider pages"
+    )
+
+
 def test_content_script_includes_gemini_sidebar_dom_scrape():
     """content-script.js must include the gemini sidebar DOM-scrape path.
 

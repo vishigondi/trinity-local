@@ -597,6 +597,102 @@ def _is_action_message(msg: dict[str, Any]) -> bool:
     return msg.get("kind") in ACTION_ALLOWLIST
 
 
+# Read-only query handlers — no side effects, just compute + return.
+# Distinct from actions (which dispatch CLI subprocesses) and captures
+# (which write files). Used by the in-provider sync pill to ask
+# "how many threads are in the sidebar that aren't captured locally?"
+QUERY_KINDS = {"sync_status"}
+
+
+def _query_sync_status(payload: dict[str, Any]) -> dict[str, Any]:
+    """Diff sidebar conv_ids vs on-disk capture conv_ids for one provider.
+
+    Returns {provider, sidebar_count, on_disk_count, missing_count,
+    missing_ids[:50]}. Used by the in-provider sync pill to decide
+    whether to show + what count to display.
+    """
+    provider = str(payload.get("provider") or "").strip()
+    if provider not in {"claude", "chatgpt", "gemini"}:
+        return {"ok": False, "error": "invalid_provider"}
+    try:
+        provider = _sanitize_id(provider, "provider")
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+
+    provider_dir = _conv_dir() / provider
+    sidebar_ids: set[str] = set()
+    if (provider_dir / "_sidebar.json").exists():
+        try:
+            data = json.loads((provider_dir / "_sidebar.json").read_text())
+            sidebar_obj = data.get("sidebar") or {}
+            # Per-provider sidebar shape: chatgpt {items: [{id, ...}]},
+            # gemini {items: [{conv_id, title}]} (DOM scrape),
+            # claude {data: [{uuid, ...}]} or similar.
+            items = []
+            if isinstance(sidebar_obj, dict):
+                items = (
+                    sidebar_obj.get("items")
+                    or sidebar_obj.get("data")
+                    or sidebar_obj.get("chat_conversations")
+                    or []
+                )
+            elif isinstance(sidebar_obj, list):
+                items = sidebar_obj
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                cid = item.get("conv_id") or item.get("id") or item.get("uuid")
+                if cid:
+                    sidebar_ids.add(str(cid))
+        except (json.JSONDecodeError, OSError):
+            pass  # Treat unreadable sidebar as empty — pill stays hidden
+
+    on_disk_ids: set[str] = set()
+    if provider_dir.is_dir():
+        for path in provider_dir.iterdir():
+            name = path.name
+            if name.startswith("_"):
+                continue  # _sidebar.json sentinel
+            if not name.endswith(".json"):
+                continue
+            stem = name[:-5]  # strip .json
+            if stem.endswith(".stream"):
+                stem = stem[:-7]
+            stem = stem.split("__", 1)[0]  # strip gemini's __<msg_id> suffix
+            if stem:
+                on_disk_ids.add(stem)
+
+    missing = sorted(sidebar_ids - on_disk_ids)
+    return {
+        "ok": True,
+        "provider": provider,
+        "sidebar_count": len(sidebar_ids),
+        "on_disk_count": len(on_disk_ids),
+        "missing_count": len(missing),
+        "missing_ids": missing[:50],  # cap so payload stays small
+    }
+
+
+QUERY_HANDLERS: dict[str, Any] = {
+    "sync_status": _query_sync_status,
+}
+
+
+def _is_query_message(msg: dict[str, Any]) -> bool:
+    return msg.get("kind") == "query" and msg.get("query_kind") in QUERY_KINDS
+
+
+def _run_query(msg: dict[str, Any]) -> dict[str, Any]:
+    query_kind = msg.get("query_kind")
+    handler = QUERY_HANDLERS.get(query_kind)
+    if not handler:
+        return {"ok": False, "error": f"unknown_query_kind: {query_kind}"}
+    try:
+        return handler(msg)
+    except Exception as e:  # noqa: BLE001 — query errors must never crash the host
+        return {"ok": False, "error": f"query_failed: {type(e).__name__}: {e}"}
+
+
 def main() -> int:
     while True:
         try:
@@ -606,9 +702,13 @@ def main() -> int:
             return 1
         if msg is None:
             return 0
-        # Action messages dispatch to the CLI (Phase 1 of the extension
-        # transition). Capture messages flow through _extract_target +
-        # _write_capture as before. Two distinct paths, one host process.
+        # Three message paths: read-only queries (no side effects), action
+        # dispatches (CLI subprocesses via ACTION_ALLOWLIST), and captures
+        # (write files via _extract_target + _write_capture). One host
+        # process, three distinct paths.
+        if _is_query_message(msg):
+            _write_message(_run_query(msg))
+            continue
         if _is_action_message(msg):
             _write_message(_run_action(msg))
             continue

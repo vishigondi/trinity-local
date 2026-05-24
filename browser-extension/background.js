@@ -67,6 +67,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // ─── Read-only query path (new — used by the in-provider sync pill) ──
+  // Content scripts ask the host for cheap read-only info like
+  // "how many threads in the sidebar aren't captured locally?" Same
+  // sendNativeMessage one-shot pattern as actions; the host's
+  // QUERY_HANDLERS dispatches on `query_kind`.
+  if (message?.type === "query") {
+    const { type: _ignore, ...hostPayload } = message;
+    hostPayload.kind = "query";  // host gates by kind="query" + query_kind
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, hostPayload, (response) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: "native-host-unavailable",
+                         detail: chrome.runtime.lastError.message });
+          return;
+        }
+        sendResponse(response);
+      });
+    } catch (e) {
+      sendResponse({ ok: false, error: "send-failed", detail: String(e) });
+    }
+    return true;  // signal async sendResponse
+  }
+
   // ─── Phase 1+3 action-dispatch (new — launchpad bridge) ───────
   // Popup/launchpad sends {type: "action", kind: "launch-council",
   // task: "..."} to invoke a CLI command via Native Messaging. The

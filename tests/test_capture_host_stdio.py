@@ -241,6 +241,55 @@ def test_adapter_stream_without_file_stem_uses_conv_id(tmp_path):
     assert written == trinity_home / "conversations" / "claude" / "conv-abc.stream.json"
 
 
+def test_query_sync_status_returns_diff(tmp_path):
+    """The sync_status query computes sidebar_conv_ids - on_disk_conv_ids
+    for one provider and returns the missing count + ids. Used by the
+    in-provider sync pill to decide whether to show + at what count.
+    """
+    trinity_home = tmp_path / "trinity"
+    # Pre-populate captures: _sidebar.json with 3 items, 1 already on disk
+    p_dir = trinity_home / "conversations" / "chatgpt"
+    p_dir.mkdir(parents=True)
+    (p_dir / "_sidebar.json").write_text(json.dumps({
+        "kind": "sidebar_list",
+        "sidebar": {"items": [
+            {"id": "conv-A", "title": "A"},
+            {"id": "conv-B", "title": "B"},
+            {"id": "conv-C", "title": "C"},
+        ]},
+    }))
+    (p_dir / "conv-A.json").write_text("{}")  # only conv-A is on disk
+
+    proc = _spawn_host(trinity_home)
+    proc.stdin.write(_frame({"kind": "query", "query_kind": "sync_status",
+                              "provider": "chatgpt"}))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    assert ack["provider"] == "chatgpt"
+    assert ack["sidebar_count"] == 3
+    assert ack["on_disk_count"] == 1
+    assert ack["missing_count"] == 2
+    assert set(ack["missing_ids"]) == {"conv-B", "conv-C"}
+
+
+def test_query_sync_status_rejects_invalid_provider(tmp_path):
+    """Defense-in-depth: only known provider slugs are accepted."""
+    trinity_home = tmp_path / "trinity"
+    proc = _spawn_host(trinity_home)
+    proc.stdin.write(_frame({"kind": "query", "query_kind": "sync_status",
+                              "provider": "../etc/passwd"}))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+    assert ack["ok"] is False
+    assert "invalid_provider" in ack["error"]
+
+
 def test_sidebar_list_writes_to_sentinel_filename(tmp_path):
     """`kind: "sidebar_list"` payloads land under `<provider>/_sidebar.json`
     — sentinel filename used by the auto-sync diff pipeline to compute
