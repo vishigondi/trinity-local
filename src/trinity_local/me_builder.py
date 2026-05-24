@@ -623,6 +623,26 @@ def build_me_via_lens_pipeline(
     # Stage 4: deterministic basin post-filter
     accepted, orderings = stage4_post_filter(pairs, decisions)
 
+    # Stage 4b: surface structural contradictions between pairs (#141).
+    # Don't smooth over conflicts; force the meta-judgment. Runs after
+    # the basin split because the same-axis-opposite-direction check is
+    # cheaper than re-clustering; saves to ~/.trinity/me/conflicts.json.
+    try:
+        from .me.pipeline import stage4b_surface_conflicts
+
+        conflicts = stage4b_surface_conflicts(accepted, orderings)
+    except Exception:
+        # Detection must never break the lens-build; the contradictions
+        # surface is supplementary signal, not a load-bearing artifact.
+        conflicts = []
+    if conflicts:
+        same_horizon = sum(1 for c in conflicts if c.horizon_match)
+        print(
+            f"  Stage 4b: {len(conflicts)} contradiction(s) detected "
+            f"({same_horizon} same-horizon — see conflicts.json)",
+            flush=True,
+        )
+
     # Persist Stage 0 drop log so chairman drift can be audited across
     # rebuilds. If validators start rejecting >50% it means the chairman
     # is skim-classifying — signal to revisit the prompt.
@@ -648,6 +668,8 @@ def build_me_via_lens_pipeline(
         "candidates": len(pairs),
         "accepted": len(accepted),
         "orderings": len(orderings),
+        "conflicts_total": len(conflicts),
+        "conflicts_same_horizon": sum(1 for c in conflicts if c.horizon_match),
         "chairman": chairman,
         "size_chars": len(me_doc),
     }

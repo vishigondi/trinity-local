@@ -147,6 +147,40 @@ def stage4_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> tupl
     return accepted, orderings
 
 
+def stage4b_surface_conflicts(
+    accepted: list[LensPair],
+    orderings: list[LensPair],
+) -> list:
+    """Detect structural contradictions between LensPairs (#141 slice 2).
+
+    Stage 4b runs after Stage 4 splits accepted vs orderings. Looks for
+    pairs whose poles are literally swapped (same axis, opposite
+    privilege direction) — those are the contradictions today's lens
+    silently averages over. Persists results to
+    ``~/.trinity/me/conflicts.json``.
+
+    The plan's #3 strategic-direction move: don't smooth contradictions,
+    force the meta-judgment. The lens.md renderer + launchpad surfacing
+    (slice 3) read from the persisted file so user sees what needs
+    resolving.
+
+    Returns the detected Conflict list (empty when the corpus has none
+    or when accepted+orderings are empty).
+    """
+    from .conflicts import detect_conflicts, save_conflicts
+
+    all_pairs = list(accepted) + list(orderings)
+    if not all_pairs:
+        # Nothing to compare — clear any stale conflicts file so the
+        # launchpad doesn't show ghost detections from a prior corpus.
+        save_conflicts([])
+        return []
+
+    conflicts = detect_conflicts(all_pairs)
+    save_conflicts(conflicts)
+    return conflicts
+
+
 def render_me_markdown(
     accepted: list[LensPair],
     orderings: list[LensPair],

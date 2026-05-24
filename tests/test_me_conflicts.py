@@ -160,6 +160,55 @@ class TestPersistence:
         assert load_conflicts() == []
 
 
+class TestStage4bWrapper:
+    """Slice 2: stage4b_surface_conflicts() — pipeline-level wrapper
+    that calls detect_conflicts and persists to disk."""
+
+    def test_empty_inputs_clear_stale_file(self, conflicts_env):
+        """When both accepted and orderings are empty, any prior
+        conflicts file from an earlier build is cleared — the launchpad
+        shouldn't show ghost detections from a stale corpus."""
+        from trinity_local.me.pipeline import stage4b_surface_conflicts
+
+        # Seed a stale file
+        save_conflicts([
+            Conflict(
+                pair_a_id="stale", pair_b_id="ghost",
+                pole_a_axis="x", pole_b_axis="y",
+                horizon_a="strategic", horizon_b="strategic",
+                horizon_match=True,
+            )
+        ])
+        assert len(load_conflicts()) == 1  # confirms baseline
+
+        result = stage4b_surface_conflicts([], [])
+        assert result == []
+        assert load_conflicts() == []  # cleared from disk
+
+    def test_detects_and_persists_in_one_call(self, conflicts_env):
+        from trinity_local.me.pipeline import stage4b_surface_conflicts
+
+        accepted = [_pair("speed", "safety")]
+        orderings = [_pair("safety", "speed")]
+        conflicts = stage4b_surface_conflicts(accepted, orderings)
+
+        assert len(conflicts) == 1
+        # And it's on disk
+        assert len(load_conflicts()) == 1
+
+    def test_finds_conflicts_within_accepted_only(self, conflicts_env):
+        """A conflict can exist purely in the accepted pool — not just
+        across the accepted/orderings split."""
+        from trinity_local.me.pipeline import stage4b_surface_conflicts
+
+        accepted = [
+            _pair("infrastructure", "interface"),
+            _pair("interface", "infrastructure"),
+        ]
+        conflicts = stage4b_surface_conflicts(accepted, [])
+        assert len(conflicts) == 1
+
+
 class TestActiveCount:
     def test_count_only_includes_horizon_match(self, conflicts_env):
         save_conflicts([
