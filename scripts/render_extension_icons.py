@@ -5,29 +5,25 @@ rendered the gray puzzle-piece placeholder in the toolbar and the
 extensions list. This script generates the canonical ⠕ Trinity mark
 (U+2815 — Braille pattern dots-135) at 16/32/48/128 px.
 
-**Variant: "04 Filled badge"** — sage fill + cream dots (inverse of
-the original 01 Canonical Ring). Picked 2026-05-23 because the
-filled-disk treatment survives best at 16 px (the actual toolbar
-size) and pops against Chrome's light browser-chrome bar. The
-inverse-contrast treatment is also more distinctive at a glance
-than the thin-ring variants when scrolling the chrome://extensions
-list past other gray-puzzle-piece extensions.
+**Variant: "05 White tile, sage hairline, sage dots"** — picked
+2026-05-23 over the prior "04 Filled badge" (sage disk + cream
+dots). The white-tile ground makes the three dots read instantly
+at 16 px (the actual toolbar size); the sage hairline keeps
+brand color present so the icon doesn't disappear into Chrome's
+light browser-chrome bar. Three sage dots drawn explicitly (not
+through a font) for reliable rendering on Linux CI without
+needing the Apple Braille font.
 
-⠕ is the brand mark Trinity carries on every share artifact (see
-`share_card_base.FOOTER_TAGLINE`) and the launchpad eyebrow
-(`launchpad_template.py`). Same character end-to-end — README badge,
-share cards (still using 01 Canonical Ring framing for editorial
-context), launchpad eyebrow, and the toolbar icon (now 04 Filled
-badge for legibility).
+The three dots sit at the canonical ⠕ braille positions:
+top-left (dot 1), bottom-left (dot 3), middle-right (dot 5).
+Same arrangement Trinity carries on share artifacts and launchpad
+eyebrow — visual continuity across surfaces, just rendered as
+geometry instead of a glyph here so the toolbar icon is
+self-contained.
 
 Re-run if `design_system.COLORS` palette changes or the mark needs
 updating. Output lands under `browser-extension/icons/` (4 PNGs)
 plus a sibling `docs/favicon.png` rendered at 64 px for the site.
-
-Font fallback chain: Apple Braille → Apple Symbols → DejaVu Sans →
-Pillow default bitmap. Most system sans fonts render ⠕ as the
-tofu-box "missing glyph"; the chain ensures real Braille rendering
-on macOS dev machines AND Linux CI / contributor machines.
 """
 from __future__ import annotations
 
@@ -37,7 +33,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from trinity_local.design_system import COLORS
 
@@ -46,19 +42,6 @@ SIZES = [16, 32, 48, 128]
 OUT_DIR = REPO_ROOT / "browser-extension" / "icons"
 FAVICON_PATH = REPO_ROOT / "docs" / "favicon.png"
 FAVICON_SIZE = 64
-
-# ⠕ — U+2815, Braille pattern dots-135. The Trinity brand mark.
-MARK = "⠕"
-
-# Font candidates that actually carry Braille glyphs. Order: macOS
-# Braille-specific, macOS symbol, Linux DejaVu, then ultimate fallback.
-_FONT_CANDIDATES = [
-    "/System/Library/Fonts/Apple Braille.ttf",
-    "/System/Library/Fonts/Apple Symbols.ttf",
-    "/Library/Fonts/Apple Braille.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-]
 
 
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:
@@ -72,59 +55,53 @@ def _scaled(size: int) -> tuple[int, int]:
     return size * scale, scale
 
 
-def _font_with_braille(pixel_size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for path in _FONT_CANDIDATES:
-        if not Path(path).exists():
-            continue
-        try:
-            font = ImageFont.truetype(path, pixel_size)
-            # Verify the font actually renders ⠕ — Pillow will return
-            # zero width for missing glyphs, so we check the bbox.
-            bbox = font.getbbox(MARK)
-            if bbox and (bbox[2] - bbox[0]) > 0:
-                return font
-        except OSError:
-            continue
-    # Last-resort fallback. Will likely render a tofu box; ship a
-    # placeholder so the script doesn't crash in CI.
-    return ImageFont.load_default()
-
-
 def render_icon(canvas_size: int) -> Image.Image:
-    """Render the "04 Filled badge" variant: sage disk + cream ⠕ dots.
+    """Render variant 05: white tile + sage hairline + 3 sage dots.
 
-    Sage fill instead of cream → maximum legibility at toolbar size
-    (16 px) where thin strokes vanish into the browser chrome. Cream
-    dots provide high-contrast brand mark legibility.
+    Drawn geometrically (no font dependency). Hairline thickness and
+    dot radius are sized as fractions of the canvas so the visual
+    weight stays balanced across 16/32/48/128 px.
     """
     work_size, scale = _scaled(canvas_size)
     img = Image.new("RGBA", (work_size, work_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    fill = _hex_to_rgb(COLORS["action_primary"])  # sage — #255847 — disk
-    glyph = _hex_to_rgb(COLORS["bg_base"])        # cream — #f5efe3 — ⠕ dots
+    sage = _hex_to_rgb(COLORS["action_primary"])  # #255847 — hairline + dots
+    cream = _hex_to_rgb(COLORS["bg_base"])        # #f5efe3 — tile ground
 
-    # Solid sage disk. No outer ring — the filled treatment IS the
-    # silhouette (mass beats stroke at 16 px). 1 px inset prevents
-    # the LANCZOS downsize from clipping anti-aliased edges.
+    # Rounded-square tile with sage hairline border. Corner radius is
+    # ~14% of canvas (Material-icon proportion); stroke is ~3% of
+    # canvas, clamped to >=2 px in working space so it survives the
+    # LANCZOS downsize without disappearing at 16 px.
     inset = 1
-    draw.ellipse(
+    corner_radius = max(2, int(work_size * 0.14))
+    stroke = max(2, int(work_size * 0.03))
+    draw.rounded_rectangle(
         (inset, inset, work_size - inset, work_size - inset),
-        fill=fill,
+        radius=corner_radius,
+        fill=cream,
+        outline=sage,
+        width=stroke,
     )
 
-    # Center the ⠕ glyph in cream. Braille glyphs sit high in the
-    # em-box, so we measure the actual ink bbox (not the font bbox)
-    # and translate accordingly — keeps the mark visually centered,
-    # not just baseline-aligned.
-    glyph_size = int(work_size * 0.58)
-    font = _font_with_braille(glyph_size)
-    bbox = draw.textbbox((0, 0), MARK, font=font)
-    glyph_w = bbox[2] - bbox[0]
-    glyph_h = bbox[3] - bbox[1]
-    cx = (work_size - glyph_w) // 2 - bbox[0]
-    cy = (work_size - glyph_h) // 2 - bbox[1]
-    draw.text((cx, cy), MARK, fill=glyph, font=font)
+    # Three dots in the braille ⠕ pattern. Positions are normalized
+    # to the 0..1 unit square inside the inset, then scaled. Dot
+    # radius is ~9.5% of canvas — large enough to read as a dot at
+    # 16 px without crowding the others.
+    dot_r = int(work_size * 0.095)
+    # (x_frac, y_frac) — column 1 top, column 2 middle, column 1 bottom
+    positions = [
+        (0.36, 0.28),  # top-left  (braille dot 1)
+        (0.64, 0.50),  # middle-right (braille dot 5)
+        (0.36, 0.72),  # bottom-left (braille dot 3)
+    ]
+    for fx, fy in positions:
+        cx = int(work_size * fx)
+        cy = int(work_size * fy)
+        draw.ellipse(
+            (cx - dot_r, cy - dot_r, cx + dot_r, cy + dot_r),
+            fill=sage,
+        )
 
     if scale != 1:
         img = img.resize((canvas_size, canvas_size), Image.LANCZOS)

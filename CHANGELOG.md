@@ -7,6 +7,45 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.7 — gemini.google.com capture: XHR interception lands] — 2026-05-23
+
+Live debug session caught the gemini-capture launch-blocker that v1.8's
+task #135 adapter shipped but couldn't actually fire. Symptoms: extension
+reloaded, `window.fetch.name === "trinityFetch"`, all 3 adapters
+registered, 17 batchexecute POSTs returning 200 in the network panel —
+but zero adapter.adapt calls and zero files in
+`~/.trinity/conversations/gemini/`. Root cause discovered via direct
+DevTools probe: gemini's batchexecute RPCs go through
+`XMLHttpRequest`, not `fetch`. The page-hook only wrapped fetch, so
+gemini's XHR traffic flew straight past.
+
+- `browser-extension/page-hook.js`: added XHR interception that mirrors
+  the fetch path — `XMLHttpRequest.prototype.open` captures URL/method
+  on the instance via `classifyRequest()`; `.send` snapshots
+  `request_body` for batchexecute's `application/x-www-form-urlencoded`
+  payload and registers a `load` listener that pipes `responseText`
+  through the same adapter dispatch (`__TRINITY_ADAPTERS[provider].adapt`)
+  + `emit()` postMessage relay. Same payload shape downstream; the
+  capture host doesn't know whether the body originated from a fetch
+  stream or an XHR. Claude.ai + chatgpt.com unaffected (their bundles
+  use fetch); they keep going through the unchanged fetch path.
+- `browser-extension/content-script.js`: guard against
+  `chrome.runtime.id === undefined` ("Extension context invalidated"
+  thrown from line 22 of every old tab once the user reloads the
+  extension in `chrome://extensions`). Previously every postMessage
+  from page-hook threw and spammed the page console; now we skip
+  silently when the context is gone (next page reload re-injects a
+  fresh content-script with a live runtime). Caught live in the same
+  debug session on gemini.google.com.
+- `browser-extension/manifest.json` 0.2.3 → 0.2.4.
+- `docs/INSTALL-extension.md` extension version reference synced.
+
+Principle reinforced: capture surfaces need both fetch AND XHR
+interception by default. The fetch-only assumption from v1.6 spec
+held for the OpenAI/Anthropic web apps but broke on Google's bundle —
+the kind of provider-shape drift that the lab-by-lab capture path is
+guaranteed to keep producing.
+
 ## [v1.7.6 — Trinity heals itself: `extension repair` flagship demo] — 2026-05-23
 
 Drift caught live this session: ChatGPT moved their streaming endpoint
@@ -438,7 +477,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1691<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1693<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

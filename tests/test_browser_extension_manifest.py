@@ -121,3 +121,40 @@ def test_native_messaging_permission_declared():
     assert "nativeMessaging" in perms, (
         "missing 'nativeMessaging' permission — chrome.runtime.connectNative will fail"
     )
+
+
+def test_page_hook_wraps_both_fetch_and_xhr():
+    """page-hook.js must wrap BOTH window.fetch AND XMLHttpRequest.
+
+    gemini.google.com dispatches its batchexecute RPCs through XHR, not
+    fetch. A page-hook that only wraps fetch silently drops every
+    gemini capture (caught live 2026-05-23 — `window.fetch.name` was
+    "trinityFetch" but 17 batchexecute POSTs hit the network panel
+    with zero adapter calls). Both wrappers must exist or the gemini
+    surface goes dark.
+    """
+    src = (EXT_DIR / "page-hook.js").read_text()
+    assert 'Object.defineProperty(window, "fetch"' in src or "window.fetch = trinityFetch" in src, (
+        "page-hook.js no longer installs the fetch wrapper"
+    )
+    assert "XMLHttpRequest.prototype.open" in src, (
+        "page-hook.js must wrap XMLHttpRequest.prototype.open — gemini uses XHR for batchexecute"
+    )
+    assert "XMLHttpRequest.prototype.send" in src, (
+        "page-hook.js must wrap XMLHttpRequest.prototype.send — gemini uses XHR for batchexecute"
+    )
+
+
+def test_content_script_guards_against_invalidated_context():
+    """content-script.js must check chrome.runtime.id before sendMessage.
+
+    When the user reloads the extension in chrome://extensions, every
+    previously-injected content-script keeps running in already-open
+    tabs but loses access to chrome.* APIs. Without a guard, every
+    postMessage from page-hook throws "Extension context invalidated"
+    and spams the page console. Caught 2026-05-23 on gemini.google.com.
+    """
+    src = (EXT_DIR / "content-script.js").read_text()
+    assert "chrome?.runtime?.id" in src or "chrome.runtime.id" in src, (
+        "content-script.js must guard against extension context invalidation"
+    )

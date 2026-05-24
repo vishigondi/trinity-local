@@ -198,6 +198,75 @@
     console.warn("[trinity-hook] defineProperty failed, falling back to writable assignment", e);
   }
 
-  console.log("[trinity-hook] fetch wrapper installed on", location.hostname,
+  // XMLHttpRequest wrapper. gemini.google.com's batchexecute RPCs go
+  // through XHR, not fetch — verified 2026-05-23 in live DevTools probe
+  // (window.fetch.name was "trinityFetch" but 17 batchexecute POSTs hit
+  // the network panel with zero adapter calls). Wrapping only fetch
+  // misses gemini entirely. We mirror the fetch path: open captures
+  // the URL/method on the XHR instance, send snapshots the request
+  // body and registers a 'load' listener that reads responseText and
+  // dispatches through the same adapter pipeline. Same emit() / same
+  // adapters / same payload shape downstream.
+  const OrigOpen = XMLHttpRequest.prototype.open;
+  const OrigSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function trinityXhrOpen(method, url) {
+    try {
+      this.__trinity_url = url;
+      this.__trinity_method = (method || "GET").toUpperCase();
+      this.__trinity_classification = classifyRequest(url, this.__trinity_method);
+    } catch (e) {
+      // Capture must never break the page; classifier errors are silent.
+    }
+    return OrigOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function trinityXhrSend(body) {
+    if (this.__trinity_classification) {
+      // Snapshot the request body where possible. Gemini's batchexecute
+      // sends application/x-www-form-urlencoded strings; sufficient for
+      // adapter to extract the user's prompt.
+      let request_body = null;
+      try {
+        if (typeof body === "string") {
+          request_body = body;
+        } else if (body instanceof URLSearchParams) {
+          request_body = body.toString();
+        }
+      } catch {
+        request_body = null;
+      }
+      this.__trinity_request_body = request_body;
+      this.addEventListener("load", function trinityXhrOnLoad() {
+        try {
+          if (this.status < 200 || this.status >= 300) return;
+          const classification = this.__trinity_classification;
+          const url = this.__trinity_url;
+          const method = this.__trinity_method;
+          const buf = this.responseText || "";
+          const captured_at = new Date().toISOString();
+          const adapter = window.__TRINITY_ADAPTERS?.[classification.provider];
+          if (classification.kind === "stream") {
+            if (adapter?.adapt) {
+              emit(adapter.adapt({
+                url, body_text: buf, method, captured_at,
+                page_href: location.href,
+                request_body: this.__trinity_request_body,
+              }));
+            } else {
+              emit({ provider: classification.provider, kind: "stream", url, method, body_text: buf, captured_at });
+            }
+          } else if (classification.kind === "canonical") {
+            let json;
+            try { json = JSON.parse(buf); } catch { return; }
+            emit({ provider: classification.provider, kind: "canonical", url, method, conversation: json, captured_at });
+          }
+        } catch (e) {
+          console.warn("[trinity-hook] xhr capture failed", e);
+        }
+      });
+    }
+    return OrigSend.apply(this, arguments);
+  };
+
+  console.log("[trinity-hook] fetch + xhr wrappers installed on", location.hostname,
               "— window.fetch.name:", window.fetch.name);
 })();
