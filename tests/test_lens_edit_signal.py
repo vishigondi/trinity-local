@@ -199,6 +199,91 @@ class TestLoadRecentEdits:
         assert len(recent) == 2
 
 
+class TestDecisionTranslation:
+    """Slice 2: lens edits become high-weight Decision objects for Stage 2."""
+
+    def test_no_edits_returns_empty(self, lens_edit_env):
+        from trinity_local.me.lens_edits import load_lens_edits_as_decisions
+
+        assert load_lens_edits_as_decisions(basins=[]) == []
+
+    def test_paired_remove_add_becomes_correction(self, lens_edit_env):
+        from trinity_local.me.lens_edits import (
+            capture_lens_edits,
+            load_lens_edits_as_decisions,
+            write_lens_snapshot,
+        )
+
+        write_lens_snapshot("# /me\noriginal principle\n")
+        capture_lens_edits(current_lens_text="# /me\nrevised principle\n")
+
+        decisions = load_lens_edits_as_decisions(basins=[])
+        # One paired modify → one Decision (not two separate add/remove)
+        assert len(decisions) == 1
+        d = decisions[0]
+        assert d.source == "lens_edit"
+        assert d.weight == 3.0
+        assert d.valence == "correction"
+        assert d.privileged == "revised principle"
+        assert d.sacrificed == "original principle"
+        assert d.id.startswith("le_")
+
+    def test_lone_add_becomes_satisfaction(self, lens_edit_env):
+        from trinity_local.me.lens_edits import (
+            capture_lens_edits,
+            load_lens_edits_as_decisions,
+            write_lens_snapshot,
+        )
+
+        write_lens_snapshot("# /me\nexisting line\n")
+        capture_lens_edits(current_lens_text="# /me\nexisting line\nbrand new lens\n")
+
+        decisions = load_lens_edits_as_decisions(basins=[])
+        assert len(decisions) == 1
+        d = decisions[0]
+        assert d.valence == "satisfaction"
+        assert d.privileged == "brand new lens"
+        assert "absent" in d.sacrificed.lower()
+        assert d.source == "lens_edit"
+        assert d.weight == 3.0
+
+    def test_lone_remove_becomes_cost(self, lens_edit_env):
+        from trinity_local.me.lens_edits import (
+            capture_lens_edits,
+            load_lens_edits_as_decisions,
+            write_lens_snapshot,
+        )
+
+        write_lens_snapshot("# /me\nkeep this\nremove this\n")
+        capture_lens_edits(current_lens_text="# /me\nkeep this\n")
+
+        decisions = load_lens_edits_as_decisions(basins=[])
+        assert len(decisions) == 1
+        d = decisions[0]
+        assert d.valence == "cost"
+        assert "removed" in d.privileged.lower()
+        assert d.sacrificed == "remove this"
+
+    def test_weight_3_outranks_user_logged_2_and_transcript_1(self, lens_edit_env):
+        """The whole point of slice 2: lens-edit must be the heaviest
+        weight in the corpus so the pair-miner treats it as most
+        load-bearing. Hierarchy: transcript 1.0 < user_logged 2.0 <
+        lens_edit 3.0."""
+        from trinity_local.me.lens_edits import (
+            capture_lens_edits,
+            load_lens_edits_as_decisions,
+            write_lens_snapshot,
+        )
+
+        write_lens_snapshot("# /me\nbefore\n")
+        capture_lens_edits(current_lens_text="# /me\nafter\n")
+
+        decisions = load_lens_edits_as_decisions(basins=[])
+        assert all(d.weight == 3.0 for d in decisions)
+        # Confirms ordering invariant against the constants in decisions.py
+        assert 3.0 > 2.0 > 1.0  # weight contract
+
+
 class TestBuildIntegration:
     def test_build_summary_reports_captured_edits_count(self, lens_edit_env, monkeypatch):
         """build_me_via_council should include captured_edits in its

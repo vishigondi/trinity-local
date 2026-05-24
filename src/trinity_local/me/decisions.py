@@ -56,11 +56,13 @@ class Decision:
     # highest-quality signal where it lives (at the decision), not where
     # it's cheapest to extract (in the transcript).
     would_flip_if: str = ""
-    # `source`: provenance of this decision.
-    #   "transcript"   = Stage 2 chairman extracted from prompt history (default)
-    #   "user_logged"  = user invoked `trinity-local decision-log` interactively
-    #   "lens_edit"    = derived from a user edit to lens.md (Extension #4)
-    # Stage 2 corpus augmentation prioritizes user_logged + lens_edit at 2x weight.
+    # `source`: provenance of this decision. Weight hierarchy reflects
+    # how directly the user asserted the signal:
+    #   "transcript"   = Stage 2 chairman extracted from prompt history (weight 1.0, default)
+    #   "user_logged"  = user invoked `trinity-local decision-log` interactively (weight 2.0)
+    #   "lens_edit"    = derived from a user edit to lens.md — strongest signal,
+    #                    user is directly asserting taste rather than reacting
+    #                    to council output (weight 3.0; #140 slice 2)
     source: str = "transcript"
     # `logged_at`: ISO8601 timestamp for user_logged / lens_edit decisions;
     # blank for transcript-extracted (the prompt_id already provides chronology).

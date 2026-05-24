@@ -560,34 +560,45 @@ def build_me_via_lens_pipeline(
     stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
     decisions = stage2_parse(stage2_result.stdout or "", basins)
 
-    # Prepend user-logged decisions from `trinity-local decision-log`.
-    # These carry the highest-quality counterfactual signal because
-    # they were captured at decision-time (vs. retroactive chairman
-    # extraction which rationalizes). Weight 2.0 → pair-miner treats
-    # them as load-bearing evidence. Plan iter 1 (2026-05-23), task #137.
+    # Prepend high-weight decisions from two sources:
+    #   1. `trinity-local decision-log` → user_logged (weight 2.0).
+    #      Live capture at decision-time; HIGH-QUALITY counterfactual.
+    #   2. lens.md edits → lens_edit (weight 3.0). The strongest signal
+    #      Trinity collects — the user is directly editing the lens, not
+    #      just reacting to council output. Plan iter 1 (2026-05-23),
+    #      task #140 slice 2.
+    # Both prepended so id collisions resolve in their favor over
+    # transcript-extracted (the canonical entries are the user-asserted
+    # ones).
     try:
         from .me.decisions import load_decision_log
         logged = load_decision_log(basins)
     except Exception:
         logged = []
-    if logged:
-        # Prepend so any id collisions resolve in favor of the logged
-        # entry (it's the canonical version). De-dupe by (privileged,
-        # sacrificed, verbatim) — same trade-off logged twice survives
-        # as one entry.
+    try:
+        from .me.lens_edits import load_lens_edits_as_decisions
+        edited = load_lens_edits_as_decisions(basins)
+    except Exception:
+        edited = []
+    augmentations = edited + logged  # lens-edit FIRST (highest priority)
+    if augmentations:
+        # De-dupe by (privileged, sacrificed, verbatim) — same trade-off
+        # captured twice survives as one entry (highest-weight wins
+        # because it comes first).
         seen_keys: set[tuple[str, str, str]] = set()
         deduped: list = []
-        for d in logged + decisions:
+        for d in augmentations + decisions:
             key = (d.privileged.lower(), d.sacrificed.lower(), d.verbatim.lower())
             if key in seen_keys:
                 continue
             seen_keys.add(key)
             deduped.append(d)
-        print(
-            f"           → {len(decisions)} decisions extracted, "
-            f"+ {len(logged)} from decision_log.jsonl (weight=2.0)",
-            flush=True,
-        )
+        summary_parts = [f"{len(decisions)} decisions extracted"]
+        if edited:
+            summary_parts.append(f"+ {len(edited)} from lens_edits.jsonl (weight=3.0)")
+        if logged:
+            summary_parts.append(f"+ {len(logged)} from decision_log.jsonl (weight=2.0)")
+        print("           → " + ", ".join(summary_parts), flush=True)
         decisions = deduped
     else:
         print(f"           → {len(decisions)} decisions extracted", flush=True)

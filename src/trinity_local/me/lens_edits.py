@@ -160,16 +160,125 @@ def write_lens_snapshot(lens_text: str) -> None:
     lens_snapshot_path().write_text(lens_text, encoding="utf-8")
 
 
-def load_recent_edits(limit: int = 50) -> list[LensEdit]:
-    """Read back recent edits — used by the feed-back side (Stage 2
-    corpus augmentation) and by the launchpad surfacing ("N edits since
-    last dream"). Returns most-recent-first."""
+def load_lens_edits_as_decisions(basins: list) -> list:
+    """Translate captured lens.md edits into high-weight Decision objects
+    for Stage 2 corpus augmentation (#140 slice 2).
+
+    Pairing logic — applied at load time so the on-disk capture stays
+    simple (each line-level delta is one JSONL entry):
+
+    - Adjacent ``remove`` followed immediately by ``add`` from the same
+      timestamp = user modified that line. Emit one Decision with
+      ``privileged=<new line>``, ``sacrificed=<old line>``,
+      ``valence="correction"``.
+    - Lone ``add`` (no remove preceding it in the same ts batch) = user
+      asserted a new principle. ``privileged=<new line>``,
+      ``sacrificed="(absent before user added it)"``,
+      ``valence="satisfaction"``.
+    - Lone ``remove`` = user actively removed a principle.
+      ``privileged="(user removed this lens)"``,
+      ``sacrificed=<old line>``, ``valence="cost"``.
+
+    Weight 3.0 — stronger than user_logged decisions (2.0) because the
+    user edited the *lens itself*, not a council outcome. Hierarchy:
+    direct lens edit (3.0) > live decision-log capture (2.0) >
+    transcript-extracted (1.0).
+
+    ``basins`` is accepted for API symmetry with ``load_decision_log``;
+    lens edits don't carry prompt-id context so basin tagging is left
+    None (pair-miner uses cross-basin matching as usual).
+    """
+    from .decisions import Decision
+
+    edits = _load_all_edits()
+    if not edits:
+        return []
+
+    decisions: list[Decision] = []
+    next_id = 1
+
+    # Group by timestamp (one build cycle's batch of edits) so we only
+    # pair remove+add WITHIN the same batch, not across builds.
+    batches: dict[str, list[LensEdit]] = {}
+    order: list[str] = []
+    for edit in edits:
+        if edit.ts not in batches:
+            batches[edit.ts] = []
+            order.append(edit.ts)
+        batches[edit.ts].append(edit)
+
+    for ts in order:
+        batch = batches[ts]
+        i = 0
+        while i < len(batch):
+            e = batch[i]
+            if (
+                e.op == "remove"
+                and i + 1 < len(batch)
+                and batch[i + 1].op == "add"
+            ):
+                # Modify: paired remove+add → correction
+                paired = batch[i + 1]
+                decisions.append(
+                    Decision(
+                        id=f"le_{next_id:03d}",
+                        privileged=paired.after.strip() or "(empty)",
+                        sacrificed=e.before.strip() or "(empty)",
+                        valence="correction",
+                        basin=None,
+                        verbatim=f"User edit: '{e.before}' → '{paired.after}'",
+                        source="lens_edit",
+                        logged_at=ts,
+                        weight=3.0,
+                    )
+                )
+                next_id += 1
+                i += 2
+                continue
+            if e.op == "add":
+                decisions.append(
+                    Decision(
+                        id=f"le_{next_id:03d}",
+                        privileged=e.after.strip() or "(empty)",
+                        sacrificed="(absent before user added it)",
+                        valence="satisfaction",
+                        basin=None,
+                        verbatim=f"User added to lens: '{e.after}'",
+                        source="lens_edit",
+                        logged_at=ts,
+                        weight=3.0,
+                    )
+                )
+                next_id += 1
+            elif e.op == "remove":
+                decisions.append(
+                    Decision(
+                        id=f"le_{next_id:03d}",
+                        privileged="(user removed this lens)",
+                        sacrificed=e.before.strip() or "(empty)",
+                        valence="cost",
+                        basin=None,
+                        verbatim=f"User removed from lens: '{e.before}'",
+                        source="lens_edit",
+                        logged_at=ts,
+                        weight=3.0,
+                    )
+                )
+                next_id += 1
+            i += 1
+
+    return decisions
+
+
+def _load_all_edits() -> list[LensEdit]:
+    """Internal: read the full JSONL without limit/reversal (for
+    decision-translation, where ordering by ts ascending matters)."""
     import json
 
     path = lens_edits_path()
     if not path.exists():
         return []
-    edits: list[LensEdit] = []
+    out: list[LensEdit] = []
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -178,7 +287,7 @@ def load_recent_edits(limit: int = 50) -> list[LensEdit]:
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            edits.append(
+            out.append(
                 LensEdit(
                     ts=obj.get("ts", ""),
                     op=obj.get("op", ""),
@@ -189,5 +298,12 @@ def load_recent_edits(limit: int = 50) -> list[LensEdit]:
             )
     except OSError:
         return []
+    return out
+
+
+def load_recent_edits(limit: int = 50) -> list[LensEdit]:
+    """Read back recent edits — used by the launchpad surfacing
+    ("N edits since last dream"). Returns most-recent-first."""
+    edits = _load_all_edits()
     edits.reverse()
     return edits[:limit]
