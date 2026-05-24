@@ -66,9 +66,13 @@ context in claude.md "Launch arc" section):
   shipped at `trinity-local handoff <provider>` and the MCP `handoff`
   tool (task #119, done).
 - **#121 Gemini-Google handoff branch** — verify Antigravity's Google
-  data integration surfaces correctly through `dispatch_runner` when
-  Trinity hands off mid-conversation. Lights up Gmail / Drive /
-  Calendar context Claude can't see.
+  data integration surfaces correctly through the handoff CLI
+  (`trinity-local handoff antigravity`) when Trinity hands off
+  mid-conversation. Lights up Gmail / Drive / Calendar context Claude
+  can't see. (Originally referenced `dispatch_runner`; that module
+  was retired 2026-05-17 and replaced by capture-host's Native
+  Messaging dispatch — see `retired_names.py`. The handoff CLI is
+  the relevant entrypoint for this branch.)
 - **#116 Cross-provider benchmark publication** (shipped 2026-05-22,
   commit `ba41133`; claude card refreshed same day from a fresh N=45
   run) — three provider eval cards live at
