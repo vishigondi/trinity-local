@@ -34,6 +34,15 @@
     { provider: "chatgpt", host: "chat.openai.com", streamPath: "/backend-api/f/conversation" },
     { provider: "chatgpt", host: "chat.openai.com", streamPath: "/backend-api/conversation" },
     { provider: "gemini", host: "gemini.google.com", streamPath: "/_/BardChatUi/data/batchexecute" },
+    // StreamGenerate is the actual conversation streaming endpoint.
+    // batchexecute carries telemetry/control RPCs (bard_activity_enabled,
+    // etc.); the real prompt+response flows through StreamGenerate. Added
+    // 2026-05-23 after `trinity-local extension repair --har` council
+    // (bundle extrepair_a6688c43b62bbbe7): Claude + Codex + Antigravity
+    // chairman-synthesized this as the missing pattern explaining why
+    // gemini captures landed with empty assistant_text. classifyRequest's
+    // includes() check matches without regex changes — same adapter.
+    { provider: "gemini", host: "gemini.google.com", streamPath: "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate" },
   ];
 
   function classifyRequest(url, method) {
