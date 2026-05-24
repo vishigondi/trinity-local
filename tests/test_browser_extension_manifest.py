@@ -145,6 +145,31 @@ def test_page_hook_wraps_both_fetch_and_xhr():
     )
 
 
+def test_page_hook_classifies_sidebar_list_endpoints():
+    """page-hook.js must classify recent-conversations list endpoints as
+    `kind: "sidebar_list"` so the auto-sync diff pipeline can compute
+    "what's on the server that isn't on disk yet." claude.ai uses
+    GET /api/organizations/<org>/chat_conversations (no trailing /<id>);
+    chatgpt.com uses GET /backend-api/conversations. Distinct from the
+    canonical single-thread endpoints which DO have /<id> suffix and
+    are already classified as `kind: "canonical"`.
+    """
+    src = (EXT_DIR / "page-hook.js").read_text()
+    assert '"sidebar_list"' in src, (
+        "page-hook.js must emit kind: 'sidebar_list' for the recent-"
+        "conversations list endpoints — needed by the mobile-to-"
+        "desktop auto-sync diff pipeline"
+    )
+    # Claude: ends-with check on /chat_conversations (no /<id> suffix)
+    assert 'endsWith("/chat_conversations")' in src, (
+        "page-hook.js missing claude sidebar_list endpoint detection"
+    )
+    # ChatGPT: ends-with check on /backend-api/conversations
+    assert 'endsWith("/backend-api/conversations")' in src, (
+        "page-hook.js missing chatgpt sidebar_list endpoint detection"
+    )
+
+
 def test_content_script_guards_against_invalidated_context():
     """content-script.js must check chrome.runtime.id before sendMessage.
 

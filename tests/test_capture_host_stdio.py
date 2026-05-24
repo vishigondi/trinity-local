@@ -241,6 +241,46 @@ def test_adapter_stream_without_file_stem_uses_conv_id(tmp_path):
     assert written == trinity_home / "conversations" / "claude" / "conv-abc.stream.json"
 
 
+def test_sidebar_list_writes_to_sentinel_filename(tmp_path):
+    """`kind: "sidebar_list"` payloads land under `<provider>/_sidebar.json`
+    — sentinel filename used by the auto-sync diff pipeline to compute
+    "what's in the sidebar that we don't have on disk." Distinct from
+    per-thread captures so it can be re-fetched/overwritten without
+    touching real conversation files.
+    """
+    trinity_home = tmp_path / "trinity"
+    proc = _spawn_host(trinity_home)
+
+    payload = {
+        "kind": "captured",
+        "payload": {
+            "provider": "claude",
+            "kind": "sidebar_list",
+            "url": "https://claude.ai/api/organizations/o/chat_conversations?limit=10",
+            "method": "GET",
+            "sidebar": [
+                {"uuid": "conv-1", "name": "First chat"},
+                {"uuid": "conv-2", "name": "Second chat"},
+            ],
+            "captured_at": "2026-05-23T22:00:00Z",
+        },
+    }
+    proc.stdin.write(_frame(payload))
+    proc.stdin.flush()
+    ack = _read_frame(proc.stdout)
+    proc.stdin.close()
+    proc.wait(timeout=5)
+
+    assert ack["ok"] is True
+    assert ack["conv_id"] == "_sidebar"
+    written = Path(ack["path"])
+    assert written == trinity_home / "conversations" / "claude" / "_sidebar.json"
+    saved = json.loads(written.read_text())
+    assert saved["kind"] == "sidebar_list"
+    assert len(saved["sidebar"]) == 2
+    assert saved["sidebar"][0]["uuid"] == "conv-1"
+
+
 def test_unrecognized_payload_errors_but_keeps_host_alive(tmp_path):
     trinity_home = tmp_path / "trinity"
     proc = _spawn_host(trinity_home)

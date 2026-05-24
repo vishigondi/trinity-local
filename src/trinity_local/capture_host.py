@@ -75,6 +75,13 @@ def _extract_target(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]] 
         if not conv_id:
             return None
         return provider, str(conv_id), conv
+    if kind == "sidebar_list":
+        # Recent-conversations list snapshot. Used by the auto-sync diff
+        # pipeline to compute "what's in the sidebar that we don't have
+        # on disk yet?" — sentinel filename `_sidebar.json` per provider
+        # so it doesn't collide with per-thread captures. Overwrites on
+        # each fetch — only the latest snapshot is needed for the diff.
+        return provider, "_sidebar", dict(raw)
     if kind == "adapter_stream":
         # Per-provider adapter (e.g. adapters/claude.js) has normalized
         # the streamed SSE body. The adapter provides conv_id directly.

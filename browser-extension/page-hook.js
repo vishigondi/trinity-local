@@ -62,6 +62,23 @@
           if (pat.provider === "chatgpt" && /\/backend-api\/conversation\/[^/]+$/.test(u.pathname) && method === "GET") {
             return { provider: "chatgpt", kind: "canonical" };
           }
+          // Sidebar-list endpoints — return arrays of {conv_id, title}
+          // for the recent-conversations sidebar. Used by the auto-sync
+          // diff pipeline: compare this list against on-disk captures
+          // → mobile-to-desktop "what's missing" count. claude.ai:
+          // GET /api/organizations/<org>/chat_conversations?limit=N
+          // (no /<id> suffix). chatgpt.com:
+          // GET /backend-api/conversations?limit=N. Both are paginated
+          // listing endpoints distinct from the canonical single-thread
+          // fetch above. Captured under kind="sidebar_list" so the
+          // capture host writes them to a sentinel filename
+          // (_sidebar.json) without conflating with per-thread state.
+          if (pat.provider === "claude" && u.pathname.endsWith("/chat_conversations") && method === "GET") {
+            return { provider: "claude", kind: "sidebar_list" };
+          }
+          if (pat.provider === "chatgpt" && u.pathname.endsWith("/backend-api/conversations") && method === "GET") {
+            return { provider: "chatgpt", kind: "sidebar_list" };
+          }
         }
       }
     } catch (e) {
@@ -169,6 +186,23 @@
             conversation: json,
             captured_at: new Date().toISOString(),
           });
+        } else if (classification.kind === "sidebar_list") {
+          // Recent-conversations list endpoint. Carries an array of
+          // {conv_id, title, updated_at, ...} entries the host renders
+          // in the sidebar. We capture it under a sentinel filename
+          // (`_sidebar.json`) so the auto-sync diff pipeline can
+          // compare sidebar conv_ids vs on-disk capture conv_ids and
+          // surface a "N new to sync" count. Overwrites on each fetch
+          // — latest snapshot is what matters.
+          const json = await captured.json();
+          emit({
+            provider: classification.provider,
+            kind: "sidebar_list",
+            url,
+            method,
+            sidebar: json,
+            captured_at: new Date().toISOString(),
+          });
         }
       } catch (e) {
         // Capture must never break the page. Swallow.
@@ -267,6 +301,10 @@
             let json;
             try { json = JSON.parse(buf); } catch { return; }
             emit({ provider: classification.provider, kind: "canonical", url, method, conversation: json, captured_at });
+          } else if (classification.kind === "sidebar_list") {
+            let json;
+            try { json = JSON.parse(buf); } catch { return; }
+            emit({ provider: classification.provider, kind: "sidebar_list", url, method, sidebar: json, captured_at });
           }
         } catch (e) {
           console.warn("[trinity-hook] xhr capture failed", e);
