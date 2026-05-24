@@ -270,6 +270,52 @@ class TestActionableSignals:
         # gemini → never captured (directory missing)
         assert "not yet captured" in out
 
+    def test_captures_show_missing_from_sidebar_when_unsynced(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """When a provider has captures but the sidebar shows more
+        threads than the on-disk count (real production signal we
+        observed: chatgpt 37 files, sidebar 38, 1 missing), the
+        Captures: line must show the missing count so the user knows
+        to run auto-sync. Same data source as the in-provider sync pill."""
+        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+        from trinity_local.commands import extension_repair as repair_mod
+        from trinity_local import capture_host as capture_mod
+
+        monkeypatch.setattr(
+            repair_mod, "diagnose",
+            lambda: {"providers": {
+                "claude":  {"exists": True, "captures": 30, "hours_since_last": 1.0},
+                "chatgpt": {"exists": True, "captures": 37, "hours_since_last": 2.5},
+                "gemini":  {"exists": True, "captures": 100, "hours_since_last": 0.5},
+            }},
+        )
+
+        def fake_sync(payload):
+            slug = payload.get("provider")
+            # claude fully synced (0 missing); chatgpt has 5 missing;
+            # gemini fully synced
+            if slug == "chatgpt":
+                return {"ok": True, "sidebar_count": 42, "on_disk_count": 37, "missing_count": 5}
+            return {"ok": True, "sidebar_count": 30, "on_disk_count": 30, "missing_count": 0}
+
+        monkeypatch.setattr(capture_mod, "_query_sync_status", fake_sync)
+
+        args = Args(as_json=False)
+        handle_status(args)
+        out = capsys.readouterr().out
+        # chatgpt: missing-from-sidebar suffix present
+        assert "5 missing from sidebar" in out
+        # claude + gemini: NO missing suffix (would be visual noise)
+        # We check by reading the claude line; missing suffix absent
+        for line in out.splitlines():
+            if line.strip().startswith("✅ claude "):
+                assert "missing from sidebar" not in line, (
+                    "claude was fully synced — no missing-suffix should appear"
+                )
+            if line.strip().startswith("✅ gemini "):
+                assert "missing from sidebar" not in line
+
     def test_signals_in_json_output_when_active(self, tmp_path, monkeypatch, capsys):
         """JSON output must include the same signals the human output
         renders — scripts/agents parsing JSON otherwise have no

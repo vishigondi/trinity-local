@@ -142,17 +142,36 @@ def handle_status(args):
             pass
 
         # Browser-extension captures — parallel to the Adapters: side
-        # for JSON parity with the human surface.
+        # for JSON parity with the human surface. Each provider entry
+        # is augmented with sidebar_sync (sidebar_count / on_disk_count
+        # / missing_count) so JSON consumers see the same "unsynced
+        # threads" signal the human Captures: section surfaces inline.
         captures_payload: dict | None = None
         try:
             from .extension_repair import diagnose as _diag
+            from ..capture_host import _query_sync_status
 
             cap = _diag()
             providers = cap.get("providers", {})
             if any(info.get("exists") for info in providers.values()):
+                # Augment each provider entry with sidebar-sync diff
+                # when the provider has captures. Skip the lookup for
+                # providers with 0 captures (nothing to diff against).
+                augmented = {}
+                for slug, info in providers.items():
+                    entry = dict(info)
+                    if info.get("captures", 0) > 0:
+                        sync_state = _query_sync_status({"provider": slug})
+                        if sync_state.get("ok"):
+                            entry["sidebar_sync"] = {
+                                "sidebar_count": sync_state.get("sidebar_count", 0),
+                                "on_disk_count": sync_state.get("on_disk_count", 0),
+                                "missing_count": sync_state.get("missing_count", 0),
+                            }
+                    augmented[slug] = entry
                 captures_payload = {
                     "total": sum(p.get("captures", 0) for p in providers.values()),
-                    "by_provider": providers,
+                    "by_provider": augmented,
                 }
         except Exception:
             pass
@@ -218,6 +237,7 @@ def handle_status(args):
     # captures or its directory exists (keeps clean installs terse).
     try:
         from .extension_repair import diagnose
+        from ..capture_host import _query_sync_status
 
         cap_diag = diagnose()
         provider_rows = cap_diag.get("providers", {})
@@ -238,10 +258,20 @@ def handle_status(args):
                     icon = "·"
                     suffix = "0 files (extension installed but no captures yet)"
                 else:
+                    # Sidebar diff: surfaces "you have unsynced threads"
+                    # signal that the in-provider auto-sync pill shows in
+                    # the browser. Same data source (_query_sync_status)
+                    # so CLI + browser surfaces stay in lockstep.
+                    sync_state = _query_sync_status({"provider": slug})
+                    missing_suffix = ""
+                    if sync_state.get("ok"):
+                        missing = sync_state.get("missing_count", 0)
+                        if missing > 0:
+                            missing_suffix = f" · {missing} missing from sidebar"
                     icon = "✅"
                     h = info.get("hours_since_last")
                     h_str = f"{h}h ago" if h is not None else "unknown when"
-                    suffix = f"{info['captures']:,} files · last {h_str}"
+                    suffix = f"{info['captures']:,} files · last {h_str}{missing_suffix}"
                 print(f"    {icon} {slug:10s} {suffix}")
             print()
     except Exception:
