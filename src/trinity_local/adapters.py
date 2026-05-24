@@ -131,5 +131,15 @@ def check_adapter(spec: dict[str, Any]) -> AdapterStatus:
 
 
 def check_all_adapters() -> list[AdapterStatus]:
-    """Check all known provider adapters."""
-    return [check_adapter(spec) for spec in _PROVIDER_SPECS]
+    """Check all known provider adapters.
+
+    Each check_adapter runs a `<cli> --version` subprocess + a
+    transcript-dir glob count — independent per provider. Sequential
+    cost on the real install: ~290ms (3 subprocs × ~70ms + claude's
+    39K-file glob ~100ms). Parallel cost: ~110ms wall (bounded by
+    claude's count). Saves ~180ms × 2 callsites (status + launchpad
+    render) per process invocation.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(_PROVIDER_SPECS)) as ex:
+        return list(ex.map(check_adapter, _PROVIDER_SPECS))
