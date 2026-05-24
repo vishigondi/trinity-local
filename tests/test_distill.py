@@ -148,60 +148,6 @@ class TestDistillEndToEnd:
         assert core_path().read_text(encoding="utf-8") == "Existing manifesto.\n"
 
 
-class TestDistillCLI:
-    def test_handle_distill_invokes_distill_via_chairman(self, isolated_home, capsys):
-        from trinity_local.commands.distill import handle_distill
-        from types import SimpleNamespace
-
-        with patch("trinity_local.distill.distill_via_chairman") as fake:
-            fake.return_value = {"ok": True, "path": "/x/core.md", "chars": 200, "provider": "claude"}
-            rc = handle_distill(SimpleNamespace(provider="claude", force=False))
-
-        assert rc == 0
-        out = capsys.readouterr().out
-        payload = json.loads(out)
-        assert payload["ok"] is True
-        assert payload["provider"] == "claude"
-
-    def test_core_show_prints_content(self, isolated_home, capsys):
-        from trinity_local.commands.distill import handle_core_show
-        from trinity_local.state_paths import core_path
-        from types import SimpleNamespace
-
-        core_path().write_text("You ship leverage over structural ownership.\n", encoding="utf-8")
-        rc = handle_core_show(SimpleNamespace())
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert "leverage over structural ownership" in captured.out
-
-    def test_core_show_returns_1_when_missing(self, isolated_home, capsys):
-        from trinity_local.commands.distill import handle_core_show
-        from types import SimpleNamespace
-
-        rc = handle_core_show(SimpleNamespace())
-        assert rc == 1
-        # The hint goes to stderr so callers piping `core-show | clipboard`
-        # don't pollute stdout with a hint paragraph.
-        captured = capsys.readouterr()
-        assert "core.md not distilled yet" in captured.err
-        assert "distill" in captured.err
-        assert captured.out == ""
-
-    def test_handle_distill_returns_1_on_cold_install_skip(self, isolated_home, capsys):
-        """Cold-install skip (ok=False, no memories) should surface as exit
-        code 1 so a watchdog can detect 'nothing to distill yet' without
-        parsing JSON."""
-        from trinity_local.commands.distill import handle_distill
-        from types import SimpleNamespace
-
-        rc = handle_distill(SimpleNamespace(provider="claude", force=False))
-
-        assert rc == 1
-        payload = json.loads(capsys.readouterr().out)
-        assert payload.get("ok") is False
-        assert payload.get("skipped") is True
-
-
 class TestStalenessSkip:
     def test_returns_ok_skipped_when_core_already_fresh(self, isolated_home):
         """If core.md is newer than every source memory, distill MUST NOT

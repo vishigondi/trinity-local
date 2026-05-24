@@ -7,6 +7,54 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [unreleased — orphan-modules sunset + extension-repair dogfood patch] — 2026-05-23
+
+Two post-launch sweep ticks, kept under one section because both shipped
+on the same day after v1.7.7.
+
+**Extension-repair dogfood:** first end-to-end use of
+`trinity-local extension repair --har` (the flagship demo from task #136)
+to patch a real bug. HAR + council (extrepair_a6688c43b62bbbe7) showed
+gemini's actual conversation stream goes through
+`/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate`,
+NOT batchexecute. The batchexecute captures we'd been getting
+(rpcids=ESY5D) were the bard_activity_enabled telemetry RPC, which
+explained the empty assistant_text in task #144. Claude + Codex +
+Antigravity all chairman-synthesized the same one-line fix; chairman
+picked Claude's patch for precision.
+
+- `browser-extension/page-hook.js` PROVIDER_PATTERNS gains a second
+  gemini entry for StreamGenerate. Legacy batchexecute entry kept
+  (still carries telemetry, harmless to capture). classifyRequest's
+  includes() check matches without regex changes.
+- `browser-extension/manifest.json` 0.2.4 → 0.2.5.
+- `docs/INSTALL-extension.md` extension version synced.
+
+**Orphan-modules sunset (drift class: retired-CLI handler stubs).**
+Same pattern as `trust.py` / `tasks.py` / `depth.py` (iter #115 + tick
+85): retired CLI handlers kept around purely for handler-level test
+coverage are pure cruft once the CLI is gone. Both
+`commands/distill.py` (49 LOC) and `commands/bootstrap_pairs.py`
+(113 LOC) were flagged retired in `retired_names.py` (kind=cli,
+retired 2026-05-18, replaced by `dream`) but the handler modules and
+their tests still existed. Load-bearing imports (dream.py, me.py,
+cortex.py) go to the root `distill.py` / `cross_provider_pairs.py`
+modules, which have separate comprehensive test coverage; the
+handler stubs were thin wrappers (import root → call function →
+print JSON) testing only the CLI-surface formatting that no CLI
+exposed.
+
+- Deleted: `src/trinity_local/commands/distill.py`,
+  `src/trinity_local/commands/bootstrap_pairs.py`.
+- Deleted: `TestDistillCLI` class (~52 LOC, 4 tests) from
+  `tests/test_distill.py`; `TestBootstrapPairsCLI` class (~82 LOC,
+  3 tests) from `tests/test_cross_provider_pairs.py`.
+- Net: -162 LOC modules, -134 LOC tests, 1693 → 1686 tests.
+- Retirement-registry entries unchanged (still authoritative); the
+  RETIRED_CLI frozenset guard in `test_doc_count_consistency.py`
+  still polices "distill" / "core-show" / "bootstrap-pairs" against
+  future re-introduction.
+
 ## [v1.7.7 — gemini.google.com capture: XHR interception lands] — 2026-05-23
 
 Live debug session caught the gemini-capture launch-blocker that v1.8's
@@ -477,7 +525,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1693<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1686<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

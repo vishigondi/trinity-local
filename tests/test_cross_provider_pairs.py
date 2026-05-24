@@ -10,9 +10,6 @@ Tests are purely numerical (synthetic embeddings, no model load).
 """
 from __future__ import annotations
 
-import json
-from types import SimpleNamespace
-
 import pytest
 
 from trinity_local.cross_provider_pairs import (
@@ -198,85 +195,3 @@ class TestClusterToSynthesisArgs:
         ]
 
 
-class TestBootstrapPairsCLI:
-    """Dry-run path doesn't call any flagship; safe for unit tests.
-    Real synthesis path is exercised manually with provider CLIs."""
-
-    def test_dry_run_reports_clusters(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        # Plant 4 nodes (2 cross-provider pairs) directly via the store API
-        from trinity_local.memory import upsert_prompt_node
-
-        for i, (provider, embed) in enumerate([
-            ("claude", [1.0, 0.0]),
-            ("antigravity", [0.99, 0.05]),
-            ("claude", [0.0, 1.0]),
-            ("antigravity", [0.05, 0.99]),
-        ]):
-            upsert_prompt_node(_node(
-                id_=f"n{i}",
-                provider=provider,
-                # Use ≥6 words so the default min_prompt_words filter
-                # doesn't drop these (it's tuned to skip conversational
-                # filler like "thank you" / "more options").
-                text=f"What is the best database for analytics workload number {i // 2}",
-                embedding=embed,
-                response=f"answer {i}",
-            ))
-
-        from trinity_local.commands.bootstrap_pairs import handle_bootstrap_pairs
-        rc = handle_bootstrap_pairs(SimpleNamespace(
-            similarity_threshold=0.85,
-            min_providers=2,
-            limit=None,
-            dry_run=True,
-            primary_provider=None,
-        ))
-        out = capsys.readouterr().out
-        payload = json.loads(out)
-        assert rc == 0
-        assert payload["mode"] == "dry-run"
-        assert payload["clusters_found"] == 2
-        # Each cluster has both providers
-        for entry in payload["clusters"]:
-            assert "claude" in entry["providers"]
-            assert "antigravity" in entry["providers"]
-
-    def test_no_prompt_nodes_returns_one(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        from trinity_local.commands.bootstrap_pairs import handle_bootstrap_pairs
-        rc = handle_bootstrap_pairs(SimpleNamespace(
-            similarity_threshold=0.85,
-            min_providers=2,
-            limit=None,
-            dry_run=True,
-            primary_provider=None,
-        ))
-        payload = json.loads(capsys.readouterr().out)
-        assert rc == 1
-        assert payload["ok"] is False
-        assert "no prompt nodes" in payload["reason"]
-
-    def test_no_clusters_gives_actionable_hint(self, tmp_path, monkeypatch, capsys):
-        """If embeddings are missing or threshold is too high, return an
-        error with concrete next-step suggestions instead of silent
-        empty-list."""
-        monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        from trinity_local.memory import upsert_prompt_node
-        # One node, no possible pair
-        upsert_prompt_node(_node(id_="solo", provider="claude", text="x", embedding=[1.0, 0.0]))
-        from trinity_local.commands.bootstrap_pairs import handle_bootstrap_pairs
-        rc = handle_bootstrap_pairs(SimpleNamespace(
-            similarity_threshold=0.85,
-            min_providers=2,
-            limit=None,
-            dry_run=True,
-            primary_provider=None,
-        ))
-        payload = json.loads(capsys.readouterr().out)
-        assert rc == 1
-        assert payload["ok"] is False
-        assert "hint" in payload
-        # The hint must mention BOTH the seed and threshold paths.
-        assert "seed" in payload["hint"]
-        assert "similarity" in payload["hint"]
