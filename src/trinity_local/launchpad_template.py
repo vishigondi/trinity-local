@@ -1555,8 +1555,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <span v-if="pageData.evalSummary.total_runs > 1"> · {{{{ pageData.evalSummary.total_runs }}}} runs on disk</span>
         </p>
         <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums;">
+          <!-- Low-sample axes (count < 3) render at 40% opacity. Same
+               correctness rule as the suppression chips elsewhere — a
+               bar height for COMPRESSION based on n=1 should not look
+               equally authoritative as a bar based on n=20. The data
+               is still shown (user can decide), just visually demoted. -->
           <li v-for="axis in pageData.evalSummary.axes" :key="axis.name"
-              style="display: grid; grid-template-columns: 110px 50px 1fr 80px; gap: 8px; align-items: center; font-size: 13px;">
+              :style="'display: grid; grid-template-columns: 110px 50px 1fr 80px; gap: 8px; align-items: center; font-size: 13px;' + (axis.count < 3 ? ' opacity: 0.4;' : '')"
+              :title="axis.count < 3 ? 'Low-confidence axis: only ' + axis.count + ' sample(s). Re-run with more items for a publishable claim.' : null">
             <span>{{{{ axis.name }}}}</span>
             <span class="meta">n={{{{ axis.count }}}}</span>
             <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">

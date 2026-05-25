@@ -226,6 +226,42 @@ class TestLaunchpadChipsRender:
         summary = _eval_summary()
         assert summary["comparison"][0].get("eval_id") == "set_a"
 
+    def test_single_target_low_n_axis_row_is_demoted_via_opacity(self):
+        """The eval-summary card lists every axis (with n) for the
+        single-target view. Low-n axes (count < 3) should render at
+        reduced opacity so they don't look as authoritative as
+        well-sampled axes. Visual demotion, not suppression — user
+        can still see the data + decide.
+
+        Test pin: rendered HTML carries the conditional opacity
+        binding tied to axis.count < 3."""
+        from trinity_local.launchpad_template import render_launchpad_html
+        html = render_launchpad_html(
+            page_data={
+                "evalSummary": {
+                    "has_results": True,
+                    "target": "claude",
+                    "aggregate_score": 0.77,
+                    "axes": [
+                        {"name": "REFRAME", "count": 4, "mean": 0.93, "min": 0.86, "max": 0.98},
+                        {"name": "COMPRESSION", "count": 1, "mean": 0.12, "min": 0.12, "max": 0.12},
+                    ],
+                },
+            },
+            recent_cards="",
+        )
+        # Vue conditional opacity tied to axis.count < 3 — the binding
+        # exists in the template source. (Pixel-level assertion is too
+        # brittle for a launchpad smoke; template binding is the
+        # contract a future refactor would have to keep.)
+        assert "axis.count < 3" in html, (
+            "The axis row's :style binding should include the "
+            "'axis.count < 3 → opacity: 0.4' rule so low-sample bars "
+            "don't read as authoritative."
+        )
+        # Tooltip surfaces the reason on hover
+        assert "Low-confidence axis" in html
+
     def test_meta_line_advertises_by_axis_variants(self):
         from trinity_local.launchpad_template import render_launchpad_html
         html = render_launchpad_html(
