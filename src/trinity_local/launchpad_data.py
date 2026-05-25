@@ -1086,20 +1086,29 @@ def _eval_summary() -> dict:
     # scored highest? Surfaces the wedge claim ("X is best for this
     # kind of question") on the launchpad without requiring the user
     # to leave for `trinity-local eval-show --compare --by-axis`.
-    axes_seen: set[str] = set()
-    for row in comparison:
-        axes_seen.update((row.get("by_axis") or {}).keys())
+    #
+    # SUPPRESSED when mixed_eval_sets is True: comparing per-axis
+    # scores across different eval sets is exactly the operation the
+    # mixed-set warning says is invalid. Rendering "claude leads
+    # COMPRESSION (0.12)" next to "codex leads COMPRESSION (0.77)"
+    # when those came from DIFFERENT 5-item-vs-45-item sets is a
+    # misleading head-to-head claim. The banner already surfaces the
+    # remedy; better to hide the chips than make a false comparison.
     per_axis_leader: list[dict] = []
-    for axis in sorted(axes_seen):
-        scored = [(r["target"], r["by_axis"][axis]) for r in comparison if axis in (r.get("by_axis") or {})]
-        if not scored:
-            continue
-        leader_target, leader_score = max(scored, key=lambda kv: kv[1])
-        per_axis_leader.append({
-            "axis": axis,
-            "target": leader_target,
-            "score": leader_score,
-        })
+    if not mixed_eval_sets:
+        axes_seen: set[str] = set()
+        for row in comparison:
+            axes_seen.update((row.get("by_axis") or {}).keys())
+        for axis in sorted(axes_seen):
+            scored = [(r["target"], r["by_axis"][axis]) for r in comparison if axis in (r.get("by_axis") or {})]
+            if not scored:
+                continue
+            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+            per_axis_leader.append({
+                "axis": axis,
+                "target": leader_target,
+                "score": leader_score,
+            })
 
     return {
         "has_results": True,

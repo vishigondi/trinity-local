@@ -111,6 +111,41 @@ class TestLaunchpadChipsRender:
         assert "chip.axis" in html
         assert "chip.target" in html
 
+    def test_per_axis_leader_suppressed_when_mixed_eval_sets(self, home):
+        """The per-axis leader chips compare scores across providers.
+        When those scores come from DIFFERENT eval sets, the comparison
+        is exactly the operation the mixed-set warning forbids. Hide
+        the chips entirely rather than render a misleading head-to-head."""
+        from trinity_local.launchpad_data import _eval_summary
+        # Each provider scored on a different eval set — the drift case
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_b", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        summary = _eval_summary()
+        assert summary["mixed_eval_sets"] is True
+        # Chips suppressed — the head-to-head isn't fair
+        assert summary["per_axis_leader"] == [], (
+            "per_axis_leader chips must hide when mixed_eval_sets is True "
+            "— rendering a head-to-head across different eval sets contradicts "
+            "the warning banner that says the comparison is invalid"
+        )
+
+    def test_per_axis_leader_renders_when_sets_agree(self, home):
+        """Sanity: when both providers scored on the SAME eval set, the
+        chips DO render. Suppression triggers only on drift."""
+        from trinity_local.launchpad_data import _eval_summary
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        summary = _eval_summary()
+        assert summary["mixed_eval_sets"] is False
+        # Chips present + correct
+        chips = {c["axis"]: c["target"] for c in summary["per_axis_leader"]}
+        assert chips["REFRAME"] == "claude"
+        assert chips["COMPRESSION"] == "codex"
+
     def test_mixed_eval_sets_flag_drives_warning_banner(self, home):
         """When the comparison list spans ≥2 distinct eval_ids, the
         launchpad template surfaces the warning banner. Mirrors the CLI
