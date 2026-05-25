@@ -70,11 +70,11 @@ class TestMcpToolDrift:
         )
 
     def test_count_matches_canonical_mcp_tool_count(self):
-        """The canonical ``mcp_tool_count`` placeholder in claude.md (8)
+        """The canonical ``mcp_tool_count`` placeholder in claude.md (9)
         must equal len(MCP_TOOL_NAMES). render_docs.py reads the count
         from mcp_server's registration, so this is the trust chain:
         mcp_server == registry == render_docs == claude.md prose."""
-        assert len(MCP_TOOL_NAMES) == 8
+        assert len(MCP_TOOL_NAMES) == 9
 
 
 class TestRegistryAdoption:

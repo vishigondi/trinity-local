@@ -325,6 +325,69 @@ async def handle_list_tools() -> list[Tool]:
                 "required": ["target_provider"],
             },
         ),
+        Tool(
+            name="import_provider_memory",
+            description=(
+                "Pipe lens tensions OR rejection signals you (the agent) "
+                "extracted from your conversation history with this user "
+                "directly into Trinity's local state — no terminal, no "
+                "copy-paste. The agent IS a provider with the user's "
+                "history on its side, so this is the same loop as "
+                "`trinity-local eval-prompt → eval-import` but closes "
+                "inside the harness.\n\n"
+                "USE WHEN: the user asks you to 'save my preferences to "
+                "Trinity', 'update my lens with what you've learned', or "
+                "you (the agent) recognize you've accumulated useful "
+                "rejection signals worth persisting.\n\n"
+                "SHAPE: pass `kind='eval'` with a `payload` matching the "
+                "schema in docs/evals-from-provider.md (rejections: "
+                "[{type, model_quote, user_substitute, why_signal, "
+                "confidence}, ...]). Pass `kind='lens'` with the schema "
+                "in docs/lens-from-provider.md (tensions: [{pole_a, "
+                "pole_b, failure_a, failure_b, horizon, evidence, "
+                "confidence, why_matters}, ...]).\n\n"
+                "Returns a structured summary: count of new vs duplicate "
+                "vs malformed items, the on-disk path written. Same "
+                "dedup rules as the CLI verbs — same payload twice is "
+                "a no-op.\n\n"
+                "Cross-provider attribution: when `provider` is set, it "
+                "overrides any source_provider in the payload (useful "
+                "when you want to attribute to yourself explicitly)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["lens", "eval"],
+                        "description": "Which memory artifact to ingest.",
+                    },
+                    "payload": {
+                        "type": "object",
+                        "description": (
+                            "The JSON payload, matching the schema for "
+                            "the chosen kind. See "
+                            "docs/lens-from-provider.md or "
+                            "docs/evals-from-provider.md."
+                        ),
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": (
+                            "Override the source_provider attribution "
+                            "(optional). When omitted, falls back to "
+                            "payload.source_provider or 'unknown'."
+                        ),
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Parse + return the merge plan without writing.",
+                    },
+                },
+                "required": ["kind", "payload"],
+            },
+        ),
     ]
 
 
@@ -367,6 +430,8 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _get_council_status(arguments)
         if name == "handoff":
             return await _handoff(arguments)
+        if name == "import_provider_memory":
+            return await _import_provider_memory(arguments)
         return [ErrorData(code=404, message=f"Tool not found: {name}")]
     except Exception as exc:
         return [ErrorData(code=500, message=f"{type(exc).__name__}: {exc}")]
@@ -1358,6 +1423,80 @@ async def _handoff(args: dict) -> list[Any]:
     payload = result.to_dict()
     payload["ok"] = result.error is None
     return [_text(payload)]
+
+
+async def _import_provider_memory(args: dict) -> list[Any]:
+    """Pipe lens / eval JSON straight into Trinity's local state.
+
+    The agent reusing this loop INSIDE Claude Code / Codex / Cursor has
+    the user's full conversation history on its side — same as the
+    provider-side prompt loops (lens-prompt + eval-prompt) but closes
+    in-protocol. Dispatch reuses the same dict→signal mapping the
+    CLI verbs use, so the dedup / malformed-skip / append-only
+    semantics are identical.
+    """
+    from argparse import Namespace
+    import io
+    import json as _json
+    from contextlib import redirect_stdout
+
+    kind = (args.get("kind") or "").strip().lower()
+    if kind not in ("lens", "eval"):
+        return [_text({
+            "ok": False,
+            "error": f"kind must be 'lens' or 'eval' (got {kind!r})",
+        })]
+    payload = args.get("payload")
+    if not isinstance(payload, dict):
+        return [_text({
+            "ok": False,
+            "error": "payload must be an object (matching the lens or eval schema)",
+        })]
+
+    # The CLI handlers read raw text from stdin / file. To reuse them
+    # without disk I/O, serialize the payload and feed it via the
+    # --from-json path. Capture stdout (which carries the JSON summary
+    # when as_json=True) into a buffer.
+    raw = _json.dumps(payload)
+    ns = Namespace(
+        path=None,
+        from_json=False,
+        provider=args.get("provider"),
+        dry_run=bool(args.get("dry_run", False)),
+        as_json=True,
+    )
+
+    if kind == "lens":
+        from .commands.lens_import import handle_lens_import as _handler
+    else:
+        from .commands.eval_import import handle_eval_import as _handler
+
+    # The handlers read sys.stdin when from_json=True. Replace sys.stdin
+    # for the duration of the call to feed our serialized payload.
+    import sys as _sys
+    ns.from_json = True
+    saved_stdin = _sys.stdin
+    _sys.stdin = io.StringIO(raw)
+    buf = io.StringIO()
+    rc = None
+    try:
+        with redirect_stdout(buf):
+            rc = _handler(ns)
+    finally:
+        _sys.stdin = saved_stdin
+
+    out = buf.getvalue().strip()
+    try:
+        summary = _json.loads(out) if out else {}
+    except _json.JSONDecodeError:
+        summary = {"ok": rc == 0, "raw_output": out}
+
+    summary["kind"] = kind
+    summary["dry_run"] = bool(args.get("dry_run", False))
+    if rc not in (None, 0):
+        summary["ok"] = False
+        summary["exit_code"] = rc
+    return [_text(summary)]
 
 
 async def run_stdio_server():

@@ -55,7 +55,7 @@ If any required check fails, walk the user through the surfaced fix. Don't proce
 
 The installer in section 2 already ran this. If MCP needs re-registration (after a `trinity-local update`, or to wire a newly-installed harness), run:
 
-Trinity ships <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools:
+Trinity ships <!-- canonical:mcp_tool_count -->9<!-- /canonical --> MCP tools:
 - **canonical four** — `route`, `run_council`, `get_persona`, `get_council_status`
 - **v1.5 trio** — `ask` (cheap default), `get_picks` (introspection), `mark_pick_wrong` (user-veto)
 - **launch-arc** — `handoff` (cross-provider continuity)

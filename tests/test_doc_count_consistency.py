@@ -412,9 +412,8 @@ class TestMcpCanonicalSubsetCountClaims:
             "canonical five",
             "### The eleven MCP",
             "### The ten MCP",
-            "### The nine MCP",  # was the section title until 2026-05-21
+            "### The eight MCP",  # bumped to nine 2026-05-25 (import_provider_memory shipped)
             "1 launch-arc additions",
-            "2 launch-arc addition",
             "0 launch-arc addition",
         ]
         docs_to_check = [

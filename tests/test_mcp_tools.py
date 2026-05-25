@@ -44,7 +44,8 @@ class TestToolList:
         # v1.5 adds: `ask` (single-call routing), `get_picks`
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
-        # Launch-arc adds: `handoff` (cross-provider conversation continuity).
+        # Launch-arc adds: `handoff` (cross-provider conversation continuity)
+        # and `import_provider_memory` (in-protocol provider-side lens/eval loop).
         # (`get_eval_summary` retired 2026-05-18 in commit `1fed7fc`;
         # `record_outcome` retired 2026-05-21 — chairman pick is the
         # supervision signal now, not user_winner verdicts.)
@@ -52,7 +53,7 @@ class TestToolList:
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council",
             "get_persona", "get_council_status",
-            "handoff",
+            "handoff", "import_provider_memory",
         }, f"unexpected tool list: {names}"
 
     def test_old_tools_dropped_from_public_surface(self):
