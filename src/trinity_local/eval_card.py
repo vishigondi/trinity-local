@@ -67,6 +67,26 @@ class EvalCardData:
         }
 
 
+@dataclass
+class CompareCardData:
+    """Cross-provider leaderboard view. Each row is the most-recent eval
+    run for one target_provider against the user's rejection signal.
+    The card surfaces the ranked list (top 5 if more), the leader's
+    margin over the runner-up, and the mixed-eval-set warning when
+    rows aren't directly comparable.
+    """
+    rows: list[dict]  # [{target, model, aggregate_score, items_completed, judge, ...}]
+    eval_id: str | None = None
+    mixed_eval_sets: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rows": list(self.rows),
+            "eval_id": self.eval_id,
+            "mixed_eval_sets": self.mixed_eval_sets,
+        }
+
+
 def collect_card_data_from_result(result) -> EvalCardData:
     """Build EvalCardData from a RunResult (the dataclass loaded from
     ~/.trinity/evals/results/*.json by evals.runner.load_run_result).
@@ -237,6 +257,164 @@ def render_eval_card(data: EvalCardData) -> bytes:
               font=cta_cmd, fill=COLOR_INK)
 
     # ── Footer tagline, bottom-right corner ───────────────────────
+    bbox = draw.textbbox((0, 0), FOOTER_TAGLINE, font=footer)
+    fw = bbox[2] - bbox[0]
+    draw.text(
+        (CARD_WIDTH - margin - fw, CARD_HEIGHT - margin - 18),
+        FOOTER_TAGLINE,
+        font=footer,
+        fill=COLOR_MUTED,
+    )
+
+    return save_png(img)
+
+
+def render_compare_card(data: CompareCardData) -> bytes:
+    """Render the cross-provider leaderboard as a 1200×630 PNG.
+
+    Each row = one target_provider's most-recent eval run against the
+    user's rejection signal. The card's wedge is the COMPARISON —
+    "I scored Claude, Codex, and Gemini on my taste; Claude won."
+
+    Empty-state fallback mirrors render_eval_card so the file always
+    contains something coherent; callers exit nonzero before reaching
+    here when rows is empty, so this branch is defensive only.
+    """
+    img, _ = blank_canvas()
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    eyebrow = _load_font("bold", 22)
+    headline = _load_font("serif", 48)
+    sub = _load_font("regular", 22)
+    rank_font = _load_font("mono", 22)
+    target_font = _load_font("bold", 24)
+    score_font = _load_font("mono", 26)
+    judge_font = _load_font("regular", 14)
+    warn_font = _load_font("regular", 16)
+    cta_label = _load_font("bold", 20)
+    cta_cmd = _load_font("mono", 22)
+    footer = _load_font("regular", 18)
+
+    margin = 60
+    y = margin
+
+    draw.text((margin, y), "TRINITY · CROSS-PROVIDER LEADERBOARD",
+              font=eyebrow, fill=COLOR_ACCENT)
+    y += 50
+
+    if not data.rows:
+        draw.text((margin, y), "Run trinity-local eval-run",
+                  font=headline, fill=COLOR_INK)
+        draw.text((margin, y + 70),
+                  "against ≥2 providers to populate this card.",
+                  font=sub, fill=COLOR_MUTED)
+    else:
+        # Headline: name the leader. "Claude leads on YOUR taste"
+        leader = data.rows[0]
+        leader_name = _provider_display_name(leader["target"], leader.get("model"))
+        leader_agg = leader.get("aggregate_score")
+        if leader_agg is not None:
+            headline_text = f"{leader_name} leads at {leader_agg:.2f}"
+        else:
+            headline_text = f"{leader_name} ranked first"
+        draw.text((margin, y), headline_text, font=headline, fill=COLOR_INK)
+        y += 64
+
+        if len(data.rows) >= 2:
+            runner = data.rows[1]
+            runner_agg = runner.get("aggregate_score")
+            if leader_agg is not None and runner_agg is not None:
+                margin_text = (
+                    f"on YOUR kind of question · "
+                    f"{leader_agg - runner_agg:+.3f} ahead of "
+                    f"{_provider_display_name(runner['target'], runner.get('model'))}"
+                )
+            else:
+                margin_text = "on YOUR kind of question"
+        else:
+            margin_text = "on YOUR kind of question"
+        draw.text((margin, y), margin_text, font=sub, fill=COLOR_MUTED)
+        y += 42
+
+        if data.mixed_eval_sets:
+            draw.text(
+                (margin, y),
+                "⚠ rows span multiple eval sets — pass --eval-id to scope",
+                font=warn_font, fill=COLOR_MUTED,
+            )
+            y += 24
+
+        # Leaderboard rows: rank · target · bar · score · (judge)
+        # Card fits ~5 rows comfortably; truncate beyond that.
+        max_rows = 5
+        rows_to_render = data.rows[:max_rows]
+        bar_x = margin + 290
+        bar_width = CARD_WIDTH - bar_x - margin - 120  # leave room for score column
+        bar_height = 16
+        row_height = 44
+
+        for i, row in enumerate(rows_to_render, 1):
+            # Rank
+            draw.text((margin, y + 8), f"{i}.", font=rank_font, fill=COLOR_MUTED)
+            # Target name (display-friendly)
+            target_name = _provider_display_name(row["target"], row.get("model"))
+            draw.text((margin + 36, y + 4), target_name,
+                      font=target_font, fill=COLOR_INK)
+
+            # Judge attribution under the target name — small + muted
+            judge = row.get("judge")
+            if judge:
+                draw.text((margin + 36, y + 28),
+                          f"judge: {_provider_display_name(judge, None)}",
+                          font=judge_font, fill=COLOR_MUTED)
+
+            # Bar
+            agg = row.get("aggregate_score")
+            track_top = y + 12
+            track_bot = track_top + bar_height
+            draw.rounded_rectangle(
+                [bar_x, track_top, bar_x + bar_width, track_bot],
+                radius=bar_height // 2,
+                fill=COLOR_BAR_TRACK,
+            )
+            if agg is not None:
+                fill_pct = max(0.0, min(1.0, agg))
+                fill_width = int(bar_width * fill_pct)
+                if fill_width > bar_height:
+                    draw.rounded_rectangle(
+                        [bar_x, track_top, bar_x + fill_width, track_bot],
+                        radius=bar_height // 2,
+                        fill=COLOR_BAR_FILL,
+                    )
+
+            # Score (right-anchored)
+            score_str = f"{agg:.3f}" if agg is not None else "—"
+            draw.text(
+                (bar_x + bar_width + 18, y + 6),
+                score_str,
+                font=score_font,
+                fill=COLOR_INK,
+            )
+
+            y += row_height
+
+        # If we truncated, surface that the leaderboard has more.
+        if len(data.rows) > max_rows:
+            draw.text(
+                (margin, y + 4),
+                f"+ {len(data.rows) - max_rows} more — see `eval-show --compare`",
+                font=judge_font, fill=COLOR_MUTED,
+            )
+
+    # CTA + footer (same convention as render_eval_card)
+    cta_block_top = CARD_HEIGHT - margin - 90
+    draw.text((margin, cta_block_top),
+              "Run this benchmark against your own taste:",
+              font=cta_label, fill=COLOR_ACCENT)
+    draw.text((margin, cta_block_top + 28), CTA_LANDING_URL,
+              font=cta_cmd, fill=COLOR_INK)
+
     bbox = draw.textbbox((0, 0), FOOTER_TAGLINE, font=footer)
     fw = bbox[2] - bbox[0]
     draw.text(

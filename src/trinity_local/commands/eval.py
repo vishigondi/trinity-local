@@ -126,6 +126,15 @@ def register(subparsers):
         "--open", dest="open_after", action="store_true",
         help="Open the produced PNG with the OS default handler (Preview on macOS).",
     )
+    share_p.add_argument(
+        "--compare",
+        action="store_true",
+        help=(
+            "Render the cross-provider leaderboard card instead of the "
+            "single-provider per-axis card. Pair with --eval-id when "
+            "providers were run against multiple eval sets."
+        ),
+    )
     share_p.set_defaults(handler=handle_eval_share)
 
 
@@ -339,30 +348,21 @@ def _latest_result_path(target: str | None, eval_id: str | None):
     return candidates[0]
 
 
-def _handle_eval_compare(args):
-    """Cross-provider leaderboard. CLI parity with the launchpad's
-    evalSummary.comparison view: one row per target_provider, sorted by
-    aggregate_score desc. When --eval-id is set, filter to that eval
-    set so the columns are commensurate (different eval sets mean
-    different items, so unfiltered comparison is suggestive only —
-    surface a warning).
+def _collect_leaderboard_rows(eval_id: str | None) -> tuple[list[dict], set[str]]:
+    """Return (rows-sorted-desc, eval_ids_seen).
+
+    Shared by eval-show --compare and eval-share --compare; same per-target
+    dedup policy the launchpad uses (launchpad_data._compute_eval_summary).
+    Returns ([], set()) when no candidates match.
     """
     import json
-
     from ..evals.builder import results_dir
 
     candidates = list(results_dir().glob("eval_*__model_*.json"))
-    if args.eval_id:
-        candidates = [p for p in candidates if p.name.startswith(f"eval_{args.eval_id}__")]
+    if eval_id:
+        candidates = [p for p in candidates if p.name.startswith(f"eval_{eval_id}__")]
     if not candidates:
-        msg = "  No eval results found on disk."
-        if args.eval_id:
-            msg += f" Filter: eval_id={args.eval_id!r}."
-        msg += " Run `trinity-local eval-run --target <provider>` to produce one."
-        print(msg)
-        raise SystemExit(1)
-    # Walk newest-first so the per-target dedup picks the most recent
-    # run, same policy launchpad uses (launchpad_data.py:_compute_eval_summary).
+        return [], set()
     candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
     by_target: dict[str, dict] = {}
@@ -381,24 +381,42 @@ def _handle_eval_compare(args):
             if isinstance(item, dict) and item.get("judge_provider"):
                 judge = item["judge_provider"]
                 break
-        eval_id = data.get("eval_id")
-        if eval_id:
-            eval_ids_seen.add(eval_id)
+        eid = data.get("eval_id")
+        if eid:
+            eval_ids_seen.add(eid)
         by_target[target] = {
             "target": target,
             "model": data.get("target_model"),
             "aggregate_score": data.get("aggregate_score"),
             "items_completed": data.get("items_completed", 0),
             "judge": judge,
-            "eval_id": eval_id,
+            "eval_id": eid,
             "ran_at": data.get("completed_at") or data.get("started_at"),
         }
-
     rows = sorted(
         by_target.values(),
         key=lambda r: r.get("aggregate_score") if r.get("aggregate_score") is not None else -1.0,
         reverse=True,
     )
+    return rows, eval_ids_seen
+
+
+def _handle_eval_compare(args):
+    """Cross-provider leaderboard. CLI parity with the launchpad's
+    evalSummary.comparison view: one row per target_provider, sorted by
+    aggregate_score desc. When --eval-id is set, filter to that eval
+    set so the columns are commensurate (different eval sets mean
+    different items, so unfiltered comparison is suggestive only —
+    surface a warning).
+    """
+    rows, eval_ids_seen = _collect_leaderboard_rows(args.eval_id)
+    if not rows:
+        msg = "  No eval results found on disk."
+        if args.eval_id:
+            msg += f" Filter: eval_id={args.eval_id!r}."
+        msg += " Run `trinity-local eval-run --target <provider>` to produce one."
+        print(msg)
+        raise SystemExit(1)
 
     print("  Cross-provider leaderboard · YOUR corpus")
     if len(eval_ids_seen) > 1 and not args.eval_id:
@@ -520,6 +538,25 @@ def _print_sample_line(item):
     print(f"    [{item.rejection_type:<11}] {score}  {prompt_preview}")
 
 
+def _open_if_requested(open_after: bool, path) -> bool:
+    """Best-effort `open` for macOS / Linux. Never raises — the PNG is
+    already on disk; opening the viewer is a convenience, not a contract."""
+    if not open_after:
+        return False
+    try:
+        import subprocess
+        import sys
+        if sys.platform == "darwin":
+            subprocess.run(["open", str(path)], check=False)
+            return True
+        if sys.platform.startswith("linux"):
+            subprocess.run(["xdg-open", str(path)], check=False)
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def handle_eval_share(args):
     """Render the latest (or filtered) eval run result as a 1200×630
     PNG share card. The artifact the user's pitch produces — "I ran my
@@ -530,8 +567,55 @@ def handle_eval_share(args):
     """
     from pathlib import Path
     from ..evals.runner import load_run_result
-    from ..eval_card import collect_card_data_from_result, render_eval_card
+    from ..eval_card import (
+        CompareCardData,
+        collect_card_data_from_result,
+        render_compare_card,
+        render_eval_card,
+    )
     from ..state_paths import share_dir
+
+    # --compare: cross-provider leaderboard card. Different shape, same
+    # canvas. The wedge artifact for #116 ("Trinity scored Claude,
+    # Codex, and Gemini against my taste").
+    if getattr(args, "compare", False):
+        rows, eval_ids_seen = _collect_leaderboard_rows(args.eval_id)
+        if not rows:
+            msg = "  No eval results found on disk."
+            if args.eval_id:
+                msg += f" Filter: eval_id={args.eval_id!r}."
+            msg += " Run `trinity-local eval-run --target <provider>` to produce one."
+            print(msg)
+            raise SystemExit(1)
+        compare_data = CompareCardData(
+            rows=rows,
+            eval_id=args.eval_id if args.eval_id else (next(iter(eval_ids_seen)) if len(eval_ids_seen) == 1 else None),
+            mixed_eval_sets=len(eval_ids_seen) > 1 and not args.eval_id,
+        )
+        png_bytes = render_compare_card(compare_data)
+        out = Path(args.out) if args.out else (share_dir() / "eval_compare_card.png")
+        out.write_bytes(png_bytes)
+        opened = _open_if_requested(args.open_after, out)
+        summary = {
+            "ok": True,
+            "mode": "compare",
+            "path": str(out),
+            "bytes": len(png_bytes),
+            "eval_id": compare_data.eval_id,
+            "mixed_eval_sets": compare_data.mixed_eval_sets,
+            "rows": [
+                {
+                    "target": r["target"],
+                    "aggregate_score": r["aggregate_score"],
+                    "items_completed": r["items_completed"],
+                    "judge": r["judge"],
+                }
+                for r in rows
+            ],
+            "opened": opened,
+        }
+        print(json.dumps(summary, indent=2))
+        return None
 
     path = _latest_result_path(args.target, args.eval_id)
     if path is None:
@@ -554,21 +638,7 @@ def handle_eval_share(args):
     out = Path(args.out) if args.out else (share_dir() / "eval_card.png")
     out.write_bytes(png_bytes)
 
-    opened = False
-    if args.open_after:
-        try:
-            # macOS `open`, Linux `xdg-open`. Best-effort; print errors but
-            # don't fail the command — the file is written either way.
-            import subprocess
-            import sys
-            if sys.platform == "darwin":
-                subprocess.run(["open", str(out)], check=False)
-                opened = True
-            elif sys.platform.startswith("linux"):
-                subprocess.run(["xdg-open", str(out)], check=False)
-                opened = True
-        except OSError:
-            opened = False
+    opened = _open_if_requested(args.open_after, out)
 
     summary = {
         "ok": True,
