@@ -111,6 +111,30 @@ If failure-modes are unnameable on either pole, it's a virtue, not a lens.
 CRITICAL: ABSTRACT THE POLES. Each pole must be a STRUCTURAL pattern that
 recurs across multiple domains, not a literal phrase from one decision.
 
+GENERATOR-OVER-GENERATED — when two candidate pole names BOTH pass the
+cross-basin test, pick the one that DERIVES the other. The generator
+beats the generated. The rule beats the instance produced by the rule.
+
+Tests for "is A the generator of B?":
+- Can you reach B by applying A to a domain? (Yes → A is the generator.)
+- Does A explain WHY B is also true? (Yes → A is upstream.)
+- Could A have produced B, but not the reverse? (Yes → emit A.)
+
+Examples:
+  candidates: "shipping velocity over polish"  vs  "executable artifact over description of one"
+    → "executable artifact over description" GENERATES "shipping velocity over polish"
+    (shipping fast IS one instance of preferring the executable form)
+    → emit "executable artifact over description of one".
+
+  candidates: "user ownership of data over lab pipeline"  vs  "source over derivative"
+    → "source over derivative" GENERATES the data-ownership preference
+    (owning your data IS choosing the source over the lab's derivative)
+    → emit "source over derivative".
+
+When two pass the cross-basin test, ask: "which one sounds like it could
+have been emitted by the OTHER one's rule?" That direction names the
+generator. Emit it; demote the other to a cross-link or drop it.
+
 BAD pole names (too literal, single domain — REJECT these):
   ❌ "speed/momentum to close"           → too specific to a real-estate deal
   ❌ "lower buyer-agent fee"             → one transaction

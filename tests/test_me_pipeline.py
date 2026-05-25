@@ -365,3 +365,28 @@ class TestPairMiningParser:
         # The "prefer strategic if unsure" guidance must be present —
         # otherwise chairman over-claims philosophical for everything.
         assert "prefer" in prompt.lower() and "strategic" in prompt.lower()
+
+    def test_prompt_carries_generator_over_generated_meta_rule(self):
+        """When two candidate poles BOTH pass the cross-basin test,
+        the chairman should prefer the GENERATOR (the rule that
+        derives the other) over the GENERATED (the instance). This is
+        a load-bearing meta-directive — drop it and lens-build keeps
+        emitting one-level-too-low pairs like "shipping velocity over
+        polish" instead of "executable artifact over description of one"
+        (the rule that generates the shipping-velocity preference).
+
+        Pinning the keywords + at least one worked example so a future
+        prompt-cleanup doesn't silently strip the directive."""
+        from trinity_local.me.pair_mining import render_pair_mining_prompt
+        prompt = render_pair_mining_prompt(decisions=[])
+        lower = prompt.lower()
+        # Headline keyword + the explicit definition
+        assert "generator" in lower and "generated" in lower
+        assert "derives the other" in lower or "rule beats the instance" in lower
+        # At least one of the worked examples (the shipping-velocity or
+        # data-ownership pair) must be present so the chairman has
+        # something concrete to pattern-match against.
+        assert (
+            "shipping velocity" in lower
+            or "user ownership of data" in lower
+        )
