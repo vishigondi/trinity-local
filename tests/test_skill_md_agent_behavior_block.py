@@ -77,6 +77,50 @@ class TestAgentBehaviorBlockPresent:
             assert "lenses.json" in text, f"{path}: missing lenses.json test target"
 
 
+class TestGeminiHandoffActivationTriggers:
+    """Task #121 — the SKILL must teach agents WHEN to suggest the
+    Gemini-Google handoff (workspace-adjacent intent). Without these
+    triggers, the always-on capability hint in _CAPABILITY_HINTS
+    fires only when the user manually invokes handoff(antigravity),
+    so the wedge stays untapped."""
+
+    def test_calendar_intent_trigger_named(self, skills):
+        for path, text in skills:
+            assert "calendar" in text.lower(), (
+                f"{path} missing calendar-intent activation trigger "
+                "for the Gemini-Google handoff."
+            )
+
+    def test_email_inbox_intent_trigger_named(self, skills):
+        for path, text in skills:
+            assert "email" in text.lower() or "inbox" in text.lower(), (
+                f"{path} missing email/inbox-intent trigger."
+            )
+
+    def test_drive_intent_trigger_named(self, skills):
+        for path, text in skills:
+            assert "drive" in text.lower(), f"{path} missing Drive-intent trigger."
+
+    def test_triggers_appear_in_handoff_section(self, skills):
+        """The triggers must be in the handoff section (not buried
+        elsewhere) so an agent reading the SKILL hits them at the
+        same time as the handoff invocation. Anchor on the numbered
+        heading ("## N. Cross-provider continuity") to avoid matching
+        the tools-list mention of the same phrase earlier in the doc."""
+        import re
+        for path, text in skills:
+            match = re.search(r"^## \d+\. Cross-provider continuity", text, re.MULTILINE)
+            assert match, f"{path}: handoff section heading not found"
+            idx_start = match.start()
+            idx_end = text.find("\n## ", idx_start + 5)
+            section = text[idx_start:idx_end if idx_end > 0 else None]
+            assert "calendar" in section.lower(), (
+                f"{path}: calendar trigger not in the handoff section "
+                "(must live next to the handoff invocation so the agent "
+                "sees triggers + tool together)."
+            )
+
+
 class TestBothSkillMdInSync:
     """The two SKILL.md files must stay byte-identical — drift between
     them means an agent loading the skill from one location sees

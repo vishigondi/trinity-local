@@ -107,6 +107,15 @@ Pulls the last N (user, assistant) turns from the prompt index, packages them as
 
 Gemini-handoff is especially strong because Gemini brings Gmail / Drive / Calendar data Claude/GPT can't see — "ask Claude about your codebase, hand off to Gemini for related emails" lights up a capability no provider can match alone.
 
+**WHEN to suggest `handoff(target_provider="antigravity")`** (the activation triggers for the Gemini-Google wedge — task #121):
+
+1. **Calendar / scheduling intent** — user says "my calendar", "this week", "tomorrow", "what's on my schedule", "find a time with X". Gemini reads the Google Calendar inline; Claude/Codex can't.
+2. **Email lookup intent** — user says "did X reply", "the email from Y", "search my inbox", "draft a reply to Z". Gemini reads Gmail inline.
+3. **Drive document intent** — user says "the doc I shared", "that file from <person>", "my notes from <meeting>", "the spec in Drive". Gemini searches Drive inline.
+4. **Explicit user request** — user says "try this in Gemini", "ask Gemini" + any workspace-adjacent context.
+
+The handoff system already prepends a capability hint when target is `antigravity` (see `_CAPABILITY_HINTS` in `src/trinity_local/handoff.py`) — the agent doesn't pass a flag, the hint is always-on for this target. The agent's job is just to surface the suggestion in-line ("Want me to hand this off to Gemini? It has Gmail/Calendar/Drive inline.") rather than silently calling — handoff is a user-visible action that benefits from explicit consent.
+
 ## 8. Personalized evals (Trinity vs Claude vs Codex vs Gemini on YOUR kind of question)
 
 After enough councils accumulate (`~/.trinity/me/rejections.jsonl` has ≥50 entries), build a personal eval suite scored against the user's actual lens:
