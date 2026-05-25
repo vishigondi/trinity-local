@@ -41,6 +41,7 @@ CORE_COMMAND_MODULES = (
     "handoff",
     "import_export",
     "install_umbrella",
+    "lens_import",
     "me",
     "me_card",
     "memory_compare",
