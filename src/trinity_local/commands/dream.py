@@ -71,6 +71,17 @@ def register(subparsers):
         help="Skip Phase 5: emitting the one-paragraph core.md distillation.",
     )
     sp.add_argument(
+        "--only-distill",
+        action="store_true",
+        help=(
+            "Skip every upstream phase and run ONLY Phase 5 (refresh "
+            "core.md from existing memories). Fast path for clearing "
+            "the 'stale core.md' status warning when the upstream "
+            "memories are still current. Mutually exclusive with "
+            "--skip-distill (would do nothing)."
+        ),
+    )
+    sp.add_argument(
         "--dry-run",
         action="store_true",
         help="Discover clusters and print the plan; don't call any flagship.",
@@ -98,6 +109,31 @@ def _all_prompt_nodes_uncapped() -> list:
 
 def handle_dream(args):
     started = time.monotonic()
+
+    # --only-distill fast path: skip every upstream phase (which all
+    # need the embedder) and just refresh core.md. The use case is
+    # clearing the "⚠️ stale core.md" status warning when upstream
+    # memories are still current. No embedder needed; no cross-provider
+    # pair discovery; one flagship call.
+    if getattr(args, "only_distill", False):
+        if getattr(args, "skip_distill", False):
+            print(
+                "error: --only-distill and --skip-distill are mutually "
+                "exclusive (would do nothing).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        print("dream phase 5/5: distilling memories → core.md (only-distill mode)…",
+              file=sys.stderr)
+        distill_report = _distill(args.primary_provider or "claude")
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        print(json.dumps({
+            "ok": True,
+            "phases": {"distill": distill_report},
+            "total_ms": elapsed_ms,
+            "mode": "only-distill",
+        }, indent=2))
+        return 0
 
     # Fail fast if the embedder model isn't downloaded — dream uses
     # embeddings end-to-end (cross-provider pair discovery, basin

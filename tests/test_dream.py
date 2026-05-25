@@ -40,6 +40,9 @@ def _args(**overrides) -> SimpleNamespace:
         "max_clusters": None,
         "skip_consolidate": False,
         "skip_me_build": False,
+        "skip_vocabulary": False,
+        "skip_distill": False,
+        "only_distill": False,
         "dry_run": False,
         "primary_provider": None,
     }
@@ -271,3 +274,77 @@ class TestDreamNoData:
         assert payload["phases"]["discover"]["clusters_found"] == 0
         # Synthesis phase ran but found nothing to do
         assert payload["phases"]["synthesize"]["attempted"] == 0
+
+
+class TestDreamOnlyDistill:
+    """--only-distill: skip every upstream phase, just refresh core.md.
+    Fast path for clearing the 'stale core.md' status warning when the
+    upstream memories (lens/topics/vocabulary) are still current."""
+
+    def test_only_distill_skips_discovery_and_all_upstream_phases(self, isolated_home, monkeypatch, capsys):
+        from trinity_local.commands import dream
+
+        # If anything other than _distill is called, the test fails.
+        # The point of --only-distill is BYPASSING all 5 upstream stubs.
+        upstream_called: list[str] = []
+        monkeypatch.setattr(dream, "_all_prompt_nodes_uncapped",
+                            lambda: upstream_called.append("discover") or [])
+        monkeypatch.setattr(dream, "_synthesize_all",
+                            lambda *a, **k: upstream_called.append("synthesize") or {})
+        monkeypatch.setattr(dream, "_consolidate",
+                            lambda p: upstream_called.append("consolidate") or {})
+        monkeypatch.setattr(dream, "_me_build",
+                            lambda p: upstream_called.append("me_build") or {})
+        monkeypatch.setattr(dream, "_vocabulary_scan",
+                            lambda: upstream_called.append("vocabulary") or {})
+
+        distill_calls: list[str] = []
+        monkeypatch.setattr(dream, "_distill",
+                            lambda p: (distill_calls.append(p) or {"ok": True}))
+
+        rc = dream.handle_dream(_args(only_distill=True))
+        assert rc == 0
+        assert upstream_called == [], (
+            f"--only-distill called upstream phases: {upstream_called} "
+            "(should bypass ALL of them)"
+        )
+        assert distill_calls == ["claude"]
+
+    def test_only_distill_honors_primary_provider(self, isolated_home, monkeypatch, capsys):
+        from trinity_local.commands import dream
+        monkeypatch.setattr(dream, "_all_prompt_nodes_uncapped", lambda: [])
+
+        recorded: list[str] = []
+        monkeypatch.setattr(dream, "_distill",
+                            lambda p: (recorded.append(p) or {"ok": True}))
+
+        rc = dream.handle_dream(_args(only_distill=True, primary_provider="codex"))
+        assert rc == 0
+        assert recorded == ["codex"]
+
+    def test_only_distill_plus_skip_distill_errors(self, isolated_home, monkeypatch, capsys):
+        """The two flags are mutually exclusive — combined they'd
+        produce a no-op. Exit 2 with a clear message instead of
+        silently running nothing."""
+        from trinity_local.commands import dream
+        with pytest.raises(SystemExit) as exc:
+            dream.handle_dream(_args(only_distill=True, skip_distill=True))
+        assert exc.value.code == 2
+        # Message surfaces both flag names so the user knows what to drop
+        captured = capsys.readouterr()
+        assert "--only-distill" in captured.err
+        assert "--skip-distill" in captured.err
+
+    def test_only_distill_payload_includes_mode_flag(self, isolated_home, monkeypatch, capsys):
+        """Scripted callers should be able to tell from the JSON that
+        an only-distill run happened (vs a full dream that ended
+        with just a distill phase)."""
+        from trinity_local.commands import dream
+        monkeypatch.setattr(dream, "_distill", lambda p: {"ok": True})
+
+        rc = dream.handle_dream(_args(only_distill=True))
+        assert rc == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload.get("mode") == "only-distill"
+        # No upstream phases recorded in the report
+        assert set(payload.get("phases", {}).keys()) == {"distill"}
