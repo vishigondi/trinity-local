@@ -145,6 +145,16 @@ def register(subparsers):
             "providers were run against multiple eval sets."
         ),
     )
+    share_p.add_argument(
+        "--by-axis",
+        action="store_true",
+        help=(
+            "With --compare: render the axis × provider matrix card "
+            "(per-axis bars per provider + per-axis leader callout) "
+            "instead of the aggregate-only leaderboard card. The wedge "
+            "artifact for 'X is best at this kind of question'."
+        ),
+    )
     share_p.set_defaults(handler=handle_eval_share)
 
 
@@ -641,9 +651,19 @@ def handle_eval_share(args):
         CompareCardData,
         collect_card_data_from_result,
         render_compare_card,
+        render_compare_matrix_card,
         render_eval_card,
     )
     from ..state_paths import share_dir
+
+    # --by-axis without --compare doesn't make sense for the share card
+    # either (no rows to break out by axis from a single-provider view).
+    if getattr(args, "by_axis", False) and not getattr(args, "compare", False):
+        print(
+            "  --by-axis only applies to --compare. Pass --compare "
+            "--by-axis to render the per-axis matrix PNG.",
+        )
+        raise SystemExit(2)
 
     # --compare: cross-provider leaderboard card. Different shape, same
     # canvas. The wedge artifact for #116 ("Trinity scored Claude,
@@ -662,13 +682,31 @@ def handle_eval_share(args):
             eval_id=args.eval_id if args.eval_id else (next(iter(eval_ids_seen)) if len(eval_ids_seen) == 1 else None),
             mixed_eval_sets=len(eval_ids_seen) > 1 and not args.eval_id,
         )
-        png_bytes = render_compare_card(compare_data)
-        out = Path(args.out) if args.out else (share_dir() / "eval_compare_card.png")
+        by_axis_mode = bool(getattr(args, "by_axis", False))
+        if by_axis_mode:
+            png_bytes = render_compare_matrix_card(compare_data)
+            default_filename = "eval_compare_matrix_card.png"
+        else:
+            png_bytes = render_compare_card(compare_data)
+            default_filename = "eval_compare_card.png"
+        out = Path(args.out) if args.out else (share_dir() / default_filename)
         out.write_bytes(png_bytes)
         opened = _open_if_requested(args.open_after, out)
+        # Per-axis leader summary — useful in the JSON output for
+        # scripted callers that want the wedge string.
+        per_axis_leader: dict[str, dict] = {}
+        if by_axis_mode:
+            axes_seen: set[str] = set()
+            for row in rows:
+                axes_seen.update((row.get("by_axis") or {}).keys())
+            for axis in sorted(axes_seen):
+                scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
+                if scored:
+                    leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+                    per_axis_leader[axis] = {"target": leader_target, "score": leader_score}
         summary = {
             "ok": True,
-            "mode": "compare",
+            "mode": "compare-by-axis" if by_axis_mode else "compare",
             "path": str(out),
             "bytes": len(png_bytes),
             "eval_id": compare_data.eval_id,
@@ -679,9 +717,11 @@ def handle_eval_share(args):
                     "aggregate_score": r["aggregate_score"],
                     "items_completed": r["items_completed"],
                     "judge": r["judge"],
+                    **({"by_axis": r["by_axis"]} if by_axis_mode and r.get("by_axis") else {}),
                 }
                 for r in rows
             ],
+            **({"per_axis_leader": per_axis_leader} if by_axis_mode else {}),
             "opened": opened,
         }
         print(json.dumps(summary, indent=2))

@@ -269,6 +269,195 @@ def render_eval_card(data: EvalCardData) -> bytes:
     return save_png(img)
 
 
+def render_compare_matrix_card(data: CompareCardData) -> bytes:
+    """Per-axis × provider matrix card. The wedge artifact for the
+    'best at this kind of question' claim — each provider gets a row
+    with one short bar per axis, and the leader chip surfaces per axis.
+
+    Same 1200×630 canvas as the aggregate card. Different shape: the
+    aggregate card has bars-per-row sized by aggregate; this card has
+    bars-per-axis sized by per-axis mean. When the per-axis spread
+    between providers is large (live data: COMPRESSION codex 0.77 vs
+    antigravity 0.08, a 0.7-spread), the matrix bars make it visible
+    in a way the aggregate flattens.
+    """
+    img, _ = blank_canvas()
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    eyebrow = _load_font("bold", 22)
+    headline = _load_font("serif", 38)
+    sub = _load_font("regular", 18)
+    leader_chip_font = _load_font("bold", 16)
+    target_font = _load_font("bold", 20)
+    axis_label_font = _load_font("regular", 11)
+    score_font = _load_font("mono", 14)
+    warn_font = _load_font("regular", 14)
+    cta_label = _load_font("bold", 20)
+    cta_cmd = _load_font("mono", 22)
+    footer = _load_font("regular", 18)
+
+    margin = 60
+    y = margin
+
+    draw.text((margin, y), "TRINITY · PER-AXIS LEADERBOARD",
+              font=eyebrow, fill=COLOR_ACCENT)
+    y += 46
+
+    # Collect axis set + per-axis leaders (sorted for stable order)
+    axes_seen: set[str] = set()
+    for row in data.rows:
+        axes_seen.update((row.get("by_axis") or {}).keys())
+    axes_ordered = sorted(axes_seen)
+
+    if not data.rows or not axes_ordered:
+        draw.text((margin, y), "Per-axis matrix needs ≥1 provider",
+                  font=headline, fill=COLOR_INK)
+        draw.text((margin, y + 60),
+                  "with by_rejection_type breakdown. Re-run `trinity-local eval-run`.",
+                  font=sub, fill=COLOR_MUTED)
+    else:
+        # Headline: the wedge. "Different models for different questions."
+        draw.text((margin, y), "Different models for different questions.",
+                  font=headline, fill=COLOR_INK)
+        y += 50
+
+        if data.mixed_eval_sets:
+            draw.text(
+                (margin, y),
+                "⚠ rows span multiple eval sets — pass --eval-id to scope",
+                font=warn_font, fill=COLOR_MUTED,
+            )
+            y += 22
+
+        # Per-axis leader chips above the matrix. The tweet-line of
+        # the card: "COMPRESSION → codex (0.77)  REFRAME → claude (0.81) ..."
+        chip_x = margin
+        chip_y = y
+        for axis in axes_ordered:
+            scored = [(r["target"], r["by_axis"][axis]) for r in data.rows if axis in (r.get("by_axis") or {})]
+            if not scored:
+                continue
+            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+            leader_name = _provider_display_name(leader_target, None)
+            # No `→` — the bundled fonts lack the glyph and render
+            # missing-glyph boxes in the chip. ASCII separator is safer.
+            chip_text = f"{axis}: {leader_name} {leader_score:.2f}"
+            bbox = draw.textbbox((0, 0), chip_text, font=leader_chip_font)
+            chip_w = bbox[2] - bbox[0] + 16
+            chip_h = bbox[3] - bbox[1] + 8
+            if chip_x + chip_w > CARD_WIDTH - margin:
+                chip_x = margin
+                chip_y += chip_h + 8
+            draw.rounded_rectangle(
+                [chip_x, chip_y, chip_x + chip_w, chip_y + chip_h],
+                radius=4,
+                fill=(45, 138, 62, 18),
+            )
+            draw.text((chip_x + 8, chip_y + 4), chip_text,
+                      font=leader_chip_font, fill=COLOR_ACCENT)
+            chip_x += chip_w + 6
+        y = chip_y + 40
+
+        # Matrix: target-name column + N axis-bar columns. Card width
+        # gives ~280px for target column + remainder split N ways.
+        target_col_width = 130
+        axes_area_x = margin + target_col_width
+        axes_area_w = CARD_WIDTH - margin - axes_area_x
+        axis_col_w = axes_area_w // len(axes_ordered)
+        bar_height = 8
+        row_height = 50
+
+        # Axis label header row
+        for i, axis in enumerate(axes_ordered):
+            col_center = axes_area_x + axis_col_w * i + axis_col_w // 2
+            label = axis[:11]
+            bbox = draw.textbbox((0, 0), label, font=axis_label_font)
+            lw = bbox[2] - bbox[0]
+            draw.text((col_center - lw // 2, y), label,
+                      font=axis_label_font, fill=COLOR_MUTED)
+        y += 18
+
+        # Rows: one per provider
+        max_rows = 4
+        rows_to_render = data.rows[:max_rows]
+        for row in rows_to_render:
+            # Target name
+            target_name = _provider_display_name(row["target"], row.get("model"))
+            draw.text((margin, y + 4), target_name,
+                      font=target_font, fill=COLOR_INK)
+            # Per-axis bars + scores
+            row_axes = row.get("by_axis") or {}
+            bar_pad = 10  # horizontal padding inside each axis column
+            for i, axis in enumerate(axes_ordered):
+                col_x = axes_area_x + axis_col_w * i + bar_pad
+                col_bar_w = axis_col_w - bar_pad * 2
+                track_top = y + 8
+                track_bot = track_top + bar_height
+                draw.rounded_rectangle(
+                    [col_x, track_top, col_x + col_bar_w, track_bot],
+                    radius=bar_height // 2,
+                    fill=COLOR_BAR_TRACK,
+                )
+                if axis in row_axes:
+                    val = row_axes[axis]
+                    fill_pct = max(0.0, min(1.0, val))
+                    fill_w = int(col_bar_w * fill_pct)
+                    if fill_w > bar_height:
+                        draw.rounded_rectangle(
+                            [col_x, track_top, col_x + fill_w, track_bot],
+                            radius=bar_height // 2,
+                            fill=COLOR_BAR_FILL,
+                        )
+                    # Score below the bar (small mono, center-aligned in column)
+                    score_text = f"{val:.2f}"
+                    bbox = draw.textbbox((0, 0), score_text, font=score_font)
+                    sw = bbox[2] - bbox[0]
+                    draw.text(
+                        (col_x + (col_bar_w - sw) // 2, track_bot + 4),
+                        score_text,
+                        font=score_font,
+                        fill=COLOR_INK,
+                    )
+                else:
+                    # Missing-axis cell — small dash, center-aligned
+                    bbox = draw.textbbox((0, 0), "—", font=score_font)
+                    sw = bbox[2] - bbox[0]
+                    draw.text(
+                        (col_x + (col_bar_w - sw) // 2, track_bot + 4),
+                        "—",
+                        font=score_font,
+                        fill=COLOR_MUTED,
+                    )
+            y += row_height
+
+        if len(data.rows) > max_rows:
+            draw.text(
+                (margin, y + 4),
+                f"+ {len(data.rows) - max_rows} more — see `eval-show --compare --by-axis`",
+                font=axis_label_font, fill=COLOR_MUTED,
+            )
+
+    # CTA + footer (same as render_compare_card)
+    cta_block_top = CARD_HEIGHT - margin - 90
+    draw.text((margin, cta_block_top),
+              "Run this benchmark against your own taste:",
+              font=cta_label, fill=COLOR_ACCENT)
+    draw.text((margin, cta_block_top + 28), CTA_LANDING_URL,
+              font=cta_cmd, fill=COLOR_INK)
+
+    bbox = draw.textbbox((0, 0), FOOTER_TAGLINE, font=footer)
+    fw = bbox[2] - bbox[0]
+    draw.text(
+        (CARD_WIDTH - margin - fw, CARD_HEIGHT - margin - 18),
+        FOOTER_TAGLINE,
+        font=footer,
+        fill=COLOR_MUTED,
+    )
+
+    return save_png(img)
+
+
 def render_compare_card(data: CompareCardData) -> bytes:
     """Render the cross-provider leaderboard as a 1200×630 PNG.
 
