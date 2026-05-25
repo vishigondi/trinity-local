@@ -58,7 +58,7 @@ The installer in section 2 already ran this. If MCP needs re-registration (after
 Trinity ships <!-- canonical:mcp_tool_count -->9<!-- /canonical --> MCP tools:
 - **canonical four** — `route`, `run_council`, `get_persona`, `get_council_status`
 - **v1.5 trio** — `ask` (cheap default), `get_picks` (introspection), `mark_pick_wrong` (user-veto)
-- **launch-arc** — `handoff` (cross-provider continuity)
+- **launch-arc** — `handoff` (cross-provider continuity), `import_provider_memory` (write-back path: agent pipes its own extracted lens tensions / rejection signals into Trinity)
   (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18; `record_outcome` retired 2026-05-21 — chairman's pick is the supervision signal now, refinement prompts carry the "what differently" signal)
 
 !`trinity-local install-mcp`
@@ -144,6 +144,27 @@ Suggest these to the user after section 5 succeeds:
 > - `trinity-local handoff antigravity` — hand off the last 3 turns to a different model (the demo most people don't realize they can do; `antigravity` is the post-task-#127 slug for the Google CLI binary `agy`)
 > - `trinity-local portal-html --open-browser` — the launchpad: recent councils, lens preview, eval leaderboard, topic graph
 > - `trinity-local me-card --open` — render your strongest lens as a sharable PNG
+
+## 12. Agent behavior — write back what you learn (the post-launch leverage point)
+
+If you're inside Claude Code / Cursor / Codex and `mcp__trinity-local__import_provider_memory` is available in your tool list, you (the agent) have the user's conversation history on YOUR side. That's the same vantage the lens-prompt / eval-prompt verbs ask claude.ai / chatgpt to take — but the loop closes inside the harness, no copy-paste. Trinity's lens + rejection signal compounds every time you push back what you learn.
+
+Four trigger conditions — call `import_provider_memory(kind, payload, dry_run?)` when you see any of these in the current chat:
+
+1. **REFRAME / REDIRECT in the user's last turn.** The user said "no, actually…" / "skip that, just…" / "stop summarizing, give me the diff" — anything where your prior suggestion was replaced with a different one. Push it via `kind="eval"`, payload `{rejections: [{type: "REFRAME" | "REDIRECT", model_quote, user_substitute, why_signal, confidence}]}`. Your reaction to the substitution IS the signal. Captures preferences no static prompt can.
+
+2. **A new paired tension just crystallized.** Across the last ~5 turns you noticed the user trades off X against Y in a way that wouldn't be obvious from any single message (e.g. "shipping velocity over polish unless the polish blocks composition"). Push via `kind="lens"`, payload `{tensions: [{pole_a, pole_b, failure_a, failure_b, horizon: "tactical" | "strategic" | "philosophical", evidence: [...], confidence, why_matters}]}`. Don't push surface preferences — push the GENERATOR (the variable that gates when X wins vs Y).
+
+3. **Post-council reaction.** The user said something like "yeah, claude was right" or "no, the chairman missed the point" about a `run_council` outcome. Even when they don't click the launchpad's refinement button, their verbal reaction is signal — push it as `kind="eval"` with `type: "REFRAME"` and `why_signal` naming the chairman's miss.
+
+4. **You're not sure if it's signal.** Use `dry_run=true` first. Trinity returns the merge plan (new vs duplicate vs malformed) without writing. If the plan says it would dedup against existing signal, the user has already taught Trinity that pattern — no need to push again.
+
+**Verifiable test** that you actually called the tool successfully:
+
+- For `kind="eval"`: `wc -l ~/.trinity/me/rejections.jsonl` increments by the number of new (non-duplicate) signals.
+- For `kind="lens"`: `cat ~/.trinity/me/lenses.json | jq '.lenses | length'` increments by the number of net-new tensions; existing pole-pairs get evidence-augmented in place.
+
+**Why this compounds**: every iteration of the user's `/loop` (or any session) becomes a signal-engine. The chairman reads `lens.md` + `core.md` on every council; richer lens → sharper future verdicts. Surface-minimal: requires zero new tools beyond the one already shipped (8 → 9 was the only MCP-surface bump this lane).
 
 ---
 
