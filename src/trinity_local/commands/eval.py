@@ -533,16 +533,27 @@ def _handle_eval_compare(args):
 
         # Per-axis leader callouts — names the wedge claim ("X is best
         # for kind-of-question Y") in publishable form.
-        print()
-        leader_lines = []
-        for axis in axes_ordered:
-            scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
-            if not scored:
-                continue
-            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
-            leader_lines.append(f"{axis} → {leader_target} ({leader_score:.2f})")
-        if leader_lines:
-            print("  Per-axis leader:  " + "  |  ".join(leader_lines))
+        #
+        # SUPPRESSED when rows span multiple eval sets (same fix as
+        # launchpad commit 83b9e99 + eval_card matrix card). The
+        # warning at the top of this output already says "scores
+        # are NOT directly comparable"; rendering a leader-per-axis
+        # callout that synthesizes those same incomparable scores
+        # into a head-to-head contradicts the warning. Suppress the
+        # callout when mixed; the matrix bars stay (per-row data is
+        # still meaningful as each-provider's-own-score).
+        mixed = len(eval_ids_seen) > 1 and not args.eval_id
+        if not mixed:
+            print()
+            leader_lines = []
+            for axis in axes_ordered:
+                scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
+                if not scored:
+                    continue
+                leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+                leader_lines.append(f"{axis} → {leader_target} ({leader_score:.2f})")
+            if leader_lines:
+                print("  Per-axis leader:  " + "  |  ".join(leader_lines))
         return None
 
     print(f"    {'rank':<5} {'target':<14} {'n':<5} {'aggregate':>10}   {'judge':<14} {'ran'}")
@@ -741,8 +752,12 @@ def handle_eval_share(args):
         opened = _open_if_requested(args.open_after, out)
         # Per-axis leader summary — useful in the JSON output for
         # scripted callers that want the wedge string.
+        # SUPPRESSED when mixed_eval_sets (same fix shipped to launchpad
+        # data + PNG matrix card + CLI matrix in this iteration's
+        # consistency pass — never synthesize a head-to-head when
+        # scores come from different eval sets).
         per_axis_leader: dict[str, dict] = {}
-        if by_axis_mode:
+        if by_axis_mode and not compare_data.mixed_eval_sets:
             axes_seen: set[str] = set()
             for row in rows:
                 axes_seen.update((row.get("by_axis") or {}).keys())

@@ -332,32 +332,45 @@ def render_compare_matrix_card(data: CompareCardData) -> bytes:
 
         # Per-axis leader chips above the matrix. The tweet-line of
         # the card: "COMPRESSION → codex (0.77)  REFRAME → claude (0.81) ..."
-        chip_x = margin
-        chip_y = y
-        for axis in axes_ordered:
-            scored = [(r["target"], r["by_axis"][axis]) for r in data.rows if axis in (r.get("by_axis") or {})]
-            if not scored:
-                continue
-            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
-            leader_name = _provider_display_name(leader_target, None)
-            # No `→` — the bundled fonts lack the glyph and render
-            # missing-glyph boxes in the chip. ASCII separator is safer.
-            chip_text = f"{axis}: {leader_name} {leader_score:.2f}"
-            bbox = draw.textbbox((0, 0), chip_text, font=leader_chip_font)
-            chip_w = bbox[2] - bbox[0] + 16
-            chip_h = bbox[3] - bbox[1] + 8
-            if chip_x + chip_w > CARD_WIDTH - margin:
-                chip_x = margin
-                chip_y += chip_h + 8
-            draw.rounded_rectangle(
-                [chip_x, chip_y, chip_x + chip_w, chip_y + chip_h],
-                radius=4,
-                fill=(45, 138, 62, 18),
-            )
-            draw.text((chip_x + 8, chip_y + 4), chip_text,
-                      font=leader_chip_font, fill=COLOR_ACCENT)
-            chip_x += chip_w + 6
-        y = chip_y + 40
+        #
+        # SUPPRESSED when mixed_eval_sets is True — same fix as the
+        # launchpad's per_axis_leader (commit 83b9e99). Computing a
+        # leader-per-axis across DIFFERENT eval sets is exactly the
+        # claim the warning at the top of the card forbids. The
+        # matrix bars stay (the per-row data is still meaningful as
+        # each-provider's-own-score), but the leader chips that
+        # synthesize a head-to-head are suppressed.
+        if not data.mixed_eval_sets:
+            chip_x = margin
+            chip_y = y
+            for axis in axes_ordered:
+                scored = [(r["target"], r["by_axis"][axis]) for r in data.rows if axis in (r.get("by_axis") or {})]
+                if not scored:
+                    continue
+                leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+                leader_name = _provider_display_name(leader_target, None)
+                # No `→` — the bundled fonts lack the glyph and render
+                # missing-glyph boxes in the chip. ASCII separator is safer.
+                chip_text = f"{axis}: {leader_name} {leader_score:.2f}"
+                bbox = draw.textbbox((0, 0), chip_text, font=leader_chip_font)
+                chip_w = bbox[2] - bbox[0] + 16
+                chip_h = bbox[3] - bbox[1] + 8
+                if chip_x + chip_w > CARD_WIDTH - margin:
+                    chip_x = margin
+                    chip_y += chip_h + 8
+                draw.rounded_rectangle(
+                    [chip_x, chip_y, chip_x + chip_w, chip_y + chip_h],
+                    radius=4,
+                    fill=(45, 138, 62, 18),
+                )
+                draw.text((chip_x + 8, chip_y + 4), chip_text,
+                          font=leader_chip_font, fill=COLOR_ACCENT)
+                chip_x += chip_w + 6
+            y = chip_y + 40
+        else:
+            # No chips → leave a smaller gap above the matrix, matching
+            # the visual rhythm of the agreed-sets variant.
+            y += 18
 
         # Matrix: target-name column + N axis-bar columns. Card width
         # gives ~280px for target column + remainder split N ways.

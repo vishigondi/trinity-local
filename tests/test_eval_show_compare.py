@@ -246,6 +246,39 @@ class TestByAxisMatrix:
         assert "no per-axis breakdown" in out
         assert "eval-run" in out
 
+    def test_per_axis_leader_callout_suppressed_when_mixed_eval_sets(self, home, capsys):
+        """Same fix shipped to launchpad chips + PNG matrix card —
+        the per-axis leader callout synthesizes a head-to-head across
+        providers. When those providers scored on DIFFERENT eval sets,
+        the comparison is exactly what the mixed-set warning forbids."""
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_b", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        # Unscoped so mixed-set warning fires
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        # Warning fires
+        assert "rows span 2 different eval sets" in out
+        # But the leader callout is suppressed (would name a misleading
+        # winner-per-axis across mismatched sets)
+        assert "Per-axis leader:" not in out
+
+    def test_per_axis_leader_callout_renders_when_sets_agree(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        # No mixed warning, leader callout IS present
+        assert "rows span" not in out
+        assert "Per-axis leader:" in out
+        assert "REFRAME → claude" in out
+        assert "COMPRESSION → codex" in out
+
     def test_by_axis_without_compare_exits_2(self, home, capsys):
         """--by-axis is only valid inside --compare; lone --by-axis exits
         with a hint not a crash."""

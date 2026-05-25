@@ -178,6 +178,22 @@ class TestEvalShareCompareByAxis:
         assert "by_axis" in summary["rows"][0]
         assert summary["rows"][0]["by_axis"]["REFRAME"] == 0.81
 
+    def test_per_axis_leader_summary_suppressed_when_mixed_eval_sets(self, home, tmp_path, capsys):
+        """Same suppression rule the launchpad + CLI follow. Mixed
+        eval sets → no per_axis_leader entries in the JSON summary
+        (they'd be misleading head-to-heads across mismatched sets)."""
+        from trinity_local.commands.eval import handle_eval_share
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_b", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        # Unscoped so mixed-set kicks in
+        handle_eval_share(_share_args(tmp_path, by_axis=True))
+        summary = json.loads(capsys.readouterr().out)
+        assert summary["mixed_eval_sets"] is True
+        # The leader summary is empty (no fake head-to-head)
+        assert summary["per_axis_leader"] == {}
+
     def test_by_axis_without_compare_exits_2(self, home, tmp_path, capsys):
         """Mirrors eval-show: --by-axis only makes sense inside
         --compare. Lone --by-axis exits with hint, not crash."""
@@ -246,6 +262,42 @@ class TestRenderCompareCardPure:
         # The matrix card has chips + bars + scores, should be more
         # substantial than the empty-state fallback.
         assert len(png) > 8000
+
+    def test_matrix_renderer_skips_leader_chips_when_mixed_eval_sets(self):
+        """The matrix PNG card draws per-axis leader chips above the
+        matrix. When the comparison data carries mixed_eval_sets=True,
+        the chip-drawing path should skip (would synthesize a misleading
+        head-to-head). Card still renders — bars per provider remain —
+        but no chip row above them.
+
+        Test pin shape: we render with mixed=True vs mixed=False on
+        otherwise-identical data and assert the bytes differ (chips
+        present in one case, absent in the other). Specific pixel
+        assertions are too brittle; byte-size delta is a stable proxy."""
+        from trinity_local.eval_card import CompareCardData, render_compare_matrix_card
+        rows = [
+            {"target": "claude", "model": None, "aggregate_score": 0.79,
+             "items_completed": 45, "judge": "codex",
+             "by_axis": {"REFRAME": 0.81, "COMPRESSION": 0.48}},
+            {"target": "codex", "model": None, "aggregate_score": 0.76,
+             "items_completed": 45, "judge": "claude",
+             "by_axis": {"REFRAME": 0.74, "COMPRESSION": 0.77}},
+        ]
+        png_clean = render_compare_matrix_card(CompareCardData(
+            rows=rows, eval_id="set_a", mixed_eval_sets=False,
+        ))
+        png_mixed = render_compare_matrix_card(CompareCardData(
+            rows=rows, eval_id=None, mixed_eval_sets=True,
+        ))
+        # Both render
+        assert png_clean[:8] == b"\x89PNG\r\n\x1a\n"
+        assert png_mixed[:8] == b"\x89PNG\r\n\x1a\n"
+        # The mixed version is smaller (no chips) — sanity check that
+        # the suppression actually changed the output
+        assert len(png_mixed) < len(png_clean), (
+            f"mixed-set PNG ({len(png_mixed)}B) should be smaller than "
+            f"the agreed-sets PNG ({len(png_clean)}B) — chips are missing"
+        )
 
     def test_matrix_renderer_empty_state_falls_through(self):
         """Defensive: rows present but no by_axis breakdown → empty-state
