@@ -1007,6 +1007,13 @@ def _eval_summary() -> dict:
             if isinstance(item, dict) and item.get("judge_provider"):
                 judge = item["judge_provider"]
                 break
+        # Per-axis means for the by-axis matrix view + per-axis leader
+        # computation below. Keep nested so consumers paying only for
+        # the aggregate-leaderboard view skip the parse.
+        per_axis = {}
+        for axis_name, stats in (data.get("by_rejection_type") or {}).items():
+            if isinstance(stats, dict) and "mean_score" in stats:
+                per_axis[axis_name] = float(stats["mean_score"])
         by_target[target] = {
             "target": target,
             "model": data.get("target_model"),
@@ -1014,12 +1021,31 @@ def _eval_summary() -> dict:
             "items_completed": data.get("items_completed", 0),
             "judge": judge,
             "ran_at": data.get("completed_at") or data.get("started_at"),
+            "by_axis": per_axis,
         }
     comparison = sorted(
         by_target.values(),
         key=lambda r: r.get("aggregate_score") or -1.0,
         reverse=True,
     )
+    # Per-axis leader: for each axis seen across any provider, who
+    # scored highest? Surfaces the wedge claim ("X is best for this
+    # kind of question") on the launchpad without requiring the user
+    # to leave for `trinity-local eval-show --compare --by-axis`.
+    axes_seen: set[str] = set()
+    for row in comparison:
+        axes_seen.update((row.get("by_axis") or {}).keys())
+    per_axis_leader: list[dict] = []
+    for axis in sorted(axes_seen):
+        scored = [(r["target"], r["by_axis"][axis]) for r in comparison if axis in (r.get("by_axis") or {})]
+        if not scored:
+            continue
+        leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+        per_axis_leader.append({
+            "axis": axis,
+            "target": leader_target,
+            "score": leader_score,
+        })
 
     return {
         "has_results": True,
@@ -1035,11 +1061,17 @@ def _eval_summary() -> dict:
         "result_path": str(latest.relative_to(state_dir())),
         "eval_set_available": eval_set_available,
         # Multi-target comparison: list of {target, model,
-        # aggregate_score, items_completed, judge, ran_at}, sorted
-        # by aggregate desc. Always at least 1 entry (the latest run).
-        # Template uses this when len(comparison) >= 2 to render a
-        # leaderboard view alongside the per-axis bars.
+        # aggregate_score, items_completed, judge, ran_at, by_axis},
+        # sorted by aggregate desc. Always at least 1 entry (the latest
+        # run). Template uses this when len(comparison) >= 2 to render
+        # a leaderboard view alongside the per-axis bars.
         "comparison": comparison,
+        # Per-axis leader chips. List of {axis, target, score} sorted
+        # by axis name. Template renders chips above the leaderboard
+        # when len >= 1, surfacing the wedge claim ("X is best at
+        # COMPRESSION") without requiring the user to leave for
+        # `trinity-local eval-show --compare --by-axis`.
+        "per_axis_leader": per_axis_leader,
     }
 
 

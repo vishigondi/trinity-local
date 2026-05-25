@@ -1548,6 +1548,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div v-if="pageData.evalSummary.comparison && pageData.evalSummary.comparison.length >= 2"
              style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);">
           <div class="eyebrow" style="font-size: 11px;">Cross-provider leaderboard · YOUR corpus</div>
+          <!-- Per-axis leader chips — the wedge claim ("X is best at
+               kind-of-question Y") surfaced inline so a journalist
+               screenshotting the launchpad sees the nuance the aggregate
+               leaderboard flattens. CLI mirror: eval-show --compare --by-axis. -->
+          <div v-if="pageData.evalSummary.per_axis_leader && pageData.evalSummary.per_axis_leader.length >= 1"
+               style="margin: 10px 0 6px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <span v-for="chip in pageData.evalSummary.per_axis_leader" :key="chip.axis"
+                  style="display: inline-block; padding: 3px 8px; background: rgba(45, 138, 62, 0.08); border-radius: 4px; font-size: 11px; font-weight: 600; color: #2d8a3e; font-variant-numeric: tabular-nums;">
+              {{{{ chip.axis }}}}: {{{{ chip.target }}}} {{{{ chip.score.toFixed(2) }}}}
+            </span>
+          </div>
           <ul style="list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums;">
             <li v-for="(row, i) in pageData.evalSummary.comparison" :key="row.target"
                 style="display: grid; grid-template-columns: 24px 80px 50px 1fr 70px 70px; gap: 8px; align-items: center; font-size: 13px;">
@@ -1574,8 +1585,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
         <p class="meta" style="margin-top: 12px;">
           <code>trinity-local eval-show --compare</code> renders the same leaderboard;
-          <code>eval-show --target {{{{ pageData.evalSummary.target }}}}</code> drills into one provider with top/bottom samples.
-          Re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.
+          <code>--compare --by-axis</code> adds the per-axis matrix (claude wins REFRAME, codex wins COMPRESSION, etc.);
+          <code>eval-share --compare --by-axis</code> exports the matrix as a 1200×630 PNG.
+          Drill into one provider with <code>eval-show --target {{{{ pageData.evalSummary.target }}}}</code>;
+          re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.
         </p>
       </section>
       </details>
