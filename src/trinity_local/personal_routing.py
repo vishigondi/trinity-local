@@ -97,6 +97,15 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
     by_task_type: dict[str, dict[str, dict[str, float]]] = {}
     best_per_task_type: dict[str, str] = {}
     wins_per_task_type: dict[str, dict[str, int]] = {}
+    # Minimum council sample size before declaring a "best" per task_type.
+    # Live trigger 2026-05-25: 89% of the user's 246 task_types had their
+    # winner declared from n=1 council ("X wins task_type Y based on a
+    # single sample"). That's noise, not signal. The chairman_picker
+    # already sigmoid-blends low-n personal data with global benchmarks
+    # via _blended_pick (reads by_task_type directly, not
+    # best_per_task_type), so suppressing low-n entries here is purely
+    # a display correctness fix — doesn't affect routing decisions.
+    MIN_BEST_SAMPLES = 3
     for task_type, providers in by_task_scores.items():
         provider_summary: dict[str, dict[str, float]] = {}
         wins_here = by_task_wins.get(task_type, {})
@@ -109,6 +118,15 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
             }
         by_task_type[task_type] = provider_summary
         wins_per_task_type[task_type] = dict(wins_here)
+        # Total councils for this task_type — sample-size gate for the
+        # "best" claim. We sum wins (chairman picks) when present, else
+        # fall back to summing council counts from provider_summary.
+        total_n = sum(wins_here.values()) if wins_here else sum(
+            int(s.get("n", 0)) for s in provider_summary.values()
+        )
+        if total_n < MIN_BEST_SAMPLES:
+            continue  # don't claim a best — let the consumer (or
+            # chairman_picker's sigmoid blend) handle low-n explicitly.
         # Best = most chairman wins, tie-broken by mean overall.
         if wins_here:
             best_provider = max(

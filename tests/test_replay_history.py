@@ -98,50 +98,53 @@ class TestSelectCandidates:
 
 class TestAggregateRoutingTable:
     def test_groups_by_task_type_and_picks_winner(self, home: Path):
+        """Sample sizes bumped post-2026-05-25 to satisfy
+        MIN_BEST_SAMPLES=3 (commit dd83aa0). Previously tested n=2 →
+        winner and n=1 → winner, which was the exact noise-as-signal
+        behavior the threshold was added to suppress."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
-        councils = [
-            {
-                "council_run_id": "c1",
+        def _coding_council(claude_score, anti_score):
+            return {
+                "council_run_id": f"c-{claude_score}",
                 "task_type": "coding",
                 "routing_label": {
                     "task_type": "code_refactor",
                     "provider_scores": {
-                        "claude": {"overall": 8.0},
-                        "antigravity": {"overall": 6.0},
+                        "claude": {"overall": claude_score},
+                        "antigravity": {"overall": anti_score},
                     },
                 },
-            },
-            {
-                "council_run_id": "c2",
-                "task_type": "coding",
-                "routing_label": {
-                    "task_type": "code_refactor",
-                    "provider_scores": {
-                        "claude": {"overall": 9.0},
-                        "antigravity": {"overall": 5.0},
-                    },
-                },
-            },
-            {
-                "council_run_id": "c3",
+            }
+
+        def _writing_council(claude_score, anti_score):
+            return {
+                "council_run_id": f"w-{claude_score}",
                 "task_type": "writing",
                 "routing_label": {
                     "task_type": "writing",
                     "provider_scores": {
-                        "claude": {"overall": 7.0},
-                        "antigravity": {"overall": 8.5},
+                        "claude": {"overall": claude_score},
+                        "antigravity": {"overall": anti_score},
                     },
                 },
-            },
+            }
+
+        # 3 councils each task_type to clear MIN_BEST_SAMPLES floor.
+        councils = [
+            _coding_council(8.0, 6.0),
+            _coding_council(9.0, 5.0),
+            _coding_council(8.5, 5.5),  # n=3 for code_refactor
+            _writing_council(7.0, 8.5),
+            _writing_council(7.5, 8.0),
+            _writing_council(7.0, 9.0),  # n=3 for writing
         ]
         table = _aggregate_routing_table(councils)
-        assert table["councils_aggregated"] == 3
-        # code_refactor: claude mean 8.5, gemini 5.5 -> claude wins
+        assert table["councils_aggregated"] == 6
+        # code_refactor: claude mean ~8.5, antigravity ~5.5 → claude wins
         assert table["best_per_task_type"]["code_refactor"] == "claude"
-        assert table["by_task_type"]["code_refactor"]["claude"]["overall"] == 8.5
-        assert table["by_task_type"]["code_refactor"]["claude"]["n"] == 2
-        # writing: gemini wins
+        assert table["by_task_type"]["code_refactor"]["claude"]["n"] == 3
+        # writing: antigravity wins
         assert table["best_per_task_type"]["writing"] == "antigravity"
 
     def test_empty_input_returns_clean_shape(self, home: Path):
@@ -197,22 +200,31 @@ class TestAggregateRoutingTable:
     def test_council_without_winner_falls_back_to_mean_overall(self, home: Path):
         """Legacy outcomes that lack the routing_label.winner field still
         populate best_per_task_type — fallback to highest mean overall —
-        so the table isn't empty for older data."""
+        so the table isn't empty for older data.
+
+        Sample size bumped to clear MIN_BEST_SAMPLES=3 (commit dd83aa0)
+        — the fallback path is what we're testing, not the noise gate."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
-        councils = [
-            {
-                "council_run_id": "c1",
+        def _writing_council(suffix, claude_score, anti_score):
+            return {
+                "council_run_id": f"c{suffix}",
                 "task_type": "writing",
                 "routing_label": {
                     "task_type": "writing",
                     # No `winner` field — legacy outcome.
                     "provider_scores": {
-                        "claude": {"overall": 8.0},
-                        "antigravity": {"overall": 6.0},
+                        "claude": {"overall": claude_score},
+                        "antigravity": {"overall": anti_score},
                     },
                 },
-            },
+            }
+
+        # 3 councils → both providers have n=3, total_n=6 → clears floor.
+        councils = [
+            _writing_council("1", 8.0, 6.0),
+            _writing_council("2", 8.0, 6.0),
+            _writing_council("3", 8.0, 6.0),
         ]
         table = _aggregate_routing_table(councils)
         assert table["by_task_type"]["writing"]["claude"]["overall"] == 8.0
@@ -224,14 +236,13 @@ class TestAggregateRoutingTable:
 
     def test_chairman_wins_break_ties_with_mean_overall(self, home: Path):
         """When two providers tie on wins, the higher mean overall wins
-        the tiebreaker. This keeps the table stable when chairman picks
-        are sparse but scoring is rich."""
+        the tiebreaker. Bumped to 2-2 instead of 1-1 so the sum (4
+        councils) clears MIN_BEST_SAMPLES=3 (commit dd83aa0)."""
         from trinity_local.commands.replay import _aggregate_routing_table
 
-        councils = [
-            # Chairman picks claude once
-            {
-                "council_run_id": "c1",
+        def _claude_win():
+            return {
+                "council_run_id": "claude-pick",
                 "routing_label": {
                     "task_type": "system_design",
                     "winner": "claude",
@@ -239,10 +250,11 @@ class TestAggregateRoutingTable:
                         "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
                     },
                 },
-            },
-            # Chairman picks codex once, but codex scored low both times
-            {
-                "council_run_id": "c2",
+            }
+
+        def _codex_win():
+            return {
+                "council_run_id": "codex-pick",
                 "routing_label": {
                     "task_type": "system_design",
                     "winner": "codex",
@@ -250,12 +262,14 @@ class TestAggregateRoutingTable:
                         "claude": {"overall": 8.0}, "codex": {"overall": 6.0},
                     },
                 },
-            },
-        ]
+            }
+
+        # 2-2 tie, n=4 total → clears the floor.
+        councils = [_claude_win(), _codex_win(), _claude_win(), _codex_win()]
         table = _aggregate_routing_table(councils)
         wins = table["wins_per_task_type"]["system_design"]
-        assert wins == {"claude": 1, "codex": 1}
-        # 1-1 tie on wins → fall back to mean overall (claude 8.0 > codex 6.0)
+        assert wins == {"claude": 2, "codex": 2}
+        # 2-2 tie on wins → fall back to mean overall (claude 8.0 > codex 6.0)
         assert table["best_per_task_type"]["system_design"] == "claude"
 
 
@@ -300,8 +314,14 @@ class TestRoundTripThroughCouncil:
         )
         from trinity_local.memory import upsert_prompt_node
 
+        # 3 prompts per task_type so each clears MIN_BEST_SAMPLES=3
+        # (commit dd83aa0 — winners need ≥3 councils to be declared).
         upsert_prompt_node(_make_node("p1", "refactor this function"))
-        upsert_prompt_node(_make_node("p2", "research market trends"))
+        upsert_prompt_node(_make_node("p2", "refactor the auth flow"))
+        upsert_prompt_node(_make_node("p3", "refactor the parser"))
+        upsert_prompt_node(_make_node("p4", "research market trends"))
+        upsert_prompt_node(_make_node("p5", "research adoption curves"))
+        upsert_prompt_node(_make_node("p6", "research competitor moats"))
 
         def fake_run_council(**kw):
             bundle: PromptBundle = kw["bundle"]
@@ -339,13 +359,13 @@ class TestRoundTripThroughCouncil:
         monkeypatch.setattr(replay_module, "load_config", lambda *a, **kw: SimpleNamespace(providers={}))
 
         args = SimpleNamespace(
-            limit=5, task_type=None, source=None, members=["claude", "antigravity"],
+            limit=6, task_type=None, source=None, members=["claude", "antigravity"],
             primary_provider="claude", force=False, dry_run=False, cwd=".", quiet=True, config=None,
         )
         replay_module.handle_replay_history(args)
         out = capsys.readouterr().out
         payload = json.loads(out)
-        assert payload["councils_run"] == 2
+        assert payload["councils_run"] == 6
         # Aggregation now appears in the CLI output (no durable file written —
         # canonical personal table is computed on demand from council_outcomes/).
         assert payload["best_per_task_type"]["code_refactor"] == "claude"
