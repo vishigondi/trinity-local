@@ -55,7 +55,7 @@ class TestProviderDictMapping:
         # source_provider + confidence get folded into why_signal so eval-run
         # downstream sees the provenance.
         assert "[claude/high]" in sig.why_signal
-        assert sig.id.startswith("rej_")
+        assert sig.id.startswith("r_")  # matches schemas/rejection_signal.schema.json ^r_
 
     def test_invalid_axis_rejected(self):
         bad = _good_rejection(axis="EXPLAIN")  # not one of the 4 valid axes

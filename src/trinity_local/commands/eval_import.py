@@ -166,8 +166,11 @@ def _provider_dict_to_rejection_signal(
     # provider with the same data doesn't double-import. Source
     # provider is folded in so the same quote captured by two
     # providers stays distinct (they often phrase it differently).
+    # Prefix is "r" (not "rej") to match the published rejection_signal
+    # schema's ^r_ pattern — the schema is the interop contract for
+    # other tools reading rejections.jsonl, the writer must conform.
     rid = stable_id(
-        "rej",
+        "r",
         source_provider,
         rtype,
         model_quote[:200],

@@ -7,6 +7,41 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.10 — provider-side memory loop: end-to-end across CLI / launchpad / MCP / agent skill] — 2026-05-25
+
+The post-launch pivot the user named: stop scraping conversation history
+via the Chrome extension to build memory. Instead, ask each provider
+directly via a copy-pasteable prompt. The provider has the user's full
+history on their side; they can extract paired tensions (`lens`) and
+REFRAME/REDIRECT/SHARPENING/COMPRESSION rejection signals (`eval`)
+directly. Trinity ingests what comes back. Loop closes structurally
+asymmetric — only Trinity collects across providers.
+
+Seven commits across four surfaces:
+
+**CLI layer**
+- `eval-prompt` + `eval-import` (commit `b953a8f`): symmetric to lens-prompt/lens-import shipped earlier in the session. Reads provider JSON in the shape `docs/evals-from-provider.md` specifies, dedup by stable_id (`sha1(prefix|source_provider|type|quote[:200]|substitute[:200])`), append-only writes to `~/.trinity/me/rejections.jsonl`. 13 tests pin schema mapping + idempotence.
+- `--provider <name>` flag on both lens-import and eval-import (commit `42e807f`): docs advertised the flag, CLI didn't accept it. Override (or supplies) the payload's `source_provider`. 4 new tests pin override-when-missing + override-wins-over-payload.
+
+**Launchpad UI**
+- Provider-side prompt CTAs in empty-state cards (commit `168e978`): lens-empty + eval-empty both carry a secondary block — "no transcripts yet? ask each provider directly." Primary `lens-build`/`eval-build` stays prominent. 5 test guards pin the new chips against future cleanup.
+
+**Leaderboard artifact**
+- `eval-show --compare` (commit `f8fe41e`): CLI parity with the launchpad's leaderboard. One row per target_provider, sorted by aggregate desc, scoped by `--eval-id`, warns when rows span multiple eval sets. Validated on the live 4-provider local corpus.
+- `eval-share --compare` (commit `1c8e457`): 1200×630 PNG share-card rendering the cross-provider leaderboard. The wedge artifact for #116 — "Trinity scored Claude, Codex, and Gemini against my taste; here's who won." Locally produces a card showing `Claude leads at 0.79, +0.029 ahead of GPT, Antigravity third`. 8 tests pin renderer + handler.
+
+**MCP surface (8 → 9)**
+- `import_provider_memory(kind, payload, provider?, dry_run?)` (commit `8deab36`): in-protocol loop. The agent inside Claude Code / Cursor / Codex has the user's conversation history on its side — this tool lets it pipe lens tensions OR rejection signals straight into Trinity without a terminal hop. Reuses the dict→signal handlers from the CLI verbs by feeding payload through `--from-json` stdin redirect (one source of truth, identical dedup/append-only semantics). 10 tests pin schema mapping + dispatch wiring.
+
+**Agent activation hint**
+- `SKILL.md` agent-behavior block (commit `a25abe2`): Trinity council `3e4564e9` ruled unanimously (no disagreed claims) that the highest-leverage post-loop ship is teaching agents WHEN to call `import_provider_memory` — without a prompt-level hint, activation rate is ~0%. Ships claude's pitch: 4 trigger conditions (REFRAME/REDIRECT detection, paired-tension crystallization, post-council reaction, dry-run on ambiguity) + 2 verifiable tests (`wc -l rejections.jsonl` bump, `lenses.json` length bump). The two SKILL.md files are byte-identical-mirrored; new pin test guards drift.
+
+**Dogfooded on real data**
+- Loop validated end-to-end on the user's own install: 4 rejection signals from this session imported (rejections.jsonl 45 → 49 lines), 1 lens tension (generator-over-generated, the user's explicit principle) imported (lenses.json 3 → 4 entries). Both verifiable tests pass.
+
+Surface count delta: MCP 8 → 9, CORE_COMMAND_MODULES 24 → 26 (`lens_import`, `eval_import`).
+Test count delta: ~1925 → 1977 (+52 across the arc).
+
 ## [v1.7.9 — gemini parser fix: brace-depth scan beats Google's unreliable length prefix] — 2026-05-23
 
 Closes #144. v1.7.8's per-RPC file_stem revealed the real problem: even
