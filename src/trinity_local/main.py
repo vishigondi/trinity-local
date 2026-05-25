@@ -37,6 +37,7 @@ CORE_COMMAND_MODULES = (
     "download_embedder",
     "dream",
     "eval",
+    "eval_import",
     "extension_repair",
     "handoff",
     "import_export",
