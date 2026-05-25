@@ -3991,8 +3991,12 @@ class TestCanonicalPlaceholdersAreRendered:
 
     def test_render_docs_check_exits_clean(self):
         import subprocess
+        import sys
         result = subprocess.run(
-            [".venv/bin/python", "scripts/render_docs.py", "--check"],
+            # sys.executable, not ".venv/bin/python" — works on CI
+            # runners (system python, no checked-in venv) and on local
+            # dev where the test was run from inside the venv anyway.
+            [sys.executable, "scripts/render_docs.py", "--check"],
             cwd=REPO,
             capture_output=True,
             text=True,

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from trinity_local.embeddings import get_backend
+from trinity_local.embeddings import mlx_actually_loaded
 from trinity_local.ingest import (
     GEMINI_TAKEOUT_EMBED_MAX_WINDOW_SECONDS,
     GEMINI_TAKEOUT_EMBED_SIMILARITY,
@@ -100,9 +100,11 @@ class TestSameTopicLongGap:
         ]
 
     @pytest.mark.skipif(
-        get_backend() != "mlx",
-        reason="v=3 hybrid only runs under MLX nomic embeddings; "
-        "TF-IDF cosines aren't comparable at the 0.55 threshold.",
+        not mlx_actually_loaded(),
+        reason="v=3 hybrid only runs when MLX nomic embeddings are "
+        "actually loaded (HF cache populated). CI runners without the "
+        "model fall back to TF-IDF where the 0.55 cosine threshold "
+        "doesn't apply.",
     )
     def test_v3_clusters_resumed_topic(self):
         cells = self._build_cells()
@@ -139,8 +141,9 @@ class TestMultitaskShortWindow:
         ]
 
     @pytest.mark.skipif(
-        get_backend() != "mlx",
-        reason="v=3 hybrid only runs under MLX nomic embeddings.",
+        not mlx_actually_loaded(),
+        reason="v=3 hybrid only runs when MLX nomic embeddings are "
+        "actually loaded (HF cache populated).",
     )
     def test_v3_keeps_topics_separate(self):
         cells = self._build_cells()
@@ -185,8 +188,9 @@ class TestMissingTimestamps:
         ]
 
     @pytest.mark.skipif(
-        get_backend() != "mlx",
-        reason="v=3 hybrid only runs under MLX nomic embeddings.",
+        not mlx_actually_loaded(),
+        reason="v=3 hybrid only runs when MLX nomic embeddings are "
+        "actually loaded (HF cache populated).",
     )
     def test_v3_does_not_fragment_on_missing_timestamps(self):
         cells = self._build_cells()
@@ -257,8 +261,9 @@ class TestParseGeminiTakeoutFeatureFlag:
         return path
 
     @pytest.mark.skipif(
-        get_backend() != "mlx",
-        reason="v=3 hybrid only runs under MLX nomic embeddings.",
+        not mlx_actually_loaded(),
+        reason="v=3 hybrid only runs when MLX nomic embeddings are "
+        "actually loaded (HF cache populated).",
     )
     def test_default_path_is_v3(self, html_path: Path):
         sessions = list(parse_gemini_takeout_html(html_path))

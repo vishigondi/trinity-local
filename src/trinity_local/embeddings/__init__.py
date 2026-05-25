@@ -64,6 +64,38 @@ def get_backend() -> str:
 DEFAULT_DIM = 768
 
 
+_MLX_PROBE_CACHE: bool | None = None
+
+
+def mlx_actually_loaded() -> bool:
+    """True iff backend_mlx is loaded AND can actually embed.
+
+    Distinct from is_available()/get_backend() — those return "mlx" as
+    soon as the backend module IMPORTS, even when the underlying nomic
+    model file isn't in the HF cache (fresh install before
+    download-embedder; CI runners with [mlx] extras but no model). In
+    that case embed() silently falls back to TF-IDF, which means tests
+    that depend on real semantic cosines silently get garbage.
+
+    Result is cached after the first call — the probe itself runs a
+    real embed (~ms warm, seconds cold), so callers can use this in
+    pytest skipif markers without paying the probe cost N times.
+    """
+    global _MLX_PROBE_CACHE
+    if _MLX_PROBE_CACHE is not None:
+        return _MLX_PROBE_CACHE
+    if _mlx_backend is None:
+        _MLX_PROBE_CACHE = False
+        return False
+    try:
+        vec = _mlx_backend.embed("probe", dim=DEFAULT_DIM)
+        ok = bool(vec) and len(vec) == DEFAULT_DIM
+    except Exception:
+        ok = False
+    _MLX_PROBE_CACHE = ok
+    return ok
+
+
 def is_finite_embedding(emb) -> bool:
     """True if `emb` is a non-empty sequence of all-finite floats.
 
