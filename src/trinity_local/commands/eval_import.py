@@ -79,6 +79,15 @@ def register(subparsers):
         help="Read the JSON payload from stdin instead of a file path.",
     )
     imp.add_argument(
+        "--provider",
+        default=None,
+        help=(
+            "Override the `source_provider` field in the payload. Useful "
+            "when the provider's JSON omits it or you want to attribute "
+            "the import differently."
+        ),
+    )
+    imp.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse + print merge plan; do not write to rejections.jsonl.",
@@ -236,7 +245,10 @@ def handle_eval_import(args) -> int:
         print("error: top-level JSON must be an object", file=sys.stderr)
         return 2
 
-    source_provider = (payload.get("source_provider") or "unknown").strip().lower()
+    cli_override = getattr(args, "provider", None)
+    source_provider = (
+        cli_override or payload.get("source_provider") or "unknown"
+    ).strip().lower()
     raw_rejections = payload.get("rejections") or []
 
     # Map + skip malformed.

@@ -222,6 +222,42 @@ class TestCliEndToEnd:
         assert rc == 1
         assert "file not found" in capsys.readouterr().err
 
+    def test_provider_flag_supplies_missing_source_provider(self, home, tmp_path, capsys):
+        """Payload omits source_provider → --provider supplies it."""
+        payload_file = tmp_path / "lens.json"
+        payload_file.write_text(json.dumps({
+            "tensions": [_good_tension()],
+        }))
+        args = Namespace(
+            path=str(payload_file),
+            from_json=False,
+            provider="claude",
+            dry_run=False,
+            as_json=True,
+        )
+        rc = handle_lens_import(args)
+        assert rc == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["source_provider"] == "claude"
+        lenses = load_lenses()
+        assert lenses[0].dual_evidence["source_provider"] == ["claude"]
+
+    def test_provider_flag_overrides_payload_source_provider(self, home, tmp_path, capsys):
+        """--provider wins over source_provider in the payload (re-attribution)."""
+        payload_file = tmp_path / "lens.json"
+        payload_file.write_text(json.dumps(_payload([_good_tension()], provider="gemini")))
+        args = Namespace(
+            path=str(payload_file),
+            from_json=False,
+            provider="codex",
+            dry_run=False,
+            as_json=True,
+        )
+        rc = handle_lens_import(args)
+        assert rc == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["source_provider"] == "codex"
+
 
 class TestLensPromptCli:
     def test_prompt_body_starts_with_user_facing_instruction(self, capsys):

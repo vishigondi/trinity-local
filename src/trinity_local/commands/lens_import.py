@@ -101,6 +101,16 @@ def register(subparsers):
         ),
     )
     imp.add_argument(
+        "--provider",
+        default=None,
+        help=(
+            "Override the `source_provider` field in the payload. Useful "
+            "when the provider's JSON omits it or you want to attribute "
+            "the import differently (e.g. `--provider claude` when "
+            "ingesting a hand-rewritten payload)."
+        ),
+    )
+    imp.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse + print merge plan; do not write to lenses.json.",
@@ -296,7 +306,14 @@ def handle_lens_import(args) -> int:
         print("error: top-level JSON must be an object", file=sys.stderr)
         return 2
 
-    source_provider = (payload.get("source_provider") or "unknown").strip().lower()
+    # --provider CLI flag wins over the payload's source_provider field.
+    # Two reasons to support an override: (a) provider JSON sometimes
+    # omits the field, (b) the user may want to re-attribute (e.g.
+    # ingesting a hand-edited file under a different label).
+    cli_override = getattr(args, "provider", None)
+    source_provider = (
+        cli_override or payload.get("source_provider") or "unknown"
+    ).strip().lower()
     raw_tensions = payload.get("tensions") or []
     raw_orderings = payload.get("orderings") or []
 
