@@ -107,6 +107,33 @@ class TestEvalRunCtaWhenEvalSetExists:
         )
 
 
+class TestProviderSidePromptCta:
+    """The eval-empty-state card surfaces a secondary path: if the user's
+    rejections.jsonl is empty, ask each provider directly via
+    `trinity-local eval-prompt | pbcopy` + `eval-import`. This pins
+    those chips so a future cleanup doesn't quietly remove the
+    provider-side loop discovery from the launchpad."""
+
+    def test_eval_prompt_chip_renders_in_empty_state(self):
+        html = _render_with({
+            "has_results": False,
+            "eval_set_available": False,
+        })
+        assert "trinity-local eval-prompt | pbcopy" in html
+        assert "eval-prompt-copy" in html  # unique copyText key
+
+    def test_eval_import_chip_renders_in_empty_state(self):
+        html = _render_with({
+            "has_results": False,
+            "eval_set_available": False,
+        })
+        # The chip shows the canonical doc invocation: --provider <name>
+        # in front of the JSON path. Asserting the prefix is enough —
+        # tail filename is documentation, not contract.
+        assert "trinity-local eval-import --provider claude" in html
+        assert "eval-import-copy" in html
+
+
 class TestProviderRegistryAlignment:
     """#116 surface must use the canonical 3 council providers. If
     CANONICAL_COUNCIL_PROVIDERS changes (e.g. a 4th provider joins),

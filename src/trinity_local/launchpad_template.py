@@ -1443,6 +1443,26 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span v-if="copiedKey === 'eval-build-empty'">✓ Copied</span>
             <span v-else>trinity-local eval-build</span>
           </button>
+          <p class="meta" style="margin-top: 12px; margin-bottom: 6px; font-size: 12px;">
+            <strong>Empty rejections.jsonl?</strong> Ask each provider for their view —
+            quality &gt; quantity, 10–25 rejections is plenty:
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer; padding: 5px 10px;"
+                    @click.stop="copyText('trinity-local eval-prompt | pbcopy', 'eval-prompt-copy')">
+              <span v-if="copiedKey === 'eval-prompt-copy'">✓ Copied</span>
+              <span v-else>trinity-local eval-prompt | pbcopy</span>
+            </button>
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer; padding: 5px 10px;"
+                    @click.stop="copyText('trinity-local eval-import --provider claude ./evals-from-claude.json', 'eval-import-copy')">
+              <span v-if="copiedKey === 'eval-import-copy'">✓ Copied</span>
+              <span v-else>trinity-local eval-import --provider claude …</span>
+            </button>
+          </div>
         </div>
         <div v-else style="margin-bottom: 10px;">
           <p class="meta" style="margin-bottom: 8px; font-size: 13px;">
@@ -1844,6 +1864,29 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           shareable — paste a single lens to socials without exposing the prompts.
         </p>
         <pre class="md-code-block"><code>trinity-local lens-build</code></pre>
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06);">
+          <p class="meta" style="font-size: 13px; margin-bottom: 8px;">
+            <strong>No local transcripts yet?</strong> Ask each provider directly —
+            they have your conversation history on their side and can synthesize
+            tensions in the same shape. Paste the prompt, save the JSON, import:
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                    @click.stop="copyText('trinity-local lens-prompt | pbcopy', 'lens-prompt-copy')">
+              <span v-if="copiedKey === 'lens-prompt-copy'">✓ Copied</span>
+              <span v-else>trinity-local lens-prompt | pbcopy</span>
+            </button>
+            <button type="button"
+                    class="suggestion-chip"
+                    style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                    @click.stop="copyText('trinity-local lens-import --provider claude ./lens-from-claude.json', 'lens-import-copy')">
+              <span v-if="copiedKey === 'lens-import-copy'">✓ Copied</span>
+              <span v-else>trinity-local lens-import --provider claude …</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="card">
