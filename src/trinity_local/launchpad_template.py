@@ -1573,7 +1573,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           </p>
         </div>
         <p class="meta" style="margin-top: 12px;">
-          <code>trinity-local eval-show</code> renders the same with top/bottom samples.
+          <code>trinity-local eval-show --compare</code> renders the same leaderboard;
+          <code>eval-show --target {{{{ pageData.evalSummary.target }}}}</code> drills into one provider with top/bottom samples.
           Re-run anytime with <code>eval-run --target {{{{ pageData.evalSummary.target }}}}</code>.
         </p>
       </section>

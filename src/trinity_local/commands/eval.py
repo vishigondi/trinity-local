@@ -95,6 +95,15 @@ def register(subparsers):
         "--limit-samples", type=int, default=3,
         help="How many per-item samples to render (default 3). Set to 0 to skip.",
     )
+    show_p.add_argument(
+        "--compare",
+        action="store_true",
+        help=(
+            "Cross-provider leaderboard view: list every target_provider "
+            "that has been scored against this eval set, sorted by "
+            "aggregate score desc. Mirrors the launchpad's leaderboard."
+        ),
+    )
     show_p.set_defaults(handler=handle_eval_show)
 
     share_p = subparsers.add_parser(
@@ -330,8 +339,108 @@ def _latest_result_path(target: str | None, eval_id: str | None):
     return candidates[0]
 
 
+def _handle_eval_compare(args):
+    """Cross-provider leaderboard. CLI parity with the launchpad's
+    evalSummary.comparison view: one row per target_provider, sorted by
+    aggregate_score desc. When --eval-id is set, filter to that eval
+    set so the columns are commensurate (different eval sets mean
+    different items, so unfiltered comparison is suggestive only —
+    surface a warning).
+    """
+    import json
+
+    from ..evals.builder import results_dir
+
+    candidates = list(results_dir().glob("eval_*__model_*.json"))
+    if args.eval_id:
+        candidates = [p for p in candidates if p.name.startswith(f"eval_{args.eval_id}__")]
+    if not candidates:
+        msg = "  No eval results found on disk."
+        if args.eval_id:
+            msg += f" Filter: eval_id={args.eval_id!r}."
+        msg += " Run `trinity-local eval-run --target <provider>` to produce one."
+        print(msg)
+        raise SystemExit(1)
+    # Walk newest-first so the per-target dedup picks the most recent
+    # run, same policy launchpad uses (launchpad_data.py:_compute_eval_summary).
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+    by_target: dict[str, dict] = {}
+    eval_ids_seen: set[str] = set()
+    for path in candidates:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        target = data.get("target_provider")
+        if not target or target in by_target:
+            continue
+        items = data.get("items") or []
+        judge = None
+        for item in items:
+            if isinstance(item, dict) and item.get("judge_provider"):
+                judge = item["judge_provider"]
+                break
+        eval_id = data.get("eval_id")
+        if eval_id:
+            eval_ids_seen.add(eval_id)
+        by_target[target] = {
+            "target": target,
+            "model": data.get("target_model"),
+            "aggregate_score": data.get("aggregate_score"),
+            "items_completed": data.get("items_completed", 0),
+            "judge": judge,
+            "eval_id": eval_id,
+            "ran_at": data.get("completed_at") or data.get("started_at"),
+        }
+
+    rows = sorted(
+        by_target.values(),
+        key=lambda r: r.get("aggregate_score") if r.get("aggregate_score") is not None else -1.0,
+        reverse=True,
+    )
+
+    print("  Cross-provider leaderboard · YOUR corpus")
+    if len(eval_ids_seen) > 1 and not args.eval_id:
+        print(
+            f"  ⚠ rows span {len(eval_ids_seen)} different eval sets — scores are NOT "
+            "directly comparable. Pass --eval-id <id> to scope to one."
+        )
+    elif len(eval_ids_seen) == 1:
+        print(f"  eval set: {next(iter(eval_ids_seen))}")
+    print()
+    print(f"    {'rank':<5} {'target':<14} {'n':<5} {'aggregate':>10}   {'judge':<14} {'ran'}")
+    for i, row in enumerate(rows, 1):
+        agg = row.get("aggregate_score")
+        agg_str = f"{agg:.3f}" if agg is not None else "—"
+        judge = row.get("judge") or "—"
+        ran = (row.get("ran_at") or "")[:19]  # YYYY-MM-DDThh:mm:ss
+        print(
+            f"    {i:<5} {row['target']:<14} {row['items_completed']:<5} {agg_str:>10}"
+            f"   {judge:<14} {ran}"
+        )
+    print()
+    if len(rows) >= 2:
+        leader, runner_up = rows[0], rows[1]
+        leader_agg = leader.get("aggregate_score")
+        runner_agg = runner_up.get("aggregate_score")
+        if leader_agg is not None and runner_agg is not None:
+            print(
+                f"  {leader['target']} leads {runner_up['target']} "
+                f"by {leader_agg - runner_agg:+.3f} on YOUR rejection signal."
+            )
+    return None
+
+
 def handle_eval_show(args):
     from ..evals.runner import load_run_result
+
+    # --compare: flip to leaderboard view. Mirrors the launchpad's
+    # cross-provider comparison (launchpad_data.py:_compute_eval_summary
+    # builds the same shape). Different return path because --compare
+    # aggregates across targets while the default view drills into one.
+    if getattr(args, "compare", False):
+        return _handle_eval_compare(args)
 
     path = _latest_result_path(args.target, args.eval_id)
     if path is None:
