@@ -1837,6 +1837,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <ol class="taste-list">
             <li v-for="(p, idx) in tasteLenses.paired_lenses" :key="'pair-' + idx">
               <span class="taste-list-title">{{{{ p.pole_a }}}} ↔ {{{{ p.pole_b }}}}</span>
+              <!-- Provenance chip — surfaces where this lens came from.
+                   verdict='accepted' = lens-build pipeline (local
+                   distillation from rejection corpus).
+                   verdict='imported' = provider-side prompt loop
+                   (came back from claude/codex/gemini via lens-import).
+                   Different epistemic source — user should see which.
+                   Same honesty pattern as the trust-band on cortex
+                   rules + the n= label on axis bars: name the source
+                   instead of presenting all lenses as equally weighted. -->
+              <span v-if="p.verdict"
+                    class="meta"
+                    style="display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 3px;"
+                    :style="'display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 3px; ' + (p.verdict === 'accepted' ? 'background: rgba(45, 138, 62, 0.08); color: #2d8a3e;' : 'background: rgba(49, 92, 133, 0.08); color: #315c85;')"
+                    :title="p.verdict === 'accepted' ? 'Built from your local rejection corpus via lens-build' : 'Imported from a provider via trinity-local lens-import'">
+                {{{{ p.verdict === 'accepted' ? 'lens-build' : ('via ' + ((p.dual_evidence && p.dual_evidence.source_provider && p.dual_evidence.source_provider[0]) || 'provider')) }}}}
+              </span>
               <!-- Pole → failure-mode lines (readability fix 2026-05-21).
                    Was "pure-<pole> fails as <failure>" — two filler
                    words ("pure-" prefix + "fails as" verb) before the
