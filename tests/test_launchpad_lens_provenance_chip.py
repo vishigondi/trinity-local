@@ -53,6 +53,44 @@ def test_imported_lens_renders_via_provider_chip():
     assert "p.dual_evidence" in html and "source_provider" in html
 
 
+def test_orderings_also_render_provenance_chip():
+    """Orderings (preferences without dual evidence) get the same
+    provenance treatment as paired lenses — same source-mismatch
+    surface, same fix shipped a868f9b extended to the sibling
+    section. Verdict values for orderings:
+      'preserve_as_ordering' = local lens-build (Stage 4b)
+      'imported_ordering'    = via lens-import
+    """
+    from trinity_local.launchpad_template import render_launchpad_html
+    html = render_launchpad_html(
+        page_data={
+            "tasteLenses": {
+                "orderings": [
+                    {
+                        "pole_a": "shipping velocity",
+                        "pole_b": "aesthetic polish",
+                        "verdict": "preserve_as_ordering",
+                        "dual_evidence": {"source_provider": ["lens-build"]},
+                    },
+                    {
+                        "pole_a": "generator",
+                        "pole_b": "generated",
+                        "verdict": "imported_ordering",
+                        "dual_evidence": {"source_provider": ["claude"]},
+                    },
+                ],
+            },
+        },
+        recent_cards="",
+    )
+    # Conditional emits 'lens-build' for preserve_as_ordering
+    assert "lens-build" in html
+    # 'via X' branch present for imported_ordering
+    assert "via " in html
+    # The local branch keyword surfaces in the binding
+    assert "o.verdict === 'preserve_as_ordering'" in html
+
+
 def test_chip_carries_explanatory_title_for_each_verdict():
     """Tooltip on hover should explain the provenance — same UX
     pattern as the trust-band tooltip on cortex rules."""

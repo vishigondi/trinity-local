@@ -1887,6 +1887,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <ul class="taste-list">
             <li v-for="(o, idx) in tasteLenses.orderings" :key="'ord-' + idx">
               <span class="taste-list-title">{{{{ o.pole_a }}}} &gt; {{{{ o.pole_b }}}}</span>
+              <!-- Provenance chip — same pattern as the paired-lens chip
+                   (commit a868f9b). Orderings can have either verdict:
+                   'preserve_as_ordering' = built locally by lens-build
+                   pipeline (Stage 4b classification — stable preference
+                   without dual evidence).
+                   'imported_ordering' = came from a provider via
+                   lens-import (the orderings section of the provider
+                   JSON). Surface the source so user knows which is
+                   which without inspecting the raw JSON. -->
+              <span v-if="o.verdict"
+                    :style="'display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 3px; ' + (o.verdict === 'preserve_as_ordering' ? 'background: rgba(45, 138, 62, 0.08); color: #2d8a3e;' : 'background: rgba(49, 92, 133, 0.08); color: #315c85;')"
+                    :title="o.verdict === 'preserve_as_ordering' ? 'Built from your local rejection corpus via lens-build (preserve_as_ordering — preference without dual evidence)' : 'Imported from a provider via trinity-local lens-import'">
+                {{{{ o.verdict === 'preserve_as_ordering' ? 'lens-build' : ('via ' + ((o.dual_evidence && o.dual_evidence.source_provider && o.dual_evidence.source_provider[0]) || 'provider')) }}}}
+              </span>
             </li>
           </ul>
         </div>
