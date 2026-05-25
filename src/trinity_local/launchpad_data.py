@@ -1479,10 +1479,18 @@ def _memory_health() -> dict:
             "name": "core.md",
             "status": "stale",
             "hint": f"{src} is newer than the distillation.",
-            "command": "trinity-local dream",
+            # --only-distill is the fast path: ~20s on a real install vs
+            # ~5-15min for the full 5-phase dream. core.md is just the
+            # distillation of the three upstream memories; if those are
+            # current (which they usually are when only core.md is stale),
+            # Phase 5 alone fixes it.
+            "command": "trinity-local dream --only-distill",
             "href": None,
         })
     elif state == "missing":
+        # Missing → no upstream memories may exist yet either. Safer to
+        # run the full pipeline so the user gets a complete first-run.
+        # --only-distill would write a thin core.md from empty inputs.
         issues.append({
             "name": "core.md",
             "status": "missing",

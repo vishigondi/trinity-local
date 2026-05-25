@@ -67,13 +67,18 @@ class TestCoreStalenessSignal:
         core_issues = [i for i in issues if i["name"] == "core.md"]
         assert len(core_issues) == 1
         assert core_issues[0]["status"] == "stale"
-        # Actionable command flips to `dream` post-2026-05-18 (iter
-        # #12): the standalone `distill` CLI was hidden in commit
-        # c9b1f9d; dream Phase 5 is the live path that writes core.md.
-        assert core_issues[0]["command"] == "trinity-local dream"
+        # Actionable command flips to the fast path 2026-05-25:
+        # `dream --only-distill` skips the 5-phase pipeline and just
+        # refreshes core.md from the existing upstream memories (~20s
+        # vs ~5-15min for full dream). Stale-core's typical cause is
+        # upstream memories getting touched — Phase 5 alone fixes it.
+        assert core_issues[0]["command"] == "trinity-local dream --only-distill"
 
     def test_core_missing_when_sources_exist(self, isolated_home):
-        # Sources present but no distillation yet — same `dream` flip.
+        # Missing core stays on full dream — when core has never been
+        # written, the upstream memories may also be in a partial state
+        # (e.g. first install). Full pipeline ensures a coherent first
+        # core.md from a fully-built memory hierarchy.
         (isolated_home / "memories" / "lens.md").write_text("some lens", encoding="utf-8")
         _memory_health = _import_health()
         issues = _memory_health()["issues"]
