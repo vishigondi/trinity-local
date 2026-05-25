@@ -111,6 +111,43 @@ class TestLaunchpadChipsRender:
         assert "chip.axis" in html
         assert "chip.target" in html
 
+    def test_mixed_eval_sets_flag_drives_warning_banner(self, home):
+        """When the comparison list spans ≥2 distinct eval_ids, the
+        launchpad template surfaces the warning banner. Mirrors the CLI
+        warning eval-show --compare emits."""
+        from trinity_local.launchpad_data import _eval_summary
+        from trinity_local.launchpad_template import render_launchpad_html
+        # Each provider against a different eval set — the drift case
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81})
+        _write_run(home, eval_id="set_b", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74})
+        summary = _eval_summary()
+        assert summary["mixed_eval_sets"] is True
+        html = render_launchpad_html(
+            page_data={"evalSummary": summary},
+            recent_cards="",
+        )
+        # Banner v-if is wired so Vue mounts it when the flag fires.
+        assert "mixed_eval_sets" in html
+        # Banner copy matches the CLI warning vocabulary.
+        assert "scores aren't directly comparable" in html
+
+    def test_mixed_eval_sets_false_when_all_rows_agree(self, home):
+        from trinity_local.launchpad_data import _eval_summary
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74})
+        summary = _eval_summary()
+        assert summary["mixed_eval_sets"] is False
+
+    def test_comparison_rows_carry_eval_id_for_drift_detection(self, home):
+        from trinity_local.launchpad_data import _eval_summary
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79)
+        summary = _eval_summary()
+        assert summary["comparison"][0].get("eval_id") == "set_a"
+
     def test_meta_line_advertises_by_axis_variants(self):
         from trinity_local.launchpad_template import render_launchpad_html
         html = render_launchpad_html(

@@ -1548,6 +1548,15 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div v-if="pageData.evalSummary.comparison && pageData.evalSummary.comparison.length >= 2"
              style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);">
           <div class="eyebrow" style="font-size: 11px;">Cross-provider leaderboard · YOUR corpus</div>
+          <!-- Mixed-eval-set drift: surface when comparison rows
+               target different eval sets. Same warning CLI emits
+               (eval-show --compare). Hides itself when all rows agree. -->
+          <div v-if="pageData.evalSummary.mixed_eval_sets"
+               style="margin: 8px 0; padding: 8px 10px; background: rgba(196, 121, 31, 0.08); border-left: 3px solid #c4791f; border-radius: 4px; font-size: 12px;">
+            ⚠ Rows span multiple eval sets — scores aren't directly comparable.
+            Re-run each provider against the latest set via
+            <code>trinity-local eval-run --target &lt;provider&gt; --eval-id &lt;latest&gt;</code>.
+          </div>
           <!-- Per-axis leader chips — the wedge claim ("X is best at
                kind-of-question Y") surfaced inline so a journalist
                screenshotting the launchpad sees the nuance the aggregate

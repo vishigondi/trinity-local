@@ -1022,12 +1022,27 @@ def _eval_summary() -> dict:
             "judge": judge,
             "ran_at": data.get("completed_at") or data.get("started_at"),
             "by_axis": per_axis,
+            # eval_id surfaces mixed-set drift: when the comparison list
+            # contains rows from different eval sets the aggregate
+            # scores aren't directly comparable. Template uses the
+            # mixed_eval_sets flag below to warn the user.
+            "eval_id": data.get("eval_id"),
         }
     comparison = sorted(
         by_target.values(),
         key=lambda r: r.get("aggregate_score") or -1.0,
         reverse=True,
     )
+    # Mixed-eval-set drift: each provider's most-recent run may target
+    # a different eval set (e.g. user rebuilt then re-scored only 2 of
+    # 3 providers). Surface a warning when distinct eval_ids appear in
+    # the comparison list — scores from different sets aren't
+    # directly comparable. CLI mirror: `eval-show --compare` emits the
+    # same warning; this brings it to the launchpad.
+    distinct_eval_ids = {
+        r["eval_id"] for r in comparison if r.get("eval_id")
+    }
+    mixed_eval_sets = len(distinct_eval_ids) > 1
     # Per-axis leader: for each axis seen across any provider, who
     # scored highest? Surfaces the wedge claim ("X is best for this
     # kind of question") on the launchpad without requiring the user
@@ -1072,6 +1087,10 @@ def _eval_summary() -> dict:
         # COMPRESSION") without requiring the user to leave for
         # `trinity-local eval-show --compare --by-axis`.
         "per_axis_leader": per_axis_leader,
+        # True when the comparison list contains rows from ≥2 distinct
+        # eval sets. Template surfaces a warning banner so a user
+        # rebuilding-without-rescoring-all-providers sees the drift.
+        "mixed_eval_sets": mixed_eval_sets,
     }
 
 
