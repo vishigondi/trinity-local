@@ -333,21 +333,26 @@ def render_compare_matrix_card(data: CompareCardData) -> bytes:
         # Per-axis leader chips above the matrix. The tweet-line of
         # the card: "COMPRESSION → codex (0.77)  REFRAME → claude (0.81) ..."
         #
-        # SUPPRESSED when mixed_eval_sets is True — same fix as the
-        # launchpad's per_axis_leader (commit 83b9e99). Computing a
-        # leader-per-axis across DIFFERENT eval sets is exactly the
-        # claim the warning at the top of the card forbids. The
-        # matrix bars stay (the per-row data is still meaningful as
-        # each-provider's-own-score), but the leader chips that
-        # synthesize a head-to-head are suppressed.
+        # SUPPRESSED in two cases:
+        # 1. mixed_eval_sets — leader synthesis across mismatched sets
+        # 2. Any contender's by_axis_n[axis] < MIN_AXIS_SAMPLES (3) —
+        #    sample too small to claim a winner. Live trigger:
+        #    COMPRESSION on user's set had n=2 per provider; calling
+        #    "codex wins COMPRESSION 0.77" based on 2 prompts is noise.
+        # Matrix bars stay (each per-row score is meaningful per se).
+        MIN_AXIS_SAMPLES = 3
         if not data.mixed_eval_sets:
             chip_x = margin
             chip_y = y
             for axis in axes_ordered:
-                scored = [(r["target"], r["by_axis"][axis]) for r in data.rows if axis in (r.get("by_axis") or {})]
-                if not scored:
+                scored = [
+                    (r["target"], r["by_axis"][axis], (r.get("by_axis_n") or {}).get(axis, 0))
+                    for r in data.rows
+                    if axis in (r.get("by_axis") or {})
+                ]
+                if not scored or any(n < MIN_AXIS_SAMPLES for _, _, n in scored):
                     continue
-                leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+                leader_target, leader_score, _ = max(scored, key=lambda kv: kv[1])
                 leader_name = _provider_display_name(leader_target, None)
                 # No `→` — the bundled fonts lack the glyph and render
                 # missing-glyph boxes in the chip. ASCII separator is safer.

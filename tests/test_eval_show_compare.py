@@ -52,7 +52,7 @@ def _write_run(
         ],
         "aggregate_score": aggregate,
         "by_rejection_type": {
-            axis: {"mean_score": score, "count": 1, "min_score": score, "max_score": score}
+            axis: {"mean_score": score, "count": 5, "min_score": score, "max_score": score}
             for axis, score in (by_axis or {}).items()
         },
     }

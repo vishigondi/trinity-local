@@ -1049,10 +1049,15 @@ def _eval_summary() -> dict:
         # Per-axis means for the by-axis matrix view + per-axis leader
         # computation below. Keep nested so consumers paying only for
         # the aggregate-leaderboard view skip the parse.
+        # Pairs (mean, count) so the leader-suppression rule can check
+        # sample size — claims like "codex wins COMPRESSION 0.77" based
+        # on n=2 are noise, not signal.
         per_axis = {}
+        per_axis_n = {}
         for axis_name, stats in (data.get("by_rejection_type") or {}).items():
             if isinstance(stats, dict) and "mean_score" in stats:
                 per_axis[axis_name] = float(stats["mean_score"])
+                per_axis_n[axis_name] = int(stats.get("count", 0))
         by_target[target] = {
             "target": target,
             "model": data.get("target_model"),
@@ -1061,6 +1066,7 @@ def _eval_summary() -> dict:
             "judge": judge,
             "ran_at": data.get("completed_at") or data.get("started_at"),
             "by_axis": per_axis,
+            "by_axis_n": per_axis_n,
             # eval_id surfaces mixed-set drift: when the comparison list
             # contains rows from different eval sets the aggregate
             # scores aren't directly comparable. Template uses the
@@ -1095,15 +1101,30 @@ def _eval_summary() -> dict:
     # misleading head-to-head claim. The banner already surfaces the
     # remedy; better to hide the chips than make a false comparison.
     per_axis_leader: list[dict] = []
+    # Minimum samples per provider before declaring a leader on an axis.
+    # n=2 is the live trigger — COMPRESSION on the user's eval set had 2
+    # items per provider, but mean differences of 0.7 between providers
+    # at n=2 are noise, not signal. n=3 is a hard floor; in practice
+    # users should be at n=10+ before a per-axis claim is publishable.
+    MIN_AXIS_SAMPLES = 3
     if not mixed_eval_sets:
         axes_seen: set[str] = set()
         for row in comparison:
             axes_seen.update((row.get("by_axis") or {}).keys())
         for axis in sorted(axes_seen):
-            scored = [(r["target"], r["by_axis"][axis]) for r in comparison if axis in (r.get("by_axis") or {})]
+            scored = [
+                (r["target"], r["by_axis"][axis], (r.get("by_axis_n") or {}).get(axis, 0))
+                for r in comparison
+                if axis in (r.get("by_axis") or {})
+            ]
             if not scored:
                 continue
-            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+            # Sample-size guard: if ANY contender on this axis is below
+            # the floor, suppress the claim — leader-by-noise is worse
+            # than no leader.
+            if any(n < MIN_AXIS_SAMPLES for _, _, n in scored):
+                continue
+            leader_target, leader_score, _ = max(scored, key=lambda kv: kv[1])
             per_axis_leader.append({
                 "axis": axis,
                 "target": leader_target,

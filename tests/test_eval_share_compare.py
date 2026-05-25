@@ -44,7 +44,7 @@ def _write_run(
         "items": [{"judge_provider": judge, "score": 0.5, "rejection_type": "REFRAME"}],
         "aggregate_score": aggregate,
         "by_rejection_type": {
-            axis: {"mean_score": score, "count": 1, "min_score": score, "max_score": score}
+            axis: {"mean_score": score, "count": 5, "min_score": score, "max_score": score}
             for axis, score in (by_axis or {}).items()
         },
     }))
@@ -306,15 +306,20 @@ class TestRenderCompareCardPure:
         Test pin shape: we render with mixed=True vs mixed=False on
         otherwise-identical data and assert the bytes differ (chips
         present in one case, absent in the other). Specific pixel
-        assertions are too brittle; byte-size delta is a stable proxy."""
+        assertions are too brittle; byte-size delta is a stable proxy.
+
+        by_axis_n=10 per axis to satisfy the MIN_AXIS_SAMPLES floor
+        so the agreed-sets variant DOES render chips for comparison."""
         from trinity_local.eval_card import CompareCardData, render_compare_matrix_card
         rows = [
             {"target": "claude", "model": None, "aggregate_score": 0.79,
              "items_completed": 45, "judge": "codex",
-             "by_axis": {"REFRAME": 0.81, "COMPRESSION": 0.48}},
+             "by_axis": {"REFRAME": 0.81, "COMPRESSION": 0.48},
+             "by_axis_n": {"REFRAME": 10, "COMPRESSION": 10}},
             {"target": "codex", "model": None, "aggregate_score": 0.76,
              "items_completed": 45, "judge": "claude",
-             "by_axis": {"REFRAME": 0.74, "COMPRESSION": 0.77}},
+             "by_axis": {"REFRAME": 0.74, "COMPRESSION": 0.77},
+             "by_axis_n": {"REFRAME": 10, "COMPRESSION": 10}},
         ]
         png_clean = render_compare_matrix_card(CompareCardData(
             rows=rows, eval_id="set_a", mixed_eval_sets=False,

@@ -50,7 +50,7 @@ def _write_run(
         "items": [{"judge_provider": judge, "score": 0.5, "rejection_type": "REFRAME"}],
         "aggregate_score": aggregate,
         "by_rejection_type": {
-            axis: {"mean_score": score, "count": 1, "min_score": score, "max_score": score}
+            axis: {"mean_score": score, "count": 5, "min_score": score, "max_score": score}
             for axis, score in (by_axis or {}).items()
         },
     }))
@@ -110,6 +110,49 @@ class TestLaunchpadChipsRender:
         # Format string for chip text — matches "<axis>: <target> <score>"
         assert "chip.axis" in html
         assert "chip.target" in html
+
+    def test_per_axis_leader_suppressed_when_sample_too_small(self, home):
+        """Live trigger 2026-05-25: COMPRESSION had n=2 per provider on
+        the user's eval set, mean spreads of 0.7 between providers, but
+        n=2 is noise. The leader-claim suppression rule should refuse
+        to declare a winner when any contender on the axis has
+        count < 3.
+
+        Override _write_run's default count=5 by writing manually with
+        count=2 to match the live shape."""
+        import json as _json
+        from trinity_local.evals.builder import results_dir
+        from trinity_local.launchpad_data import _eval_summary
+        rd = results_dir()
+        rd.mkdir(parents=True, exist_ok=True)
+        # Both providers on set_a, but COMPRESSION has count=2 (noise)
+        # and REFRAME has count=10 (signal). Leader chip should fire
+        # for REFRAME only.
+        for target, scores in [
+            ("claude", {"REFRAME": (0.81, 10), "COMPRESSION": (0.12, 2)}),
+            ("codex",  {"REFRAME": (0.74, 10), "COMPRESSION": (0.77, 2)}),
+        ]:
+            path = rd / f"eval_set_a__model_{target}__20260101T000000.json"
+            path.write_text(_json.dumps({
+                "eval_id": "set_a", "target_provider": target,
+                "items": [{"judge_provider": "claude"}], "items_completed": 12,
+                "aggregate_score": 0.5,
+                "by_rejection_type": {
+                    axis: {"mean_score": s, "count": n, "min_score": s, "max_score": s}
+                    for axis, (s, n) in scores.items()
+                },
+            }))
+        summary = _eval_summary()
+        chips = {c["axis"]: c["target"] for c in summary["per_axis_leader"]}
+        # REFRAME fires (n=10 per provider, well above floor)
+        assert "REFRAME" in chips
+        assert chips["REFRAME"] == "claude"
+        # COMPRESSION suppressed (n=2 < threshold)
+        assert "COMPRESSION" not in chips, (
+            "COMPRESSION leader chip should be suppressed when contenders "
+            "have n=2 — same product-correctness rule the user explicitly "
+            "ratified by noting 'n=2 is noise, not signal'"
+        )
 
     def test_per_axis_leader_suppressed_when_mixed_eval_sets(self, home):
         """The per-axis leader chips compare scores across providers.

@@ -453,10 +453,14 @@ def _collect_leaderboard_rows(eval_id: str | None) -> tuple[list[dict], set[str]
             eval_ids_seen.add(eid)
         # Per-axis means for the --by-axis matrix view. Keep as nested
         # dict so a caller doing aggregate-only work pays no parse cost.
+        # by_axis_n stores per-axis sample counts so leader-suppression
+        # can refuse to declare a winner on noise (n < MIN_AXIS_SAMPLES).
         by_axis = {}
+        by_axis_n = {}
         for axis_name, stats in (data.get("by_rejection_type") or {}).items():
             if isinstance(stats, dict) and "mean_score" in stats:
                 by_axis[axis_name] = float(stats["mean_score"])
+                by_axis_n[axis_name] = int(stats.get("count", 0))
         by_target[target] = {
             "target": target,
             "model": data.get("target_model"),
@@ -466,6 +470,7 @@ def _collect_leaderboard_rows(eval_id: str | None) -> tuple[list[dict], set[str]
             "eval_id": eid,
             "ran_at": data.get("completed_at") or data.get("started_at"),
             "by_axis": by_axis,
+            "by_axis_n": by_axis_n,
         }
     rows = sorted(
         by_target.values(),
@@ -534,23 +539,31 @@ def _handle_eval_compare(args):
         # Per-axis leader callouts — names the wedge claim ("X is best
         # for kind-of-question Y") in publishable form.
         #
-        # SUPPRESSED when rows span multiple eval sets (same fix as
-        # launchpad commit 83b9e99 + eval_card matrix card). The
-        # warning at the top of this output already says "scores
-        # are NOT directly comparable"; rendering a leader-per-axis
-        # callout that synthesizes those same incomparable scores
-        # into a head-to-head contradicts the warning. Suppress the
-        # callout when mixed; the matrix bars stay (per-row data is
-        # still meaningful as each-provider's-own-score).
+        # SUPPRESSED in two cases:
+        # 1. Mixed eval sets (commit 02f354d) — scores aren't comparable.
+        # 2. Any contender on the axis has n < 3 — sample too small to
+        #    declare a winner. Live trigger: COMPRESSION had n=2 per
+        #    provider, mean spreads of 0.7 between providers, but n=2
+        #    is noise. Better to surface no claim than a wrong one.
+        # Matrix bars stay — per-provider scores are meaningful per se,
+        # only the head-to-head SYNTHESIS gets suppressed.
         mixed = len(eval_ids_seen) > 1 and not args.eval_id
+        MIN_AXIS_SAMPLES = 3
         if not mixed:
             print()
             leader_lines = []
             for axis in axes_ordered:
-                scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
+                scored = [
+                    (r["target"], r["by_axis"][axis], (r.get("by_axis_n") or {}).get(axis, 0))
+                    for r in rows
+                    if axis in (r.get("by_axis") or {})
+                ]
                 if not scored:
                     continue
-                leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+                # Sample-size guard
+                if any(n < MIN_AXIS_SAMPLES for _, _, n in scored):
+                    continue
+                leader_target, leader_score, _ = max(scored, key=lambda kv: kv[1])
                 leader_lines.append(f"{axis} → {leader_target} ({leader_score:.2f})")
             if leader_lines:
                 print("  Per-axis leader:  " + "  |  ".join(leader_lines))
@@ -758,20 +771,25 @@ def handle_eval_share(args):
         opened = _open_if_requested(args.open_after, out)
         # Per-axis leader summary — useful in the JSON output for
         # scripted callers that want the wedge string.
-        # SUPPRESSED when mixed_eval_sets (same fix shipped to launchpad
-        # data + PNG matrix card + CLI matrix in this iteration's
-        # consistency pass — never synthesize a head-to-head when
-        # scores come from different eval sets).
+        # Suppressed in two cases: mixed_eval_sets OR any contender on
+        # the axis has n < MIN_AXIS_SAMPLES (sample too small to
+        # declare a winner). Same rules as the launchpad + CLI surfaces.
         per_axis_leader: dict[str, dict] = {}
+        MIN_AXIS_SAMPLES = 3
         if by_axis_mode and not compare_data.mixed_eval_sets:
             axes_seen: set[str] = set()
             for row in rows:
                 axes_seen.update((row.get("by_axis") or {}).keys())
             for axis in sorted(axes_seen):
-                scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
-                if scored:
-                    leader_target, leader_score = max(scored, key=lambda kv: kv[1])
-                    per_axis_leader[axis] = {"target": leader_target, "score": leader_score}
+                scored = [
+                    (r["target"], r["by_axis"][axis], (r.get("by_axis_n") or {}).get(axis, 0))
+                    for r in rows
+                    if axis in (r.get("by_axis") or {})
+                ]
+                if not scored or any(n < MIN_AXIS_SAMPLES for _, _, n in scored):
+                    continue
+                leader_target, leader_score, _ = max(scored, key=lambda kv: kv[1])
+                per_axis_leader[axis] = {"target": leader_target, "score": leader_score}
         summary = {
             "ok": True,
             "mode": "compare-by-axis" if by_axis_mode else "compare",
