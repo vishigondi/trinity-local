@@ -263,6 +263,39 @@ class TestRenderCompareCardPure:
         # substantial than the empty-state fallback.
         assert len(png) > 8000
 
+    def test_aggregate_renderer_softens_headline_when_mixed_eval_sets(self):
+        """The aggregate PNG card headline is 'X leads at N.NN' when
+        sets agree, but should soften to 'X scored N.NN' when mixed
+        (no implied head-to-head). Plus the runner-up margin subhead
+        is fully suppressed (the +0.029-ahead claim is the subtraction
+        the warning forbids). Same consistency rule."""
+        from trinity_local.eval_card import CompareCardData, render_compare_card
+        rows = [
+            {"target": "claude", "model": None, "aggregate_score": 0.79,
+             "items_completed": 45, "judge": "codex"},
+            {"target": "codex", "model": None, "aggregate_score": 0.76,
+             "items_completed": 45, "judge": "claude"},
+        ]
+        # Just smoke that the renderer doesn't crash on the mixed
+        # branch — pixel-level wedge assertions are brittle. Byte
+        # delta is the stable proxy (one branch draws an extra
+        # subhead line, the other doesn't).
+        png_clean = render_compare_card(CompareCardData(
+            rows=rows, eval_id="set_a", mixed_eval_sets=False,
+        ))
+        png_mixed = render_compare_card(CompareCardData(
+            rows=rows, eval_id=None, mixed_eval_sets=True,
+        ))
+        assert png_clean[:8] == b"\x89PNG\r\n\x1a\n"
+        assert png_mixed[:8] == b"\x89PNG\r\n\x1a\n"
+        # Mixed version draws a warning line that the clean version
+        # doesn't — the byte size goes UP in mixed mode, not down
+        # (this is the inverse of the matrix-card delta because here
+        # the warning is the bigger element vs the suppressed margin).
+        # The point of this assertion is just that the two paths
+        # diverge — pixel-byte equality means a regression.
+        assert len(png_clean) != len(png_mixed)
+
     def test_matrix_renderer_skips_leader_chips_when_mixed_eval_sets(self):
         """The matrix PNG card draws per-axis leader chips above the
         matrix. When the comparison data carries mixed_eval_sets=True,

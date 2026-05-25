@@ -567,7 +567,13 @@ def _handle_eval_compare(args):
             f"   {judge:<14} {ran}"
         )
     print()
-    if len(rows) >= 2:
+    # Suppress the "X leads Y by ±Z" head-to-head when rows span
+    # different eval sets — same consistency rule shipped to the
+    # per-axis leader synthesis (commits 83b9e99, 02f354d). The
+    # warning above the table already says scores aren't comparable;
+    # a leader-margin line that subtracts them anyway contradicts it.
+    mixed = len(eval_ids_seen) > 1 and not args.eval_id
+    if not mixed and len(rows) >= 2:
         leader, runner_up = rows[0], rows[1]
         leader_agg = leader.get("aggregate_score")
         runner_agg = runner_up.get("aggregate_score")

@@ -512,18 +512,27 @@ def render_compare_card(data: CompareCardData) -> bytes:
                   "against ≥2 providers to populate this card.",
                   font=sub, fill=COLOR_MUTED)
     else:
-        # Headline: name the leader. "Claude leads on YOUR taste"
+        # Headline: name the leader. Soften from "Claude leads at 0.79"
+        # to "Claude scored 0.79" when mixed_eval_sets is True — "leads"
+        # implies a fair head-to-head against the runner-up; "scored"
+        # is just each-provider's-own-number, which IS meaningful
+        # regardless of set agreement.
         leader = data.rows[0]
         leader_name = _provider_display_name(leader["target"], leader.get("model"))
         leader_agg = leader.get("aggregate_score")
         if leader_agg is not None:
-            headline_text = f"{leader_name} leads at {leader_agg:.2f}"
+            if data.mixed_eval_sets:
+                headline_text = f"{leader_name} scored {leader_agg:.2f}"
+            else:
+                headline_text = f"{leader_name} leads at {leader_agg:.2f}"
         else:
             headline_text = f"{leader_name} ranked first"
         draw.text((margin, y), headline_text, font=headline, fill=COLOR_INK)
         y += 64
 
-        if len(data.rows) >= 2:
+        # Subhead: skip the ±margin against runner-up when mixed — that's
+        # exactly the head-to-head subtraction the warning forbids.
+        if len(data.rows) >= 2 and not data.mixed_eval_sets:
             runner = data.rows[1]
             runner_agg = runner.get("aggregate_score")
             if leader_agg is not None and runner_agg is not None:

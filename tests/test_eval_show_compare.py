@@ -246,6 +246,30 @@ class TestByAxisMatrix:
         assert "no per-axis breakdown" in out
         assert "eval-run" in out
 
+    def test_aggregate_leader_margin_suppressed_when_mixed_eval_sets(self, home, capsys):
+        """Same consistency rule for the AGGREGATE compare path:
+        'X leads Y by ±Z' is a head-to-head subtraction. When sets
+        mix, the warning says don't compare — so don't print the
+        margin line either."""
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79)
+        _write_run(home, eval_id="set_b", target="codex", aggregate=0.76)
+        handle_eval_show(_compare_args())  # aggregate mode, not by_axis
+        out = capsys.readouterr().out
+        assert "rows span 2 different eval sets" in out
+        assert "leads" not in out  # no head-to-head line
+
+    def test_aggregate_leader_margin_renders_when_sets_agree(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79)
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76)
+        handle_eval_show(_compare_args())
+        out = capsys.readouterr().out
+        assert "rows span" not in out
+        # The leader-margin line surfaces in the agreed-sets case
+        assert "claude leads codex" in out
+        assert "+0.030" in out
+
     def test_per_axis_leader_callout_suppressed_when_mixed_eval_sets(self, home, capsys):
         """Same fix shipped to launchpad chips + PNG matrix card —
         the per-axis leader callout synthesizes a head-to-head across
