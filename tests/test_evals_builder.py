@@ -219,6 +219,77 @@ class TestSaveLoadRoundtrip:
         assert load_eval_set("eval_does_not_exist") is None
 
 
+class TestEvalBuildReScoreNudge:
+    """After rebuilding an eval set, the CLI should nudge the user to
+    re-score against the new set when prior runs exist (otherwise the
+    leaderboard silently goes out of sync). Names the providers with
+    prior results and emits copy-paste-ready commands per provider."""
+
+    def _write_result(self, eval_id: str, target: str) -> None:
+        from trinity_local.evals.builder import results_dir
+        rd = results_dir()
+        rd.mkdir(parents=True, exist_ok=True)
+        path = rd / f"eval_{eval_id}__model_{target}__20260101T000000.json"
+        path.write_text(json.dumps({
+            "eval_id": eval_id, "target_provider": target,
+            "items_completed": 5, "items": [],
+            "aggregate_score": 0.5, "by_rejection_type": {},
+        }))
+
+    def test_targets_with_results_returns_distinct_providers(self, home):
+        from trinity_local.commands.eval import _targets_with_results
+        self._write_result("set_a", "claude")
+        self._write_result("set_a", "codex")
+        self._write_result("set_b", "claude")  # duplicate target
+        assert _targets_with_results() == {"claude", "codex"}
+
+    def test_targets_with_results_excludes_named_eval_id(self, home):
+        """The nudge is about RE-scoring — exclude prior runs against
+        the same set we just rebuilt."""
+        from trinity_local.commands.eval import _targets_with_results
+        self._write_result("set_a", "claude")
+        self._write_result("set_b", "codex")
+        # Pretend we just rebuilt set_a. Claude's set_a run shouldn't
+        # count toward "needs re-scoring."
+        targets = _targets_with_results(exclude_eval_id="set_a")
+        assert targets == {"codex"}
+
+    def test_targets_with_results_handles_missing_dir(self, home):
+        from trinity_local.commands.eval import _targets_with_results
+        # No results dir yet → empty set, not crash
+        assert _targets_with_results() == set()
+
+    def test_nudge_renders_per_target_eval_run_commands(self, home, capsys):
+        """End-to-end smoke: after a rebuild with prior results, output
+        contains one `eval-run --target X --eval-id Y` line per
+        prior-scored provider."""
+        import json as _json
+        from trinity_local.commands.eval import handle_eval_build
+        from argparse import Namespace
+
+        # Plant a rejections.jsonl + prior runs against ANOTHER eval set
+        rej_path = home / "me" / "rejections.jsonl"
+        rej_path.parent.mkdir(parents=True, exist_ok=True)
+        rej_path.write_text(_json.dumps({
+            "id": "r_001", "type": "REFRAME",
+            "model_quote": "long explanation",
+            "user_substitute": "just the answer",
+            "why_signal": "wants direct answers",
+            "prompt_id": "pn_1", "basin": "b00", "next_user_turn": "",
+        }))
+        self._write_result("eval_OLD_set", "claude")
+        self._write_result("eval_OLD_set", "codex")
+
+        # Build args; argparse defaults via Namespace mimic
+        args = Namespace(source="rejections", limit=None, eval_id=None)
+        handle_eval_build(args)
+        out = capsys.readouterr().out
+        assert "already scored against prior eval sets" in out
+        # Per-target commands surfaced
+        assert "eval-run --target claude --eval-id" in out
+        assert "eval-run --target codex --eval-id" in out
+
+
 class TestEvalCLIRegistered:
     """The CLI is the user-facing surface for the marketing artifact.
     If it's not registered, the eval set never gets built."""

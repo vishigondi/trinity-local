@@ -189,8 +189,55 @@ def handle_eval_build(args):
         for basin, count in list(by_basin.items())[:8]:
             print(f"    {basin:<8} {count}")
     print(f"\n  → {path}")
-    print("\n  Next: `trinity-local eval-run --target <provider>` to score a model against this set,"
-          "\n        then `trinity-local eval-show` to inspect results.")
+
+    # Re-score nudge: if this isn't the first eval set the user has
+    # built, name the providers already scored against PRIOR sets and
+    # surface ready-to-paste eval-run commands against the NEW one.
+    # Without this, the user has to remember to re-score after every
+    # rebuild, and the leaderboard silently drifts out of sync.
+    prior_targets = _targets_with_results(exclude_eval_id=eval_set.eval_id)
+    if prior_targets:
+        print()
+        print(
+            f"  Note: {len(prior_targets)} provider(s) already scored against prior "
+            f"eval sets ({', '.join(sorted(prior_targets))}). Re-run against this "
+            f"new set so the leaderboard reflects the fresh signals:"
+        )
+        for target in sorted(prior_targets):
+            print(f"    trinity-local eval-run --target {target} --eval-id {eval_set.eval_id}")
+    else:
+        print("\n  Next: `trinity-local eval-run --target <provider>` to score a model against this set,"
+              "\n        then `trinity-local eval-show` to inspect results.")
+
+
+def _targets_with_results(exclude_eval_id: str | None = None) -> set[str]:
+    """Return the set of target_provider names that have at least one
+    eval result on disk against an eval set OTHER than `exclude_eval_id`.
+
+    Used by handle_eval_build to nudge the user toward re-scoring after
+    a rebuild. Filename convention from evals.runner.result_path:
+      eval_<eval_id>__model_<target>__<ts>.json
+    """
+    import json
+
+    from ..evals.builder import results_dir
+    rd = results_dir()
+    if not rd.exists():
+        return set()
+    targets: set[str] = set()
+    for path in rd.glob("eval_*__model_*.json"):
+        # Skip results against the same eval set we just rebuilt — the
+        # nudge is about RE-scoring, not re-pointing at fresh data.
+        if exclude_eval_id and f"eval_{exclude_eval_id}__" in path.name:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        target = data.get("target_provider")
+        if target:
+            targets.add(target)
+    return targets
 
 
 def handle_eval_stats(args):
