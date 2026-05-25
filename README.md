@@ -11,7 +11,7 @@ class: live
 
 ## Your taste, ported.
 
-Run any hard question through Claude, Codex, and Gemini in parallel. The chairman synthesizes through your taste lens — distilled from your own transcripts, on your machine — and picks the answer YOU would have picked, not the generic one.
+It runs your hard questions through Claude, Codex, and Gemini in parallel and picks the answer in your voice — not the generic one.
 
 ![the launchpad — what a brand-new install opens to on first run](docs/launchpad_example.png)
 
