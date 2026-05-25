@@ -1253,7 +1253,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in cortexRules.rules">
+            <!-- Visually demote rules below the use-rule threshold —
+                 same correctness rule as the axis-bar opacity (commit
+                 0c20656). A rule in the "kNN fallback" band shouldn't
+                 render with the same authority as one in the
+                 "use rule" band. The bold score number tempts users
+                 to read low-trust rules as confident claims; opacity
+                 demotion keeps the data visible but says "less
+                 trusted" visually. -->
+            <tr v-for="r in cortexRules.rules"
+                :style="r.trust_score < cortexRules.trust_use_rule ? 'opacity: 0.55;' : null"
+                :title="r.trust_score < cortexRules.trust_use_rule ? 'Low-trust rule (' + r.trust_band + '): more councils needed before this drives routing. ask falls back to kNN match for this basin.' : null">
               <td style="font-weight: 500;">
                 <!-- Cross-memory deep-link: basin_id → memory.html with
                      this basin focused. Memory viewer's picks Reader
