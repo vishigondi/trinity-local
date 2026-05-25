@@ -41,6 +41,13 @@ from .share_card_base import (
 COLOR_BAR_FILL = (37, 88, 71)
 COLOR_BAR_TRACK = (37, 88, 71, 36)
 
+# Same MIN_AXIS_SAMPLES threshold the launchpad + CLI use (commits
+# dd83aa0, 0c20656). Below this floor: leader chips suppress, matrix
+# bars render with reduced opacity and "(n=N)" annotation. Don't let
+# a 0.12-fill bar from n=1 read with the same visual weight as a
+# 0.93-fill bar from n=20.
+MIN_AXIS_SAMPLES = 3
+
 
 @dataclass
 class EvalCardData:
@@ -340,7 +347,7 @@ def render_compare_matrix_card(data: CompareCardData) -> bytes:
         #    COMPRESSION on user's set had n=2 per provider; calling
         #    "codex wins COMPRESSION 0.77" based on 2 prompts is noise.
         # Matrix bars stay (each per-row score is meaningful per se).
-        MIN_AXIS_SAMPLES = 3
+        # MIN_AXIS_SAMPLES is module-level (declared at top).
         if not data.mixed_eval_sets:
             chip_x = margin
             chip_y = y
@@ -404,9 +411,16 @@ def render_compare_matrix_card(data: CompareCardData) -> bytes:
             target_name = _provider_display_name(row["target"], row.get("model"))
             draw.text((margin, y + 4), target_name,
                       font=target_font, fill=COLOR_INK)
-            # Per-axis bars + scores
+            # Per-axis bars + scores. Low-n cells (count < MIN_AXIS_SAMPLES)
+            # render with alpha-blended fill — same honesty pattern as
+            # the launchpad axis-bar opacity (commit 0c20656). A bar
+            # filled to 12% based on n=1 should not look as authoritative
+            # as a bar filled to 93% based on n=20.
             row_axes = row.get("by_axis") or {}
+            row_axes_n = row.get("by_axis_n") or {}
             bar_pad = 10  # horizontal padding inside each axis column
+            LOW_N_BAR_FILL = (37, 88, 71, 100)  # COLOR_BAR_FILL at ~40% alpha
+            LOW_N_INK = (60, 60, 60, 120)  # muted ink for low-n score text
             for i, axis in enumerate(axes_ordered):
                 col_x = axes_area_x + axis_col_w * i + bar_pad
                 col_bar_w = axis_col_w - bar_pad * 2
@@ -419,23 +433,27 @@ def render_compare_matrix_card(data: CompareCardData) -> bytes:
                 )
                 if axis in row_axes:
                     val = row_axes[axis]
+                    axis_n = row_axes_n.get(axis, 0)
+                    low_n = axis_n < MIN_AXIS_SAMPLES
                     fill_pct = max(0.0, min(1.0, val))
                     fill_w = int(col_bar_w * fill_pct)
                     if fill_w > bar_height:
                         draw.rounded_rectangle(
                             [col_x, track_top, col_x + fill_w, track_bot],
                             radius=bar_height // 2,
-                            fill=COLOR_BAR_FILL,
+                            fill=LOW_N_BAR_FILL if low_n else COLOR_BAR_FILL,
                         )
                     # Score below the bar (small mono, center-aligned in column)
-                    score_text = f"{val:.2f}"
+                    # Low-n cells annotate with " (n=N)" so the user sees
+                    # the sample size, not just a number.
+                    score_text = f"{val:.2f}" + (f" (n={axis_n})" if low_n else "")
                     bbox = draw.textbbox((0, 0), score_text, font=score_font)
                     sw = bbox[2] - bbox[0]
                     draw.text(
                         (col_x + (col_bar_w - sw) // 2, track_bot + 4),
                         score_text,
                         font=score_font,
-                        fill=COLOR_INK,
+                        fill=LOW_N_INK if low_n else COLOR_INK,
                     )
                 else:
                     # Missing-axis cell — small dash, center-aligned
