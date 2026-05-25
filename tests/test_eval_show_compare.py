@@ -27,6 +27,7 @@ def _write_run(
     aggregate: float | None,
     items_completed: int = 10,
     judge: str = "claude",
+    by_axis: dict | None = None,
 ) -> Path:
     """Drop a synthetic eval result JSON in the canonical location.
 
@@ -50,18 +51,22 @@ def _write_run(
             {"judge_provider": judge, "score": 0.5, "rejection_type": "REFRAME"}
         ],
         "aggregate_score": aggregate,
-        "by_rejection_type": {},
+        "by_rejection_type": {
+            axis: {"mean_score": score, "count": 1, "min_score": score, "max_score": score}
+            for axis, score in (by_axis or {}).items()
+        },
     }
     path.write_text(json.dumps(payload))
     return path
 
 
-def _compare_args(eval_id: str | None = None) -> Namespace:
+def _compare_args(eval_id: str | None = None, by_axis: bool = False) -> Namespace:
     return Namespace(
         target=None,
         eval_id=eval_id,
         limit_samples=0,
         compare=True,
+        by_axis=by_axis,
     )
 
 
@@ -173,3 +178,85 @@ class TestCompareFlagRegistered:
         register(sub)
         args = parser.parse_args(["eval-show", "--compare"])
         assert getattr(args, "compare", False) is True
+
+    def test_by_axis_arg_present(self):
+        from trinity_local.commands.eval import register
+        import argparse
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        register(sub)
+        args = parser.parse_args(["eval-show", "--compare", "--by-axis"])
+        assert getattr(args, "by_axis", False) is True
+
+
+class TestByAxisMatrix:
+    """--by-axis: per-rejection-type cross-provider matrix view."""
+
+    def test_matrix_renders_axes_as_columns(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        # Header carries both axes
+        assert "REFRAME" in out
+        assert "COMPRESSION" in out
+        # Both providers' axis scores render
+        assert "0.810" in out  # claude REFRAME
+        assert "0.480" in out  # claude COMPRESSION
+        assert "0.770" in out  # codex COMPRESSION
+
+    def test_per_axis_leader_callout(self, home, capsys):
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74, "COMPRESSION": 0.77})
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        # The wedge claim: name the right leader per axis
+        assert "REFRAME → claude" in out
+        assert "COMPRESSION → codex" in out
+
+    def test_missing_axis_for_a_provider_renders_dash(self, home, capsys):
+        """If a provider's run didn't cover an axis (older run, partial
+        eval), the matrix cell should show '—', not crash."""
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.79,
+                   by_axis={"REFRAME": 0.81, "COMPRESSION": 0.48})
+        _write_run(home, eval_id="set_a", target="codex", aggregate=0.76,
+                   by_axis={"REFRAME": 0.74})  # no COMPRESSION axis
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        # codex row should have a — for COMPRESSION
+        codex_line = next(l for l in out.splitlines() if "codex" in l and "leader" not in l)
+        # Two possible positions depending on header ordering — just
+        # check there's a — somewhere in the codex row.
+        assert "—" in codex_line
+
+    def test_no_runs_have_per_axis_falls_back_gracefully(self, home, capsys):
+        """Pre-by_rejection_type runs (no axis breakdown) should print a
+        helpful hint instead of an empty matrix."""
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.8)  # no by_axis
+        handle_eval_show(_compare_args(by_axis=True))
+        out = capsys.readouterr().out
+        assert "no per-axis breakdown" in out
+        assert "eval-run" in out
+
+    def test_by_axis_without_compare_exits_2(self, home, capsys):
+        """--by-axis is only valid inside --compare; lone --by-axis exits
+        with a hint not a crash."""
+        from trinity_local.commands.eval import handle_eval_show
+        _write_run(home, eval_id="set_a", target="claude", aggregate=0.8)
+        args = Namespace(
+            target=None, eval_id=None, limit_samples=0,
+            compare=False, by_axis=True,
+        )
+        with pytest.raises(SystemExit) as exc:
+            handle_eval_show(args)
+        assert exc.value.code == 2
+        out = capsys.readouterr().out
+        assert "--by-axis only applies to the leaderboard view" in out

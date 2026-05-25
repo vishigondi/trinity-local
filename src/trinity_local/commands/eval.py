@@ -104,6 +104,16 @@ def register(subparsers):
             "aggregate score desc. Mirrors the launchpad's leaderboard."
         ),
     )
+    show_p.add_argument(
+        "--by-axis",
+        action="store_true",
+        help=(
+            "With --compare: render the axis × provider matrix instead "
+            "of the aggregate-only table. Surfaces per-rejection-type "
+            "leadership splits (e.g. claude wins REFRAME, codex wins "
+            "COMPRESSION) that the aggregate flattens. Requires --compare."
+        ),
+    )
     show_p.set_defaults(handler=handle_eval_show)
 
     share_p = subparsers.add_parser(
@@ -384,6 +394,12 @@ def _collect_leaderboard_rows(eval_id: str | None) -> tuple[list[dict], set[str]
         eid = data.get("eval_id")
         if eid:
             eval_ids_seen.add(eid)
+        # Per-axis means for the --by-axis matrix view. Keep as nested
+        # dict so a caller doing aggregate-only work pays no parse cost.
+        by_axis = {}
+        for axis_name, stats in (data.get("by_rejection_type") or {}).items():
+            if isinstance(stats, dict) and "mean_score" in stats:
+                by_axis[axis_name] = float(stats["mean_score"])
         by_target[target] = {
             "target": target,
             "model": data.get("target_model"),
@@ -392,6 +408,7 @@ def _collect_leaderboard_rows(eval_id: str | None) -> tuple[list[dict], set[str]
             "judge": judge,
             "eval_id": eid,
             "ran_at": data.get("completed_at") or data.get("started_at"),
+            "by_axis": by_axis,
         }
     rows = sorted(
         by_target.values(),
@@ -418,7 +435,9 @@ def _handle_eval_compare(args):
         print(msg)
         raise SystemExit(1)
 
-    print("  Cross-provider leaderboard · YOUR corpus")
+    by_axis_mode = bool(getattr(args, "by_axis", False))
+
+    print("  Cross-provider leaderboard · YOUR corpus" + ("  ·  per-axis matrix" if by_axis_mode else ""))
     if len(eval_ids_seen) > 1 and not args.eval_id:
         print(
             f"  ⚠ rows span {len(eval_ids_seen)} different eval sets — scores are NOT "
@@ -427,6 +446,48 @@ def _handle_eval_compare(args):
     elif len(eval_ids_seen) == 1:
         print(f"  eval set: {next(iter(eval_ids_seen))}")
     print()
+
+    if by_axis_mode:
+        # Build the axes column list from union of all rows' axes, in a
+        # stable order (alphabetical) so the header matches the data rows.
+        axes_seen: set[str] = set()
+        for row in rows:
+            axes_seen.update((row.get("by_axis") or {}).keys())
+        axes_ordered = sorted(axes_seen)
+        if not axes_ordered:
+            print("  (no per-axis breakdown available — runs predate by_rejection_type)")
+            print("  Re-run with `trinity-local eval-run --target <provider>` to populate.")
+            return None
+
+        # Header
+        axis_cols = "  ".join(f"{a[:11]:>11}" for a in axes_ordered)
+        print(f"    {'target':<14} {'n':<5} {'agg':>6}  {axis_cols}")
+        for row in rows:
+            agg = row.get("aggregate_score")
+            agg_str = f"{agg:.2f}" if agg is not None else "—"
+            row_axes = row.get("by_axis") or {}
+            axis_vals = "  ".join(
+                f"{row_axes[a]:>11.3f}" if a in row_axes else f"{'—':>11}"
+                for a in axes_ordered
+            )
+            print(
+                f"    {row['target']:<14} {row['items_completed']:<5} {agg_str:>6}  {axis_vals}"
+            )
+
+        # Per-axis leader callouts — names the wedge claim ("X is best
+        # for kind-of-question Y") in publishable form.
+        print()
+        leader_lines = []
+        for axis in axes_ordered:
+            scored = [(r["target"], r["by_axis"][axis]) for r in rows if axis in (r.get("by_axis") or {})]
+            if not scored:
+                continue
+            leader_target, leader_score = max(scored, key=lambda kv: kv[1])
+            leader_lines.append(f"{axis} → {leader_target} ({leader_score:.2f})")
+        if leader_lines:
+            print("  Per-axis leader:  " + "  |  ".join(leader_lines))
+        return None
+
     print(f"    {'rank':<5} {'target':<14} {'n':<5} {'aggregate':>10}   {'judge':<14} {'ran'}")
     for i, row in enumerate(rows, 1):
         agg = row.get("aggregate_score")
@@ -452,6 +513,15 @@ def _handle_eval_compare(args):
 
 def handle_eval_show(args):
     from ..evals.runner import load_run_result
+
+    # --by-axis is meaningful only inside the leaderboard view (axis
+    # × provider matrix). Without --compare it has no row dimension.
+    if getattr(args, "by_axis", False) and not getattr(args, "compare", False):
+        print(
+            "  --by-axis only applies to the leaderboard view. Pass "
+            "--compare --by-axis to render the axis × provider matrix.",
+        )
+        raise SystemExit(2)
 
     # --compare: flip to leaderboard view. Mirrors the launchpad's
     # cross-provider comparison (launchpad_data.py:_compute_eval_summary
