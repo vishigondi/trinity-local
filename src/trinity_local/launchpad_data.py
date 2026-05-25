@@ -890,13 +890,52 @@ def _handoff_nudge() -> dict:
     # layer" — true on warm cache, but the launchpad render path is
     # often the FIRST call (cold cache) and ate the full parse.
     try:
-        prompt_count = len(tail_prompt_nodes_fast(limit=5))
+        recent_nodes = tail_prompt_nodes_fast(limit=5)
+        prompt_count = len(recent_nodes)
     except Exception:
+        recent_nodes = []
         prompt_count = 0
+
+    # Workspace-intent detection (task #121 Phase 2): scan the recent
+    # user_text for triggers that suggest the user could USE Gemini's
+    # Google Workspace integrations (Gmail/Drive/Calendar). When
+    # matched + antigravity is enabled, upgrade the nudge to specifically
+    # suggest a Gemini handoff with the workspace-themed message.
+    # Keywords pulled from the SKILL.md § 7 trigger list and the spec
+    # at docs/spec-gemini-google-handoff.md.
+    workspace_intent = False
+    matched_keywords: list[str] = []
+    if "antigravity" in enabled and recent_nodes:
+        # Keyword groups — broad enough to catch the common phrasings,
+        # narrow enough that "the schedule_id field" doesn't trip it.
+        # Lowercased word-boundary matches via simple `in` over space-
+        # padded text (cheap; no regex compile per render).
+        keyword_groups = [
+            ("calendar", " calendar"),
+            ("schedule", " my schedule"),
+            ("this week", " this week"),
+            ("inbox", " inbox"),
+            ("gmail", " gmail"),
+            ("email", " email"),
+            ("drive", " drive"),
+            ("the doc", " the doc"),
+            ("my notes", " my notes"),
+        ]
+        for node in recent_nodes:
+            text = " " + ((node.text or "").lower()) + " "
+            for label, needle in keyword_groups:
+                if needle in text and label not in matched_keywords:
+                    matched_keywords.append(label)
+        if matched_keywords:
+            workspace_intent = True
+            target = "antigravity"  # the workspace-capable provider
+
     return {
         "applicable": prompt_count > 0,
         "target": target,
         "source_count": prompt_count,
+        "workspace_intent": workspace_intent,
+        "matched_keywords": matched_keywords[:3],  # cap for display
     }
 
 
