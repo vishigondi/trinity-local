@@ -18,10 +18,11 @@ v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (counci
 |---|---|---|---|
 | Episodic | **transcripts** | (no shared standard yet — MessageList shapes diverge) | Raw conversations across CLIs + web chats |
 | Semantic | **memories** | MCP Resources (read-only context) | Extracted facts/observations from dream |
-| Procedural | **moves** | [SKILL.md](https://agentskills.io/specification) | Crystallized procedures that consistently produced accepted outputs |
+| Procedural (atomic) | **moves** | [SKILL.md](https://agentskills.io/specification) | Crystallized atomic procedures — repeated successful patterns |
+| Procedural (composed) | **playbooks** | SKILL.md + `trinity_composed_of` reference | Sequential compositions of moves — one level only |
 | Preferential | **lens** | [AGENTS.md](https://github.com/agentsmd/agents.md) | The geometry across all of the above — tensions, basins, vocabulary |
 
-Each layer is a compression of the one below. Promotion between layers is what `dream` already does for memories. v2 names the missing piece: **eval-gated promotion** of memories→moves, and the standards-aligned export format for each layer.
+Each layer is a compression of the one below. Promotion between layers is what `dream` already does for memories. v2 names the missing pieces: **eval-gated promotion** of memories→moves, and **co-application-gated composition** of moves→playbooks. One composition level only — Trinity does not stack playbooks of playbooks. ([MACLA's branching_rules](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference) reserved space for conditional control but never shipped it; sequential composition is sufficient for the data Trinity has and the value it captures.)
 
 ## The four-layer substrate
 
@@ -35,13 +36,13 @@ Distilled observations + facts written at `~/.trinity/memories/`. Files: `core.m
 
 **Standard adopted: MCP Resources.** Trinity exposes each memory file as a readable MCP Resource (URI: `trinity://memories/<file>`). Any MCP-compatible harness lists these at session start and the agent reads on demand. This is the v2 leverage point: a Claude Code session with Trinity loaded sees the lens BEFORE the user types anything.
 
-### Layer 3: Moves (procedural)
+### Layer 3a: Moves (atomic procedural)
 
-> **Note on naming:** internally Trinity calls this layer **moves** — the user's repeatable plays that survived eval. Externally Trinity exports them as **SKILL.md** files for interop. "Move" emphasizes the action-shape; "skill" emphasizes the marketplace-shape. Both refer to the same artifact.
+> **Note on naming:** Trinity uses **moves** as the atomic internal name — the user's repeatable plays that survived eval. Externally Trinity exports them as **SKILL.md** files for interop. "Move" emphasizes the action-shape; "skill" emphasizes the marketplace-shape. Both refer to the same artifact.
 
-Located at `~/.trinity/moves/<slug>/SKILL.md`. The directory contract follows agentskills.io exactly — YAML frontmatter (required: `name`, `description`) + markdown body, optional `tools` whitelist, no internal routing prescribed.
+Located at `~/.trinity/moves/<slug>/SKILL.md`. Directory contract follows agentskills.io exactly — YAML frontmatter (required: `name`, `description`) + markdown body, optional `tools` whitelist, no internal routing prescribed.
 
-**Trinity-specific frontmatter extensions** (custom fields are explicitly allowed by the SKILL.md spec and ignored by other tools):
+**Trinity-specific frontmatter extensions** (custom fields are explicitly allowed by the SKILL.md spec and ignored by tools that don't recognize them):
 
 ```yaml
 ---
@@ -49,26 +50,96 @@ name: tighten-after-bullet-list
 description: |
   When the model returns a 5+ item bulleted list, compress to a 2-3
   sentence paragraph capturing only the load-bearing claims.
-trinity_lens_score: 0.84
-trinity_promoted_from: ["r_001", "r_042", "r_117"]   # rejection ids
-trinity_eval_baseline: 0.79
-trinity_eval_runs: 6
+
+# Provenance — which rejection-pairs justified this move
+trinity_promoted_from: ["r_001", "r_042", "r_117"]
 trinity_basin_id: b03
 trinity_promoted_at: "2026-05-23T14:22:00Z"
 trinity_demoted_at: null
+
+# Bayesian success tracking (lifted from MACLA Procedure dataclass)
+# alpha = successful applications (chairman picked the response using
+# this move). beta = unsuccessful applications. posterior =
+# alpha / (alpha + beta). Trinity uses Beta-Binomial conjugate prior
+# for incremental updates — no rolling-window bookkeeping needed.
+trinity_alpha: 8                 # successes
+trinity_beta: 2                  # failures
+trinity_posterior: 0.80          # alpha / (alpha + beta)
+trinity_execution_count: 10      # alpha + beta
+
+# Scores from the four-tier gate at promotion time + last re-eval
+trinity_t1_lexical_score: 0.42   # Jaccard at most-recent re-eval
+trinity_t2_embedding_score: 0.81 # cosine vs basin centroid
+trinity_t3_chairman_score: 0.84  # most recent T3 chairman eval
+trinity_eval_baseline: 0.79      # personal best on T3; promotion floor
+
+# Contrastive learning (lifted from MACLA ContrastiveContext) — which
+# basins/contexts the move fired correctly vs incorrectly in. Lets
+# users debug why a move drifted (basin shifted? corpus shifted?
+# real-world drifted?).
+trinity_success_contexts: ["b03", "b07"]   # basin ids
+trinity_failure_contexts: []
+trinity_generalizability_score: 0.6        # how many distinct basins the move applies in
+
+# How many distinct lens-tensions this move addresses. Highly-
+# specific moves are 1-2; broadly-useful moves are 5+.
+trinity_lens_tensions_addressed: 2
 ---
 
-(markdown body — the actual move)
+(markdown body — the actual move's procedure)
 ```
 
-**The promotion gate** (the spec's load-bearing claim):
+### Layer 3b: Playbooks (composed procedural — one level only)
 
-A move only lands in `~/.trinity/moves/` when:
+Located at `~/.trinity/playbooks/<slug>/SKILL.md`. Same format as moves, but with a `trinity_composed_of` field listing the moves that constitute the sequence. **One composition level only** — Trinity does not stack playbooks-of-playbooks. (MACLA's `composition_policy` reserved a `"branching_rules"` slot that was never implemented; sequential composition is sufficient for the data Trinity has.)
 
-1. **Cheap pre-filter passes** — basin similarity ≥ 0.7 to ≥ 3 accepted rejection-pairs (the move stays within the user's accepted patterns).
-2. **Expensive eval passes** — chairman scores the candidate against the rejection corpus; score ≥ `trinity_eval_baseline` (set at first promotion; tracks personal best).
+```yaml
+---
+name: research-then-tighten
+description: |
+  When the user asks for a research summary, sequence:
+  1. Pull context from cross-provider corpus (fetch-relevant-pairs)
+  2. Compress according to user's preferred density (tighten-after-bullet-list)
+  3. Cite source rejections explicitly (cite-source-pairs)
 
-Both must pass. A move that drifts below baseline on a later dream cycle gets demoted (sets `trinity_demoted_at`, moves to `~/.trinity/moves/archive/`). Demotion is not deletion — the move file persists with the demotion reason logged in the body.
+# Composition (lifted from MACLA MetaProcedure.sub_procedures)
+trinity_composed_of: ["fetch-relevant-pairs", "tighten-after-bullet-list", "cite-source-pairs"]
+trinity_composition_policy:
+  type: sequential
+  ordering: ["fetch-relevant-pairs", "tighten-after-bullet-list", "cite-source-pairs"]
+
+# How many councils observed these moves co-applied successfully
+# before this playbook got promoted. Co-application count is the
+# core promotion signal for playbooks.
+trinity_co_apply_count: 7
+trinity_co_apply_threshold: 5
+
+# Bayesian tracking — same shape as moves
+trinity_alpha: 4
+trinity_beta: 1
+trinity_posterior: 0.80
+trinity_execution_count: 5
+
+# Composition wins over parts: playbook's chairman score must exceed
+# the average of constituent moves' chairman scores. If a playbook
+# doesn't beat sum-of-parts, it doesn't earn the composition's
+# storage + retrieval cost.
+trinity_composition_lift: 0.06   # playbook score - avg(move scores)
+trinity_promoted_at: "2026-05-24T09:13:00Z"
+trinity_demoted_at: null
+---
+
+(markdown body — the playbook's narrative + sequencing notes)
+```
+
+### The promotion gate (the spec's load-bearing claim)
+
+The four-tier Bayesian gate (defined below in "Eval-gated promotion") runs against **moves** at promotion time. For **playbooks**, an additional precondition gates the gate itself: the constituent moves must have been observed co-applied successfully ≥ `trinity_co_apply_threshold` times AND the composition must clear `trinity_composition_lift > 0` (chairman score on the composed sequence beats the average of the parts).
+
+Demotion uses the same tiers + co-application drift. A playbook demotes when:
+- Any constituent move demotes (cascading invalidation), OR
+- T1/T2/T3 drift on the composed sequence, OR
+- T4 posterior (`alpha/(alpha+beta)`) drops below baseline.
 
 ### Layer 4: Lens (preferential)
 
@@ -141,11 +212,13 @@ Read top-to-bottom as **prior → likelihood → posterior**. Each tier runs onl
 | **T1** prior (lexical) | Cheap structural similarity | ~1ms | n-gram overlap with accepted patterns in the candidate's claimed basin | Jaccard ≥ 0.3 vs ≥ 3 accepted patterns |
 | **T2** prior (embedding) | Geometric basin membership | ~10ms | Cosine similarity of candidate's embedding vs basin centroid | cos ≥ 0.7 to ≥ 1 accepted basin |
 | **T3** likelihood (chairman) | Score against personalized rejection corpus | ~30s | Chairman runs the candidate against rejection items; scores via lens | score ≥ `trinity_eval_baseline` (set at first promotion; tracks personal best) |
-| **T4** posterior (live A/B) | Real-world utility | free (side-effect of usage) | When this move was active in a chairman call, did the council win? Rolling N-call win-rate. | win-rate ≥ baseline over rolling N calls |
+| **T4** posterior (live A/B) | Real-world utility | free (side-effect of usage) | When this move was active in a chairman call, did the chairman pick the response that used it? Beta-Binomial conjugate prior tracking via `alpha` / `beta` frontmatter fields. | `alpha / (alpha + beta)` ≥ baseline |
 
 **T1+T2 are the prior** — cheap, structural, runs on 100% of candidates. Filters ~70-80%.
 **T3 is the high-fidelity likelihood** — expensive, definitive, runs on the surviving ~20-30%.
 **T4 is the empirical posterior** — free as a side-effect of councils, continuously re-validates active moves against actual usage.
+
+T4 uses a **Beta-Binomial conjugate prior** (lifted from MACLA's `Procedure` dataclass): every council where a move was active increments `alpha` (chairman picked the response using the move) or `beta` (chairman picked a different member). The posterior is `alpha / (alpha + beta)` — incremental, mathematically clean, no rolling-window bookkeeping. This is materially better than the rolling-N-call shape an earlier version of this spec proposed: rolling windows lose history at the edges and introduce window-size as a hyperparameter; the conjugate prior accumulates evidence forever and converges naturally.
 
 A move that survives all four is: structurally similar to your taste **and** scores well on your rejection corpus **and** demonstrably improves your actual council outcomes. A move that fails any tier loses its "active" status with the failure reason recorded.
 
@@ -181,9 +254,10 @@ The v1 schemas survive — they describe the council-outcome / rejection-signal 
 | `~/.trinity/council_outcomes/council_<hash>.json` | [`council_outcome.schema.json`](../schemas/council_outcome.schema.json) | One multi-model run + chairman synthesis. Unchanged from v1. |
 | `~/.trinity/me/rejections.jsonl` | [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json) | Labeled (prompt, response, rejection_type) triples. Unchanged from v1. |
 | `~/.trinity/evals/eval_<hash>.json` | [`eval_set.schema.json`](../schemas/eval_set.schema.json) | Personalized eval suite. Unchanged from v1. |
-| `~/.trinity/moves/<slug>/SKILL.md` | SKILL.md spec + Trinity extension frontmatter (this doc) | Promoted moves. New in v2. |
+| `~/.trinity/moves/<slug>/SKILL.md` | SKILL.md spec + Trinity move-extension frontmatter (this doc) | Promoted atomic moves. New in v2. |
+| `~/.trinity/playbooks/<slug>/SKILL.md` | SKILL.md spec + Trinity playbook-extension frontmatter (this doc) | Composed playbooks (one composition level). New in v2. |
 | `~/.trinity/dream_rejections.jsonl` | [`dream_rejection.schema.json`](../schemas/dream_rejection.schema.json) | Candidates the eval gate rejected, with `why_rejected`. New in v2. |
-| `~/.trinity/dream_demotions.jsonl` | [`dream_demotion.schema.json`](../schemas/dream_demotion.schema.json) | Moves that drifted below baseline and got archived. New in v2. |
+| `~/.trinity/dream_demotions.jsonl` | [`dream_demotion.schema.json`](../schemas/dream_demotion.schema.json) | Moves/playbooks that drifted below baseline and got archived. New in v2. |
 
 ## The four implicit-rejection signal types (unchanged from v1)
 
@@ -232,9 +306,17 @@ Schemas are validated against real on-disk data in `tests/test_preference_corpus
 ## Versioning
 
 v1 (May 14, 2026) — council outcome / rejection signal / eval set schemas; structural lock.
-v2 (May 26, 2026) — three-standard adoption (SKILL.md + AGENTS.md + MCP); adds move / dream-rejection / dream-demotion schemas + the Bayesian four-tier gate. v1 schemas survive unchanged; v2 is purely additive.
+v2 (May 26, 2026) — three-standard adoption (SKILL.md + AGENTS.md + MCP); adds move + playbook + dream-rejection + dream-demotion schemas; Bayesian four-tier gate; Beta-Binomial conjugate prior for T4. v1 schemas survive unchanged; v2 is purely additive.
 
 v2 is structural; backward-compatible additions don't bump the version, removals would.
+
+## Prior art lifted into v2
+
+- **[CoALA / Sumers et al. 2024](https://arxiv.org/html/2603.07670v1)** — four-layer cognitive memory taxonomy (working/episodic/semantic/procedural). Trinity drops "working" (per-MCP-session, ephemeral) and adds "preferential" as the lens layer. Procedural is sub-divided into atomic (moves) + composed (playbooks).
+- **[MACLA / S. Forouzandeh, AAMAS 2026](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference)** — the `Procedure` dataclass shape (alpha/beta Beta-Binomial tracker, success/failure contrastive contexts, generalizability score) and `MetaProcedure` composition (sub_procedures list, sequential-only composition policy). Trinity adopts the math + structure; not the agent loop. MACLA's reserved-but-unimplemented `branching_rules` is intentionally left unimplemented in v2 — sequential composition is sufficient and conditional control adds operational complexity without proven value at this scale.
+- **[SKILL.md / agentskills.io](https://agentskills.io/specification)** — exact file format for moves and playbooks. Trinity adds extension frontmatter fields; the core spec is unchanged.
+- **[AGENTS.md / agentsmd.org](https://github.com/agentsmd/agents.md)** — lens-derived guidance format. Trinity writes AGENTS.md as a render target of `lens.md` + `core.md`.
+- **[MCP Resources + Prompts + Tools](https://modelcontextprotocol.io)** — primitive substrate. Trinity uses all three (v1 used only Tools).
 
 ## Distribution
 
