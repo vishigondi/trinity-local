@@ -147,6 +147,20 @@ def handle_install_mcp(args):
             "~/.gemini, cowork in the background — your first council is "
             "already personalized."
         )
+        # uvx upsell — install-mcp currently writes pip-style configs
+        # (the binary is whatever Python env this command was invoked
+        # from). For new users on a clean machine, uvx is materially
+        # easier: isolated venv, auto-update, no environment management.
+        # Print the one-liner so the user knows the alternative exists.
+        print(
+            "\nTip: for new installs, the recommended path is uvx. One line per harness:\n"
+            "  Claude Code/Desktop:  claude mcp add trinity-local --command "
+            "\"uvx trinity-local --mcp\"\n"
+            "  Codex CLI / Cursor:   command=\"uvx\", args=[\"trinity-local\", "
+            "\"--mcp\"]\n"
+            "uvx auto-updates Trinity on each invocation — no `pip install --upgrade` "
+            "step. See README \"Install\" section for full per-harness snippets."
+        )
     else:
         print("No MCP configuration files were updated.")
 

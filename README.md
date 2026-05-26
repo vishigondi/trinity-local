@@ -27,15 +27,40 @@ The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Ge
 
 ## Install
 
+**Recommended** — one line via `uvx` (Astral's `uv`-based PyPI runner; installs into an isolated venv, auto-updates on each invocation):
+
+```bash
+# Claude Code / Claude Desktop
+claude mcp add trinity-local --command "uvx trinity-local --mcp"
+```
+
+For **Codex CLI**, add to `~/.codex/config.toml`:
+
+```toml
+[mcp.trinity-local]
+command = "uvx"
+args = ["trinity-local", "--mcp"]
+```
+
+For **Cursor / Cline / Continue** — paste into the harness's MCP config UI:
+
+```json
+{ "command": "uvx", "args": ["trinity-local", "--mcp"] }
+```
+
+For **Antigravity** (`agy` CLI) — model selection happens inside agy itself, not via MCP. Run `/model` and pick `Gemini 3.1 Pro (high)`; Trinity's launchpad reads the persisted selection from `~/.gemini/antigravity-cli/settings.json`.
+
+Then ask any of these agents: *"Run a Trinity council on …"* — the MCP tools appear inline. Free, local, MIT. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface.
+
+**Full bootstrap** — if you want the Chrome extension (browser-capture + dispatch from claude.ai / chatgpt.com / gemini.google.com), the optional MLX embedding backend, and shell aliases all installed at once:
+
 ```bash
 <!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 ```
 
-**Easiest** — install the Chrome extension first, then paste its setup brief into Claude Code or Claude Desktop. The agent runs the rest. No terminal expertise required. See [docs/INSTALL-extension.md](docs/INSTALL-extension.md).
+This clones the repo (you can read it end-to-end), pip-installs Trinity, sets up the Chrome extension, and seeds the embedder model.
 
-Once installed, just ask the agent: *"Run a Trinity council on …"* — Trinity registers as an MCP server in Claude Code / Codex CLI / Antigravity / Cursor, so the tools are visible inline. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface. Free, local, MIT. No PyPI, no npm — Trinity is a git clone you can read end-to-end.
-
-Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `agy` CLIs authenticated — Trinity works with just one (chairman synthesis + your lens), gets stronger with two (real disagreement), full canonical council with three. **Ollama / MLX models you've pulled locally are auto-discovered** and join the routing pool as free council members (`ollama:<model>` / `mlx:<model>`) — no config edit, no extra MCP tools. Full prereqs, the two install paths (terminal / Chrome extension), uninstall, offline-model setup, and the local-models section live in [`docs/install-deep.md`](docs/install-deep.md). To remove: `trinity-local uninstall --yes`.
+Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `agy` CLIs authenticated — Trinity works with just one (chairman synthesis + your lens), gets stronger with two (real disagreement), full canonical council with three. **Ollama / MLX models you've pulled locally are auto-discovered** and join the routing pool as free council members (`ollama:<model>` / `mlx:<model>`) — no config edit, no extra MCP tools. To remove: `trinity-local uninstall --yes`.
 
 ## How it works
 
