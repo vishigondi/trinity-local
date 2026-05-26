@@ -28,14 +28,14 @@
       "type": "cli",
       "enabled": true,
       "label": "Claude",
-      "model": "claude-sonnet-4-6",
+      "model": "claude-opus-4-7",
       "command": [
         "claude",
         "-p"
       ],
       "args": [
         "--model",
-        "claude-sonnet-4-6"
+        "claude-opus-4-7"
       ],
       "task_types": [
         "general",
@@ -43,7 +43,7 @@
         "coding",
         "writing"
       ],
-      "effort": "high"
+      "effort": "max"
     },
     "antigravity": {
       "type": "cli",
@@ -58,13 +58,14 @@
         "general",
         "reasoning",
         "research"
-      ]
+      ],
+      "model": "Gemini 3.1 Pro (high)"
     },
     "codex": {
       "type": "codex",
       "enabled": true,
       "label": "Codex",
-      "model": "gpt-5.3-codex",
+      "model": "gpt-5.5",
       "command": [
         "codex",
         "exec"
@@ -80,7 +81,7 @@
         "coding",
         "debugging"
       ],
-      "effort": "high"
+      "effort": "xhigh"
     }
   },
   "task_preferences": {

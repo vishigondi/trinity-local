@@ -100,7 +100,10 @@ def _effective_effort(config: ProviderConfig) -> str | None:
     Per-provider valid values (we pass through verbatim — the CLI itself
     validates):
       - claude:       low / medium / high / xhigh / max (CLI flag --effort)
-      - codex:        minimal / low / medium / high (-c model_reasoning_effort)
+      - codex:        none / low / medium / high / xhigh
+                      (-c model_reasoning_effort=<level>; xhigh added with
+                      GPT-5.5 in Codex CLI 0.124+; "minimal" deprecated in
+                      favor of "none"/"low" depending on the CLI version)
       - antigravity:  NONE at CLI invocation time — agy CLI exposes no flag.
                       The user picks via agy's `/model` slash command, which
                       persists to ~/.gemini/antigravity-cli/settings.json and
@@ -202,10 +205,15 @@ class CodexProvider(BaseProvider):
         if model and "--model" not in args:
             args.extend(["--model", model])
         # Codex reasoning effort takes a TOML config override:
-        #   codex exec -c model_reasoning_effort=high
-        # Valid values: minimal / low / medium / high (per codex --help).
-        # Skip if the user already passed -c model_reasoning_effort=...
-        # explicitly in args; we don't want to layer two overrides.
+        #   codex exec -c model_reasoning_effort=xhigh
+        # Valid values per Codex CLI 0.124+ docs:
+        #   none / low / medium (default) / high / xhigh.
+        # "xhigh" landed with GPT-5.5 in April 2026 — use it on hard
+        # tasks where latency matters less ("the hardest asynchronous
+        # agentic tasks or evals that test the bounds of model
+        # intelligence" per OpenAI's release notes). Skip if the user
+        # already passed -c model_reasoning_effort=... explicitly in
+        # args; we don't want to layer two overrides.
         effort = _effective_effort(self.config)
         if effort:
             already_set = any(
