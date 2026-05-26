@@ -227,7 +227,71 @@ rules by costing time:
     — this covers formulas, headings, type signatures, command-help
     strings, anywhere prose carries a fact that another file owns.
 
-21. **Public claims need regression guards at the surface that ships
+21. **Empty callbacks swallow dispatch failures.** Earned 2026-05-26
+    in the e2e Chrome dogfood arc when `stopCouncil()` was written as
+    `dispatcher.dispatch({..., onResult: () => {}})` — the empty arrow
+    function silently consumed every failure. Click Stop with no
+    extension → council kept polling, no banner, no error, no feedback.
+    The defensive shape: every async callback that's intentionally
+    empty needs either (a) an inline comment justifying the silence
+    (with a load-bearing why), or (b) explicit failure routing into a
+    user-visible surface. The `() => {}` shape is a code smell the
+    same way `except: pass` is a code smell. The discipline: when
+    auditing for the bug's shape (#4), scan for empty arrow functions
+    in dispatcher / promise / fetch / subprocess sites — not just for
+    bare `except` clauses.
+
+22. **Substring-presence asserts can survive partial reverts.**
+    Earned 2026-05-26 by mutation-testing the stuck-token timeout
+    regression: deleting the `let missingPollCount = 0;` declaration
+    + the surrounding setup block left the regression test green —
+    because the orphan threshold-check (`if (missingPollCount >=
+    MAX_MISSING_POLLS)`) + the failed-branch error message string
+    remained in the source unconnected, matching the test's substring
+    checks even though the runtime would throw ReferenceError every
+    poll. The defensive shape: regression tests for load-bearing fixes
+    need structural assertions (declaration site + increment site +
+    constant declaration), not single-substring presence. The 10-min
+    validation loop: revert the fix, run the test, confirm it fires
+    with a clear message, restore. Until you've done that, you don't
+    know whether the test catches the bug or just decorates the source.
+    Distinct from #14 (smoke-regression breadth) and #21 (surface-of-
+    truth match) — this is about test depth, not coverage.
+
+23. **Optimistic UI must roll back on async failure.** Earned 2026-05-26
+    when `launchCouncil()` set `this.operation = {status: 'running'}`
+    BEFORE `dispatcher.dispatch(...)` and never reset on failure. If
+    the extension wasn't installed, "Council in Progress" panel polled
+    forever, Launch button stuck disabled, the user's typed prompt got
+    eaten, and the live-council URL was constructed against a
+    status_token whose status file would never be written. Same shape
+    bit Refine/Continue/Auto-chain (the segment-rollback fix) and Stop
+    council (the chainError-restore fix). The defensive shape: any
+    state mutation that anticipates an async return value must (a)
+    snapshot what it's replacing AND (b) install a rollback path in
+    the failure branch of the dispatcher's onResult. Treat optimistic
+    UI as a transaction; the failure case must close the transaction
+    cleanly, not leak partial state. Related to #16 (one bad value
+    worse than zero) — silent corrupt state beats failure, but loud
+    failure beats silent corrupt state every time.
+
+24. **Error banners must live outside the gates that hide them.**
+    Earned 2026-05-26 when the `chainError` banner I added in the
+    Refine fix was nested inside `<section v-if="canChainNext">` —
+    which only becomes truthy AFTER the last segment completes. So
+    during a running council (the exact moment Stop is most likely
+    clicked + failed), `chainError` was correctly set by the handler
+    but the banner element was inside an unrendered subtree. The
+    failure was invisible. The defensive shape: error surfaces sit at
+    the page/app level, not nested inside conditional containers that
+    might flip false in the same failure path that needs the error.
+    Concretely for Vue / petite-vue: hoist the `v-if="error"` element
+    above any `v-if="someCondition"` that could be falsey while the
+    error is set. Reviewer's question: "if state X transitions, what
+    in this DOM tree disappears, and does any of it need to keep
+    showing the error?"
+
+25. **Public claims need regression guards at the surface that ships
     them.** Earned 2026-05-14 (T-1 of v1.0 launch) when a systematic
     pass through launch-facing surfaces caught 14 separate drifts —
     each a "claim X is made in surface Y; the private state of truth

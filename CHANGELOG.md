@@ -7,12 +7,12 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
-## [Unreleased → v1.7.11 — e2e Chrome dogfood arc: fix stuck-launch + silent dispatch failures] — 2026-05-26
+## [v1.7.11 — e2e Chrome dogfood arc: fix stuck-launch + silent dispatch failures] — 2026-05-26
 
-**Status: 14 local commits unpushed.** `pyproject.toml` still at
-`<!-- canonical:version -->1.7.10<!-- /canonical -->`. This entry
-documents what's queued for the next version bump — promote heading to
-`v1.7.11` when pushing + bumping `pyproject.version`.
+Drove the served launchpad through claude-in-chrome MCP to reproduce
+the user-reported stuck council (`launch_mpm0bght_gx1y9v`); surfaced
+9 production bugs that 2000+ unit tests had been green for. Fixed
+end-to-end + mutation-validated regression tests.
 
 The user reported a stuck council (`launch_mpm0bght_gx1y9v`) — clicked
 Launch from the launchpad, polled the live council page indefinitely,
