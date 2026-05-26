@@ -400,6 +400,13 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
 
       <section class="card chain-actions">
         <div class="eyebrow">Round {{{{ chain.roundNumber }}}}{{{{ chain.converged ? ' · models converged' : '' }}}}</div>
+        <div v-if="chainError"
+             style="margin: 12px 0 16px; padding: 12px 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; font-size: 13px; border-radius: 4px;"
+             role="alert">
+          <strong style="display: block; margin-bottom: 4px;">Refine could not dispatch</strong>
+          <span style="display: block;">{{{{ chainError }}}}</span>
+          <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
+        </div>
         <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
         <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
@@ -450,6 +457,18 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         chainBusy: false,
         chainStatusHeading: '',
         chainStatusDetail: '',
+        // chainError: visible dispatch-failure banner shown OUTSIDE the
+        // chainBusy guard. Without this, the failure message set on
+        // chainStatusDetail vanishes the moment chainBusy flips to false
+        // — which it does immediately on dispatch failure — and the user
+        // sees absolutely nothing. Mirror of launchpad's launchError ribbon.
+        // Stuck-launch sibling fix shipped 2026-05-26.
+        chainError: '',
+        // _pendingChainSegmentToken: tracks the token of the segment we
+        // just appended optimistically. The async onResult failure path
+        // uses it to roll back so the polling loop doesn't hammer a
+        // non-existent status file.
+        _pendingChainSegmentToken: '',
         _liveCouncilBaseUrl() {{
           // Resolve relative to the launchpad's portal_pages -> review_pages.
           const base = (pageData.launchpadUrl || '').replace('launchpad.html', '').replace('portal_pages', 'review_pages');
@@ -493,7 +512,12 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
               onResult: (r) => {{
                 if (!r || !r.ok) {{
                   this.chainBusy = false;
-                  this.chainStatusDetail = (r && r.reason) || (r && r.response && r.response.error) || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                  // chainStatusDetail vanishes when chainBusy flips false;
+                  // use chainError so the user actually sees the failure.
+                  // Silent-failure fix shipped 2026-05-26.
+                  this.chainError = (r && r.reason)
+                                    || (r && r.response && r.response.error)
+                                    || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
                   return;
                 }}
                 // Dispatch succeeded; the new round runs server-side.
@@ -503,7 +527,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
             }});
           }} else {{
             this.chainBusy = false;
-            this.chainStatusDetail = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
+            this.chainError = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
           }}
         }},
         _pollChainStatus(statusToken) {{
@@ -531,7 +555,10 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
                 clearInterval(this._chainPollHandle);
                 this._chainPollHandle = null;
                 this.chainBusy = false;
-                this.chainStatusDetail = status.error || 'Chain action stopped.';
+                // Surface the failure outside the chainBusy guard — same
+                // reason as the dispatch-failure path: chainStatusDetail
+                // is hidden when chainBusy=false.
+                this.chainError = status.error || 'Chain action stopped.';
               }}
             }});
           }};
@@ -1089,6 +1116,13 @@ def render_live_council_page() -> str:
       </div>
 
       <section class="card chain-actions" v-if="canChainNext">
+        <div v-if="chainError"
+             style="margin: 0 0 16px; padding: 12px 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; font-size: 13px; border-radius: 4px;"
+             role="alert">
+          <strong style="display: block; margin-bottom: 4px;">Refine could not dispatch</strong>
+          <span style="display: block;">{{{{ chainError }}}}</span>
+          <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
+        </div>
         <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
         <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
@@ -1293,6 +1327,12 @@ def render_live_council_page() -> str:
         chainStatusHeading: '',
         chainStatusDetail: '',
         refinePrompt: '',
+        // Stuck-launch sibling fix shipped 2026-05-26: chainError surfaces
+        // dispatch failures outside the chainBusy guard so the user
+        // actually sees them; _pendingChainSegmentToken tracks the
+        // optimistic segment for rollback on failure.
+        chainError: '',
+        _pendingChainSegmentToken: '',
         formatProviderLabel(provider) {{ return formatProviderLabel(provider); }},
         formatProviders(names) {{
           if (!Array.isArray(names)) return '';
@@ -1584,26 +1624,17 @@ def render_live_council_page() -> str:
           if (args.prompt) extensionAction.prompt = args.prompt;
           if (args.max_rounds) extensionAction.rounds = String(args.max_rounds);
 
-          if (dispatcher) {{
-            dispatcher.dispatch({{
-              extensionAction,
-              onResult: (r) => {{
-                if (!r || !r.ok) {{
-                  this.chainBusy = false;
-                  this.chainStatusDetail = (r && r.reason) || (r && r.response && r.response.error) || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
-                  // Roll back the optimistic new segment we'd otherwise append.
-                  return;
-                }}
-              }},
-            }});
-          }} else {{
-            this.chainBusy = false;
-            this.chainStatusDetail = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
-            return;
-          }}
-
+          // Sequencing matters: when the Chrome-extension state is already
+          // 'absent', dispatcher.dispatch() calls onResult SYNCHRONOUSLY
+          // inside the same tick. If we set _pendingChainSegmentToken or
+          // chainError AFTER that call, the failure handler would (a)
+          // miss the token (never set yet) and (b) get its chainError
+          // wiped by the post-dispatch reset. So: do all state setup
+          // BEFORE dispatching, and the onResult handler just consumes
+          // the pre-populated state.
           this.clearPolling();
           this.refinePrompt = '';
+          this.chainError = '';  // clear any prior dispatch error on retry
           // Append a NEW segment for the next round; prior rounds stay
           // visible above so the page reads as a scrollable thread.
           const memberOrder = Object.keys(last.runState?.members || {{}});
@@ -1613,11 +1644,66 @@ def render_live_council_page() -> str:
             members: memberOrder,
             refinementText: refinementText || '',
           }});
-          // Optimistic round number so the divider reads "Round N+1" while
-          // the new round is still streaming. The completion handler will
-          // overwrite this with the canonical round_number from the outcome.
+          // Track this segment's token so onResult's failure path can
+          // find + remove it for rollback. MUST be set before dispatch
+          // so a synchronous failure handler sees the right token.
+          this._pendingChainSegmentToken = newToken;
+          // Push the segment BEFORE dispatch so a synchronous failure
+          // (dispatch state already 'absent', no extension) can find +
+          // splice it. If the push happened after dispatch, the
+          // rollback's findIndex would return -1 in the sync-fail case.
           newSeg.roundNumber = (last.roundNumber || 1) + 1;
           this.segments.push(newSeg);
+
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction,
+              onResult: (r) => {{
+                if (!r || !r.ok) {{
+                  this.chainBusy = false;
+                  // chainStatusDetail only shows while chainBusy=true, so it
+                  // gets hidden the moment we flip chainBusy to false above.
+                  // Use chainError instead — rendered in a persistent ribbon
+                  // outside the chainBusy guard. Silent-failure fix shipped
+                  // 2026-05-26 alongside the launchpad stuck-launch rollback;
+                  // before, the user clicked Refine and saw absolutely
+                  // nothing for ~800ms then the action panel returned with
+                  // no error indication.
+                  const detail = (r && r.reason)
+                                 || (r && r.response && r.response.error)
+                                 || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                  this.chainError = String(detail);
+                  // Roll back the optimistic new segment so the polling
+                  // loop doesn't hammer a status file that will never
+                  // exist + the thread visual stays accurate.
+                  if (this._pendingChainSegmentToken) {{
+                    const idx = this.segments.findIndex((s) => s.statusToken === this._pendingChainSegmentToken);
+                    if (idx !== -1) this.segments.splice(idx, 1);
+                    this._pendingChainSegmentToken = '';
+                  }}
+                  this.clearPolling();
+                  // Restore the prompt the user typed so they can fix +
+                  // retry without retyping (mirrors launchpad pendingPrompt).
+                  if (refinementText) this.refinePrompt = refinementText;
+                  return;
+                }}
+              }},
+            }});
+          }} else {{
+            // No dispatcher loaded — also roll back the segment we just
+            // pushed; the polling loop has nothing to talk to.
+            const idx = this.segments.findIndex((s) => s.statusToken === newToken);
+            if (idx !== -1) this.segments.splice(idx, 1);
+            this._pendingChainSegmentToken = '';
+            this.chainBusy = false;
+            this.chainError = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
+            if (refinementText) this.refinePrompt = refinementText;
+            return;
+          }}
+          // If the synchronous dispatch path already failed (chainError
+          // set), don't continue with the polling + scroll affordance —
+          // the segment has already been spliced out above.
+          if (this.chainError) return;
           // Auto-scroll the new segment into view after render.
           requestAnimationFrame(() => {{
             const el = document.querySelector('[data-seg-key="' + newSeg.key + '"]');
