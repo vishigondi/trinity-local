@@ -145,7 +145,6 @@ the complete engine.
   MCP.
 - Run councils directly from shell commands.
 - Ask Trinity from inside a harness via MCP.
-- Hand off a conversation from one provider to another without copy-paste.
 - Build and inspect the local lens/cortex memory layer.
 - Rate outcomes so the personal routing table improves.
 - Produce machine-readable status for desktop and mobile setup.

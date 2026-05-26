@@ -16,14 +16,12 @@ Trinity Local v1.7 — a cross-provider memory layer that lives in your folder, 
 
 One command. Registers Trinity in Claude Code, Codex CLI, Antigravity, and Cursor. macOS + Linux today.
 
-3. Tweet 3 (271/280):
-The 60-second demo:
+3. Tweet 3:
+What "your taste, ported" means in code:
 
-Ask Claude a hard question. Mid-conversation:
+  trinity-local dream
 
-  trinity-local handoff antigravity
-
-Gemini picks up where Claude left off — no re-context, no copy-paste — and adds what it can see that Claude can't (your Gmail, Drive, Calendar). Then hand off to GPT. Same thread.
+reads your existing CLI transcripts + browser-captured chats, distills the pattern in how you reject answers, and emits a four-level lens the chairman reads on every council. The synthesis comes back in your voice — not in the default voice of whichever model you happened to ask.
 
 4. Tweet 4 (276/280):
 Why no provider can build that: Anthropic can't read OpenAI's transcripts. OpenAI can't read Gemini's. The cross-provider index has to live outside all three.

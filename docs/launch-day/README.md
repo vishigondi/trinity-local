@@ -14,7 +14,6 @@ eval-run against Vishi's actual rejection corpus.
 | 01 | `01_tweet_thread.md` | 12-tweet launch thread (each ≤280c). Tweet 1 is the hero opener. |
 | 02 | `02_show_hn_post.md` | "Show HN" title + opener + closer |
 | 03 | `03_hn_objection_faq.md` | Top-5 anticipated objections + named-author rebuttals |
-| 04 | `04_demo_voiceover.md` | 60-second OBS voiceover script with timecodes |
 | 05 | `05_comparison_table.md` | Refreshed comparison table (adds LangChain / LiteLLM / Continue.dev) |
 | 06 | `06_founder_narrative.md` | 136-word founder paragraph for Twitter/LinkedIn/launch.md |
 | 07 | `07_pricing_faq.md` | 5-question pricing-reveal mini-FAQ |

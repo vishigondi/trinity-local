@@ -33,13 +33,14 @@ The text below is the "lede paragraph" most registries ask for. Lift
 this verbatim where the registry takes a free-text description.
 
 > **Trinity Local** is the cross-provider memory layer the labs are
-> commercially prevented from building. Switch models mid-conversation
-> with `handoff` — Claude → Gemini → GPT, with full context preserved
-> at each hop. Run councils across all three at once and score any
-> candidate against your *actual* rejection signal. Your prompts and
-> the cross-provider preference corpus stay in `~/.trinity/`, on your
-> machine, never proxied. macOS today; rides on your existing
-> Claude / Gemini / OpenAI subscriptions, no API billing.
+> commercially prevented from building. Run councils across Claude,
+> Codex, and Gemini in parallel from one prompt; the chairman synthesizes
+> the answer YOU would have picked, using a four-level lens distilled
+> from your existing transcripts. Score any model against your *actual*
+> rejection signal. Your prompts and the cross-provider preference
+> corpus stay in `~/.trinity/`, on your machine, never proxied. macOS
+> today; rides on your existing Claude / Gemini / OpenAI subscriptions,
+> no API billing.
 
 Tag suite (use the registry's closest matches):
 
@@ -63,24 +64,23 @@ where someone goes "I want Claude to be better at X."
 the official MCP-server submission process. The most recent shape was
 a PR against an Anthropic-maintained registry repo.
 
-**Tailored pitch** (lead with continuity, not council depth — Claude
-users already trust Claude):
+**Tailored pitch** (lead with the lens — Claude users already trust
+Claude; the wedge is "Claude answering in your voice"):
 
-> Trinity adds a `handoff` MCP tool to Claude Desktop. Mid-conversation,
-> the user can pivot to Gemini or GPT and the next model receives
-> Claude's prior turns as context — no copy-paste. The wedge: only the
-> layer above the labs can pull context across competitors' transcripts,
-> and Trinity is open-source on your machine. Comes with the canonical
-> supervision-loop tools (`route` / `run_council` / `get_persona` /
-> `get_council_status`) plus a personalized eval harness that benchmarks
-> any provider against the user's empirical rejection signal. (Chairman
-> pick is the auto-recorded supervision signal — the prior `record_outcome`
+> Trinity distills a personal lens from your existing transcripts
+> (CLI + claude.ai web chats) and feeds it into Claude on every
+> council. Claude's answer comes back in your voice — the tensions
+> you reject vs accept, the subject basins you actually care about,
+> your own vocabulary. Comes with the canonical supervision-loop
+> tools (`route` / `run_council` / `get_persona` / `get_council_status`)
+> plus a personalized eval harness that benchmarks any provider
+> against the user's empirical rejection signal. (Chairman pick is
+> the auto-recorded supervision signal — the prior `record_outcome`
 > MCP tool was retired 2026-05-21 when chairman-as-verdict landed.)
 
 **Required artifacts:**
 - 1024×1024 icon (use `docs/icon.png` if present, or `me-card.png`)
-- 60-second demo video (TODO — task #120)
-- Short tagline: *"Continuity across Claude, GPT, and Gemini."*
+- Short tagline: *"Your taste, ported into Claude."*
 
 ---
 
@@ -128,11 +128,11 @@ care about which model agent loops work best with):
 > transcripts. Per-rejection-type breakdown (REFRAME / COMPRESSION /
 > REDIRECT / SHARPENING) tells you which model handles your kind of
 > question, not someone else's synthetic benchmark suite. Plus the
-> standard council + cross-provider handoff tools.
+> standard council + personalized lens MCP tools.
 
 **Required artifacts:**
 - `mcp-servers.json` entry showing transport=stdio, command, args
-- Brief example of a `handoff` call from inside Cline
+- Brief example of a `run_council` call from inside Cline
 
 ---
 
@@ -148,7 +148,7 @@ their main repo or `continuedev/extensions`.
 **Tailored pitch** (lead with privacy + the Preference Corpus Spec —
 Continue users will appreciate the schema-standardization play):
 
-> Trinity adds cross-provider councils + a handoff mechanism + a
+> Trinity adds cross-provider councils + a personalized lens + a
 > personalized eval harness to Continue. Notably: we ship a CC0
 > [`Preference Corpus Spec`](https://github.com/vishigondi/trinity-local/blob/main/docs/PREFERENCE_CORPUS_SPEC.md)
 > — a JSON-Schema-validated format for the supervision-signal layer
@@ -178,8 +178,8 @@ Codex is already a Trinity council member — flip them to the polyharness
 side):
 
 > Codex users already have a great coding model. Trinity lets them
-> see when Claude or Gemini would do better on a specific task,
-> without the copy-paste tax. The personal routing table builds
+> see when Claude or Gemini would do better on a specific task. The
+> personal routing table builds
 > automatically — after ~10 councils, Trinity tells you which model
 > handles your kind of refactor / your kind of debug / your kind of
 > architectural call. `install-mcp` registers Trinity in Codex CLI's
@@ -196,7 +196,6 @@ side):
 
 Before submitting to any registry:
 
-- [ ] Demo video (60 seconds, handoff variant; depends on task #120)
 - [ ] Repo README updated with the registry-acceptance badge if they
       provide one
 - [ ] License clearly displayed (MIT for Trinity itself; CC0 for the
@@ -226,8 +225,9 @@ attribution + future reference:
   transcripts. Don't describe Trinity as "Claude + GPT + Gemini in one
   place." Describe it as "the layer above them that they can't build."
 - **"Yet another MCP server."** Mitigate: lead with the unique tools
-  (`handoff`, `eval-run`) that no other MCP server in the registry
-  offers. Generic council/chat features go AFTER the unique ones.
+  (`get_persona`, `eval-run`, `import_provider_memory`) that no other
+  MCP server in the registry offers. Generic council/chat features go
+  AFTER the unique ones.
 - **"What's MCP?"** Mitigate: don't explain MCP in the pitch — the
   user is browsing an MCP registry, they already know. Save the
   explanation for the README.

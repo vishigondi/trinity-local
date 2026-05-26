@@ -593,120 +593,6 @@ def _check_cortex_freshness() -> CheckResult:
     )
 
 
-def _check_handoff_ready() -> CheckResult:
-    """Composite readiness for the 60-second hero demo (#115/#120/#121).
-
-    Per-provider checks pass individually but the demo PATH fails on
-    several real shapes that aren't caught:
-
-      (1) Recent prompts have empty `following_assistant_text` — the
-          handoff prompt's `ASSISTANT (provider):` lines are blank,
-          and the receiving model has nothing to "continue from".
-          This was the seed-without-assistant-text shape we saw on
-          some gemini-takeout corpora.
-
-      (2) All recent prompts come from ONE provider — handoff still
-          works mechanically but the demo's "different model picks
-          up where the other left off" beat depends on cross-provider
-          history. Single-provider history = handoff = "same model
-          continuing" = not the wedge.
-
-      (3) Fewer than 2 enabled providers — there's nothing to hand
-          off TO; the cross-provider wedge is structurally impossible.
-
-    Each failure mode gets a specific fix hint so the user knows what
-    to actually DO, not just that something's wrong. The check is
-    SOFT (ok=True even when not demo-ready) — the user might be using
-    Trinity for councils without ever wanting the handoff demo. But
-    surfacing "your install isn't demo-ready and here's why" prevents
-    the recording-day surprise where the user clicks handoff and gets
-    a wall of empty ASSISTANT lines.
-    """
-    from .config import load_config
-    from .memory.store import tail_prompt_nodes_fast
-
-    # (3) Are there ≥2 enabled providers to hand off between?
-    try:
-        config = load_config(required=False)
-        enabled = [name for name, p in (config.providers or {}).items() if p.enabled]
-    except Exception:
-        enabled = []
-    if len(enabled) < 2:
-        return CheckResult(
-            name="handoff_ready",
-            ok=True,  # soft — handoff isn't required to use Trinity
-            detail=(
-                f"{len(enabled)} enabled providers — handoff demo needs "
-                "≥2 (claude + antigravity, or claude + codex). "
-                "Enable a second in config.json or run "
-                "`trinity-local install-mcp` to wire CLIs."
-            ),
-        )
-
-    # (1) Do recent prompts carry assistant text the handoff can replay?
-    # Sampling check — needs ~10 most-recent prompts, not the full
-    # corpus. iter_prompt_nodes(limit=10) parses the entire 1GB
-    # prompt_nodes.jsonl first then truncates (~3.5s on live
-    # corpora). tail_prompt_nodes_fast reads from EOF backwards and
-    # only deserializes the last K records — ~50ms.
-    try:
-        sample = tail_prompt_nodes_fast(limit=10)
-    except Exception:
-        sample = []
-    if not sample:
-        return CheckResult(
-            name="handoff_ready",
-            ok=True,
-            detail=(
-                "no prompts indexed yet — handoff has nothing to package. "
-                "Run `trinity-local seed-from-taste-terminal` to import "
-                "your existing AI history."
-            ),
-        )
-    with_assistant = [
-        n for n in sample
-        if (n.following_assistant_text or n.preceding_assistant_text or "").strip()
-    ]
-    if not with_assistant:
-        return CheckResult(
-            name="handoff_ready",
-            ok=True,
-            detail=(
-                f"{len(sample)} recent prompts indexed but NONE carry assistant "
-                "text — handoff would package empty ASSISTANT lines. Re-seed "
-                "with `trinity-local seed-from-taste-terminal --include-assistant` "
-                "or wait for incremental ingest to pick up a fresh conversation."
-            ),
-        )
-
-    # (2) Do recent prompts span ≥2 providers? (Cross-provider demo beat)
-    providers_seen = {n.provider for n in sample if n.provider}
-    cross_provider = providers_seen & set(enabled)
-    if len(cross_provider) < 2:
-        only = next(iter(providers_seen), "unknown")
-        return CheckResult(
-            name="handoff_ready",
-            ok=True,
-            detail=(
-                f"recent prompts only span 1 provider ({only}) — handoff "
-                "works but the demo loses the cross-provider beat. Have a "
-                f"quick conversation in a second provider, then re-run."
-            ),
-        )
-
-    # All composite checks pass — ready for the killer-hook recording.
-    target = next(iter(cross_provider - {"claude"}), next(iter(cross_provider)))
-    return CheckResult(
-        name="handoff_ready",
-        ok=True,
-        detail=(
-            f"demo-ready: {len(with_assistant)}/{len(sample)} recent prompts "
-            f"carry assistant text, history spans {sorted(cross_provider)}. "
-            f"Try: `trinity-local handoff {target} --continuation \"...\"`"
-        ),
-    )
-
-
 def _check_browser_capture() -> CheckResult:
     """v1.6 browser-capture preflight.
 
@@ -936,7 +822,6 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_lens_built())
     report.checks.append(_check_core_distilled())
     report.checks.append(_check_cortex_freshness())
-    report.checks.append(_check_handoff_ready())
     report.checks.append(_check_browser_capture())
     report.checks.append(_check_vendor_published())
     report.checks.append(_check_retired_dirs_reclaimable())

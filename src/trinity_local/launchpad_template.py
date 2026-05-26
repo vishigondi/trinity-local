@@ -779,59 +779,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
-      <!-- Handoff demo nudge — info-style banner that surfaces the
-           60-second cross-provider continuity demo when conditions
-           are met (≥2 providers + ≥1 indexed prompt). Mirrors the
-           CLI status 'try this next' hint. Silent when the install
-           can't actually run the demo yet. Tick post-#115. -->
-      <section
-        class="card"
-        v-if="pageData.handoffNudge && pageData.handoffNudge.applicable"
-        style="border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);"
-      >
-        <!-- Workspace-intent variant (task #121): when recent prompts
-             mention calendar/email/drive terms, upgrade the generic
-             demo nudge to specifically suggest the Gemini handoff
-             with the workspace-themed framing. -->
-        <template v-if="pageData.handoffNudge.workspace_intent">
-          <div class="eyebrow" style="color: #2d8a3e;">Gemini handoff · YOUR Workspace</div>
-          <h2 style="margin-top: 4px; font-size: 18px;">
-            Hand this off to Gemini — it can read your Gmail, Drive, and Calendar
-          </h2>
-          <p class="meta" style="margin-top: 8px;">
-            Recent prompts mentioned
-            <strong>{{{{ pageData.handoffNudge.matched_keywords.join(', ') }}}}</strong>.
-            Claude and Codex can't see your Google Workspace; Gemini can.
-            <code>trinity-local handoff {{{{ pageData.handoffNudge.target }}}}</code>
-            picks up the prior conversation and lets Gemini answer with inline
-            Gmail/Calendar/Drive access.
-          </p>
-          <p class="meta" style="margin-top: 8px;">
-            Structurally non-refutable wedge: only Trinity has cross-provider
-            continuity, AND only Gemini-among-the-three can touch Google
-            Workspace inline. The two compose into a capability no individual
-            provider can match.
-          </p>
-        </template>
-        <template v-else>
-          <div class="eyebrow" style="color: #315c85;">Try the 60-second demo</div>
-          <h2 style="margin-top: 4px; font-size: 18px;">
-            Hand off a conversation across models — no copy-paste
-          </h2>
-          <p class="meta" style="margin-top: 8px;">
-            Have a conversation in Claude Code, then run
-            <code>trinity-local handoff {{{{ pageData.handoffNudge.target }}}}</code>
-            in a terminal. {{{{ pageData.handoffNudge.target }}}} will pick up exactly where Claude left off —
-            using your {{{{ pageData.handoffNudge.source_count > 5 ? pageData.handoffNudge.source_count + '+' : pageData.handoffNudge.source_count }}}}
-            indexed prompts as the cross-provider context bridge.
-          </p>
-          <p class="meta" style="margin-top: 8px;">
-            The wedge: no provider can build this — Anthropic can't read OpenAI's transcripts.
-            Only the layer above the labs can do continuity across them.
-          </p>
-        </template>
-      </section>
-
       <!-- Council tier card — surfaces the 1 → 2 → 3 upsell.
            "Works with one provider, adds disagreement with two, full
            council with three." Dismisses when all three are installed

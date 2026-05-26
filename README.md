@@ -119,7 +119,7 @@ Transcripts never leave your machine. Council fan-out goes from your laptop dire
 Trinity dispatches via your existing `claude` / `codex` / `agy` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
 
 **"I'm tired of copy-pasting between Claude / GPT / Gemini tabs."**
-That's the whole point. Every council runs all three in parallel from one prompt. `handoff` hands a thread between providers without re-pasting context.
+That's the whole point. Every council runs all three in parallel from one prompt.
 
 **"I want to know if a new model release is actually better for me."**
 `trinity-local eval-run --target <provider>` (claude / codex / antigravity — the provider you want to benchmark; the underlying model is whatever that provider currently ships) scores it against the prompts you've already rejected — your actual taste, not a synthetic benchmark.

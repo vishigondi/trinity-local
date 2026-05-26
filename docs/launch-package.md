@@ -182,8 +182,7 @@ all point at the same architectural claim.
 **T-1 day:**
 4. **Twitter/X thread drafted** — `docs/launch.md` already has the structure; revise
    to lead with the Dreaming hook in tweet 1.
-5. **Product Hunt assets prepped** — me-card PNG + launchpad screenshot + 60-second
-   demo video.
+5. **Product Hunt assets prepped** — me-card PNG + launchpad screenshot.
 
 **T-0 engineering sequence (run in order before any tweet ships):**
 
@@ -192,7 +191,7 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~<!-- canonical:test_count -->2062<!-- /canonical --> tests
+  #   pytest -q                                  # ~<!-- canonical:test_count -->2046<!-- /canonical --> tests
   #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->104<!-- /canonical --> doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check

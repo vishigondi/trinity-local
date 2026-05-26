@@ -75,7 +75,6 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/launch-day/01_tweet_thread.md": "live",
     "docs/launch-day/02_show_hn_post.md": "live",
     "docs/launch-day/03_hn_objection_faq.md": "live",
-    "docs/launch-day/04_demo_voiceover.md": "live",
     "docs/launch-day/05_comparison_table.md": "live",
     "docs/launch-day/06_founder_narrative.md": "live",
     "docs/launch-day/07_pricing_faq.md": "live",

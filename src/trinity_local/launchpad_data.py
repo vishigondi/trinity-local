@@ -16,7 +16,7 @@ from .council_runtime import load_prompt_bundle
 from .council_status import load_council_status
 from .dispatch_registry import make_dispatch_action
 from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
-from .memory.store import iter_prompt_nodes, tail_prompt_nodes_fast
+from .memory.store import iter_prompt_nodes
 from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
 from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir, trinity_home
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
@@ -637,13 +637,6 @@ def build_page_data(
         # legacy banner stays hidden. Kept on the payload for template
         # backward compat — the JS dispatch reads it and short-circuits.
         "shortcutStatus": _shortcut_status(),
-        # Handoff demo nudge — the launchpad-side mirror of the
-        # doctor "try this next" hint (tick post-#115). When the
-        # install has ≥2 providers green AND a non-empty prompt
-        # index, the conditions for the killer-hook demo are met
-        # and the banner surfaces the command. Silent when the
-        # demo wouldn't work yet.
-        "handoffNudge": _handoff_nudge(),
         # Empirical benchmark summary — most-recent eval-run result
         # surfaced on the launchpad so the user sees their personal
         # benchmark numbers without cat'ing JSON. Empty state (CTA)
@@ -671,98 +664,6 @@ def build_page_data(
         # staleness is diagnosable at a glance. If the user sees an old
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
-    }
-
-
-def _handoff_nudge() -> dict:
-    """Launchpad-side mirror of the doctor 'try this next' hint.
-
-    Surfaces the handoff demo command when:
-      - ≥2 providers are enabled in config (handoff needs at least
-        two CLIs to switch BETWEEN)
-      - The prompt index has at least one node (handoff packages
-        recent turns as context; empty index → nothing to package)
-
-    Returns `{applicable, target, source_count}`. The template renders
-    a banner when `applicable` is true. Target prefers a non-claude
-    provider so the demo wedge (second model picks up first's context)
-    isn't defeated by suggesting `handoff claude` to a Claude default.
-
-    Same logic as `doctor._next_step_hint` but reads provider state
-    from config rather than runtime checks — the launchpad doesn't
-    re-probe CLIs every render.
-    """
-    try:
-        config = load_config(required=False)
-        provider_map = (config.providers if config else {}) or {}
-        # config.providers is dict[name, ProviderConfig] — values are
-        # what we iterate. Filter to enabled CLI-class providers
-        # (mlx / local doesn't have a CLI surface for handoff).
-        enabled = [
-            p.name for p in provider_map.values()
-            if p.enabled and getattr(p, "type", "") in ("cli", "codex")
-        ]
-    except Exception:
-        enabled = []
-    if len(enabled) < 2:
-        return {"applicable": False, "target": None, "source_count": 0}
-    # Prefer a non-claude target so the demo demonstrates the wedge.
-    non_claude = [name for name in enabled if name != "claude"]
-    target = non_claude[0] if non_claude else enabled[1]
-    # Probe for ≥5 indexed prompts. iter_prompt_nodes(limit=5) parses
-    # the entire 1GB corpus before truncating (~3.5s on real installs);
-    # the launchpad UI only renders this as "N+" when N≥5 anyway, so a
-    # cheap tail-read of the last 5 lines answers the same question in
-    # ~50ms. The previous comment claimed "mtime-cached at the store
-    # layer" — true on warm cache, but the launchpad render path is
-    # often the FIRST call (cold cache) and ate the full parse.
-    try:
-        recent_nodes = tail_prompt_nodes_fast(limit=5)
-        prompt_count = len(recent_nodes)
-    except Exception:
-        recent_nodes = []
-        prompt_count = 0
-
-    # Workspace-intent detection (task #121 Phase 2): scan the recent
-    # user_text for triggers that suggest the user could USE Gemini's
-    # Google Workspace integrations (Gmail/Drive/Calendar). When
-    # matched + antigravity is enabled, upgrade the nudge to specifically
-    # suggest a Gemini handoff with the workspace-themed message.
-    # Keywords pulled from the SKILL.md § 7 trigger list and the spec
-    # at docs/spec-gemini-google-handoff.md.
-    workspace_intent = False
-    matched_keywords: list[str] = []
-    if "antigravity" in enabled and recent_nodes:
-        # Keyword groups — broad enough to catch the common phrasings,
-        # narrow enough that "the schedule_id field" doesn't trip it.
-        # Lowercased word-boundary matches via simple `in` over space-
-        # padded text (cheap; no regex compile per render).
-        keyword_groups = [
-            ("calendar", " calendar"),
-            ("schedule", " my schedule"),
-            ("this week", " this week"),
-            ("inbox", " inbox"),
-            ("gmail", " gmail"),
-            ("email", " email"),
-            ("drive", " drive"),
-            ("the doc", " the doc"),
-            ("my notes", " my notes"),
-        ]
-        for node in recent_nodes:
-            text = " " + ((node.text or "").lower()) + " "
-            for label, needle in keyword_groups:
-                if needle in text and label not in matched_keywords:
-                    matched_keywords.append(label)
-        if matched_keywords:
-            workspace_intent = True
-            target = "antigravity"  # the workspace-capable provider
-
-    return {
-        "applicable": prompt_count > 0,
-        "target": target,
-        "source_count": prompt_count,
-        "workspace_intent": workspace_intent,
-        "matched_keywords": matched_keywords[:3],  # cap for display
     }
 
 
