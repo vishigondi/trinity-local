@@ -160,7 +160,7 @@ Trinity has good narrow-waist instinct in several places:
 | `~/.trinity/` schema | Launchpad UI, MCP server, CLI | Storage primitives (JSON, JSONL, npy) |
 | `CouncilOutcome` schema | Personal routing table, picks.json, eval harness | Raw provider responses |
 | `lens.md` | Chairman prompts (3 providers consume it) | Stage 0-4 pipeline |
-| MCP tool surface (<!-- canonical:mcp_tool_count -->9<!-- /canonical --> tools) | Claude Code, Codex, Antigravity, Cursor harnesses | Trinity's internal council/picks/lens logic |
+| MCP tool surface (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> tools) | Claude Code, Codex, Antigravity, Cursor harnesses | Trinity's internal council/picks/lens logic |
 
 These are intentionally simple + stable. The narrow waist Trinity is
 MISSING:

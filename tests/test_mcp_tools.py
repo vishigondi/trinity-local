@@ -1,9 +1,10 @@
-"""Tests for the 8 MCP tools (canonical 4 + v1.5 trio + launch-arc handoff) and chain-mode council.
+"""Tests for the 8 MCP tools (canonical 4 + v1.5 trio + in-protocol provider loop) and chain-mode council.
 
 Canonical 4: route, run_council (subsumes judge via responses=[...]),
 get_persona, get_council_status. (record_outcome retired 2026-05-21.)
 v1.5 trio: ask, get_picks, mark_pick_wrong.
-Launch-arc: handoff (tick #119, cross-provider conversation continuity).
+In-protocol provider loop: import_provider_memory.
+(handoff retired 2026-05-26 — 0 usage events; lens flows via MCP Resources.)
 """
 from __future__ import annotations
 
@@ -44,16 +45,18 @@ class TestToolList:
         # v1.5 adds: `ask` (single-call routing), `get_picks`
         # (introspection for the agent into the user's extracted routing
         # patterns), `mark_pick_wrong` (user-veto on a cortex rule).
-        # Launch-arc adds: `handoff` (cross-provider conversation continuity)
-        # and `import_provider_memory` (in-protocol provider-side lens/eval loop).
+        # In-protocol provider loop: `import_provider_memory` (agent
+        # pipes extracted lens tensions / rejection signals into Trinity).
         # (`get_eval_summary` retired 2026-05-18 in commit `1fed7fc`;
         # `record_outcome` retired 2026-05-21 — chairman pick is the
-        # supervision signal now, not user_winner verdicts.)
+        # supervision signal now, not user_winner verdicts.
+        # `handoff` retired 2026-05-26 — 0 usage events in production;
+        # the lens flows via MCP Resources instead.)
         assert names == {
             "ask", "get_picks", "mark_pick_wrong",
             "route", "run_council",
             "get_persona", "get_council_status",
-            "handoff", "import_provider_memory",
+            "import_provider_memory",
         }, f"unexpected tool list: {names}"
 
     def test_old_tools_dropped_from_public_surface(self):
@@ -65,6 +68,7 @@ class TestToolList:
             "get_status", "get_elo", "get_recent_councils", "watch_once",
             "get_recommendation", "judge",
             "record_outcome",  # retired 2026-05-21 (rating UX sunset)
+            "handoff",  # retired 2026-05-26 (0 usage; lens flows via MCP Resources)
         ):
             assert legacy not in names, f"legacy tool {legacy!r} still exposed"
 

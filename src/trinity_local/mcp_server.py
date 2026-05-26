@@ -1,4 +1,4 @@
-"""MCP server exposing Trinity's canonical 4 tools + v1.5 trio + handoff.
+"""MCP server exposing Trinity's canonical 4 tools + v1.5 trio + provider-loop tool.
 
 Public tools, in lifecycle order:
   - route(task, harness, available_models, budget, latency)
@@ -14,13 +14,22 @@ Public tools, in lifecycle order:
       "Poll an in-flight or completed council." — for harnesses without fs access.
 
 v1.5 trio: ask / get_picks / mark_pick_wrong.
-Launch-arc: handoff.
+In-protocol provider loop: import_provider_memory.
+
+Plus MCP Resources (v2 substrate, 2026-05-26) for read-only context:
+~/.trinity/memories/*, ~/.trinity/scoreboard/* exposed as
+trinity:// URIs that the harness lists at session handshake.
 
 Note: record_outcome retired 2026-05-21. CLI council-rate followed
 on 2026-05-22 (task #134 — full rating retirement). Chairman's pick
 (routing_label.winner) is the entire supervision signal now;
 refinement prompts on the council page carry the "what user wanted
 differently" signal inline.
+
+handoff MCP tool retired 2026-05-26 alongside the CLI verb (0 usage
+events in 163 launch_events on the dogfooder's machine; deprioritized
+as primary demo earlier in the same session; spec v2 makes the lens-via-
+MCP-Resources path the primary cross-provider continuity surface).
 
 Internal helpers (get_status, get_elo, get_recent_councils, watch_once)
 remain importable for the launchpad but are not exposed via MCP.
@@ -292,41 +301,6 @@ async def handle_list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="handoff",
-            description=(
-                "Cross-provider conversation continuity. Pulls the user's most-recent "
-                "(user, assistant) turns from Trinity's cross-provider prompt index, "
-                "packages them as 'continuing this thread' context, and dispatches to a "
-                "DIFFERENT provider. The target picks up exactly where the prior model "
-                "left off — no re-context, no copy-paste. "
-                "USE WHEN: the user says things like 'try this in Gemini', 'what would "
-                "GPT say about this', or you (the agent) think a different model would "
-                "add value the current one can't (e.g. Gemini's Google data, Codex's "
-                "code review depth, Claude's writing). "
-                "The wedge is structural: only Trinity has the cross-provider index, "
-                "so only Trinity can do this. Anthropic can't read OpenAI's transcripts."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "target_provider": {
-                        "type": "string",
-                        "description": "Which provider to hand off to (e.g. 'claude', 'codex', 'antigravity').",
-                    },
-                    "continuation": {
-                        "type": "string",
-                        "description": "Optional new question to ask the target model. If omitted, the target just continues the prior thread.",
-                    },
-                    "num_turns": {
-                        "type": "integer",
-                        "default": 3,
-                        "description": "How many prior (user, assistant) pairs to package as context.",
-                    },
-                },
-                "required": ["target_provider"],
-            },
-        ),
-        Tool(
             name="import_provider_memory",
             description=(
                 "Pipe lens tensions OR rejection signals you (the agent) "
@@ -429,8 +403,6 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
             return await _get_persona(arguments)
         if name == "get_council_status":
             return await _get_council_status(arguments)
-        if name == "handoff":
-            return await _handoff(arguments)
         if name == "import_provider_memory":
             return await _import_provider_memory(arguments)
         return [ErrorData(code=404, message=f"Tool not found: {name}")]
@@ -1532,43 +1504,6 @@ async def _get_council_status(args: dict) -> list[Any]:
     if outcome_load_error is not None:
         status_response["outcome_load_error"] = outcome_load_error
     return [_text(status_response)]
-
-
-async def _handoff(args: dict) -> list[Any]:
-    """Cross-provider conversation continuity. Wraps handoff.run_handoff
-    so the agent calling it from inside Claude Code / Codex / Antigravity
-    gets a structured tool result it can surface to the user.
-
-    The wedge: only Trinity has the cross-provider prompt index. No
-    provider can do this on their own — Anthropic can't read OpenAI's
-    transcripts. The MCP-tool surface lets the agent suggest the
-    handoff inline ("Want to see what Gemini would do with this same
-    context?") rather than forcing the user to switch terminals.
-    """
-    from .config import load_config
-    from .handoff import run_handoff
-
-    target_provider = args.get("target_provider")
-    if not target_provider:
-        return [_text({"ok": False, "error": "target_provider is required"})]
-    continuation = args.get("continuation")
-    num_turns = int(args.get("num_turns", 3))
-
-    try:
-        config = load_config(required=True)
-    except Exception as exc:
-        return [_text({"ok": False, "error": f"config not loadable: {exc}"})]
-    provider_configs = {name: p for name, p in config.providers.items() if p.enabled}
-
-    result = run_handoff(
-        target_provider,
-        provider_configs,
-        continuation=continuation,
-        num_turns=num_turns,
-    )
-    payload = result.to_dict()
-    payload["ok"] = result.error is None
-    return [_text(payload)]
 
 
 async def _import_provider_memory(args: dict) -> list[Any]:

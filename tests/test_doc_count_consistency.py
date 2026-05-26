@@ -412,7 +412,9 @@ class TestMcpCanonicalSubsetCountClaims:
             "canonical five",
             "### The eleven MCP",
             "### The ten MCP",
-            "### The eight MCP",  # bumped to nine 2026-05-25 (import_provider_memory shipped)
+            # "### The eight MCP" was forbidden 2026-05-25 (after import_provider_memory
+            # shipped, bumping total to 9). It became valid AGAIN 2026-05-26 when
+            # handoff was retired (back to 8). Re-add to forbidden if total moves off 8.
             "1 launch-arc additions",
             "0 launch-arc addition",
         ]

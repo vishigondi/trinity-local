@@ -351,22 +351,20 @@ class TestEvalRunCLI:
         of the ship window — the unit tests passed because the handler
         was never invoked end-to-end with a real Config.
 
-        Principle #4 (audit for shape): the same bug existed in 2 more
-        places (handoff.py, mcp_server.py). Promote the assertion to a
-        per-handler regression so the shape can't quietly come back.
+        Principle #4 (audit for shape): the same bug existed in multiple
+        places originally (eval, handoff, mcp_server). Promote the
+        assertion to a per-handler regression so the shape can't quietly
+        come back. (The handoff handler this used to also check was
+        retired 2026-05-26.)
         """
         import inspect
         from trinity_local.commands import eval as eval_cmd
-        from trinity_local.commands import handoff as handoff_cmd
-        from trinity_local import mcp_server
 
         # The bad shape is `for p in config.providers` followed by
         # `p.enabled` or `p.name` — that only works for a list. Promote
         # to dict-safe by iterating `.items()` or `.values()`.
         for source in (
             inspect.getsource(eval_cmd.handle_eval_run),
-            inspect.getsource(handoff_cmd.handle_handoff),
-            inspect.getsource(mcp_server._handoff),
         ):
             assert "for p in config.providers if" not in source, (
                 "config.providers is dict[str, ProviderConfig]; iterating "

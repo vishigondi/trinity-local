@@ -64,6 +64,47 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-26 substrate-arc cut pass (handoff + memory-compare) ──
+    "trinity-local handoff": RetirementRecord(
+        name="trinity-local handoff",
+        retired_at="2026-05-26",
+        commit="",
+        replacement="MCP Resources (trinity://memories/lens.md) — every MCP-aware harness reads the lens at handshake; the agent can suggest 'try this in <other provider>' without an explicit handoff dispatch.",
+        reason="0 handoff events in 163 launch_events on the dogfooder's production machine. User deprioritized as primary demo 2026-05-26. Heavy surface (~350 LOC across handoff.py + commands/handoff.py + 15 shared-file refs) for a feature with no measurable usage. The cross-provider continuity claim survives via MCP Resources.",
+        kind="cli",
+    ),
+    "mcp_tool:handoff": RetirementRecord(
+        name="mcp_tool:handoff",
+        retired_at="2026-05-26",
+        commit="",
+        replacement="MCP Resources (trinity://memories/lens.md, trinity://memories/core.md, etc.) — lens flows to the agent at session handshake without an extra tool round-trip.",
+        reason="Same as trinity-local handoff CLI — 0 usage events in production. Tool surface drops from 9 → 8.",
+        kind="mcp_tool",
+    ),
+    "trinity-local memory-compare": RetirementRecord(
+        name="trinity-local memory-compare",
+        retired_at="2026-05-26",
+        commit="",
+        replacement="(none — was marketing-positioning artifact; the Trinity-vs-Auto-Dream comparison narrative now lives only in CLAUDE.md prose)",
+        reason="199 LOC of CLI surface that compared Trinity's lens against Claude Auto-Dream lexically. Not referenced in any launch-day doc. Marketing artifact that shipped its purpose pre-launch; v2 substrate work doesn't need it.",
+        kind="cli",
+    ),
+    "src/trinity_local/handoff.py": RetirementRecord(
+        name="src/trinity_local/handoff.py",
+        retired_at="2026-05-26",
+        commit="",
+        replacement="(none — feature retired, not relocated)",
+        reason="Handoff feature's core module — 263 LOC packaging (user, assistant) turn-window assembly + dispatch to a different provider.",
+        kind="module",
+    ),
+    "src/trinity_local/memory_compare/": RetirementRecord(
+        name="src/trinity_local/memory_compare/",
+        retired_at="2026-05-26",
+        commit="",
+        replacement="(none — feature retired, not relocated)",
+        reason="Memory-compare feature's module directory — metrics + parse_lens + parse_claude_memory.",
+        kind="module",
+    ),
     # ── 2026-05-21 launchpad backend dead-code cleanup ──
     "_rate_limit_saves": RetirementRecord(
         name="_rate_limit_saves",

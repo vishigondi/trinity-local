@@ -68,6 +68,5 @@ MCP_TOOL_NAMES: tuple[str, ...] = (
     "get_picks",
     "mark_pick_wrong",
     "get_council_status",
-    "handoff",
     "import_provider_memory",
 )

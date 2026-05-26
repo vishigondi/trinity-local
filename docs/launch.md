@@ -221,42 +221,14 @@ Backup titles (use if the Dreaming hook decays):
 
 ---
 
-## 60-second demo script (for OBS) — handoff variant (PRIMARY, post-2026-05-14 reframe)
+## 60-second demo script (for OBS) — council variant (PRIMARY)
 
-The continuity hook is structurally non-refutable: only Trinity can do
-it (no provider can read competitors' transcripts). This is the demo
-that lands in the README hero block.
-
-```
-0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
-           (text overlay: "rides Claude / Gemini / Codex subs you already have")
-           (RECORDING NOTE: the installer clones the repo to ~/.trinity/code/
-            with a back-compat symlink at ~/.claude/skills/trinity/, drops
-            wrappers in ~/.local/bin/, registers MCP. No pip, no npm — just
-            a git clone + shell wrappers.)
-0:08–0:25  Open Claude Code. Ask a substantive multi-turn question
-           ("explain this codebase's architecture and what I'd refactor first").
-           Claude answers across 2-3 turns. Don't rush — let the conversation
-           develop so the next beat reads as REAL continuity, not a script.
-0:25–0:32  Cut to terminal. CLI: trinity-local handoff antigravity
-           Pause beat. Header reads: "→ handed off to antigravity — 3 prior turns
-           from claude, 1.4s"
-0:32–0:50  Gemini's response prints. It visibly continues the conversation
-           Claude started — references the architecture Claude described,
-           ADDS Google-data insight Claude couldn't see (e.g. "I checked your
-           Drive for related design notes...").
-0:50–1:00  Tagline overlay: "One question. Every model you use.
-           One answer that knows you." [End card: github + handle]
-```
-
-Why this lands: the "wait, how did Gemini KNOW that?" reaction IS the demo
-working. No provider can build this themselves.
-
-## 60-second demo script (for OBS) — council variant (alternate)
-
-Kept as a secondary asset for audiences who already get continuity and want
-the deeper "supervision signal" pitch. The council demo's strength is the
-Routing JSON ledger, which the handoff demo doesn't show.
+The council pitch is now the primary marketing surface. The Routing
+JSON ledger ("synthesis conditioned on your lens, with agreed_claims +
+disagreed_claims + winner") is the visible artifact other tools
+literally can't produce — they'd need cross-provider rejection signal
+to build the lens that conditions the chairman, and the labs are
+commercially blocked from sharing transcripts.
 
 ```
 0:00–0:08  CLI: curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash
@@ -283,9 +255,6 @@ Routing JSON ledger, which the handoff demo doesn't show.
 Three capabilities shipped 2026-05-14 that the marketing surface should
 reference directly when relevant:
 
-- **`trinity-local handoff <provider>`** — the 60-second hero demo
-  (above). Also exposed as MCP `handoff` tool for agent-callable use
-  from inside Claude Code / Codex / Antigravity.
 - **`trinity-local eval-run --target <provider>`** — the empirical
   benchmark. Score any model against the user's actual rejection
   signal mined from their corpus. The marketing surface for "Trinity

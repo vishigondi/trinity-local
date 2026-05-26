@@ -99,9 +99,9 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local handoff <provider>` — cross-provider conversation continuity (the 60-second hero demo). Pulls recent (user, assistant) turns from the cross-provider prompt index, dispatches to a different provider with "continue this thread" context. Mirror of MCP `handoff` tool. Workstream #2 of the launch arc; tick #119.
 - `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
 
-### MCP tool surface (<!-- canonical:mcp_tool_count -->9<!-- /canonical --> total: 4 canonical + 3 v1.5 + 1 launch-arc)
+### MCP tool surface (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> total: 4 canonical + 3 v1.5 + 1 launch-arc)
 
-The original spec wanted 3 tools (council / query_lens / add_pair). Current ships <!-- canonical:mcp_tool_count -->9<!-- /canonical --> —
+The original spec wanted 3 tools (council / query_lens / add_pair). Current ships <!-- canonical:mcp_tool_count -->8<!-- /canonical --> —
 4 canonical, 3 v1.5 additions, 1 launch-arc addition (`handoff` from tick #119).
 (`get_eval_summary` shipped post-#122 and was retired 2026-05-18 in commit `1fed7fc`
 — agents ground via `ask` + picks; eval-summary stays on the launchpad card +
@@ -243,7 +243,7 @@ Launch day = May 13–15, 2026 per the multiple councils that ratified the condi
 
 2. **numpy not FAISS.** Numpy matmul gets ~5ms on a 49k-vector corpus (measured 2026-05-13; was ~28k when the call was first made, scaled linearly with no observable falloff). FAISS would add a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
-3. **<!-- canonical:mcp_tool_count -->9<!-- /canonical --> MCP tools shipped (4 canonical + 3 v1.5 additions + 1 launch-arc).** The 3-tool subset breaks `get_council_status` (async polling), `get_persona` (lens.md hand-off), and `run_council` (the parallel-dispatch primitive itself). Canonical 4: `route`, `run_council`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. Launch-arc adds `handoff` (tick #119 — cross-provider conversation continuity, killer-hook mechanism for the 60-second demo; powers tasks #115/#120/#121). (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks. `record_outcome` shipped at v1.0 then retired 2026-05-21 — chairman pick is the supervision signal now, fed automatically into the personal routing table.)
+3. **<!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools shipped (4 canonical + 3 v1.5 additions + 1 launch-arc).** The 3-tool subset breaks `get_council_status` (async polling), `get_persona` (lens.md hand-off), and `run_council` (the parallel-dispatch primitive itself). Canonical 4: `route`, `run_council`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. Launch-arc adds `handoff` (tick #119 — cross-provider conversation continuity, killer-hook mechanism for the 60-second demo; powers tasks #115/#120/#121). (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks. `record_outcome` shipped at v1.0 then retired 2026-05-21 — chairman pick is the supervision signal now, fed automatically into the personal routing table.)
 
 4. **`me-card` is the social object, not the radar chart.** Radar charts are commoditized; the me-card paired-tension PNG is unique to Trinity and renders the lens-discovery output as a shareable artifact. Radar stays as a secondary asset.
 

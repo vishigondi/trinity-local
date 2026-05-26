@@ -55,11 +55,11 @@ If any required check fails, walk the user through the surfaced fix. Don't proce
 
 The installer in section 2 already ran this. If MCP needs re-registration (after a `trinity-local update`, or to wire a newly-installed harness), run:
 
-Trinity ships <!-- canonical:mcp_tool_count -->9<!-- /canonical --> MCP tools:
+Trinity ships <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools:
 - **canonical four** — `route`, `run_council`, `get_persona`, `get_council_status`
 - **v1.5 trio** — `ask` (cheap default), `get_picks` (introspection), `mark_pick_wrong` (user-veto)
-- **launch-arc** — `handoff` (cross-provider continuity), `import_provider_memory` (write-back path: agent pipes its own extracted lens tensions / rejection signals into Trinity)
-  (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18; `record_outcome` retired 2026-05-21 — chairman's pick is the supervision signal now, refinement prompts carry the "what differently" signal)
+- **in-protocol provider loop** — `import_provider_memory` (write-back path: agent pipes its own extracted lens tensions / rejection signals into Trinity)
+  (`search_prompts` retired 2026-05-17; `get_eval_summary` retired 2026-05-18; `record_outcome` retired 2026-05-21 — chairman's pick is the supervision signal now, refinement prompts carry the "what differently" signal. `handoff` retired 2026-05-26 — 0 usage events in production; lens-via-MCP-Resources is the cross-provider continuity path.)
 
 !`trinity-local install-mcp`
 
@@ -95,26 +95,18 @@ If the question doesn't warrant a full 3-provider council (lookups, syntax, mech
 mcp__trinity-local__ask(task="...")
 ```
 
-## 7. Cross-provider continuity (the killer hook)
+## 7. Lens-flow via MCP Resources
 
-Trinity's structurally non-refutable demo: hand a conversation off from one provider to another mid-thread. Only Trinity has the cross-provider prompt index, so only Trinity can do continuity.
+Trinity's lens (`~/.trinity/memories/lens.md`, `core.md`, `topics.json`, `vocabulary.md`) is exposed as MCP Resources at session handshake — the harness lists them, the agent reads on demand. URIs:
 
-```
-mcp__trinity-local__handoff(target_provider="antigravity", num_turns=3)
-```
+- `trinity://memories/core.md` — one-paragraph identity
+- `trinity://memories/lens.md` — paired tensions (the load-bearing personalization)
+- `trinity://memories/topics.json` — subject basins
+- `trinity://memories/vocabulary.md` — anchors + homonyms
+- `trinity://scoreboard/picks.json` — extracted cortex routing rules
+- `trinity://scoreboard/routing.json` — per-task-type provider track record
 
-Pulls the last N (user, assistant) turns from the prompt index, packages them as "continuing this thread" context, dispatches to a DIFFERENT provider. The target picks up exactly where the prior model left off — no re-context, no copy-paste.
-
-Gemini-handoff is especially strong because Gemini brings Gmail / Drive / Calendar data Claude/GPT can't see — "ask Claude about your codebase, hand off to Gemini for related emails" lights up a capability no provider can match alone.
-
-**WHEN to suggest `handoff(target_provider="antigravity")`** (the activation triggers for the Gemini-Google wedge — task #121):
-
-1. **Calendar / scheduling intent** — user says "my calendar", "this week", "tomorrow", "what's on my schedule", "find a time with X". Gemini reads the Google Calendar inline; Claude/Codex can't.
-2. **Email lookup intent** — user says "did X reply", "the email from Y", "search my inbox", "draft a reply to Z". Gemini reads Gmail inline.
-3. **Drive document intent** — user says "the doc I shared", "that file from <person>", "my notes from <meeting>", "the spec in Drive". Gemini searches Drive inline.
-4. **Explicit user request** — user says "try this in Gemini", "ask Gemini" + any workspace-adjacent context.
-
-The handoff system already prepends a capability hint when target is `antigravity` (see `_CAPABILITY_HINTS` in `src/trinity_local/handoff.py`) — the agent doesn't pass a flag, the hint is always-on for this target. The agent's job is just to surface the suggestion in-line ("Want me to hand this off to Gemini? It has Gmail/Calendar/Drive inline.") rather than silently calling — handoff is a user-visible action that benefits from explicit consent.
+The agent reading these BEFORE the user types is the wedge — every response is conditioned on the user's taste without an extra round-trip.
 
 ## 8. Personalized evals (Trinity vs Claude vs Codex vs Gemini on YOUR kind of question)
 
@@ -150,7 +142,6 @@ Suggest these to the user after section 5 succeeds:
 
 > Trinity is set up. Next moves:
 > - `/council <a hard question>` — dispatch through all three providers, synthesized in your voice
-> - `trinity-local handoff antigravity` — hand off the last 3 turns to a different model (the demo most people don't realize they can do; `antigravity` is the post-task-#127 slug for the Google CLI binary `agy`)
 > - `trinity-local portal-html --open-browser` — the launchpad: recent councils, lens preview, eval leaderboard, topic graph
 > - `trinity-local me-card --open` — render your strongest lens as a sharable PNG
 
