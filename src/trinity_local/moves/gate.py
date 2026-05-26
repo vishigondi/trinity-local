@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .schemas import Move
@@ -235,22 +236,270 @@ def T2_embedding(
     )
 
 
+_T3_JUDGE_PROMPT = """You are scoring a candidate MOVE — a procedural pattern the user has shown a preference for — against one of the user's documented rejections.
+
+The user's taste rubric (excerpted from their personal lens):
+---
+{lens_excerpt}
+---
+
+REJECTION AXIS: {rejection_type}
+{axis_rubric}
+
+What the model previously gave the user that they REJECTED:
+---
+{rejected_response}
+---
+
+What the user's NEXT TURN looked like (their implicit correction):
+---
+{user_substitute}
+---
+
+Chairman's annotation of why this was a rejection:
+{rubric_signal}
+
+The candidate MOVE under evaluation — would applying this move have helped avoid the rejection?
+---
+NAME: {move_name}
+DESCRIPTION:
+{move_description}
+BODY:
+{move_body}
+---
+
+Output ONLY a JSON object on a single line. No prose, no markdown fences:
+{{"score": <float in [0.0, 1.0]>, "reason": "<one-sentence rationale>"}}
+
+Score 1.0 = applying this move would have prevented the rejection entirely.
+Score 0.0 = the move is irrelevant or would have made the rejection worse.
+0.5 = neutral / inconclusive / the move doesn't address this axis.
+"""
+
+
+def _filter_rejection_corpus(
+    rejection_corpus: list[dict[str, Any]],
+    move: Move,
+) -> list[dict[str, Any]]:
+    """Pick rejection records relevant to the candidate move.
+
+    Strategy: when the move declares a basin, restrict to rejections
+    in that basin (the most relevant signal — same-basin rejections are
+    what the move would have addressed). When the move has no basin set
+    yet (cold-install / pre-promotion), use the whole corpus.
+
+    Returns the input list unchanged when basin filtering would yield
+    zero items — better to score against the whole corpus than to
+    score against zero items and return a meaningless score.
+    """
+    if not move.trinity_basin_id:
+        return rejection_corpus
+    same_basin = [r for r in rejection_corpus if r.get("basin") == move.trinity_basin_id]
+    return same_basin if same_basin else rejection_corpus
+
+
 def T3_chairman(
     candidate: Move,
     rejection_corpus: list[dict[str, Any]],
     *,
+    chairman_provider_config: Any | None = None,
+    lens_text: str = "",
     baseline: float | None = None,
+    sample_size: int = 10,
+    cwd: Any | None = None,
 ) -> TierResult:
     """Chairman scores the candidate against the personalized rejection
-    corpus. Passes iff score ≥ baseline (or, on first promotion,
-    iff score is non-empty and the baseline is set to the score).
+    corpus. Each rejection gets a per-item chairman call asking "would
+    applying this move have helped avoid this rejection?" — aggregate
+    is the mean across sampled items.
 
-    Cost: ~30s — the only expensive tier. Should run only on candidates
-    that survived T1+T2.
+    Pass criterion:
+      - First evaluation (baseline=None): always passes; the aggregate
+        score BECOMES the new baseline. This is the move's first
+        T3-recorded personal best.
+      - Subsequent re-evals (baseline set): passes iff score ≥ baseline.
 
-    Implemented in task #169.
+    Cost: ~30s per ~10-item sample (one chairman call per item). The
+    most expensive tier — should run only on candidates that survived
+    T1 + T2 priors.
+
+    Cold-install cases (handled gracefully):
+      - Empty rejection corpus → vacuous pass (no signal AGAINST the
+        candidate; the lens hasn't accumulated rejections in this basin
+        yet). T1/T2/T4 do the actual gating.
+      - No chairman_provider_config → fail with actionable reason
+        (caller is responsible for resolving the chairman provider).
+
+    Sample-size design: 10 items is large enough that one outlier
+    judge call doesn't flip the verdict, small enough that a dream
+    cycle on a real corpus stays well under a minute. Caller can
+    override for unit tests (1-3 items) or for high-stakes re-evals.
     """
-    raise NotImplementedError("T3_chairman: implement in task #169")
+    if not rejection_corpus:
+        return TierResult(
+            tier="T3",
+            passed=True,
+            score=1.0,
+            threshold=baseline if baseline is not None else 0.0,
+            reason=(
+                "T3 vacuously passes: empty rejection corpus (no signal "
+                "against this candidate in the basin yet). T1/T2/T4 are "
+                "doing the gating for now; T3 will gain teeth as the "
+                "rejection corpus grows."
+            ),
+        )
+    if chairman_provider_config is None:
+        return TierResult(
+            tier="T3",
+            passed=False,
+            score=0.0,
+            threshold=baseline if baseline is not None else 0.0,
+            reason=(
+                "T3 cannot run: no chairman_provider_config supplied. "
+                "Caller must resolve the chairman provider before "
+                "invoking T3 (typically config.providers['claude'] or "
+                "whatever provides the user's chairman synthesis)."
+            ),
+        )
+    # Lazy imports — keep gate.py import-clean for tests that don't
+    # exercise T3
+    from ..providers import make_provider, ProviderResult
+
+    # Filter to relevant rejections + sample
+    relevant = _filter_rejection_corpus(rejection_corpus, candidate)
+    sample = relevant[:sample_size]  # deterministic; caller can pre-shuffle if randomization is wanted
+
+    # Cheap excerpting — full lens.md can be 6-10KB; cap to keep the
+    # chairman's context window predictable per item
+    lens_excerpt = (lens_text or "").strip()
+    if len(lens_excerpt) > 2000:
+        head = 1000
+        lens_excerpt = f"{lens_excerpt[:head].rstrip()}\n[... excerpted ...]\n{lens_excerpt[-head:].lstrip()}"
+
+    judge = make_provider(chairman_provider_config)
+    cwd = cwd or Path.cwd()
+
+    scores: list[float] = []
+    for item in sample:
+        rejection_type = item.get("type", "REFRAME")
+        axis_rubric = _AXIS_RUBRIC_FOR_T3.get(
+            rejection_type,
+            "Grade on overall alignment between the move and the user's preferred response shape.",
+        )
+        prompt = _T3_JUDGE_PROMPT.format(
+            lens_excerpt=lens_excerpt or "(lens not yet built)",
+            rejection_type=rejection_type,
+            axis_rubric=axis_rubric,
+            rejected_response=(item.get("model_quote") or "")[:2000],
+            user_substitute=(item.get("user_substitute") or "")[:1000],
+            rubric_signal=(item.get("why_signal") or "(none)")[:500],
+            move_name=candidate.name,
+            move_description=candidate.description,
+            move_body=(candidate.body or "(no body)")[:2000],
+        )
+        try:
+            result: ProviderResult = judge.run(prompt, cwd=cwd)
+            score = _parse_t3_judge_response(result.stdout)
+        except Exception:
+            # Judge failure → contribute neutral 0.5, don't crash the
+            # whole T3 evaluation on one bad call
+            score = 0.5
+        scores.append(score)
+
+    if not scores:
+        # Sample resolved empty after filtering — shouldn't happen
+        # given the empty-corpus guard above, but defensive
+        return TierResult(
+            tier="T3",
+            passed=False,
+            score=0.0,
+            threshold=baseline if baseline is not None else 0.0,
+            reason="T3 resolved no scorable rejection items after sampling",
+        )
+    aggregate = sum(scores) / len(scores)
+    # First evaluation: pass + set baseline. Re-eval: compare to baseline.
+    if baseline is None:
+        return TierResult(
+            tier="T3",
+            passed=True,
+            score=aggregate,
+            threshold=aggregate,  # this score becomes the new baseline
+            reason=(
+                f"T3 first evaluation: aggregate {aggregate:.3f} across "
+                f"{len(scores)} sampled rejections. Setting baseline = "
+                f"{aggregate:.3f}."
+            ),
+        )
+    passed = aggregate >= baseline
+    return TierResult(
+        tier="T3",
+        passed=passed,
+        score=aggregate,
+        threshold=baseline,
+        reason=(
+            f"T3 re-eval: aggregate {aggregate:.3f} "
+            f"{'≥' if passed else '<'} baseline {baseline:.3f} "
+            f"({len(scores)} sampled rejections)"
+        ),
+    )
+
+
+# Per-rejection-type rubric copy lifted from evals/scorer.py
+# (REJECTION_AXIS_RUBRIC). Duplicated to avoid the cross-module
+# coupling — these strings are spec-stable and the duplication keeps
+# moves/ self-contained.
+_AXIS_RUBRIC_FOR_T3 = {
+    "REFRAME": (
+        "The user substituted a different FRAME. Score higher if the "
+        "move helps the model notice when the user's literal question "
+        "isn't the question they actually want answered."
+    ),
+    "COMPRESSION": (
+        "The user wanted SHORTER. Score higher if the move would have "
+        "led the model to produce a concise, direct response."
+    ),
+    "REDIRECT": (
+        "The user wanted a structurally DIFFERENT output (spec vs "
+        "narrative, etc.). Score higher if the move would have steered "
+        "toward the correct shape."
+    ),
+    "SHARPENING": (
+        "The user wanted more PRECISION (numbers, identifiers, "
+        "concrete examples). Score higher if the move would have led "
+        "to a sharper, more specific response."
+    ),
+}
+
+
+def _parse_t3_judge_response(raw: str) -> float:
+    """Extract score in [0.0, 1.0] from the chairman's stdout. Falls
+    back to 0.5 on parse failure — better than crashing the whole T3
+    sample on one bad judge call.
+
+    Cribbed from evals/scorer._parse_judge_response but stripped down
+    (we don't need the `reason` field here; the TierResult's `reason`
+    is the aggregate-level explanation, not per-item).
+    """
+    import json
+    import re as _re
+    if not raw:
+        return 0.5
+    cleaned = raw.strip()
+    cleaned = _re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = _re.sub(r"\s*```$", "", cleaned)
+    try:
+        parsed = json.loads(cleaned)
+        score = float(parsed.get("score", 0.5))
+        return max(0.0, min(1.0, score))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+    m = _re.search(r"\"score\"\s*:\s*([0-9.]+)", cleaned)
+    if m:
+        try:
+            return max(0.0, min(1.0, float(m.group(1))))
+        except ValueError:
+            pass
+    return 0.5
 
 
 def T4_posterior(
@@ -365,6 +614,9 @@ def run_gate(
     accepted_patterns: list[str] | None = None,
     basin_centroid: list[float] | None = None,
     rejection_corpus: list[dict[str, Any]] | None = None,
+    chairman_provider_config: Any | None = None,
+    lens_text: str = "",
+    baseline: float | None = None,
 ) -> list[TierResult]:
     """Run T1 → T2 → T3 sequentially, short-circuiting on first failure.
 
@@ -376,9 +628,15 @@ def run_gate(
     Returns the list of TierResults in order. Each result's `passed`
     flag tells the caller whether the next tier ran.
 
-    Wiring for #168-#170: this dispatcher stays unchanged; the tier
-    functions get bodies. Tests against this signature today (with
-    NotImplementedError responses) catch the wiring contract.
+    T3-specific kwargs (forwarded only when T1+T2 pass):
+      - chairman_provider_config: required for T3 to actually run a
+        chairman call. Caller resolves from config.providers.
+      - lens_text: the user's lens.md content; cropped to ~2000 chars
+        for chairman context. Empty string is acceptable (T3 prompts
+        the chairman with "(lens not yet built)").
+      - baseline: T3's threshold. None = first promotion (T3 will set
+        the baseline from its score); a float = re-eval against
+        existing personal best.
     """
     out: list[TierResult] = []
     # T1
@@ -392,6 +650,12 @@ def run_gate(
     if not t2.passed:
         return out
     # T3
-    t3 = T3_chairman(candidate, rejection_corpus or [])
+    t3 = T3_chairman(
+        candidate,
+        rejection_corpus or [],
+        chairman_provider_config=chairman_provider_config,
+        lens_text=lens_text,
+        baseline=baseline,
+    )
     out.append(t3)
     return out

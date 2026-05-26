@@ -337,15 +337,18 @@ class TestGateScaffolding:
         assert callable(gate.T4_posterior)
         assert callable(gate.run_gate)
 
-    def test_t3_raises_not_implemented_until_filled_in(self):
-        """T1+T2 are implemented (#168). T4 is implemented (#170).
-        T3 still raises NotImplementedError pointing at #169 — that's
-        the wiring contract for the followup task."""
+    def test_all_four_tiers_implemented(self):
+        """All four tiers + run_gate are implemented (#167 scaffolding,
+        #168 T1+T2, #170 T4, #169 T3). None raise NotImplementedError
+        on their happy paths."""
         from trinity_local.moves import gate
         from trinity_local.moves.schemas import Move
         m = Move(name="foo", description="bar")
-        with pytest.raises(NotImplementedError, match="task #169"):
-            gate.T3_chairman(m, rejection_corpus=[])
+        # T3 happy path: empty corpus returns vacuous pass (not an error)
+        r = gate.T3_chairman(m, rejection_corpus=[])
+        assert r.tier == "T3"
+        assert r.passed is True
+        assert "vacuously passes" in r.reason
 
     def test_tier_result_shape(self):
         """The TierResult dataclass exposes tier / passed / score /
@@ -777,6 +780,203 @@ class TestUpdatePosteriorFromCouncil:
         assert r.passed is True
 
 
+class TestT3Chairman:
+    """T3 dispatches a chairman judge call per rejection corpus item
+    (capped at sample_size). All chairman calls go through providers.
+    make_provider, so the tests mock at that boundary — no real
+    subprocess spawn, no real claude/codex/agy invocation."""
+
+    def _make_corpus(self, n: int = 3, basin: str = "b03") -> list[dict]:
+        """Build a minimal but realistic rejection corpus for tests."""
+        return [
+            {
+                "id": f"r_{i:03d}",
+                "type": "REFRAME" if i % 2 == 0 else "COMPRESSION",
+                "model_quote": f"Lengthy reply #{i} the user rejected.",
+                "user_substitute": f"Short pithy substitute #{i}.",
+                "why_signal": f"User wanted compression #{i}.",
+                "basin": basin,
+                "prompt_id": f"pn_{i:03d}",
+            }
+            for i in range(n)
+        ]
+
+    def _fake_provider(self, *, score: float):
+        """Build a mock provider that returns {"score": <score>}
+        on every chairman call. Mirrors the shape ProviderResult
+        ships from real providers.run()."""
+        from types import SimpleNamespace
+        class FakeProvider:
+            def run(self, prompt, cwd=None):
+                return SimpleNamespace(
+                    stdout=f'{{"score": {score}, "reason": "stubbed"}}',
+                    stderr="",
+                    returncode=0,
+                    elapsed_seconds=0.0,
+                    provider="fake",
+                )
+        return FakeProvider()
+
+    def test_empty_corpus_vacuous_pass(self):
+        """Cold-install / new-basin: no rejections to compare against
+        → vacuous pass with score 1.0. T1/T2/T4 do the gating until
+        the corpus grows."""
+        from trinity_local.moves.gate import T3_chairman
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y")
+        r = T3_chairman(m, rejection_corpus=[])
+        assert r.tier == "T3"
+        assert r.passed is True
+        assert r.score == 1.0
+        assert "vacuously" in r.reason
+
+    def test_no_provider_fails_with_actionable_reason(self):
+        """T3 needs a chairman provider. If the caller forgot to pass
+        one, T3 fails with a reason that names the fix."""
+        from trinity_local.moves.gate import T3_chairman
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b03")
+        r = T3_chairman(
+            m,
+            rejection_corpus=self._make_corpus(2),
+            chairman_provider_config=None,
+        )
+        assert r.passed is False
+        assert "chairman_provider_config" in r.reason
+
+    def test_first_evaluation_sets_baseline(self, monkeypatch):
+        """First T3 run on a new move: baseline=None → passes and
+        records the aggregate as the new baseline (threshold field on
+        the TierResult). #172 reads this back to populate
+        trinity_eval_baseline on the move."""
+        from trinity_local.moves import gate
+        from trinity_local.moves.schemas import Move
+
+        m = Move(name="tighten", description="tighten lists", trinity_basin_id="b03")
+        # Patch make_provider so the chairman doesn't actually spawn a CLI
+        monkeypatch.setattr(
+            gate, "_filter_rejection_corpus",
+            lambda corpus, move: corpus[:3],  # exercise sampling
+        )
+        from trinity_local import providers as _providers
+        monkeypatch.setattr(
+            _providers, "make_provider",
+            lambda cfg: self._fake_provider(score=0.84),
+        )
+        r = gate.T3_chairman(
+            m,
+            rejection_corpus=self._make_corpus(5),
+            chairman_provider_config={"dummy": True},
+            lens_text="user prefers compression",
+            baseline=None,  # first evaluation
+        )
+        assert r.passed is True
+        assert r.score == pytest.approx(0.84)
+        # First-eval contract: threshold == score (the new baseline)
+        assert r.threshold == pytest.approx(0.84)
+        assert "first evaluation" in r.reason.lower()
+
+    def test_reeval_below_baseline_fails(self, monkeypatch):
+        """Re-eval with baseline set: aggregate < baseline → fail
+        (move's chairman score drifted; demote per the spec)."""
+        from trinity_local.moves import gate
+        from trinity_local.moves.schemas import Move
+
+        m = Move(name="x", description="y", trinity_basin_id="b03")
+        from trinity_local import providers as _providers
+        monkeypatch.setattr(
+            _providers, "make_provider",
+            lambda cfg: self._fake_provider(score=0.55),
+        )
+        r = gate.T3_chairman(
+            m,
+            rejection_corpus=self._make_corpus(3),
+            chairman_provider_config={"dummy": True},
+            baseline=0.79,  # personal best the move previously hit
+        )
+        assert r.passed is False
+        assert r.score == pytest.approx(0.55)
+        assert r.threshold == 0.79
+        assert "re-eval" in r.reason.lower()
+
+    def test_reeval_above_baseline_passes(self, monkeypatch):
+        """Re-eval with baseline set: aggregate ≥ baseline → pass."""
+        from trinity_local.moves import gate
+        from trinity_local.moves.schemas import Move
+
+        m = Move(name="x", description="y", trinity_basin_id="b03")
+        from trinity_local import providers as _providers
+        monkeypatch.setattr(
+            _providers, "make_provider",
+            lambda cfg: self._fake_provider(score=0.91),
+        )
+        r = gate.T3_chairman(
+            m,
+            rejection_corpus=self._make_corpus(3),
+            chairman_provider_config={"dummy": True},
+            baseline=0.85,
+        )
+        assert r.passed is True
+
+    def test_basin_filter_restricts_to_relevant_rejections(self):
+        """T3 filters the rejection corpus by basin when the candidate
+        has trinity_basin_id set. Tests the filter helper directly
+        (the chairman-call path is exercised elsewhere)."""
+        from trinity_local.moves.gate import _filter_rejection_corpus
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b03")
+        corpus = [
+            {"basin": "b03", "id": "r_001"},
+            {"basin": "b07", "id": "r_002"},
+            {"basin": "b03", "id": "r_003"},
+            {"basin": "b12", "id": "r_004"},
+        ]
+        filtered = _filter_rejection_corpus(corpus, m)
+        assert [r["id"] for r in filtered] == ["r_001", "r_003"]
+
+    def test_basin_filter_falls_back_when_no_basin_matches(self):
+        """If the candidate's basin has no rejections, T3 uses the
+        whole corpus rather than scoring against zero items."""
+        from trinity_local.moves.gate import _filter_rejection_corpus
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b99")
+        corpus = [
+            {"basin": "b03", "id": "r_001"},
+            {"basin": "b07", "id": "r_002"},
+        ]
+        filtered = _filter_rejection_corpus(corpus, m)
+        assert len(filtered) == 2  # falls back to full corpus
+
+    def test_basin_filter_skips_when_no_move_basin(self):
+        """Move without trinity_basin_id set: no filter, use full
+        corpus."""
+        from trinity_local.moves.gate import _filter_rejection_corpus
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y")  # no basin
+        corpus = [{"basin": "b03"}, {"basin": "b07"}]
+        filtered = _filter_rejection_corpus(corpus, m)
+        assert filtered == corpus
+
+    def test_judge_response_parser_robust(self):
+        """Cribbed from scorer._parse_judge_response — pinned because
+        T3 parses chairman output the same way. Bad outputs should
+        return 0.5 (neutral), not crash."""
+        from trinity_local.moves.gate import _parse_t3_judge_response
+        # Clean JSON
+        assert _parse_t3_judge_response('{"score": 0.84}') == pytest.approx(0.84)
+        # Code-fence wrapped
+        assert _parse_t3_judge_response('```json\n{"score": 0.7}\n```') == pytest.approx(0.7)
+        # Prose around JSON
+        assert _parse_t3_judge_response('the score is "score": 0.4, that\'s my read') == pytest.approx(0.4)
+        # Empty
+        assert _parse_t3_judge_response("") == 0.5
+        # Unparseable
+        assert _parse_t3_judge_response("totally not json at all") == 0.5
+        # Out of range — clamped to [0.0, 1.0]
+        assert _parse_t3_judge_response('{"score": 1.5}') == 1.0
+        assert _parse_t3_judge_response('{"score": -0.2}') == 0.0
+
+
 class TestRunGateWithT1T2:
     """run_gate now actually executes T1+T2 (T3 raises). Verify the
     short-circuit behavior — T2 doesn't run when T1 fails, and T3
@@ -807,24 +1007,23 @@ class TestRunGateWithT1T2:
         assert results[0].tier == "T1" and results[0].passed is True
         assert results[1].tier == "T2" and results[1].passed is False
 
-    def test_t1_t2_pass_then_t3_raises(self):
-        """When T1+T2 both pass, T3 runs — and currently raises
-        NotImplementedError (pending #169). This pins the wiring:
-        the followup task lands as a drop-in replacement for T3.
-        Once #169 ships, this test will assert the new T3 behavior."""
+    def test_t1_t2_pass_then_t3_runs_with_chairman_provider(self, monkeypatch):
+        """All three tiers run when T1+T2 pass. T3 vacuously passes
+        on the cold-install empty corpus (no chairman call needed)."""
         from trinity_local.embeddings import embed
         from trinity_local.moves.gate import _candidate_text, run_gate
         from trinity_local.moves.schemas import Move
         m = Move(name="x", description="tighten bullet lists", body="drop verbose")
-        # Self-similar centroid so T2 passes deterministically
         centroid = embed(_candidate_text(m))
-        with pytest.raises(NotImplementedError, match="task #169"):
-            run_gate(
-                m,
-                accepted_patterns=[],
-                basin_centroid=centroid,
-                rejection_corpus=[{"id": "r_001"}],
-            )
+        results = run_gate(
+            m,
+            accepted_patterns=[],  # T1 vacuous pass
+            basin_centroid=centroid,  # T2 perfect alignment
+            rejection_corpus=[],  # T3 vacuous pass (empty corpus)
+        )
+        assert len(results) == 3
+        assert [r.tier for r in results] == ["T1", "T2", "T3"]
+        assert all(r.passed for r in results)
 
 
 # ─── State paths ───────────────────────────────────────────────────
