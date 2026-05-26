@@ -50,6 +50,42 @@ def test_chain_error_banner_renders_outside_chainBusy_guard():
     assert "chainError = ''" in src, "Banner needs a dismiss handler"
 
 
+def test_thread_page_chain_error_banner_is_not_nested_inside_canChainNext():
+    """Regression for iter-15 bug: the thread-page chainError banner was
+    originally nested inside `<section class="card chain-actions" v-if="canChainNext">`,
+    which only becomes truthy after the LAST segment completes. So during
+    a running council (when Stop council is most likely clicked + failed),
+    chainError was correctly populated but the banner was invisible.
+
+    The hoisted layout: a standalone `<section class="card" v-if="chainError">`
+    above the `chain-actions` section, so the banner renders regardless
+    of completion state.
+
+    This test pins the structural choice — pure substring presence isn't
+    enough; the banner must appear BEFORE the chain-actions section."""
+    src = _render_single()
+    # Thread-page chain-actions section has the canChainNext guard.
+    cna_idx = src.index('v-if="canChainNext"')
+    # The hoisted chainError banner appears as a standalone section just
+    # above it. Look backward from cna_idx for the chainError banner.
+    upstream = src[:cna_idx]
+    # The LAST chainError v-if before canChainNext must be a standalone
+    # <section> (the hoisted one), not nested inside the chain-actions
+    # section (which doesn't exist yet at this point in the source).
+    last_chain_error = upstream.rfind('v-if="chainError"')
+    assert last_chain_error != -1, (
+        "Thread-page chainError banner must appear BEFORE the canChainNext "
+        "section in source order (hoisted out, not nested inside)"
+    )
+    # The banner element must be a standalone <section>, not a <div> nested
+    # inside another section.
+    excerpt = src[max(0, last_chain_error - 200):last_chain_error + 100]
+    assert "<section" in excerpt, (
+        "The hoisted chainError banner must use <section> (top-level layout), "
+        "not <div> (which suggests it's still nested inside another container)"
+    )
+
+
 def test_dispatch_failure_sets_chainError_not_chainStatusDetail():
     """Both onResult failure paths must write to chainError, since
     chainStatusDetail is only visible while chainBusy=true.
