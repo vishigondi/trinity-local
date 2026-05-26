@@ -144,7 +144,6 @@ class TestCouncilTierInPageData:
         monkeypatch.setattr("shutil.which", lambda n: None)
         # Stub out the heavier dependencies — we're testing data shape,
         # not the live council outcome loaders.
-        monkeypatch.setattr(launchpad_data, "_load_replay_candidates", lambda **kw: [])
         monkeypatch.setattr(launchpad_data, "build_elo_snapshot", lambda: {})
         monkeypatch.setattr(launchpad_data, "_elo_chart_data", lambda s: {})
         monkeypatch.setattr(launchpad_data, "get_global_benchmarks", lambda: {})

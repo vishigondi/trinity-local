@@ -99,9 +99,18 @@ class TestLaunchpadFlow:
         # when the launchpad switched to plain <script src>.
         assert "petite-vue.iife.js" in html
         assert "chart.umd.min.js" in html
+        # The fixture's task_text appears in the recent-councils section
+        # (legit rendering) — keep this assertion as the smoke check that
+        # the recent-council rendering pipeline still wires through.
         assert "Write a launch announcement for Trinity Local" in html
-        assert "Top used council queries" in html
-        assert "Matching previous council queries" in html
+        # Autofill ("Top used council queries", "Matching previous council
+        # queries") removed 2026-05-26 — session-noise prompts were
+        # polluting the launchpad. The whole replay-candidates pipeline
+        # came out: _load_replay_candidates, councilSuggestions data,
+        # filteredCouncilSuggestions getter, applySuggestion handler,
+        # suggestions-panel template, suggestion-* CSS — all gone.
+        assert "Top used council queries" not in html
+        assert "Matching previous council queries" not in html
         # Rating UX was sunset 2026-05-21 (commit 8f1fd95) — section
         # title reframed from "Every council you've taught the router"
         # to "Every council you've run" since chairman picks are the
@@ -159,9 +168,17 @@ class TestLaunchpadFlow:
         assert "Open council page" in html
         assert "Codex CLI" in html
         assert "npm install -g @openai/codex && codex --login" in html
-        assert "councilSuggestions" in html
-        assert "filteredCouncilSuggestions" in html
         assert "Quick start examples" not in html
+        # Autofill ("Top used council queries") removed 2026-05-26 —
+        # session-noise prompts were polluting the launchpad. The
+        # backend (_load_replay_candidates), the Vue reactive state
+        # (councilSuggestions, filteredCouncilSuggestions, suggestionsOpen),
+        # the methods (openSuggestions, applySuggestion, etc.), and the
+        # template <div class="suggestions-panel"> all came out together.
+        assert "councilSuggestions" not in html
+        assert "filteredCouncilSuggestions" not in html
+        assert "suggestions-panel" not in html
+        assert "applySuggestion" not in html
         assert "examplePrompts" not in html
         assert "ACTIVE_OPERATION_KEY" not in html
         assert "trinity:pending-operation" not in html

@@ -145,7 +145,6 @@ class TestEmbedderStatusInPageData:
         monkeypatch.setattr("shutil.which", lambda n: None)
         _seed_hf_cache(isolated_home, monkeypatch, model_present=True)
         # Stub heavier dependencies.
-        monkeypatch.setattr(launchpad_data, "_load_replay_candidates", lambda **kw: [])
         monkeypatch.setattr(launchpad_data, "build_elo_snapshot", lambda: {})
         monkeypatch.setattr(launchpad_data, "_elo_chart_data", lambda s: {})
         monkeypatch.setattr(launchpad_data, "get_global_benchmarks", lambda: {})

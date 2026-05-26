@@ -22,17 +22,6 @@ from .state_paths import council_outcomes_dir, council_status_dir, review_pages_
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
 from .utils import now_iso
 
-EXAMPLE_PROMPTS = [
-    "Write a launch announcement for Trinity Local",
-    "Research this company: [company name]",
-    "Draft a product specification",
-    "Plan an onboarding email sequence",
-    "Debug this error: [error message]",
-    "Explain this concept",
-    "Write a technical blog post outline",
-    "Create a project proposal",
-]
-
 COUNCIL_LOADING_MESSAGES = [
     "Reticulating splines...",
     "Generating witty dialog...",
@@ -180,166 +169,6 @@ def _load_recent_councils(limit: int = 10) -> list[dict[str, str | None]]:
         )
     items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
     return items[:limit]
-
-
-def _normalize_council_query(text: str) -> str:
-    return " ".join(text.split()).strip().lower()
-
-
-def _load_council_query_suggestions_fallback(limit: int = 8) -> list[str]:
-    """Strings-only fallback when memory.search_prompt_nodes returns nothing.
-
-    Pulls from past council outcomes + hard-coded EXAMPLE_PROMPTS. Same shape
-    as before the autofill rewire so empty memory still shows useful suggestions.
-    """
-    ranked: dict[str, dict[str, object]] = {}
-    for path in council_outcomes_dir().glob("*.json"):
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        bundle_id = raw.get("bundle_id")
-        if not bundle_id:
-            continue
-        try:
-            bundle = load_prompt_bundle(bundle_id)
-        except Exception:
-            continue
-        prompt = (bundle.task_text or "").strip()
-        if len(prompt) < 8:
-            continue
-        key = _normalize_council_query(prompt)
-        if not key:
-            continue
-        created_at = str(raw.get("created_at") or bundle.created_at or "")
-        entry = ranked.setdefault(
-            key,
-            {"prompt": prompt, "count": 0, "latest": created_at},
-        )
-        entry["count"] = int(entry.get("count", 0)) + 1
-        if created_at >= str(entry.get("latest") or ""):
-            entry["latest"] = created_at
-            entry["prompt"] = prompt
-
-    ordered = sorted(
-        ranked.values(),
-        key=lambda item: (int(item["count"]), str(item["latest"]), str(item["prompt"]).lower()),
-        reverse=True,
-    )
-    suggestions = [str(item["prompt"]) for item in ordered[:limit]]
-
-    existing = {_normalize_council_query(item) for item in suggestions}
-    for prompt in EXAMPLE_PROMPTS:
-        key = _normalize_council_query(prompt)
-        if key in existing:
-            continue
-        suggestions.append(prompt)
-        existing.add(key)
-        if len(suggestions) >= limit:
-            break
-    return suggestions[:limit]
-
-
-def _replay_candidates_cache_path() -> Path:
-    """Disk cache for _load_replay_candidates. Lives under portal_pages/
-    rather than trinity_home/cache/ (which is flagged as retired by
-    the doctor surface — would conflict)."""
-    from .state_paths import portal_pages_dir
-    cache_dir = portal_pages_dir() / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / "launchpad_suggestions.json"
-
-
-def _prompt_nodes_cache_signature(limit: int) -> tuple[int, int, int] | None:
-    """Stat signature of prompt_nodes.jsonl (mtime + size) plus the
-    requested limit. None when the file is missing — caller skips
-    the cache path entirely."""
-    from .state_paths import prompts_dir
-    p = prompts_dir() / "prompt_nodes.jsonl"
-    try:
-        st = p.stat()
-    except OSError:
-        return None
-    return (int(st.st_mtime), st.st_size, limit)
-
-
-def _load_replay_candidates(limit: int = 200) -> list:
-    """Memory-backed autofill candidates ranked by replay_value_score.
-
-    Returns a list of dicts with shape:
-        {"text": str, "reasons": list[str], "score": float,
-         "council_count": int, "winner": str | None, "prompt_id": str}
-
-    Falls back to the string list from _load_council_query_suggestions_fallback
-    when the memory index is empty (cold start). Template handles either shape.
-
-    Disk-cached by prompt_nodes.jsonl mtime + size + limit — the
-    search_prompt_nodes call walks up to 5000 nodes (~3.5s on a real
-    1GB / 38K-prompt install) and EVERY launchpad render previously
-    paid the full cost because each portal-html invocation is its own
-    process. With the cache, only renders AFTER new ingest pay it.
-    """
-    cache_path = _replay_candidates_cache_path()
-    signature = _prompt_nodes_cache_signature(limit)
-    if signature is not None and cache_path.exists():
-        try:
-            blob = json.loads(cache_path.read_text(encoding="utf-8"))
-            if (
-                isinstance(blob, dict)
-                and tuple(blob.get("signature") or ()) == signature
-                and isinstance(blob.get("candidates"), list)
-            ):
-                return blob["candidates"]
-        except (OSError, json.JSONDecodeError):
-            pass  # treat as cache miss
-
-    try:
-        from .memory import search_prompt_nodes
-
-        results = search_prompt_nodes("", top_k=limit)
-    except Exception:
-        results = []
-
-    if not results:
-        return _load_council_query_suggestions_fallback(limit=8)
-
-    candidates: list[dict] = []
-    for hit in results:
-        text = (hit.text or "").strip()
-        if len(text) < 8:
-            continue
-        prior = (hit.preceding_assistant_text or "").strip()
-        candidates.append({
-            "text": text,
-            "reasons": list(hit.reasons or []),
-            "score": float(hit.score or 0.0),
-            "council_count": int(hit.council_count or 0),
-            # Phase 3d (2026-05-22): autofill chip now shows the
-            # chairman's winner directly. The user_winner field on the
-            # memory schema (hit.user_winner) is left in place for v1.8
-            # cleanup, but no UI reads it any more — the chairman's pick
-            # is the supervision signal.
-            "winner": hit.chairman_winner or None,
-            "prompt_id": hit.prompt_id or "",
-            # priorAssistantPreview was pre-truncated server-side and
-            # shipped alongside the full text — ~10KB of pure
-            # duplication across the 49-item payload (each preview is
-            # just text[:240] of priorAssistantText). Derived
-            # client-side now in suggestionPriorPreview().
-            "priorAssistantText": prior,
-            "transcriptId": hit.transcript_id or "",
-            "turnIndex": int(hit.turn_index or 0),
-        })
-
-    if signature is not None:
-        try:
-            cache_path.write_text(
-                json.dumps({"signature": list(signature), "candidates": candidates}),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass  # caching is best-effort, never block the render
-    return candidates
 
 
 def _provider_install_help(provider: str) -> tuple[str, str]:
@@ -720,7 +549,6 @@ def build_page_data(
     telemetry = launchpad_telemetry_state()
     elo_snapshot = build_elo_snapshot()
     chart_data = _elo_chart_data(elo_snapshot)
-    council_suggestions = _load_replay_candidates(limit=200)
     settings_links = _settings_links()
     global_benchmarks = get_global_benchmarks()
     provider_health = _provider_health_data()
@@ -742,7 +570,6 @@ def build_page_data(
         provider_models = {}
     return {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
-        "councilSuggestions": council_suggestions,
         "defaultGoal": "Find the strongest answer.",
         "defaultMembers": __import__("trinity_local.config", fromlist=["default_council_members"]).default_council_members(),
         "defaultPrimaryProvider": None,

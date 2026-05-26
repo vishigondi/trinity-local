@@ -60,81 +60,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       box-shadow: 0 0 0 3px rgba(37, 88, 71, 0.1);
     }}
 
-    .suggestions-panel {{
-      margin-top: 14px;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: var(--surface);
-      box-shadow: 0 16px 36px rgba(57, 44, 26, 0.12);
-      overflow: hidden;
-    }}
-
-    .suggestions-header {{
-      padding: 12px 16px 10px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface-muted);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-    }}
-
-    .suggestion-item {{
-      width: 100%;
-      padding: 14px 16px;
-      background: transparent;
-      border: none;
-      border-top: 1px solid rgba(215, 204, 185, 0.5);
-      cursor: pointer;
-      text-align: left;
-      color: var(--text-primary);
-      font-size: 15px;
-      line-height: 1.4;
-      transition: background 0.18s ease, color 0.18s ease;
-    }}
-
-    .suggestion-item:first-of-type {{
-      border-top: none;
-    }}
-
-    .suggestion-item:hover,
-    .suggestion-item:focus-visible {{
-      background: rgba(37, 88, 71, 0.06);
-      color: var(--action);
-      outline: none;
-    }}
-
-    .suggestion-text {{
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }}
-
-    .suggestion-thread {{
-      display: -webkit-box;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-top: 4px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }}
-
-    .suggestion-thread-label {{
-      font-weight: 600;
-      margin-right: 6px;
-    }}
-
-    .suggestion-meta {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 6px;
-      align-items: center;
-    }}
-
     .suggestion-chip {{
       display: inline-flex;
       align-items: center;
@@ -1160,29 +1085,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             id="council-prompt"
             v-model="prompt"
             placeholder="Ask a council question..."
-            @focus="openSuggestions"
-            @input="handlePromptInput"
-            @blur="closeSuggestionsSoon"
           ></textarea>
-
-          <div class="suggestions-panel" v-if="showSuggestions">
-            <div class="suggestions-header">{{{{ suggestionsHeader }}}}</div>
-            <button
-              type="button"
-              class="suggestion-item"
-              v-for="suggestion in filteredCouncilSuggestions"
-              @mousedown.prevent="applySuggestion(suggestion)"
-            >
-              <div class="suggestion-text">{{{{ suggestionText(suggestion) }}}}</div>
-              <div class="suggestion-thread" v-if="suggestionPriorPreview(suggestion)">
-                <span class="suggestion-thread-label">Prior thread:</span>
-                <span class="suggestion-thread-text">{{{{ suggestionPriorPreview(suggestion) }}}}</span>
-              </div>
-              <div class="suggestion-meta" v-if="suggestionWinner(suggestion)">
-                <span class="suggestion-winner">Winner: {{{{ suggestionWinner(suggestion) }}}}</span>
-              </div>
-            </button>
-          </div>
 
           <p class="meta" v-if="polishHintVisible" style="background: rgba(49, 92, 133, 0.08); border-left: 3px solid #315c85; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
             💡 Polish task detected. Click "Auto-chain" on the council page to iterate up to 3 rounds toward convergence.
@@ -2370,7 +2273,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       const initialOperation = normalizeOperation(pageData.activeOperation || null);
       return {{
         prompt: '',
-        suggestionsOpen: false,
         launchError: '',
         // Phase 4 — single global banner that opens when dispatch hits
         // tier 3 (no extension + no Shortcut) or when the extension is
@@ -2392,7 +2294,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         currentStatusIndex: 0,
         settingsOpen: false,
         showReferenceRatings: false,
-        councilSuggestions: pageData.councilSuggestions || [],
         settingsLinks: pageData.settingsLinks || {{}},
         providerHealth: pageData.providerHealth || {{ providers: [], hasMissing: false, footerNote: '' }},
         telemetry: {{
@@ -2560,54 +2461,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.statusToken) {{
             this.startOperationPolling(this.operation.statusToken);
           }}
-        }},
-        get normalizedPrompt() {{
-          return (this.prompt || '').trim().toLowerCase();
-        }},
-        get filteredCouncilSuggestions() {{
-          const suggestions = this.councilSuggestions || [];
-          const query = this.normalizedPrompt;
-          if (!query) {{
-            return suggestions.slice(0, 8);
-          }}
-          const queryTokens = query.split(/\\s+/).filter(Boolean);
-          return suggestions.filter((item) => {{
-            const value = (typeof item === 'string' ? item : (item.text || '')).toLowerCase();
-            return queryTokens.every((token) => value.includes(token));
-          }}).slice(0, 8);
-        }},
-        suggestionText(item) {{
-          if (typeof item === 'string') return item;
-          return item?.text || '';
-        }},
-        suggestionReasons(item) {{
-          if (typeof item === 'string') return [];
-          return Array.isArray(item?.reasons) ? item.reasons : [];
-        }},
-        suggestionWinner(item) {{
-          if (typeof item === 'string') return null;
-          if (!item?.winner) return null;
-          const w = String(item.winner);
-          return w.charAt(0).toUpperCase() + w.slice(1);
-        }},
-        suggestionPriorPreview(item) {{
-          // Derive client-side instead of shipping a duplicate
-          // pre-truncated copy from the server — same 240-char +
-          // ellipsis policy as the original Python emit, but saves
-          // ~10KB across the 49-item pageData payload.
-          if (typeof item === 'string') return '';
-          const full = item?.priorAssistantText || '';
-          return full.length > 240 ? full.slice(0, 240) + '…' : full;
-        }},
-        suggestionPriorFull(item) {{
-          if (typeof item === 'string') return '';
-          return item?.priorAssistantText || '';
-        }},
-        get showSuggestions() {{
-          return this.suggestionsOpen && !this.busy && this.filteredCouncilSuggestions.length > 0;
-        }},
-        get suggestionsHeader() {{
-          return this.normalizedPrompt ? 'Matching previous council queries' : 'Top used council queries';
         }},
         get busy() {{
           return !!this.operation && this.operation.status === 'running';
@@ -2946,44 +2799,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             this.triggerShortcut(buildShortcutUrl(payload));
           }}
         }},
-        openSuggestions() {{
-          this.suggestionsOpen = true;
-        }},
-        closeSuggestionsSoon() {{
-          window.setTimeout(() => {{
-            this.suggestionsOpen = false;
-          }}, 120);
-        }},
-        handlePromptInput() {{
-          this.suggestionsOpen = true;
-        }},
-        applySuggestion(suggestion) {{
-          const text = this.suggestionText(suggestion);
-          const prior = this.suggestionPriorFull(suggestion);
-          // For thread-dependent prompts ("continue.", "Let me restart.")
-          // prepend the prior assistant excerpt so fresh members see the
-          // framing the user was responding to. The reader/stripper for
-          // this format lives in launchpad_data.py:_strip_thread_context.
-          if (prior && text) {{
-            const BUDGET = 1500;
-            let excerpt = prior.trim();
-            if (excerpt.length > BUDGET) {{
-              const half = Math.floor(BUDGET / 2);
-              excerpt = excerpt.slice(0, half).trimEnd()
-                + '\\n[... excerpt truncated ...]\\n'
-                + excerpt.slice(-half).trimStart();
-            }}
-            this.prompt =
-              'Prior conversation context — the user is continuing a thread.\\n'
-              + 'The previous assistant turn said:\\n'
-              + '---\\n' + excerpt + '\\n---\\n\\n'
-              + 'Current user message:\\n'
-              + text;
-          }} else {{
-            this.prompt = text;
-          }}
-          this.suggestionsOpen = false;
-        }},
         beginOperation(operation) {{
           this.operation = normalizeOperation({{
             ...operation,
@@ -2992,7 +2807,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             synthesis: {{ status: 'pending' }},
           }});
           this.launchError = '';
-          this.suggestionsOpen = false;
           this.startOperationPolling(operation.statusToken);
         }},
         stopOperationPolling() {{

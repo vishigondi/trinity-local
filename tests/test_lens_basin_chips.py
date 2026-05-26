@@ -212,7 +212,6 @@ def _minimal_page_data_with_lens(*, basins_spanned: list[str]) -> dict:
             "combined_share_text": "",
         },
         "cortexRules": None,
-        "councilSuggestions": [],
         "councilQuerySuggestions": [],
         "providerHealth": {"providers": []},
         "activeOperation": None,
