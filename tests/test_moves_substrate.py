@@ -326,10 +326,8 @@ class TestStore:
 
 
 class TestGateScaffolding:
-    """The four-tier Bayesian gate is split across #167 (this task —
-    scaffolding) + #168 (T1+T2) + #169 (T3) + #170 (T4). #167 ships
-    the function signatures + dispatcher shape so #168-#170 land as
-    pure-implementation deltas. These tests verify the contract."""
+    """The four-tier Bayesian gate. T1+T2 shipped #168. T3 lands #169,
+    T4 lands #170. The scaffolding contract is what this class pins."""
 
     def test_all_four_tier_functions_exist(self):
         from trinity_local.moves import gate
@@ -339,18 +337,13 @@ class TestGateScaffolding:
         assert callable(gate.T4_posterior)
         assert callable(gate.run_gate)
 
-    def test_tier_functions_raise_not_implemented_until_filled_in(self):
-        """The bodies land in #168-#170. Until then the function
-        signatures exist + raise NotImplementedError. This pins the
-        wiring contract so the followup tasks land as drop-in
-        replacements without re-touching the dispatcher."""
+    def test_t3_t4_raise_not_implemented_until_filled_in(self):
+        """T1+T2 are implemented (#168). T3 + T4 still raise
+        NotImplementedError pointing at their task numbers — that's the
+        wiring contract for the followup tasks."""
         from trinity_local.moves import gate
         from trinity_local.moves.schemas import Move
         m = Move(name="foo", description="bar")
-        with pytest.raises(NotImplementedError, match="task #168"):
-            gate.T1_lexical(m, accepted_patterns=[])
-        with pytest.raises(NotImplementedError, match="task #168"):
-            gate.T2_embedding(m, basin_centroid=None)
         with pytest.raises(NotImplementedError, match="task #169"):
             gate.T3_chairman(m, rejection_corpus=[])
         with pytest.raises(NotImplementedError, match="task #170"):
@@ -373,6 +366,274 @@ class TestGateScaffolding:
         assert r.score == 0.85
         assert r.threshold == 0.3
         assert "Jaccard" in r.reason
+
+
+# ─── Gate T1 lexical (#168) ─────────────────────────────────────────
+
+
+class TestT1Lexical:
+    """Word n-gram Jaccard against accepted patterns. Pure stdlib,
+    deterministic, no numpy/mlx. Cold-install + empty-input semantics
+    are load-bearing — they're what makes the gate usable on day-1
+    before any rejection-corpus signal has accumulated."""
+
+    def test_cold_install_passes_vacuously(self):
+        """With no accepted patterns to compare against, T1 passes with
+        score=1.0. Rationale: cold-install / new-basin case has no
+        evidence FOR the candidate, but also no evidence AGAINST. T2
+        and T3 do the actual gating; T1 only filters when it has
+        signal to work with."""
+        from trinity_local.moves.gate import T1_lexical
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="foo",
+            description="tighten verbose responses into 2-3 sentence summaries",
+            body="Drop bullet lists; restate as paragraph.",
+        )
+        r = T1_lexical(m, accepted_patterns=[])
+        assert r.passed is True
+        assert r.score == 1.0
+        assert "vacuously passes" in r.reason
+
+    def test_passes_when_three_patterns_match(self):
+        """The pass criterion is min_matches=3 with Jaccard ≥ 0.3 each.
+        Construct a candidate that shares enough n-grams with 3+ patterns."""
+        from trinity_local.moves.gate import T1_lexical
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="tighten-bullets",
+            description="tighten verbose bullet lists into short paragraphs",
+            body="",
+        )
+        # Three patterns sharing tighten/verbose/bullet vocab
+        patterns = [
+            "tighten verbose bullet lists into short paragraphs please",
+            "compress verbose bullet lists into short paragraphs always",
+            "tighten verbose bullet lists into short paragraphs nicely",
+        ]
+        r = T1_lexical(m, accepted_patterns=patterns, threshold=0.3, min_matches=3)
+        assert r.passed is True
+        assert r.score > 0.3
+
+    def test_fails_when_no_pattern_overlaps(self):
+        """Candidate that shares no n-grams with any accepted pattern
+        fails T1. Score is 0.0 (max Jaccard across 0-overlap patterns)."""
+        from trinity_local.moves.gate import T1_lexical
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="totally-unrelated",
+            description="convert markdown tables to LaTeX siunitx",
+            body="",
+        )
+        patterns = [
+            "tighten verbose bullet lists into short paragraphs",
+            "compress redundant prose into single sentences",
+            "drop trailing whitespace from each line",
+        ]
+        r = T1_lexical(m, accepted_patterns=patterns, threshold=0.3, min_matches=3)
+        assert r.passed is False
+        assert r.score < 0.3
+
+    def test_partial_match_below_min_matches_fails(self):
+        """Even with a single 90% match, T1 fails if min_matches isn't
+        cleared. The "eerily similar to one outlier" case — Trinity
+        wants pattern-class evidence, not one-shot matches."""
+        from trinity_local.moves.gate import T1_lexical
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="x",
+            description="tighten verbose bullet lists into short paragraphs",
+            body="",
+        )
+        patterns = [
+            "tighten verbose bullet lists into short paragraphs",  # 100% match
+            "completely unrelated text about cats",
+            "another unrelated text about weather forecasts",
+        ]
+        r = T1_lexical(m, accepted_patterns=patterns, threshold=0.3, min_matches=3)
+        assert r.passed is False
+        # Score still surfaces the one strong match — for debugging
+        assert r.score >= 0.9
+
+
+class TestT1LexicalHelpers:
+    """Internal helpers — tokenization + Jaccard + cosine. Pinned
+    because the gate's correctness depends on these being deterministic
+    + locale-independent."""
+
+    def test_tokenize_strips_punctuation_and_lowercases(self):
+        from trinity_local.moves.gate import _tokenize
+        assert _tokenize("Hello, World! 123.") == ["hello", "world", "123"]
+
+    def test_tokenize_drops_empty(self):
+        from trinity_local.moves.gate import _tokenize
+        assert _tokenize("--- ... !!!") == []
+
+    def test_ngrams_short_text_falls_back_to_unigrams(self):
+        """A text with fewer than n words returns its unigrams instead
+        of an empty set — better than empty for Jaccard semantics."""
+        from trinity_local.moves.gate import _word_ngrams
+        result = _word_ngrams("hello world", n=3)
+        assert result == {"hello", "world"}
+
+    def test_ngrams_normal_case(self):
+        from trinity_local.moves.gate import _word_ngrams
+        result = _word_ngrams("the quick brown fox jumps", n=3)
+        assert result == {"the quick brown", "quick brown fox", "brown fox jumps"}
+
+    def test_jaccard_known_values(self):
+        from trinity_local.moves.gate import _jaccard
+        assert _jaccard({"a", "b"}, {"a", "b"}) == 1.0
+        assert _jaccard({"a", "b"}, {"c", "d"}) == 0.0
+        # |∩|=1, |∪|=3, Jaccard = 1/3
+        assert abs(_jaccard({"a", "b"}, {"b", "c"}) - 1/3) < 1e-9
+
+    def test_jaccard_empty_returns_zero(self):
+        """Both-empty case must not divide by zero. Returns 0.0 (no
+        signal extractable from empty sets)."""
+        from trinity_local.moves.gate import _jaccard
+        assert _jaccard(set(), set()) == 0.0
+
+    def test_cosine_orthogonal_is_zero(self):
+        from trinity_local.moves.gate import _cosine
+        assert _cosine([1.0, 0.0], [0.0, 1.0]) == 0.0
+
+    def test_cosine_identical_is_one(self):
+        from trinity_local.moves.gate import _cosine
+        # Within float tolerance
+        assert abs(_cosine([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]) - 1.0) < 1e-9
+
+    def test_cosine_dim_mismatch_raises(self):
+        from trinity_local.moves.gate import _cosine
+        with pytest.raises(ValueError, match="same length"):
+            _cosine([1.0, 2.0], [1.0, 2.0, 3.0])
+
+    def test_cosine_zero_vector_is_zero(self):
+        """Zero-norm vector returns 0.0 (no signal). The chosen
+        semantic — could also raise; 0.0 lets downstream gates fail
+        normally instead of crashing."""
+        from trinity_local.moves.gate import _cosine
+        assert _cosine([0.0, 0.0, 0.0], [1.0, 2.0, 3.0]) == 0.0
+
+
+# ─── Gate T2 embedding (#168) ───────────────────────────────────────
+
+
+class TestT2Embedding:
+    """Cosine similarity vs basin centroid. Uses the existing
+    embeddings backend (MLX when available, TF-IDF fallback). The
+    fallback is what makes these tests run deterministically — MLX
+    might not be installed in CI."""
+
+    def test_no_centroid_fails_with_actionable_reason(self):
+        """When the candidate's claimed basin doesn't exist in
+        topics.json yet, T2 fails with a reason that names the fix
+        (run dream to rebuild basins)."""
+        from trinity_local.moves.gate import T2_embedding
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b99")
+        r = T2_embedding(m, basin_centroid=None)
+        assert r.passed is False
+        assert r.score == 0.0
+        assert "trinity-local dream" in r.reason
+
+    def test_dim_mismatch_fails_with_actionable_reason(self):
+        """Pinned: if topics.json was built with a different embedding
+        dim (e.g. user swapped backend after a partial install), the
+        gate fails loudly instead of crashing."""
+        from trinity_local.moves.gate import T2_embedding
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b00")
+        # Wrong-sized centroid — only 5 dims when the backend produces 768
+        r = T2_embedding(m, basin_centroid=[0.1, 0.2, 0.3, 0.4, 0.5])
+        assert r.passed is False
+        assert "dimension mismatch" in r.reason
+        assert "re-run dream" in r.reason
+
+    def test_perfect_alignment_passes(self):
+        """T2 passes when the candidate embedding aligns with the basin
+        centroid. Easiest pin: embed the move's text, use that exact
+        vector as the basin centroid — cosine = 1.0."""
+        from trinity_local.embeddings import embed
+        from trinity_local.moves.gate import T2_embedding, _candidate_text
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="tighten bullet lists", body="drop verbose")
+        # Self-similarity = 1.0
+        centroid = embed(_candidate_text(m))
+        r = T2_embedding(m, basin_centroid=centroid, threshold=0.7)
+        assert r.passed is True
+        assert r.score > 0.99  # ≈1.0 modulo any float-drift in cosine math
+
+    def test_dissimilar_fails(self):
+        """A negative-aligned centroid (text about an entirely different
+        topic) makes cosine drop below threshold. T2 fails."""
+        from trinity_local.embeddings import embed
+        from trinity_local.moves.gate import T2_embedding
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="x",
+            description="convert markdown tables to LaTeX siunitx",
+            body="",
+        )
+        # Centroid embedded from a totally different domain
+        centroid = embed("recipe for chocolate chip cookies with walnuts")
+        r = T2_embedding(m, basin_centroid=centroid, threshold=0.7)
+        # The TF-IDF fallback could yield arbitrary scores, but for
+        # this clearly disjoint pair we expect to fail.
+        assert r.passed is False or r.score < 0.7
+
+
+# ─── Gate dispatcher with real T1/T2 ────────────────────────────────
+
+
+class TestRunGateWithT1T2:
+    """run_gate now actually executes T1+T2 (T3 raises). Verify the
+    short-circuit behavior — T2 doesn't run when T1 fails, and T3
+    raises only on candidates that survived T1+T2."""
+
+    def test_t1_failure_short_circuits(self):
+        """T1 fails → T2 + T3 don't run. Returned list contains only
+        the T1 result."""
+        from trinity_local.moves.gate import run_gate
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="completely unrelated text", body="")
+        # Patterns that share no n-grams — T1 fails
+        patterns = ["one two three four five", "six seven eight nine ten"]
+        results = run_gate(m, accepted_patterns=patterns, basin_centroid=None)
+        assert len(results) == 1
+        assert results[0].tier == "T1"
+        assert results[0].passed is False
+
+    def test_t1_pass_t2_fail_short_circuits_before_t3(self):
+        """T1 passes (cold-install vacuous pass) but T2 fails (no
+        centroid) → T3 doesn't run, so the NotImplementedError doesn't
+        surface."""
+        from trinity_local.moves.gate import run_gate
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="some text", body="")
+        results = run_gate(m, accepted_patterns=[], basin_centroid=None)
+        assert len(results) == 2
+        assert results[0].tier == "T1" and results[0].passed is True
+        assert results[1].tier == "T2" and results[1].passed is False
+
+    def test_t1_t2_pass_then_t3_raises(self):
+        """When T1+T2 both pass, T3 runs — and currently raises
+        NotImplementedError (pending #169). This pins the wiring:
+        the followup task lands as a drop-in replacement for T3.
+        Once #169 ships, this test will assert the new T3 behavior."""
+        from trinity_local.embeddings import embed
+        from trinity_local.moves.gate import _candidate_text, run_gate
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="tighten bullet lists", body="drop verbose")
+        # Self-similar centroid so T2 passes deterministically
+        centroid = embed(_candidate_text(m))
+        with pytest.raises(NotImplementedError, match="task #169"):
+            run_gate(
+                m,
+                accepted_patterns=[],
+                basin_centroid=centroid,
+                rejection_corpus=[{"id": "r_001"}],
+            )
 
 
 # ─── State paths ───────────────────────────────────────────────────

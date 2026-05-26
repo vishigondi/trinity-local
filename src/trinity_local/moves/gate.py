@@ -1,31 +1,90 @@
-"""Four-tier Bayesian gate for moves — scaffolding.
+"""Four-tier Bayesian gate for moves.
 
 The promotion + demotion logic for moves. Each tier is a function that
 returns a TierResult (pass/fail + score + reason). Tiers run in order:
 T1 → T2 → T3 → T4. Earlier tiers act as priors that filter candidates
 before the expensive likelihood (T3) runs.
 
-Tier ownership map (task #s):
-  T1 (lexical prior)         — task #168
-  T2 (embedding prior)       — task #168
-  T3 (chairman eval)         — task #169
+Tier ownership map:
+  T1 (lexical prior)           — shipped #168 commit pending
+  T2 (embedding prior)         — shipped #168 commit pending
+  T3 (chairman eval)           — task #169
   T4 (live Bayesian posterior) — task #170
-
-This module ships the SCAFFOLDING — function signatures + dispatcher
-shape + the TierResult dataclass — so the moves substrate (#167) is
-complete enough that #168-#170 are pure-implementation deltas. The
-gate functions here raise NotImplementedError; downstream tasks fill
-them in without changing the surface.
 
 The full spec: docs/PREFERENCE_CORPUS_SPEC.md "Eval-gated promotion —
 the Bayesian gate (the wedge)".
 """
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from .schemas import Move
+
+
+# ─── Lexical helpers — pure stdlib, no numpy/mlx ────────────────────
+
+
+_WORD_PUNCT_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lowercase + strip per-word punctuation, drop empties. Stable
+    across platforms (no locale-sensitive regex flags)."""
+    out: list[str] = []
+    for w in text.lower().split():
+        cleaned = _WORD_PUNCT_RE.sub("", w)
+        if cleaned:
+            out.append(cleaned)
+    return out
+
+
+def _word_ngrams(text: str, n: int = 3) -> set[str]:
+    """Word n-grams as a set of space-joined strings. Sets (not lists)
+    because Jaccard wants set semantics — duplicates don't matter."""
+    words = _tokenize(text)
+    if len(words) < n:
+        return set(words)  # short texts: fall back to unigrams
+    return {" ".join(words[i:i + n]) for i in range(len(words) - n + 1)}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    """|A ∩ B| / |A ∪ B|. Returns 0.0 when both sets are empty
+    (no overlap signal extractable)."""
+    if not a and not b:
+        return 0.0
+    union = len(a | b)
+    if union == 0:
+        return 0.0
+    return len(a & b) / union
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    """Cosine similarity between two equal-length vectors. Returns 0.0
+    on zero-norm vectors (preserves the "no signal" semantic — a zero
+    vector matches nothing meaningfully)."""
+    if len(a) != len(b):
+        raise ValueError(
+            f"cosine: vectors must be same length; got {len(a)} vs {len(b)}"
+        )
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _candidate_text(move: Move) -> str:
+    """Concat description + body for embedding/n-gram input. Description
+    is the load-bearing summary; body adds detail. Empty body is fine —
+    description alone gives the move's intent."""
+    parts = [move.description.strip()]
+    if move.body.strip():
+        parts.append(move.body.strip())
+    return "\n\n".join(parts)
 
 
 @dataclass(frozen=True)
@@ -56,16 +115,56 @@ def T1_lexical(
     *,
     threshold: float = 0.3,
     min_matches: int = 3,
+    n: int = 3,
 ) -> TierResult:
-    """Cheap structural prior: n-gram Jaccard similarity vs accepted
+    """Cheap structural prior: word n-gram Jaccard similarity vs accepted
     patterns in the candidate's claimed basin.
 
     Passes iff the candidate's body/description has Jaccard ≥ threshold
     against at least `min_matches` accepted patterns. Cost: ~1ms.
 
-    Implemented in task #168.
+    Score field: the MAX Jaccard observed (most informative single
+    number for debugging "how close was the candidate to the patterns
+    it failed against"). Pass criterion uses the count of patterns
+    that cleared threshold — a candidate that's structurally similar
+    to several accepted patterns is stronger evidence than one that's
+    eerily similar to a single outlier.
+
+    Cold-install case: when `accepted_patterns` is empty (no rejection
+    corpus in this basin yet), the tier passes with score=1.0 — no
+    evidence FOR the candidate, but also no evidence AGAINST. T2/T3
+    do the actual gating in that case.
     """
-    raise NotImplementedError("T1_lexical: implement in task #168")
+    if not accepted_patterns:
+        return TierResult(
+            tier="T1",
+            passed=True,
+            score=1.0,
+            threshold=threshold,
+            reason=(
+                "T1 vacuously passes: no accepted patterns to compare "
+                "against in this basin yet (cold-install / new-basin "
+                "case). T2/T3 do the actual gating."
+            ),
+        )
+    cand_ngrams = _word_ngrams(_candidate_text(candidate), n=n)
+    similarities = [
+        _jaccard(cand_ngrams, _word_ngrams(p, n=n)) for p in accepted_patterns
+    ]
+    matches_above = sum(1 for s in similarities if s >= threshold)
+    max_sim = max(similarities) if similarities else 0.0
+    passed = matches_above >= min_matches
+    return TierResult(
+        tier="T1",
+        passed=passed,
+        score=max_sim,
+        threshold=threshold,
+        reason=(
+            f"max Jaccard {max_sim:.3f} (need ≥ {threshold:.2f}); "
+            f"{matches_above}/{len(accepted_patterns)} patterns matched "
+            f"(need ≥ {min_matches})"
+        ),
+    )
 
 
 def T2_embedding(
@@ -78,11 +177,62 @@ def T2_embedding(
     embedding vs the basin centroid.
 
     Passes iff cosine ≥ threshold. Cost: ~10ms (one embedding call
-    via the existing embeddings backend).
+    via the existing embeddings backend — MLX when available, TF-IDF
+    fallback when not).
 
-    Implemented in task #168.
+    Cold-install case: when `basin_centroid` is None (candidate claims
+    a basin that doesn't exist yet, or the topics.json hasn't been
+    built), T2 fails — moves can't be promoted without a structural
+    home. The dream-extension (#172) is responsible for ensuring
+    every candidate's claimed basin EXISTS before invoking the gate.
     """
-    raise NotImplementedError("T2_embedding: implement in task #168")
+    if basin_centroid is None:
+        return TierResult(
+            tier="T2",
+            passed=False,
+            score=0.0,
+            threshold=threshold,
+            reason=(
+                "T2 cannot run: no basin centroid available. The "
+                "candidate's trinity_basin_id either doesn't exist in "
+                "topics.json or topics.json hasn't been built yet. Run "
+                "`trinity-local dream` to refresh basins, then re-run "
+                "the gate."
+            ),
+        )
+    # Embed candidate text. The embeddings backend handles MLX
+    # availability + sanitization (NaN/Inf → TF-IDF fallback) at the
+    # boundary, so we don't need to defend against bad vectors here.
+    from ..embeddings import embed
+    cand_emb = embed(_candidate_text(candidate))
+    if len(cand_emb) != len(basin_centroid):
+        # Defensive: dimension mismatch shouldn't happen in practice
+        # (both come from the same backend) but a single bad config
+        # would otherwise crash the gate. Fail loudly instead.
+        return TierResult(
+            tier="T2",
+            passed=False,
+            score=0.0,
+            threshold=threshold,
+            reason=(
+                f"T2 dimension mismatch: candidate emb has "
+                f"{len(cand_emb)} dims, basin centroid has "
+                f"{len(basin_centroid)}. The embeddings backend changed "
+                f"shape since topics.json was built — re-run dream."
+            ),
+        )
+    sim = _cosine(cand_emb, basin_centroid)
+    passed = sim >= threshold
+    return TierResult(
+        tier="T2",
+        passed=passed,
+        score=sim,
+        threshold=threshold,
+        reason=(
+            f"cosine similarity {sim:.3f} vs basin centroid "
+            f"(need ≥ {threshold:.2f})"
+        ),
+    )
 
 
 def T3_chairman(
