@@ -7,6 +7,75 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.11 — e2e Chrome dogfood arc: fix stuck-launch + silent dispatch failures] — 2026-05-26
+
+The user reported a stuck council (`launch_mpm0bght_gx1y9v`) — clicked
+Launch from the launchpad, polled the live council page indefinitely,
+no progress. Drove the served launchpad through claude-in-chrome MCP to
+reproduce; within ~5 min surfaced three production-killing bugs that
+2000+ unit tests had been green for. Then iterated outward on every
+sibling button. Four commits, six real bugs fixed end-to-end:
+
+**Launchpad** (commit `aeba2cd`)
+- `normalizeProviderSlug` ReferenceError, 27× per page load: helper was
+  defined inside `renderChart()` but called by Vue-scoped
+  `formatProviderLabel` at module scope. Hoisted to module scope. Every
+  suggested-routing chip and `personal_routing_table` cell was throwing.
+- Stuck-launch optimistic UI never rolled back: `launchCouncil()` called
+  `beginOperation()` before dispatch. If dispatch failed,
+  `handleDispatchResult` only opened the install-banner — `clearOperation()`
+  never fired, so "Council in Progress" panel polled forever, Launch
+  button stuck disabled, prompt eaten. Now rolls back + restores
+  `pendingPrompt → prompt` on `tier='install-prompt'` or extension !ok.
+- `trinity-local serve` shipped no `Cache-Control`: Chrome cached stale
+  launchpad HTML across reloads, masking shipped fixes. `_NoCacheHTMLHandler`
+  subclass adds `no-store` for `.html` and `.json` responses.
+
+**Live council page — Refine / Continue / Auto-chain** (commit `0e21326`)
+- Silent-failure cousin of the launchpad stuck-launch bug. Click Refine
+  with no extension → optimistic "Round N+1" segment got pushed,
+  dispatch failed silently, `chainStatusDetail` was set on a
+  `v-if="chainBusy"` element that hides the moment dispatch resolves,
+  orphan segment sat polling a non-existent status file forever. User
+  saw nothing change. Three changes applied to both Vue apps in
+  `council_review.py`: (a) new `chainError` state rendered in a banner
+  OUTSIDE the `chainBusy` guard; (b) `_pendingChainSegmentToken` to roll
+  back the orphan segment; (c) sequencing fix — when dispatch state is
+  already `'absent'`, `onResult` fires SYNCHRONOUSLY, so state setup
+  (push segment, set token, clear `chainError`) must happen BEFORE
+  dispatch. Neutral banner copy "Could not start next round" (commit
+  `a831f84`) so the same banner reads correctly for Continue and
+  Auto-chain, not just Refine.
+
+**Live council page — stuck `status_token` URL** (commit `6d6052b`)
+- Closes the user-reported `launch_mpm0bght_gx1y9v` symptom directly.
+  Landing on a `?status_token=...` URL whose status file was never
+  written used to poll the missing file every 1.5s indefinitely showing
+  "Council running / Generating witty dialog…" with no failure
+  indication. After this fix, `missingPollCount` tracks consecutive
+  404s; at `MAX_MISSING_POLLS=8` (~12s) the segment flips to
+  `failed=true` with a self-explanatory error message naming
+  install-extension. Counter resets on any successful poll so a
+  slow-starting council still works.
+
+**Audit verified clean (no fixes needed):**
+- MCP tools (`route`, `get_persona`, `get_picks`, `get_council_status`)
+  all respond correctly; unknown council IDs return graceful
+  `{status: "unknown", error: "..."}`.
+- Empty-state CTAs (`lens-prompt`, `eval-prompt` chips) correctly hidden
+  when user has data; gated `v-if="!tasteLenses"` /
+  `v-if="!evalSummary.has_results"`.
+- Memory viewer + static review pages render clean across the corpus.
+- Council History filter works (title-substring narrowing + restore on
+  clear).
+- `↻ Rebuild` chips are clicked-to-copy by design (heavy LLM-call
+  operations stay explicit, never auto-fire).
+
+**Tests:** 17 new regression tests across 5 files; full suite at 2057
+passing + 4 skipped (gated real-Chrome smokes intentionally skipped).
+The dogfood pattern is also saved as a memory: e2e-Chrome smoke catches
+behavior unit tests can only assert string presence on.
+
 ## [v1.7.10 — provider-side memory loop: end-to-end across CLI / launchpad / MCP / agent skill] — 2026-05-25
 
 The post-launch pivot the user named: stop scraping conversation history
@@ -657,7 +726,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2053<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2057<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
