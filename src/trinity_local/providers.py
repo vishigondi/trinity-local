@@ -94,6 +94,27 @@ def _effective_model(config: ProviderConfig) -> str | None:
     return config.model
 
 
+def _effective_effort(config: ProviderConfig) -> str | None:
+    """Return the configured reasoning/thinking effort level.
+
+    Per-provider valid values (we pass through verbatim — the CLI itself
+    validates):
+      - claude:       low / medium / high / xhigh / max (CLI flag --effort)
+      - codex:        minimal / low / medium / high (-c model_reasoning_effort)
+      - antigravity:  NONE at CLI invocation time — agy CLI exposes no flag.
+                      The user picks via agy's `/model` slash command, which
+                      persists to ~/.gemini/antigravity-cli/settings.json and
+                      sticks across sessions. Trinity reads that file to
+                      display the active model+effort, but can't set it
+                      programmatically per-council (no CLI flag).
+
+    Trinity stores this on ProviderConfig.effort. agy users set it via
+    `/model` inside agy; the live council card reads back the persisted
+    selection so the chip shows the actual model+effort, not a guess.
+    """
+    return config.effort
+
+
 class CLIProvider(BaseProvider):
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
         # MCP host sampling — preferred path for the Claude voice when
@@ -117,12 +138,31 @@ class CLIProvider(BaseProvider):
         # so the prompt sits immediately after -p. Putting --model between -p
         # and the prompt makes Gemini fail with "Not enough arguments following: p".
         model = _effective_model(self.config)
+        effort = _effective_effort(self.config)
+        # Inject claude's --effort flag too (low/medium/high/xhigh/max).
+        # Only Claude's CLI supports this — agy CLI has no equivalent
+        # (Antigravity bakes the level into the model SKU and only
+        # exposes selection via the IDE dropdown). Skip for non-claude
+        # CLIProvider instances.
+        inject_effort = (
+            effort
+            and self.config.name == "claude"
+            and "--effort" not in command
+            and "--effort" not in self.config.args
+        )
+        # Compute the tail-flag once so both --model and --effort can
+        # land BEFORE it. Walk-through:
+        #   command = ["claude", "-p"]  →  tail = "-p"
+        #   command = ["claude"]        →  tail = None
+        tail: str | None = None
+        if len(command) > 1 and command[-1].startswith("-"):
+            tail = command.pop()
         if model and "--model" not in command and "--model" not in self.config.args:
-            if len(command) > 1 and command[-1].startswith("-"):
-                tail = command.pop()
-                command.extend(["--model", model, tail])
-            else:
-                command.extend(["--model", model])
+            command.extend(["--model", model])
+        if inject_effort:
+            command.extend(["--effort", effort])
+        if tail is not None:
+            command.append(tail)
         command.append(prompt)
         command.extend(self.config.args)
         return self._run_command(command, cwd)
@@ -161,6 +201,20 @@ class CodexProvider(BaseProvider):
         model = _effective_model(self.config)
         if model and "--model" not in args:
             args.extend(["--model", model])
+        # Codex reasoning effort takes a TOML config override:
+        #   codex exec -c model_reasoning_effort=high
+        # Valid values: minimal / low / medium / high (per codex --help).
+        # Skip if the user already passed -c model_reasoning_effort=...
+        # explicitly in args; we don't want to layer two overrides.
+        effort = _effective_effort(self.config)
+        if effort:
+            already_set = any(
+                a == "-c" and i + 1 < len(args)
+                and "model_reasoning_effort" in args[i + 1]
+                for i, a in enumerate(args)
+            )
+            if not already_set:
+                args.extend(["-c", f"model_reasoning_effort={effort}"])
         command.extend(args)
         command.append(prompt)
         return self._run_command(command, cwd)

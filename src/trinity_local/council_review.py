@@ -203,6 +203,50 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     # refine button silently fails (the shortcuts:// fallback was
     # retired pre-launch — see claude.md L578).
     from .launchpad_data import _browser_extension as _ext_config
+    # Provider model + effort maps — surfaced as chips next to each member
+    # name so the leaderboard claims are defensible ("claude scored 0.79
+    # on Opus 4.7 with high reasoning" not just "claude scored 0.79").
+    # Sourced from config.json + agy's `/model` persistence (see
+    # launchpad_data._page_data); written here as a static read at page-
+    # render time, so the chip reflects what was CONFIGURED, not what
+    # was actually used on this specific run. Per-run capture would
+    # require threading effort through council_runner's status writes —
+    # filed as follow-up.
+    provider_models: dict[str, str] = {}
+    provider_efforts: dict[str, str] = {}
+    try:
+        from .config import load_config as _load_cfg
+        _cfg = _load_cfg(required=False)
+        for _name, _provider in _cfg.providers.items():
+            if _provider.model:
+                provider_models[_name] = _provider.model
+            if _provider.effort:
+                provider_efforts[_name] = _provider.effort
+    except Exception:
+        pass
+    # agy /model persistence — single source of truth for antigravity
+    # since the CLI has no --model flag (slash-command-only).
+    try:
+        import json as _json
+        _agy_path = Path.home() / ".gemini" / "antigravity-cli" / "settings.json"
+        if _agy_path.exists():
+            _agy = _json.loads(_agy_path.read_text())
+            _agy_model = (
+                _agy.get("defaultReasoningModel")
+                or _agy.get("reasoningModel")
+                or _agy.get("model")
+            )
+            if _agy_model and isinstance(_agy_model, str):
+                import re as _re
+                _m = _re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", _agy_model)
+                if _m:
+                    provider_models["antigravity"] = _m.group(1).strip()
+                    provider_efforts["antigravity"] = _m.group(2).strip().lower()
+                else:
+                    provider_models["antigravity"] = _agy_model
+    except Exception:
+        pass
+
     page_data = {
         "councilId": council_id,
         "launchpadUrl": "../portal_pages/launchpad.html",
@@ -212,6 +256,8 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         # The chairman's pick — the Vue template paints the "Lens pick"
         # badge on whichever card matches this provider.
         "lensPickProvider": lens_pick_provider,
+        "providerModels": provider_models,
+        "providerEfforts": provider_efforts,
         "chain": {
             "continueUrl": continue_shortcut.url,
             "autoChainUrl": auto_chain_shortcut.url,
@@ -1379,11 +1425,27 @@ def render_live_council_page() -> str:
             const item = memberMap[provider] || {{}};
             const status = item.status || 'pending';
             const baseLabel = formatProviderLabel(provider);
-            const model = item.model || '';
+            // Per-run captured model (from the status JSON, written by
+            // council_runner). Falls back to the static config model
+            // map so the chip still appears during pre-run states
+            // (QUEUED) and for runs that didn't write model to the
+            // status (legacy state files). Effort isn't yet captured
+            // per-run; fall back to static config + agy slash-command
+            // persistence map. Chip renders ONLY when a value resolves
+            // — agy users without `/model` set show just the base label
+            // (rather than a "(unknown)" placeholder that looks like a bug).
+            const model = item.model || (pageData.providerModels && pageData.providerModels[provider]) || '';
+            const effort = (pageData.providerEfforts && pageData.providerEfforts[provider]) || '';
+            // Compose: "Claude · opus-4-7 · effort:high"
+            // (model only) or (effort only) variants supported.
+            const chipBits = [baseLabel];
+            if (model) chipBits.push(model);
+            if (effort) chipBits.push(`effort:${{effort}}`);
+            const label = chipBits.join(' · ');
             return {{
               provider,
               answerLabel: String.fromCharCode(65 + idx),
-              label: model ? `${{baseLabel}} (${{model}})` : baseLabel,
+              label,
               statusLabel: status === 'done' ? 'Done' : status === 'failed' ? 'Failed' : status === 'running' ? 'Running' : 'Queued',
               statusClass: status === 'done' ? 'done' : status === 'failed' ? 'failed' : status === 'running' ? 'running' : 'pending',
               responseHtml: status === 'done' ? (item.response_html || '') : '',

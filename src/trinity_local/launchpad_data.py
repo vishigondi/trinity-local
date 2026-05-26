@@ -561,13 +561,60 @@ def build_page_data(
     # ratings/benchmarks card. Reads from config.json so it tracks whatever
     # the user is actually running.
     provider_models: dict[str, str] = {}
+    # Map provider name -> configured reasoning/thinking effort. Standardized
+    # vocabulary: low / medium / high (each CLI accepts its own dialect on
+    # top — claude also takes xhigh/max; codex also takes minimal). Agy CLI
+    # has no flag; effort there is baked into the model SKU ("Gemini 3.1
+    # Pro (high)" vs "(low)") and selected via agy's `/model` slash command
+    # which persists to ~/.gemini/antigravity-cli/settings.json. The live
+    # council card surfaces this alongside the model name so the leaderboard
+    # claims are defensible: "claude scored 0.79 on Opus 4.7 with high
+    # reasoning" not just "claude scored 0.79".
+    provider_efforts: dict[str, str] = {}
     try:
         cfg = load_config(required=False)
         for name, provider in cfg.providers.items():
             if provider.model:
                 provider_models[name] = provider.model
+            if provider.effort:
+                provider_efforts[name] = provider.effort
     except Exception:
         provider_models = {}
+        provider_efforts = {}
+
+    # Antigravity-specific: agy's CLI has no --model flag. Selection
+    # happens via the `/model` slash command inside agy and persists to
+    # ~/.gemini/antigravity-cli/settings.json. Read that file to surface
+    # the real active model on the launchpad — config.json model values
+    # would be ignored by agy anyway, so reading the agy-side file is
+    # the only honest source. Model SKUs encode effort in parentheses
+    # ("Gemini 3.1 Pro (high)"), so split that into model + effort for
+    # the chip.
+    try:
+        agy_settings_path = Path.home() / ".gemini" / "antigravity-cli" / "settings.json"
+        if agy_settings_path.exists():
+            import json as _json
+            agy_settings = _json.loads(agy_settings_path.read_text())
+            # Key name is the agy slash-command persistence target. We
+            # check a few likely shapes — the schema isn't public so a
+            # version bump may rename it; the .get() fall-through means
+            # we degrade silently rather than crash.
+            agy_model = (
+                agy_settings.get("defaultReasoningModel")
+                or agy_settings.get("reasoningModel")
+                or agy_settings.get("model")
+            )
+            if agy_model and isinstance(agy_model, str):
+                # Split "Gemini 3.1 Pro (high)" -> model="Gemini 3.1 Pro", effort="high"
+                import re as _re
+                m = _re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", agy_model)
+                if m:
+                    provider_models["antigravity"] = m.group(1).strip()
+                    provider_efforts["antigravity"] = m.group(2).strip().lower()
+                else:
+                    provider_models["antigravity"] = agy_model
+    except Exception:
+        pass
     return {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "defaultGoal": "Find the strongest answer.",
@@ -593,6 +640,7 @@ def build_page_data(
         "personalChartCategoryKeys": _category_keys(),
         "personalChartCategoryLabels": _category_labels(),
         "providerModels": provider_models,
+        "providerEfforts": provider_efforts,
         "referenceEvalsMeta": get_reference_evals_meta(),
         # Relative URLs so the launchpad works under both file:// (double-click
         # the HTML) and http://localhost:PORT (when serving ~/.trinity via

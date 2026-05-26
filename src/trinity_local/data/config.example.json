@@ -1,111 +1,113 @@
 {
-    "max_turns": 4,
-    "notifications": true,
-    "providers": {
-      "mlx": {
-        "type": "mlx",
-        "enabled": true,
-        "label": "MLX Small",
-        "model": "mlx-community/Qwen3-0.6B-4bit",
-        "command": [
-          "python3",
-          "-m",
-          "mlx_lm.generate"
-        ],
-        "args": [
-          "--temp",
-          "0.2",
-          "--max-tokens",
-          "900"
-        ],
-        "task_types": [
-          "general",
-          "reasoning",
-          "coding"
-        ]
-      },
-      "claude": {
-        "type": "cli",
-        "enabled": true,
-        "label": "Claude",
-        "model": "claude-sonnet-4-6",
-        "command": [
-          "claude",
-          "-p"
-        ],
-        "args": [
-          "--model",
-          "claude-sonnet-4-6"
-        ],
-        "task_types": [
-          "general",
-          "reasoning",
-          "coding",
-          "writing"
-        ]
-      },
-      "antigravity": {
-        "type": "cli",
-        "enabled": true,
-        "label": "Antigravity",
-        "command": [
-          "agy",
-          "-p"
-        ],
-        "args": [],
-        "task_types": [
-          "general",
-          "reasoning",
-          "research"
-        ]
-      },
-      "codex": {
-        "type": "codex",
-        "enabled": true,
-        "label": "Codex",
-        "model": "gpt-5.3-codex",
-        "command": [
-          "codex",
-          "exec"
-        ],
-        "args": [
-          "--sandbox",
-          "workspace-write",
-          "--skip-git-repo-check",
-          "--model",
-          "gpt-5.3-codex"
-        ],
-        "task_types": [
-          "coding",
-          "debugging"
-        ]
-      }
-    },
-    "task_preferences": {
-      "coding": [
-        "codex",
-        "claude",
-        "mlx"
+  "max_turns": 4,
+  "notifications": true,
+  "providers": {
+    "mlx": {
+      "type": "mlx",
+      "enabled": true,
+      "label": "MLX Small",
+      "model": "mlx-community/Qwen3-0.6B-4bit",
+      "command": [
+        "python3",
+        "-m",
+        "mlx_lm.generate"
       ],
-      "debugging": [
-        "codex",
-        "claude",
-        "antigravity"
+      "args": [
+        "--temp",
+        "0.2",
+        "--max-tokens",
+        "900"
       ],
-      "reasoning": [
-        "mlx",
-        "claude",
-        "antigravity"
-      ],
-      "research": [
-        "antigravity",
-        "claude",
-        "mlx"
-      ],
-      "general": [
-        "claude",
-        "mlx",
-        "antigravity"
+      "task_types": [
+        "general",
+        "reasoning",
+        "coding"
       ]
+    },
+    "claude": {
+      "type": "cli",
+      "enabled": true,
+      "label": "Claude",
+      "model": "claude-sonnet-4-6",
+      "command": [
+        "claude",
+        "-p"
+      ],
+      "args": [
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "task_types": [
+        "general",
+        "reasoning",
+        "coding",
+        "writing"
+      ],
+      "effort": "high"
+    },
+    "antigravity": {
+      "type": "cli",
+      "enabled": true,
+      "label": "Antigravity",
+      "command": [
+        "agy",
+        "-p"
+      ],
+      "args": [],
+      "task_types": [
+        "general",
+        "reasoning",
+        "research"
+      ]
+    },
+    "codex": {
+      "type": "codex",
+      "enabled": true,
+      "label": "Codex",
+      "model": "gpt-5.3-codex",
+      "command": [
+        "codex",
+        "exec"
+      ],
+      "args": [
+        "--sandbox",
+        "workspace-write",
+        "--skip-git-repo-check",
+        "--model",
+        "gpt-5.3-codex"
+      ],
+      "task_types": [
+        "coding",
+        "debugging"
+      ],
+      "effort": "high"
     }
+  },
+  "task_preferences": {
+    "coding": [
+      "codex",
+      "claude",
+      "mlx"
+    ],
+    "debugging": [
+      "codex",
+      "claude",
+      "antigravity"
+    ],
+    "reasoning": [
+      "mlx",
+      "claude",
+      "antigravity"
+    ],
+    "research": [
+      "antigravity",
+      "claude",
+      "mlx"
+    ],
+    "general": [
+      "claude",
+      "mlx",
+      "antigravity"
+    ]
+  }
 }

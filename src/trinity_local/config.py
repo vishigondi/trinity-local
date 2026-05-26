@@ -17,6 +17,15 @@ class ProviderConfig:
     args: list[str]
     task_types: set[str]
     model: str | None = None
+    # Reasoning/thinking level — standardized across providers. The CLIs
+    # each spell it differently (claude `--effort low|medium|high|xhigh|max`;
+    # codex `-c model_reasoning_effort=minimal|low|medium|high`;
+    # antigravity bakes it into the model name e.g. "Gemini 3.1 Pro (high)"
+    # and exposes no CLI knob — agy users set it in the IDE dropdown).
+    # Trinity normalizes to a small vocabulary and translates per-provider
+    # in providers.py. Value: low / medium / high / None. agy gets None
+    # by design (its CLI has no flag for it as of 2026-05-26).
+    effort: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +111,7 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
             args=list(provider.get("args", [])),
             task_types=set(provider.get("task_types", [])),
             model=provider.get("model"),
+            effort=provider.get("effort"),
         )
 
     return AppConfig(
