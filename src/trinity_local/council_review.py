@@ -403,7 +403,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         <div v-if="chainError"
              style="margin: 12px 0 16px; padding: 12px 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; font-size: 13px; border-radius: 4px;"
              role="alert">
-          <strong style="display: block; margin-bottom: 4px;">Refine could not dispatch</strong>
+          <strong style="display: block; margin-bottom: 4px;">Could not start next round</strong>
           <span style="display: block;">{{{{ chainError }}}}</span>
           <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
         </div>
@@ -517,7 +517,7 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
                   // Silent-failure fix shipped 2026-05-26.
                   this.chainError = (r && r.reason)
                                     || (r && r.response && r.response.error)
-                                    || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                                    || 'No dispatch path available — is the Chrome extension installed? Run trinity-local install-extension if not.';
                   return;
                 }}
                 // Dispatch succeeded; the new round runs server-side.
@@ -1119,7 +1119,7 @@ def render_live_council_page() -> str:
         <div v-if="chainError"
              style="margin: 0 0 16px; padding: 12px 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; font-size: 13px; border-radius: 4px;"
              role="alert">
-          <strong style="display: block; margin-bottom: 4px;">Refine could not dispatch</strong>
+          <strong style="display: block; margin-bottom: 4px;">Could not start next round</strong>
           <span style="display: block;">{{{{ chainError }}}}</span>
           <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
         </div>
@@ -1671,7 +1671,7 @@ def render_live_council_page() -> str:
                   // no error indication.
                   const detail = (r && r.reason)
                                  || (r && r.response && r.response.error)
-                                 || 'Refine could not dispatch — is the Chrome extension installed? Run trinity-local install-extension if not.';
+                                 || 'No dispatch path available — is the Chrome extension installed? Run trinity-local install-extension if not.';
                   this.chainError = String(detail);
                   // Roll back the optimistic new segment so the polling
                   // loop doesn't hammer a status file that will never

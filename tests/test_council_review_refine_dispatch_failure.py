@@ -60,7 +60,7 @@ def test_dispatch_failure_sets_chainError_not_chainStatusDetail():
     Filter on lines that look like JS assignments to validate.
     """
     src = _render_single()
-    fail_msg = "Refine could not dispatch"
+    fail_msg = "No dispatch path available"
     js_assign_count = 0
     for line_idx, line in enumerate(src.split("\n")):
         if fail_msg not in line:
