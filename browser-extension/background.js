@@ -299,42 +299,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// ─── Phase 4: external messaging from the file:// launchpad ───────
-// The file launchpad at ~/.trinity/portal_pages/launchpad.html calls
-// chrome.runtime.sendMessage(TRINITY_EXTENSION_ID, ...) directly. That
-// path uses `onMessageExternal`, NOT `onMessage` — internal popups +
-// content scripts use onMessage, externally-connectable pages use the
-// External variant. They are NOT interchangeable.
+// ─── Phase 4: external messaging from the launchpad ───────
+// The launchpad calls chrome.runtime.sendMessage(TRINITY_EXTENSION_ID, ...)
+// directly. That path uses `onMessageExternal`, NOT `onMessage` — internal
+// popups + content scripts use onMessage, externally-connectable pages use
+// the External variant. They are NOT interchangeable.
 //
 // Security gates (codex's Phase 4 verdict, council_fb374b01311885cc):
-//   1. sender.url must be the launchpad file URL
+//   1. sender.url must be a recognized launchpad origin (file:// or
+//      http://localhost / http://127.0.0.1 — matching the manifest's
+//      externally_connectable allowlist).
 //   2. message.type must be in {trinity-ping, action}
 //   3. action.kind must clear capture_host's ACTION_ALLOWLIST anyway
 //      (defense in depth — the host is the final enforcement)
 // Phase 8 hardening (council_bf1ab3f4dd70f75e, codex verdict): the prior
-// `url.includes("/.trinity/portal_pages/launchpad.html")` check was
-// spoofable by any local file matching the substring, e.g.
-// `~/Downloads/.trinity/portal_pages/launchpad.html`. Tighten to require
-// the path to END with the launchpad path AND be the user's home
-// directory's `.trinity` subtree. Chrome populates `sender.url` itself
-// (cannot be forged in the message payload), so a strict suffix match
-// closes the spoof window without needing a per-install token (deferred
-// until settings actions land — they'd promote the gate to a stronger
-// authentication layer).
-const LAUNCHPAD_URL_SUFFIX = "/.trinity/portal_pages/launchpad.html";
+// `url.includes("/.trinity/portal_pages/launchpad.html")` substring check
+// was spoofable by any local file matching the substring, e.g.
+// `~/Downloads/.trinity/portal_pages/launchpad.html`. Tighten by requiring
+// the path to END with the launchpad path. Chrome populates `sender.url`
+// itself (cannot be forged in the message payload), so a strict
+// origin-and-suffix match closes the spoof window without needing a
+// per-install token. 2026-05-26: HTTP-localhost path added once
+// `trinity-local serve` became the recommended dev-mode entry to dodge
+// the file:// unique-origin restrictions Chrome enforces on iframes.
+const LAUNCHPAD_URL_SUFFIX = "/portal_pages/launchpad.html";
 
 function isLaunchpadSender(sender) {
   const url = sender?.url || "";
-  if (!url.startsWith("file://")) return false;
   // Strip any query/hash so a crafted ?foo=… can't tail the path.
   const cleaned = url.split("?")[0].split("#")[0];
-  return cleaned.endsWith(LAUNCHPAD_URL_SUFFIX);
+  if (!cleaned.endsWith(LAUNCHPAD_URL_SUFFIX)) return false;
+  if (url.startsWith("file://") &&
+      cleaned.endsWith("/.trinity" + LAUNCHPAD_URL_SUFFIX)) {
+    // Pre-existing path: file:// launchpad must live under .trinity/.
+    return true;
+  }
+  // HTTP path: `trinity-local serve` binds 127.0.0.1:8765 on the user's
+  // machine. The same machine can hit it via either http://localhost:<port>
+  // or http://127.0.0.1:<port>; the manifest's externally_connectable list
+  // mirrors both. Anything outside those origins won't even reach this
+  // function — Chrome gates the message at the manifest level — but we
+  // re-check here as defense in depth.
+  const isLocalhostHttp =
+    cleaned.startsWith("http://localhost/") ||
+    cleaned.startsWith("http://localhost:") ||
+    cleaned.startsWith("http://127.0.0.1/") ||
+    cleaned.startsWith("http://127.0.0.1:");
+  return isLocalhostHttp;
 }
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (!isLaunchpadSender(sender)) {
     sendResponse({ ok: false, error: "rejected-sender",
-                   detail: "external messages accepted only from the file:// launchpad" });
+                   detail: "external messages accepted only from the launchpad (file:// or http://localhost)" });
     return false;
   }
   const messageType = message?.type;

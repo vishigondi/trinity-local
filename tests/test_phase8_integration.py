@@ -245,6 +245,20 @@ def test_manifest_declares_external_messaging_contract_for_file_url():
     assert any("file:" in m for m in matches), (
         f"manifest.externally_connectable.matches must include file:// — got {matches!r}"
     )
+    # 2026-05-26: HTTP launchpad path (trinity-local serve) needs both
+    # localhost and 127.0.0.1 in the manifest because Chrome treats them
+    # as distinct origins. Found via real-Chrome dogfood — the localhost
+    # launchpad couldn't reach the extension before this expansion.
+    assert any("localhost" in m for m in matches), (
+        f"manifest.externally_connectable.matches must include http://localhost — "
+        f"otherwise the `trinity-local serve` HTTP launchpad can't dispatch. "
+        f"Got {matches!r}"
+    )
+    assert any("127.0.0.1" in m for m in matches), (
+        f"manifest.externally_connectable.matches must include http://127.0.0.1 — "
+        f"Chrome treats localhost and 127.0.0.1 as distinct origins, so both "
+        f"need to be allowed. Got {matches!r}"
+    )
     bg = (repo / "browser-extension" / "background.js").read_text()
     assert "onMessageExternal" in bg, (
         "background.js must register chrome.runtime.onMessageExternal — "
@@ -280,6 +294,39 @@ def test_background_sender_gate_rejects_path_spoof():
     assert "split(\"?\")" in bg_src or "split('?')" in bg_src, (
         "background.js must strip query string before matching — without "
         "this, ?foo=… can tail the launchpad path."
+    )
+
+
+def test_background_sender_gate_accepts_http_localhost_launchpad():
+    """2026-05-26: `trinity-local serve` binds 127.0.0.1:8765 and the
+    launchpad-over-HTTP path is the recommended dev-mode entry (dodges
+    Chrome's file:// unique-origin restrictions on iframes). The
+    sender gate must accept BOTH http://localhost:<port>/... AND
+    http://127.0.0.1:<port>/... — Chrome treats them as distinct
+    origins, so the manifest lists both, and the runtime check must
+    too. Found via real-Chrome dogfood: a localhost launchpad got
+    `rejected-sender` from the extension despite the manifest update
+    because the sender check was hardcoded to file://.
+
+    This is a structural source-shape test — the live behavior is
+    additionally covered by the e2e Chrome smoke when it runs.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    bg_src = (repo_root / "browser-extension" / "background.js").read_text()
+    # Both origin shapes need to be explicitly accepted.
+    assert "localhost" in bg_src and "127.0.0.1" in bg_src, (
+        "background.js sender gate must explicitly accept http://localhost "
+        "AND http://127.0.0.1 — Chrome routes both as distinct origins to "
+        "the externally_connectable listener."
+    )
+    # The OLD diagnostic message (`accepted only from the file:// launchpad`)
+    # must NOT survive — keeping it means the gate's behavior diverged
+    # from its own error message, which is what surfaced the bug in the
+    # field.
+    assert "only from the file:// launchpad" not in bg_src, (
+        "background.js still claims to reject all non-file:// senders in "
+        "its rejection message — but the gate now accepts http://localhost. "
+        "Update the diagnostic so the error message matches reality."
     )
 
 
