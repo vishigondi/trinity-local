@@ -244,6 +244,33 @@ def prompts_dir() -> Path:
     return path
 
 
+def moves_dir() -> Path:
+    """Promoted moves (the procedural layer — Layer 3 of the v2 substrate
+    spec). One subdirectory per move: ~/.trinity/moves/<slug>/SKILL.md
+    plus optional body resources. SKILL.md follows agentskills.io exactly
+    with Trinity-specific frontmatter extensions (trinity_alpha,
+    trinity_posterior, etc.) the SKILL.md spec explicitly allows.
+
+    Cold install: directory created empty. Moves only appear after
+    `dream` proposes candidates AND the 4-tier Bayesian gate (T1+T2
+    priors → T3 chairman eval → T4 live posterior) passes for each.
+    See docs/PREFERENCE_CORPUS_SPEC.md for the full schema.
+    """
+    path = state_dir() / "moves"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def moves_archive_dir() -> Path:
+    """Demoted moves preserved for debugging — when a move drifts below
+    baseline on T1/T2/T3/T4, it lands here with its `trinity_demoted_at`
+    + `trinity_demoted_by_tier` frontmatter set so users can inspect WHY
+    a move stopped firing. Demotion is not deletion."""
+    path = moves_dir() / "archive"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def memories_dir() -> Path:
     """The three *thinking* memories that compose your lens: lens, topics,
     vocabulary. See claude.md Glossary → "core memories".
