@@ -93,10 +93,26 @@ def _skill_dir(override: str | None) -> Path:
 
 
 def _git(*args: str, cwd: Path) -> tuple[int, str, str]:
-    """Run git with the given args in `cwd`. Returns (rc, stdout, stderr)."""
-    proc = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=False,
-    )
+    """Run git with the given args in `cwd`. Returns (rc, stdout, stderr).
+
+    Uses a 5-minute timeout so a stalled network (offline / DNS hang /
+    captive portal) doesn't wedge `trinity-local update` indefinitely.
+    On timeout we synthesize an rc=124 (the conventional `timeout(1)`
+    exit code) + a clear stderr message so the caller's existing
+    rc-based error paths surface it as a network failure rather than
+    a silent hang.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "", "git operation timed out after 5 minutes (network stall?)"
     return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
 
 
