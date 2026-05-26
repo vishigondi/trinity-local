@@ -337,17 +337,15 @@ class TestGateScaffolding:
         assert callable(gate.T4_posterior)
         assert callable(gate.run_gate)
 
-    def test_t3_t4_raise_not_implemented_until_filled_in(self):
-        """T1+T2 are implemented (#168). T3 + T4 still raise
-        NotImplementedError pointing at their task numbers — that's the
-        wiring contract for the followup tasks."""
+    def test_t3_raises_not_implemented_until_filled_in(self):
+        """T1+T2 are implemented (#168). T4 is implemented (#170).
+        T3 still raises NotImplementedError pointing at #169 — that's
+        the wiring contract for the followup task."""
         from trinity_local.moves import gate
         from trinity_local.moves.schemas import Move
         m = Move(name="foo", description="bar")
         with pytest.raises(NotImplementedError, match="task #169"):
             gate.T3_chairman(m, rejection_corpus=[])
-        with pytest.raises(NotImplementedError, match="task #170"):
-            gate.T4_posterior(m)
 
     def test_tier_result_shape(self):
         """The TierResult dataclass exposes tier / passed / score /
@@ -584,6 +582,199 @@ class TestT2Embedding:
 
 
 # ─── Gate dispatcher with real T1/T2 ────────────────────────────────
+
+
+class TestT4Posterior:
+    """T4 reads alpha/beta on the move. No I/O, no model calls. The
+    threshold defaults to trinity_eval_baseline (T3's personal best);
+    falls back to 0.5 when no baseline is set yet."""
+
+    def test_uninformative_prior_passes_vacuously_under_min_executions(self):
+        """Day-1 state: alpha=1, beta=1, posterior=0.5, count=0. T4
+        passes vacuously because execution_count < min_executions
+        — too little signal to demote."""
+        from trinity_local.moves.gate import T4_posterior
+        from trinity_local.moves.schemas import Move
+        m = Move(name="foo", description="bar")
+        r = T4_posterior(m)
+        assert r.passed is True
+        assert "vacuous pass" in r.reason
+
+    def test_posterior_above_baseline_passes(self):
+        """Move with strong success record + baseline set passes T4."""
+        from trinity_local.moves.gate import T4_posterior
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="x",
+            description="y",
+            trinity_alpha=18,
+            trinity_beta=2,
+            trinity_execution_count=18,  # well over min_executions
+            trinity_eval_baseline=0.7,
+        )
+        r = T4_posterior(m)
+        assert r.passed is True
+        assert r.score == pytest.approx(18 / 20)  # 0.9
+        assert r.threshold == 0.7
+
+    def test_posterior_below_baseline_fails_after_min_executions(self):
+        """Move that's drifted below its T3 baseline (posterior < 0.7
+        when baseline was 0.7) fails T4 → triggers demotion."""
+        from trinity_local.moves.gate import T4_posterior
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="x",
+            description="y",
+            trinity_alpha=4,
+            trinity_beta=8,  # posterior = 4/12 ≈ 0.33
+            trinity_execution_count=10,
+            trinity_eval_baseline=0.7,
+        )
+        r = T4_posterior(m)
+        assert r.passed is False
+        assert r.score < 0.5
+        assert r.threshold == 0.7
+
+    def test_threshold_falls_back_to_0_5_when_no_baseline(self):
+        """When T3 hasn't set trinity_eval_baseline (e.g. move was
+        promoted only via T1+T2), T4 uses 0.5 (uninformative-prior
+        break-even point) as the threshold."""
+        from trinity_local.moves.gate import T4_posterior
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="x",
+            description="y",
+            trinity_alpha=6,
+            trinity_beta=2,  # posterior = 6/8 = 0.75
+            trinity_execution_count=6,
+            trinity_eval_baseline=None,
+        )
+        r = T4_posterior(m)
+        assert r.threshold == 0.5
+        assert r.passed is True
+
+
+class TestUpdatePosteriorFromCouncil:
+    """The per-council Beta-Binomial update. Caller (dream extension
+    #172) iterates active moves + completed councils + invokes this
+    primitive. Returns (mutated_move, action) so callers can log +
+    decide whether to persist."""
+
+    def test_wrong_basin_skips_update(self):
+        """A move's basin must match the council's task basin for the
+        move to apply. Mismatched basins skip without alpha/beta
+        change."""
+        from trinity_local.moves.gate import update_posterior_from_council
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y", trinity_basin_id="b03")
+        before_alpha, before_beta = m.trinity_alpha, m.trinity_beta
+        _, action = update_posterior_from_council(
+            m,
+            winning_response_text="whatever",
+            council_basin_id="b07",  # different basin
+        )
+        assert action == "skipped_wrong_basin"
+        assert m.trinity_alpha == before_alpha
+        assert m.trinity_beta == before_beta
+
+    def test_no_basin_on_move_skips_update(self):
+        """A move that hasn't been promoted yet (no basin assigned)
+        can't have its posterior updated — skip cleanly."""
+        from trinity_local.moves.gate import update_posterior_from_council
+        from trinity_local.moves.schemas import Move
+        m = Move(name="x", description="y")  # no basin
+        _, action = update_posterior_from_council(
+            m,
+            winning_response_text="whatever",
+            council_basin_id="b00",
+        )
+        assert action == "skipped_no_basin"
+
+    def test_winner_follows_move_increments_alpha(self):
+        """When the chairman's pick contains the move's pattern,
+        alpha++ — the move was applied AND won."""
+        from trinity_local.moves.gate import update_posterior_from_council
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="tighten-bullets",
+            description="tighten verbose bullet lists into short paragraphs",
+            body="Drop bullet syntax; restate as paragraph.",
+            trinity_basin_id="b03",
+        )
+        before_alpha = m.trinity_alpha
+        # Winner's response shares the move's n-gram pattern
+        winning_text = (
+            "I'll tighten the verbose bullet lists into short "
+            "paragraphs as you'd prefer."
+        )
+        _, action = update_posterior_from_council(
+            m,
+            winning_response_text=winning_text,
+            council_basin_id="b03",
+        )
+        assert action == "alpha_incremented"
+        assert m.trinity_alpha == before_alpha + 1
+        assert m.trinity_execution_count == 1
+
+    def test_winner_doesnt_follow_move_increments_beta(self):
+        """When the chairman's pick is in the move's basin but doesn't
+        follow the move's pattern, beta++ — move was applicable but
+        not followed."""
+        from trinity_local.moves.gate import update_posterior_from_council
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="tighten-bullets",
+            description="tighten verbose bullet lists into short paragraphs",
+            body="Drop bullet syntax; restate as paragraph.",
+            trinity_basin_id="b03",
+        )
+        before_beta = m.trinity_beta
+        # Winner's response is in the right basin but has nothing to
+        # do with the move's prescription
+        winning_text = "Here's a recipe for chocolate chip cookies with walnuts."
+        _, action = update_posterior_from_council(
+            m,
+            winning_response_text=winning_text,
+            council_basin_id="b03",
+        )
+        assert action == "beta_incremented"
+        assert m.trinity_beta == before_beta + 1
+
+    def test_posterior_converges_across_many_councils(self):
+        """End-to-end: simulate 20 councils where the move was followed
+        70% of the time. Posterior should converge near 0.7."""
+        from trinity_local.moves.gate import update_posterior_from_council
+        from trinity_local.moves.schemas import Move
+        m = Move(
+            name="tighten-bullets",
+            description="tighten verbose bullet lists",
+            body="condense to paragraph",
+            trinity_basin_id="b03",
+        )
+        followed_text = "tighten verbose bullet lists into a paragraph"
+        not_followed_text = "completely unrelated topic about weather"
+        # 14 follows + 6 non-follows = 0.7 ratio
+        for _ in range(14):
+            update_posterior_from_council(
+                m,
+                winning_response_text=followed_text,
+                council_basin_id="b03",
+            )
+        for _ in range(6):
+            update_posterior_from_council(
+                m,
+                winning_response_text=not_followed_text,
+                council_basin_id="b03",
+            )
+        # alpha=1+14=15, beta=1+6=7 → posterior = 15/22 ≈ 0.682
+        # (skewed slightly by uninformative prior; converges to 0.7 with more data)
+        assert m.trinity_alpha == 15
+        assert m.trinity_beta == 7
+        assert 0.65 <= m.posterior <= 0.75
+        # T4 against a 0.5 threshold passes
+        from trinity_local.moves.gate import T4_posterior
+        r = T4_posterior(m)
+        assert r.passed is True
 
 
 class TestRunGateWithT1T2:

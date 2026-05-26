@@ -6,10 +6,10 @@ T1 → T2 → T3 → T4. Earlier tiers act as priors that filter candidates
 before the expensive likelihood (T3) runs.
 
 Tier ownership map:
-  T1 (lexical prior)           — shipped #168 commit pending
-  T2 (embedding prior)         — shipped #168 commit pending
+  T1 (lexical prior)           — shipped #168
+  T2 (embedding prior)         — shipped #168
   T3 (chairman eval)           — task #169
-  T4 (live Bayesian posterior) — task #170
+  T4 (live Bayesian posterior) — shipped #170 (this file)
 
 The full spec: docs/PREFERENCE_CORPUS_SPEC.md "Eval-gated promotion —
 the Bayesian gate (the wedge)".
@@ -253,21 +253,110 @@ def T3_chairman(
     raise NotImplementedError("T3_chairman: implement in task #169")
 
 
-def T4_posterior(move: Move) -> TierResult:
+def T4_posterior(
+    move: Move,
+    *,
+    threshold: float | None = None,
+    min_executions: int = 5,
+) -> TierResult:
     """Live A/B posterior — Beta-Binomial via Move.posterior. Reads
-    the alpha/beta on the move (updated by council_runtime when a
-    council completes).
+    the alpha/beta on the move; alpha/beta are updated incrementally by
+    `update_posterior_from_council()` as councils complete.
 
-    No threshold here per se — the posterior IS the score. Caller
-    decides "is the move still earning its keep" by comparing the
-    posterior to the trinity_eval_baseline (or to a global floor).
+    The threshold defaults to `move.trinity_eval_baseline` (the personal
+    best from T3) — a move drifts below baseline → demote. If no
+    baseline is set yet (move only has T1+T2 promotion), threshold
+    falls back to 0.5 (the uninformative-prior break-even point).
 
-    This tier is FREE because alpha/beta are updated as a side-effect
-    of every council; this function just reads them.
+    `min_executions` (default 5) prevents trigger-happy demotion on
+    sparse evidence — with execution_count < 5, T4 vacuously passes
+    regardless of posterior. Without this, a move that gets ONE failure
+    in its first 3 executions (alpha=2, beta=2, posterior=0.5) would
+    demote against a 0.7 baseline despite essentially no signal.
 
-    Implemented in task #170.
+    This tier is FREE — no I/O, no model calls. The alpha/beta
+    accumulation is the cost paid once per council via
+    update_posterior_from_council().
     """
-    raise NotImplementedError("T4_posterior: implement in task #170")
+    actual_threshold = threshold if threshold is not None else (
+        move.trinity_eval_baseline if move.trinity_eval_baseline is not None else 0.5
+    )
+    posterior = move.posterior
+    # Under-execution case: too little signal to demote on
+    if move.trinity_execution_count < min_executions:
+        return TierResult(
+            tier="T4",
+            passed=True,
+            score=posterior,
+            threshold=actual_threshold,
+            reason=(
+                f"posterior {posterior:.3f} (need ≥ {actual_threshold:.2f}); "
+                f"execution_count={move.trinity_execution_count} below "
+                f"min_executions={min_executions} — vacuous pass (need "
+                f"more council evidence before demotion is meaningful)"
+            ),
+        )
+    passed = posterior >= actual_threshold
+    return TierResult(
+        tier="T4",
+        passed=passed,
+        score=posterior,
+        threshold=actual_threshold,
+        reason=(
+            f"posterior {posterior:.3f} (α={move.trinity_alpha}, "
+            f"β={move.trinity_beta}, n={move.trinity_execution_count}) "
+            f"{'≥' if passed else '<'} baseline {actual_threshold:.2f}"
+        ),
+    )
+
+
+def update_posterior_from_council(
+    move: Move,
+    *,
+    winning_response_text: str,
+    council_basin_id: str | None,
+    applicability_threshold: float = 0.2,
+    n: int = 3,
+) -> tuple[Move, str]:
+    """Apply one council's outcome to a move's alpha/beta tracker.
+
+    Caller invokes once per (active move, completed council) pair.
+    Returns (updated_move, action) where action is one of:
+      - "alpha_incremented" — chairman picked a response that follows
+        this move's prescription (move was applied + won)
+      - "beta_incremented"  — chairman picked a response that does NOT
+        follow this move, but the move's basin matched the task (move
+        was applicable but not followed)
+      - "skipped_wrong_basin" — move's basin doesn't match the council
+        task's basin; this move doesn't apply, no update
+      - "skipped_no_basin"   — move has no trinity_basin_id set (cold-
+        install / mid-flight state); no update
+
+    Note: the input move is MUTATED in place via record_success() /
+    record_failure() — the returned reference is the same object, for
+    callers that want to chain. Persistence is the caller's job
+    (store.write_move).
+
+    The applicability check uses word n-gram Jaccard: a move "was
+    followed" iff Jaccard(move_body_ngrams, winning_response_ngrams)
+    ≥ applicability_threshold. Default 0.2 — looser than T1's promotion
+    threshold because we're measuring "the move's pattern appeared",
+    not "the move's pattern dominated".
+    """
+    # Skip when basins don't match — no applicability signal
+    if not move.trinity_basin_id:
+        return move, "skipped_no_basin"
+    if council_basin_id != move.trinity_basin_id:
+        return move, "skipped_wrong_basin"
+    # Applicability check via Jaccard on body n-grams
+    move_ngrams = _word_ngrams(_candidate_text(move), n=n)
+    winner_ngrams = _word_ngrams(winning_response_text or "", n=n)
+    similarity = _jaccard(move_ngrams, winner_ngrams)
+    if similarity >= applicability_threshold:
+        move.record_success()
+        return move, "alpha_incremented"
+    move.record_failure()
+    return move, "beta_incremented"
 
 
 def run_gate(
