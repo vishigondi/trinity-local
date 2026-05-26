@@ -2862,6 +2862,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 task: prompt,
                 goal: pageData.defaultGoal,
                 primary_provider: pageData.defaultPrimaryProvider,
+                // Forward the launchpad-generated status_token so the
+                // CLI writes its status file to the SAME path the
+                // launchpad is already polling. Without this, the CLI
+                // generates its own bundle_<id> and the launchpad's
+                // poll for launch_<token> 404s forever — Council card
+                // sticks on "QUEUED" even though the council finished.
+                // The capture-host allowlist + CLI flag already exist;
+                // this just wires the launchpad side. Bug found 2026-05-26
+                // via real-Chrome dogfood from claude-in-chrome MCP.
+                status_token: statusToken,
               }},
               shortcutUrl: buildShortcutUrl(payload),
               onResult: (r) => this.handleDispatchResult(r),

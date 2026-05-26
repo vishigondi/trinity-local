@@ -194,6 +194,69 @@ def test_launchpad_runtime_js_includes_external_messaging_protocol():
     )
 
 
+def test_launch_council_dispatch_forwards_status_token():
+    """The launchCouncil() method must include `status_token` in its
+    extensionAction payload.
+
+    The launchpad generates a status_token locally at launchCouncil time,
+    starts polling for `council_status_<token>.js`, then dispatches the
+    action. Without the token in the dispatch payload, the CLI generates
+    its own bundle_<id> and the two never reconnect — the launchpad's
+    poll for launch_<token> 404s forever and the Council card sticks on
+    "QUEUED" even though the backend finished.
+
+    The capture-host ACTION_ALLOWLIST already maps payload['status_token']
+    → --status-token, and council-launch already accepts the flag. The
+    gap is purely on the launchpad side. Found 2026-05-26 via real-Chrome
+    dogfood from claude-in-chrome MCP — the council ran to completion
+    in 32s and wrote a perfectly valid bundle_status, but the
+    launchpad's polling loop was reading a different file path.
+    """
+    from trinity_local.launchpad_template import render_launchpad_html
+    # Build a minimal page_data so render_launchpad_html runs without
+    # touching ~/.trinity. We only care about the JS shape this method
+    # emits — content of the rest of the page doesn't matter.
+    page_data = {
+        "enabled": False, "endpoint": "", "anonymous_id": "",
+        "autoChainEnabled": False, "polishAutoIterate": False,
+        "personalRouting": {}, "globalRouting": {},
+        "tasteLenses": {"paired_lenses": [], "orderings": [],
+                        "rejections": [], "vocabulary": [],
+                        "abstract_lenses": [], "rejections_share_text": "",
+                        "vocabulary_share_text": "",
+                        "abstract_lenses_share_text": "",
+                        "combined_share_text": ""},
+        "cortexRules": None, "councilQuerySuggestions": [],
+        "providerHealth": {"providers": []}, "activeOperation": None,
+        "memoryHealth": {"issues": [], "ok_count": 4, "total_count": 4},
+        "memoryHealthDigest": "",
+        "ratingsHistory": {"labels": [], "datasets": []},
+        "personalRoutingEmptyState": {}, "modelLineup": [],
+        "providerNames": {}, "providerLabels": {},
+    }
+    html = render_launchpad_html(page_data=page_data, recent_cards="")
+    # Find the launchCouncil() method body specifically — extensionAction
+    # appears in several methods (stop-council, render-me-card, etc.).
+    # The launchCouncil block can be located by the 'kind: \'launch-council\''
+    # marker plus the surrounding extensionAction.
+    import re
+    block_match = re.search(
+        r"extensionAction:\s*\{[^}]*kind:\s*'launch-council'[^}]*\}",
+        html, re.DOTALL,
+    )
+    assert block_match, "launchCouncil's extensionAction payload not found"
+    block = block_match.group(0)
+    assert "status_token" in block, (
+        "launchCouncil's extensionAction payload is missing status_token. "
+        "The launchpad polls council_status_<launch_token>.js but the CLI "
+        "writes council_status_<bundle_id>.js — they never reconnect. The "
+        "fix is one line: add `status_token: statusToken,` to the "
+        "extensionAction. capture_host's ACTION_ALLOWLIST already maps "
+        "this field to --status-token, and council-launch already accepts "
+        "the flag."
+    )
+
+
 def test_browser_extension_in_launchpad_pagedata(isolated_home):
     """The pageData payload the launchpad template consumes must carry
     `browserExtension` so the JS dispatch script can read it. Without
