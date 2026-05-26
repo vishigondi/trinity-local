@@ -120,6 +120,23 @@ def handle_review_link(args):
     print("Privacy:     URL carries only council_id; content loads from local review artifact or paired desktop.")
 
 
+class _NoCacheHTMLHandler(http.server.SimpleHTTPRequestHandler):
+    """Same as SimpleHTTPRequestHandler but disables HTTP caching for
+    .html (and .json status) responses. Without this, Chrome aggressively
+    caches the launchpad page and ships of new code (rollback fixes,
+    refreshed page_data) appear stale until the user hits Cmd+Shift+R.
+    Static assets (vendor JS, share PNGs) keep their default caching.
+    """
+
+    def end_headers(self):
+        path = self.path.split("?", 1)[0]
+        if path.endswith((".html", ".json")):
+            self.send_header("Cache-Control", "no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+        super().end_headers()
+
+
 def handle_serve(args):
     """Serve ~/.trinity over HTTP. Same launchpad/review pages render under
     file:// (double-click) AND http://localhost:PORT — page-data URLs are
@@ -128,7 +145,7 @@ def handle_serve(args):
     home = trinity_home()
     refresh_launchpad()  # ensure pages are fresh before serving
 
-    handler = lambda *a, **kw: http.server.SimpleHTTPRequestHandler(*a, directory=str(home), **kw)
+    handler = lambda *a, **kw: _NoCacheHTMLHandler(*a, directory=str(home), **kw)
     try:
         httpd = socketserver.TCPServer(("127.0.0.1", args.port), handler)
     except OSError as exc:

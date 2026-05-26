@@ -2070,6 +2070,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
     {launchpad_runtime_js()}
 
+    // Provider slug normalizer — the harness rename gemini → antigravity
+    // happened 2026-05-20, but historical council_outcomes/*.json files on
+    // disk still carry provider="gemini". This helper centralizes the
+    // alias at the read boundary so all downstream maps key on the
+    // canonical "antigravity" slug. Hoisted to module scope so both
+    // renderChart() (palette lookup) and the Vue-scoped formatProviderLabel
+    // can reach it. When the historical outcomes are far enough in the past
+    // to stop caring (or a one-time batch migration ships), delete this
+    // function — the maps stay clean. (Per Trinity ask council 2026-05-21:
+    // "maps encode what's canonical; normalization encodes what's historical.")
+    function normalizeProviderSlug(slug) {{
+      return slug === 'gemini' ? 'antigravity' : slug;
+    }}
+
     function maybeSendTelemetry() {{
       const telemetry = pageData.telemetry || {{}};
       const settings = telemetry.settings || {{}};
@@ -2141,19 +2155,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             }},
           }},
         }});
-      }}
-
-      // Provider slug normalizer — the harness rename gemini → antigravity
-      // happened 2026-05-20, but historical council_outcomes/*.json files on
-      // disk still carry provider="gemini". This helper centralizes the
-      // alias at the read boundary so all downstream maps key on the
-      // canonical "antigravity" slug. When the historical outcomes are far
-      // enough in the past to stop caring (or a one-time batch migration
-      // ships), delete this function — the maps stay clean. (Per Trinity
-      // ask council 2026-05-21: "maps encode what's canonical; normalization
-      // encodes what's historical.")
-      function normalizeProviderSlug(slug) {{
-        return slug === 'gemini' ? 'antigravity' : slug;
       }}
 
       // Provider color palette shared across both /100 charts.
@@ -2327,6 +2328,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         // Buttons stay clickable; failed click reopens the banner if dismissed.
         dispatchBannerOpen: false,
         dispatchBannerReason: '',  // 'no-route' | 'native-host-unavailable'
+        // Stuck-launch rollback (2026-05-26): launchCouncil etc. snapshot the
+        // user's typed prompt here before clearing the textarea, so a failed
+        // dispatch (extension absent / native host missing) can restore it.
+        // Without this, a failed launch ate the prompt and the user had to
+        // retype while staring at "Council in Progress" that would never
+        // resolve. See handleDispatchResult for the rollback.
+        pendingPrompt: '',
         operation: initialOperation,
         statusPollHandle: null,
         statusRotateHandle: null,
@@ -2784,7 +2792,28 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           //       install banner
           //   - tier === 'extension' && !ok && other error: surface to the
           //       launchError ribbon
+          //
+          // Stuck-launch fix (2026-05-26): when dispatch FAILED, also roll
+          // back the optimistic activeOperation that beginOperation() set
+          // before the dispatch attempt. Without this rollback the UI sits
+          // forever showing "Council in Progress" polling a status file
+          // that will never be written + Launch button stays disabled
+          // (.busy never clears) — exactly the user-reported stuck state.
+          // Also restore the prompt so the user can edit + retry without
+          // retyping. The original launchCouncil/etc snapshot the prompt
+          // into this.pendingPrompt before clearing it for this rollback.
           if (!result) return;
+          const failed = (result.tier === 'install-prompt')
+                      || (result.tier === 'extension' && !result.ok);
+          if (failed) {{
+            // Roll back optimistic UI: stop polling, drop activeOperation,
+            // re-enable the Launch button by clearing .busy via .operation.
+            this.clearOperation();
+            if (this.pendingPrompt) {{
+              this.prompt = this.pendingPrompt;
+              this.pendingPrompt = '';
+            }}
+          }}
           if (result.tier === 'install-prompt') {{
             this.dispatchBannerOpen = true;
             this.dispatchBannerReason = 'no-route';
@@ -2980,6 +3009,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             return;
           }}
           const statusToken = `launch_${{Date.now().toString(36)}}_${{Math.random().toString(36).slice(2, 8)}}`;
+          // Snapshot before clear so handleDispatchResult can restore it on
+          // dispatch failure (stuck-launch rollback, 2026-05-26).
+          this.pendingPrompt = prompt;
           this.prompt = '';
           const payload = {{
             name: 'launch_council',
