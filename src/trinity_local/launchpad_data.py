@@ -1773,6 +1773,42 @@ def _load_cortex_rules() -> dict | None:
     }
 
 
+def _load_decisions_by_id() -> dict:
+    """Read `~/.trinity/me/decisions.jsonl` into a `{id: decision}` map.
+
+    Each decision carries the privileged/sacrificed pair + verbatim
+    quote that justified one lens claim. Returns {} when the file
+    doesn't exist (cold install, lens-build never ran). Resilient to
+    malformed lines — skips them rather than aborting the whole load.
+
+    Surfaced on the launchpad lens card so every claim's
+    `tension_decisions` IDs render as clickable backrefs to their
+    source rejection pair. Traceability per principle #22 (empty
+    callbacks swallow dispatch failures) + the README's "if it can't
+    show its work, it doesn't get to claim the thought."
+    """
+    from .state_paths import trinity_home
+    path = trinity_home() / "me" / "decisions.jsonl"
+    if not path.exists():
+        return {}
+    out: dict = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            did = d.get("id")
+            if did:
+                out[str(did)] = d
+    except OSError:
+        return {}
+    return out
+
+
 def _load_taste_lenses() -> dict | None:
     """Surface taste lenses for the launchpad.
 
@@ -1812,6 +1848,14 @@ def _load_taste_lenses() -> dict | None:
     }
     out["paired_lenses"] = paired
     out["orderings"] = orderings
+    # Traceability: load decisions.jsonl into a {id: {...}} map so the
+    # launchpad lens card can render `tension_decisions` IDs as clickable
+    # backrefs to the source rejection pairs that justify each lens claim.
+    # Principle: "if it can't show its work, it doesn't get to claim the
+    # thought." Schema per src/trinity_local/me/decisions.py — each
+    # decision has id, privileged, sacrificed, valence, basin, verbatim,
+    # prompt_id. Verbatim is the user's actual words from that moment.
+    out["decisionsById"] = _load_decisions_by_id()
     if paired:
         # Build a combined share text from the paired form — preferred
         # over the single-virtue legacy text once the pipeline ships.

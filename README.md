@@ -57,7 +57,28 @@ When Claude 5 lands: *"Claude provider scored 0.88 on my taste — beats last re
 
 ### Your lens, generated from your prompts.
 
-`trinity-local dream` synthesizes transcripts into a hierarchical lens the chairman reads top-down on every council. Inspect via the launchpad's lens card; schema in [`docs/lens.md`](docs/lens.md).
+`trinity-local dream` is the consolidation pass. Like sleep: it
+**reweights old facts in light of everything that's come in since**,
+**resolves memories that contradicted each other**, and connects
+**memories that were just sitting there with their neighbors** — turning
+a corpus of raw prompts into a hierarchical lens (identity → paired
+tensions → subject basins → vocabulary) that the chairman reads top-down
+on every council.
+
+**Traceability is non-negotiable.** *If it can't show its work, it
+doesn't get to claim the thought.* Every lens entry carries
+`tension_decisions` — backreferences to the specific rejection pairs
+that justify it. Open the launchpad's lens card and each claim links
+back, clickable, to the model-said-vs-you-substituted moments it was
+extracted from. No hidden inference, no "trust me." Inspect any claim;
+walk the chain to the source.
+
+**The folder is the API.** `~/.trinity/` is a CC0 JSON-Schema-validated
+on-disk contract — `memories/lens.md`, `memories/topics.json`,
+`memories/vocabulary.md`, `core.md`, `scoreboard/picks.json`. Any tool
+(Aider / Cline / Continue / your own) can read or write through that
+folder without going through Trinity's process. Schema in
+[`docs/lens.md`](docs/lens.md) + [`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md).
 
 ## For teams
 
@@ -68,7 +89,9 @@ the offering + waitlist.
 
 ## For tool builders
 
-`~/.trinity/` ships a CC0 JSON-Schema-validated format adoptable by other tools (Aider / Cline / Continue). Contract: [`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md).
+`~/.trinity/` is the API surface. CC0, JSON-Schema-validated, adoptable
+by Aider / Cline / Continue / anything else. Schema:
+[`docs/PREFERENCE_CORPUS_SPEC.md`](docs/PREFERENCE_CORPUS_SPEC.md).
 
 ## Privacy is the wedge
 

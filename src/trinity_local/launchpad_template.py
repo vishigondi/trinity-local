@@ -1878,6 +1878,57 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   {{{{ bid }}}}
                 </a>
               </span>
+              <!-- "Justified by" backref row — clickable chips that
+                   expand to show the source rejection pair (privileged
+                   → sacrificed + verbatim user-text) that this lens
+                   claim was extracted from. The README pledge: "if it
+                   can't show its work, it doesn't get to claim the
+                   thought." Uses native <details> element — zero Vue
+                   state, no JS toggle code. Hover shows the verbatim
+                   quote in :title; click expands the full pair inline.
+                   Each chip is the decision id (e.g. d_001); the
+                   decisionsById map resolves it to the full record. -->
+              <span class="lens-decisions-row"
+                v-if="p.tension_decisions && p.tension_decisions.length && tasteLenses.decisionsById"
+                style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                <span class="meta" style="font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.7;">Justified by · click to see the work</span>
+                <span style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <details v-for="did in p.tension_decisions"
+                    :key="'ld-' + idx + '-' + did"
+                    class="lens-decision-chip"
+                    style="display: inline-block; font-size: 11px;">
+                    <summary
+                      :title="(tasteLenses.decisionsById[did] && tasteLenses.decisionsById[did].verbatim) || did"
+                      style="cursor: pointer; padding: 2px 7px; border-radius: 3px; background: rgba(120, 99, 70, 0.08); color: #7a6647; font-family: ui-monospace, monospace; list-style: none;">
+                      {{{{ did }}}}
+                    </summary>
+                    <div
+                      style="margin-top: 6px; padding: 8px 10px; background: rgba(120, 99, 70, 0.05); border-left: 2px solid rgba(120, 99, 70, 0.3); border-radius: 3px; font-size: 12px; max-width: 600px;"
+                      v-if="tasteLenses.decisionsById[did]">
+                      <div style="margin-bottom: 4px;">
+                        <strong>{{{{ tasteLenses.decisionsById[did].privileged }}}}</strong>
+                        <span style="opacity: 0.6; margin: 0 6px;">over</span>
+                        <em>{{{{ tasteLenses.decisionsById[did].sacrificed }}}}</em>
+                      </div>
+                      <blockquote
+                        v-if="tasteLenses.decisionsById[did].verbatim"
+                        style="margin: 4px 0 0; padding: 4px 0 4px 10px; border-left: 2px solid rgba(120, 99, 70, 0.2); color: #8a7d68; font-style: italic;">
+                        "{{{{ tasteLenses.decisionsById[did].verbatim }}}}"
+                      </blockquote>
+                      <div
+                        v-if="tasteLenses.decisionsById[did].basin"
+                        style="margin-top: 4px; font-size: 10px; opacity: 0.6;">
+                        basin: {{{{ tasteLenses.decisionsById[did].basin }}}} · valence: {{{{ tasteLenses.decisionsById[did].valence || '?' }}}}
+                      </div>
+                    </div>
+                    <div
+                      style="margin-top: 6px; padding: 6px 8px; font-size: 11px; color: #8a7d68; font-style: italic;"
+                      v-else>
+                      Decision {{{{ did }}}} not found in decisions.jsonl — lens may be stale; re-run trinity-local lens-build.
+                    </div>
+                  </details>
+                </span>
+              </span>
             </li>
           </ol>
         </div>
