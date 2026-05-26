@@ -1761,11 +1761,42 @@ def render_live_council_page() -> str:
             if (!cur) return;
             this._patchSegment(segKey, {{ currentStatusIndex: (cur.currentStatusIndex || 0) + 1 }});
           }}, 2500);
+          // Track consecutive 404s on the status JSONP fetch so we can
+          // surface "council never started" when the user lands on a
+          // status_token URL that has no backing file. This is exactly
+          // the user-reported `launch_mpm0bght_gx1y9v` symptom — clicked
+          // Launch, the JS-side optimistic UI built the URL, but the
+          // dispatcher couldn't reach an extension so no status file
+          // was ever written. The page sat polling indefinitely showing
+          // "Council running / Generating witty dialog…" forever with
+          // zero feedback. After MAX_MISSING_POLLS consecutive failures
+          // (~12s @ 1.5s/poll) we declare the council didn't start.
+          let missingPollCount = 0;
+          const MAX_MISSING_POLLS = 8;
           const check = () => {{
             const cur = this.segments.find((s) => s.key === segKey);
             if (!cur?.statusToken) {{ this.clearPolling(); return; }}
             loadStatusScript(cur.statusToken, (status) => {{
-              if (!status) return;
+              if (!status) {{
+                missingPollCount += 1;
+                if (missingPollCount >= MAX_MISSING_POLLS) {{
+                  this.clearPolling();
+                  this._patchSegment(segKey, {{
+                    busy: false, failed: true, canceled: false,
+                    errorText: "This council never started. The launch URL " +
+                               "was constructed but no status file was ever " +
+                               "written, so dispatch likely failed silently. " +
+                               "Common cause: the Chrome extension isn't " +
+                               "installed in this browser. Run " +
+                               "`trinity-local install-extension --extension-id <ID>` " +
+                               "and click Launch again from the launchpad.",
+                  }});
+                }}
+                return;
+              }}
+              // Reset the missing-poll counter on any successful fetch — the
+              // status file showed up, so the dispatch eventually worked.
+              missingPollCount = 0;
               if (!this.threadTaskText) this.threadTaskText = status.task_text || this.threadTaskText;
               const ref = this.segments.find((s) => s.key === segKey);
               if (!ref) return;
