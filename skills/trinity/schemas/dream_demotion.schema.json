@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/dream_demotion.schema.json",
+  "title": "Dream Demotion (active move that fell below baseline)",
+  "description": "One demotion event from the moves substrate's quality-control pass (dream Phase 6c). Written by `run_demotion_pass` to `~/.trinity/dream_demotions.jsonl` (one row per line) when an active move's posterior drifts below its T4 threshold. The move's full state at demotion is preserved on disk at `~/.trinity/moves/archive/<slug>/SKILL.md`; this log is the time-indexed event stream — useful for analytics ('how often does the gate retire moves?') and for sanity-checking that demotions correlate with intended user signal. Append-only; nothing in Trinity reads it for routing.",
+  "type": "object",
+  "required": ["move_slug", "move_name", "demoted_at", "tier", "reason"],
+  "properties": {
+    "move_slug": {
+      "type": "string",
+      "description": "Kebab-case slug from `_slugify(move.name)`. Matches the directory name at `~/.trinity/moves/archive/<slug>/`."
+    },
+    "move_name": {
+      "type": "string",
+      "description": "The Move's original `name` (human-readable). Stored alongside the slug so analytics don't have to re-resolve."
+    },
+    "move_basin": {
+      "type": ["string", "null"],
+      "description": "Basin id (from `topics.json`) the move served. Null when the move wasn't basin-anchored."
+    },
+    "demoted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp (seconds precision) when the demotion fired."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["T1", "T2", "T3", "T4"],
+      "description": "Which tier rejected the move on re-eval. T4 = Beta-Binomial posterior fell below baseline (the only tier that ships today). T1/T2/T3 re-eval is planned but not yet wired."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Tier-specific reason from the failing `TierResult.reason`. Typically a one-line summary of the score vs threshold."
+    },
+    "posterior": {
+      "type": ["number", "null"],
+      "description": "The posterior value at demotion (alpha / (alpha + beta)). Null when the demoting tier wasn't T4. Surfaced separately so analytics don't need to reconstruct it from alpha/beta."
+    },
+    "baseline": {
+      "type": ["number", "null"],
+      "description": "The trinity_eval_baseline the posterior was compared against. Null when no baseline existed (first-eval demotions)."
+    },
+    "executions": {
+      "type": ["integer", "null"],
+      "description": "Total chairman councils this move was applied to before demotion (alpha + beta - 2, excluding the uninformative prior). Lets analytics compute the average lifetime of a promoted move."
+    }
+  }
+}

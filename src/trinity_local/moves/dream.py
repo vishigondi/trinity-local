@@ -421,6 +421,12 @@ def run_demotion_pass() -> dict[str, Any]:
 
     Returns: `{active_moves_evaluated, demoted, by_tier: {T4: N}}`.
 
+    Side-effect: appends one row per demotion to
+    ``~/.trinity/dream_demotions.jsonl`` (schema:
+    schemas/dream_demotion.schema.json) so analytics can answer "how
+    often does the gate retire moves" without reading every archived
+    SKILL.md.
+
     Note: only T4 demotion ships in this pass. T1/T2/T3 re-eval can
     be added later; T4 is the cheap-to-check signal that triggers
     "this move is no longer earning its keep" in production.
@@ -439,9 +445,37 @@ def run_demotion_pass() -> dict[str, Any]:
                 tier="T4",
                 reason=t4.reason,
             )
+            _log_dream_demotion(move, tier="T4", result=t4)
             report["demoted"] += 1
             report["by_tier"]["T4"] += 1
     return report
+
+
+def _log_dream_demotion(move: Move, *, tier: str, result: Any) -> None:
+    """Append one demotion event to dream_demotions.jsonl.
+
+    Symmetric with `_log_dream_rejection` for unpromoted candidates —
+    gives the user a time-indexed view of substrate quality control
+    without forcing them to walk the archive directory."""
+    from .. import state_paths as _sp
+    path = _sp.trinity_home() / "dream_demotions.jsonl"
+    record = {
+        "move_slug": store._slugify(move.name),
+        "move_name": move.name,
+        "move_basin": move.trinity_basin_id,
+        "demoted_at": _now_iso(),
+        "tier": tier,
+        "reason": result.reason,
+        "posterior": move.posterior if tier == "T4" else None,
+        "baseline": move.trinity_eval_baseline,
+        "executions": move.trinity_execution_count,
+    }
+    try:
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, separators=(",", ":")) + "\n")
+    except OSError:
+        # Logging failure shouldn't crash the dream pass.
+        pass
 
 
 # ─── Orchestrator ────────────────────────────────────────────────────

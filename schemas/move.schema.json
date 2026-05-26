@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/move.schema.json",
+  "title": "Move (procedural memory unit / SKILL.md frontmatter)",
+  "description": "One atomic procedural-memory unit — the v2 substrate's Layer 3a. External format: SKILL.md per agentskills.io. This schema describes the YAML frontmatter Trinity reads + writes; the body (post-frontmatter markdown) is the actual procedure and is out-of-band. Trinity adds `trinity_*` extension fields that the SKILL.md spec explicitly allows. Lives on disk at `~/.trinity/moves/<slug>/SKILL.md` (active) or `~/.trinity/moves/archive/<slug>/SKILL.md` (demoted). Sufficient on its own — `name + description` are the agentskills.io-required minimum; every other field is Trinity-specific and optional. Tools that read Trinity's substrate but don't care about Bayesian state can safely ignore everything past `description`.",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable move title. Required by the SKILL.md spec. Trinity slugifies this to a kebab-case directory name for filesystem storage but the canonical identity is the prose name."
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line description. Required by the SKILL.md spec. Agents reading the substrate use this for activation-time matching."
+    },
+    "trinity_promoted_from": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Rejection-signal ids (from `~/.trinity/me/rejections.jsonl`) that seeded this move. Provenance — lets users trace a move back to the user_substitute exemplars dream proposed it from."
+    },
+    "trinity_basin_id": {
+      "type": ["string", "null"],
+      "description": "Basin id (from `~/.trinity/memories/topics.json`) the move serves. Moves are basin-scoped — a move that fires on basin A doesn't apply to basin B."
+    },
+    "trinity_promoted_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when this move cleared the T1+T2+T3 gate and landed on disk."
+    },
+    "trinity_demoted_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when this move was demoted to archive. Null on active moves. Co-defined with `trinity_demoted_by_tier` — they appear together or not at all."
+    },
+    "trinity_demoted_by_tier": {
+      "type": ["string", "null"],
+      "enum": ["T1", "T2", "T3", "T4", null],
+      "description": "Which tier triggered the demotion. T4 = posterior drifted below baseline (the only tier that demotes today). Null on active moves."
+    },
+    "trinity_alpha": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Beta-Binomial conjugate prior — chairman-picked successes + 1 (uninformative prior). Increments via `record_success`. Posterior = alpha / (alpha + beta).",
+      "default": 1
+    },
+    "trinity_beta": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Beta-Binomial conjugate prior — chairman-not-picked failures + 1. Increments via `record_failure`.",
+      "default": 1
+    },
+    "trinity_execution_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total councils where this move was applied (alpha + beta - 2, excluding the uninformative prior). Used as the `min_executions` guard before T4 demotion bites.",
+      "default": 0
+    },
+    "trinity_t1_lexical_score": {
+      "type": ["number", "null"],
+      "description": "Most recent T1 (lexical Jaccard) score from the gate. Persisted so users can inspect why a move was promoted."
+    },
+    "trinity_t2_embedding_score": {
+      "type": ["number", "null"],
+      "description": "Most recent T2 (embedding cosine vs basin centroid) score."
+    },
+    "trinity_t3_chairman_score": {
+      "type": ["number", "null"],
+      "description": "Most recent T3 (chairman eval against rejection corpus) score."
+    },
+    "trinity_eval_baseline": {
+      "type": ["number", "null"],
+      "description": "The T3 score captured at first promotion. Re-evaluations gate against this baseline — drift below it triggers demotion."
+    },
+    "trinity_success_contexts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Basins where this move fired correctly. MACLA contrastive-learning surface — lets users see where a move generalizes."
+    },
+    "trinity_failure_contexts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Basins where this move fired incorrectly. Useful when the same move is promoted in basin A but mis-fires when applied in basin B."
+    },
+    "trinity_generalizability_score": {
+      "type": ["number", "null"],
+      "description": "How broadly this move applies across basins (0..1). Independent of confidence — a move can be high-confidence in one basin AND low-generalizability simultaneously."
+    },
+    "trinity_lens_tensions_addressed": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Count of lens.md tension pairs this move addresses. Helps users prioritize which moves serve their most-load-bearing preferences."
+    }
+  },
+  "additionalProperties": true
+}

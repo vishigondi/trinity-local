@@ -178,7 +178,7 @@ def load_frontmatter(text: str) -> dict[str, Any]:
                 if not ln.strip():
                     j += 1
                     continue
-                lm = re.match(r"^(\s+)-\s+(.*)$", ln)
+                lm = re.match(r"^(\s*)-\s+(.*)$", ln)
                 if not lm:
                     break
                 items.append(_parse_scalar(lm.group(2)))

@@ -99,6 +99,9 @@ same files with the same schemas:
 | `~/.trinity/scoreboard/picks.json` | picks (in-tree) | consolidate |
 | `~/.trinity/scoreboard/routing.json` | routing (in-tree) | aggregation |
 | `~/.trinity/me/rejections.jsonl` | `schemas/rejection_signal.schema.json` | turn_pairs |
+| `~/.trinity/moves/<slug>/SKILL.md` | `schemas/move.schema.json` (shipped 2026-05-26 with the v2 substrate, #167–#172) | dream Phase 6b |
+| `~/.trinity/dream_rejections.jsonl` | `schemas/dream_rejection.schema.json` (shipped 2026-05-26, #174) | dream Phase 6b |
+| `~/.trinity/dream_demotions.jsonl` | `schemas/dream_demotion.schema.json` (shipped 2026-05-26, #174) | dream Phase 6c |
 
 ## Tier-equivalence invariant
 
@@ -123,16 +126,18 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2108<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2117<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
-  (`council_outcome`, `eval_set`, `rejection_signal`). The
-  `trust.schema.json` that shipped 2026-05-18 alongside the trust
-  substrate was deleted 2026-05-22 (iter #121 of the post-launch
-  sweep) after the library was retired — v1.1 will design its own
-  gating schema fresh, see [`historical/trust-mode.md`](historical/trust-mode.md)
-  for the original design.
+  (`council_outcome`, `eval_set`, `rejection_signal`; v2 additions
+  shipped 2026-05-26: `move`, `dream_rejection`, `dream_demotion` for
+  the procedural substrate — see #174). The `trust.schema.json` that
+  shipped 2026-05-18 alongside the trust substrate was deleted
+  2026-05-22 (iter #121 of the post-launch sweep) after the library
+  was retired — v1.1 will design its own gating schema fresh, see
+  [`historical/trust-mode.md`](historical/trust-mode.md) for the
+  original design.
 - Extension as-is (Phase 4b shipped — see MIGRATION.md).
 - `docs/three-tier-architecture.md` (this file) — full vision,
   marks shared `scripts/` substrate as v1.1.

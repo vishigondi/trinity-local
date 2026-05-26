@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/dream_rejection.schema.json",
+  "title": "Dream Rejection (candidate move that failed the gate)",
+  "description": "One rejected candidate from the moves substrate's eval-gated promotion loop (dream Phase 6b). Written by `run_promotion_pass` to `~/.trinity/dream_rejections.jsonl` (one row per line). Captures which tier of the four-tier Bayesian gate (T1 lexical → T2 embedding → T3 chairman → T4 posterior) rejected the candidate and why — the introspection surface for debugging the gate's behavior. The rejection log is append-only; nothing in Trinity reads it for routing decisions, only for human inspection + analytics.",
+  "type": "object",
+  "required": ["candidate_name", "rejected_at", "why_rejected", "tier_results"],
+  "properties": {
+    "candidate_name": {
+      "type": "string",
+      "description": "The proposed Move's `name` field (the human-readable title from SKILL.md frontmatter). Not slugified — the rejection log preserves the original prose so users can grep for what dream tried to surface."
+    },
+    "candidate_basin": {
+      "type": ["string", "null"],
+      "description": "The basin (topic-cluster id from `topics.json`) the candidate would have served. Null when the candidate wasn't basin-anchored — rare; discovery groups rejections by basin, so most candidates carry one."
+    },
+    "rejected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp (seconds precision) when the gate rejected this candidate. Matches the convention used elsewhere in `~/.trinity/`."
+    },
+    "why_rejected": {
+      "type": "string",
+      "description": "Short human-readable rationale composed from the failing tier's reason field. Stored separately from `tier_results` so a one-line summary is available without parsing the per-tier breakdown."
+    },
+    "promoted_from": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The rejection-signal ids (from `~/.trinity/me/rejections.jsonl`) that seeded this candidate. Lets users trace a rejected candidate back to the user_substitute exemplars it was synthesized from — useful when the gate consistently rejects candidates from a particular basin (signals a basin where the user's pattern isn't yet captured)."
+    },
+    "tier_results": {
+      "type": "array",
+      "description": "Per-tier breakdown — every tier the candidate reached before rejection, in evaluation order. Always at least one entry (the failing tier); may include earlier-tier passes when the candidate cleared T1+T2 but failed T3. T4 only fires on demotion, never on candidate evaluation.",
+      "items": {
+        "type": "object",
+        "required": ["tier", "passed", "score", "reason"],
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": ["T1", "T2", "T3", "T4"],
+            "description": "Which gate tier produced this result. T1 = lexical Jaccard vs accepted patterns in the same basin. T2 = embedding cosine vs basin centroid. T3 = chairman eval against the basin's rejection corpus. T4 = Beta-Binomial posterior; demotion-only."
+          },
+          "passed": {
+            "type": "boolean",
+            "description": "Whether the tier accepted the candidate. The failing tier is the last entry with `passed: false`; subsequent tiers don't run."
+          },
+          "score": {
+            "type": ["number", "null"],
+            "description": "Tier-specific score (0..1). T1: Jaccard fraction. T2: cosine. T3: aggregate axis-score from the chairman eval rubric. T4: posterior. Null when the tier was skipped (cold install)."
+          },
+          "threshold": {
+            "type": ["number", "null"],
+            "description": "The minimum score the candidate had to clear at this tier. T1 default: 0.3. T2 default: 0.7. T3 default: 0.5 fallback or trinity_eval_baseline when re-eval. Null on vacuous-pass tiers."
+          },
+          "reason": {
+            "type": "string",
+            "description": "One-line explanation of the pass/fail decision in human language. Lifted into `why_rejected` at the top level when this is the failing tier."
+          }
+        }
+      }
+    }
+  }
+}
