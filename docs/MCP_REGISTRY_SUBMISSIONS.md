@@ -80,7 +80,7 @@ Claude; the wedge is "Claude answering in your voice"):
 
 **Required artifacts:**
 - 1024×1024 icon (use `docs/icon.png` if present, or `me-card.png`)
-- Short tagline: *"Your taste, ported into Claude."*
+- Short tagline: *"Own your taste. Inside Claude."*
 
 ---
 

@@ -115,7 +115,7 @@ trinity_lens_version: <hash>
 trinity_generated_at: <iso>
 ---
 
-# Your taste, ported
+# Own your taste
 
 (One-paragraph identity from core.md.)
 

@@ -1,6 +1,6 @@
 ---
 name: trinity
-description: Your taste, ported. Install Trinity Local — the cross-provider memory + council layer that lives inside Claude Code, Codex CLI, Antigravity, and Cursor. Use when the user types /trinity, asks how to set up Trinity, wants their lens / picks / routing built from existing transcripts, or wants a hard question dispatched to multiple models with synthesis in their voice.
+description: Own your taste. Install Trinity Local — the cross-provider memory + council layer that lives inside Claude Code, Codex CLI, Antigravity, and Cursor. Use when the user types /trinity, asks how to set up Trinity, wants their lens / picks / routing built from existing transcripts, or wants a hard question dispatched to multiple models with synthesis in their voice.
 argument-hint: [optional first-council prompt]
 allowed-tools: Bash(curl *) Bash(bash *) Bash(trinity-local *) Bash(command -v *) Bash(which *) Bash(open *) Read
 ---

@@ -1169,17 +1169,14 @@ class TestBrandAxisConsistency:
     (em-dashes, periods, capitalization).
     """
 
-    # Brand pivot 2026-05-16 → "Your taste, ported." Iter #33 swept
-    # the live launchpad UI (the last surface carrying the old hero
-    # in product code); iter #34 verified zero pre-pivot tagline
-    # fragments remain anywhere in src/. Locked the new framing here
-    # — guard now FAILS if any launch surface reverts to the old
-    # hero or invents a third one. Historical references in claude.md
-    # / CHANGELOG / docs/launch_councils/ are unaffected (they don't
-    # need to carry an accepted hero verbatim; they just describe
-    # the history).
+    # Brand pivot 2026-05-26 → "Own your taste." Tightens the prior
+    # "Your taste, ported." (which read like a description of the
+    # product) into a directive aimed at the user. Historical refs in
+    # CHANGELOG / docs/historical/brand-evolution.md keep the prior
+    # phrasing as the record of the pivot trail. Guard FAILS if any
+    # launch surface reverts to a prior hero or invents a third one.
     ACCEPTED_HEROES: list[str] = [
-        "Your taste, ported.",
+        "Own your taste.",
     ]
     ACCEPTED_SUBS: list[str] = [
         "No new app. No service. No API key.",

@@ -9,7 +9,7 @@ class: live
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Your taste, ported.
+## Own your taste.
 
 It runs your hard questions through Claude, Codex, and Gemini in parallel and picks the answer in your voice — not the generic one.
 

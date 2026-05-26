@@ -42,7 +42,7 @@ After this, every link in `README.md`, `docs/launch.md`, and the
 
 ```bash
 gh repo edit vishigondi/trinity-local \
-  --description "Your taste, ported. Cross-provider memory + councils + handoff inside Claude Code, Codex CLI, Antigravity, and Cursor. Local-first, rides on your existing subscriptions." \
+  --description "Own your taste. Cross-provider memory + councils + handoff inside Claude Code, Codex CLI, Antigravity, and Cursor. Local-first, rides on your existing subscriptions." \
   --add-topic mcp \
   --add-topic claude-code \
   --add-topic codex-cli \
@@ -133,7 +133,7 @@ curl -fsSL -o /tmp/trinity-install.sh \
 bash -n /tmp/trinity-install.sh && echo "INSTALL.SH OK"
 
 # Repo URL renders the README hero (curl + grep instead of opening browser)
-curl -fsSL https://github.com/vishigondi/trinity-local | grep -q "Your taste, ported" \
+curl -fsSL https://github.com/vishigondi/trinity-local | grep -q "Own your taste" \
   && echo "README HERO OK" || echo "README HERO MISSING"
 
 # Pages landing reachable (post-2026-05-17 brand flip: site lives at

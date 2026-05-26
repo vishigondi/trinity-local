@@ -7,7 +7,7 @@ class: live
 > Drafts. Voice belongs to the user. Each block is one shippable artifact: thread, README hero
 > rewrite, blog hook, 60s demo script. Send me-card PNG with every external post.
 >
-> v1 brand: **Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.**
+> v1 brand: **Own your taste. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.**
 > Sub: **No new app. No service. No API key. Your transcripts never leave your machine.**
 > Lead: *"You've already chosen between Claude, Codex, and Gemini a thousand times.
 > Trinity reads those transcripts, learns the pattern in how you rephrase, judge, and
@@ -123,7 +123,7 @@ visionary voice in 2026.
 
 ## README hero (locked, see README.md)
 
-> ## Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.
+> ## Own your taste. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.
 >
 > You've already chosen between Claude, Codex, and Gemini a thousand times. Trinity
 > reads those transcripts, learns the pattern in how you rephrase, judge, and decide

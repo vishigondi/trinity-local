@@ -14,7 +14,7 @@ PETITE_VUE_IIFE = "./vendor/petite-vue.iife.js"
 CHART_JS_SRC = "./vendor/chart.umd.min.js"
 
 
-def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Your taste, ported") -> str:
+def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "Trinity · Own your taste") -> str:
     extra_head = f"""
   <script src="{CHART_JS_SRC}"></script>
 """
@@ -2479,7 +2479,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           if (this.operation?.kind === 'ingest' && this.busy) {{
             return 'Trinity is refreshing your local context and getting the launchpad ready.';
           }}
-          return 'Your taste, ported.';
+          return 'Own your taste.';
         }},
         get heroMechanism() {{
           if (this.busy) {{

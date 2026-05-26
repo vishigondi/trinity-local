@@ -91,7 +91,7 @@ class TestLaunchpadFlow:
         # Hero copy for cold-start users (no recent councils) — locked
         # to the post-2026-05-16 brand axis hero. Returning users see
         # "Run a Council" instead.
-        assert "Your taste, ported." in html
+        assert "Own your taste." in html
         assert "launch_council" in html
         assert "Launchpad controls" in html
         # IIFE form — Chrome blocks ES module imports on file:// (every
@@ -230,7 +230,7 @@ class TestLaunchpadFlow:
         html = path.read_text(encoding="utf-8")
         # Hero copy + brand tagline must render even with zero data — these
         # are the FIRST thing a new user sees and they can't be data-gated.
-        assert "Your taste, ported." in html
+        assert "Own your taste." in html
         # Petite-vue + Chart.js must load — the JS deps aren't data-conditional.
         # IIFE form post-2026-05-19 (ES module imports break on file:// in Chrome).
         assert "petite-vue.iife.js" in html

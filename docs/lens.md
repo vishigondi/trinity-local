@@ -4,7 +4,7 @@ class: live
 
 # Your lens — what `dream` generates from your prompts
 
-> Long-form companion to the README. The README's "Your taste, ported"
+> Long-form companion to the README. The README's "Own your taste"
 > hero says **what** the lens is for; this file says **what's in it** and
 > **how to inspect it**.
 

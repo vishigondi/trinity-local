@@ -8,7 +8,7 @@ class: live
 Trinity is the cross-provider memory layer for AI power users | One question, every model, one answer that knows you. Free, local, MIT. | github.com/vishigondi/trinity-local
 
 ## Candidate 2
-Trinity is the layer above Claude/GPT/Gemini for people who use all three | Your taste, ported. Free, MIT, local. | github.com/vishigondi/trinity-local
+Trinity is the layer above Claude/GPT/Gemini for people who use all three | Own your taste. Free, MIT, local. | github.com/vishigondi/trinity-local
 
 ## Candidate 3
 Trinity is the cross-provider memory layer for AI subscribers | The labs can't read each other. We can. Free, MIT, on your machine. | github.com/vishigondi/trinity-local

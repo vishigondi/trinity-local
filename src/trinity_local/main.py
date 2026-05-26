@@ -44,6 +44,7 @@ CORE_COMMAND_MODULES = (
     "lens_import",
     "me",
     "me_card",
+    "moves",
     "portal",
     "replay",
     "review",

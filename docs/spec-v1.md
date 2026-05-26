@@ -9,7 +9,7 @@ class: live
 > for v1.5 (see `docs/spec-v1.5.md` for the next trajectory).
 >
 > **v1.0 is the data pipe.** It ships the council mechanic, the Routing JSON ledger, the
-> lens, and the personal routing table. The pitch users land on is *"Your taste, ported.
+> lens, and the personal routing table. The pitch users land on is *"Own your taste.
 > Lives inside Claude Code, Codex CLI, Antigravity, and Cursor."* with sub *"No new app.
 > No service. No API key. Your transcripts never leave your machine."* — the cross-provider
 > memory layer the labs can't build. (Pitch pivoted 2026-05-16 from "Stop copy-pasting
@@ -43,7 +43,7 @@ Anthropic just ship this?*
 
 ## The brand
 
-**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
+**Hero:** *Own your taste. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
 **Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
 
 (Brand axis pivoted 2026-05-16 from the prior "Stop copy-pasting prompts. Own

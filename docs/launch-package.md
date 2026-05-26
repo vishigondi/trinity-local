@@ -24,7 +24,7 @@ narrative below ships at v1.7 launch.
 
 ## The locked positioning
 
-**Hero:** *Your taste, ported. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
+**Hero:** *Own your taste. Lives inside Claude Code, Codex CLI, Antigravity, and Cursor.*
 **Sub:** *No new app. No service. No API key. Your transcripts never leave your machine.*
 
 **Lead paragraph (the digital-twin pitch):** *You've already chosen between Claude,
@@ -191,7 +191,7 @@ all point at the same architectural claim.
   cd ~/projects/trinity-local
   bash scripts/launch-check.sh               # wraps pytest + doc-consistency + smoke
   # Or run individually:
-  #   pytest -q                                  # ~<!-- canonical:test_count -->2092<!-- /canonical --> tests
+  #   pytest -q                                  # ~<!-- canonical:test_count -->2108<!-- /canonical --> tests
   #   pytest tests/test_doc_count_consistency.py # <!-- canonical:doc_consistency_guards -->104<!-- /canonical --> doc-consistency guards
   #   pytest tests/test_install_sh_and_update.py # install.sh structural guards
   #   bash -n scripts/install.sh                 # installer syntax check

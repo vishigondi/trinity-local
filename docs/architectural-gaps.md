@@ -313,7 +313,7 @@ Today: 6+ files are read separately by different callers; each can
 drift in how it loads, what it caches, and what fields it expects.
 
 **Why this matters architecturally:** The user-model IS the
-product. "Your taste, ported" is a claim about a thing — and that
+product. "Own your taste" is a claim about a thing — and that
 thing should have a name in code, not just in marketing.
 
 ---
