@@ -14,7 +14,7 @@ Launch from the launchpad, polled the live council page indefinitely,
 no progress. Drove the served launchpad through claude-in-chrome MCP to
 reproduce; within ~5 min surfaced three production-killing bugs that
 2000+ unit tests had been green for. Then iterated outward on every
-sibling button. Four commits, six real bugs fixed end-to-end:
+sibling button. **Eight real bugs fixed across twelve commits.**
 
 **Launchpad** (commit `aeba2cd`)
 - `normalizeProviderSlug` ReferenceError, 27× per page load: helper was
@@ -58,6 +58,38 @@ sibling button. Four commits, six real bugs fixed end-to-end:
   install-extension. Counter resets on any successful poll so a
   slow-starting council still works.
 
+**Stop council silent failure + chainError banner hoist** (commit `40ef7d1`)
+- `stopCouncil()` had `onResult: () => {}` — empty arrow function
+  swallowed dispatch failures. Click Stop with no extension → council
+  kept polling, zero user feedback. The 12s poll-counter timeout
+  (`6d6052b`) was the only secondary signal. Fixed onResult to write
+  to `chainError` (named install-extension explicitly).
+- Bug-in-my-own-fix: the `chainError` banner was originally nested
+  inside `<section v-if="canChainNext">` — which only matches
+  post-completion. So during a running council (when Stop is most
+  likely clicked + failed), the banner was correctly populated but
+  invisible. Hoisted the banner to a standalone `<section>` above the
+  chain-actions section so it renders regardless of completion state.
+
+**Regression-test depth verified via mutation testing** (commits
+`ae9ec18`, `d6489cd`)
+- After landing each fix, the corresponding regression test was
+  mutation-tested — temporarily reintroduce the bug, confirm the test
+  fires, restore. **One real test gap surfaced:** the stuck-token
+  timeout regression originally checked only substring presence; when
+  the variable declaration was deleted but orphan threshold-check +
+  error-message strings remained, the tests stayed green. Strengthened
+  to require `let missingPollCount = 0;` + `missingPollCount += 1;`
+  + `const MAX_MISSING_POLLS = 8` (declaration + increment + constant
+  declaration sites). Also added `test_thread_page_chain_error_banner_is_not_nested_inside_canChainNext`
+  to pin the iter-15 banner-hoist structurally, since substring counts
+  alone wouldn't catch a re-nest refactor.
+
+The mutation-testing learning is also saved as a memory:
+`mutation_testing_validates_regression_coverage` — captures the trap
++ the 10-min validation loop + a concrete mutation menu for the six
+fix shapes used this session.
+
 **Audit verified clean (no fixes needed):**
 - MCP tools (`route`, `get_persona`, `get_picks`, `get_council_status`)
   all respond correctly; unknown council IDs return graceful
@@ -71,10 +103,14 @@ sibling button. Four commits, six real bugs fixed end-to-end:
 - `↻ Rebuild` chips are clicked-to-copy by design (heavy LLM-call
   operations stay explicit, never auto-fire).
 
-**Tests:** 17 new regression tests across 5 files; full suite at 2057
-passing + 4 skipped (gated real-Chrome smokes intentionally skipped).
-The dogfood pattern is also saved as a memory: e2e-Chrome smoke catches
-behavior unit tests can only assert string presence on.
+**Tests:** 20 new regression tests across 6 files, all mutation-validated;
+full suite at 2060 passing + 4 skipped (gated real-Chrome smokes
+intentionally skipped). 34/34 browser smoke surfaces also pass.
+The dogfood pattern is saved as two memories: `e2e-chrome-dogfood-finds-real-bugs`
+(unit tests can only assert string presence; real-browser smokes catch
+behaviors) + `mutation-testing-validates-regression-coverage` (substring-
+presence asserts can stay green even after the fix is partially reverted —
+mutation-test every load-bearing regression).
 
 ## [v1.7.10 — provider-side memory loop: end-to-end across CLI / launchpad / MCP / agent skill] — 2026-05-25
 
