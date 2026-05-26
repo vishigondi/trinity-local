@@ -20,7 +20,7 @@ v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (counci
 | Semantic | **memories** | MCP Resources (read-only context) | Extracted facts/observations from dream |
 | Procedural (atomic) | **moves** | [SKILL.md](https://agentskills.io/specification) | Crystallized atomic procedures — repeated successful patterns |
 | Procedural (composed) | **playbooks** | SKILL.md + `trinity_composed_of` reference | Sequential compositions of moves — one level only |
-| Preferential | **lens** | [AGENTS.md](https://github.com/agentsmd/agents.md) | The geometry across all of the above — tensions, basins, vocabulary |
+| Preferential | **lens** | MCP Resources (`trinity://memories/lens.md`) | The geometry across all of the above — tensions, basins, vocabulary |
 
 Each layer is a compression of the one below. Promotion between layers is what `dream` already does for memories. v2 names the missing pieces: **eval-gated promotion** of memories→moves, and **co-application-gated composition** of moves→playbooks. One composition level only — Trinity does not stack playbooks of playbooks. ([MACLA's branching_rules](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference) reserved space for conditional control but never shipped it; sequential composition is sufficient for the data Trinity has and the value it captures.)
 

@@ -1,16 +1,17 @@
 """MCP Resources surface — Phase A of the v2 substrate arc (task #162).
 
-Trinity exposes ~/.trinity/memories/, ~/.trinity/AGENTS.md, and the
-~/.trinity/scoreboard/ files as MCP Resources. Resources are listed at
-session start so any MCP-aware harness sees them without a tool
-round-trip — the agent reads `trinity://memories/lens.md` before the
-user types a prompt and conditions every response on the lens.
+Trinity exposes ~/.trinity/memories/ and the ~/.trinity/scoreboard/
+files as MCP Resources. Resources are listed at session start so any
+MCP-aware harness sees them without a tool round-trip — the agent
+reads `trinity://memories/lens.md` before the user types a prompt
+and conditions every response on the lens.
 
 The contract these tests pin:
 
-1. The catalog enumerates exactly the seven canonical resources (4
-   memories + AGENTS.md + 2 scoreboards). Adding or removing one
-   should be a deliberate spec change, not a silent drift.
+1. The catalog enumerates exactly the six canonical resources (4
+   memories + 2 scoreboards). Adding or removing one should be a
+   deliberate spec change, not a silent drift. AGENTS.md was dropped
+   2026-05-26 — see _resource_catalog docstring for the rationale.
 2. URIs follow `trinity://` scheme (per the v2 spec at
    docs/PREFERENCE_CORPUS_SPEC.md).
 3. Cold-install reads (when the underlying file doesn't exist)
@@ -37,15 +38,14 @@ def isolated_home(tmp_path, monkeypatch):
 
 @pytest.fixture
 def populated_home(isolated_home):
-    """Seed the four cognitive memories + AGENTS.md + scoreboards with
-    known content so the read path can assert on body bytes."""
+    """Seed the four cognitive memories + scoreboards with known
+    content so the read path can assert on body bytes."""
     memories = isolated_home / "memories"
     memories.mkdir(parents=True, exist_ok=True)
     (memories / "core.md").write_text("# Core\nidentity-paragraph", encoding="utf-8")
     (memories / "lens.md").write_text("# Lens\npaired tensions here", encoding="utf-8")
     (memories / "topics.json").write_text(json.dumps({"basins": []}), encoding="utf-8")
     (memories / "vocabulary.md").write_text("# Vocabulary\nanchors", encoding="utf-8")
-    (isolated_home / "AGENTS.md").write_text("# AGENTS\nlens-derived", encoding="utf-8")
     scoreboard = isolated_home / "scoreboard"
     scoreboard.mkdir(parents=True, exist_ok=True)
     (scoreboard / "picks.json").write_text(json.dumps({"rules": {}}), encoding="utf-8")
@@ -55,11 +55,15 @@ def populated_home(isolated_home):
 
 class TestResourceCatalog:
     """The catalog is the contract — adding/removing a resource is a
-    deliberate spec change, not a silent drift. The seven canonical
+    deliberate spec change, not a silent drift. The six canonical
     resources MUST be exactly: core / lens / topics / vocabulary /
-    AGENTS.md / picks / routing."""
+    picks / routing. AGENTS.md was on this list briefly but dropped
+    2026-05-26 — AGENTS.md is project-scoped by convention (./AGENTS.md
+    in the user's repo) and exposing a user-home one was ceremonial;
+    every harness that reads AGENTS.md also reads MCP Resources, so
+    the lens flows via trinity://memories/lens.md."""
 
-    def test_catalog_has_seven_canonical_resources(self, isolated_home):
+    def test_catalog_has_six_canonical_resources(self, isolated_home):
         from trinity_local.mcp_server import _resource_catalog
         catalog = _resource_catalog()
         uris = {entry[0] for entry in catalog}
@@ -68,13 +72,27 @@ class TestResourceCatalog:
             "trinity://memories/lens.md",
             "trinity://memories/topics.json",
             "trinity://memories/vocabulary.md",
-            "trinity://AGENTS.md",
             "trinity://scoreboard/picks.json",
             "trinity://scoreboard/routing.json",
         }, (
             "Resource catalog drifted from the v2 substrate spec. "
             "Adding/removing a resource is a deliberate change — update "
             "docs/PREFERENCE_CORPUS_SPEC.md schemas table AND this test."
+        )
+
+    def test_agentsmd_not_in_catalog(self, isolated_home):
+        """AGENTS.md was dropped 2026-05-26. Regression guard against
+        a future PR adding it back without revisiting the rationale:
+        AGENTS.md is project-scoped; harnesses that read it also read
+        MCP Resources; exposing it as a user-home resource was
+        ceremonial."""
+        from trinity_local.mcp_server import _resource_catalog
+        uris = {entry[0] for entry in _resource_catalog()}
+        assert "trinity://AGENTS.md" not in uris, (
+            "trinity://AGENTS.md re-appeared in the catalog. Per the "
+            "2026-05-26 decision, AGENTS.md is not a Trinity-exposed "
+            "surface — the lens flows via trinity://memories/lens.md. "
+            "If reviving, update the docstring + spec first."
         )
 
     def test_each_entry_has_description_and_mime(self, isolated_home):
@@ -99,7 +117,7 @@ class TestResourceCatalog:
 
 
 class TestListResources:
-    """The MCP server's list_resources handler must advertise all 7
+    """The MCP server's list_resources handler must advertise all 6
     canonical resources unconditionally — even when the underlying
     files don't exist yet (cold install). The READ path handles
     cold-install via stubs; the LIST path always shows the catalog."""
@@ -107,8 +125,8 @@ class TestListResources:
     def test_list_returns_all_resources_on_cold_install(self, isolated_home):
         from trinity_local.mcp_server import handle_list_resources
         resources = asyncio.run(handle_list_resources())
-        assert len(resources) == 7, (
-            f"Cold install should still advertise all 7 resources (so the "
+        assert len(resources) == 6, (
+            f"Cold install should still advertise all 6 resources (so the "
             f"agent sees them + reads the stubs that explain how to populate); "
             f"got {len(resources)}"
         )
@@ -118,7 +136,7 @@ class TestListResources:
     def test_list_returns_same_resources_when_populated(self, populated_home):
         from trinity_local.mcp_server import handle_list_resources
         resources = asyncio.run(handle_list_resources())
-        assert len(resources) == 7
+        assert len(resources) == 6
 
     def test_resource_objects_have_required_fields(self, isolated_home):
         """Each Resource the harness lists must have uri/name/description/
@@ -152,12 +170,6 @@ class TestReadResourcePopulated:
         # Round-trip — content is whatever the test fixture wrote
         assert json.loads(result) == {"basins": []}
 
-    def test_agents_md_returns_file_contents(self, populated_home):
-        from pydantic import AnyUrl
-        from trinity_local.mcp_server import handle_read_resource
-        result = asyncio.run(handle_read_resource(AnyUrl("trinity://AGENTS.md")))
-        assert result == "# AGENTS\nlens-derived"
-
     def test_picks_json_returns_file_contents(self, populated_home):
         from pydantic import AnyUrl
         from trinity_local.mcp_server import handle_read_resource
@@ -183,12 +195,6 @@ class TestReadResourceColdInstall:
             "stub must include the actionable command to populate this resource"
         )
         assert "trinity://memories/lens.md" in result, "stub must include the resource URI"
-
-    def test_agents_md_stub_when_missing(self, isolated_home):
-        from pydantic import AnyUrl
-        from trinity_local.mcp_server import handle_read_resource
-        result = asyncio.run(handle_read_resource(AnyUrl("trinity://AGENTS.md")))
-        assert "trinity-local dream" in result
 
     def test_unknown_uri_raises(self, isolated_home):
         from pydantic import AnyUrl
