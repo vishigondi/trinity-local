@@ -4,13 +4,13 @@ class: live
 
 # Trinity Substrate Spec (v2)
 
-> **Status:** v2 draft — locked May 26, 2026. Supersedes v1 (May 14, 2026). v2 reframes the spec as the **union of three existing standards (SKILL.md, AGENTS.md, MCP) plus the Trinity-specific extension fields that let cross-provider preference signal flow through them**. v1's JSON Schemas survive as the council-outcome / rejection-signal / eval-set surface; the spec now names what they extend rather than claiming to be its own standard.
+> **Status:** v2 draft — locked May 26, 2026. Supersedes v1 (May 14, 2026). v2 reframes the spec around **two existing standards (SKILL.md, MCP) plus the Trinity-specific extension fields that let cross-provider preference signal flow through them**. v1's JSON Schemas survive as the council-outcome / rejection-signal / eval-set surface; the spec now names what they extend rather than claiming to be its own standard.
 >
-> **The v2 thesis:** skill marketplaces are flat directories of curated procedures. Trinity is a hierarchical substrate with eval-gated promotion between layers, exposed via three standards that already ship in 30+ agent tools. The interop story is "we don't invent — we stack."
+> **The v2 thesis:** skill marketplaces are flat directories of curated procedures. Trinity is a hierarchical substrate with eval-gated promotion between layers, exposed via standards that already ship in 30+ agent tools. The interop story is "we don't invent — we stack."
 
 ## Why v2 exists
 
-v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (council outcome, rejection signal, eval set), CC0-licensed, with a "please adopt this" appeal. The problem v1 didn't solve: it left Trinity standing alongside skill marketplaces (anthropics/skills, claude-skills, agentskills.io) and project-guidance formats (AGENTS.md) and MCP resources — as if those were unrelated surfaces.
+v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (council outcome, rejection signal, eval set), CC0-licensed, with a "please adopt this" appeal. The problem v1 didn't solve: it left Trinity standing alongside skill marketplaces (anthropics/skills, claude-skills, agentskills.io) and MCP resources — as if those were unrelated surfaces.
 
 **They're not unrelated.** They're the same substrate at different abstraction levels:
 
@@ -18,11 +18,14 @@ v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (counci
 |---|---|---|---|
 | Episodic | **transcripts** | (no shared standard yet — MessageList shapes diverge) | Raw conversations across CLIs + web chats |
 | Semantic | **memories** | MCP Resources (read-only context) | Extracted facts/observations from dream |
-| Procedural (atomic) | **moves** | [SKILL.md](https://agentskills.io/specification) | Crystallized atomic procedures — repeated successful patterns |
-| Procedural (composed) | **playbooks** | SKILL.md + `trinity_composed_of` reference | Sequential compositions of moves — one level only |
+| Procedural | **moves** | [SKILL.md](https://agentskills.io/specification) | Crystallized procedures — repeated successful patterns |
 | Preferential | **lens** | MCP Resources (`trinity://memories/lens.md`) | The geometry across all of the above — tensions, basins, vocabulary |
 
-Each layer is a compression of the one below. Promotion between layers is what `dream` already does for memories. v2 names the missing pieces: **eval-gated promotion** of memories→moves, and **co-application-gated composition** of moves→playbooks. One composition level only — Trinity does not stack playbooks of playbooks. ([MACLA's branching_rules](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference) reserved space for conditional control but never shipped it; sequential composition is sufficient for the data Trinity has and the value it captures.)
+Each layer is a compression of the one below. Promotion between layers is what `dream` already does for memories. v2 names the missing piece: **eval-gated promotion** of memories→moves.
+
+**On composition:** [MACLA](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference)'s `MetaProcedure` shape (one level of move-composition into "playbooks") is architecturally clean, but it requires ≥20–30 moves to operate over. Trinity ships moves first; the playbooks layer is **deferred to post-launch** until the move surface is dense enough for compositions to mean anything.
+
+**On AGENTS.md:** considered as a Trinity-exposed surface and dropped 2026-05-26. AGENTS.md is project-scoped by convention (./AGENTS.md in the user's repo); every harness that reads it also reads MCP Resources; exposing a user-home AGENTS.md was ceremonial. The lens flows via `trinity://memories/lens.md`.
 
 ## The four-layer substrate
 
@@ -89,57 +92,13 @@ trinity_lens_tensions_addressed: 2
 (markdown body — the actual move's procedure)
 ```
 
-### Layer 3b: Playbooks (composed procedural — one level only)
+### Layer 3b: Playbooks (deferred to post-launch)
 
-Located at `~/.trinity/playbooks/<slug>/SKILL.md`. Same format as moves, but with a `trinity_composed_of` field listing the moves that constitute the sequence. **One composition level only** — Trinity does not stack playbooks-of-playbooks. (MACLA's `composition_policy` reserved a `"branching_rules"` slot that was never implemented; sequential composition is sufficient for the data Trinity has.)
-
-```yaml
----
-name: research-then-tighten
-description: |
-  When the user asks for a research summary, sequence:
-  1. Pull context from cross-provider corpus (fetch-relevant-pairs)
-  2. Compress according to user's preferred density (tighten-after-bullet-list)
-  3. Cite source rejections explicitly (cite-source-pairs)
-
-# Composition (lifted from MACLA MetaProcedure.sub_procedures)
-trinity_composed_of: ["fetch-relevant-pairs", "tighten-after-bullet-list", "cite-source-pairs"]
-trinity_composition_policy:
-  type: sequential
-  ordering: ["fetch-relevant-pairs", "tighten-after-bullet-list", "cite-source-pairs"]
-
-# How many councils observed these moves co-applied successfully
-# before this playbook got promoted. Co-application count is the
-# core promotion signal for playbooks.
-trinity_co_apply_count: 7
-trinity_co_apply_threshold: 5
-
-# Bayesian tracking — same shape as moves
-trinity_alpha: 4
-trinity_beta: 1
-trinity_posterior: 0.80
-trinity_execution_count: 5
-
-# Composition wins over parts: playbook's chairman score must exceed
-# the average of constituent moves' chairman scores. If a playbook
-# doesn't beat sum-of-parts, it doesn't earn the composition's
-# storage + retrieval cost.
-trinity_composition_lift: 0.06   # playbook score - avg(move scores)
-trinity_promoted_at: "2026-05-24T09:13:00Z"
-trinity_demoted_at: null
----
-
-(markdown body — the playbook's narrative + sequencing notes)
-```
+Composed playbooks (sequential combinations of moves) are deferred until the move surface is dense enough (≥20–30 active moves) for compositions to mean anything. MACLA's `MetaProcedure` shape (`sub_procedures` list + `composition_policy: {type: sequential}` + cascading demotion when constituent moves demote) is the target architecture when this lands; the spec section reserved here will be filled in then. Until that point, Trinity ships a flat moves layer only.
 
 ### The promotion gate (the spec's load-bearing claim)
 
-The four-tier Bayesian gate (defined below in "Eval-gated promotion") runs against **moves** at promotion time. For **playbooks**, an additional precondition gates the gate itself: the constituent moves must have been observed co-applied successfully ≥ `trinity_co_apply_threshold` times AND the composition must clear `trinity_composition_lift > 0` (chairman score on the composed sequence beats the average of the parts).
-
-Demotion uses the same tiers + co-application drift. A playbook demotes when:
-- Any constituent move demotes (cascading invalidation), OR
-- T1/T2/T3 drift on the composed sequence, OR
-- T4 posterior (`alpha/(alpha+beta)`) drops below baseline.
+The four-tier Bayesian gate (defined below in "Eval-gated promotion") runs against **moves** at promotion time. Demotion uses the same tiers — a move demotes when T1/T2 drift below thresholds OR T3 re-eval drops below baseline for ≥3 consecutive cycles OR T4 posterior (`alpha/(alpha+beta)`) drifts below baseline.
 
 ### Layer 4: Lens (preferential)
 
@@ -254,10 +213,9 @@ The v1 schemas survive — they describe the council-outcome / rejection-signal 
 | `~/.trinity/council_outcomes/council_<hash>.json` | [`council_outcome.schema.json`](../schemas/council_outcome.schema.json) | One multi-model run + chairman synthesis. Unchanged from v1. |
 | `~/.trinity/me/rejections.jsonl` | [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json) | Labeled (prompt, response, rejection_type) triples. Unchanged from v1. |
 | `~/.trinity/evals/eval_<hash>.json` | [`eval_set.schema.json`](../schemas/eval_set.schema.json) | Personalized eval suite. Unchanged from v1. |
-| `~/.trinity/moves/<slug>/SKILL.md` | SKILL.md spec + Trinity move-extension frontmatter (this doc) | Promoted atomic moves. New in v2. |
-| `~/.trinity/playbooks/<slug>/SKILL.md` | SKILL.md spec + Trinity playbook-extension frontmatter (this doc) | Composed playbooks (one composition level). New in v2. |
+| `~/.trinity/moves/<slug>/SKILL.md` | SKILL.md spec + Trinity move-extension frontmatter (this doc) | Promoted moves. New in v2. |
 | `~/.trinity/dream_rejections.jsonl` | [`dream_rejection.schema.json`](../schemas/dream_rejection.schema.json) | Candidates the eval gate rejected, with `why_rejected`. New in v2. |
-| `~/.trinity/dream_demotions.jsonl` | [`dream_demotion.schema.json`](../schemas/dream_demotion.schema.json) | Moves/playbooks that drifted below baseline and got archived. New in v2. |
+| `~/.trinity/dream_demotions.jsonl` | [`dream_demotion.schema.json`](../schemas/dream_demotion.schema.json) | Moves that drifted below baseline and got archived. New in v2. |
 
 ## The four implicit-rejection signal types (unchanged from v1)
 
@@ -306,17 +264,16 @@ Schemas are validated against real on-disk data in `tests/test_preference_corpus
 ## Versioning
 
 v1 (May 14, 2026) — council outcome / rejection signal / eval set schemas; structural lock.
-v2 (May 26, 2026) — three-standard adoption (SKILL.md + AGENTS.md + MCP); adds move + playbook + dream-rejection + dream-demotion schemas; Bayesian four-tier gate; Beta-Binomial conjugate prior for T4. v1 schemas survive unchanged; v2 is purely additive.
+v2 (May 26, 2026) — two-standard adoption (SKILL.md + MCP); adds move + dream-rejection + dream-demotion schemas; Bayesian four-tier gate; Beta-Binomial conjugate prior for T4. AGENTS.md considered + dropped (project-scoped by convention; MCP Resources covers the use case). Playbooks layer deferred post-launch (needs ≥20-30 moves to operate over). v1 schemas survive unchanged; v2 is purely additive.
 
 v2 is structural; backward-compatible additions don't bump the version, removals would.
 
 ## Prior art lifted into v2
 
-- **[CoALA / Sumers et al. 2024](https://arxiv.org/html/2603.07670v1)** — four-layer cognitive memory taxonomy (working/episodic/semantic/procedural). Trinity drops "working" (per-MCP-session, ephemeral) and adds "preferential" as the lens layer. Procedural is sub-divided into atomic (moves) + composed (playbooks).
-- **[MACLA / S. Forouzandeh, AAMAS 2026](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference)** — the `Procedure` dataclass shape (alpha/beta Beta-Binomial tracker, success/failure contrastive contexts, generalizability score) and `MetaProcedure` composition (sub_procedures list, sequential-only composition policy). Trinity adopts the math + structure; not the agent loop. MACLA's reserved-but-unimplemented `branching_rules` is intentionally left unimplemented in v2 — sequential composition is sufficient and conditional control adds operational complexity without proven value at this scale.
-- **[SKILL.md / agentskills.io](https://agentskills.io/specification)** — exact file format for moves and playbooks. Trinity adds extension frontmatter fields; the core spec is unchanged.
-- **[AGENTS.md / agentsmd.org](https://github.com/agentsmd/agents.md)** — lens-derived guidance format. Trinity writes AGENTS.md as a render target of `lens.md` + `core.md`.
-- **[MCP Resources + Prompts + Tools](https://modelcontextprotocol.io)** — primitive substrate. Trinity uses all three (v1 used only Tools).
+- **[CoALA / Sumers et al. 2024](https://arxiv.org/html/2603.07670v1)** — four-layer cognitive memory taxonomy (working/episodic/semantic/procedural). Trinity drops "working" (per-MCP-session, ephemeral) and adds "preferential" as the lens layer.
+- **[MACLA / S. Forouzandeh, AAMAS 2026](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference)** — the `Procedure` dataclass shape (alpha/beta Beta-Binomial tracker, success/failure contrastive contexts, generalizability score). Trinity adopts the math + structure; not the agent loop. MACLA's `MetaProcedure` composition shape is the reserved target for the post-launch playbooks layer.
+- **[SKILL.md / agentskills.io](https://agentskills.io/specification)** — exact file format for moves. Trinity adds extension frontmatter fields; the core spec is unchanged.
+- **[MCP Resources + Tools](https://modelcontextprotocol.io)** — primitive substrate. Trinity uses both (v1 used only Tools; v2 lit up Resources for the lens-flow path). Prompts primitive considered + dropped — Tools already covers the run_council use case; Prompts would be a brag-line rather than a new capability.
 
 ## Distribution
 
