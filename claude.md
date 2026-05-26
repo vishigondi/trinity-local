@@ -172,7 +172,7 @@ The five-workstream distribution arc and full forward-arc narrative now live in 
 
 ## Historical context (read these when you need depth)
 
-- [`docs/historical/principles.md`](docs/historical/principles.md) — 21 numbered meta-principles extracted from the fixes. Each earned its place by costing time.
+- [`docs/historical/principles.md`](docs/historical/principles.md) — 25 numbered meta-principles extracted from the fixes. Each earned its place by costing time.
 - [`docs/historical/retirement-log.md`](docs/historical/retirement-log.md) — what Trinity used to have, why it was retired, when. Canonical registry is `src/trinity_local/retired_names.py`.
 - [`docs/historical/brand-evolution.md`](docs/historical/brand-evolution.md) — pivot trail to "Your taste, ported"; ratifying councils; v1.7.5 Auto-Dream-coexistence framing.
 - [`docs/spec-v1.md`](docs/spec-v1.md) — locked v1.0 launch spec.
