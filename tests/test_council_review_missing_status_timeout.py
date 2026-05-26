@@ -34,6 +34,23 @@ def test_missing_status_poll_counter_exists():
     # That's long enough for a slow first launch but short enough to give
     # the user feedback before they walk away frustrated.
     assert "MAX_MISSING_POLLS = 8" in src, "stuck-timeout count drifted"
+    # Mutation-test catch: the variable + threshold both need a DECLARATION
+    # site AND an INCREMENT site. Iter-18 mutation testing surfaced that
+    # checking only substrings let an orphan threshold-check + dead error
+    # branch survive after the declaration was deleted.
+    assert "let missingPollCount = 0;" in src, (
+        "missingPollCount must be declared in startPolling's closure; "
+        "an orphan threshold-check with no declaration would make this "
+        "variable an unhandled ReferenceError at runtime"
+    )
+    assert "missingPollCount += 1;" in src, (
+        "missingPollCount must be incremented somewhere; without the "
+        "increment the threshold check can never fire"
+    )
+    assert "const MAX_MISSING_POLLS = 8" in src, (
+        "MAX_MISSING_POLLS must be declared as a const; an orphan "
+        "comparison against an undeclared constant would also throw"
+    )
 
 
 def test_missing_status_resets_counter_on_success():
