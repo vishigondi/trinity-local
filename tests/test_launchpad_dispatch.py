@@ -154,6 +154,21 @@ def test_launchpad_runtime_js_emits_dispatch_contract():
     # name; they pass '' into dispatch which ignores it).
     assert "'shortcut'" not in js
     assert "shortcuts://run-shortcut" not in js
+    # Orphan `canUseShortcut()` getter must NOT be reintroduced — it
+    # used to call a function that was deleted with the macOS Shortcut
+    # tier, throwing ReferenceError every time anything read
+    # __TRINITY_DISPATCH__.canUseShortcut. The getter was a silent crash
+    # because nothing on the live launchpad reads it post-Shortcut-retirement,
+    # but probes from external tooling (claude-in-chrome MCP, browser
+    # extensions, devtools snippets) hit it. Found 2026-05-26 via real
+    # browser dogfood — guard so the orphan can't sneak back in another
+    # cleanup pass.
+    assert "canUseShortcut" not in js, (
+        "canUseShortcut is an orphan reference left over from the retired "
+        "macOS Shortcut tier — readers of __TRINITY_DISPATCH__.canUseShortcut "
+        "would get ReferenceError because the function it called was deleted "
+        "with the tier."
+    )
 
 
 def test_launchpad_runtime_js_uses_pageData_for_extension_id():

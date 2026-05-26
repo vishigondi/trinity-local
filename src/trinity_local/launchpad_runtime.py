@@ -218,7 +218,6 @@ window.__TRINITY_DISPATCH__ = window.__TRINITY_DISPATCH__ || (function() {
 
   return { dispatch, probe, onStateChange,
            get state() { return state; },
-           get extensionId() { return extensionId; },
-           get canUseShortcut() { return canUseShortcut(); } };
+           get extensionId() { return extensionId; } };
 })();
 """
