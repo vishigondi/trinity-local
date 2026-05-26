@@ -71,6 +71,11 @@ def register(subparsers):
         help="Skip Phase 5: emitting the one-paragraph core.md distillation.",
     )
     sp.add_argument(
+        "--skip-moves",
+        action="store_true",
+        help="Skip Phase 6: moves substrate update (T4 → promote → demote).",
+    )
+    sp.add_argument(
         "--only-distill",
         action="store_true",
         help=(
@@ -263,12 +268,37 @@ def handle_dream(args):
     # were skipped, distill emits a core.md from whatever memories DO
     # exist on disk.
     if getattr(args, "skip_distill", False):
-        print("dream phase 5/5: SKIPPED (--skip-distill)", file=sys.stderr)
+        print("dream phase 5/6: SKIPPED (--skip-distill)", file=sys.stderr)
         report["phases"]["distill"] = {"skipped": True}
     else:
-        print("dream phase 5/5: distilling memories → core.md…", file=sys.stderr)
+        print("dream phase 5/6: distilling memories → core.md…", file=sys.stderr)
         distill_report = _distill(args.primary_provider or "claude")
         report["phases"]["distill"] = distill_report
+
+    # ── Phase 6: moves substrate update (the v2 wedge) ────────────────
+    # Three sub-phases per docs/PREFERENCE_CORPUS_SPEC.md:
+    #   6a — T4 posterior update from new council outcomes
+    #   6b — Promotion pass: discover candidates, run through T1+T2+T3
+    #   6c — Demotion pass: re-eval T4 on active moves, archive drifted
+    # Soft phase — tolerates missing infrastructure (no topics.json
+    # centroids, no chairman provider, empty rejection corpus). The
+    # gate's own cold-install handling kicks in gracefully.
+    if getattr(args, "skip_moves", False):
+        print("dream phase 6/6: SKIPPED (--skip-moves)", file=sys.stderr)
+        report["phases"]["moves"] = {"skipped": True}
+    else:
+        print("dream phase 6/6: moves substrate update (T4 → promote → demote)…",
+              file=sys.stderr)
+        try:
+            report["phases"]["moves"] = _moves_pass(args)
+        except Exception as exc:
+            # The moves substrate is opt-in; a failure here shouldn't
+            # crash the lens-build that already succeeded.
+            report["phases"]["moves"] = {
+                "error": f"{type(exc).__name__}: {exc}",
+                "note": "moves substrate is post-launch substrate; "
+                        "failure does not affect lens/topics/vocabulary.",
+            }
 
     report["total_ms"] = int((time.monotonic() - started) * 1000)
     print(json.dumps(report, indent=2))
@@ -287,6 +317,56 @@ def _vocabulary_scan() -> dict:
     """Phase 2.5 — geometric scan of the user's terminology."""
     from ..vocabulary import distill_vocabulary
     return distill_vocabulary()
+
+
+def _moves_pass(args) -> dict:
+    """Phase 6 — moves substrate update.
+
+    Resolves the chairman provider config, loads topics.json centroids,
+    delegates to moves.dream.phase_6_moves_pass().
+    """
+    from ..config import load_config
+    from ..moves.dream import phase_6_moves_pass
+
+    # Resolve chairman provider (T3 needs this — empty corpus path
+    # short-circuits gracefully when None).
+    chairman_provider_config = None
+    try:
+        config = load_config(required=False)
+        providers = config.providers or {}
+        primary_name = (args.primary_provider or "claude").lower()
+        chairman_provider_config = providers.get(primary_name)
+    except Exception:
+        pass
+
+    # Load lens.md for chairman context (T3 prompt includes a lens excerpt).
+    lens_text = ""
+    try:
+        from .. import state_paths as _sp
+        lens_path = _sp.memories_dir() / "lens.md"
+        if lens_path.exists():
+            lens_text = lens_path.read_text(encoding="utf-8")
+    except Exception:
+        pass
+
+    # Load basin centroids from topics.json (T2 input).
+    basin_centroids: dict[str, list[float]] = {}
+    try:
+        from .. import state_paths as _sp
+        topics_path = _sp.memories_dir() / "topics.json"
+        if topics_path.exists():
+            data = json.loads(topics_path.read_text(encoding="utf-8"))
+            for basin in data.get("basins", []):
+                if "id" in basin and "centroid" in basin:
+                    basin_centroids[str(basin["id"])] = list(basin["centroid"])
+    except Exception:
+        pass
+
+    return phase_6_moves_pass(
+        chairman_provider_config=chairman_provider_config,
+        lens_text=lens_text,
+        basin_centroids=basin_centroids,
+    )
 
 
 def _distill(provider: str) -> dict:
