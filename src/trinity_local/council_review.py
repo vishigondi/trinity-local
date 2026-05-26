@@ -1115,14 +1115,20 @@ def render_live_council_page() -> str:
         </section>
       </div>
 
+      <!-- chainError banner — hoisted OUT of the chain-actions section
+           because that section gates on `canChainNext` (only post-
+           completion), which would hide Stop council's dispatch-failure
+           banner during the running state when it's most needed.
+           Stuck-launch sibling fix shipped 2026-05-26. -->
+      <section class="card" v-if="chainError"
+               style="margin-bottom: 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; padding: 16px;"
+               role="alert">
+        <strong style="display: block; margin-bottom: 4px;">Could not start next round</strong>
+        <span style="display: block; font-size: 13px;">{{{{ chainError }}}}</span>
+        <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
+      </section>
+
       <section class="card chain-actions" v-if="canChainNext">
-        <div v-if="chainError"
-             style="margin: 0 0 16px; padding: 12px 16px; border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.08); color: #714824; font-size: 13px; border-radius: 4px;"
-             role="alert">
-          <strong style="display: block; margin-bottom: 4px;">Could not start next round</strong>
-          <span style="display: block;">{{{{ chainError }}}}</span>
-          <a href="#" @click.prevent="chainError = ''" style="display: inline-block; margin-top: 6px; color: #b57438; font-size: 12px;">Dismiss</a>
-        </div>
         <h2 v-if="!chainBusy" style="margin-top: 0;">Continue the thread</h2>
         <h2 v-if="chainBusy" style="margin-top: 0;">{{{{ chainStatusHeading }}}}</h2>
         <p class="meta" v-if="!chainBusy" style="margin-top: 4px;">
@@ -1592,12 +1598,28 @@ def render_live_council_page() -> str:
           const last = this.segments[this.segments.length - 1];
           if (!last?.statusToken) return;
           const dispatcher = window.__TRINITY_DISPATCH__;
-          if (dispatcher) {{
-            dispatcher.dispatch({{
-              extensionAction: {{ kind: 'stop-council', 'status-token': last.statusToken }},
-              onResult: () => {{}},
-            }});
+          if (!dispatcher) {{
+            this.chainError = 'Trinity dispatcher not loaded on this page. Reload the launchpad and try again.';
+            return;
           }}
+          dispatcher.dispatch({{
+            extensionAction: {{ kind: 'stop-council', 'status-token': last.statusToken }},
+            onResult: (r) => {{
+              // Silent-failure fix shipped 2026-05-26 — sibling of the
+              // Refine/Continue/Auto-chain dispatch-failure surface.
+              // Before, Stop council swallowed all errors (empty arrow
+              // function), so a click with no extension installed left
+              // the council polling indefinitely with no visible
+              // feedback. Now the banner explains the failure; the
+              // polling loop's stuck-token timeout (commit 6d6052b)
+              // is the secondary safety net.
+              if (!r || !r.ok) {{
+                this.chainError = (r && r.reason)
+                                  || (r && r.response && r.response.error)
+                                  || 'Could not stop the council — is the Chrome extension installed? Run trinity-local install-extension if not.';
+              }}
+            }},
+          }});
         }},
         _newStatusToken() {{
           return 'chain_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
