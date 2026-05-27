@@ -117,7 +117,7 @@ routing pool as `ollama:<model>` automatically, no config edit. Tests
 cover the auto-discovery path + graceful degradation when the Ollama
 daemon is offline. The architectural commitment ("providers are
 parameters to `ask`/`run_council`, not their own MCP tools") means
-the 9-tool MCP surface stays constant regardless of how many local
+the 8-tool MCP surface stays constant regardless of how many local
 models the user has pulled. Documented in
 [`docs/install-deep.md`](install-deep.md) "Local models" section.
 Re-add to the pitch held until the HN demo confirms dispatch

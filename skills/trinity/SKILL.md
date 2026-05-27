@@ -164,7 +164,7 @@ Four trigger conditions — call `import_provider_memory(kind, payload, dry_run?
 - For `kind="eval"`: `wc -l ~/.trinity/me/rejections.jsonl` increments by the number of new (non-duplicate) signals.
 - For `kind="lens"`: `cat ~/.trinity/me/lenses.json | jq '.lenses | length'` increments by the number of net-new tensions; existing pole-pairs get evidence-augmented in place.
 
-**Why this compounds**: every iteration of the user's `/loop` (or any session) becomes a signal-engine. The chairman reads `lens.md` + `core.md` on every council; richer lens → sharper future verdicts. Surface-minimal: requires zero new tools beyond the one already shipped (8 → 9 was the only MCP-surface bump this lane).
+**Why this compounds**: every iteration of the user's `/loop` (or any session) becomes a signal-engine. The chairman reads `lens.md` + `core.md` on every council; richer lens → sharper future verdicts. Surface-minimal: requires zero new tools beyond the one already shipped (the lane added `import_provider_memory`; the count returned to 8 when `handoff` retired 2026-05-26 in the same window).
 
 ---
 
