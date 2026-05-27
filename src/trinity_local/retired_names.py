@@ -566,6 +566,14 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
     ),
+    "doctor.py": RetirementRecord(
+        name="doctor.py",
+        retired_at="2026-05-27",
+        commit="(pending — landing now with parasitism-audit cuts)",
+        replacement="src/trinity_local/health_checks.py (same engine, accurate name)",
+        reason="The `doctor` CLI verb was collapsed into `status` pre-launch (commit ef2f328); the engine module survived under its old name `doctor.py` (881 LOC). docs/PARASITISM-AUDIT.md flagged this as a misleading-name parasitism: any reader seeing `doctor.py` reasonably expected retired code, but it's actually the live library `status` calls into. Renamed `src/trinity_local/doctor.py` → `src/trinity_local/health_checks.py` 2026-05-27. Test files renamed in lockstep: `test_doctor.py` → `test_health_checks.py`, `test_doctor_browser_capture.py` → `test_health_checks_browser_capture.py`. All import sites updated. This entry uses the `.py` suffix to disambiguate from the `doctor` CLI-verb entry above (which retired 2026-05-18).",
+        kind="file",
+    ),
     "commands.seed": RetirementRecord(
         name="commands.seed",
         retired_at="2026-05-27",

@@ -4445,7 +4445,7 @@ class TestCanonicalPlaceholdersAreRendered:
         and silently broke 15 cross-suite tests; see principle #19.)
         """
         from trinity_local.launchpad_data import _TIER_INSTALL_HELP
-        from trinity_local.doctor import _install_command_for
+        from trinity_local.health_checks import _install_command_for
 
         mismatches: list[str] = []
         for provider, (_name, install_canonical, _value_prop) in _TIER_INSTALL_HELP.items():

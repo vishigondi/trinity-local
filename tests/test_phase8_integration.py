@@ -70,7 +70,7 @@ def test_end_to_end_install_extension_to_doctor_signal(
         "trinity_local.launchpad_data._shortcut_status",
         lambda: {"ok": True, "applicable": False},
     )
-    from trinity_local.doctor import _check_dispatch_ready
+    from trinity_local.health_checks import _check_dispatch_ready
     result = _check_dispatch_ready()
     assert result.ok is True, (
         f"After install-extension, doctor must report dispatch_ready=ok. "
@@ -205,7 +205,7 @@ def test_dispatch_readiness_doctor_launchpad_agree(
     from trinity_local.launchpad_data import (
         dispatch_readiness, build_page_data
     )
-    from trinity_local.doctor import _check_dispatch_ready
+    from trinity_local.health_checks import _check_dispatch_ready
 
     readiness = dispatch_readiness()
     doctor_check = _check_dispatch_ready()

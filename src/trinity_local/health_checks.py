@@ -7,7 +7,10 @@ mode AND the exact CLI command that detects it before the user hits a
 live council."*
 
 `trinity-local status` runs these checks (the standalone `doctor`
-command was collapsed into `status` pre-launch). Each check returns:
+command was collapsed into `status` pre-launch). The module was
+named `doctor.py` until 2026-05-27 when it was renamed to match its
+actual job — see docs/PARASITISM-AUDIT.md for the audit context.
+Each check returns:
 - ok: bool
 - name: short human label
 - detail: what it found

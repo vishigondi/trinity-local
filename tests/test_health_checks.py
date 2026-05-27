@@ -1,9 +1,11 @@
-"""Tests for the `doctor` module — pre-flight cold-install checks.
+"""Tests for the `health_checks` module — pre-flight cold-install checks.
 
-The `trinity-local doctor` CLI was retired in commit ef2f328 (collapsed
-into `status`), but the underlying functions (`_check_trinity_home`,
-`_check_provider`, etc.) survived as the library that powers status'
-health header. These tests pin the per-check contract:
+The `trinity-local doctor` CLI retired in commit ef2f328 (collapsed
+into `status`); the module was named `doctor.py` until 2026-05-27 when
+it was renamed `health_checks.py` to match its actual job (the
+"doctor" prefix was a parasitism flag — see docs/PARASITISM-AUDIT.md).
+The underlying functions (`_check_trinity_home`, `_check_provider`,
+etc.) are the library `status` calls. These tests pin the per-check contract:
 each provider check returns ok=False with a fix line when the relevant
 indicator is missing, and the module never crashes on fresh machine
 state. Council council_35b2ae198a65b349 named the cold-install path as
@@ -17,7 +19,7 @@ from __future__ import annotations
 class TestTrinityHomeCheck:
     def test_writeable_dir_returns_ok(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
-        from trinity_local.doctor import _check_trinity_home
+        from trinity_local.health_checks import _check_trinity_home
         result = _check_trinity_home()
         assert result.ok is True
         assert "writeable" in result.detail
@@ -31,7 +33,7 @@ class TestTrinityHomeCheck:
         os.chmod(protected, 0o500)  # owner read+execute, no write
         monkeypatch.setenv("TRINITY_HOME", str(protected / "trinity"))
         try:
-            from trinity_local.doctor import _check_trinity_home
+            from trinity_local.health_checks import _check_trinity_home
             result = _check_trinity_home()
             # Some filesystems still allow writes despite chmod (e.g., as root in CI).
             # Either way, fix line should be informative when the check fails.
@@ -43,9 +45,9 @@ class TestTrinityHomeCheck:
 
 class TestProviderCheck:
     def test_missing_cli_returns_install_fix(self, monkeypatch):
-        from trinity_local.doctor import _check_provider
+        from trinity_local.health_checks import _check_provider
         # which() returns None → CLI not installed
-        monkeypatch.setattr("trinity_local.doctor.shutil.which", lambda _: None)
+        monkeypatch.setattr("trinity_local.health_checks.shutil.which", lambda _: None)
         result = _check_provider("claude", "claude")
         assert result.ok is False
         assert "not on PATH" in result.detail
@@ -54,7 +56,7 @@ class TestProviderCheck:
     def test_installed_no_auth_returns_login_fix(self, monkeypatch, tmp_path):
         # CLI installed but no auth indicator file — concrete cold-install
         # failure mode that doctor must catch.
-        from trinity_local import doctor as doctor_mod
+        from trinity_local import health_checks as doctor_mod
         monkeypatch.setattr(doctor_mod.shutil, "which", lambda _: "/usr/local/bin/claude")
         monkeypatch.setattr(
             doctor_mod,
@@ -67,7 +69,7 @@ class TestProviderCheck:
         assert "login" in result.fix or "interactively" in result.fix
 
     def test_installed_with_auth_returns_ready(self, monkeypatch, tmp_path):
-        from trinity_local import doctor as doctor_mod
+        from trinity_local import health_checks as doctor_mod
         monkeypatch.setattr(doctor_mod.shutil, "which", lambda _: "/usr/local/bin/claude")
         indicator = tmp_path / "auth.json"
         indicator.write_text("{}")
@@ -81,7 +83,7 @@ class TestMcpAvailable:
     def test_returns_ok_when_mcp_importable(self):
         # mcp dep is in this dev env, so this should pass; if it's not,
         # the test still verifies the check returns the right shape.
-        from trinity_local.doctor import _check_mcp_available
+        from trinity_local.health_checks import _check_mcp_available
         result = _check_mcp_available()
         assert isinstance(result.ok, bool)
         if not result.ok:
@@ -92,7 +94,7 @@ class TestDoctorReport:
     def test_ready_for_council_requires_one_provider_plus_writeable_home(
         self, tmp_path, monkeypatch
     ):
-        from trinity_local.doctor import CheckResult, DoctorReport
+        from trinity_local.health_checks import CheckResult, DoctorReport
         # All providers failing → not ready
         report = DoctorReport(checks=[
             CheckResult(name="trinity_home_writeable", ok=True),
@@ -103,7 +105,7 @@ class TestDoctorReport:
         assert report.ready_for_council is False
 
     def test_ready_for_council_with_one_provider(self):
-        from trinity_local.doctor import CheckResult, DoctorReport
+        from trinity_local.health_checks import CheckResult, DoctorReport
         report = DoctorReport(checks=[
             CheckResult(name="trinity_home_writeable", ok=True),
             CheckResult(name="provider:claude", ok=True),
@@ -118,7 +120,7 @@ class TestDoctorReport:
         # what's missing. A fresh-install user runs it as their first
         # interaction with Trinity.
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
-        from trinity_local.doctor import run_doctor
+        from trinity_local.health_checks import run_doctor
         report = run_doctor()
         # Should produce all expected check categories
         names = {c.name for c in report.checks}
@@ -130,7 +132,7 @@ class TestDoctorReport:
         # Failure path: the human format must surface the fix command,
         # not just the failure detail. Otherwise users see "✗ provider:claude
         # not on PATH" and don't know what to do.
-        from trinity_local.doctor import CheckResult, DoctorReport, format_human
+        from trinity_local.health_checks import CheckResult, DoctorReport, format_human
         report = DoctorReport(checks=[
             CheckResult(
                 name="provider:claude",
@@ -154,7 +156,7 @@ class TestFeedbackConsistency:
     def test_no_feedback_log_passes_silently(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
         (tmp_path / "trinity").mkdir(parents=True, exist_ok=True)
-        from trinity_local.doctor import _check_feedback_consistency
+        from trinity_local.health_checks import _check_feedback_consistency
         result = _check_feedback_consistency()
         assert result.ok is True
         assert "fresh install" in result.detail.lower()
@@ -171,7 +173,7 @@ class TestFeedbackConsistency:
             encoding="utf-8",
         )
         monkeypatch.setenv("TRINITY_HOME", str(home))
-        from trinity_local.doctor import _check_feedback_consistency
+        from trinity_local.health_checks import _check_feedback_consistency
         result = _check_feedback_consistency()
         assert result.ok is True
         assert "no longer exist" not in result.detail
@@ -194,7 +196,7 @@ class TestFeedbackConsistency:
         ]
         (home / "council_feedback.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
         monkeypatch.setenv("TRINITY_HOME", str(home))
-        from trinity_local.doctor import _check_feedback_consistency
+        from trinity_local.health_checks import _check_feedback_consistency
         result = _check_feedback_consistency()
         assert result.ok is True
         assert "2 of 3" in result.detail
@@ -210,7 +212,7 @@ class TestCortexFreshnessCheck:
     def test_no_picks_yet_returns_helpful_message(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
         (tmp_path / "trinity" / "memories").mkdir(parents=True, exist_ok=True)
-        from trinity_local.doctor import _check_cortex_freshness
+        from trinity_local.health_checks import _check_cortex_freshness
         result = _check_cortex_freshness()
         assert result.ok is True
         assert "not built yet" in result.detail
@@ -236,7 +238,7 @@ class TestCortexFreshnessCheck:
         }
         (home / "council_outcomes" / "council_a.json").write_text(_json.dumps(outcome))
         monkeypatch.setenv("TRINITY_HOME", str(home))
-        from trinity_local.doctor import _check_cortex_freshness
+        from trinity_local.health_checks import _check_cortex_freshness
         result = _check_cortex_freshness()
         assert result.ok is True
         assert "current" in result.detail
@@ -263,7 +265,7 @@ class TestCortexFreshnessCheck:
             outcome = {"council_run_id": cid, "created_at": when}
             (home / "council_outcomes" / f"{cid}.json").write_text(_json.dumps(outcome))
         monkeypatch.setenv("TRINITY_HOME", str(home))
-        from trinity_local.doctor import _check_cortex_freshness
+        from trinity_local.health_checks import _check_cortex_freshness
         result = _check_cortex_freshness()
         assert result.ok is True  # soft — stale isn't broken
         assert "1 of 2" in result.detail
@@ -281,7 +283,7 @@ class TestNextStepHint:
     """
 
     def _make_report(self, *, providers_green=2, prompts_ok=True):
-        from trinity_local.doctor import DoctorReport, CheckResult
+        from trinity_local.health_checks import DoctorReport, CheckResult
 
         checks = []
         names = ["claude", "codex", "antigravity"]
@@ -301,14 +303,14 @@ class TestNextStepHint:
     def test_hint_silent_with_only_one_provider(self):
         """Council needs at least two providers for cross-provider
         disagreement signal. With only one green, no nudge."""
-        from trinity_local.doctor import _next_step_hint
+        from trinity_local.health_checks import _next_step_hint
         report = self._make_report(providers_green=1)
         assert _next_step_hint(report) is None
 
     def test_hint_recommends_seed_when_no_prompts(self):
         """≥2 providers but no prompt index → recommend seeding so
         the lens has something to build from."""
-        from trinity_local.doctor import _next_step_hint
+        from trinity_local.health_checks import _next_step_hint
         report = self._make_report(providers_green=2, prompts_ok=False)
         hint = _next_step_hint(report)
         assert hint is not None
@@ -318,7 +320,7 @@ class TestNextStepHint:
     def test_hint_recommends_council_when_ready(self):
         """≥2 providers AND prompts indexed → recommend running an
         actual council from inside any harness."""
-        from trinity_local.doctor import _next_step_hint
+        from trinity_local.health_checks import _next_step_hint
         report = self._make_report(providers_green=3, prompts_ok=True)
         hint = _next_step_hint(report)
         assert hint is not None
@@ -328,7 +330,7 @@ class TestNextStepHint:
     def test_format_human_includes_hint_on_success(self):
         """End-to-end: format_human should append the hint after the
         'Trinity is ready' line when conditions are met."""
-        from trinity_local.doctor import format_human
+        from trinity_local.health_checks import format_human
         report = self._make_report(providers_green=3, prompts_ok=True)
         text = format_human(report)
         assert "Try this next" in text
@@ -337,7 +339,7 @@ class TestNextStepHint:
     def test_format_human_omits_hint_with_no_providers(self):
         """Don't show a 'try this' nudge when the user can't actually
         try it — that just adds noise to a fail-state report."""
-        from trinity_local.doctor import format_human
+        from trinity_local.health_checks import format_human
         report = self._make_report(providers_green=0)
         text = format_human(report)
         assert "Try this next" not in text
@@ -359,7 +361,7 @@ class TestVendorPublishedCheck:
         exist yet — surface a hint pointing at the fix command."""
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
         (tmp_path / "trinity" / "portal_pages").mkdir(parents=True)
-        from trinity_local.doctor import _check_vendor_published
+        from trinity_local.health_checks import _check_vendor_published
         result = _check_vendor_published()
         assert result.ok is True
         assert "vendor/ not yet populated" in result.detail
@@ -374,7 +376,7 @@ class TestVendorPublishedCheck:
         from trinity_local.vendor import VENDORED_FILES
         for name in VENDORED_FILES:
             (vendor_dir / name).write_text("// stub", encoding="utf-8")
-        from trinity_local.doctor import _check_vendor_published
+        from trinity_local.health_checks import _check_vendor_published
         result = _check_vendor_published()
         assert result.ok is True
         assert "12 vendored JS files present" in result.detail
@@ -392,7 +394,7 @@ class TestVendorPublishedCheck:
         # Write only the first 8 of 12 to simulate partial publish
         for name in VENDORED_FILES[:8]:
             (vendor_dir / name).write_text("// stub", encoding="utf-8")
-        from trinity_local.doctor import _check_vendor_published
+        from trinity_local.health_checks import _check_vendor_published
         result = _check_vendor_published()
         assert result.ok is True  # soft — not blocking
         assert "4 of 12 vendored JS files missing" in result.detail
@@ -403,7 +405,7 @@ class TestVendorPublishedCheck:
     def test_check_is_registered_in_run_doctor(self):
         """Same defensive shape as TestHandoffReadyCheck — a check
         defined-but-not-wired silently no-ops."""
-        from trinity_local.doctor import run_doctor
+        from trinity_local.health_checks import run_doctor
         report = run_doctor()
         names = {c.name for c in report.checks}
         assert "vendor_published" in names
@@ -422,7 +424,7 @@ class TestRetiredDirsReclaimableCheck:
     def test_clean_install_returns_no_reclaimable(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path / "trinity"))
         (tmp_path / "trinity").mkdir()
-        from trinity_local.doctor import _check_retired_dirs_reclaimable
+        from trinity_local.health_checks import _check_retired_dirs_reclaimable
         result = _check_retired_dirs_reclaimable()
         assert result.ok is True
         assert "no retired-feature directories" in result.detail
@@ -440,7 +442,7 @@ class TestRetiredDirsReclaimableCheck:
         # surface assertion; just non-empty.
         (cache / "embeddings.jsonl").write_bytes(b"x" * 1024)
 
-        from trinity_local.doctor import _check_retired_dirs_reclaimable
+        from trinity_local.health_checks import _check_retired_dirs_reclaimable
         result = _check_retired_dirs_reclaimable()
         assert result.ok is True  # soft, not blocking
         assert "cache/" in result.detail
@@ -451,7 +453,7 @@ class TestRetiredDirsReclaimableCheck:
         assert str(cache) in result.fix
 
     def test_check_is_registered_in_run_doctor(self):
-        from trinity_local.doctor import run_doctor
+        from trinity_local.health_checks import run_doctor
         report = run_doctor()
         names = {c.name for c in report.checks}
         assert "retired_dirs_reclaimable" in names

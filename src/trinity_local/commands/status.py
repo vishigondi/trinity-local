@@ -2,7 +2,7 @@
 
 `status` absorbed the role of the (former) `doctor` command pre-launch: it
 runs the same provider / MCP-dep / dir-writable pre-flight checks via
-`trinity_local.doctor.run_doctor()` and prints a one-line health verdict
+`trinity_local.health_checks.run_doctor()` and prints a one-line health verdict
 at the top of the human-readable output. JSON callers get the full report
 under `"health"`. The standalone `doctor` CLI was retired in favor of this
 single "tell me about Trinity" surface.
@@ -13,7 +13,7 @@ import json
 
 from ..adapters import check_all_adapters
 from ..action_runtime import count_actions_by_status
-from ..doctor import format_one_line, run_doctor
+from ..health_checks import format_one_line, run_doctor
 from ..drift import check_drift
 from ..state_paths import state_dir, tasks_dir
 
