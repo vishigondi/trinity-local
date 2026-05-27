@@ -212,8 +212,9 @@ That's the moat: agreed claims you can lean on, disagreed claims with the *why*,
 
 Chairman synthesizes member outputs into structured Routing JSON; members run in
 parallel (or `chain` mode for sequential refinement); lens-discovery is a 5-stage
-pipeline (Stage 0 turn-pair rejections + Stages 1-4 basins→decisions→pair-mining→post-filter) ratifying tensions across ≥3 topical basins. Full wire diagram + design
-rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
+pipeline (Stage 0 turn-pair rejections + Stages 1-4 basins→decisions→pair-mining→post-filter) ratifying tensions across ≥3 topical basins.
+
+**Want the full picture?** [`docs/how-trinity-works.md`](docs/how-trinity-works.md) walks the pipeline end-to-end — transcripts → embeddings → dream → the 4-tier gate → runtime. Wire diagram + design rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
 [`claude.md`](claude.md); long-form roadmap in [`docs/scale-plan.md`](docs/scale-plan.md).
 
 ## What's next
