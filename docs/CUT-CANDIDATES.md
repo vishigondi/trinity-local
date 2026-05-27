@@ -258,31 +258,42 @@ load-bearing wedge.
 
 ### Deferred (and why)
 
-- **Phase 4 (share-card surface trim)**: `me_card.py` has launchpad
-  UI integration (the "Render me-card" button in
+**Status 2026-05-27 (post overnight autonomy run):** items below
+either landed or got further documented.
+
+- **Phase 4 (share-card surface trim) — STILL DEFERRED**: `me_card.py`
+  has launchpad UI integration (the "Render me-card" button in
   `launchpad_template.py` + extension dispatch action
   `render-me-card`). Cutting cleanly requires JS template surgery
-  beyond this session's scope. **Unblock path**: schedule a focused
-  session that (a) drops the launchpad button, (b) removes
-  `render-me-card` from the extension action allowlist, (c) deletes
-  `me_card.py` + `commands/me_card.py` + `tests/test_me_card.py`.
-  Keep `eval_card.py` (load-bearing for `eval-share --compare`,
-  task #116 benchmark PNG). Estimate: ~2 hours, ~400 LOC removed +
-  1 dep candidate to remove (Pillow if nothing else uses it).
-- **Phase 5 partial deferral**: `decision-log` + `replay-history` are
-  clean cuts (~500 LOC + 2 tests). `seed-from-taste-terminal` has a
-  hidden dependency — its `_existing_prompt_node_ids` / `_flush_chunk`
-  / `_stage_session` helpers are imported by `commands/import_export.py`
-  (the import-export pipeline reuses them). **Unblock path**: refactor
-  the helpers into a new `src/trinity_local/ingest_helpers.py` (or
-  inline them into `import_export.py`); then `seed-from-taste-terminal`
-  can cut clean. Estimate: ~1 hour for the refactor + 30min for the
-  cuts.
-- **`adapters` CLI verb**: 35 LOC, 0 tests, duplicates `status`. Was
-  in my original cut list but I missed it in this session. Quick
-  follow-up: delete the file, remove from `CORE_COMMAND_MODULES`,
-  update the `TestCliCapabilityCoverage` audit which won't even
-  notice.
+  beyond a single-iteration scope. **Unblock path**: focused session
+  that (a) drops the launchpad button, (b) removes `render-me-card`
+  from the extension action allowlist, (c) deletes `me_card.py` +
+  `commands/me_card.py` + `tests/test_me_card.py`. Keep `eval_card.py`
+  (load-bearing for `eval-share --compare`, task #116 benchmark PNG).
+  Estimate: ~2 hours, ~400 LOC removed + 1 dep candidate to remove
+  (Pillow if nothing else uses it).
+- **seed-from-taste-terminal — DEFERRED with refined unblock path**:
+  the cut requires consolidating TWO copies of `_existing_prompt_node_ids`.
+  `commands/seed.py:74` uses the old `iter_prompt_nodes(limit=None)`
+  (loads embeddings ≈ 1.85s on a 1GB corpus); `incremental_ingest.py:87`
+  uses the optimized `iter_prompt_nodes_no_embedding(limit=None)`. Naïve
+  move-the-helpers refactor would either pick the wrong one or leave
+  the duplicate. **Refined unblock path**: (a) create
+  `src/trinity_local/ingest_helpers.py` exporting ONLY the optimized
+  variant + `_flush_chunk` + `_stage_session`; (b) update both
+  `commands/import_export.py` AND `incremental_ingest.py` to import
+  from there; (c) delete the slow seed.py copy + the CLI handler;
+  (d) verify lens-build / dream / import-export still pass.
+  Estimate: ~90min including test runs.
+- **`adapters` CLI verb — LANDED 2026-05-27** (commit `c8874fb`):
+  the bare-cut item. Delete file + drop from CORE_COMMAND_MODULES +
+  register 2 retirement records.
+- **`decision-log` CLI — LANDED 2026-05-27** (commit `2378f73`):
+  214 LOC deleted, loader survives so existing decision_log.jsonl
+  files keep flowing into lens-build at weight=2.0.
+- **`replay-history` CLI — LANDED 2026-05-27** (commit `d42528d`):
+  298 LOC deleted, launchpad cold-start CTA rewritten to point at
+  natural council-launch population path instead of backfill.
 
 ### What the gstack patterns will catch going forward
 
