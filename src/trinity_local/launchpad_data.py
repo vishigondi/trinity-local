@@ -17,7 +17,12 @@ from .council_status import load_council_status
 from .dispatch_registry import make_dispatch_action
 from .global_benchmarks import get_global_benchmarks, get_reference_evals_meta
 from .memory.store import iter_prompt_nodes
-from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
+# The macOS-Shortcut dispatch tier retired 2026-05-17 (Native Messaging
+# via the Chrome extension's capture_host took over). These constants
+# stay as harmless data-attr defaults the JS dispatch knows to skip
+# when the URL is empty. See retired_names.py: `shortcuts_integration`.
+DEFAULT_SHORTCUT_NAME = "Trinity Dispatch"
+_EMPTY_SHORTCUT_URL = ""
 from .state_paths import council_outcomes_dir, council_status_dir, review_pages_dir, trinity_home
 from .telemetry import build_elo_snapshot, launchpad_telemetry_state
 from .utils import now_iso
@@ -465,40 +470,29 @@ def _elo_chart_data(snapshot: dict) -> dict:
 
 
 def _settings_links() -> dict[str, str]:
-    enable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local telemetry-enable"},
-            metadata={"kind": "telemetry_enable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    # Register dispatch actions so the extension's Native Messaging path
+    # has a known kind; shortcutUrl is empty post-shortcut-retirement
+    # (2026-05-17) so the JS dispatch skips tier-2-shortcut and goes
+    # straight to the extension.
+    make_dispatch_action(
+        "run_command",
+        args={"command": "trinity-local telemetry-enable"},
+        metadata={"kind": "telemetry_enable"},
     )
-    disable = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local telemetry-disable"},
-            metadata={"kind": "telemetry_disable"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    make_dispatch_action(
+        "run_command",
+        args={"command": "trinity-local telemetry-disable"},
+        metadata={"kind": "telemetry_disable"},
     )
-    reset = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "run_command",
-            args={"command": "trinity-local telemetry-reset-id"},
-            metadata={"kind": "telemetry_reset"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    make_dispatch_action(
+        "run_command",
+        args={"command": "trinity-local telemetry-reset-id"},
+        metadata={"kind": "telemetry_reset"},
     )
-    # auto-chain + polish-auto settings links retired 2026-05-17 — the
-    # toggles are gone; users click auto-chain on the council review page.
-    # Phase 4b — each settings action surfaces its narrow extension-tier
-    # `kind` alongside the legacy shortcut URL. The launchpad's dispatcher
-    # picks the extension path when wired, falls back to the URL on
-    # macOS, surfaces the install banner otherwise.
     return {
-        "enable": {"shortcutUrl": enable.url, "extensionKind": "telemetry-enable"},
-        "disable": {"shortcutUrl": disable.url, "extensionKind": "telemetry-disable"},
-        "reset": {"shortcutUrl": reset.url, "extensionKind": "telemetry-reset-id"},
+        "enable": {"shortcutUrl": _EMPTY_SHORTCUT_URL, "extensionKind": "telemetry-enable"},
+        "disable": {"shortcutUrl": _EMPTY_SHORTCUT_URL, "extensionKind": "telemetry-disable"},
+        "reset": {"shortcutUrl": _EMPTY_SHORTCUT_URL, "extensionKind": "telemetry-reset-id"},
     }
 
 

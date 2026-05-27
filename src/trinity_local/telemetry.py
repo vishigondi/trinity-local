@@ -18,9 +18,12 @@ TELEMETRY_VERSION = 1
 
 @dataclass
 class TelemetrySettings:
-    sharing_enabled: bool = False
-    share_usage_events: bool = False
-    share_elo_summaries: bool = False
+    # Default ON since 2026-05-27 per docs/CUT-CANDIDATES.md Category C +
+    # user direction. Categorical routing labels + install/usage events
+    # only — never prompt content. Disable with `trinity-local telemetry-disable`.
+    sharing_enabled: bool = True
+    share_usage_events: bool = True
+    share_elo_summaries: bool = True
     share_install_id: str = ""
     endpoint: str | None = None
     consented_at: str | None = None
@@ -46,8 +49,28 @@ def telemetry_settings_path() -> Path:
     return telemetry_settings_dir() / "telemetry.json"
 
 
+# Google Analytics 4 Measurement Protocol endpoint. Trinity sends
+# categorical routing labels + install/usage events here when the user
+# has opted in (default ON since 2026-05-27 per docs/CUT-CANDIDATES.md
+# Category C — vishigondi GA4 property 539262453). NO prompt content,
+# NO lens text — only the categorical labels documented in CLAUDE.md
+# "Architectural commitments" #2.
+GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+GA4_PROPERTY_ID = "539262453"  # vishigondi/trinity-local GA4 property
+
+
 def _default_endpoint() -> str | None:
-    return os.environ.get("TRINITY_TELEMETRY_ENDPOINT")
+    """Resolve the telemetry endpoint.
+
+    Lookup order:
+      1. `TRINITY_TELEMETRY_ENDPOINT` env (escape hatch for custom collectors)
+      2. The GA4 Measurement Protocol endpoint (the default)
+
+    The GA4 path requires `TRINITY_GA4_MEASUREMENT_ID` + `TRINITY_GA4_API_SECRET`
+    in env. When either is missing, `_send_event_to_ga4` no-ops silently —
+    we never block on telemetry, and we never error out a real CLI flow.
+    """
+    return os.environ.get("TRINITY_TELEMETRY_ENDPOINT") or GA4_ENDPOINT
 
 
 def load_telemetry_settings() -> TelemetrySettings:
@@ -255,3 +278,121 @@ def launchpad_telemetry_state() -> dict[str, Any]:
         "view_event": build_launchpad_view_event(settings=settings),
         "elo_event": build_elo_snapshot_event(settings=settings),
     }
+
+
+# ─── GA4 Measurement Protocol ───────────────────────────────────────────
+#
+# Trinity sends categorical routing labels + install/usage events to GA4
+# property 539262453 when the user has opted in. This is the only outbound
+# data Trinity emits. Per CLAUDE.md "Architectural commitments" #2:
+# NO prompt content, NO lens text, NO user_substitute strings — only the
+# categorical labels (task_type, winner, provider_scores keys).
+#
+# Implementation:
+#   - Fire-and-forget via a daemon thread so the CLI flow never blocks.
+#   - Silent no-op when measurement_id + api_secret env vars are missing
+#     (lets contributors run Trinity without GA4 credentials).
+#   - Best-effort: HTTP failures are swallowed; telemetry must never
+#     fail-open into a user-visible error.
+
+def _ga4_credentials() -> tuple[str, str] | None:
+    """Return (measurement_id, api_secret) when both env vars are set,
+    else None (causes silent no-op).
+
+    Measurement ID format is `G-XXXXXXXXXX` (not the numeric property
+    ID — different field in GA4 admin). API secret is created at
+    Admin → Data Streams → Web → Measurement Protocol API secrets.
+    """
+    measurement_id = os.environ.get("TRINITY_GA4_MEASUREMENT_ID", "").strip()
+    api_secret = os.environ.get("TRINITY_GA4_API_SECRET", "").strip()
+    if not measurement_id or not api_secret:
+        return None
+    return measurement_id, api_secret
+
+
+def _send_event_to_ga4(
+    event_name: str,
+    params: dict[str, Any],
+    *,
+    settings: TelemetrySettings | None = None,
+    blocking: bool = False,
+) -> bool:
+    """Fire-and-forget GA4 Measurement Protocol POST.
+
+    Returns True when the event was queued for send, False when it
+    was suppressed (telemetry disabled / no credentials / load error).
+    The actual HTTP call runs in a background daemon thread so the
+    caller never waits — set ``blocking=True`` only in tests.
+
+    Args:
+      event_name: GA4 event name (e.g. "council_complete"). Must match
+        GA4's naming rules: snake_case, ≤40 chars.
+      params: Categorical event params only. Keys snake_case ≤40 chars.
+        Values must be primitives (str/int/float/bool). NO prompt content,
+        NO lens text — only routing labels per CLAUDE.md commitment #2.
+      settings: Optional TelemetrySettings; loads from disk when None.
+      blocking: When True, run the POST inline (test-only).
+    """
+    settings = settings or load_telemetry_settings()
+    if not settings.sharing_enabled or not settings.share_usage_events:
+        return False
+    creds = _ga4_credentials()
+    if creds is None:
+        return False
+    measurement_id, api_secret = creds
+
+    # GA4 requires a stable client_id — reuse share_install_id when present.
+    if not settings.share_install_id:
+        settings = ensure_share_install_id(settings)
+        save_telemetry_settings(settings)
+
+    payload = {
+        "client_id": settings.share_install_id,
+        "events": [{"name": event_name, "params": dict(params)}],
+    }
+    body = json.dumps(payload).encode("utf-8")
+    url = f"{GA4_ENDPOINT}?measurement_id={measurement_id}&api_secret={api_secret}"
+
+    def _post() -> None:
+        import urllib.error
+        import urllib.request
+        try:
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                resp.read()
+        except (urllib.error.URLError, OSError, TimeoutError):
+            # Telemetry must never error out a real flow. Drop the event.
+            pass
+
+    if blocking:
+        _post()
+    else:
+        import threading
+        threading.Thread(target=_post, daemon=True).start()
+    return True
+
+
+def record_event(event_name: str, **params: Any) -> bool:
+    """Public entry point — top-level callers invoke this.
+
+    Wraps `_send_event_to_ga4` with the live settings load. Returns
+    True when fired, False when suppressed (opt-out, no creds, etc.).
+
+    Example:
+        record_event(
+            "council_complete",
+            task_type="design",
+            winner="claude",
+            member_count=3,
+        )
+
+    Keep params categorical — task_type, winner, provider, harness,
+    council_count_bucket. NEVER pass prompt text, lens content, or
+    user_substitute strings.
+    """
+    return _send_event_to_ga4(event_name, params)

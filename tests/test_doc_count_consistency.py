@@ -745,6 +745,12 @@ class TestArchitectureTableModulesExist:
         # — claude.md's Dispatch row narrates the retirement directly.
         "dispatch_runner.py",
         "shortcut_setup.py",
+        # Retired 2026-05-26 — the inert shim left behind when the
+        # Shortcut dispatcher tier retired 2026-05-17 (commit 53db635).
+        # claude.md's Dispatch row narrates the retirement directly;
+        # call sites in council_review.py + launchpad_data.py inline
+        # the constant. See retired_names.py.
+        "shortcuts_integration.py",
     }
 
     def test_no_phantom_py_files_in_claude_md(self):
@@ -1633,11 +1639,12 @@ class TestV16BrowserExtensionArtifactsExist:
         )
 
     def test_spec_v16_exists(self):
-        spec = self.REPO / "docs" / "spec-v1.6.md"
+        spec = self.REPO / "docs" / "historical" / "spec-v1.6.md"
         assert spec.exists(), (
-            "docs/spec-v1.6.md missing. README + claude.md companion-docs "
-            "header reference this spec by path. Renaming it requires "
-            "updating all referrers in the same commit."
+            "docs/historical/spec-v1.6.md missing. The v1.6 spec was moved to "
+            "historical/ after most of it shipped in the v1.0 launch window "
+            "(2026-05-14/15); see docs/CUT-CANDIDATES.md Category A. "
+            "Renaming requires updating all referrers in the same commit."
         )
 
     def test_manifest_json_referenced_files_all_exist(self):
@@ -1806,7 +1813,7 @@ class TestV16SpecShipPlanCommitHashesResolve:
     REPO = Path(__file__).resolve().parent.parent
 
     def test_cited_commit_hashes_resolve_in_git_log(self):
-        spec = (self.REPO / "docs" / "spec-v1.6.md").read_text()
+        spec = (self.REPO / "docs" / "historical" / "spec-v1.6.md").read_text()
         # Match the inline-code commit references used in the ship plan,
         # e.g. `4bd2e0f`. Use a strict pattern so we only check actual
         # short-SHA-looking tokens, not arbitrary 7-char strings.
@@ -1866,7 +1873,7 @@ class TestScoreboardPathRenameInDocs:
         "CHANGELOG.md",
         "claude.md",
         "CLAUDE.md",  # macOS case-insensitive FS dupe
-        "docs/scale-plan.md",
+        "docs/historical/scale-plan.md",
         "AGENTS.md",
     }
 
@@ -1877,8 +1884,8 @@ class TestScoreboardPathRenameInDocs:
             "docs/launch-package.md",
             "docs/MCP_REGISTRY_SUBMISSIONS.md",
             "docs/spec-v1.md",
-            "docs/spec-v1.5.md",
-            "docs/spec-v1.6.md",
+            "docs/historical/spec-v1.5.md",
+            "docs/historical/spec-v1.6.md",
             "docs/launch-day/*.md",
             "DESIGN.md",
             "docs/frontend-architecture.md",
@@ -2216,22 +2223,11 @@ class TestNoBannedSynonyms:
         "docs/MCP_REGISTRY_SUBMISSIONS.md",
         "docs/frontend-architecture.md",
         "docs/spec-v1.md",
-        "docs/spec-v1.5.md",
-        "docs/spec-v1.6.md",
-        # spec-v2.md added 2026-05-21 after the "Gemini CLI" phrasing
-        # slipped through in the v1.0 hero quote (2 lines in the
-        # narrative-arc table). v2 is the sunset trained-coordinator
-        # doc but still describes v1.0's pitch — that quote has to use
-        # the post-Antigravity-rebrand wording to match the canonical
-        # hero in README / launch-package / claude.md.
-        "docs/spec-v2.md",
+        # spec-v1.5.md / spec-v1.6.md / spec-v2.md / founder-essay-draft.md
+        # all moved to docs/historical/ in the 2026-05-26 cut pass (see
+        # docs/CUT-CANDIDATES.md Category A). The historical/ prefix is
+        # excluded above, so they're correctly out of this scan.
         "docs/product-spec.md",
-        # founder-essay-draft.md added 2026-05-21 after iter 22 caught
-        # "Gemini CLI is in a browser" on L31 — a personal-narrative
-        # surface that ships to the founder's blog T-7 (per the
-        # naked-`pip install` guard's reference at L2032). Same
-        # rebrand-drift risk as the other launch-facing surfaces.
-        "docs/founder-essay-draft.md",
         # three-tier-architecture.md added 2026-05-21 after iter 23
         # caught two "Gemini CLI" mentions in a class:live spec doc
         # (Tier 1 description L18, sequencing rationale L161). The
@@ -2297,7 +2293,7 @@ class TestNoBannedSynonyms:
     # The test file itself contains the banned strings as data.
     EXEMPT_FILES: set[str] = {
         "CHANGELOG.md",
-        "docs/scale-plan.md",
+        "docs/historical/scale-plan.md",
         "AGENTS.md",
         "tests/test_doc_count_consistency.py",
     }
@@ -2994,8 +2990,8 @@ class TestLiveDocsDontClaimRetiredMcpToolsAsLive:
         "src/trinity_local/data/skills/trinity/SKILL.md",
         "skills/trinity/SKILL.md",
         "docs/spec-v1.md",
-        "docs/spec-v1.5.md",
-        "docs/spec-v1.6.md",
+        "docs/historical/spec-v1.5.md",
+        "docs/historical/spec-v1.6.md",
         "docs/product-spec.md",
     ]
 
@@ -3650,7 +3646,7 @@ class TestNoRetiredMcpToolEnumeratedAsLive:
         "README.md",
         "docs/product-spec.md",
         "docs/spec-v1.md",
-        "docs/spec-v1.5.md",
+        "docs/historical/spec-v1.5.md",
         "docs/architecture.md",
         "skills/trinity/SKILL.md",
     )
@@ -3919,7 +3915,7 @@ class TestPostLaunchTenseConsistency:
     EXEMPT_FILES = {
         # Historical records; future-tense framing belongs there.
         "CHANGELOG.md",
-        "docs/PUBLIC_READINESS_PLAN.md",
+        "docs/historical/PUBLIC_READINESS_PLAN.md",
     }
 
     def test_no_future_tense_launch_framing_in_public_docs(self):
@@ -5089,8 +5085,8 @@ class TestNoRetiredSubsystemSectionsInDocs:
         "docs/three-tier-architecture.md",
         "docs/product-spec.md",
         "docs/spec-v1.md",
-        "docs/spec-v1.5.md",
-        "docs/spec-v1.6.md",
+        "docs/historical/spec-v1.5.md",
+        "docs/historical/spec-v1.6.md",
     )
 
     def test_no_retired_subsystem_section_headings(self):
@@ -6429,7 +6425,7 @@ class TestActiveDocsDontClaimNonexistentCommandModules:
         )
         # Dedicated retirement-narrative docs are exempt — every line
         # is about deletion by construction.
-        EXEMPT_DOCS = {"docs/simplification_log.md"}
+        EXEMPT_DOCS = {"docs/historical/simplification_log.md"}
 
         offenders: list[str] = []
         for path in sorted(docs_dir.rglob("*.md")):

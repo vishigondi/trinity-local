@@ -563,7 +563,15 @@ RETIRED: dict[str, RetirementRecord] = {
         retired_at="2026-05-17",
         commit="53db635",
         replacement="(none — superseded by capture_host.py Native Messaging dispatch)",
-        reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler. `shortcuts_integration.py` remains as an inert shim so legacy importers don't break. Caught missing from the registry alongside `shortcut_setup`.",
+        reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
+        kind="module",
+    ),
+    "shortcuts_integration": RetirementRecord(
+        name="shortcuts_integration",
+        retired_at="2026-05-26",
+        commit="(this commit)",
+        replacement="(none — call sites inline the empty-URL pattern directly; JS dispatch already skips tier-2-shortcut when URL is empty)",
+        reason="`src/trinity_local/shortcuts_integration.py` (47 LOC) was the inert shim left behind when the macOS-Shortcut dispatch tier was retired 2026-05-17 (commit 53db635). It returned empty URLs so the launchpad JS dispatch (`launchpad_runtime.js`) would skip tier-2 and route everything through the Chrome extension. The shim was kept so 6 import sites in `council_review.py` + `launchpad_data.py` didn't break. Per `docs/CUT-CANDIDATES.md` Category C (HIGH-confidence cut): the inline 'DEFAULT_SHORTCUT_NAME = \"Trinity Dispatch\"' constant + empty-string URL placeholder is two lines per call site, which is cheaper than maintaining the shim. Module deleted in this commit; call sites updated to inline the constants.",
         kind="module",
     ),
     "commands.shortcuts": RetirementRecord(

@@ -19,6 +19,34 @@ from .council_status import (
 from .council_review import write_unified_council_page
 
 
+def _emit_council_telemetry(outcome) -> None:
+    """Fire a GA4 categorical event for the council completion.
+
+    NEVER includes prompt text, lens text, member output bodies, or any
+    free-form strings beyond the chairman's discrete labels (task_type +
+    winner). Per CLAUDE.md "Architectural commitments" #2.
+
+    Best-effort: any exception is swallowed; telemetry must never crash
+    a successful council.
+    """
+    try:
+        from .telemetry import record_event
+        rl = getattr(outcome, "routing_label", None)
+        task_type = (getattr(rl, "task_type", None) or "unknown") if rl else "unknown"
+        winner = (getattr(rl, "winner", None) or "unknown") if rl else "unknown"
+        member_count = len(getattr(outcome, "responses", []) or [])
+        mode = getattr(outcome, "mode", "parallel") or "parallel"
+        record_event(
+            "council_complete",
+            task_type=str(task_type)[:40],
+            winner=str(winner)[:40],
+            member_count=int(member_count),
+            mode=str(mode)[:40],
+        )
+    except Exception:
+        pass
+
+
 def _maybe_auto_open(review_path) -> None:
     """Open the review page in the default browser when
     ``settings.auto_open_council`` is True. Off by default; macOS-only;
@@ -426,6 +454,7 @@ def _run_chain(
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(bundle, final_outcome)
     _maybe_auto_open(review_path)
+    _emit_council_telemetry(final_outcome)
 
     task = task_from_council(
         bundle=bundle,
@@ -1189,6 +1218,7 @@ def run_consensus_round(
     outcome_path = save_council_outcome(final_outcome)
     review_path = write_unified_council_page(new_bundle, final_outcome)
     _maybe_auto_open(review_path)  # chain-mode follow-up; same gate as fresh councils
+    _emit_council_telemetry(final_outcome)
 
     task = task_from_council(
         bundle=new_bundle,

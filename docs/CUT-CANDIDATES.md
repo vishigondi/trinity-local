@@ -6,7 +6,7 @@ class: live
 
 > Written 2026-05-26 as a pre-launch audit pass. Quantitative snapshot:
 > 44.7k LOC `src/`, 44.5k LOC tests, 11.5k LOC live+aspirational docs,
-> 51 CLI subcommands, 8 MCP tools, 6 schemas, 76 `.md` files total,
+> 51 CLI subcommands, <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools, 6 schemas, 76 `.md` files total,
 > 87 retired-name registry entries. Test gate: 2117 passing in 97s.
 >
 > This is one reader's opinion (Opus 4.7) after walking every module
@@ -35,7 +35,7 @@ class: live
    debt.
 
 **What's load-bearing (do not touch):** the lens pipeline (`dream` /
-`lens-build` / `me/`), the council runtime, the 8 MCP tools, the
+`lens-build` / `me/`), the council runtime, the <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools, the
 Chrome extension + capture-host pipeline, the 6 schemas, the
 `import_provider_memory` loop, the moves substrate (just shipped —
 give it 4-6 weeks of real use before cutting).
@@ -123,7 +123,7 @@ exactly which ones to retire.
 |---|---|
 | **`launchpad_template.py` at 3191 LOC** | Single f-string HTML template. Pragmatic given "no build step" + "works under file://" constraints, but the file is a maintenance hazard. A pre-launch swap to a real template engine (Jinja2 — would add 1 dep) might reduce it 40%. Post-launch cost is much higher. | DECIDE before launch |
 | **`council_review.py` at 1954 LOC** | 7 functions/classes — those are big functions. Split into ~3 modules (response rendering / Routing JSON card / shortcut wiring) for clarity. Mechanical refactor. | LOW priority |
-| **`mcp_server.py` at 1605 LOC, 23 functions** | 8 tool handlers + dispatcher + resource catalog. Could split per-tool into `mcp_tools/<name>.py` files. Cosmetic. | LOW priority |
+| **`mcp_server.py` at 1605 LOC, 23 functions** | <!-- canonical:mcp_tool_count -->8<!-- /canonical --> tool handlers + dispatcher + resource catalog. Could split per-tool into `mcp_tools/<name>.py` files. Cosmetic. | LOW priority |
 | **`doctor.py` at 881 LOC, called by `status`** | The `doctor` verb retired but the module survives because `status` calls into it. Either rename `doctor.py` → `status_checks.py` (it's not "doctor" anymore) or fold into `commands/status.py`. The name is misleading. | MEDIUM priority |
 | **`retired_names.py` at 765 LOC, 87 entries** | The registry is load-bearing for the agent — tells future-me "this thing was tried, here's why it failed." But 87 entries is a lot. Sort by date and prune entries older than 90 days post-retirement to a `historical/retirement-log.md` file. | LOW priority |
 | **`memory_viewer.py` (1923 LOC) + `council_review.py` (1954 LOC) + `launchpad_template.py` (3191 LOC)** | These three HTML-rendering modules total 7,068 LOC. About 16% of `src/`. Whether this is bloat depends on whether the launchpad-as-UI is load-bearing for adoption. If most users live in MCP / CLI and never open the launchpad, this is enormous overhead. Telemetry to "did the user open file:// to the launchpad" would resolve this; without it, judgment call. | DEPENDS |

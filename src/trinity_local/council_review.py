@@ -24,7 +24,12 @@ from .design_system import render_html_footer, render_html_head
 from .dispatch_registry import make_dispatch_action
 from .markdown_utils import render_markdown
 from .launchpad_runtime import launchpad_runtime_js
-from .shortcuts_integration import DEFAULT_SHORTCUT_NAME, make_shortcut_invocation
+# The macOS-Shortcut dispatch tier retired 2026-05-17 (Native Messaging
+# via the Chrome extension's capture_host took over). These constants
+# stay as harmless data-attr defaults the JS dispatch knows to skip
+# when the URL is empty. See retired_names.py: `shortcuts_integration`.
+DEFAULT_SHORTCUT_NAME = "Trinity Dispatch"
+_EMPTY_SHORTCUT_URL = ""
 from .state_paths import review_pages_dir
 
 
@@ -161,23 +166,20 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
     )
     footer = render_html_footer()
 
-    # Build chain action shortcut URLs (Continue + Auto-chain). Refine is
-    # built per-typed-prompt at click time in the petite-vue handler.
-    continue_shortcut = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "council_continue",
-            args={"council_id": council_id},
-            metadata={"kind": "council_continue"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    # Chain action shortcut URLs were the macOS-Shortcut dispatch path
+    # (retired 2026-05-17). The JS dispatch in launchpad_runtime.js
+    # treats empty URLs as "skip tier-2-shortcut, go straight to the
+    # extension." The dispatch_action calls survive for the Native
+    # Messaging path; the shortcut URLs are intentionally empty.
+    _ = make_dispatch_action(
+        "council_continue",
+        args={"council_id": council_id},
+        metadata={"kind": "council_continue"},
     )
-    auto_chain_shortcut = make_shortcut_invocation(
-        dispatch=make_dispatch_action(
-            "council_auto_chain",
-            args={"council_id": council_id, "max_rounds": 3},
-            metadata={"kind": "council_auto_chain"},
-        ),
-        shortcut_name=DEFAULT_SHORTCUT_NAME,
+    _ = make_dispatch_action(
+        "council_auto_chain",
+        args={"council_id": council_id, "max_rounds": 3},
+        metadata={"kind": "council_auto_chain"},
     )
 
     # Round + chain navigation
@@ -259,8 +261,8 @@ def render_unified_council_page(bundle: PromptBundle, outcome: CouncilOutcome) -
         "providerModels": provider_models,
         "providerEfforts": provider_efforts,
         "chain": {
-            "continueUrl": continue_shortcut.url,
-            "autoChainUrl": auto_chain_shortcut.url,
+            "continueUrl": _EMPTY_SHORTCUT_URL,
+            "autoChainUrl": _EMPTY_SHORTCUT_URL,
             "shortcutName": DEFAULT_SHORTCUT_NAME,
             "roundNumber": int(round_number),
             "parentCouncilId": parent_council_id,
