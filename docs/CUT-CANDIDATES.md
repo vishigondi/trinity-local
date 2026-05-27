@@ -4,10 +4,20 @@ class: live
 
 # Cut Candidates — Honest Review
 
-> Written 2026-05-26 as a pre-launch audit pass. Quantitative snapshot:
-> 44.7k LOC `src/`, 44.5k LOC tests, 11.5k LOC live+aspirational docs,
-> 51 CLI subcommands, <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools, 6 schemas, 76 `.md` files total,
-> 87 retired-name registry entries. Test gate: 2117 passing in 97s.
+> Written 2026-05-26 as a pre-launch audit pass. **Status 2026-05-27**:
+> Phases 1 (doc moves), 3 (shortcuts_integration cut), and the
+> Phase-2-pivot (GA4 wiring instead of cut) all landed in commits
+> `a1e059d` + `9c6d256`. Plus the gstack reliability arc shipped 5 new
+> structural guards. Phases 4 + 5 deferred — see "Deferred work" at
+> the bottom for the unblock path.
+>
+> Quantitative snapshot (post-Phase-1-3 + reliability):
+> 44.7k LOC `src/` (-50 from shortcuts_integration delete),
+> ~6.5k LOC live+aspirational docs (was 11.5k — moved ~5k LOC to
+> docs/historical/), 51 CLI subcommands, <!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools, 6 schemas,
+> 88 retired-name registry entries (+1 shortcuts_integration).
+> Test gate: 2120 passing + 7 skipped (3 skipped via the new
+> `@pytest.mark.slow` quarantine; gstack pattern 3).
 >
 > This is one reader's opinion (Opus 4.7) after walking every module
 > and doc against code reality. The user (vishigondi) has final call.
@@ -214,3 +224,78 @@ now; defer the rest.
 
 Total cuttable surface area: **~30%**, all without touching the
 load-bearing wedge.
+
+---
+
+## Status update (2026-05-27)
+
+### Shipped
+
+- **Category A doc moves (HIGH conf, commit `a1e059d`)**: 11 docs moved
+  to `docs/historical/` + 1 deleted. `docs/` public surface dropped
+  from ~11.5k LOC → ~6.5k LOC (-43%).
+- **`shortcuts_integration.py` cut (HIGH conf, commit `a1e059d`)**:
+  47 LOC inert shim deleted; 2 call sites in `council_review.py` and
+  `launchpad_data.py` inline the constant.
+- **Telemetry pivot to GA4 (commit `a1e059d`, NOT a cut)**: per user
+  direction, instead of cutting telemetry we wired it to Google
+  Analytics 4 Measurement Protocol (property `539262453`). Default ON
+  per the user's pick; honors the existing `telemetry-disable` opt-out.
+  Categorical-only — `task_type`, `winner`, `member_count`, `mode` —
+  per CLAUDE.md "Architectural commitments" #2.
+- **gstack reliability arc (commit `9c6d256`)**: 5 new structural
+  guards from the garrytan/gstack audit:
+  - Pattern 1: Executable retirement denylist driven by
+    `retired_names.py` — adding a retirement entry instantly extends
+    the guard. Caught + fixed a real drift in three-tier-architecture.md.
+  - Pattern 2: CLI capability-coverage audit — every CLI subcommand
+    must have a test file mention. 48/51 covered + 3 explicit
+    exemptions.
+  - Pattern 3: Two-tier test split via `@pytest.mark.slow` marker +
+    conftest hook. `pytest -q` stays fast; slow shard runs with
+    `TRINITY_SLOW=1` or `pytest -m slow`. Discipline guard catches
+    "test hits real Chrome without the marker."
+
+### Deferred (and why)
+
+- **Phase 4 (share-card surface trim)**: `me_card.py` has launchpad
+  UI integration (the "Render me-card" button in
+  `launchpad_template.py` + extension dispatch action
+  `render-me-card`). Cutting cleanly requires JS template surgery
+  beyond this session's scope. **Unblock path**: schedule a focused
+  session that (a) drops the launchpad button, (b) removes
+  `render-me-card` from the extension action allowlist, (c) deletes
+  `me_card.py` + `commands/me_card.py` + `tests/test_me_card.py`.
+  Keep `eval_card.py` (load-bearing for `eval-share --compare`,
+  task #116 benchmark PNG). Estimate: ~2 hours, ~400 LOC removed +
+  1 dep candidate to remove (Pillow if nothing else uses it).
+- **Phase 5 partial deferral**: `decision-log` + `replay-history` are
+  clean cuts (~500 LOC + 2 tests). `seed-from-taste-terminal` has a
+  hidden dependency — its `_existing_prompt_node_ids` / `_flush_chunk`
+  / `_stage_session` helpers are imported by `commands/import_export.py`
+  (the import-export pipeline reuses them). **Unblock path**: refactor
+  the helpers into a new `src/trinity_local/ingest_helpers.py` (or
+  inline them into `import_export.py`); then `seed-from-taste-terminal`
+  can cut clean. Estimate: ~1 hour for the refactor + 30min for the
+  cuts.
+- **`adapters` CLI verb**: 35 LOC, 0 tests, duplicates `status`. Was
+  in my original cut list but I missed it in this session. Quick
+  follow-up: delete the file, remove from `CORE_COMMAND_MODULES`,
+  update the `TestCliCapabilityCoverage` audit which won't even
+  notice.
+
+### What the gstack patterns will catch going forward
+
+The guards just shipped are forward-protecting. The next time a
+contributor:
+- Adds a CLI verb but forgets tests → `TestCliCapabilityCoverage`
+  fires.
+- Retires a module but leaves an import → `test_no_retired_modules_imported`
+  fires.
+- Renames a retired CLI but leaves a stale reference in active docs
+  → `test_no_retired_cli_verbs_in_active_surfaces` fires.
+- Adds a test that hits real Chrome without the marker →
+  `test_slow_signals_carry_slow_marker_or_mock_context` fires.
+
+Adding a retirement entry to `retired_names.py` automatically
+strengthens guards 1 + 2 — no separate denylist constant to maintain.

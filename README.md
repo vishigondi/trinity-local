@@ -122,9 +122,12 @@ by Aider / Cline / Continue / anything else. Schema:
 
 - **Your prompts and the models' answers never leave your machine.** No exceptions, no opt-in
   tier that changes this.
-- **What CAN be opted in (default off):** anonymous categorical routing labels —
-  `task_type`, `winner`, `confidence`. No content, ever. Powers a future leaderboard for
-  the curious; lives perfectly fine without it.
+- **Anonymous categorical telemetry is on by default** (Google Analytics 4 property
+  `539262453` — `task_type`, `winner`, `member_count`, `mode`). No prompt content, no lens
+  text, no user_substitute strings — only the four discrete labels the chairman writes to
+  every council outcome. Disable any time with `trinity-local telemetry-disable`; the data
+  immediately stops flowing. Contributors without GA4 credentials get a silent no-op
+  (set `TRINITY_GA4_MEASUREMENT_ID` + `TRINITY_GA4_API_SECRET` to enable sending).
 - **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
   use. Build the corpus now while inference is subsidized — the taste signal you capture
   survives the subsidy ending.
