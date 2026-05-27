@@ -52,7 +52,10 @@ CORE_COMMAND_MODULES = (
     "me_card",
     "moves",
     "portal",
-    "replay",
+    # `replay` CLI verb retired 2026-05-27 — see retired_names.py.
+    # The natural way to populate the routing table is to use Trinity
+    # normally; council outcomes accumulate on disk and aggregate
+    # automatically via compute_personal_routing_table().
     "review",
     "seed",
     "status",

@@ -110,11 +110,10 @@ class TestHiddenCommandsStillCallable:
             "gate's error message points users at it."
         )
 
-    def test_replay_history_still_callable(self):
-        assert self._can_parse("replay-history", "--limit", "5"), (
-            "replay-history must remain callable — power users rely on "
-            "the bare name; the `debug` umbrella is discovery-only."
-        )
+    # `test_replay_history_still_callable` retired 2026-05-27 alongside
+    # the `replay-history` CLI verb itself — the personal routing table
+    # now populates from normal council usage (see retired_names.py
+    # `commands.replay`).
 
 
 class TestDebugUmbrella:
@@ -127,9 +126,9 @@ class TestDebugUmbrella:
         rc = handle_debug(SimpleNamespace(subcommand=None))
         assert rc == 0
         out = capsys.readouterr().out
-        # All four debug verbs must be listed.
+        # Each surviving debug verb must be listed. `replay-history`
+        # was retired 2026-05-27 (see retired_names.py).
         for verb in (
-            "replay-history",
             "consolidate",
             "vocabulary",
             "seed-from-taste-terminal",
@@ -139,17 +138,16 @@ class TestDebugUmbrella:
             )
 
     def test_debug_with_subcommand_points_user_at_bare_name(self, capsys):
-        """`trinity-local debug replay-history` doesn't (yet) execute
-        the verb itself — it tells the user to run the bare name.
-        This satisfies the discovery requirement without re-nesting
-        every parser."""
+        """`trinity-local debug <verb>` doesn't (yet) execute the verb
+        itself — it tells the user to run the bare name. This satisfies
+        the discovery requirement without re-nesting every parser."""
         from trinity_local.commands.debug import handle_debug
         from types import SimpleNamespace
 
-        rc = handle_debug(SimpleNamespace(subcommand="replay-history"))
+        rc = handle_debug(SimpleNamespace(subcommand="consolidate"))
         assert rc == 0
         err = capsys.readouterr().err
-        assert "trinity-local replay-history" in err
+        assert "trinity-local consolidate" in err
 
 
 class TestInstallUmbrella:

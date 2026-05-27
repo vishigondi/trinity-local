@@ -1190,7 +1190,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every rating. Categories match LMArena so you can compare against public evals later.
         </p>
         <p class="meta" v-else>
-          Once you run <code>trinity-local replay-history --limit 20</code>, this chart fills in with per-category strength for each provider, computed from your own council preferences.
+          Run a few councils via <code>trinity-local council-launch --task "&lt;your question&gt;"</code> and this chart fills in with per-category strength for each provider, computed from your own council preferences.
         </p>
 
         <div class="chart-shell" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
@@ -1277,12 +1277,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card" v-if="!personalRoutingTable">
         <div class="eyebrow">Routing</div>
-        <h2>Run replay-history to learn which model works best for you</h2>
+        <h2>Run a few councils to learn which model works best for you</h2>
         <p class="meta">
-          Trinity will re-run your highest-leverage past prompts against the current model lineup
-          and show you per-task-type winners. One overnight run gives you a personal routing plan.
+          Trinity aggregates the chairman's pick on each council into a per-task-type routing
+          table. A handful of councils on real questions is enough to see "which model wins for
+          what kind of work" — the bars sharpen with every council.
         </p>
-        <pre class="md-code-block"><code>trinity-local replay-history --limit 20</code></pre>
+        <pre class="md-code-block"><code>trinity-local council-launch --task "&lt;your question&gt;"</code></pre>
       </section>
 
       <!-- Empirical benchmark — most-recent eval-run result rendered

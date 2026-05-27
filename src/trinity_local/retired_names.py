@@ -566,6 +566,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
     ),
+    "commands.replay": RetirementRecord(
+        name="commands.replay",
+        retired_at="2026-05-27",
+        commit="2378f73",
+        replacement="(none — the personal routing table populates from normal council usage via compute_personal_routing_table())",
+        reason="`src/trinity_local/commands/replay.py` (298 LOC, 1 test) registered the `replay-history` CLI verb. Per CUT-CANDIDATES.md Category C MEDIUM-confidence: 'Power-user verb to replay outcomes against current routing. The signal it produces (would the new router agree with old verdicts?) isn't surfaced anywhere user-facing.' Removed from launchpad UI cold-start CTA (now points at council-launch) + memory-viewer empty state. The natural way to populate the routing table is to use Trinity normally; council outcomes accumulate on disk and aggregate via personal_routing.compute_personal_routing_table().",
+        kind="module",
+    ),
+    "replay-history": RetirementRecord(
+        name="replay-history",
+        retired_at="2026-05-27",
+        commit="2378f73",
+        replacement="trinity-local council-launch (run real councils; routing table builds organically)",
+        reason="The `trinity-local replay-history` CLI verb retired alongside its handler. The launchpad cold-start CTA now points users at running real councils instead of backfilling from history.",
+        kind="cli",
+    ),
     "commands.decision_log": RetirementRecord(
         name="commands.decision_log",
         retired_at="2026-05-27",

@@ -27,11 +27,10 @@ from types import SimpleNamespace
 # The power-user verbs we surface under `debug`. Each entry: name +
 # one-line "what this does". The CANONICAL location stays the same
 # (top-level subparser); `debug` just advertises them.
+# (`replay-history` retired 2026-05-27 — see retired_names.py. The
+# personal routing table is now populated by normal council usage;
+# the standalone "re-evaluate top-N" surface was unused.)
 _DEBUG_VERBS: list[tuple[str, str]] = [
-    (
-        "replay-history",
-        "Re-evaluate top-N replay candidates against the current model lineup.",
-    ),
     (
         "consolidate",
         "Extract routing patterns per basin from council outcomes "
@@ -53,7 +52,7 @@ _DEBUG_VERBS: list[tuple[str, str]] = [
 def register(subparsers) -> None:
     parser = subparsers.add_parser(
         "debug",
-        help="Power-user verbs: replay-history, consolidate, vocabulary, seed-from-taste-terminal.",
+        help="Power-user verbs: consolidate, vocabulary, seed-from-taste-terminal.",
     )
     parser.add_argument(
         "subcommand", nargs="?", default=None,
@@ -70,7 +69,7 @@ def handle_debug(args: SimpleNamespace) -> int:
         _print_directory()
         return 0
     # Delegate to the canonical subparser. `trinity-local debug
-    # replay-history` is shorthand for `trinity-local replay-history`.
+    # consolidate` is shorthand for `trinity-local consolidate`.
     print(
         f"To run: trinity-local {sub} [args]\n"
         f"  (the verb is reachable directly under that name; this "

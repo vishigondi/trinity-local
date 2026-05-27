@@ -1283,7 +1283,7 @@ def render_memory_viewer_html() -> str:
       const best = routing.best_per_task_type || {{}};
       const taskTypes = Object.keys(by).sort();
       if (taskTypes.length === 0) {{
-        target.appendChild(el("p", "meta", "No routing data yet — run a council or trinity-local replay-history to populate it."));
+        target.appendChild(el("p", "meta", "No routing data yet — run a few councils to populate it."));
         return;
       }}
       const providers = new Set();
