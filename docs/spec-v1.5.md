@@ -322,9 +322,10 @@ replay-value heuristics on the hot path. `get_eval_summary` retired
 user ratings" — chairman's pick is now the supervision signal, fed
 automatically into `compute_personal_routing_table()`. The live surface
 as Trinity ships today is: `route`, `ask`, `run_council`, `get_persona`,
-`get_picks`, `mark_pick_wrong`, `get_council_status`, `handoff` —
-8 total. See claude.md "The MCP tools" section for canonical current
-shape.)
+`get_picks`, `mark_pick_wrong`, `get_council_status`, `import_provider_memory`
+— 8 total. (`handoff` shipped at launch then retired 2026-05-26 after 0
+production usage; cross-provider continuity rides MCP Resources now.) See
+claude.md "The MCP tools" section for canonical current shape.)
 
 ```
 mcp__trinity-local__get_picks(basin_id?, min_trust?)
@@ -339,16 +340,17 @@ mcp__trinity-local__get_picks(basin_id?, min_trust?)
   rules (e.g. 0.75+ for production routing decisions).
 ```
 
-8 tools shipped: `route`, `ask`, `run_council`,
-`get_persona`, `get_picks`, `mark_pick_wrong`, `get_council_status`, `handoff`.
+8 tools shipped: `route`, `ask`, `run_council`, `get_persona`, `get_picks`,
+`mark_pick_wrong`, `get_council_status`, `import_provider_memory`.
 (Spec divergence — preserved here for the audit trail: the original v1.5 spec
 proposed `compare` as an alias for `run_council`; Tier 1 #2 (task #48) collapsed
 that into `run_council(responses=[...])` instead. `search_prompts` was retired
 2026-05-17 — agents ground via `ask` + `get_picks` now. `record_outcome` was
 retired 2026-05-21 per "we are sunsetting user ratings" — chairman's pick is
 the supervision signal now. `mark_pick_wrong` was added as the user-veto
-surface, and the launch-arc tick added `handoff` — neither was in the
-original spec list.)
+surface; the launch-arc tick added `handoff` (which then retired 2026-05-26
+after 0 usage); `import_provider_memory` replaced the lost slot for the
+provider-side memory loop — none of these were in the original spec list.)
 
 **Sunset 2026-05-22:** `mcp__trinity-local__plan_and_execute` (three-role
 multi-step workflow — Thinker / Worker / Verifier — with `dry_run` mode
@@ -750,8 +752,10 @@ maintainer's corpus — the signature itself is informative as a
 benchmark axis. (Tasks #111-113 — matryoshka shape-sim, disagreement-
 axis mining, inversion-test default — were sunset 2026-05-22 as
 speculative research; re-add when the empirical eval signal demands
-it.) Compounds with #119 (handoff mechanism reuses the same
-`make_provider` dispatch path the eval harness uses).
+it.) (Originally noted as compounding with #119 — the `handoff`
+mechanism reused the same `make_provider` dispatch path — but handoff
+itself retired 2026-05-26 after 0 production usage; the `make_provider`
+path now serves councils + eval-run only.)
 
 **Future hub angle:** the eval-set JSON (without raw prompt text,
 just `rejection_type` + `rubric_axes` shape) is shareable. A

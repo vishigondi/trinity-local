@@ -15,6 +15,15 @@ class: aspirational
 > Cowork-style. The terminal stays the engine, but the ordinary gesture is an
 > app icon, menu bar, hotkey, and first-run setup UI. Mobile starts as a thin app
 > that opens review links, not as a full Trinity node.
+>
+> **Handoff retirement (2026-05-26)**: this spec was drafted when `handoff` was
+> the cross-surface continuity primitive. The CLI verb + MCP tool were retired
+> after 0 production usage events; cross-provider continuity now flows via
+> MCP Resources (`trinity://memories/lens.md` read at session handshake).
+> Treat every "handoff" reference below as describing the *role* the primitive
+> would play — the implementation it points at no longer exists. Future
+> desktop / mobile cuts of this spec will replace those callouts with
+> Resources-based equivalents.
 
 ## Thesis
 

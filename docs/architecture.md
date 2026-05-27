@@ -58,11 +58,12 @@ refinement). The personal routing table is computed on demand from
 lens-discovery pipeline (5 stages: turn-pair rejections → basins → decisions → pair-mining → basin
 post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair
 gap extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal
-behavioral evidence into decision extraction. The `handoff` mechanism
-(`trinity-local handoff <provider>` or `mcp__trinity-local__handoff`) reuses
-the cross-provider prompt index to package recent (user, assistant) turns as
-"continue this thread" context for a different provider — no re-context
-required. The `evals/` package consumes mined rejections + `lens.md` to produce
+behavioral evidence into decision extraction. Cross-provider continuity now
+flows via MCP Resources — agents read `trinity://memories/lens.md` at session
+handshake, so any harness can pick up the user's voice without an explicit
+hand-off step. (The earlier `handoff` CLI + MCP tool were retired 2026-05-26
+after 0 production usage; see `retired_names.py`.) The `evals/` package
+consumes mined rejections + `lens.md` to produce
 replayable per-rejection-type benchmarks (`eval-build` / `eval-run`). All
 artifact shapes are JSON-Schema-validated and documented in
 [`PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) — adoptable by other

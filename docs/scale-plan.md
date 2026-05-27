@@ -23,7 +23,7 @@ class: aspirational
 > sunset header in [`spec-v2.md`](spec-v2.md) for the architectural-
 > decision record).
 >
-> **MCP surface (canonical 4 + v1.5 trio + launch-arc `handoff`,
+> **MCP surface (canonical 4 + v1.5 trio + in-protocol `import_provider_memory`,
 > 8 total):**
 > Canonical 4: `route` / `run_council` (subsumes `judge` via `responses=[...]`) /
 > `get_persona` / `get_council_status`.
@@ -31,15 +31,18 @@ class: aspirational
 > heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —
 > agents ground via `ask` + picks; `record_outcome` retired 2026-05-21 —
 > chairman pick is now the supervision signal, fed automatically into
-> `compute_personal_routing_table()` (commit bb817b6).)
+> `compute_personal_routing_table()` (commit bb817b6); `handoff` shipped at
+> launch then retired 2026-05-26 after 0 production usage — cross-provider
+> continuity now rides MCP Resources at handshake.)
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
 > returns `escalate_hint=run_council` when trust is low), `get_picks`
 > (agent-facing introspection into extracted routing patterns), and
 > `mark_pick_wrong` (harness-callable user veto; halves effective
-> trust per click, persists across consolidations). Launch-arc adds
-> `handoff` (cross-provider conversation continuity). (Spec previously
-> listed `get_eval_summary` as a second launch-arc addition — retired
-> 2026-05-18 in the simplification pass; agents ground via `ask` + picks.)
+> trust per click, persists across consolidations). In-protocol provider
+> loop adds `import_provider_memory` (the agent pipes its own extracted
+> lens/eval signals into Trinity — kind=lens → `lenses.json`, kind=eval →
+> `rejections.jsonl`; CLI mirrors: `lens-prompt`/`lens-import` and
+> `eval-prompt`/`eval-import`).
 >
 > Hot-path
 > search/autofill/replay are **embedding-free** (substring + recency +
@@ -814,10 +817,12 @@ For Trinity Local that means:
 >   `run_council`, `record_outcome`, `search_prompts`, `get_persona`).
 >   Live ships 8: canonical 4 (`route`, `run_council`,
 >   `get_persona`, `get_council_status`) + v1.5 trio (`ask`,
->   `get_picks`, `mark_pick_wrong`) + launch-arc `handoff`. `judge`
->   collapsed into `run_council(responses=[...])` (Tier 1 #2);
+>   `get_picks`, `mark_pick_wrong`) + in-protocol `import_provider_memory`.
+>   `judge` collapsed into `run_council(responses=[...])` (Tier 1 #2);
 >   `search_prompts` dropped pre-launch; `record_outcome` retired
->   2026-05-21 (chairman pick is the supervision signal now).
+>   2026-05-21 (chairman pick is the supervision signal now);
+>   `handoff` shipped at launch then retired 2026-05-26 after 0
+>   production usage (cross-provider continuity rides MCP Resources now).
 > - **State paths** (8.4): plan said `~/.trinity/memory/...`. Live
 >   ships `~/.trinity/prompts/...` (Tier 1 #1 rename, task #90).
 >   `TranscriptNode` tier was dropped (Tier 2 #5, task #51).
@@ -854,7 +859,11 @@ For Trinity Local that means:
 > were added: `get_council_status` rounding out the canonical
 > lifecycle to 4, plus v1.5 trio (`ask` cheap default routing,
 > `get_picks` agent introspection, `mark_pick_wrong` user-veto), plus
-> launch-arc `handoff` for cross-provider continuity. Total: **8 tools**.
+> in-protocol `import_provider_memory` (the agent pipes its own
+> extracted lens/eval signals back into Trinity). (Launch-arc `handoff`
+> shipped at v1 then retired 2026-05-26 after 0 production usage;
+> cross-provider continuity now rides MCP Resources at handshake.)
+> Total: **8 tools**.
 >
 > Canonical current surface lives in
 > [`../claude.md`](../claude.md#the-eight-mcp-tools-mcp_serverpy) and
@@ -1443,8 +1452,10 @@ filter (P50).
 
 **Symptoms**: the retired `install-app` wrapper crashed with raw
 `FileNotFoundError: osacompile` on Linux (P17). `setup.sh` shebangs `zsh` with
-macOS `shortcuts` CLI calls. `doctor` recommends installing the macOS Shortcut
-on Linux. pyproject claims Linux support, README is silent. iPad-only dev (P23)
+macOS `shortcuts` CLI calls. (`doctor` was the prior health-check verb that
+recommended the macOS Shortcut on Linux — collapsed into `status` pre-launch;
+platform-aware recommendations now ride `status`.) pyproject claims Linux
+support, README is silent. iPad-only dev (P23)
 has zero entry point — mobile spec only ships review-link companion requiring a
 paired desktop he doesn't own.
 
@@ -1470,8 +1481,8 @@ ALL HIGH.
 "own your data" wedge. Migration breaks (5 re-installs needed,
 0 docs). No `trinity-local export` command. Zero anonymization code
 across the repo (`grep` 0 hits for anonymize / redact / scrub / pii).
-Dev `~/.trinity/` already 4.4GB; no retention/prune/quota; doctor
-skips disk check.
+Dev `~/.trinity/` already 4.4GB; no retention/prune/quota; `status`
+(formerly `doctor`) skips disk check.
 
 **Fixes**:
 

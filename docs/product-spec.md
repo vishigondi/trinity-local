@@ -277,14 +277,18 @@ Five workstreams that compound during the consumer-AI land-grab phase
 1. **MCP-dropdown distribution** — submit Trinity to the curated MCP
    server registries for Claude Desktop, Codex CLI, Cursor, Cline,
    Continue. Being in the dropdown beats being technically perfect.
-2. **First-run wow — cross-provider continuity** (reframed 2026-05-14):
-   the 60-second demo is "ask Claude a complex question, hand off
-   mid-conversation to Gemini, watch it pick up the context." ONE
-   answer that visibly knew the prior context — the "wait, how did
-   it know?" moment IS the demo working. Structurally non-refutable:
-   only Trinity has the cross-provider prompt index. Gemini handoff
-   is especially strong because it ALSO brings Google data (Gmail/
-   Drive/Calendar) Claude/GPT can't see. Council depth is the
+2. **First-run wow — cross-provider continuity** (reframed 2026-05-14;
+   delivery path updated 2026-05-26): the 60-second demo is "ask
+   Claude a complex question, switch to Antigravity, watch the lens
+   carry the context through MCP Resources." ONE answer that visibly
+   knew the prior context — the "wait, how did it know?" moment IS
+   the demo working. Structurally non-refutable: only Trinity has the
+   cross-provider prompt index. Antigravity is especially strong
+   because it ALSO brings Google data (Gmail/Drive/Calendar)
+   Claude/GPT can't see. (The earlier `handoff` CLI + MCP tool were
+   retired 2026-05-26 after 0 production usage; agents now pick up
+   the lens via `trinity://memories/lens.md` at session handshake,
+   same beat without the explicit verb.) Council depth is the
    *quality engine*, not the hook.
 3. **Cross-provider benchmarks** — publish Trinity vs. Opus on design,
    vs. GPT-5 on coding, vs. Gemini on long-context. Even modest wins

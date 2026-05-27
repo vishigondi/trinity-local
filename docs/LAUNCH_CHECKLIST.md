@@ -44,10 +44,12 @@ launch live.
       ONLY external gate that
       MUST flip — no PyPI publish, no npm publish; Trinity ships as
       a git clone via curl|sh.
-- [ ] **Demo recording shot + hosted.** Task #120: the 60-second
-      cross-provider handoff demo. Use `trinity-local handoff
-      antigravity` mid-conversation; show Gemini picking up the thread
-      with Google data Claude couldn't see. Host on
+- [ ] **Demo recording shot + hosted.** The 60-second cross-provider
+      continuity demo. Originally pitched as the `handoff` verb (#119
+      / #120 — retired 2026-05-26, 0 production usage). New shot: run
+      a council in Claude Code, then open Antigravity and let it read
+      `trinity://memories/lens.md` from the MCP Resources surface —
+      same continuity, fewer moving parts. Host on
       vishigondi.com/trinity-demo or wherever; update the README +
       docs/launch.md to embed.
 
