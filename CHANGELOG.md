@@ -7,6 +7,51 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.12 — seed-kernel recursion explicit: T3 rubric + T3↔T4 calibration + gate-over-lens] — 2026-05-27
+
+Closes three open feedback edges in the 4-tier Bayesian gate. The
+gate now isn't just bottom-up filtering; the kernel applies to its
+own substrate.
+
+**Change #1 — T3 reads lens tensions AS the grading rubric** (not
+background context). Added `LensTension` dataclass, `parse_lens_tensions`
+(regex-tolerant lens.md parser), and `render_tension_rubric_for_basin`
+(basin-scoped tension selection with corpus-wide fallback) to
+`moves/gate.py`. T3's chairman prompt now templates `{tension_rubric}`
+in place of the prior `{lens_excerpt}` — grading AGAINST a lens is
+different from grading IN THE PRESENCE OF a lens.
+
+**Change #2 — T3↔T4 calibration loop**. Added
+`update_calibration_from_demotions` to `moves/dream.py` as Phase 6d
+of the dream orchestrator. Per-basin demotion rate is the signal that
+T3's threshold was wrong: ≥0.50 with ≥3 observations elevates the
+basin's `elevated_baseline` (+0.10, capped at 0.90); ≤0.20 with ≥5
+observations relaxes it (−0.05, floored at 0.50). `run_promotion_pass`
+now consults `calibrated_baseline_for_basin` so T3's effective baseline
+is `max(disk_default, elevated_baseline)` — the recursion edge T3↔T4
+closes. State lives at `~/.trinity/dream_calibration.json`; schema
+shipped at `schemas/dream_calibration.schema.json`.
+
+**Change #3 — gate-over-lens**. The kernel applying to its own
+substrate. `gate_lens_tensions` runs the moves-gate T1+T2 primitives
+on every lens tension/basin claim — tensions whose surface text
+doesn't lexically OR semantically resonate with their claimed basin
+get either narrowed (some basins kept) or fully archived. Thresholds
+relaxed vs moves (0.10 / 0.40 instead of 0.30 / 0.70) because tensions
+are short, abstract, and cross-domain by construction. Reuses
+`_word_ngrams`, `_jaccard`, `_cosine`, and `embed` directly — no new
+primitives.
+
+**Positioning encoded**: claude.md "Auto-Dream coexistence" section
+rewritten with the two-audiences principle. Recursion is the internal
+architectural soul (CLAUDE.md OK); cross-provider data sovereignty is
+the public moat (README lead). Anthropic could ship Trinity's exact
+recursive gate tomorrow and still couldn't see across providers.
+
+23 new mutation-validated tests in `tests/test_moves_gate_recursion.py`
+covering all three edges. Full suite: 2108 passed + 7 skipped. ~140
+LOC of code + 1 schema + 0 new modules.
+
 ## [v1.7.11 — e2e Chrome dogfood arc: fix stuck-launch + silent dispatch failures] — 2026-05-26
 
 Drove the served launchpad through claude-in-chrome MCP to reproduce
@@ -767,7 +812,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2088<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2111<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

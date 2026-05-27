@@ -238,9 +238,9 @@ def T2_embedding(
 
 _T3_JUDGE_PROMPT = """You are scoring a candidate MOVE — a procedural pattern the user has shown a preference for — against one of the user's documented rejections.
 
-The user's taste rubric (excerpted from their personal lens):
+The user's load-bearing tensions for this basin (from their personal lens — these ARE the rubric, not background context):
 ---
-{lens_excerpt}
+{tension_rubric}
 ---
 
 REJECTION AXIS: {rejection_type}
@@ -275,6 +275,300 @@ Score 1.0 = applying this move would have prevented the rejection entirely.
 Score 0.0 = the move is irrelevant or would have made the rejection worse.
 0.5 = neutral / inconclusive / the move doesn't address this axis.
 """
+
+
+@dataclass(frozen=True)
+class LensTension:
+    """One paired-tension from lens.md.
+
+    The chairman should grade candidate moves against the tensions
+    whose basin-span overlaps with the move's basin — this is the
+    seed-kernel recursion edge: the chairman that judges T3 reads the
+    same lens that's being trained by the chairman's own picks at T4.
+    """
+    pole_a: str
+    pole_b: str
+    pole_a_failure: str  # what pure-A looks like when it goes wrong
+    pole_b_failure: str  # what pure-B looks like when it goes wrong
+    basins: tuple[str, ...]  # basin IDs the tension spans
+
+
+_LENS_HEADING_RE = re.compile(r"^### \d+\.\s+(.+?)\s+↔\s+(.+?)\s*$", re.MULTILINE)
+_LENS_FAIL_A_RE = re.compile(r"^- Pure-(.+?) fails as: \*\*(.+?)\*\*", re.MULTILINE)
+_LENS_BASINS_RE = re.compile(r"^- Tension evidence spans basins:\s*(.+?)\s*$", re.MULTILINE)
+
+
+def parse_lens_tensions(lens_text: str) -> list[LensTension]:
+    """Extract paired-tension records from a lens.md document.
+
+    Lens format (from `lens-build` chairman synthesis):
+        ### N. pole_a ↔ pole_b
+        - Pure-pole_a fails as: **pole_a_failure**
+        - Pure-pole_b fails as: **pole_b_failure**
+        - Tension evidence spans basins: b00, b02
+
+    Parser is tolerant: returns an empty list when the lens is missing
+    or malformed, so T3 can fall back to the generic axis rubric.
+    """
+    if not lens_text:
+        return []
+    # Split on "### " section boundaries so per-tension parsing is bounded.
+    # First section before the first heading is intro prose; skip.
+    sections = re.split(r"\n(?=### \d+\.)", lens_text)
+    out: list[LensTension] = []
+    for sec in sections:
+        sec = sec.strip()
+        if not sec.startswith("### "):
+            continue
+        head = _LENS_HEADING_RE.search(sec)
+        if not head:
+            continue
+        pole_a = head.group(1).strip()
+        pole_b = head.group(2).strip()
+        # Failure modes appear as two `- Pure-X fails as: **Y**` lines
+        failures = {fail.group(1).strip(): fail.group(2).strip() for fail in _LENS_FAIL_A_RE.finditer(sec)}
+        # Basins line is optional — some tensions are corpus-wide
+        basins_match = _LENS_BASINS_RE.search(sec)
+        basins: tuple[str, ...] = ()
+        if basins_match:
+            basins = tuple(
+                b.strip() for b in basins_match.group(1).split(",") if b.strip()
+            )
+        out.append(LensTension(
+            pole_a=pole_a,
+            pole_b=pole_b,
+            pole_a_failure=failures.get(pole_a, ""),
+            pole_b_failure=failures.get(pole_b, ""),
+            basins=basins,
+        ))
+    return out
+
+
+def render_tension_rubric_for_basin(
+    tensions: list[LensTension],
+    basin_id: str | None,
+    *,
+    max_tensions: int = 3,
+) -> str:
+    """Render the tension rubric the chairman uses at T3.
+
+    Selection logic:
+      - If the candidate has a basin set, prefer tensions whose
+        `basins` includes that basin (this is the recursion edge:
+        the chairman grades against the user's documented tensions
+        for the SAME basin the move targets).
+      - Fall back to corpus-wide tensions (basins == ()) when no
+        basin-specific tensions exist.
+      - Last resort: include all tensions, capped at `max_tensions`.
+
+    Returns a multiline string suitable for inlining into the T3
+    prompt. Empty when no tensions are available (T3 falls back to
+    the generic axis rubric in that case — vacuous pass remains
+    correct cold-start behavior).
+    """
+    if not tensions:
+        return ""
+
+    if basin_id:
+        scoped = [t for t in tensions if basin_id in t.basins]
+        if scoped:
+            tensions = scoped
+        else:
+            corpus_wide = [t for t in tensions if not t.basins]
+            if corpus_wide:
+                tensions = corpus_wide
+
+    tensions = tensions[:max_tensions]
+
+    lines: list[str] = []
+    for t in tensions:
+        lines.append(f"TENSION: {t.pole_a} ↔ {t.pole_b}")
+        if t.pole_a_failure:
+            lines.append(f"  Pure-{t.pole_a} fails as: {t.pole_a_failure}")
+        if t.pole_b_failure:
+            lines.append(f"  Pure-{t.pole_b} fails as: {t.pole_b_failure}")
+        lines.append(
+            "  Grade higher when the move helps the model find the "
+            "load-bearing midpoint instead of collapsing to either pole."
+        )
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+def _tension_probe_text(tension: LensTension) -> str:
+    """Concat a tension's poles + failure modes into one probe text.
+    Used by gate-over-lens to give T1/T2 a single semantic surface
+    representing the tension's full claim."""
+    parts = [tension.pole_a, tension.pole_b]
+    if tension.pole_a_failure:
+        parts.append(tension.pole_a_failure)
+    if tension.pole_b_failure:
+        parts.append(tension.pole_b_failure)
+    return " · ".join(p for p in parts if p)
+
+
+def gate_lens_tension_in_basin(
+    tension: LensTension,
+    basin_id: str,
+    *,
+    accepted_patterns: list[str] | None = None,
+    basin_centroid: list[float] | None = None,
+    t1_threshold: float = 0.10,
+    t2_threshold: float = 0.40,
+) -> tuple[TierResult, TierResult]:
+    """Apply the moves-gate T1+T2 primitives to a lens tension's claim
+    that it spans `basin_id`. The kernel applying to its own substrate.
+
+    Thresholds are looser than the moves gate (0.10 / 0.40 vs 0.30 /
+    0.70) because tensions are short, abstract, and cross-domain by
+    construction — their lexical/semantic overlap with concrete
+    basin patterns is necessarily lower than a procedural move's.
+    """
+    probe = _tension_probe_text(tension)
+    # T1 — lexical Jaccard
+    if not accepted_patterns:
+        t1 = TierResult(
+            tier="T1",
+            passed=True,
+            score=1.0,
+            threshold=t1_threshold,
+            reason="T1 vacuous: basin has no accepted patterns yet",
+        )
+    else:
+        probe_ngrams = _word_ngrams(probe, n=3)
+        sims = [_jaccard(probe_ngrams, _word_ngrams(p, n=3)) for p in accepted_patterns]
+        max_sim = max(sims) if sims else 0.0
+        t1 = TierResult(
+            tier="T1",
+            passed=(max_sim >= t1_threshold),
+            score=max_sim,
+            threshold=t1_threshold,
+            reason=f"max tension↔pattern Jaccard {max_sim:.3f}",
+        )
+    # T2 — centroid cosine
+    if basin_centroid is None:
+        t2 = TierResult(
+            tier="T2",
+            passed=False,
+            score=0.0,
+            threshold=t2_threshold,
+            reason="T2 cannot run: no basin centroid",
+        )
+    else:
+        from ..embeddings import embed
+        emb = embed(probe)
+        if len(emb) != len(basin_centroid):
+            t2 = TierResult(
+                tier="T2",
+                passed=False,
+                score=0.0,
+                threshold=t2_threshold,
+                reason=(
+                    f"dim mismatch: tension emb {len(emb)} vs centroid "
+                    f"{len(basin_centroid)}"
+                ),
+            )
+        else:
+            sim = _cosine(emb, basin_centroid)
+            t2 = TierResult(
+                tier="T2",
+                passed=(sim >= t2_threshold),
+                score=sim,
+                threshold=t2_threshold,
+                reason=f"tension cosine vs centroid {sim:.3f}",
+            )
+    return t1, t2
+
+
+def gate_lens_tensions(
+    tensions: list[LensTension],
+    *,
+    basin_patterns: dict[str, list[str]] | None = None,
+    basin_centroids: dict[str, list[float]] | None = None,
+    require_both_tiers: bool = False,
+) -> dict[str, Any]:
+    """Run gate-over-lens: T1+T2 vs every tension/basin claim.
+
+    For each tension and each claimed basin: either the basin survives
+    (T1 or T2 passes — `require_both_tiers=True` to demand both) or
+    the basin is dropped. A tension with NO surviving basins is
+    archived; one with a reduced set is narrowed. Tensions with no
+    basin claim (corpus-wide) pass through unchanged.
+
+    Returns:
+      {
+        "kept":     [LensTension],                   # all basins survived
+        "narrowed": [(orig, new)],                   # some basins dropped
+        "archived": [(LensTension, reason)],         # no basins survived
+        "by_basin": {basin_id: {pass: int, fail: int}},
+      }
+
+    The kernel applying to its own substrate: same T1/T2 primitives that
+    gate moves now gate the lens that gates the moves. Tensions that
+    claim a basin but can't resonate with the basin's content are
+    architectural noise — surface them for archive, don't grade moves
+    against them.
+    """
+    basin_patterns = basin_patterns or {}
+    basin_centroids = basin_centroids or {}
+
+    kept: list[LensTension] = []
+    narrowed: list[tuple[LensTension, LensTension]] = []
+    archived: list[tuple[LensTension, str]] = []
+    by_basin: dict[str, dict[str, int]] = {}
+
+    for tension in tensions:
+        if not tension.basins:
+            kept.append(tension)
+            continue
+        surviving: list[str] = []
+        fail_reasons: list[str] = []
+        for basin in tension.basins:
+            t1, t2 = gate_lens_tension_in_basin(
+                tension,
+                basin,
+                accepted_patterns=basin_patterns.get(basin),
+                basin_centroid=basin_centroids.get(basin),
+            )
+            survives = (
+                (t1.passed and t2.passed) if require_both_tiers
+                else (t1.passed or t2.passed)
+            )
+            counters = by_basin.setdefault(basin, {"pass": 0, "fail": 0})
+            counters["pass" if survives else "fail"] += 1
+            if survives:
+                surviving.append(basin)
+            else:
+                fail_reasons.append(
+                    f"{basin}: T1 {t1.score:.2f}<{t1.threshold:.2f}, "
+                    f"T2 {t2.score:.2f}<{t2.threshold:.2f}"
+                )
+
+        if not surviving:
+            archived.append((
+                tension,
+                "; ".join(fail_reasons) if fail_reasons else "no surviving basins",
+            ))
+        elif tuple(surviving) == tension.basins:
+            kept.append(tension)
+        else:
+            narrowed.append((
+                tension,
+                LensTension(
+                    pole_a=tension.pole_a,
+                    pole_b=tension.pole_b,
+                    pole_a_failure=tension.pole_a_failure,
+                    pole_b_failure=tension.pole_b_failure,
+                    basins=tuple(surviving),
+                ),
+            ))
+
+    return {
+        "kept": kept,
+        "narrowed": narrowed,
+        "archived": archived,
+        "by_basin": by_basin,
+    }
 
 
 def _filter_rejection_corpus(
@@ -369,12 +663,24 @@ def T3_chairman(
     relevant = _filter_rejection_corpus(rejection_corpus, candidate)
     sample = relevant[:sample_size]  # deterministic; caller can pre-shuffle if randomization is wanted
 
-    # Cheap excerpting — full lens.md can be 6-10KB; cap to keep the
-    # chairman's context window predictable per item
-    lens_excerpt = (lens_text or "").strip()
-    if len(lens_excerpt) > 2000:
-        head = 1000
-        lens_excerpt = f"{lens_excerpt[:head].rstrip()}\n[... excerpted ...]\n{lens_excerpt[-head:].lstrip()}"
+    # Parse lens tensions ONCE; the per-rejection loop renders the
+    # basin-relevant subset into the prompt. This is the seed-kernel
+    # recursion edge: T3's rubric IS the user's lens tensions, not
+    # generic axis-of-rejection language. The chairman that judges
+    # candidates here is reading the same lens that T4 trains via
+    # the chairman's own real-council picks.
+    tensions = parse_lens_tensions(lens_text or "")
+    tension_rubric = render_tension_rubric_for_basin(
+        tensions, candidate.trinity_basin_id
+    )
+    if not tension_rubric:
+        # Cold-start: lens hasn't built yet (or has but no tensions
+        # span this basin). Fall through to a minimal rubric pointer
+        # — the per-rejection axis_rubric below still drives scoring.
+        tension_rubric = (
+            "(lens has no documented tensions for this basin yet; "
+            "fall through to the per-rejection axis rubric)"
+        )
 
     judge = make_provider(chairman_provider_config)
     cwd = cwd or Path.cwd()
@@ -387,7 +693,7 @@ def T3_chairman(
             "Grade on overall alignment between the move and the user's preferred response shape.",
         )
         prompt = _T3_JUDGE_PROMPT.format(
-            lens_excerpt=lens_excerpt or "(lens not yet built)",
+            tension_rubric=tension_rubric,
             rejection_type=rejection_type,
             axis_rubric=axis_rubric,
             rejected_response=(item.get("model_quote") or "")[:2000],

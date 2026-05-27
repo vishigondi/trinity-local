@@ -374,6 +374,12 @@ def run_promotion_pass(
         basin = candidate.trinity_basin_id or ""
         patterns = accepted_patterns_for_basin.get(basin, [])
         centroid = basin_centroids.get(basin)
+        # T3↔T4 calibration: when prior demotions in this basin have
+        # raised the calibrated baseline, use it as a floor instead of
+        # T3's default. This is the recursion-closing edge — T3's
+        # threshold is itself learned from T4's verdict on T3's prior
+        # promotions.
+        calibrated = calibrated_baseline_for_basin(basin)
         tier_results = run_gate(
             candidate,
             accepted_patterns=patterns,
@@ -381,7 +387,7 @@ def run_promotion_pass(
             rejection_corpus=rejection_corpus,
             chairman_provider_config=chairman_provider_config,
             lens_text=lens_text,
-            baseline=None,  # first promotion — T3 sets the baseline
+            baseline=calibrated,  # None on cold start; floor when calibrated
         )
         # Pass iff every tier that ran passed
         all_passed = all(r.passed for r in tier_results)
@@ -451,6 +457,152 @@ def run_demotion_pass() -> dict[str, Any]:
     return report
 
 
+def _calibration_path():
+    """Disk location of T3↔T4 calibration state."""
+    from .. import state_paths as _sp
+    return _sp.trinity_home() / "dream_calibration.json"
+
+
+def _load_calibration() -> dict[str, Any]:
+    """Read ~/.trinity/dream_calibration.json or return a fresh
+    empty state. The disk file is the source of truth — promotion
+    passes consult it before T3 to decide whether the basin's
+    eval_baseline needs elevation."""
+    path = _calibration_path()
+    if not path.exists():
+        return {"version": 1, "per_basin": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"version": 1, "per_basin": {}}
+    if not isinstance(data, dict):
+        return {"version": 1, "per_basin": {}}
+    data.setdefault("version", 1)
+    data.setdefault("per_basin", {})
+    return data
+
+
+def _save_calibration(state: dict[str, Any]) -> None:
+    """Persist calibration state atomically. Best-effort: a write
+    failure logs nothing and falls back to the prior state next
+    cycle — calibration is advisory, not load-bearing for correctness."""
+    path = _calibration_path()
+    state["updated_at"] = _now_iso()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+# Calibration tuning constants — the T3↔T4 feedback edge.
+#
+# Demotion rate per basin is the signal that T3's threshold was wrong:
+# if T3 promoted moves into a basin and T4 keeps archiving them, T3
+# was too generous. Elevating T3's baseline for that basin makes the
+# next promotion pass pickier. Reverse direction: a basin where moves
+# survive at high rate suggests T3 was too strict; relax. This closes
+# the recursion: T3 (chairman eval) and T4 (Beta-Binomial posterior on
+# real council picks) train each other.
+_CALIBRATION_ELEVATE_RATE = 0.50  # demotion rate triggering elevation
+_CALIBRATION_RELAX_RATE = 0.20    # demotion rate triggering relaxation
+_CALIBRATION_MIN_OBSERVATIONS = 3  # avoid tuning off n=1
+_CALIBRATION_RELAX_MIN = 5         # require more evidence to relax than to elevate
+_CALIBRATION_ELEVATION_STEP = 0.10
+_CALIBRATION_RELAX_STEP = 0.05
+_CALIBRATION_BASELINE_CEILING = 0.90
+_CALIBRATION_BASELINE_FLOOR = 0.50
+
+
+def update_calibration_from_demotions() -> dict[str, Any]:
+    """Phase 6d: close the T3↔T4 recursion edge.
+
+    For each basin, compare promoted (active + archived) move counts.
+    When archived/(active+archived) exceeds _CALIBRATION_ELEVATE_RATE
+    with at least _CALIBRATION_MIN_OBSERVATIONS, mark the basin's
+    elevated_baseline so the NEXT promotion pass's T3 is pickier.
+    When the rate is below _CALIBRATION_RELAX_RATE with at least
+    _CALIBRATION_RELAX_MIN observations, relax the baseline (move
+    toward the floor).
+
+    Returns a report dict with per-basin deltas.
+    """
+    active = store.list_moves(archived=False)
+    archived = store.list_moves(archived=True)
+    state = _load_calibration()
+    per_basin: dict[str, Any] = state.get("per_basin", {})
+
+    by_basin_active: dict[str, int] = {}
+    by_basin_archived: dict[str, int] = {}
+    for m in active:
+        if m.trinity_basin_id:
+            by_basin_active[m.trinity_basin_id] = by_basin_active.get(m.trinity_basin_id, 0) + 1
+    for m in archived:
+        if m.trinity_basin_id:
+            by_basin_archived[m.trinity_basin_id] = by_basin_archived.get(m.trinity_basin_id, 0) + 1
+
+    basins = set(by_basin_active) | set(by_basin_archived)
+    deltas: list[dict[str, Any]] = []
+    for basin in sorted(basins):
+        promoted = by_basin_active.get(basin, 0)
+        demoted = by_basin_archived.get(basin, 0)
+        total = promoted + demoted
+        if total < _CALIBRATION_MIN_OBSERVATIONS:
+            continue
+        rate = demoted / total if total > 0 else 0.0
+        record = per_basin.get(basin, {})
+        prior_baseline = float(record.get("elevated_baseline", _CALIBRATION_BASELINE_FLOOR))
+        new_baseline = prior_baseline
+        action = "stable"
+        if rate >= _CALIBRATION_ELEVATE_RATE:
+            new_baseline = min(_CALIBRATION_BASELINE_CEILING, prior_baseline + _CALIBRATION_ELEVATION_STEP)
+            action = "elevated"
+        elif rate <= _CALIBRATION_RELAX_RATE and total >= _CALIBRATION_RELAX_MIN:
+            new_baseline = max(_CALIBRATION_BASELINE_FLOOR, prior_baseline - _CALIBRATION_RELAX_STEP)
+            action = "relaxed"
+        if new_baseline == prior_baseline and action == "stable":
+            continue
+        per_basin[basin] = {
+            "promoted_active": promoted,
+            "promoted_archived": demoted,
+            "demotion_rate": round(rate, 3),
+            "elevated_baseline": round(new_baseline, 3),
+            "prior_baseline": round(prior_baseline, 3),
+            "updated_at": _now_iso(),
+            "last_action": action,
+        }
+        deltas.append({
+            "basin": basin,
+            "demotion_rate": round(rate, 3),
+            "prior_baseline": round(prior_baseline, 3),
+            "new_baseline": round(new_baseline, 3),
+            "action": action,
+        })
+
+    state["per_basin"] = per_basin
+    _save_calibration(state)
+    return {
+        "basins_inspected": len(basins),
+        "deltas": deltas,
+    }
+
+
+def calibrated_baseline_for_basin(basin_id: str | None) -> float | None:
+    """Read the calibrated T3 baseline for a basin, or None if no
+    elevation has been recorded. Promotion pass uses this as a floor
+    on the candidate's eval_baseline."""
+    if not basin_id:
+        return None
+    state = _load_calibration()
+    record = state.get("per_basin", {}).get(basin_id)
+    if not isinstance(record, dict):
+        return None
+    elevated = record.get("elevated_baseline")
+    if not isinstance(elevated, (int, float)):
+        return None
+    return float(elevated)
+
+
 def _log_dream_demotion(move: Move, *, tier: str, result: Any) -> None:
     """Append one demotion event to dream_demotions.jsonl.
 
@@ -496,9 +648,14 @@ def phase_6_moves_pass(
       6a. T4 update from new councils → posterior values reflect
           latest data before the demotion pass uses them
       6b. Promotion pass — fresh candidates from latest rejection
-          corpus → through the full gate
+          corpus → through the full gate. T3 reads the calibrated
+          baseline per basin (set in 6d the prior cycle).
       6c. Demotion pass — re-eval T4 on active moves (now including
           any just-promoted in 6b)
+      6d. T3↔T4 calibration — update per-basin elevated_baseline
+          based on observed demotion rate. The recursion-closing
+          edge: T3's promotion threshold is itself learned from T4's
+          verdict on T3's prior promotions.
 
     Returns a flat report dict the dream CLI can append into its
     overall report under `phases.moves`.
@@ -537,6 +694,11 @@ def phase_6_moves_pass(
         report["demotion"] = {"skipped": True}
     else:
         report["demotion"] = run_demotion_pass()
+
+    # 6d: T3↔T4 calibration — close the recursion edge. Updates
+    # ~/.trinity/dream_calibration.json with per-basin elevated
+    # baselines that the NEXT promotion pass reads.
+    report["calibration"] = update_calibration_from_demotions()
 
     # Update cursor for next dream cycle
     state["last_run_at"] = _now_iso()
