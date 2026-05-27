@@ -308,7 +308,7 @@ class TestColdStartHint:
         })
         hint = cold_start_hint()
         assert hint["status"] == "failed"
-        assert "seed-from-taste-terminal" in hint["message"]
+        assert "import-export" in hint["message"]
 
 
 class TestMcpResponseInjection:

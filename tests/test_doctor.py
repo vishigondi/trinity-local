@@ -312,7 +312,7 @@ class TestNextStepHint:
         report = self._make_report(providers_green=2, prompts_ok=False)
         hint = _next_step_hint(report)
         assert hint is not None
-        assert "seed-from-taste-terminal" in hint
+        assert "import-export" in hint
         assert "council-launch" in hint
 
     def test_hint_recommends_council_when_ready(self):

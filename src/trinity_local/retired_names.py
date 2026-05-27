@@ -566,6 +566,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
     ),
+    "commands.seed": RetirementRecord(
+        name="commands.seed",
+        retired_at="2026-05-27",
+        commit="(pending — landing now alongside the ingest_helpers consolidation)",
+        replacement="trinity-local import-export (auto-detects ChatGPT / claude.ai / Gemini Takeout at any path)",
+        reason="`src/trinity_local/commands/seed.py` (339 LOC) shipped the `seed-from-taste-terminal` CLI which required a personal-rig directory layout `~/projects/taste-terminal/data/exports/{claude_ai,chatgpt-*,gemini_takeout}/` that no end user has. The replacement `import-export` (task #148, shipped) auto-detects export type from any path. Confusingly, `import-export` was importing 3 helpers (`_existing_prompt_node_ids`, `_stage_session`, `_flush_chunk`) FROM the dead seed module — meaning the live CLI parasitically depended on the retired one. This retirement consolidates the helpers into `src/trinity_local/ingest_helpers.py` (public names: `existing_prompt_node_ids`, `stage_session`, `flush_chunk`) using the OPTIMIZED `iter_prompt_nodes_no_embedding` variant that `incremental_ingest.py` had been using locally. Both call sites now import from the shared module. Net: -339 LOC + slow-variant-fixed in import-export's hot path. See docs/CUT-CANDIDATES.md.",
+        kind="module",
+    ),
+    "seed-from-taste-terminal": RetirementRecord(
+        name="seed-from-taste-terminal",
+        retired_at="2026-05-27",
+        commit="(pending — landing now alongside the ingest_helpers consolidation)",
+        replacement="trinity-local import-export <path>",
+        reason="The `trinity-local seed-from-taste-terminal` CLI verb retired alongside its handler module. End-user-facing replacement is `import-export` which auto-detects export type at any path.",
+        kind="cli",
+    ),
     "commands.replay": RetirementRecord(
         name="commands.replay",
         retired_at="2026-05-27",

@@ -3,15 +3,17 @@
 Runs on the MCP hot path (or from CLI). Walks transcripts newer than a
 per-source cursor at ``~/.trinity/prompts/cursors.json`` and appends
 ``PromptNode`` records WITHOUT embeddings — embeddings are written by
-``seed-from-taste-terminal`` (one-shot) or recomputed lazily by
+``import-export`` (the one-shot bulk-ingest verb, which replaced the
+retired seed-from-taste-terminal 2026-05-27) or recomputed lazily by
 ``lens-build`` / ``consolidate``. Per ``claude.md``: the read path stays
-embedding-free, only seed and consolidation pay the embed cost.
+embedding-free, only bulk import and consolidation pay the embed cost.
 
 Deadline-bounded: the caller passes ``deadline_s`` (default 2s) and we
 persist the cursor at whichever path we got to so the next call resumes.
 Designed to fire-and-forget at the start of MCP ``ask`` (and the
 Chrome extension's ``ingest-recent`` action) so newly-typed prompts
-become routable without a manual ``seed-from-taste-terminal`` rerun.
+become routable without a manual ``import-export`` rerun (or its
+retired predecessor seed-from-taste-terminal).
 (The ``search_prompts`` MCP tool that previously co-triggered this
 was retired 2026-05-17 — substring + recency + replay-value
 heuristics replaced it per retired_names.py.)
@@ -23,8 +25,8 @@ import time
 from dataclasses import dataclass, field
 
 from .ingest import iter_prompt_turns
+from .ingest_helpers import existing_prompt_node_ids as _shared_existing_ids
 from .memory import PromptNode, upsert_prompt_node
-from .memory.store import iter_prompt_nodes_no_embedding
 from .state_paths import ingest_cursors_path
 from .task_types import guess_task_type
 from .utils import now_iso, stable_id
@@ -85,14 +87,11 @@ def _save_cursors(cursors: dict[str, float]) -> None:
 
 
 def _existing_prompt_node_ids() -> set[str]:
-    # Uncapped: dedup needs every existing ID, not the 5000 most-recent.
-    # Otherwise incremental_ingest reappends prompts whose IDs sit below
-    # the cap (most of the user's corpus on a populated install).
-    #
-    # Skinny variant: only the `id` field is read from each record, so
-    # paying ~1.85s of embedding-array parse per cold call (real 1GB
-    # corpus) is pure waste. Skip embeddings.
-    return {node.id for node in iter_prompt_nodes_no_embedding(limit=None)}
+    # Thin alias for the consolidated helper. Kept under the
+    # underscore-prefixed name so callers inside this module don't
+    # need to update; the canonical implementation lives in
+    # `ingest_helpers.existing_prompt_node_ids`.
+    return _shared_existing_ids()
 
 
 def ingest_recent(

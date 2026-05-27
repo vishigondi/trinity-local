@@ -42,9 +42,9 @@ _DEBUG_VERBS: list[tuple[str, str]] = [
         "meanings; two words ↔ one meaning).",
     ),
     (
-        "seed-from-taste-terminal",
-        "Bulk-ingest claude_ai / chatgpt / gemini Takeout exports "
-        "into ~/.trinity/prompts/.",
+        "import-export",
+        "Bulk-ingest a Takeout / ChatGPT export / Claude.ai export "
+        "at any path. Auto-detects format (#148).",
     ),
 ]
 
@@ -52,7 +52,7 @@ _DEBUG_VERBS: list[tuple[str, str]] = [
 def register(subparsers) -> None:
     parser = subparsers.add_parser(
         "debug",
-        help="Power-user verbs: consolidate, vocabulary, seed-from-taste-terminal.",
+        help="Power-user verbs: consolidate, vocabulary, import-export.",
     )
     parser.add_argument(
         "subcommand", nargs="?", default=None,

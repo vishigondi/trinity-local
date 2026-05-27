@@ -15,7 +15,9 @@ def _pin_hf_offline() -> None:
     ``~/.cache/huggingface/hub/`` (or wherever ``HF_HOME`` points). The
     one-time download is a deliberate user action via
     ``huggingface-cli download nomic-ai/nomic-embed-text-v1.5`` (or by
-    running once with ``HF_HUB_OFFLINE=0 trinity-local seed-from-taste-terminal``).
+    running once with ``HF_HUB_OFFLINE=0 trinity-local import-export <path>``;
+    the seed-from-taste-terminal verb that originally sat here retired
+    2026-05-27 in favor of the auto-detecting import-export).
 
     Why setdefault and not unconditional set: a user who explicitly wants
     online behavior (e.g. CI pulling fresh model weights) can export
@@ -57,7 +59,11 @@ CORE_COMMAND_MODULES = (
     # normally; council outcomes accumulate on disk and aggregate
     # automatically via compute_personal_routing_table().
     "review",
-    "seed",
+    # `seed` CLI verb retired 2026-05-27 — see retired_names.py.
+    # The bulk-ingest engine lives in src/trinity_local/ingest_helpers.py
+    # and is exposed via `import-export` (auto-detects export type at
+    # any path) instead of the personal-rig directory layout
+    # seed-from-taste-terminal required.
     "status",
     "telemetry",
     "update",

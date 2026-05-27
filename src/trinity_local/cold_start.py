@@ -9,9 +9,10 @@ background scan. The server keeps serving tool calls immediately;
 tool responses surface a `cold_start_scan` hint so the agent can tell
 the user "I'm ingesting your CLI history…" while the scan runs.
 
-Privacy invariant: same data path as `seed-from-taste-terminal`. Only
-walks transcript dirs the user already owns on this machine. No
-exports, no network, no opt-in dialog. Same `incremental_ingest`
+Privacy invariant: same data path as the retired `seed-from-taste-terminal`
+(replaced by `import-export` 2026-05-27). Only walks transcript dirs
+the user already owns on this machine. No exports, no network, no
+opt-in dialog. Same `incremental_ingest`
 pipeline so dedup / cursors / parser fallthrough behavior is shared.
 
 Disable for tests + CI with ``TRINITY_AUTOSCAN_DISABLED=1``; the
@@ -230,7 +231,7 @@ def cold_start_hint() -> dict | None:
                 "message": (
                     "Cold-start ingest of your CLI history hit an error: "
                     f"{state.get('error') or 'unknown'}. "
-                    "Run `trinity-local seed-from-taste-terminal` to retry."
+                    "Run `trinity-local import-export <path>` to retry."
                 ),
                 "added": state.get("added", 0),
             }

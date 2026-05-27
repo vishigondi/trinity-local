@@ -710,9 +710,10 @@ def _trigger_incremental_ingest() -> None:
     """Fire-and-forget: scan transcripts newer than the per-source memory
     cursor and append fresh ``PromptNode``s. Runs at the start of ``ask``
     so MCP-driven flows pick up new conversations without a manual
-    ``seed-from-taste-terminal`` rerun. Bounded at 1s so it cannot dominate
-    user-facing latency; errors are swallowed so a parser breakage cannot
-    take down the tool surface.
+    ``import-export`` rerun (or its retired predecessor seed-from-taste-
+    terminal). Bounded at 1s so it cannot dominate user-facing latency;
+    errors are swallowed so a parser breakage cannot take down the tool
+    surface.
     """
     try:
         from .incremental_ingest import ingest_recent

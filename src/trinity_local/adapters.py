@@ -54,7 +54,8 @@ _PROVIDER_SPECS: list[dict[str, Any]] = [
         # (~105KB each, one per conversation). The legacy gemini CLI's
         # `~/.gemini/tmp` JSON sessions are obsolete after the Antigravity
         # rebrand; if a user still has legacy data there, run a one-time
-        # `seed-from-taste-terminal --path ~/.gemini/tmp` pass to import.
+        # `import-export ~/.gemini/tmp` pass to import. (The earlier
+        # seed-from-taste-terminal CLI retired 2026-05-27.)
         "transcript_root": lambda: Path.home() / ".gemini" / "antigravity-cli" / "conversations",
         "glob": "*.pb",
     },

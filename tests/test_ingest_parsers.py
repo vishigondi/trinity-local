@@ -1,9 +1,13 @@
-"""Tests for v1 item 3: taste-terminal seed parsers + CLI."""
+"""Parser tests for transcript exports — claude.ai / ChatGPT export /
+Gemini Takeout HTML. Originally landed in test_seed.py alongside the
+seed-from-taste-terminal CLI round-trip; renamed to test_ingest_parsers.py
+when that CLI retired 2026-05-27 (see retired_names.py). The parsers
+themselves (in trinity_local.ingest) survive — they're shared by
+import-export and the in-process ingest paths."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -216,87 +220,3 @@ class TestGeminiTakeoutParser:
         assert "Which version" in turns[0].text
 
 
-# ---------------------------------------------------------------------------
-# seed-from-taste-terminal CLI
-# ---------------------------------------------------------------------------
-
-class TestSeedCLI:
-    def test_round_trip_indexes_prompt_nodes(
-        self,
-        patch_trinity_home: Path,
-        claude_ai_export: Path,
-        chatgpt_export: Path,
-        gemini_takeout_html: Path,
-        tmp_path: Path,
-        capsys,
-    ):
-        # Build the directory layout the CLI expects
-        root = tmp_path / "exports"
-        (root / "claude_ai").mkdir(parents=True)
-        (root / "chatgpt-2").mkdir(parents=True)
-        (root / "gemini_takeout" / "zip1" / "Takeout" / "My Activity" / "Gemini Apps").mkdir(parents=True)
-
-        (root / "claude_ai" / "conversations.json").write_bytes(claude_ai_export.read_bytes())
-        (root / "chatgpt-2" / "conversations-000.json").write_bytes(chatgpt_export.read_bytes())
-        (root / "gemini_takeout" / "zip1" / "Takeout" / "My Activity" / "Gemini Apps" / "MyActivity.html").write_bytes(
-            gemini_takeout_html.read_bytes()
-        )
-
-        from trinity_local.commands.seed import handle_seed
-        from trinity_local.memory import iter_prompt_nodes, iter_turn_windows
-
-        args = SimpleNamespace(
-            path=str(root),
-            source="all",
-            limit=None,
-            batch_size=8,
-            dim=768,
-        )
-        handle_seed(args)
-        out = capsys.readouterr().out
-        result = json.loads(out)
-        assert result["ok"] is True
-        # claude_ai (1 useful session w/ user turn) + chatgpt (2 user turns) + gemini (2 sessions)
-        assert result["prompts_indexed"] >= 3
-        # TranscriptNode tier was retired; transcripts_indexed is always 0 now.
-        assert result["transcripts_indexed"] == 0
-
-        nodes = list(iter_prompt_nodes())
-        assert len(nodes) == result["prompts_indexed"]
-        # Embedding length matches requested dim
-        assert all(len(n.embedding) == 768 for n in nodes)
-        # Each PromptNode has at least one theme via guess_task_type
-        assert all(n.themes for n in nodes)
-
-        # Multi-turn sources produce TurnWindows
-        windows = list(iter_turn_windows())
-        assert len(windows) == result["windows_indexed"]
-        # Single-turn Gemini Takeout entries should NOT produce TurnWindows
-        # (the parser yields 2-message sessions but iter_prompt_turns sees only 1 user turn,
-        #  so is_multi_turn is False — windows only come from claude_ai/chatgpt)
-
-    def test_resumable_skips_already_indexed_sessions(
-        self,
-        patch_trinity_home: Path,
-        claude_ai_export: Path,
-        tmp_path: Path,
-        capsys,
-    ):
-        root = tmp_path / "exports"
-        (root / "claude_ai").mkdir(parents=True)
-        (root / "claude_ai" / "conversations.json").write_bytes(claude_ai_export.read_bytes())
-
-        from trinity_local.commands.seed import handle_seed
-
-        args = SimpleNamespace(path=str(root), source="claude_ai", limit=None, batch_size=8, dim=768)
-
-        # First run
-        handle_seed(args)
-        first = json.loads(capsys.readouterr().out)
-        assert first["prompts_indexed"] >= 1
-
-        # Second run: same data → all sessions skipped as already indexed
-        handle_seed(args)
-        second = json.loads(capsys.readouterr().out)
-        assert second["prompts_indexed"] == 0
-        assert second["skipped_existing"] >= 1

@@ -126,12 +126,13 @@ class TestDebugUmbrella:
         rc = handle_debug(SimpleNamespace(subcommand=None))
         assert rc == 0
         out = capsys.readouterr().out
-        # Each surviving debug verb must be listed. `replay-history`
-        # was retired 2026-05-27 (see retired_names.py).
+        # Each surviving debug verb must be listed. `replay-history` +
+        # `seed-from-taste-terminal` were retired 2026-05-27 (see
+        # retired_names.py); `import-export` replaced the seed verb.
         for verb in (
             "consolidate",
             "vocabulary",
-            "seed-from-taste-terminal",
+            "import-export",
         ):
             assert verb in out, (
                 f"debug umbrella must list {verb!r}; got: {out!r}"

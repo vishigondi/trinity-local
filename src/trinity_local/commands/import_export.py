@@ -1,9 +1,10 @@
 """``trinity-local import-export PATH`` — bulk Takeout / web-export import (#148).
 
-The existing ``seed-from-taste-terminal`` command requires a personal-rig
-directory layout (``~/projects/taste-terminal/data/exports/...``). End
-users with their own Takeout / ChatGPT-export downloads have arbitrary
-paths, so they can't use it.
+The retired ``seed-from-taste-terminal`` command (sunset 2026-05-27)
+required a personal-rig directory layout
+(``~/projects/taste-terminal/data/exports/...``). End users with their
+own Takeout / ChatGPT-export downloads have arbitrary paths, so they
+couldn't use it. This is its replacement.
 
 This command auto-detects the export type by probing structure:
 
@@ -16,9 +17,9 @@ This command auto-detects the export type by probing structure:
 
 If the path is a directory, walks it looking for any of the above
 patterns. Each detected source is parsed and the SessionRecords are
-indexed via the same Stage 0–1 pipeline that ``seed-from-taste-terminal``
-uses (the actual indexer is shared — _flush_chunk + _stage_session
-are imported from commands.seed).
+indexed via the shared Stage 0–1 pipeline in
+``src/trinity_local/ingest_helpers.py`` (``existing_prompt_node_ids``
++ ``stage_session`` + ``flush_chunk``).
 
 This is the backend primitive the launchpad bulk-import UI will call.
 Slice 1 of task #148 ships the CLI; the launchpad UI follows as
@@ -225,10 +226,14 @@ def handle_import_export(args):
         }, indent=2))
         return
 
-    # Ingest phase — reuse seed.py's chunked indexer
-    from .seed import _existing_prompt_node_ids, _flush_chunk, _stage_session
+    # Ingest phase — shared chunked indexer in ingest_helpers.py
+    from ..ingest_helpers import (
+        existing_prompt_node_ids,
+        flush_chunk,
+        stage_session,
+    )
 
-    existing_ids = _existing_prompt_node_ids()
+    existing_ids = existing_prompt_node_ids()
     chunk: list[dict] = []
     prompts_indexed = 0
     windows_indexed = 0
@@ -240,7 +245,7 @@ def handle_import_export(args):
         nonlocal prompts_indexed, windows_indexed, transcripts_indexed, sessions_indexed
         if not chunk:
             return
-        p, w, t = _flush_chunk(chunk, existing_ids, dim=args.dim, batch_size=args.batch_size)
+        p, w, t = flush_chunk(chunk, existing_ids, dim=args.dim, batch_size=args.batch_size)
         prompts_indexed += p
         windows_indexed += w
         transcripts_indexed += t
@@ -269,7 +274,7 @@ def handle_import_export(args):
                 break
             sessions_seen += 1
             n_for_source += 1
-            staged = _stage_session(session, existing_ids)
+            staged = stage_session(session, existing_ids)
             if staged is None:
                 continue
             chunk.append(staged)

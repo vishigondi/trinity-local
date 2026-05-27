@@ -402,7 +402,7 @@ def _check_prompts_seeded() -> CheckResult:
             name="prompts_seeded",
             ok=True,  # not blocking — first-time users have empty memory
             detail="no transcripts seeded yet (you can still run councils)",
-            fix="trinity-local seed-from-taste-terminal --path ~/projects/taste-terminal/data/exports   # if you have transcripts to ingest",
+            fix="trinity-local import-export <path-to-export>   # ChatGPT / Claude.ai / Gemini Takeout ingest",
         )
     # Approximate count from line count
     line_count = sum(1 for _ in nodes.open())
@@ -849,7 +849,7 @@ def _next_step_hint(report: DoctorReport) -> str | None:
     if prompts_check is None or not prompts_check.ok:
         return (
             "Try this next: seed your prompt index with "
-            "`trinity-local seed-from-taste-terminal`, then run a council "
+            "`trinity-local import-export <path>`, then run a council "
             "with `trinity-local council-launch --task 'your hard question'`."
         )
     return (

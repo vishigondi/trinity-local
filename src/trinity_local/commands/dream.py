@@ -197,7 +197,7 @@ def handle_dream(args):
     if not clusters:
         print(
             "  no cross-provider pairs to synthesize — try --similarity-threshold 0.80 "
-            "or run seed-from-taste-terminal to populate embeddings.",
+            "or run `trinity-local import-export <path>` to populate embeddings.",
             file=sys.stderr,
         )
 

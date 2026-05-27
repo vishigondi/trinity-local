@@ -127,7 +127,8 @@ The chairman reads `lens` (composed by `lens-build` from sampled diverse prompts
 |--------|-------------|
 | `commands/council.py` | `council-start`, `council-launch`, `council-stop`, `council-share`, `council-iterate` (former `council-html` retired 2026-05-17 with the verifier→synthesis rename; `council-rate` retired 2026-05-22 alongside the rest of the rating UX — chairman pick is the auto-recorded supervision signal now) |
 | `commands/me.py` | `lens-build` (chairman-driven), `lens-show` |
-| `commands/seed.py` | `seed-from-taste-terminal` (ingest from claude_ai/chatgpt/gemini takeout exports) |
+| ~~`commands/seed.py`~~ | ~~`seed-from-taste-terminal`~~ — retired 2026-05-27 (required a personal-rig directory layout no end user has; `import-export` auto-detects type at any path; helpers consolidated into `src/trinity_local/ingest_helpers.py`) |
+| `commands/import_export.py` | `import-export` (auto-detect + bulk-ingest ChatGPT / Claude.ai / Gemini Takeout from any path, task #148) |
 | ~~`commands/replay.py`~~ | ~~`replay-history`~~ — retired 2026-05-27 (routing table now populates from normal council usage; see `retired_names.py`) |
 | `commands/portal.py` | `portal-html` (regenerates the launchpad), `open-review`, `review-link`, `serve` |
 | `commands/install.py` | `install-mcp`, `install-hooks`, `install-extension`, `install-launcher`, `uninstall` |
@@ -203,8 +204,8 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 
 ## What's working today (v1.1)
 
-1. **Memory index live.** `seed-from-taste-terminal` populates `~/.trinity/prompts/` from claude_ai + chatgpt + gemini takeout exports. 768d nomic embeddings written at ingest, used by `lens-build` only.
-2. **Embedding-free hot path.** Launchpad autofill, MCP `ask` k-NN lookup, `replay-history`. Substring + recency + replay-value heuristics. ~150ms warm query over 5000 cached recent PromptNodes. (`search_prompts` MCP tool was retired 2026-05-17 — the hot path now lives inside `ask`.)
+1. **Memory index live.** `trinity-local import-export <path>` auto-detects ChatGPT / Claude.ai / Gemini Takeout exports at any path and populates `~/.trinity/prompts/`. 768d nomic embeddings written at ingest, used by `lens-build` only. (The earlier personal-rig `seed-from-taste-terminal` verb retired 2026-05-27; engine lives in `ingest_helpers.py` now.)
+2. **Embedding-free hot path.** Launchpad autofill + MCP `ask` k-NN lookup. Substring + recency + replay-value heuristics. ~150ms warm query over 5000 cached recent PromptNodes. (`search_prompts` MCP tool was retired 2026-05-17 — the hot path now lives inside `ask`. `replay-history` retired 2026-05-27 — routing table populates from normal council usage.)
 3. **Personal routing table (on-demand).** Computed by walking `council_outcomes/*.json`, mtime-cached. Read by chairman_picker + launchpad.
 4. **Chairman auto-selection.** `predict_strongest_chairman(task)` consults personal table → global priors → default order.
 5. **Structured chairman output.** Every council emits Routing JSON with `agreed_claims`, `disagreed_claims` (with `why_matters`), `winner`, `runner_up`, `provider_scores`, `routing_lesson`, `eval_seed`.
@@ -223,7 +224,7 @@ Each was on a previous version of this spec; each was cut to keep the surface ho
 - **Aggregation endpoint (§8.9).** Cloudflare Worker for live global priors + public leaderboard. Read access free for all; upload opt-in only with anonymous categorical labels (no prompt content). Ship after Routing JSON parse-success ≥85% sustained and ≥50 opt-in users.
 - **Profile-DB / shared personas (v1.2).** Architecture D — opt-in registry of metadata + curated famous-person personas built from public sources. **Never** hosts ordinary user `/lens.md`. (Originally cited a council outcome that doesn't survive in any artifact; citation dropped per the phantom-citation sweep — claim itself is unchanged.)
 - **Harness auto-invocation.** `route()` returns `should_auto_council: bool` based on 5 trigger conditions (irreversible state, multi-architecture choice, load-bearing commitment edits, low confidence, user-override history). Rate-limited at 1 per 10 user turns / 1 per 20 min.
-- **Tool-triggered cursor-based incremental ingest.** Cursors live at `~/.trinity/prompts/cursors.json`; fires on MCP tool invocation rather than the existing one-off `seed-from-taste-terminal`.
+- **Tool-triggered cursor-based incremental ingest.** Cursors live at `~/.trinity/prompts/cursors.json`; fires on MCP tool invocation rather than relying on one-off bulk imports. (Originally this entry contrasted against `seed-from-taste-terminal`, retired 2026-05-27 — same idea, replacement is `import-export`.)
 - **Phase 9 learned tiny coordinator.** v1 collects the personal data; Phase 9 trains a per-user adapter against it.
 
 ---

@@ -386,7 +386,7 @@ def distill_vocabulary(
     if not nodes_with_emb:
         return {
             "ok": False, "skipped": True,
-            "reason": "no embedded prompts yet — run `seed-from-taste-terminal` first",
+            "reason": "no embedded prompts yet — run `import-export` first",
         }
 
     contexts = _gather_token_contexts(nodes_with_emb, min_freq=min_freq)

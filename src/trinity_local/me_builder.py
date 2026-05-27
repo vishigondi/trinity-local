@@ -340,7 +340,7 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
         empty = (
             "# /me\n\n"
             "_No prompt history indexed yet. Run "
-            "`trinity-local seed-from-taste-terminal --path <exports>` to "
+            "`trinity-local import-export <path>` to "
             "populate the memory index, then re-run `trinity-local lens-build`._\n"
         )
         path.write_text(empty, encoding="utf-8")
@@ -481,7 +481,7 @@ def build_me_via_lens_pipeline(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "# /me\n\n_No prompt history indexed yet. Run "
-            "`trinity-local seed-from-taste-terminal --path <exports>` first._\n",
+            "`trinity-local import-export <path>` first._\n",
             encoding="utf-8",
         )
         return path, {"skipped": True, "reason": "no_prompts"}
