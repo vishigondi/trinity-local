@@ -60,6 +60,7 @@ mlx = [
 [tool.pytest.ini_options]
 markers = [
     "real_corpus: runs against the real ~/.trinity install; skipped when none present",
+    "slow: tests that hit real Chrome / MLX / provider subprocesses; deselect with '-m \"not slow\"' for fast feedback. Run all with TRINITY_SLOW=1 or pytest -m slow.",
 ]
 
 [tool.mypy]

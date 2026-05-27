@@ -13,6 +13,13 @@ from __future__ import annotations
 from http.server import HTTPServer
 import socket
 import threading
+
+import pytest
+
+# Spins up a real HTTPServer + hits it via urllib. The slow marker
+# keeps it out of the default `pytest -q` shard so unit tests stay
+# under a minute. Run with `pytest -m slow` or `TRINITY_SLOW=1 pytest`.
+pytestmark = pytest.mark.slow
 import urllib.request
 
 

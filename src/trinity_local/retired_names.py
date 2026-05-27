@@ -569,7 +569,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "shortcuts_integration": RetirementRecord(
         name="shortcuts_integration",
         retired_at="2026-05-26",
-        commit="(this commit)",
+        commit="a1e059d",
         replacement="(none — call sites inline the empty-URL pattern directly; JS dispatch already skips tier-2-shortcut when URL is empty)",
         reason="`src/trinity_local/shortcuts_integration.py` (47 LOC) was the inert shim left behind when the macOS-Shortcut dispatch tier was retired 2026-05-17 (commit 53db635). It returned empty URLs so the launchpad JS dispatch (`launchpad_runtime.js`) would skip tier-2 and route everything through the Chrome extension. The shim was kept so 6 import sites in `council_review.py` + `launchpad_data.py` didn't break. Per `docs/CUT-CANDIDATES.md` Category C (HIGH-confidence cut): the inline 'DEFAULT_SHORTCUT_NAME = \"Trinity Dispatch\"' constant + empty-string URL placeholder is two lines per call site, which is cheaper than maintaining the shim. Module deleted in this commit; call sites updated to inline the constants.",
         kind="module",

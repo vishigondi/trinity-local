@@ -59,7 +59,6 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/REPO_PUBLIC_RUNBOOK.md",
     "docs/spec-v1.md",
     "docs/three-tier-architecture.md",
-    "docs/training-data.md",
     "docs/historical/trust-mode.md",
     "docs/SITE_README.md",
     # ── Other tracked user-facing READMEs ──
@@ -77,23 +76,27 @@ CLASSIFIABLE_DOCS: list[str] = [
     "docs/launch-day/09_linkedin_post.md",
     "docs/launch-day/10_hn_faq_full.md",
     # ── Aspirational ──
-    "docs/spec-v1.5.md",
-    "docs/spec-v1.6.md",
-    "docs/cross-platform-spec.md",
+    # (spec-v1.5 / spec-v1.6 / cross-platform-spec / sweep-patterns /
+    # training-data / founder-essay moved to docs/historical/ in the
+    # 2026-05-26 cut pass — see docs/CUT-CANDIDATES.md Category A.)
     "docs/launcher-patterns.md",
-    "docs/sweep-patterns.md",
     "docs/architectural-gaps.md",
     "docs/design-frame.md",
-    "docs/founder-essay-draft.md",
     "docs/product-spec.md",
-    "docs/scale-plan.md",
     "docs/telemetry-spec.md",
     "docs/frontend-architecture.md",
-    # ── Historical ──
-    "docs/spec-v2.md",
-    "docs/v2-loop-constitution.md",
-    "docs/PUBLIC_READINESS_PLAN.md",
-    "docs/simplification_log.md",
+    # ── Historical (moved to docs/historical/ in the 2026-05-26 cut pass) ──
+    "docs/historical/spec-v2.md",
+    "docs/historical/v2-loop-constitution.md",
+    "docs/historical/PUBLIC_READINESS_PLAN.md",
+    "docs/historical/simplification_log.md",
+    "docs/historical/scale-plan.md",
+    "docs/historical/founder-essay-draft.md",
+    "docs/historical/spec-v1.5.md",
+    "docs/historical/spec-v1.6.md",
+    "docs/historical/cross-platform-spec.md",
+    "docs/historical/sweep-patterns.md",
+    "docs/historical/training-data.md",
     # docs/historical/ — created 2026-05-22 in v1.7.5 cleanup pass
     # when claude.md was cut from 918 → 183 lines. Each file is a
     # relocated section of the old claude.md (principles, retired-name

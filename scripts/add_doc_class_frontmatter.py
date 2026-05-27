@@ -64,7 +64,7 @@ CLASSIFICATIONS: dict[str, str] = {
     # to docs/training-data.md and breaking those links isn't worth
     # the relocation. Same precedent as v2-loop-constitution.md /
     # PUBLIC_READINESS_PLAN.md / simplification_log.md.
-    "docs/training-data.md": "historical",
+    "docs/historical/training-data.md": "historical",
     "docs/historical/trust-mode.md": "historical",
     "docs/SITE_README.md": "live",
     # ── Other tracked user-facing READMEs ──
@@ -82,29 +82,29 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/launch-day/09_linkedin_post.md": "live",
     "docs/launch-day/10_hn_faq_full.md": "live",
     # ── Aspirational (forward-looking; drift expected) ──
-    "docs/spec-v1.5.md": "aspirational",
-    "docs/spec-v1.6.md": "aspirational",
-    "docs/cross-platform-spec.md": "aspirational",
+    "docs/historical/spec-v1.5.md": "aspirational",
+    "docs/historical/spec-v1.6.md": "aspirational",
+    "docs/historical/cross-platform-spec.md": "aspirational",
     "docs/launcher-patterns.md": "aspirational",
-    "docs/sweep-patterns.md": "aspirational",
+    "docs/historical/sweep-patterns.md": "aspirational",
     "docs/architectural-gaps.md": "aspirational",
     "docs/design-frame.md": "aspirational",
-    "docs/founder-essay-draft.md": "aspirational",
+    "docs/historical/founder-essay-draft.md": "aspirational",
     "docs/product-spec.md": "aspirational",
-    "docs/scale-plan.md": "aspirational",
+    "docs/historical/scale-plan.md": "aspirational",
     "docs/telemetry-spec.md": "aspirational",
     "docs/frontend-architecture.md": "aspirational",
     # ── Historical (snapshots; do not edit) ──
-    "docs/spec-v2.md": "historical",
-    "docs/v2-loop-constitution.md": "historical",
+    "docs/historical/spec-v2.md": "historical",
+    "docs/historical/v2-loop-constitution.md": "historical",
     # docs/historical/ — created 2026-05-22 in v1.7.5 cleanup pass
     # (Phase 4 cut claude.md 918 → 183 lines; these 3 carry the
     # relocated principles / retirement-log / brand-evolution sections).
     "docs/historical/principles.md": "historical",
     "docs/historical/retirement-log.md": "historical",
     "docs/historical/brand-evolution.md": "historical",
-    "docs/PUBLIC_READINESS_PLAN.md": "historical",
-    "docs/simplification_log.md": "historical",
+    "docs/historical/PUBLIC_READINESS_PLAN.md": "historical",
+    "docs/historical/simplification_log.md": "historical",
 }
 
 

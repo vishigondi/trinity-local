@@ -2,10 +2,40 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+
+def pytest_collection_modifyitems(config, items):
+    """Two-tier test split (gstack pattern, 2026-05-27).
+
+    Tests marked ``@pytest.mark.slow`` are skipped by default so
+    ``pytest -q`` stays under a minute. Run the slow shard explicitly:
+
+      TRINITY_SLOW=1 pytest -q       # run everything
+      pytest -m slow                  # run only the slow shard
+      pytest -m "not slow"            # explicit fast-only
+
+    Without the env or an explicit ``-m`` selector, slow tests are
+    deselected at collection time — same behavior as gstack's
+    ``EVALS=1`` gate. Treats retries as a non-determinism budget,
+    not cover for real bugs (see gstack pattern #7 in the audit).
+    """
+    if os.environ.get("TRINITY_SLOW") == "1":
+        return
+    selected_marker = config.getoption("-m", default="") or ""
+    if selected_marker:
+        return
+    skip_slow = pytest.mark.skip(
+        reason="slow test (real Chrome / MLX / provider subprocess). "
+        "Run with TRINITY_SLOW=1 or `pytest -m slow`."
+    )
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
 
 
 @pytest.fixture(autouse=True)

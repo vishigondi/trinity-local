@@ -126,7 +126,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2118<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2123<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
@@ -176,13 +176,13 @@ What v1.1 picks up:
   (v1.1 will design the shape fresh — the v1.0 `trust.schema.json`
   was deleted 2026-05-22 alongside the library; the v1.0 toml example
   is preserved in [`historical/trust-mode.md`](historical/trust-mode.md)
-  if reference is wanted), user-facing CLI
-  (`trust-init` / `trust-show` / `audit-show`),
-  automatic audit rotation, visible trust indicators in launchpad +
-  extension popup, cross-tier `TRINITY_ORIGIN_TIER` propagation (the
-  audit-log writer already stamps this), `--tier`/`--operation`/
-  `--outcome` filter flags, and a top-level `--dangerously-trust-all`
-  flag on `trinity-local`.
+  if reference is wanted), user-facing CLI (the prior trust-init /
+  trust-show / audit-show surface was retired alongside the library;
+  v1.1 will design replacements fresh), automatic audit rotation,
+  visible trust indicators in launchpad + extension popup, cross-tier
+  `TRINITY_ORIGIN_TIER` propagation (the audit-log writer already
+  stamps this), `--tier`/`--operation`/`--outcome` filter flags, and
+  a top-level `--dangerously-trust-all` flag on `trinity-local`.
 - Cross-backend equivalence test harness:
   `tests/test_tier_equivalence.py` covering MLX / torch CPU / (post-
   v1.1) torch CUDA against pinned-config invariants.
