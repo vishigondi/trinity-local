@@ -97,7 +97,7 @@ def register(subparsers):
         action="store_true",
         help=(
             "Read the JSON payload from stdin instead of a file path. "
-            "Convention matches `decision-log --from-json`."
+            "Same `--from-json` convention used by `eval-import`."
         ),
     )
     imp.add_argument(

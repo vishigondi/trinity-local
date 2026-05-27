@@ -561,8 +561,10 @@ def build_me_via_lens_pipeline(
     decisions = stage2_parse(stage2_result.stdout or "", basins)
 
     # Prepend high-weight decisions from two sources:
-    #   1. `trinity-local decision-log` → user_logged (weight 2.0).
-    #      Live capture at decision-time; HIGH-QUALITY counterfactual.
+    #   1. user-authored `~/.trinity/me/decision_log.jsonl` → user_logged
+    #      (weight 2.0). The interactive `decision-log` CLI was retired
+    #      2026-05-27 (see retired_names.py); the loader still reads any
+    #      JSONL the user wrote previously or wrote by hand.
     #   2. lens.md edits → lens_edit (weight 3.0). The strongest signal
     #      Trinity collects — the user is directly editing the lens, not
     #      just reacting to council output. Plan iter 1 (2026-05-23),

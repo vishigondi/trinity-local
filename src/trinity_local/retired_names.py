@@ -566,6 +566,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
     ),
+    "commands.decision_log": RetirementRecord(
+        name="commands.decision_log",
+        retired_at="2026-05-27",
+        commit="c8874fb",
+        replacement="(none — decision_log.jsonl loader survives in me/decisions.py for back-compat)",
+        reason="`src/trinity_local/commands/decision_log.py` (214 LOC, 1 test) registered the `decision-log` CLI verb shipped 2026-05-23 (task #137). Per CUT-CANDIDATES.md Category C: 'Recently shipped... requires the user to interactively log decisions, which adds friction. 3 days post-ship, 0 evidence of organic use. The lens pipeline works without it.' The `me/decisions.py` loader survives so existing `~/.trinity/me/decision_log.jsonl` files (if any user wrote some) still feed lens-build Stage 2 at weight=2.0.",
+        kind="module",
+    ),
+    "decision-log": RetirementRecord(
+        name="decision-log",
+        retired_at="2026-05-27",
+        commit="c8874fb",
+        replacement="(none — see retired_names commands.decision_log)",
+        reason="The `trinity-local decision-log` CLI verb retired alongside its handler module. Users wanting to log decisions can write JSONL directly to ~/.trinity/me/decision_log.jsonl by hand — the loader still reads it.",
+        kind="cli",
+    ),
     "commands.adapters": RetirementRecord(
         name="commands.adapters",
         retired_at="2026-05-27",

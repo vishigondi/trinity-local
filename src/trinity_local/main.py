@@ -37,7 +37,9 @@ CORE_COMMAND_MODULES = (
     "cortex",
     "council",
     "debug",
-    "decision_log",
+    # `decision_log` CLI verb retired 2026-05-27 — see retired_names.py.
+    # The me/decisions.py loader survives so existing decision_log.jsonl
+    # files keep flowing into lens-build at weight=2.0.
     "download_embedder",
     "dream",
     "eval",

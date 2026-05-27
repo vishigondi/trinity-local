@@ -1,5 +1,10 @@
 """Stage 2 — decision extraction (one chairman call).
 
+NOTE: the `trinity-local decision-log` CLI was retired 2026-05-27 (0
+organic usage); the historical references to it below describe the
+data shape that the loader still reads from any user-authored
+`~/.trinity/me/decision_log.jsonl` file. See retired_names.py.
+
 Walk MMR-sampled chunks, ask the chairman to surface every
 decision-shaped utterance with structured tags. Output is
 `~/.trinity/me/decisions.jsonl` — one JSON line per decision.
@@ -48,18 +53,19 @@ class Decision:
     prompt_id: str | None = None
     # Plan iter 1 (2026-05-23): post-launch lens-build extensions.
     # `would_flip_if`: counterfactual reasoning attached to the decision —
-    # "what evidence would have flipped this trade-off?" Captured live via
-    # `trinity-local decision-log` (HIGH-QUALITY signal, source='user_logged');
-    # backfilled retroactively from transcripts via Stage 2 prompt
-    # (LOWER-QUALITY — chairman may rationalize; prompt explicit "leave
-    # blank if unclear, do not rationalize"). The pattern: capture the
-    # highest-quality signal where it lives (at the decision), not where
-    # it's cheapest to extract (in the transcript).
+    # "what evidence would have flipped this trade-off?" Originally
+    # captured live via the (retired) decision-log CLI (HIGH-QUALITY
+    # signal, source='user_logged'); now only backfilled retroactively
+    # from transcripts via Stage 2 prompt (LOWER-QUALITY — chairman may
+    # rationalize; prompt explicit "leave blank if unclear, do not
+    # rationalize"). The pattern: capture the highest-quality signal
+    # where it lives (at the decision), not where it's cheapest to
+    # extract (in the transcript).
     would_flip_if: str = ""
     # `source`: provenance of this decision. Weight hierarchy reflects
     # how directly the user asserted the signal:
     #   "transcript"   = Stage 2 chairman extracted from prompt history (weight 1.0, default)
-    #   "user_logged"  = user invoked `trinity-local decision-log` interactively (weight 2.0)
+    #   "user_logged"  = sourced from ~/.trinity/me/decision_log.jsonl — historically populated by the retired `decision-log` CLI (weight 2.0)
     #   "lens_edit"    = derived from a user edit to lens.md — strongest signal,
     #                    user is directly asserting taste rather than reacting
     #                    to council output (weight 3.0; #140 slice 2)
@@ -102,11 +108,11 @@ def decisions_path() -> Path:
 def decision_log_path() -> Path:
     """Append-only JSONL of live-captured strategic decisions.
 
-    User invokes `trinity-local decision-log` interactively to capture a
-    trade-off at the moment they make it — vs. retroactive chairman
-    extraction from transcripts which is prone to rationalization. The
-    pair-miner reads this log first at 2x weight; existing pair-mining
-    backfills the long tail from transcripts at default 1x weight.
+    Historically populated by the `decision-log` CLI (retired 2026-05-27,
+    0 organic usage); users wanting to keep the high-quality at-decision-
+    time signal can append JSONL to this path by hand — the pair-miner
+    still reads it first at 2x weight. Pair-mining backfills the long
+    tail from transcripts at default 1x weight.
     """
     return me_dir() / "decision_log.jsonl"
 
@@ -188,8 +194,9 @@ CRITICAL: Leave `would_flip_if` blank ("") if the chunk doesn't show
 clear counterfactual reasoning. Do NOT rationalize. Retroactive
 extraction is LOW-QUALITY signal by design — better to emit empty
 than to invent a plausible-sounding counterfactual the user never
-actually thought. The HIGH-QUALITY signal comes from
-`trinity-local decision-log` captured at decision-time.
+actually thought. The HIGH-QUALITY signal historically came from the
+(retired 2026-05-27) `decision-log` CLI captured at decision-time —
+users can still hand-write to decision_log.jsonl.
 
 When in doubt: empty string is correct.
 
