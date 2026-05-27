@@ -1,7 +1,10 @@
 """Provider adapter discovery and status.
 
 Checks which provider CLIs are available, their versions, and transcript paths.
-Used by the ``adapters`` CLI command.
+Used by ``trinity-local status`` to render the provider-adapter table.
+(The dedicated ``adapters`` CLI verb was retired 2026-05-27 — see
+``retired_names.py``; this library module survives because status,
+setup_guidance, and launchpad_data all read AdapterStatus.)
 """
 from __future__ import annotations
 

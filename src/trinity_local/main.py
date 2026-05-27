@@ -29,7 +29,11 @@ def _pin_hf_offline() -> None:
 
 
 CORE_COMMAND_MODULES = (
-    "adapters",
+    # `adapters` CLI verb retired 2026-05-27 (commit 6a03d10 follow-up) —
+    # `trinity-local status` already shows provider adapter status; the
+    # dedicated verb was a duplicate surface with zero unique value.
+    # The src/trinity_local/adapters.py library module survives (used by
+    # status / setup_guidance / launchpad_data). See retired_names.py.
     "cortex",
     "council",
     "debug",

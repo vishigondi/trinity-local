@@ -566,6 +566,22 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
     ),
+    "commands.adapters": RetirementRecord(
+        name="commands.adapters",
+        retired_at="2026-05-27",
+        commit="6a03d10",
+        replacement="trinity-local status",
+        reason="`src/trinity_local/commands/adapters.py` (35 LOC, 0 tests) registered the `adapters` CLI verb which printed provider-adapter discovery status. `trinity-local status` already covers the same surface and is the canonical health-check entry point. Per `docs/CUT-CANDIDATES.md` Category C HIGH-confidence cut: 'duplicates `status`, zero unique value.' Library module `src/trinity_local/adapters.py` survives — used by status / setup_guidance / launchpad_data.",
+        kind="module",
+    ),
+    "adapters": RetirementRecord(
+        name="adapters",
+        retired_at="2026-05-27",
+        commit="6a03d10",
+        replacement="trinity-local status",
+        reason="The `trinity-local adapters` CLI verb retired alongside its handler module. `status` shows the same provider-adapter table.",
+        kind="cli",
+    ),
     "shortcuts_integration": RetirementRecord(
         name="shortcuts_integration",
         retired_at="2026-05-26",
