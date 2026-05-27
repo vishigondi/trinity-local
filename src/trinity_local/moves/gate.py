@@ -380,17 +380,17 @@ def render_tension_rubric_for_basin(
 
     tensions = tensions[:max_tensions]
 
-    lines: list[str] = []
+    lines: list[str] = [
+        "Grade higher when the move helps the model find the load-bearing",
+        "midpoint of these tensions instead of collapsing to either pole:",
+        "",
+    ]
     for t in tensions:
         lines.append(f"TENSION: {t.pole_a} ↔ {t.pole_b}")
         if t.pole_a_failure:
             lines.append(f"  Pure-{t.pole_a} fails as: {t.pole_a_failure}")
         if t.pole_b_failure:
             lines.append(f"  Pure-{t.pole_b} fails as: {t.pole_b_failure}")
-        lines.append(
-            "  Grade higher when the move helps the model find the "
-            "load-bearing midpoint instead of collapsing to either pole."
-        )
         lines.append("")
     return "\n".join(lines).strip()
 
@@ -500,7 +500,6 @@ def gate_lens_tensions(
         "kept":     [LensTension],                   # all basins survived
         "narrowed": [(orig, new)],                   # some basins dropped
         "archived": [(LensTension, reason)],         # no basins survived
-        "by_basin": {basin_id: {pass: int, fail: int}},
       }
 
     The kernel applying to its own substrate: same T1/T2 primitives that
@@ -515,7 +514,6 @@ def gate_lens_tensions(
     kept: list[LensTension] = []
     narrowed: list[tuple[LensTension, LensTension]] = []
     archived: list[tuple[LensTension, str]] = []
-    by_basin: dict[str, dict[str, int]] = {}
 
     for tension in tensions:
         if not tension.basins:
@@ -534,8 +532,6 @@ def gate_lens_tensions(
                 (t1.passed and t2.passed) if require_both_tiers
                 else (t1.passed or t2.passed)
             )
-            counters = by_basin.setdefault(basin, {"pass": 0, "fail": 0})
-            counters["pass" if survives else "fail"] += 1
             if survives:
                 surviving.append(basin)
             else:
@@ -567,7 +563,6 @@ def gate_lens_tensions(
         "kept": kept,
         "narrowed": narrowed,
         "archived": archived,
-        "by_basin": by_basin,
     }
 
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/vishigondi/trinity-local/main/schemas/dream_calibration.schema.json",
   "title": "Dream Calibration (T3↔T4 self-correction state)",
-  "description": "Per-basin T3 baseline calibration state written by `update_calibration_from_demotions` (dream Phase 6d) and read by `run_promotion_pass` (Phase 6b). Closes the recursion edge of the 4-tier gate: when T4 keeps demoting moves a basin's T3 chose to promote, T3's bar for that basin gets raised; when T4 sustains them, the bar can relax. Lives at `~/.trinity/dream_calibration.json`. Single document keyed by basin id; rewritten in place each pass.",
+  "description": "Per-basin T3 baseline calibration state written by `update_calibration_from_demotions` (dream Phase 6d) and read by `run_promotion_pass` (Phase 6b). Closes the recursion edge of the 4-tier gate: when T4 keeps demoting moves a basin's T3 chose to promote, T3's bar for that basin gets raised; when T4 sustains them, the bar can relax. Lives at `~/.trinity/dream_calibration.json`. Single document keyed by basin id; rewritten in place each pass. Disk record carries only what the next promotion pass reads — observability fields (demotion rate, counts, prior baseline) live in the ephemeral dream report.",
   "type": "object",
   "required": ["version", "per_basin"],
   "properties": {
@@ -14,14 +14,14 @@
     "updated_at": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 UTC timestamp (seconds precision) of the most recent calibration write. Best-effort: set by `_save_calibration`. Useful for analytics — how stale is the current calibration relative to recent demotions?"
+      "description": "ISO 8601 UTC timestamp (seconds precision) of the most recent calibration write. Best-effort: set by `_save_calibration`."
     },
     "per_basin": {
       "type": "object",
       "description": "Map from basin id (string, matches topics.json keys) to per-basin calibration state. Basins with fewer than _CALIBRATION_MIN_OBSERVATIONS promote+demote events are absent — `calibrated_baseline_for_basin` returns None and T3 uses its disk default.",
       "additionalProperties": {
         "type": "object",
-        "required": ["elevated_baseline", "demotion_rate", "last_action"],
+        "required": ["elevated_baseline", "last_action"],
         "properties": {
           "elevated_baseline": {
             "type": "number",
@@ -29,37 +29,10 @@
             "maximum": 0.9,
             "description": "Calibrated T3 baseline floor for this basin. `run_promotion_pass` passes this as the gate's `baseline` arg so T3's threshold is `max(disk_default, elevated_baseline)`. Clamped to [0.50, 0.90] — never relaxes below T3's safety floor and never escalates so high that nothing can promote."
           },
-          "prior_baseline": {
-            "type": "number",
-            "minimum": 0.5,
-            "maximum": 0.9,
-            "description": "The elevated_baseline value before this calibration pass. Together with `last_action` lets analytics see the trajectory: prior 0.55 → new 0.65 with action `elevated` means the basin's T3 bar moved up by one step this cycle."
-          },
-          "promoted_active": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Count of currently-active moves anchored to this basin at calibration time. Read from `store.list_moves(archived=False)`."
-          },
-          "promoted_archived": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Count of archived (demoted) moves anchored to this basin at calibration time. Read from `store.list_moves(archived=True)`."
-          },
-          "demotion_rate": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "description": "promoted_archived / (promoted_active + promoted_archived). The signal the calibration update consumes: ≥0.50 elevates the baseline; ≤0.20 (with ≥5 observations) relaxes it; in-between leaves the basin out of the rewrite."
-          },
           "last_action": {
             "type": "string",
             "enum": ["elevated", "relaxed", "stable"],
-            "description": "What happened in the most recent pass that touched this basin. `elevated` = baseline raised by 0.10 (or capped at 0.90); `relaxed` = lowered by 0.05 (or floored at 0.50); `stable` = unchanged (basins with `stable` action are skipped to avoid pointless rewrites)."
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "ISO 8601 UTC timestamp (seconds precision) of the calibration pass that last touched this basin. Per-basin granularity — separate from the doc-level updated_at."
+            "description": "What the most recent pass that touched this basin decided. `elevated` = baseline raised by 0.10 (or capped at 0.90); `relaxed` = lowered by 0.05 (or floored at 0.50). Stable basins are skipped on rewrite to avoid pointless disk churn."
           }
         }
       }

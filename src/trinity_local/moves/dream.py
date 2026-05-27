@@ -562,13 +562,12 @@ def update_calibration_from_demotions() -> dict[str, Any]:
             action = "relaxed"
         if new_baseline == prior_baseline and action == "stable":
             continue
+        # Disk record keeps only what the next promotion pass reads.
+        # Observability fields (rate, counts, prior_baseline) live in
+        # the ephemeral report below — analytics can replay the dream
+        # report stream when it needs them.
         per_basin[basin] = {
-            "promoted_active": promoted,
-            "promoted_archived": demoted,
-            "demotion_rate": round(rate, 3),
             "elevated_baseline": round(new_baseline, 3),
-            "prior_baseline": round(prior_baseline, 3),
-            "updated_at": _now_iso(),
             "last_action": action,
         }
         deltas.append({

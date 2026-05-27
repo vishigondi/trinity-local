@@ -206,7 +206,7 @@ class TestGateLensTensions:
         assert orig is t
         assert new.basins == ("b00",)
 
-    def test_by_basin_counters(self):
+    def test_multiple_tensions_with_same_basin_all_kept_when_t1_vacuous(self):
         t1 = _make_tension(basins=("b00",))
         t2 = _make_tension(basins=("b00",))
         report = gate_lens_tensions(
@@ -215,8 +215,9 @@ class TestGateLensTensions:
             basin_centroids={},
             require_both_tiers=False,
         )
-        assert report["by_basin"]["b00"]["pass"] == 2
-        assert report["by_basin"]["b00"]["fail"] == 0
+        assert len(report["kept"]) == 2
+        assert report["archived"] == []
+        assert report["narrowed"] == []
 
 
 # ─── Change #2: T3↔T4 calibration loop ────────────────────────────
