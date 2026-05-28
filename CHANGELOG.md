@@ -7,6 +7,41 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.30 — EXTRACT unification Stage 1: one preference-act evidence type (#202)] — 2026-05-28
+
+The beauty audit's centerpiece, authorized as a high-risk change and
+sequenced Strangler-Fig. Rejections (Stage 0, the model got it wrong and
+you fixed it) and decisions (Stage 2, a trade-off you stated directly)
+are the same shape — a user privileging one thing over another. This
+stage introduces the unified type and read layer; later stages merge the
+extraction pass and migrate storage (see `docs/lens-redesign.md`).
+
+New `me/preference_acts.py`: `PreferenceAct` with a `trigger`
+discriminator (`model_miss` | `self_expressed`), `from_rejection` /
+`from_decision` adapters, and `iter_preference_acts()` unifying the two
+existing on-disk stores. `load_decisions()` added to decisions.py
+(symmetric to save_decisions; the unified reader needs a disk loader).
+
+`render_me_markdown` now renders BOTH triggers as one "Preference acts"
+section — so your stated trade-offs (decisions) reach the chairman
+context alongside the model-miss corrections for the first time;
+previously lens.md showed only rejections. Back-compat preserved: callers
+that don't pass `preference_acts` still get the legacy rejections
+section.
+
+Deliberately UNCHANGED this stage: the two writers (Stage 0 →
+rejections.jsonl, Stage 2 → decisions.jsonl), the eval harness, and
+provider-import all keep their schemas. The risky storage migration is
+Stage 4, taken only after the type is proven.
+
+Dogfooded: `lens-resync` re-rendered the real lens.md with 49 model-miss
++ 49 self-expressed acts; browser-verified the unified section (memory
+viewer, zero console errors). PreferenceAct registered with the
+round-trip ratchet.
+
+Tests: 2039 passed + 7 skipped (preference-acts adapters, reader,
+round-trip, render-unification + back-compat).
+
 ## [v1.7.29 — fix 3 self-review findings on the lens-accumulation arc (#201)] — 2026-05-28
 
 A fresh-eyes code review of the v1.7.24–v1.7.28 arc (the lens registry,
@@ -1370,7 +1405,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2036<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2049<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

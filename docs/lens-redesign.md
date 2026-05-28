@@ -361,3 +361,35 @@ boundaries — so we don't add a 4.5 to a fractional pile. Treat
 rejection+decision unification as the first EXTRACT-phase task, not a
 later refactor. Build the beautiful shape, not the seamed one we'd have
 to clean up later.
+
+## EXTRACT unification — the sequence (authorized 2026-05-28)
+
+The beauty audit's "first EXTRACT task": collapse rejections (Stage 0,
+model-miss) and decisions (Stage 2, self-expressed) into one
+**`PreferenceAct`** evidence type with a `trigger` discriminator. High
+risk because `rejections.jsonl` is a persisted contract read by the eval
+harness and written by provider-import. Sequenced Strangler-Fig so each
+stage is independently shippable + reversible and the risky storage
+migration comes last:
+
+- **Stage 1 — type + read-layer (SHIPPED v1.7.30).** New
+  `me/preference_acts.py`: `PreferenceAct` (round-trip), `from_rejection`
+  / `from_decision` adapters, `iter_preference_acts()` unifying the two
+  existing on-disk stores. `load_decisions()` added (symmetric to
+  save). Render surfaces BOTH triggers as one "Preference acts" section
+  in lens.md (decisions now reach the chairman context for the first
+  time). Writers, eval harness, provider-import, storage all UNCHANGED.
+  Browser-verified on the real lens (49 model-miss + 49 self-expressed).
+- **Stage 2 — unify the extraction pass.** Merge the Stage 0 + Stage 2
+  chairman calls into one "extract preference acts" prompt that emits
+  PreferenceActs with `trigger` set. Removes one chairman call (the
+  headline cost win). Keep writing both legacy stores for back-compat.
+- **Stage 3 — feed pair-mining from the unified stream.** Stage 3 reads
+  `iter_preference_acts()` instead of decisions-only, so rejections also
+  become tension candidates (a real lens improvement, not just a
+  refactor). Re-tune on real data.
+- **Stage 4 — migrate storage + retire the split.** Introduce
+  `preference_acts.jsonl`; shim eval-build + provider-import + the
+  clobber guard to read/write through it; deprecate `rejections.jsonl` +
+  `decisions.jsonl` via the retirement registry. The last + riskiest
+  step, taken only after the type is proven across Stages 1–3.

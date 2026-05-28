@@ -32,6 +32,7 @@ import pytest
 
 from trinity_local.council_schema import CouncilChainStep, CouncilRoutingLabel
 from trinity_local.me.lens_registry import RegistryEntry
+from trinity_local.me.preference_acts import PreferenceAct
 from trinity_local.memory.schemas import PromptNode, TurnWindow
 
 
@@ -119,12 +120,29 @@ def _populated_registry_entry() -> RegistryEntry:
     )
 
 
+def _populated_preference_act() -> PreferenceAct:
+    return PreferenceAct(
+        id="pa_abc123",
+        trigger="model_miss",
+        privileged="ship the small fix now",
+        sacrificed="refactor the whole module first",
+        kind="REDIRECT",
+        why="user steered to the immediate goal",
+        prompt_id="p_abc123",
+        basin="b_arch",
+        context="just fix the null check",
+        source="lens-build",
+        weight=2.0,
+    )
+
+
 ROUND_TRIPPABLE = {
     "PromptNode": (PromptNode, _populated_prompt_node),
     "TurnWindow": (TurnWindow, _populated_turn_window),
     "CouncilChainStep": (CouncilChainStep, _populated_chain_step),
     "CouncilRoutingLabel": (CouncilRoutingLabel, _populated_routing_label),
     "RegistryEntry": (RegistryEntry, _populated_registry_entry),
+    "PreferenceAct": (PreferenceAct, _populated_preference_act),
 }
 
 

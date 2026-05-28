@@ -218,6 +218,7 @@ def render_me_markdown(
     orderings: list[LensPair],
     rejections: list[RejectionSignal] | None = None,
     tension_support: dict[tuple[str, str], dict[str, Any]] | None = None,
+    preference_acts: list | None = None,
 ) -> str:
     """Render lens artifacts as the lens-document markdown (written by
     the caller to ~/.trinity/memories/lens.md — function name retained
@@ -311,7 +312,59 @@ def render_me_markdown(
                     f"({c.horizon_a} vs {c.horizon_b})"
                 )
             lines.append("")
-    if rejections:
+    if preference_acts:
+        # EXTRACT-unification Stage 1: render rejections AND decisions as
+        # ONE evidence stream — every act of the user expressing taste,
+        # discriminated by `trigger`. model_miss = corrections of the
+        # model; self_expressed = trade-offs the user stated directly.
+        # (When `preference_acts` is absent, the legacy rejections-only
+        # section below still renders — back-compat for callers not yet
+        # migrated.)
+        from collections import defaultdict
+
+        from .preference_acts import MODEL_MISS, SELF_EXPRESSED
+
+        miss = [a for a in preference_acts if a.trigger == MODEL_MISS]
+        self_exp = [a for a in preference_acts if a.trigger == SELF_EXPRESSED]
+        lines.append("## Preference acts")
+        lines.append("")
+        lines.append(
+            "Every act of you expressing taste — the model-miss corrections "
+            "AND the trade-offs you stated directly. The user is the final "
+            "authority; weight what the user privileged over what was offered."
+        )
+        lines.append("")
+        if miss:
+            groups: dict[str, list] = defaultdict(list)
+            for a in miss:
+                groups[a.kind].append(a)
+            lines.append(f"### Model-miss — you corrected the model ({len(miss)})")
+            for kind in ("REFRAME", "COMPRESSION", "REDIRECT", "SHARPENING"):
+                items = groups.get(kind, [])
+                if not items:
+                    continue
+                lines.append(f"#### {kind} ({len(items)})")
+                for a in items[:5]:  # cap per kind so lens.md stays readable
+                    lines.append(f"- model: \"{a.sacrificed[:100]}\"")
+                    lines.append(f"  you: \"{a.privileged[:100]}\"")
+                    if a.why:
+                        lines.append(f"  why: {a.why[:140]}")
+                if len(items) > 5:
+                    lines.append(f"  _({len(items) - 5} more)_")
+            lines.append("")
+        if self_exp:
+            lines.append(f"### Self-expressed — your stated trade-offs ({len(self_exp)})")
+            for a in self_exp[:8]:
+                row = f"- **{a.privileged}** > {a.sacrificed}"
+                if a.kind:
+                    row += f" _({a.kind})_"
+                lines.append(row)
+                if a.why:
+                    lines.append(f"  would flip if: {a.why[:140]}")
+            if len(self_exp) > 8:
+                lines.append(f"  _({len(self_exp) - 8} more)_")
+            lines.append("")
+    elif rejections:
         # Group by type so the chairman sees the signal-type distribution.
         from collections import defaultdict
         groups: dict[str, list] = defaultdict(list)

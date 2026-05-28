@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -364,5 +364,33 @@ def save_decisions(decisions: list[Decision]) -> Path:
         for d in decisions:
             f.write(json.dumps(d.to_dict()) + "\n")
     return path
+
+
+def load_decisions() -> list[Decision]:
+    """Read decisions.jsonl into Decision objects — symmetric to
+    save_decisions. Tolerant: skips malformed / under-specified lines and
+    supplies defaults for the optional fields (#201/EXTRACT-unification
+    Stage 1 needs a disk reader so preference_acts can union decisions
+    with rejections)."""
+    path = decisions_path()
+    if not path.exists():
+        return []
+    known = {f.name for f in fields(Decision)}
+    required = ("id", "privileged", "sacrificed", "valence", "verbatim")
+    out: list[Decision] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(obj, dict) or not all(k in obj for k in required):
+            continue
+        kwargs = {k: v for k, v in obj.items() if k in known}
+        kwargs.setdefault("basin", None)  # required positional, nullable
+        out.append(Decision(**kwargs))
+    return out
 
 

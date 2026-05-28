@@ -722,7 +722,17 @@ def build_me_via_lens_pipeline(
             flush=True,
         )
 
-    me_doc = render_me_markdown(render_pairs, orderings, rejections, tension_support)
+    # EXTRACT-unification Stage 1: render rejections + decisions as one
+    # preference-act stream. The two extraction passes still write their
+    # own stores; we just unify them at the render boundary here.
+    from .me.preference_acts import from_decision, from_rejection
+
+    preference_acts = [from_rejection(r) for r in rejections] + [
+        from_decision(d) for d in decisions
+    ]
+    me_doc = render_me_markdown(
+        render_pairs, orderings, rejections, tension_support, preference_acts
+    )
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")
@@ -787,13 +797,18 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
 
     orderings = load_orderings()
     rejections = load_rejections()
+    from .me.preference_acts import iter_preference_acts
+
+    preference_acts = iter_preference_acts()
 
     reconcile(accepted)
     active = active_tensions_sorted()
     render_pairs = [e.to_lens_pair() for e in active] if active else accepted
     tension_support = support_index(active) if active else None
 
-    me_doc = render_me_markdown(render_pairs, orderings, rejections, tension_support)
+    me_doc = render_me_markdown(
+        render_pairs, orderings, rejections, tension_support, preference_acts
+    )
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")
