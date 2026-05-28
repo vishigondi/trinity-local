@@ -43,7 +43,7 @@
         "coding",
         "writing"
       ],
-      "effort": "max"
+      "effort": "high"
     },
     "antigravity": {
       "type": "cli",
@@ -81,7 +81,7 @@
         "coding",
         "debugging"
       ],
-      "effort": "xhigh"
+      "effort": "high"
     }
   },
   "task_preferences": {

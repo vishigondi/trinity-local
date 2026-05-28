@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.35 — default provider effort max/xhigh → high] — 2026-05-28
+
+Lowered the shipped-template reasoning effort: `claude` `max` → `high`,
+`codex` `xhigh` → `high` (both `config.example.json` + the bundled
+`src/.../data` copy). `max`/`xhigh` were the top of each ladder and the
+reason lens-build crawled — every chairman call ran at peak effort even
+for mechanical Stage 0/2 extraction. `high` is ~as good as `max` for
+council synthesis (the gap narrows further on Opus 4.8) at materially
+lower latency, so this is a strict win as the default.
+
+Not the complete fix for lens-build speed: a *per-stage* override
+(force the mechanical Stage 0/2 extraction calls to `medium` regardless
+of config) is the deeper change and stays a separate proposed task — it
+needs a live build to validate, which the nested-CLI env can't run.
+
+A multi-agent code review of this session's arc (4 parallel reviewers on
+Opus 4.8) ran alongside this; its findings are filed as tasks #203–#207
+(Stage 0 partial-batch silent degradation, lens-build save/index
+hardening, load_preference_acts malformed-line guard, find_anchors
+blacklist over-reach, test hardening) — none block; all deferred to
+focused passes.
+
 ## [v1.7.34 — adopt Claude Opus 4.8 as the default Claude model] — 2026-05-28
 
 Anthropic shipped Claude Opus 4.8 today (`claude-opus-4-8`): better
