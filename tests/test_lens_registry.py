@@ -266,3 +266,81 @@ class TestRenderSupportAnnotation:
         out = render_me_markdown([p], [])
         assert "Supported by" not in out
         assert "a ↔ b" in out
+
+
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestLoadRejections:
+    def test_round_trips_with_save(self):
+        from trinity_local.me.turn_pairs import (
+            RejectionSignal,
+            load_rejections,
+            save_rejections,
+        )
+        sigs = [
+            RejectionSignal(id="r1", type="REFRAME", model_quote="m1", user_substitute="u1", why_signal="w1"),
+            RejectionSignal(id="r2", type="REDIRECT", model_quote="m2", user_substitute="u2"),
+        ]
+        save_rejections(sigs)
+        back = load_rejections()
+        assert {r.id for r in back} == {"r1", "r2"}
+        assert {r.type for r in back} == {"REFRAME", "REDIRECT"}
+
+    def test_tolerates_extra_keys_and_skips_malformed(self):
+        from trinity_local.me.turn_pairs import load_rejections, rejections_path
+        p = rejections_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            # extra provider keys → kept; missing required → skipped; junk → skipped
+            '{"id":"r1","type":"REFRAME","model_quote":"m","user_substitute":"u","source_provider":"claude","confidence":"high"}\n'
+            '{"id":"r2","type":"REFRAME"}\n'
+            'not json\n',
+            encoding="utf-8",
+        )
+        back = load_rejections()
+        assert [r.id for r in back] == ["r1"]
+
+    def test_missing_file_returns_empty(self):
+        from trinity_local.me.turn_pairs import load_rejections
+        assert load_rejections() == []
+
+
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestResyncFromDisk:
+    def _seed_lenses(self):
+        from trinity_local.me.pair_mining import save_lenses
+        accepted = [
+            LensPair(pole_a="speed", pole_b="rigor", failure_a="sloppy", failure_b="slow",
+                     tension_decisions=["d1", "d2", "d3"], basins_spanned=["b0"], verdict="accepted"),
+        ]
+        orderings = [
+            LensPair(pole_a="mvp", pole_b="polish", failure_a="", failure_b="", verdict="preserve_as_ordering"),
+        ]
+        save_lenses(accepted, orderings)
+
+    def test_no_lenses_is_a_clean_noop(self):
+        from trinity_local.me_builder import resync_lens_from_disk
+        _path, summary = resync_lens_from_disk()
+        assert summary["ok"] is False
+        assert "lens-build" in summary["reason"]
+
+    def test_seeds_registry_and_renders_support(self):
+        from trinity_local.me_builder import resync_lens_from_disk
+        self._seed_lenses()
+        path, summary = resync_lens_from_disk()
+        assert summary["ok"] is True
+        assert summary["active_tensions"] == 1
+        # Registry now populated.
+        reg = load_registry()
+        assert len(reg) == 1 and reg[0].support_count == 3
+        # lens.md re-rendered WITH the support line + ordering.
+        doc = path.read_text(encoding="utf-8")
+        assert "speed ↔ rigor" in doc
+        assert "Supported by 3 decisions" in doc
+        assert "mvp > polish" in doc
+
+    def test_resync_is_idempotent_no_duplicate_tensions(self):
+        from trinity_local.me_builder import resync_lens_from_disk
+        self._seed_lenses()
+        resync_lens_from_disk()
+        resync_lens_from_disk()
+        assert len(load_registry()) == 1  # accretion, not duplication

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +88,32 @@ class RejectionSignal:
 
 def rejections_path() -> Path:
     return me_dir() / "rejections.jsonl"
+
+
+def load_rejections() -> list[RejectionSignal]:
+    """Read rejections.jsonl back into RejectionSignal objects — symmetric
+    to save_rejections. Tolerant of extra keys from provider-imported
+    records (eval-import adds source_provider/confidence): only the
+    dataclass fields are consumed. Skips malformed or under-specified
+    lines rather than failing the whole load."""
+    path = rejections_path()
+    if not path.exists():
+        return []
+    known = {f.name for f in fields(RejectionSignal)}
+    required = ("id", "type", "model_quote", "user_substitute")
+    out: list[RejectionSignal] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(d, dict) or not all(k in d for k in required):
+            continue
+        out.append(RejectionSignal(**{k: v for k, v in d.items() if k in known}))
+    return out
 
 
 def iter_turn_pairs(limit: int | None = None):

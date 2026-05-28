@@ -744,6 +744,74 @@ def build_me_via_lens_pipeline(
     }
 
 
+def resync_lens_from_disk() -> tuple[Path, dict]:
+    """Build-step-2 migration (#199): seed/refresh the tension registry
+    from the already-extracted ``lenses.json`` + ``orderings.json`` and
+    re-render ``lens.md`` with the accumulation signal — WITHOUT re-running
+    the expensive Stage 0–4 chairman extraction.
+
+    Two jobs:
+    - **Migration**: a lens built before the registry existed (#197) has
+      no entries; one resync registers its current tensions so the next
+      full rebuild reinforces rather than replaces, and the rendered lens
+      gains its support lines (#198) immediately.
+    - **Cheap refresh**: re-flow the durability signal between full
+      rebuilds (no provider calls).
+
+    Mirrors the lens-build discipline: captures any hand-edits to lens.md
+    before overwriting (#140) and pins a fresh snapshot after. Refuses to
+    do anything when there are no accepted lenses on disk — there's
+    nothing to seed, and writing an empty lens.md would be data loss.
+    """
+    from .me.lens_edits import capture_lens_edits, write_lens_snapshot
+    from .me.lens_registry import (
+        active_tensions_sorted,
+        reconcile,
+        support_index,
+    )
+    from .me.pair_mining import load_lenses, load_orderings
+    from .me.pipeline import render_me_markdown
+    from .me.turn_pairs import load_rejections
+
+    accepted = load_lenses()
+    if not accepted:
+        return me_path(), {
+            "ok": False,
+            "reason": "no accepted lenses on disk — run lens-build first",
+        }
+
+    try:
+        capture_lens_edits()
+    except Exception:
+        pass
+
+    orderings = load_orderings()
+    rejections = load_rejections()
+
+    reconcile(accepted)
+    active = active_tensions_sorted()
+    render_pairs = [e.to_lens_pair() for e in active] if active else accepted
+    tension_support = support_index(active) if active else None
+
+    me_doc = render_me_markdown(render_pairs, orderings, rejections, tension_support)
+    path = me_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(me_doc, encoding="utf-8")
+    try:
+        write_lens_snapshot(me_doc)
+    except Exception:
+        pass
+
+    return path, {
+        "ok": True,
+        "accepted": len(accepted),
+        "active_tensions": len(active),
+        "orderings": len(orderings),
+        "rejections": len(rejections),
+        "size_chars": len(me_doc),
+    }
+
+
 def load_me() -> str:
     """Read the persisted lens document (~/.trinity/memories/lens.md),
     or empty string if not built yet. (Was ~/.trinity/me.md pre-task-#91;

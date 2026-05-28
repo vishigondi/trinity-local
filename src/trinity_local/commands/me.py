@@ -24,6 +24,7 @@ from ..me_builder import (
     build_me_via_lens_pipeline,
     load_me,
     me_path,
+    resync_lens_from_disk,
 )
 
 
@@ -59,6 +60,13 @@ def register(subparsers):
         help="Print the current ~/.trinity/memories/lens.md content.",
     )
     show_parser.set_defaults(handler=handle_me_show)
+
+    resync_parser = subparsers.add_parser(
+        "lens-resync",
+        help="Seed the tension registry from existing lenses.json + re-render "
+             "lens.md with support/stability — no chairman calls.",
+    )
+    resync_parser.set_defaults(handler=handle_lens_resync)
 
 
 def handle_me_build(args):
@@ -132,3 +140,20 @@ def handle_me_show(args):
         print(f"# expected at: {me_path()}")
         return
     print(text)
+
+
+def handle_lens_resync(args):
+    import sys
+    path, summary = resync_lens_from_disk()
+    print(json.dumps({"path": str(path), **summary}, indent=2))
+    if not summary.get("ok"):
+        sys.stderr.write(
+            "\n→ Nothing to resync. Build a lens first:\n"
+            "    trinity-local lens-build\n"
+        )
+        return
+    sys.stderr.write(
+        f"\n→ Registry seeded ({summary['active_tensions']} active tension(s)); "
+        f"lens.md re-rendered with support. View it:\n"
+        "    trinity-local lens-show\n"
+    )

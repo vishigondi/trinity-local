@@ -7,6 +7,32 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.26 — lens-resync: the migration that makes accretion real (#199)] — 2026-05-28
+
+The accumulation core (#197) + render signal (#198) only populate the
+registry on a full `lens-build` — expensive, and a lens built before the
+registry existed never adopts it. This is build-step-2 of the redesign:
+a cheap migration that seeds the registry from the *already-extracted*
+`lenses.json` and re-renders `lens.md` with the support signal — **no
+chairman calls**.
+
+New `lens-resync` CLI verb → `resync_lens_from_disk()`: load accepted
+lenses + orderings + rejections from disk, reconcile into the registry,
+re-render with `support_index`. Mirrors the lens-build discipline —
+captures hand-edits before overwrite (#140), pins a fresh snapshot after,
+and refuses to write when there are no accepted lenses (no silent
+empty-lens). New `load_rejections()` in turn_pairs.py (symmetric to
+`save_rejections`; tolerant of provider-imported extra keys).
+
+Dogfooded on the real install: `lens-resync` seeded the live registry
+(2 tensions, support 9 + 6) and re-rendered the real lens.md with the
+support lines — then **verified in a real browser**: the memory viewer
+(`memory.html?file=lens.md`) renders "Supported by 9 decisions · stable
+since 2026-05-28" on both tensions, zero console errors on the memory
+viewer and launchpad.
+
+Tests: 2020 passed + 7 skipped (resync + load_rejections cases).
+
 ## [v1.7.25 — accretion goes visible: lens.md shows support + stability (#198)] — 2026-05-28
 
 The accumulation core (#197) made the lens accrete, but lens.md rendered
@@ -1260,7 +1286,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2017<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2023<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
