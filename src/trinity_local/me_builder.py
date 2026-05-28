@@ -687,7 +687,36 @@ def build_me_via_lens_pipeline(
             for r in rejected_records:
                 f.write(_json.dumps(r) + "\n")
 
-    me_doc = render_me_markdown(accepted, orderings, rejections)
+    # Stage 4.5 (#197): accumulation. Reconcile this rebuild's accepted
+    # candidates into the durable tension registry by cosine identity,
+    # then render the lens from the registry's *active* tensions
+    # (highest-support first) instead of this run's raw output. This is
+    # what turns the lens from stateless (every rebuild replaces the
+    # surface) into accumulating (a rebuild reinforces or extends). Falls
+    # back to raw `accepted` if the registry layer fails — accretion is
+    # additive, never load-bearing for producing *a* lens.
+    render_pairs = accepted
+    active_count = 0
+    try:
+        from .me.lens_registry import active_tensions_sorted, reconcile
+
+        reconcile(accepted)
+        active = active_tensions_sorted()
+        if active:
+            render_pairs = [e.to_lens_pair() for e in active]
+            active_count = len(active)
+            print(
+                f"  Stage 4.5: registry has {active_count} active tension(s); "
+                f"rendering by support",
+                flush=True,
+            )
+    except Exception as exc:
+        print(
+            f"  Stage 4.5: registry skipped ({exc}); rendering raw accepted",
+            flush=True,
+        )
+
+    me_doc = render_me_markdown(render_pairs, orderings, rejections)
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")
@@ -700,6 +729,7 @@ def build_me_via_lens_pipeline(
         "decisions": len(decisions),
         "candidates": len(pairs),
         "accepted": len(accepted),
+        "active_tensions": active_count,
         "orderings": len(orderings),
         "conflicts_total": len(conflicts),
         "conflicts_same_horizon": sum(1 for c in conflicts if c.horizon_match),

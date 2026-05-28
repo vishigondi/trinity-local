@@ -2,18 +2,20 @@
 
 For every dataclass that has BOTH `to_dict()` and `from_dict()`, the
 serialization boundary must round-trip: an instance written to disk
-and read back is the same instance. These four types are Trinity's
+and read back is the same instance. These five types are Trinity's
 load-bearing persistence boundaries — PromptNode + TurnWindow index
 the corpus, CouncilChainStep + CouncilRoutingLabel are the council
-outcome shapes the personal routing table trains on.
+outcome shapes the personal routing table trains on, and RegistryEntry
+is the durable tension registry the accumulating lens reads/writes
+(#197).
 
-Why only these four: a scan during #190 found 50 classes with
-`to_dict()` but only 4 with a matching `from_dict()`. The other 46
-are serialize-out only (JSON output for the launchpad / share cards /
+Why only these: a scan during #190 found ~50 classes with `to_dict()`
+but only a handful with a matching `from_dict()`. The rest are
+serialize-out only (JSON output for the launchpad / share cards /
 analytics — never deserialized), so round-trip is N/A. The guard
-TestRoundTripCoverageMatchesScan pins that 4-of-50 ratio: if someone
-adds a `from_dict` to a 5th class, this test fails until they add it
-to ROUND_TRIPPABLE so the round-trip invariant covers it too.
+TestRoundTripCoverageMatchesScan pins the ratio: if someone adds a
+`from_dict` to a new class, this test fails until they add it to
+ROUND_TRIPPABLE so the round-trip invariant covers it too.
 
 The round-trip property tested is idempotent serialization:
 `to_dict(from_dict(to_dict(x))) == to_dict(x)`. This is robust to
@@ -29,6 +31,7 @@ from __future__ import annotations
 import pytest
 
 from trinity_local.council_schema import CouncilChainStep, CouncilRoutingLabel
+from trinity_local.me.lens_registry import RegistryEntry
 from trinity_local.memory.schemas import PromptNode, TurnWindow
 
 
@@ -100,11 +103,28 @@ def _populated_routing_label() -> CouncilRoutingLabel:
     )
 
 
+def _populated_registry_entry() -> RegistryEntry:
+    return RegistryEntry(
+        tension_id="tension_abc123",
+        pole_a="speed",
+        pole_b="rigor",
+        failure_a="ships sloppy work",
+        failure_b="never ships",
+        basins_spanned=["b_arch", "b_review"],
+        horizon="strategic",
+        probe_text="speed · rigor · ships sloppy work · never ships",
+        evidence_ids=["d_001", "d_002", "d_003"],
+        first_seen="2026-05-01T00:00:00+00:00",
+        last_confirmed="2026-05-25T00:00:00+00:00",
+    )
+
+
 ROUND_TRIPPABLE = {
     "PromptNode": (PromptNode, _populated_prompt_node),
     "TurnWindow": (TurnWindow, _populated_turn_window),
     "CouncilChainStep": (CouncilChainStep, _populated_chain_step),
     "CouncilRoutingLabel": (CouncilRoutingLabel, _populated_routing_label),
+    "RegistryEntry": (RegistryEntry, _populated_registry_entry),
 }
 
 
@@ -152,7 +172,7 @@ class TestRoundTripPersistence:
 
 
 class TestRoundTripCoverageMatchesScan:
-    """Ratchet: if a 5th class grows a from_dict(), it must join
+    """Ratchet: if a new class grows a from_dict(), it must join
     ROUND_TRIPPABLE so the round-trip invariant covers it. Catches
     the drift where someone adds deserialization to a new persistence
     type but forgets to test the round-trip."""

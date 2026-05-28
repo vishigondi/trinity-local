@@ -7,6 +7,48 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.24 — lens accumulation core: the lens stops being stateless (#197)] — 2026-05-28
+
+Build-step-1 of the lens redesign (`docs/lens-redesign.md`). Until now
+the lens was **stateless**: every `lens-build` re-derived the surface
+tensions from scratch and overwrote the last set. Measured live — two
+rebuilds over the *same* unchanged 49-rejection corpus produced 3
+tensions then 2, with zero string overlap but clear semantic rhyme. The
+chairman rewords the same tension run-to-run, so a wrong word made a
+tension "new" and a right one made an old one "vanish." A lens that
+reshuffles itself on every rebuild can't stand the test of time.
+
+New module `me/lens_registry.py` — a durable tension registry
+(`~/.trinity/me/lens_registry.json`) keyed by **embedding-cosine
+identity**, not string match on the poles. Stage 4.5 `reconcile` (runs
+after Stage 4, before render): cosine-match this rebuild's accepted
+candidates to the registry (≥ `MATCH_THRESHOLD` 0.80); on a match, union
+the evidence ids and bump `last_confirmed`; otherwise register fresh.
+Canonical phrasing is **first-registered-wins**, so a reworded tension
+keeps its original surface — the stability that was missing.
+
+Derived at render, never stored (a derived field can't drift out of sync
+with the evidence): `support_count = len(evidence_ids)`,
+`active = support ≥ ACTIVE_MIN and last_confirmed within RECENCY_DAYS`.
+The registry only ever *unions* evidence and *advances* recency — a
+fresh extraction can extend a tension but never erase it (same
+append-only guarantee as `mark_pick_wrong`). Decay is purely via
+recency: a tension that stops being confirmed fades to inactive even
+though its support is unchanged. `lens.md` now renders the registry's
+active tensions, highest-support first (the MBTI function-stack insight
+— dominant tensions lead).
+
+Reuses the one cosine primitive (`embeddings.cosine_similarity`) +
+`pair_mining._tension_probe_text`; ~210 LOC + 1 small registry file, no
+Beta-Binomial, no stored status (both cut in the complexity audit).
+Wired into `me_builder` with graceful fallback to raw `accepted` if the
+registry layer ever fails — accretion is additive, never load-bearing
+for producing *a* lens. Caught by two gstack ratchets on the way in: the
+round-trip guard (#190) flagged `RegistryEntry` as a new persistence
+boundary, the canonical renderer bumped the counts.
+
+Tests: 2013 passed + 4 skipped (22 new in `test_lens_registry.py`).
+
 ## [v1.7.23 — Stage 0 prompt chunking: the actual root cause of the empty extraction (#195)] — 2026-05-28
 
 The clobber guard (#194) made the lens-gutting incident safe; this
@@ -1195,7 +1237,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1988<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2013<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
