@@ -7,6 +7,31 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.31 — EXTRACT unification Stage 2: eval-build reads the unified type (#202)] — 2026-05-28
+
+Strangler-Fig step 2 — route a real consumer through the unified
+PreferenceAct read layer before touching extraction or storage. The eval
+harness (`evals/builder.py`) sourced raw dicts straight from
+rejections.jsonl; it now iterates `iter_preference_acts()` filtered to
+`model_miss` (the rejection subset — "the model got it wrong, can a
+model avoid it?"). Self-expressed acts (decisions) stay out of the eval
+set for now; including them is a later enhancement.
+
+Behavior-preserving by design, and verified so: same 49 eval items from
+the real corpus. One leniency had to be matched — `load_rejections` now
+defaults a missing `user_substitute` to `""` (required field per schema,
+but historic/degenerate lines omit it) so the unified reader doesn't
+silently shrink the eval set vs the old raw-dict loop.
+
+Chose this (a deterministic reader migration) over the originally-planned
+prompt-merge for Stage 2: merging the two separately-tuned extraction
+prompts risks degrading extraction quality to save one chairman call —
+low value, high risk, needs credits to validate. The reader migrations
+(this) and the storage merge are the safe, high-value Strangler-Fig
+steps; the prompt-merge is deferred to last (optional).
+
+Tests: 2046 passed + 7 skipped.
+
 ## [v1.7.30 — EXTRACT unification Stage 1: one preference-act evidence type (#202)] — 2026-05-28
 
 The beauty audit's centerpiece, authorized as a high-risk change and

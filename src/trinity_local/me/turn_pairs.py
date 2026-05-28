@@ -100,7 +100,13 @@ def load_rejections() -> list[RejectionSignal]:
     if not path.exists():
         return []
     known = {f.name for f in fields(RejectionSignal)}
-    required = ("id", "type", "model_quote", "user_substitute")
+    # Match the (pre-unification) eval-builder's leniency: a rejection needs
+    # id + type + model_quote to carry signal; user_substitute is the schema
+    # 4th required field but historic lines + degenerate captures omit it, so
+    # default it to "" rather than dropping the row (EXTRACT-unification
+    # Stage 2 routes eval-build through here — must not silently shrink the
+    # eval set vs the old raw-dict reader).
+    required = ("id", "type", "model_quote")
     out: list[RejectionSignal] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -112,7 +118,9 @@ def load_rejections() -> list[RejectionSignal]:
             continue
         if not isinstance(d, dict) or not all(k in d for k in required):
             continue
-        out.append(RejectionSignal(**{k: v for k, v in d.items() if k in known}))
+        kwargs = {k: v for k, v in d.items() if k in known}
+        kwargs.setdefault("user_substitute", "")
+        out.append(RejectionSignal(**kwargs))
     return out
 
 

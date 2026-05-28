@@ -162,50 +162,51 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
     by_type: dict[str, int] = {}
     by_basin: dict[str, int] = {}
 
-    with rej_path.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                raw = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            # Drop entries missing the structural fields we need.
-            rej_type = raw.get("type")
-            model_quote = (raw.get("model_quote") or "").strip()
-            user_sub = (raw.get("user_substitute") or "").strip()
-            source_id = raw.get("id") or ""
-            prompt_id = raw.get("prompt_id")
-            if not (rej_type and model_quote and source_id):
-                continue
-            prompt_text, provider = _lookup_prompt_text(prompt_id)
-            # If the prompt_id no longer resolves (corpus churn between
-            # lens-build and eval-build), fall back to user_substitute
-            # as a stand-in — at least we keep the rejection-shape
-            # signal even when the originating prompt has been garbage-
-            # collected. The eval just becomes "given THIS-shaped
-            # rejection, can a model avoid it?"
-            if not prompt_text:
-                prompt_text = user_sub
-            items.append(EvalItem(
-                eval_item_id=_stable_id("ei", source_id, rej_type),
-                prompt=prompt_text,
-                rejection_type=rej_type,
-                rejected_response=model_quote,
-                user_substitute=user_sub,
-                rubric_signal=(raw.get("why_signal") or "").strip(),
-                basin_id=raw.get("basin"),
-                source="rejections",
-                source_id=source_id,
-                prompt_id=prompt_id,
-                provider_of_rejected_response=provider,
-            ))
-            by_type[rej_type] = by_type.get(rej_type, 0) + 1
-            if raw.get("basin"):
-                by_basin[raw["basin"]] = by_basin.get(raw["basin"], 0) + 1
-            if limit is not None and len(items) >= limit:
-                break
+    # EXTRACT-unification Stage 2: source eval items through the unified
+    # PreferenceAct read layer, filtered to model-miss (the rejection
+    # subset — "the model got it wrong, can a model avoid it?"). This is
+    # behavior-preserving (model_miss acts come from the same
+    # rejections.jsonl the loud-failure check above guards), but routes
+    # the eval harness through the one evidence type. Self-expressed acts
+    # (decisions) stay out of the eval set for now — including them is a
+    # future enhancement, not this stage.
+    from ..me.preference_acts import MODEL_MISS, iter_preference_acts
+
+    for act in iter_preference_acts():
+        if act.trigger != MODEL_MISS:
+            continue
+        rej_type = act.kind
+        model_quote = (act.sacrificed or "").strip()
+        user_sub = (act.privileged or "").strip()
+        source_id = act.id or ""
+        prompt_id = act.prompt_id
+        if not (rej_type and model_quote and source_id):
+            continue
+        prompt_text, provider = _lookup_prompt_text(prompt_id)
+        # If the prompt_id no longer resolves (corpus churn between
+        # lens-build and eval-build), fall back to user_substitute as a
+        # stand-in — keep the rejection-shape signal even when the
+        # originating prompt has been garbage-collected.
+        if not prompt_text:
+            prompt_text = user_sub
+        items.append(EvalItem(
+            eval_item_id=_stable_id("ei", source_id, rej_type),
+            prompt=prompt_text,
+            rejection_type=rej_type,
+            rejected_response=model_quote,
+            user_substitute=user_sub,
+            rubric_signal=(act.why or "").strip(),
+            basin_id=act.basin,
+            source="rejections",
+            source_id=source_id,
+            prompt_id=prompt_id,
+            provider_of_rejected_response=provider,
+        ))
+        by_type[rej_type] = by_type.get(rej_type, 0) + 1
+        if act.basin:
+            by_basin[act.basin] = by_basin.get(act.basin, 0) + 1
+        if limit is not None and len(items) >= limit:
+            break
 
     # Content-addressed eval_id: hash of the source_ids so re-running on
     # the same corpus produces the same eval_id (idempotent), but adding
