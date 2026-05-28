@@ -7,6 +7,31 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.32 — EXTRACT unification Stage 3: the unified ledger (#202)] — 2026-05-28
+
+Strangler-Fig step 3 — the "one ledger" the beauty audit wanted, as a
+**canonical export** first (the safe foundation; the risky read-path flip
++ legacy retirement come last). `me/preference_acts.py` gains
+`preference_acts_path()` / `save_preference_acts()` / `load_preference_acts()`;
+lens-build + lens-resync now write `~/.trinity/me/preference_acts.jsonl`
+— the single serialization of every preference act (model-miss + self-
+expressed) — alongside the legacy stores.
+
+Deliberately safe: `iter_preference_acts()` still reads the LEGACY union
+(rejections.jsonl + decisions.jsonl), so it can never go stale relative
+to a provider-import that appended only to rejections.jsonl. The unified
+file is the emerging source of truth; the atomic flip (read from the
+file + stop writing legacy + retire rejections.jsonl/decisions.jsonl) is
+the final stage, once every reader has moved over.
+
+New `lens-acts` CLI verb introspects the ledger — counts by trigger /
+kind / basin. Dogfooded on the real corpus: 98 acts (49 model-miss + 49
+self-expressed), kinds REFRAME/REDIRECT/COMPRESSION + correction/
+satisfaction valences, across basins b00–b04.
+
+Tests: 2049 passed + 7 skipped (ledger save/load round-trip, malformed-
+line tolerance, empty-file handling). cli_command_count 45→46.
+
 ## [v1.7.31 — EXTRACT unification Stage 2: eval-build reads the unified type (#202)] — 2026-05-28
 
 Strangler-Fig step 2 — route a real consumer through the unified
@@ -1430,7 +1455,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2049<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2053<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

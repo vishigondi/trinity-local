@@ -107,6 +107,51 @@ class TestUnifiedReader:
         assert len(acts) == 1 and acts[0].trigger == MODEL_MISS
 
 
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestUnifiedLedgerFile:
+    def test_save_then_load_round_trips(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            save_preference_acts,
+        )
+        acts = [
+            PreferenceAct(id="r1", trigger=MODEL_MISS, privileged="u", sacrificed="m", kind="REFRAME"),
+            PreferenceAct(id="d1", trigger=SELF_EXPRESSED, privileged="a", sacrificed="b", kind="regret"),
+        ]
+        save_preference_acts(acts)
+        back = load_preference_acts()
+        assert [a.id for a in back] == ["r1", "d1"]
+        assert [a.trigger for a in back] == [MODEL_MISS, SELF_EXPRESSED]
+
+    def test_load_missing_file_is_empty(self):
+        from trinity_local.me.preference_acts import load_preference_acts
+        assert load_preference_acts() == []
+
+    def test_save_empty_then_load_empty(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            save_preference_acts,
+        )
+        save_preference_acts([])
+        assert load_preference_acts() == []
+
+    def test_load_skips_malformed_and_underspecified(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            preference_acts_path,
+        )
+        p = preference_acts_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            '{"id":"r1","trigger":"model_miss","privileged":"u","sacrificed":"m"}\n'
+            '{"trigger":"model_miss"}\n'   # no id → skip
+            'not json\n',
+            encoding="utf-8",
+        )
+        back = load_preference_acts()
+        assert [a.id for a in back] == ["r1"]
+
+
 class TestRenderUnifiedSection:
     def test_preference_acts_render_both_triggers(self):
         from trinity_local.me.pipeline import render_me_markdown

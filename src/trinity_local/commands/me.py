@@ -68,6 +68,13 @@ def register(subparsers):
     )
     resync_parser.set_defaults(handler=handle_lens_resync)
 
+    acts_parser = subparsers.add_parser(
+        "lens-acts",
+        help="Show the unified preference-act ledger (model-miss corrections "
+             "+ self-expressed trade-offs) — counts by trigger / kind / basin.",
+    )
+    acts_parser.set_defaults(handler=handle_lens_acts)
+
 
 def handle_me_build(args):
     # Fail fast if the embedder model isn't downloaded — lens-build
@@ -140,6 +147,31 @@ def handle_me_show(args):
         print(f"# expected at: {me_path()}")
         return
     print(text)
+
+
+def handle_lens_acts(args):
+    from collections import Counter
+
+    from ..me.preference_acts import iter_preference_acts, preference_acts_path
+
+    acts = iter_preference_acts()
+    by_trigger = Counter(a.trigger for a in acts)
+    by_kind = Counter(a.kind for a in acts if a.kind)
+    by_basin = Counter(a.basin for a in acts if a.basin)
+    payload = {
+        "ledger": str(preference_acts_path()),
+        "total": len(acts),
+        "by_trigger": dict(by_trigger),
+        "by_kind": dict(sorted(by_kind.items(), key=lambda kv: -kv[1])),
+        "by_basin": dict(sorted(by_basin.items(), key=lambda kv: -kv[1])[:10]),
+    }
+    print(json.dumps(payload, indent=2))
+    if not acts:
+        import sys
+        sys.stderr.write(
+            "\n→ No preference acts yet. Build the lens first:\n"
+            "    trinity-local lens-build\n"
+        )
 
 
 def handle_lens_resync(args):

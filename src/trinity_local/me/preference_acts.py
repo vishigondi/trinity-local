@@ -128,14 +128,69 @@ def from_decision(d) -> PreferenceAct:
 
 
 def iter_preference_acts() -> list[PreferenceAct]:
-    """The unified read layer: every preference act on disk, model-miss and
+    """The unified read layer: every preference act, model-miss and
     self-expressed, as one stream. Reads the two existing stores
-    (rejections.jsonl + decisions.jsonl) through the adapters — no new
-    on-disk format at this stage. Order: model_miss first, then
-    self_expressed, each in file order."""
+    (rejections.jsonl + decisions.jsonl) through the adapters — always
+    the freshest source. Order: model_miss first, then self_expressed,
+    each in file order.
+
+    NOTE: this deliberately reads the LEGACY stores, not
+    preference_acts.jsonl, so it can never go stale relative to a
+    provider-import that appended to rejections.jsonl. The unified file
+    is a canonical *export* (Stage 3); the read path flips to it only in
+    the final stage, atomically with retiring the legacy writers."""
     from .decisions import load_decisions
     from .turn_pairs import load_rejections
 
     acts: list[PreferenceAct] = [from_rejection(r) for r in load_rejections()]
     acts.extend(from_decision(d) for d in load_decisions())
     return acts
+
+
+def preference_acts_path():
+    """``~/.trinity/me/preference_acts.jsonl`` — the unified ledger
+    (EXTRACT-unification Stage 3). The single serialization of every
+    preference act, refreshed by lens-build / lens-resync. Today a
+    canonical export (the read path still unions the legacy stores via
+    iter_preference_acts); the storage migration retires
+    rejections.jsonl + decisions.jsonl in its favor once every reader has
+    moved to it."""
+    from .basins import me_dir
+
+    return me_dir() / "preference_acts.jsonl"
+
+
+def save_preference_acts(acts: list[PreferenceAct]):
+    """Write the unified ledger atomically (one JSON object per line)."""
+    import json
+
+    from ..utils import atomic_write_text
+
+    path = preference_acts_path()
+    body = "\n".join(json.dumps(a.to_dict()) for a in acts)
+    atomic_write_text(path, body + "\n" if body else "")
+    return path
+
+
+def load_preference_acts() -> list[PreferenceAct]:
+    """Read the unified ledger back. Tolerant: skips malformed /
+    under-specified lines. (Distinct from iter_preference_acts, which
+    unions the legacy stores — this reads the exported file directly,
+    e.g. for `lens-acts` introspection and the eventual read-path flip.)"""
+    import json
+
+    path = preference_acts_path()
+    if not path.exists():
+        return []
+    out: list[PreferenceAct] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get("id") and d.get("trigger"):
+            out.append(PreferenceAct.from_dict(d))
+    return out

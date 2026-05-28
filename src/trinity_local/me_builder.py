@@ -725,11 +725,21 @@ def build_me_via_lens_pipeline(
     # EXTRACT-unification Stage 1: render rejections + decisions as one
     # preference-act stream. The two extraction passes still write their
     # own stores; we just unify them at the render boundary here.
-    from .me.preference_acts import from_decision, from_rejection
+    from .me.preference_acts import (
+        from_decision,
+        from_rejection,
+        save_preference_acts,
+    )
 
     preference_acts = [from_rejection(r) for r in rejections] + [
         from_decision(d) for d in decisions
     ]
+    # Stage 3: refresh the unified ledger (canonical export of every
+    # preference act). Best-effort — never let the export break a build.
+    try:
+        save_preference_acts(preference_acts)
+    except Exception:
+        pass
     me_doc = render_me_markdown(
         render_pairs, orderings, rejections, tension_support, preference_acts
     )
@@ -797,9 +807,13 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
 
     orderings = load_orderings()
     rejections = load_rejections()
-    from .me.preference_acts import iter_preference_acts
+    from .me.preference_acts import iter_preference_acts, save_preference_acts
 
     preference_acts = iter_preference_acts()
+    try:
+        save_preference_acts(preference_acts)  # Stage 3: refresh unified ledger
+    except Exception:
+        pass
 
     reconcile(accepted)
     active = active_tensions_sorted()
