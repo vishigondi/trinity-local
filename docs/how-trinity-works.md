@@ -53,30 +53,15 @@ Every node gets passed through `nomic-embed-text-v1.5` (cached locally via Huggi
 
 **Phase 5 — Distill.** One-paragraph `~/.trinity/core.md` — identity-level summary the chairman reads first at runtime. Drill-down to the other files happens on demand.
 
-**Phase 6 — Moves substrate.** For each rejection, ask "is there a procedural pattern that would have prevented this?" — promote it through the 4-tier gate into `~/.trinity/moves/<slug>/SKILL.md`. Sub-phases 6a (T4 update from completed councils), 6b (promotion), 6c (demotion), 6d (T3↔T4 calibration — the self-correction loop).
+**(Phase 6 — Moves substrate — retired 2026-05-27.)** Trinity originally shipped a procedural-memory layer (4-tier Bayesian gate, alpha/beta posteriors, SKILL.md emission). Running it on real data showed the substrate was structurally dormant: the gate's lexical T1 filtered 100% of candidates because lens tensions and basin patterns live at different vocabulary registers. The conceptual fix was simpler than retuning: **the chairman LLM bridges declarative→procedural at inference time** when it reads `lens.md` during synthesis. Pre-computing moves was JIT-cache for a free operation. Substrate deleted in #184 (-4,400 LOC). See [`retired_names.py`](../src/trinity_local/retired_names.py).
 
 ### Phase 1.5 — Trajectory lens (planned, see [#182](https://github.com/vishigondi/trinity-local/issues/182))
+
+
 
 Stage 0 today extracts preferences from **single adjacent turn-pairs** — synchronic signal. The trajectory lens extends this to **arcs across multiple turns within a thread** — diachronic signal. If you pulled a conversation toward concrete examples three times across ten turns, that's a directional preference Stage 0 can't see.
 
 This is an asymmetric advantage over Anthropic's Auto-Dream (which curates *within-session* memory) and over the synchronic-only rejection signal. Roadmap target: ship after schema versioning ([#183](https://github.com/vishigondi/trinity-local/issues/183)) so trajectory records can migrate cleanly.
-
-## The 4-tier Bayesian gate — what makes it scale
-
-The gate isn't a single chairman call per candidate. It's four tiers running in priority order, cheap first, expensive last. Every candidate move passes through T1 → T2 → T3 → T4; failure at any tier short-circuits the rest. The throughput math is the point:
-
-| Tier | Cost | What it checks | Typical failure mode |
-|---|---|---|---|
-| **T1 lexical** | ~1ms | Word n-gram Jaccard vs accepted patterns in the candidate's basin | Candidate is lexically alien — its surface words don't overlap with patterns the user has accepted before |
-| **T2 embedding** | ~10ms | Cosine similarity of candidate embedding vs basin centroid | Candidate isn't really in the basin it claims — wrong topic, semantically distant |
-| **T3 chairman** | ~30s | Chairman scores the candidate against your `lens.md` tensions for that basin | Move is in the right basin and lexically valid but wouldn't actually have addressed the rejection it claims to fix |
-| **T4 posterior** | free (state) | Beta-Binomial posterior of `alpha/(alpha+beta)` from actual council usage | Move has drifted in production — won followers early, stopped helping. Demotion fires. |
-
-Without tiering, 20 candidates × 30s each = 10-minute dreams. With tiering, most candidates die at T1 or T2 (the free tiers) and a typical dream sees only the survivors hit the chairman. T3 is the throughput bottleneck; T1/T2 exist to make sure it's the only one.
-
-T3 reads your **lens tensions as the grading rubric**, not as background context — grading against a lens is different from grading in the presence of one. T4's demotion rate feeds back into T3 (Phase 6d): basins where the chairman's picks keep failing in production get a higher promotion bar next cycle. The gate self-corrects.
-
-The gate also applies to the **lens itself**: tensions whose claimed basins don't lexically or semantically resonate with the basin's content get narrowed or archived. The kernel applying to its own substrate.
 
 ## What you end up with
 
@@ -89,9 +74,6 @@ After a few dream cycles, your `~/.trinity/` looks like:
 │   ├── lens.md                   ← paired tensions: how you decide
 │   ├── topics.json               ← 20 subject basins + centroids
 │   └── vocabulary.md             ← homonyms + synonyms
-├── moves/
-│   ├── <slug>/SKILL.md           ← one procedural pattern per dir
-│   └── archive/                  ← demoted moves preserved
 ├── scoreboard/
 │   ├── picks.json                ← extracted "claude wins on REFRAME" rules
 │   └── routing.json              ← per-task-type win-rate
@@ -100,12 +82,6 @@ After a few dream cycles, your `~/.trinity/` looks like:
 ```
 
 The folder is the API. Everything in it is human-readable Markdown or JSON. Trinity disappearing tomorrow leaves your taste capture intact.
-
-## Skills, moves — same files, different names
-
-Trinity calls them **moves** internally because they're patterns you repeatedly accepted, not capabilities the model can run. The physical file format is **SKILL.md** (Anthropic's [agentskills.io](https://agentskills.io) spec) because that's what the agent harnesses already know how to read at runtime.
-
-So a "move" is a logical concept in Trinity's code (a `Move` dataclass passing through the 4-tier gate); a "SKILL.md" is the physical file on disk with `trinity_basin_id`, `trinity_eval_baseline`, `trinity_alpha` / `trinity_beta` frontmatter. Same thing at two abstraction levels.
 
 ## Runtime — using Trinity
 
@@ -154,11 +130,7 @@ The eval is **structurally asymmetric** in your favor: only Trinity sees your cr
 
 ## The closed loop — how Trinity gets better
 
-Three feedback edges run continuously:
-
-1. **Lens trains the chairman.** When the chairman synthesizes a council, it grades responses against your tensions — not generic axes. The lens IS the rubric.
-2. **Chairman's verdict trains the lens.** Council outcomes feed back: basins where chairman picks keep getting demoted trigger calibration; T3's bar for that basin gets raised next dream.
-3. **Gate over the lens.** Same T1/T2 primitives that gate moves also gate the lens itself — tensions claiming basins they can't resonate with get archived. The kernel applies to its own substrate.
+The chairman reads your `lens.md` during every synthesis. Each council emits a `routing_label` (winner, agreed/disagreed claims, why). Over time those outcomes feed back into the next dream: basins with shifting win-rates re-extract their tensions, vocabulary anchors evolve, the rejection corpus grows from new turn-pair signal. The lens isn't static — it's the slow-changing layer your fast-changing conversations refine.
 
 The taste you build with Trinity is the persistent thing across model generations. When the next frontier model ships, your lens still grades it. That's the layer this thing is.
 

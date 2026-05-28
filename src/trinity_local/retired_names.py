@@ -64,6 +64,87 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-27 moves substrate teardown (#184) ──
+    "trinity-local moves-build": RetirementRecord(
+        name="trinity-local moves-build",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — substrate retired; lens IS the source of truth)",
+        reason="Moves substrate was a redundant projection of the lens. The chairman LLM bridges declarative→procedural at inference time when it reads lens tensions during synthesis — pre-computing procedural moves is a JIT-cache for a free operation. Real-data dream cycle proved the 4-tier gate filtered 100% of candidates due to T1 surface-form mismatch (#181 + this commit's investigation). Net deletion: -4400 LOC across substrate + tests + schemas.",
+        kind="cli",
+    ),
+    "trinity-local moves-show": RetirementRecord(
+        name="trinity-local moves-show",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — substrate retired)",
+        reason="See trinity-local moves-build retirement.",
+        kind="cli",
+    ),
+    "trinity-local moves-export": RetirementRecord(
+        name="trinity-local moves-export",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — substrate retired)",
+        reason="See trinity-local moves-build retirement.",
+        kind="cli",
+    ),
+    "src/trinity_local/moves/": RetirementRecord(
+        name="src/trinity_local/moves/",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — substrate retired; lens primitives live in me/)",
+        reason="The procedural-memory layer Trinity attempted (gate.py 4-tier Bayesian gate, dream.py Phase 6 promotion/demotion, schemas.py Move dataclass, store.py persistence, frontmatter.py SKILL.md YAML, ~2300 LOC total). Empirically dormant: real-data dream cycle showed T1 rejecting 100% of candidates due to surface-form-vs-semantic-space mismatch. The chairman LLM is the right primitive for that bridge at inference time. The orphan gate_lens_tensions primitive from #181 Change #3 went with it; T2 cosine validation will land at Stage 4 of lens-build per #186.",
+        kind="module",
+    ),
+    "src/trinity_local/commands/moves.py": RetirementRecord(
+        name="src/trinity_local/commands/moves.py",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — substrate retired)",
+        reason="CLI surface for moves-build / moves-show / moves-export. 375 LOC. See src/trinity_local/moves/ retirement.",
+        kind="module",
+    ),
+    "schemas/move.schema.json": RetirementRecord(
+        name="schemas/move.schema.json",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — Move dataclass retired)",
+        reason="JSON Schema for the Move dataclass. Substrate retired.",
+        kind="file",
+    ),
+    "schemas/dream_rejection.schema.json": RetirementRecord(
+        name="schemas/dream_rejection.schema.json",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — moves promotion path retired)",
+        reason="JSON Schema for dream_rejections.jsonl events emitted by the moves promotion pass. Substrate retired.",
+        kind="file",
+    ),
+    "schemas/dream_demotion.schema.json": RetirementRecord(
+        name="schemas/dream_demotion.schema.json",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — moves demotion path retired)",
+        reason="JSON Schema for dream_demotions.jsonl events emitted by the moves demotion pass. Substrate retired.",
+        kind="file",
+    ),
+    "schemas/dream_calibration.schema.json": RetirementRecord(
+        name="schemas/dream_calibration.schema.json",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — calibration loop retired; future tension-level calibration will design its own schema)",
+        reason="JSON Schema for ~/.trinity/dream_calibration.json — the T3↔T4 calibration state we shipped in #181 Change #2. Retired one day later when the moves substrate it calibrated was demoted to dormant projection.",
+        kind="file",
+    ),
+    "trinity-local dream --skip-moves": RetirementRecord(
+        name="trinity-local dream --skip-moves",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — Phase 6 retired entirely)",
+        reason="CLI flag for skipping moves phase of dream. Phase itself retired.",
+        kind="config_field",
+    ),
     # ── 2026-05-26 substrate-arc cut pass (handoff + memory-compare) ──
     "trinity-local handoff": RetirementRecord(
         name="trinity-local handoff",

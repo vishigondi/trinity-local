@@ -52,7 +52,11 @@ CORE_COMMAND_MODULES = (
     "lens_import",
     "me",
     "me_card",
-    "moves",
+    # `moves` CLI verbs (moves-build, moves-show, moves-export) retired
+    # 2026-05-27 — see retired_names.py. The moves substrate was the
+    # procedural-memory layer Trinity attempted before realizing the
+    # chairman LLM bridges declarative→procedural at inference time,
+    # making moves a redundant projection of the lens. See #184.
     "portal",
     # `replay` CLI verb retired 2026-05-27 — see retired_names.py.
     # The natural way to populate the routing table is to use Trinity

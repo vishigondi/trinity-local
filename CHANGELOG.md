@@ -7,6 +7,47 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.13 — moves substrate teardown: chairman LLM is the procedural compiler] — 2026-05-27
+
+Real-data dream cycle proved the 4-tier Bayesian gate (shipped
+#167–#172 and tightened in #181) was structurally dormant — T1
+lexical rejected 100% of candidates because move text and basin
+patterns live at different length/vocabulary registers. The
+conceptual fix was simpler than retuning the threshold: **the
+chairman LLM bridges declarative→procedural at inference time**
+when it reads `lens.md` during synthesis. Pre-computing moves was
+JIT-cache for a free operation; SKILL.md emission was a per-task
+routing format jammed into an always-on user-model role.
+
+This commit deletes the substrate wholesale:
+
+- `src/trinity_local/moves/` (gate.py, dream.py, schemas.py,
+  store.py, frontmatter.py, __init__.py) — 2,331 LOC
+- `src/trinity_local/commands/moves.py` — 375 LOC CLI surface
+- Phase 6 of dream orchestrator + `--skip-moves` flag — ~80 LOC
+- Four schemas (move, dream_rejection, dream_demotion,
+  dream_calibration) × 2 mirrors — ~300 LOC
+- Four test files — ~2,000 LOC
+- Doc references in claude.md, how-trinity-works.md,
+  three-tier-architecture.md
+
+Net: **-4,400 LOC** across source + tests + schemas. Retirements
+registered in `retired_names.py` with full kind classification.
+
+What survives: the lens (`~/.trinity/memories/lens.md`) is the
+single source of truth. The chairman reads it during every council
+synthesis and derives procedural guidance at inference time —
+"prefer compression over verbosity" naturally produces "draft, then
+cut" behavior without needing the move spelled out.
+
+Follow-ups opened: #186 (T2-only lens validation in Stage 4
+basin_post_filter — the right primitive in the right layer), #187
+(post-moves dead-code cleanup — ranker/knn/depth/setup_guidance
+orphans surfaced by the same investigation), #188 (orphan-finder
+script + CI guard), #189 (retirement denylist expansion). The
+gstack ratcheting pattern that has served Trinity is the framework
+that prevents this drift class from happening again.
+
 ## [v1.7.12 — seed-kernel recursion explicit: T3 rubric + T3↔T4 calibration + gate-over-lens] — 2026-05-27
 
 Closes three open feedback edges in the 4-tier Bayesian gate. The
@@ -812,7 +853,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2111<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1980<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

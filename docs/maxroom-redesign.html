@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MaxRoom — Idea to Video in Minutes</title>
+  <style>
+    /* ─── Color System ─── */
+    :root {
+      --bg-base:        #0A0A0F;
+      --bg-surface:     #12121A;
+      --bg-card:        #1A1A26;
+      --bg-card-hover:  #1F1F30;
+      --accent:         #7C3AED;
+      --accent-hover:   #6D28D9;
+      --highlight:      #A855F7;
+      --highlight-glow: rgba(168, 85, 247, 0.25);
+      --text-primary:   #F0EEFF;
+      --text-secondary: #9B93B8;
+      --text-muted:     #5C5478;
+      --border:         rgba(124, 58, 237, 0.18);
+      --border-subtle:  rgba(255, 255, 255, 0.06);
+      --radius-sm:      6px;
+      --radius-md:      12px;
+      --radius-lg:      20px;
+      --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.4);
+      --shadow-purple:  0 8px 32px rgba(124, 58, 237, 0.35);
+    }
+
+    /* ─── Reset & Base ─── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img { display: block; max-width: 100%; }
+
+    /* ─── Utility ─── */
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .section {
+      padding: 96px 0;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--highlight);
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 560px;
+    }
+
+    .centered { text-align: center; }
+    .centered .section-sub { margin: 0 auto; }
+
+    /* ─── Keyframes ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes pulseRing {
+      0%   { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5); }
+      70%  { box-shadow: 0 0 0 14px rgba(124, 58, 237, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+    }
+
+    /* Typing demo animation */
+    @keyframes typing1Show {
+      0%, 30%   { opacity: 1; transform: translateY(0); }
+      35%, 100% { opacity: 0; transform: translateY(-12px); }
+    }
+    @keyframes typing2Show {
+      0%, 33%    { opacity: 0; transform: translateY(12px); }
+      38%, 63%   { opacity: 1; transform: translateY(0); }
+      68%, 100%  { opacity: 0; transform: translateY(-12px); }
+    }
+    @keyframes typing3Show {
+      0%, 66%    { opacity: 0; transform: translateY(12px); }
+      71%, 96%   { opacity: 1; transform: translateY(0); }
+      100%       { opacity: 0; transform: translateY(-12px); }
+    }
+
+    @keyframes cursor-blink {
+      0%, 50%  { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    @keyframes floatOrb {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-24px) scale(1.05); }
+    }
+
+    @keyframes accordionOpen {
+      from { opacity: 0; max-height: 0; }
+      to   { opacity: 1; max-height: 200px; }
+    }
+
+    /* ─── Navigation ─── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 10, 15, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .nav-logo-mark {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--highlight));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-logo-mark svg { width: 18px; height: 18px; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      box-shadow: var(--shadow-purple);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border);
+    }
+
+    .btn-lg {
+      font-size: 16px;
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+    }
+
+    .btn-xl {
+      font-size: 17px;
+      padding: 16px 36px;
+      border-radius: var(--radius-md);
+    }
+
+    /* Mobile nav toggle (CSS-only) */
+    .nav-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .nav-toggle span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text-primary);
+      border-radius: 2px;
+    }
+
+    /* ─── Hero ─── */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    .hero-bg-orb-1 {
+      width: 600px;
+      height: 600px;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(124, 58, 237, 0.22) 0%, transparent 70%);
+      animation: floatOrb 8s ease-in-out infinite;
+    }
+
+    .hero-bg-orb-2 {
+      width: 400px;
+      height: 400px;
+      top: 100px;
+      left: -100px;
+      background: radial-gradient(ellipse, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
+      animation: floatOrb 11s ease-in-out infinite reverse;
+    }
+
+    .hero-bg-orb-3 {
+      width: 300px;
+      height: 300px;
+      top: 200px;
+      right: -60px;
+      background: radial-gradient(ellipse, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+      animation: floatOrb 9s ease-in-out infinite 2s;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--highlight);
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.22);
+      padding: 6px 14px;
+      border-radius: 100px;
+      margin-bottom: 32px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-eyebrow-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--highlight);
+      border-radius: 50%;
+      animation: pulseRing 2s infinite;
+    }
+
+    .hero-headline {
+      font-size: clamp(42px, 7vw, 76px);
+      font-weight: 900;
+      line-height: 1.06;
+      letter-spacing: -0.04em;
+      margin-bottom: 24px;
+      animation: fadeUp 0.6s ease 0.1s both;
+    }
+
+    .hero-headline-gradient {
+      background: linear-gradient(135deg, #A855F7 0%, #7C3AED 40%, #C084FC 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 4s ease infinite;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto 40px;
+      line-height: 1.65;
+      animation: fadeUp 0.6s ease 0.2s both;
+    }
+
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 56px;
+      animation: fadeUp 0.6s ease 0.3s both;
+    }
+
+    /* ─── Typing Demo ─── */
+    .typing-demo {
+      max-width: 620px;
+      margin: 0 auto;
+      animation: fadeUp 0.6s ease 0.4s both;
+    }
+
+    .typing-demo-window {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-card), 0 0 0 1px rgba(124, 58, 237, 0.1);
+    }
+
+    .typing-demo-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .demo-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .demo-dot:nth-child(1) { background: #FF5F57; }
+    .demo-dot:nth-child(2) { background: #FFBD2E; }
+    .demo-dot:nth-child(3) { background: #28CA41; }
+
+    .demo-bar-label {
+      margin-left: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .typing-demo-body {
+      padding: 20px 24px 24px;
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+    }
+
+    .typing-prompt-wrapper {
+      position: relative;
+      width: 100%;
+      height: 28px;
+    }
+
+    .typing-prompt {
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-size: 16px;
+      color: var(--text-primary);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .typing-prompt-1 {
+      animation: typing1Show 9s ease-in-out infinite;
+    }
+
+    .typing-prompt-2 {
+      animation: typing2Show 9s ease-in-out infinite;
+      opacity: 0;
+    }
+
+    .typing-prompt-3 {
+      animation: typing3Show 9s ease-in-out infinite;
+      opacity: 0;
+    }
+
+    .typing-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 18px;
+      background: var(--highlight);
+      margin-left: 3px;
+      vertical-align: middle;
+      animation: cursor-blink 1s step-end infinite;
+    }
+
+    .typing-demo-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: rgba(124, 58, 237, 0.06);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .demo-style-chips {
+      display: flex;
+      gap: 8px;
+    }
+
+    .demo-chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      color: var(--highlight);
+    }
+
+    .demo-chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .demo-generate-btn {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 16px;
+      background: linear-gradient(135deg, var(--accent), var(--highlight));
+      color: #fff;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Social Proof Bar ─── */
+    .social-proof {
+      padding: 40px 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .social-proof-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .social-proof-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .social-proof-label strong {
+      color: var(--text-secondary);
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .logo-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .logo-pill svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.5;
+    }
+
+    /* ─── Features ─── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 56px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.06) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(124, 58, 237, 0.12);
+      transform: translateY(-3px);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(168, 85, 247, 0.1));
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .feature-icon svg {
+      width: 22px;
+      height: 22px;
+      color: var(--highlight);
+    }
+
+    .feature-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ─── How It Works ─── */
+    .how-it-works {
+      background: var(--bg-surface);
+    }
+
+    .steps-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: start;
+      gap: 0;
+      margin-top: 56px;
+    }
+
+    .step {
+      text-align: center;
+      padding: 0 20px;
+    }
+
+    .step-num-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .step-num {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--highlight));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: var(--shadow-purple);
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .step-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 16px;
+      color: var(--accent);
+      opacity: 0.5;
+    }
+
+    .step-arrow svg { width: 28px; height: 28px; }
+
+    /* ─── Testimonials ─── */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 56px;
+    }
+
+    .testimonial-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .testimonial-card:hover {
+      border-color: var(--border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .testimonial-stars {
+      display: flex;
+      gap: 4px;
+    }
+
+    .star {
+      color: #F59E0B;
+      font-size: 15px;
+    }
+
+    .testimonial-quote {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .author-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .av-1 { background: linear-gradient(135deg, #7C3AED, #A855F7); }
+    .av-2 { background: linear-gradient(135deg, #0EA5E9, #38BDF8); }
+    .av-3 { background: linear-gradient(135deg, #EC4899, #F43F5E); }
+
+    .author-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .author-role {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ─── Pricing ─── */
+    .pricing {
+      background: var(--bg-surface);
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 56px;
+      align-items: start;
+    }
+
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      position: relative;
+      transition: all 0.25s;
+    }
+
+    .pricing-card:hover {
+      box-shadow: var(--shadow-card);
+    }
+
+    .pricing-card.popular {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), var(--shadow-purple);
+      transform: translateY(-8px);
+    }
+
+    .pricing-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--accent), var(--highlight));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+
+    .pricing-tier {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .pricing-price {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .price-amount {
+      font-size: 44px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .price-period {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .pricing-tagline {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+    }
+
+    .pricing-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin-bottom: 24px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .pricing-features li svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .pricing-features li.muted {
+      color: var(--text-muted);
+    }
+
+    .pricing-features li.muted svg {
+      color: var(--text-muted);
+    }
+
+    .pricing-card .btn {
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* ─── FAQ ─── */
+    .faq-list {
+      max-width: 740px;
+      margin: 56px auto 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    /* Pure CSS accordion using :has and checkbox trick */
+    .faq-checkbox {
+      display: none;
+    }
+
+    .faq-question {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      user-select: none;
+      transition: color 0.2s;
+    }
+
+    .faq-question:hover { color: var(--highlight); }
+
+    .faq-chevron {
+      width: 20px;
+      height: 20px;
+      color: var(--text-muted);
+      transition: transform 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease, padding 0.35s ease;
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      padding: 0 24px;
+    }
+
+    .faq-checkbox:checked + .faq-question .faq-chevron {
+      transform: rotate(180deg);
+      color: var(--highlight);
+    }
+
+    .faq-checkbox:checked + .faq-question {
+      color: var(--highlight);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .faq-checkbox:checked ~ .faq-answer {
+      max-height: 200px;
+      padding: 18px 24px 22px;
+    }
+
+    /* ─── CTA Banner ─── */
+    .cta-banner {
+      background: linear-gradient(135deg, #3B0764 0%, #4C1D95 35%, #5B21B6 60%, #6D28D9 100%);
+      position: relative;
+      overflow: hidden;
+      padding: 96px 0;
+      text-align: center;
+    }
+
+    .cta-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='g' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='30' cy='30' r='1' fill='%23ffffff08'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='60' height='60' fill='url(%23g)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .cta-banner-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+    }
+
+    .cta-orb-1 {
+      width: 400px;
+      height: 400px;
+      top: -100px;
+      left: -80px;
+      background: rgba(168, 85, 247, 0.3);
+    }
+
+    .cta-orb-2 {
+      width: 300px;
+      height: 300px;
+      bottom: -80px;
+      right: -40px;
+      background: rgba(124, 58, 237, 0.35);
+    }
+
+    .cta-banner h2 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cta-banner p {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.75);
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .cta-banner .btn {
+      position: relative;
+      background: #fff;
+      color: var(--accent);
+      font-size: 16px;
+      padding: 15px 36px;
+      border-radius: var(--radius-md);
+      font-weight: 800;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .cta-banner .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      background: var(--bg-base);
+      border-top: 1px solid var(--border-subtle);
+      padding: 64px 0 40px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 48px;
+      margin-bottom: 48px;
+    }
+
+    .footer-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .footer-tagline {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      max-width: 240px;
+      margin-bottom: 24px;
+    }
+
+    .footer-socials {
+      display: flex;
+      gap: 12px;
+    }
+
+    .social-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      color: var(--text-muted);
+    }
+
+    .social-icon:hover {
+      border-color: var(--border);
+      color: var(--text-primary);
+      background: var(--bg-card-hover);
+    }
+
+    .social-icon svg { width: 16px; height: 16px; }
+
+    .footer-col-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .footer-col-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .footer-col-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-col-links a:hover { color: var(--text-primary); }
+
+    .footer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1024px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .section { padding: 72px 0; }
+
+      .nav-links { display: none; }
+      .nav-toggle { display: flex; }
+
+      .hero { padding: 72px 0 60px; }
+      .hero-ctas { flex-direction: column; align-items: center; }
+      .hero-ctas .btn { width: 100%; max-width: 280px; justify-content: center; }
+
+      .features-grid { grid-template-columns: 1fr; gap: 14px; }
+
+      .steps-row {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .step-arrow { transform: rotate(90deg); }
+
+      .testimonials-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .pricing-card.popular { transform: none; }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+      }
+
+      .footer-grid > *:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .footer-bottom { flex-direction: column; text-align: center; }
+
+      .logo-row { gap: 10px; }
+      .logo-pill { font-size: 12px; padding: 8px 14px; }
+
+      .typing-demo-footer { flex-wrap: wrap; gap: 8px; }
+    }
+
+    @media (max-width: 480px) {
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Navigation ─── -->
+  <nav class="nav">
+    <div class="container">
+      <div class="nav-inner">
+        <a href="#" class="nav-logo">
+          <div class="nav-logo-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          </div>
+          MaxRoom
+        </a>
+
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#testimonials">Testimonials</a></li>
+        </ul>
+
+        <a href="#pricing" class="btn btn-primary">Try Free</a>
+
+        <div class="nav-toggle" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ─── -->
+  <section class="hero">
+    <div class="hero-bg-orb hero-bg-orb-1"></div>
+    <div class="hero-bg-orb hero-bg-orb-2"></div>
+    <div class="hero-bg-orb hero-bg-orb-3"></div>
+
+    <div class="container">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        Now in public beta — join 12,000+ creators
+      </div>
+
+      <h1 class="hero-headline">
+        Idea to Video<br>
+        <span class="hero-headline-gradient">in Minutes.</span>
+      </h1>
+
+      <p class="hero-sub">
+        Type a prompt. Get a video. No timeline, no editor, no experience needed.
+      </p>
+
+      <div class="hero-ctas">
+        <a href="#pricing" class="btn btn-primary btn-xl">Try It Free &rarr;</a>
+        <a href="#how-it-works" class="btn btn-ghost btn-xl">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="10,8 16,12 10,16"/>
+          </svg>
+          Watch Demo
+        </a>
+      </div>
+
+      <!-- Typing Demo Window -->
+      <div class="typing-demo">
+        <div class="typing-demo-window">
+          <div class="typing-demo-bar">
+            <div class="demo-dot"></div>
+            <div class="demo-dot"></div>
+            <div class="demo-dot"></div>
+            <span class="demo-bar-label">maxroom.ai — generate</span>
+          </div>
+
+          <div class="typing-demo-body">
+            <div class="typing-prompt-wrapper">
+              <span class="typing-prompt typing-prompt-1">A lone astronaut walking on a neon-lit alien planet at dusk<span class="typing-cursor"></span></span>
+              <span class="typing-prompt typing-prompt-2">Cinematic product reveal of a luxury watch, slow rotation<span class="typing-cursor"></span></span>
+              <span class="typing-prompt typing-prompt-3">Time-lapse of a city skyline transitioning from day to night<span class="typing-cursor"></span></span>
+            </div>
+          </div>
+
+          <div class="typing-demo-footer">
+            <div class="demo-style-chips">
+              <span class="demo-chip active">Cinematic</span>
+              <span class="demo-chip">Anime</span>
+              <span class="demo-chip">3D Render</span>
+            </div>
+            <div class="demo-generate-btn">Generate &rarr;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Social Proof Bar ─── -->
+  <div class="social-proof">
+    <div class="container">
+      <div class="social-proof-inner">
+        <p class="social-proof-label">
+          <strong>Trusted by 12,000+ creators</strong> at studios and agencies worldwide
+        </p>
+        <div class="logo-row">
+          <div class="logo-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            NOVA STUDIO
+          </div>
+          <div class="logo-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>
+            PIXEL &amp; CO
+          </div>
+          <div class="logo-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 22,20 2,20"/></svg>
+            FRAME LABS
+          </div>
+          <div class="logo-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            DRIFT MEDIA
+          </div>
+          <div class="logo-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            ARCHETYPE
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Features ─── -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="centered">
+        <span class="section-label">Features</span>
+        <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+        <p class="section-sub">Six purpose-built tools that cover the entire creative workflow — from first idea to final export.</p>
+      </div>
+
+      <div class="features-grid">
+
+        <!-- Text to Video -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Text to Video</h3>
+          <p class="feature-desc">Describe any scene in plain language. Our model renders it in seconds — no prompting expertise required.</p>
+        </div>
+
+        <!-- Style Transfer -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+              <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+              <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+              <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Style Transfer</h3>
+          <p class="feature-desc">Apply cinematic, anime, 3D render, or watercolor aesthetics instantly. Mix styles with a single slider.</p>
+        </div>
+
+        <!-- Auto Captions -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+              <polyline points="17,2 12,7 7,2"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Auto Captions</h3>
+          <p class="feature-desc">Subtitles generated and synced automatically in 40+ languages. Fully editable with custom fonts and colors.</p>
+        </div>
+
+        <!-- Scene Control -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Scene Control</h3>
+          <p class="feature-desc">Direct camera angles, pacing, and transitions. Storyboard your sequence with natural-language shot notes.</p>
+        </div>
+
+        <!-- Brand Kit -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21,15 16,10 5,21"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Brand Kit</h3>
+          <p class="feature-desc">Upload your logo, palette, and fonts once. Every generated video matches your brand — automatically.</p>
+        </div>
+
+        <!-- One-Click Export -->
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">One-Click Export</h3>
+          <p class="feature-desc">Export to MP4, MOV, WebM, or GIF at any resolution up to 4K. Direct publish to YouTube, TikTok, and Instagram.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── How It Works ─── -->
+  <section class="section how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="centered">
+        <span class="section-label">How It Works</span>
+        <h2 class="section-title">Three steps.<br>One great video.</h2>
+        <p class="section-sub">No learning curve. No timeline scrubbing. Just your idea, your style, your video.</p>
+      </div>
+
+      <div class="steps-row">
+        <div class="step">
+          <div class="step-num-wrap">
+            <div class="step-num">1</div>
+          </div>
+          <h3 class="step-title">Write your prompt</h3>
+          <p class="step-desc">Describe the video you want in plain English. Be as specific or as loose as you like — MaxRoom understands both.</p>
+        </div>
+
+        <div class="step-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </div>
+
+        <div class="step">
+          <div class="step-num-wrap">
+            <div class="step-num">2</div>
+          </div>
+          <h3 class="step-title">Choose your style</h3>
+          <p class="step-desc">Pick from 20+ visual styles — cinematic, anime, documentary, 3D render — or describe your own aesthetic.</p>
+        </div>
+
+        <div class="step-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
+        </div>
+
+        <div class="step">
+          <div class="step-num-wrap">
+            <div class="step-num">3</div>
+          </div>
+          <h3 class="step-title">Download and share</h3>
+          <p class="step-desc">Your video is ready in under two minutes. Export in any format and share directly to your platform of choice.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Testimonials ─── -->
+  <section class="section" id="testimonials">
+    <div class="container">
+      <div class="centered">
+        <span class="section-label">Testimonials</span>
+        <h2 class="section-title">Creators love MaxRoom.</h2>
+        <p class="section-sub">From solo creators to production studios — here's what people are actually saying.</p>
+      </div>
+
+      <div class="testimonials-grid">
+
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span>
+          </div>
+          <p class="testimonial-quote">"I used to spend two full days on a product launch video. MaxRoom gets me there in forty minutes. The style transfer feature alone is worth the subscription."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar av-1">SR</div>
+            <div>
+              <div class="author-name">Sofia Reyes</div>
+              <div class="author-role">Creative Director, Nova Studio</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span>
+          </div>
+          <p class="testimonial-quote">"We were skeptical that AI video could hit our quality bar. MaxRoom proved us wrong on the first render. Our Instagram reel hit 800K views in 48 hours."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar av-2">MK</div>
+            <div>
+              <div class="author-name">Marcus Kim</div>
+              <div class="author-role">Head of Content, Drift Media</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="testimonial-stars">
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span><span class="star">&#9733;</span>
+            <span class="star">&#9733;</span>
+          </div>
+          <p class="testimonial-quote">"As a one-person brand, MaxRoom is the only tool that lets me compete with studios. Brand Kit saves me hours every single week. Genuinely can't imagine going back."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar av-3">PL</div>
+            <div>
+              <div class="author-name">Priya Lal</div>
+              <div class="author-role">Independent Creator, 340K Subscribers</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Pricing ─── -->
+  <section class="section pricing" id="pricing">
+    <div class="container">
+      <div class="centered">
+        <span class="section-label">Pricing</span>
+        <h2 class="section-title">Simple, transparent pricing.</h2>
+        <p class="section-sub">Start free. Scale when you're ready. No hidden fees, no surprise overages.</p>
+      </div>
+
+      <div class="pricing-grid">
+
+        <!-- Free -->
+        <div class="pricing-card">
+          <p class="pricing-tier">Free</p>
+          <div class="pricing-price">
+            <span class="price-amount">$0</span>
+            <span class="price-period">/mo</span>
+          </div>
+          <p class="pricing-tagline">Perfect for exploring MaxRoom.</p>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              5 videos per month
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              720p export resolution
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              10 visual styles
+            </li>
+            <li class="muted">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              MaxRoom watermark
+            </li>
+            <li class="muted">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Priority rendering
+            </li>
+          </ul>
+          <a href="#" class="btn btn-ghost">Get Started Free</a>
+        </div>
+
+        <!-- Pro — Popular -->
+        <div class="pricing-card popular">
+          <div class="pricing-badge">Most Popular</div>
+          <p class="pricing-tier">Pro</p>
+          <div class="pricing-price">
+            <span class="price-amount">$29</span>
+            <span class="price-period">/mo</span>
+          </div>
+          <p class="pricing-tagline">For serious creators and freelancers.</p>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              100 videos per month
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              4K export resolution
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              All 20+ visual styles
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              No watermark
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              Priority rendering
+            </li>
+          </ul>
+          <a href="#" class="btn btn-primary">Start Pro Trial</a>
+        </div>
+
+        <!-- Team -->
+        <div class="pricing-card">
+          <p class="pricing-tier">Team</p>
+          <div class="pricing-price">
+            <span class="price-amount">$99</span>
+            <span class="price-period">/mo</span>
+          </div>
+          <p class="pricing-tagline">For studios and growing teams.</p>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              Unlimited videos
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              4K + custom resolutions
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              Team workspace &amp; roles
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              Brand Kit (shared)
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+              API access
+            </li>
+          </ul>
+          <a href="#" class="btn btn-ghost">Contact Sales</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ─── -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="centered">
+        <span class="section-label">FAQ</span>
+        <h2 class="section-title">Questions, answered.</h2>
+        <p class="section-sub">Everything you need to know before you hit Generate.</p>
+      </div>
+
+      <div class="faq-list">
+
+        <!-- Q1 -->
+        <div class="faq-item">
+          <input type="checkbox" id="faq-1" class="faq-checkbox" />
+          <label for="faq-1" class="faq-question">
+            How long can the videos be?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </label>
+          <div class="faq-answer">
+            Free plan supports clips up to 15 seconds. Pro plan extends this to 60 seconds per generation. Team plan removes the per-generation cap and supports multi-scene sequences up to 5 minutes via scene stitching. Longer formats are on our roadmap.
+          </div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="faq-item">
+          <input type="checkbox" id="faq-2" class="faq-checkbox" />
+          <label for="faq-2" class="faq-question">
+            Do I own the commercial rights to my videos?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </label>
+          <div class="faq-answer">
+            Yes — fully. On Pro and Team plans you own 100% of the commercial rights to any video you generate. Free plan grants personal use rights. You may use your videos in ads, client work, YouTube monetization, and any commercial project without restriction or attribution.
+          </div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="faq-item">
+          <input type="checkbox" id="faq-3" class="faq-checkbox" />
+          <label for="faq-3" class="faq-question">
+            What export formats are supported?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </label>
+          <div class="faq-answer">
+            MaxRoom exports to MP4 (H.264 and H.265), MOV (ProRes on Team), WebM, and animated GIF. You can also export as a vertical 9:16 or square 1:1 crop from any generated clip. Direct publishing to YouTube, TikTok, and Instagram Reels is built in for Pro and Team users.
+          </div>
+        </div>
+
+        <!-- Q4 -->
+        <div class="faq-item">
+          <input type="checkbox" id="faq-4" class="faq-checkbox" />
+          <label for="faq-4" class="faq-question">
+            What is your refund policy?
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </label>
+          <div class="faq-answer">
+            We offer a full refund within 7 days of your first paid charge, no questions asked. After 7 days, you can cancel at any time and retain access until the end of your billing period. We do not offer prorated refunds for mid-cycle cancellations, but we'll always work with you if something went wrong on our end.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA Banner ─── -->
+  <section class="cta-banner">
+    <div class="cta-banner-orb cta-orb-1"></div>
+    <div class="cta-banner-orb cta-orb-2"></div>
+    <div class="container">
+      <h2>Start creating for free.</h2>
+      <p>Your first 5 videos are on us. No credit card. No timeline. No excuses.</p>
+      <a href="#pricing" class="btn">Get Started &mdash; No Credit Card</a>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+
+        <!-- Brand col -->
+        <div>
+          <div class="footer-brand-logo">
+            <div class="nav-logo-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+            </div>
+            MaxRoom
+          </div>
+          <p class="footer-tagline">Type a prompt. Get a video. The fastest path from idea to finished content.</p>
+          <div class="footer-socials">
+            <!-- Twitter / X -->
+            <a href="#" class="social-icon" aria-label="Twitter">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </a>
+            <!-- Instagram -->
+            <a href="#" class="social-icon" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </a>
+            <!-- YouTube -->
+            <a href="#" class="social-icon" aria-label="YouTube">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/>
+                <polygon points="9.75,15.02 15.5,12 9.75,8.98 9.75,15.02"/>
+              </svg>
+            </a>
+            <!-- LinkedIn -->
+            <a href="#" class="social-icon" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Product col -->
+        <div>
+          <p class="footer-col-title">Product</p>
+          <ul class="footer-col-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#">Changelog</a></li>
+            <li><a href="#">API Docs</a></li>
+          </ul>
+        </div>
+
+        <!-- Company col -->
+        <div>
+          <p class="footer-col-title">Company</p>
+          <ul class="footer-col-links">
+            <li><a href="#">About</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Press</a></li>
+          </ul>
+        </div>
+
+        <!-- Legal col -->
+        <div>
+          <p class="footer-col-title">Legal</p>
+          <ul class="footer-col-links">
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Cookie Policy</a></li>
+            <li><a href="#">Security</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 MaxRoom, Inc. All rights reserved.</span>
+        <span>Made for creators who move fast.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

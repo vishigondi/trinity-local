@@ -54,9 +54,6 @@ class TestSchemasAreValid:
         "council_outcome.schema.json",
         "eval_set.schema.json",
         "rejection_signal.schema.json",
-        "dream_rejection.schema.json",
-        "dream_demotion.schema.json",
-        "move.schema.json",
     ])
     def test_schema_self_validates(self, jsonschema_mod, schema_name):
         schema = _load_schema(schema_name)
@@ -327,102 +324,6 @@ class TestRealCorpusSchemaCompliance:
             jsonschema_mod.validate(payload, schema)
 
 
-class TestDreamWriterConformance:
-    """Synthetic round-trips for the v2 dream writers.
-
-    Catches drift between the dream code that emits the log rows and the
-    schema that promises what those rows look like."""
-
-    def test_dream_rejection_writer_emits_schema_conformant_row(
-        self, jsonschema_mod, patch_trinity_home: Path
-    ):
-        from trinity_local.moves.dream import _log_dream_rejection
-        from trinity_local.moves.gate import TierResult
-        from trinity_local.moves.schemas import Move
-
-        candidate = Move(
-            name="tighten verbose bullets",
-            description="collapse multi-bullet lists into prose",
-            trinity_basin_id="basin_42",
-            trinity_promoted_from=["r_017", "r_019", "r_021"],
-        )
-        tier_results = [
-            TierResult(tier="T1", passed=False, score=0.18, threshold=0.3, reason="below floor"),
-        ]
-        _log_dream_rejection(candidate, tier_results, why="T1 lexical below floor")
-
-        path = patch_trinity_home / "dream_rejections.jsonl"
-        assert path.exists()
-        rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-        assert len(rows) == 1
-        schema = _load_schema("dream_rejection.schema.json")
-        jsonschema_mod.validate(rows[0], schema)
-
-    def test_dream_demotion_writer_emits_schema_conformant_row(
-        self, jsonschema_mod, patch_trinity_home: Path
-    ):
-        from trinity_local.moves.dream import _log_dream_demotion
-        from trinity_local.moves.gate import TierResult
-        from trinity_local.moves.schemas import Move
-
-        move = Move(
-            name="reframe as direct question",
-            description="rewrite hedged questions as direct ones",
-            trinity_basin_id="basin_13",
-            trinity_promoted_at="2026-05-25T12:00:00+00:00",
-            trinity_alpha=2,
-            trinity_beta=8,
-            trinity_execution_count=8,
-            trinity_eval_baseline=0.65,
-        )
-        result = TierResult(
-            tier="T4",
-            passed=False,
-            score=0.20,
-            threshold=0.65,
-            reason="posterior 0.20 below baseline 0.65 after 8 executions",
-        )
-        _log_dream_demotion(move, tier="T4", result=result)
-
-        path = patch_trinity_home / "dream_demotions.jsonl"
-        assert path.exists()
-        rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-        assert len(rows) == 1
-        schema = _load_schema("dream_demotion.schema.json")
-        jsonschema_mod.validate(rows[0], schema)
-        # Sanity: posterior reflects alpha/beta
-        assert rows[0]["posterior"] == pytest.approx(2 / 10)
-        assert rows[0]["baseline"] == 0.65
-        assert rows[0]["executions"] == 8
-
-    def test_move_skill_md_writer_emits_schema_conformant_frontmatter(
-        self, jsonschema_mod, patch_trinity_home: Path
-    ):
-        """A Move written via store.write_move must round-trip into a
-        SKILL.md whose frontmatter validates against move.schema.json."""
-        from trinity_local.moves import store
-        from trinity_local.moves.frontmatter import load_frontmatter, split_document
-        from trinity_local.moves.schemas import Move
-
-        m = Move(
-            name="tighten verbose bullets",
-            description="collapse multi-bullet lists into prose",
-            trinity_basin_id="basin_42",
-            trinity_promoted_at="2026-05-25T12:00:00+00:00",
-            trinity_alpha=4,
-            trinity_beta=2,
-            trinity_execution_count=4,
-            trinity_t3_chairman_score=0.78,
-            trinity_eval_baseline=0.78,
-            trinity_promoted_from=["r_017", "r_019"],
-        )
-        path = store.write_move(m)
-        fm_text, _body = split_document(path.read_text(encoding="utf-8"))
-        record = load_frontmatter(fm_text)
-        schema = _load_schema("move.schema.json")
-        jsonschema_mod.validate(record, schema)
-
-
 class TestSpecDocReferencesSchemas:
     """The spec doc points at the schemas. If we rename a schema file
     without updating the doc, the doc's links rot silently."""
@@ -435,9 +336,6 @@ class TestSpecDocReferencesSchemas:
             "council_outcome.schema.json",
             "eval_set.schema.json",
             "rejection_signal.schema.json",
-            "dream_rejection.schema.json",
-            "dream_demotion.schema.json",
-            "move.schema.json",
         ]
         for ref in expected_refs:
             assert ref in doc, f"PREFERENCE_CORPUS_SPEC.md doesn't link to {ref}"
@@ -497,48 +395,6 @@ class TestSchemaExamples:
                 jsonschema_mod.validate(record, schema)
             except jsonschema_mod.ValidationError as exc:
                 pytest.fail(f"rejection_signal.example.jsonl line {idx} failed: {exc}")
-
-    def test_dream_rejection_example_jsonl_validates(self, jsonschema_mod):
-        """dream_rejections.jsonl is line-delimited (one rejected
-        candidate per row, appended). Each line must validate."""
-        schema = _load_schema("dream_rejection.schema.json")
-        path = SCHEMAS_DIR / "examples" / "dream_rejection.example.jsonl"
-        assert path.exists(), "dream_rejection.example.jsonl missing"
-        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        assert lines, "example jsonl is empty"
-        for idx, line in enumerate(lines, start=1):
-            record = json.loads(line)
-            try:
-                jsonschema_mod.validate(record, schema)
-            except jsonschema_mod.ValidationError as exc:
-                pytest.fail(f"dream_rejection.example.jsonl line {idx} failed: {exc}")
-
-    def test_dream_demotion_example_jsonl_validates(self, jsonschema_mod):
-        """dream_demotions.jsonl is line-delimited (one demotion per row)."""
-        schema = _load_schema("dream_demotion.schema.json")
-        path = SCHEMAS_DIR / "examples" / "dream_demotion.example.jsonl"
-        assert path.exists(), "dream_demotion.example.jsonl missing"
-        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        assert lines, "example jsonl is empty"
-        for idx, line in enumerate(lines, start=1):
-            record = json.loads(line)
-            try:
-                jsonschema_mod.validate(record, schema)
-            except jsonschema_mod.ValidationError as exc:
-                pytest.fail(f"dream_demotion.example.jsonl line {idx} failed: {exc}")
-
-    def test_move_example_md_frontmatter_validates(self, jsonschema_mod):
-        """move SKILL.md examples carry YAML frontmatter — split it,
-        parse via Trinity's own frontmatter loader, then validate.
-        Catches drift between the schema and the Move dataclass shape."""
-        from trinity_local.moves.frontmatter import load_frontmatter, split_document
-        schema = _load_schema("move.schema.json")
-        path = SCHEMAS_DIR / "examples" / "move.example.md"
-        assert path.exists(), "move.example.md missing"
-        fm_text, _body = split_document(path.read_text(encoding="utf-8"))
-        assert fm_text is not None, "example missing YAML frontmatter"
-        record = load_frontmatter(fm_text)
-        jsonschema_mod.validate(record, schema)
 
     def test_examples_kept_minimal(self):
         """Examples should carry every REQUIRED field and only the
