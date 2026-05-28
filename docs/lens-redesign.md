@@ -133,7 +133,8 @@ becomes a **view over an append-only ledger**, not stateful counters.
 | **2 — decisions** | Chairman extracts privileged/sacrificed | **Keep** as extraction | Decisions are evidence; unchanged |
 | **3 — pair-mining** | Chairman proposes paired tensions | **Reframe**: output is *candidate* tensions, not "the lens" | The chairman proposes; the accumulator disposes |
 | **4 — basin post-filter (+T2)** | ≥3-basin count + cosine membership | **Keep** as the gate on candidates | A candidate must still clear the structural bar before entering reconcile |
-| **4.5 — reconcile (NEW)** | — | **Add**: match candidates to existing lens by semantic identity; reinforce / add-provisional / decay | This is the load-bearing new stage — turns the lens from stateless to accumulating |
+| **4.25 — canonicalize to user vocab (NEW)** | — | **Add**: rephrase each tension pole in the user's own words, drawn from the supporting evidence | Legibility + compression (your words carry your connotations) + stability (your phrasing is consistent run-to-run; the chairman's drifts) |
+| **4.5 — reconcile (NEW)** | — | **Add**: match candidates to registry by cosine identity; accrue evidence ids | This is the load-bearing new stage — turns the lens from stateless to accumulating |
 | **5 — distill (core.md)** | Reads tensions | **Change**: read *high-support* tensions first | The distillation should reflect the durable core, not this-run's noise |
 | **2.5 — vocabulary** | Homonyms/synonyms | **Keep** — and use it in 4.5 identity matching | Two phrasings of one tension ("refine"/"tighten") must resolve to one identity; vocabulary is that bridge |
 
@@ -276,3 +277,87 @@ The net: the chairman keeps *proposing* tensions (good at that); the
 test of time). The lens is a **view over append-only evidence**, not
 stateful counters — which is both simpler than the v1 design and immune
 to the counter-corruption class that produced this session's incidents.
+
+## Is it beautiful? An honest audit
+
+Asked directly. The answer is split: **the core is beautiful; the
+surface still shows its accretion seams.**
+
+### What's beautiful (the core idea)
+
+- **One thesis.** "The lens is a stable, self-owned, evidence-backed
+  view that speaks in your voice." Every decision flows from that one
+  sentence.
+- **One primitive, three jobs.** Embedding cosine does basin-membership
+  gating (Stage 4 / #186), tension *identity* matching (4.5), AND
+  vocabulary canonicalization (4.25). The kernel applied at every layer
+  — the recursion isn't decoration, it's the same operation reused. That
+  is the mark of a design that found its primitive.
+- **One ledger.** `merges.jsonl` is the single source of truth; the
+  lens, the routing table, and (formerly) moves all want the same shape:
+  *accumulate over an append-only ledger, viewed through cosine
+  identity.* Trinity is, at its core, one accumulator.
+- **The chairman proposes; the ledger disposes.** Authority sits with
+  the evidence, not the stochastic model. That's why B (chairman
+  fixpoint) was rejected and why this is robust by construction.
+
+### What's NOT beautiful yet (the seams)
+
+1. **Fractional stage numbers.** 0, 1, 2, 2.5, 3, 4, 4.25, 4.5, 5 — the
+   `.5` and `.25` stages are tells that the pipeline grew by *insertion*,
+   not design. A beautiful pipeline has clean phases. The honest reframe
+   collapses to **four verbs**:
+   - **EXTRACT** (today's 0,2,3): chairman reads turns → preference
+     evidence → ledger.
+   - **GATE** (1,4): basin membership + cross-domain (≥3) filter.
+   - **ACCUMULATE** (4.5): cosine-match to registry, accrue evidence,
+     derive support.
+   - **RENDER** (4.25 + 5): canonicalize to user vocab, order by support,
+     distill.
+   One primitive (cosine) threads GATE+ACCUMULATE+RENDER; one ledger
+   underlies all four. *That* is the beautiful shape; the current
+   numbering hides it.
+
+2. **Two extraction passes that are really one.** Stage 0 (rejections:
+   REFRAME/REDIRECT/COMPRESSION/SHARPENING) and Stage 2 (decisions:
+   privileged↔sacrificed) are both "chairman reads turns, emits a
+   preference act." A **rejection IS a decision** — the user privileged
+   their substitute's value over the model's offering. Decisions ⊇
+   rejections (rejections are the model-miss-triggered subset). The
+   beautiful form: **one evidence type — a "preference act" with a
+   `trigger` field** (model-miss vs self-expressed) — one extraction
+   pass, one ledger schema. `merges.jsonl`'s own docstring already
+   reaches for this ("every user-expressed-preference act"). The design
+   should lean in: collapse 0+2 into one EXTRACT pass over one evidence
+   type. That removes a whole chairman call AND a schema.
+
+3. **Canonicalize-after-academic-phrasing is slightly backwards.** The
+   chairman invents academic poles (Stage 3), then 4.25 translates them
+   back to your words. More direct: feed the chairman the evidence
+   verbatim and ask for poles *in your language* up front. The catch —
+   the chairman drifts (the instability we measured), so a deterministic
+   canonicalization pass is the stabilizer. Resolution: do **both** —
+   nudge the chairman toward user-words in the prompt *and* keep the
+   deterministic canonicalization as the guarantee. Belt and suspenders,
+   but the suspenders (deterministic) are what hold.
+
+### Verdict
+
+The **idea** is beautiful — one ledger, one cosine primitive doing
+triple duty, evidence-over-authority, your-voice rendering. If we ship
+the lean A as-is it's *correct and robust* but carries visible accretion
+seams (fractional stages, the rejection/decision split).
+
+The **beautiful build** is one more step: collapse to the four verbs and
+unify rejections+decisions into one preference-act evidence type. That's
+not gold-plating — it *removes* a chairman call and a schema while making
+the structure legible. It's the same "simpler is the higher bar" move
+that retired moves and audited A.
+
+**Recommendation:** build the lean A core first (it's correct and
+unblocks everything), but do it *inside* the four-verb structure from
+the start — EXTRACT / GATE / ACCUMULATE / RENDER as the actual module
+boundaries — so we don't add a 4.5 to a fractional pile. Treat
+rejection+decision unification as the first EXTRACT-phase task, not a
+later refactor. Build the beautiful shape, not the seamed one we'd have
+to clean up later.
