@@ -93,7 +93,15 @@ def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
             mtime = path.stat().st_mtime
         except OSError:
             continue
-        if mtime > since_mtime:
+        # Inclusive boundary (>=, not >). Batch-written files (a Takeout
+        # import, a sync that touches many files in one second) share an
+        # mtime. If a deadline-bounded ingest commits the cursor at that
+        # mtime mid-batch, a strict `>` on the next run would skip every
+        # remaining sibling at that exact mtime — permanent silent loss.
+        # `>=` re-includes the boundary; the id-dedup in ingest_recent
+        # (existing_ids) skips turns already written, so re-scan is free of
+        # double-writes and the batch eventually drains.
+        if mtime >= since_mtime:
             recent.append((mtime, path))
     for _, path in sorted(recent):
         yield path

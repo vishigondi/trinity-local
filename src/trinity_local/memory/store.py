@@ -38,8 +38,15 @@ def upsert_turn_window(window: TurnWindow) -> None:
     _append_jsonl(turn_windows_path(), window.to_dict())
 
 
-def _iter_jsonl_latest_by_id(path: Path) -> Iterator[dict]:
-    """Yield the latest record per id from a JSONL file (append-only upsert)."""
+def _iter_jsonl_latest_by_id(path: Path, *, protect_field: str | None = None) -> Iterator[dict]:
+    """Yield the latest record per id from a JSONL file (append-only upsert).
+
+    `protect_field` guards against a later record clobbering a richer earlier
+    one: when set, a new record whose `protect_field` is empty/falsy will NOT
+    overwrite a stored record whose `protect_field` is non-empty. Used for
+    `embedding` so an empty-embedding PromptNode (written cheaply by
+    incremental ingest) can't shadow the same id's fully-embedded record —
+    the dim-0 / lost-vector hazard the basin filter only papers over."""
     if not path.exists():
         return
     seen: dict[str, dict] = {}
@@ -53,8 +60,12 @@ def _iter_jsonl_latest_by_id(path: Path) -> Iterator[dict]:
             except json.JSONDecodeError:
                 continue
             rid = record.get("id")
-            if rid:
-                seen[rid] = record
+            if not rid:
+                continue
+            if protect_field and rid in seen:
+                if not record.get(protect_field) and seen[rid].get(protect_field):
+                    continue  # don't let an empty field shadow a populated one
+            seen[rid] = record
     yield from seen.values()
 
 
@@ -279,7 +290,7 @@ def iter_prompt_nodes(*, limit: object = _UNSET) -> Iterator[PromptNode]:
         return
 
     nodes: list[PromptNode] = []
-    for record in _iter_jsonl_latest_by_id(path):
+    for record in _iter_jsonl_latest_by_id(path, protect_field="embedding"):
         try:
             nodes.append(PromptNode.from_dict(record))
         except Exception:

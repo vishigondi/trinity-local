@@ -402,3 +402,37 @@ class TestLegacyProviderSlugNormalization:
         from trinity_local.council_schema import CouncilRoutingLabel
         label = CouncilRoutingLabel.from_dict({"winner": "mlx"})
         assert label.winner == "mlx"
+
+
+class TestBareJsonBraceScan:
+    """Review HIGH#3: the unfenced-JSON fallback must use a brace-depth scan,
+    not a non-greedy regex that stops at the first `}` after "winner" and
+    truncates any routing JSON with nested objects (provider_scores etc.)."""
+
+    def test_unfenced_routing_json_with_nested_objects_parses(self):
+        from trinity_local.council_runtime import parse_routing_label
+        # No ```routing-json fence; nested provider_scores object. The old
+        # regex truncated at the first } and failed to parse.
+        text = (
+            "Here is my decision.\n"
+            '{"winner": "claude", "runner_up": "codex", '
+            '"provider_scores": {"claude": 0.9, "codex": 0.7}, '
+            '"confidence": "high"}\n'
+            "That's my reasoning."
+        )
+        label, err = parse_routing_label(text)
+        assert err is None
+        assert label is not None
+        assert label.winner == "claude"
+        # runner_up + confidence sit AFTER the nested provider_scores object —
+        # parsing them proves the scan didn't truncate at the first inner `}`
+        # (the old non-greedy regex would have, failing the whole parse).
+        assert label.runner_up == "codex"
+        assert label.confidence == "high"
+
+    def test_bare_objects_scan_skips_object_without_winner(self):
+        from trinity_local.council_runtime import _bare_json_objects_with_winner
+        text = '{"foo": {"bar": 1}} then {"winner": "claude", "x": {"y": 2}}'
+        objs = _bare_json_objects_with_winner(text)
+        assert len(objs) == 1
+        assert '"winner"' in objs[0] and '"y": 2' in objs[0]

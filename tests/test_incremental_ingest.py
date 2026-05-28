@@ -333,3 +333,42 @@ class TestIngestRecent:
         # Second pass walks the same file, same turn → stable node_id → skip
         assert r2.added == 0
         assert r2.skipped_existing >= 1
+
+
+def test_iter_recent_paths_includes_boundary_mtime(tmp_path, monkeypatch):
+    """Review HIGH#4: the cursor boundary must be inclusive (>=). Batch-written
+    files share an mtime; a strict `>` drops every sibling at the cursor's exact
+    mtime after a deadline commits there. id-dedup makes the re-scan safe."""
+    from trinity_local import watch_runtime
+
+    root = tmp_path / "claude"
+    root.mkdir()
+    f = root / "a.jsonl"
+    f.write_text("{}\n", encoding="utf-8")
+    import os
+    os.utime(f, (1000.0, 1000.0))
+
+    monkeypatch.setattr(watch_runtime, "_source_root", lambda source: root)
+    # since_mtime == the file's exact mtime: must still be yielded (inclusive).
+    paths = list(watch_runtime._iter_recent_paths("claude", 1000.0))
+    assert f in paths, "boundary-mtime file dropped — strict > would lose it"
+
+
+def test_empty_embedding_does_not_shadow_real(tmp_path, monkeypatch):
+    """Review HIGH#5: an empty-embedding record must not shadow an earlier
+    fully-embedded record with the same id (append-upsert latest-wins)."""
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
+    from trinity_local.memory.store import _iter_jsonl_latest_by_id, prompt_nodes_path
+
+    path = prompt_nodes_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"id": "n1", "embedding": [0.1, 0.2, 0.3], "text": "real"}) + "\n"
+        + json.dumps({"id": "n1", "embedding": [], "text": "cheap"}) + "\n",
+        encoding="utf-8",
+    )
+    records = {r["id"]: r for r in _iter_jsonl_latest_by_id(path, protect_field="embedding")}
+    assert records["n1"]["embedding"] == [0.1, 0.2, 0.3], "empty embedding shadowed the real one"
+    # Without the guard, latest-wins would keep the empty embedding.
+    plain = {r["id"]: r for r in _iter_jsonl_latest_by_id(path)}
+    assert plain["n1"]["embedding"] == []  # confirms the guard is what protects it

@@ -815,7 +815,50 @@ _ROUTING_JSON_FENCE_RE = re.compile(
     r"```\s*routing[-_ ]?json\s*\n(.*?)\n\s*```",
     re.IGNORECASE | re.DOTALL,
 )
-_BARE_JSON_OBJECT_RE = re.compile(r"\{[\s\S]*?\"winner\"[\s\S]*?\}", re.DOTALL)
+def _bare_json_objects_with_winner(text: str) -> list[str]:
+    """Find balanced top-level ``{...}`` objects that mention ``"winner"``.
+
+    The old regex (``\\{[\\s\\S]*?"winner"[\\s\\S]*?\\}``) is non-greedy and stops
+    at the FIRST ``}`` after "winner" — so any unfenced routing JSON with nested
+    objects (provider_scores, disagreed_claims) gets truncated mid-object and
+    fails to parse. That fires in exactly the degraded unfenced case this
+    fallback exists to rescue. A brace-depth scan (string/escape aware) returns
+    the full balanced object instead — same fix shipped for the Gemini parser
+    in v1.7.9, now back-ported. Returns candidates in document order."""
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "{":
+            i += 1
+            continue
+        depth = 0
+        in_str = False
+        escape = False
+        j = i
+        while j < n:
+            ch = text[j]
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    obj = text[i : j + 1]
+                    if '"winner"' in obj:
+                        out.append(obj)
+                    break
+            j += 1
+        # Resume scanning AFTER this object (or at the unterminated tail).
+        i = j + 1 if j < n else n
+    return out
 
 
 def parse_routing_label(synthesis_text: str | None) -> tuple[CouncilRoutingLabel | None, str | None]:
@@ -832,10 +875,9 @@ def parse_routing_label(synthesis_text: str | None) -> tuple[CouncilRoutingLabel
         candidates.append(match.group(1))
 
     if not candidates:
-        # Fallback: try to find a bare JSON object that mentions "winner"
-        match = _BARE_JSON_OBJECT_RE.search(synthesis_text)
-        if match:
-            candidates.append(match.group(0))
+        # Fallback: find balanced bare JSON objects that mention "winner"
+        # (brace-depth scan — tolerates nested provider_scores/disagreed_claims).
+        candidates.extend(_bare_json_objects_with_winner(synthesis_text))
 
     if not candidates:
         return None, "no_routing_json_block"

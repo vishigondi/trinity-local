@@ -284,3 +284,55 @@ class TestProviderConfigEffortField:
         cfg = load_config(str(config_path))
         assert cfg.providers["claude"].model == "claude-opus-4-7"
         assert cfg.providers["claude"].effort == "high"
+
+
+class TestModelArgReconcile:
+    """Review HIGH#2: the recorded model must equal the dispatched model.
+    `--model X` baked into args/command is what the CLI actually runs, so it
+    must win and become the authoritative config.model (else councils record
+    one model while dispatching another, poisoning routing + benchmark claims).
+    """
+
+    def test_args_model_wins_and_is_stripped(self):
+        from trinity_local.config import _reconcile_model_arg
+        model, command, args = _reconcile_model_arg(
+            ["codex", "exec"],
+            ["--sandbox", "workspace-write", "--model", "gpt-5.3-codex"],
+            "gpt-5.5",
+        )
+        assert model == "gpt-5.3-codex"  # dispatched value wins
+        assert "--model" not in args and "gpt-5.3-codex" not in args
+        assert args == ["--sandbox", "workspace-write"]
+
+    def test_equals_form_extracted(self):
+        from trinity_local.config import _reconcile_model_arg
+        model, _command, args = _reconcile_model_arg(
+            ["claude", "-p"], ["--model=claude-opus-4-8"], None
+        )
+        assert model == "claude-opus-4-8"
+        assert args == []
+
+    def test_no_inline_model_keeps_json_field(self):
+        from trinity_local.config import _reconcile_model_arg
+        model, command, args = _reconcile_model_arg(["claude", "-p"], [], "claude-opus-4-8")
+        assert model == "claude-opus-4-8"
+        assert command == ["claude", "-p"] and args == []
+
+    def test_load_config_records_dispatched_model(self, tmp_path, monkeypatch):
+        import json
+        from trinity_local.config import load_config
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({
+            "providers": {
+                "codex": {
+                    "type": "codex", "command": ["codex", "exec"],
+                    "args": ["--model", "gpt-5.3-codex"],
+                    "model": "gpt-5.5",
+                },
+            },
+        }))
+        cfg = load_config(str(config_path))
+        # The recorded model now equals what dispatches (args value), and the
+        # inline --model is gone so providers.py injects exactly one.
+        assert cfg.providers["codex"].model == "gpt-5.3-codex"
+        assert "--model" not in cfg.providers["codex"].args

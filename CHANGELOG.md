@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.40 — fix 4 HIGH bugs from the multi-agent review] — 2026-05-28
+
+A 9-agent codebase+GTM review (post Opus-4.8) surfaced four HIGH-severity
+bugs beyond the one v1.7.39 already fixed. All four fixed at the root:
+
+- **Recorded model ≠ dispatched model (ledger integrity).** `config.model`
+  is recorded for every council, but a `--model X` baked into `args`/`command`
+  is what the CLI actually dispatches — and the shipped config does exactly
+  this (`model: gpt-5.5`, `args: [..., --model, gpt-5.3-codex]`). Councils
+  dispatched one model and recorded another, poisoning the routing table and
+  every "Model X scored Y on your taste" claim. `_reconcile_model_arg` now
+  lifts the inline `--model` into `config.model` (dispatched value wins) and
+  strips it at load — one source of truth, dispatch unchanged.
+- **Bare-JSON routing fallback truncation (parsing).** The unfenced-JSON
+  fallback used a non-greedy regex that stopped at the first `}` after
+  "winner", truncating any routing JSON with nested objects
+  (provider_scores, disagreed_claims) — it rescued nothing in exactly the
+  degraded case it exists for. Replaced with a brace-depth scan (the v1.7.9
+  Gemini-parser fix, now back-ported).
+- **Ingest cursor equal-mtime loss (data loss).** Batch-written files share
+  an mtime; when a deadline-bounded ingest commits the cursor at that mtime
+  mid-batch, the next scan's strict `mtime > cursor` dropped every sibling at
+  that exact mtime — permanent silent loss. Boundary is now inclusive (`>=`);
+  the existing id-dedup keeps the re-scan free of double-writes.
+- **Empty-embedding shadow (corruption).** An empty-embedding PromptNode
+  (written cheaply by incremental ingest) shares its id with the fully-embedded
+  record; append-upsert latest-wins let the empty one shadow the real vector.
+  `_iter_jsonl_latest_by_id` gained a `protect_field="embedding"` guard so an
+  empty field never shadows a populated one — the id contract enforced in one
+  place at the read layer.
+
 ## [v1.7.39 — EXTRACT Stage 4a: read-path flip + content-stable rejection ids] — 2026-05-28
 
 The final EXTRACT-unification stage starts: flip the readers onto the
@@ -1638,7 +1669,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2075<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2083<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

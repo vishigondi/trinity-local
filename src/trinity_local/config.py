@@ -61,6 +61,43 @@ def config_path(explicit: str | None = None) -> Path:
     return project_root() / "config.json"
 
 
+def _reconcile_model_arg(
+    command: list[str], args: list[str], model: str | None
+) -> tuple[str | None, list[str], list[str]]:
+    """Lift an inline `--model X` (or `--model=X`) out of command/args into the
+    authoritative `model` field and strip it from the token lists.
+
+    The CLI dispatches whatever `--model` is on the command line, so when one
+    is present it — not the JSON `model` field — is the truth. We make
+    `config.model` equal that dispatched value and remove the inline flag, so
+    the recording path (which reads `config.model`) can never disagree with
+    what actually ran. Returns (model, cleaned_command, cleaned_args)."""
+
+    def _extract(tokens: list[str]) -> tuple[str | None, list[str]]:
+        out: list[str] = []
+        found: str | None = None
+        i = 0
+        while i < len(tokens):
+            tok = tokens[i]
+            if tok == "--model" and i + 1 < len(tokens):
+                found = tokens[i + 1]
+                i += 2
+                continue
+            if tok.startswith("--model="):
+                found = tok[len("--model="):]
+                i += 1
+                continue
+            out.append(tok)
+            i += 1
+        return found, out
+
+    cmd_model, command = _extract(command)
+    arg_model, args = _extract(args)
+    # Dispatched value wins over the JSON field; args override command if both.
+    effective = arg_model or cmd_model or model
+    return effective, command, args
+
+
 def load_config(explicit: str | None = None, *, required: bool = True) -> AppConfig:
     """Load configuration from disk.
 
@@ -102,15 +139,28 @@ def load_config(explicit: str | None = None, *, required: bool = True) -> AppCon
     raw = json.loads(raw_text)
     providers: dict[str, ProviderConfig] = {}
     for name, provider in raw["providers"].items():
+        command = list(provider["command"])
+        args = list(provider.get("args", []))
+        # Make `model` authoritative. A `--model X` baked into command/args
+        # is what the CLI actually dispatches, but the recording path reads
+        # `config.model` — so if they disagree (the shipped config does this:
+        # model "gpt-5.5" with args carrying "--model gpt-5.3-codex"), councils
+        # dispatch one model and record another, poisoning the routing table
+        # and every "Model X scored Y on your taste" claim. Lift the inline
+        # --model into config.model (the dispatched value wins) and strip it,
+        # so there is exactly one source of truth and dispatch is unchanged.
+        model, command, args = _reconcile_model_arg(
+            command, args, provider.get("model")
+        )
         providers[name] = ProviderConfig(
             name=name,
             type=provider["type"],
             enabled=provider.get("enabled", True),
             label=provider.get("label", name),
-            command=list(provider["command"]),
-            args=list(provider.get("args", [])),
+            command=command,
+            args=args,
             task_types=set(provider.get("task_types", [])),
-            model=provider.get("model"),
+            model=model,
             effort=provider.get("effort"),
         )
 
