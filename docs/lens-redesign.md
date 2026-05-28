@@ -67,6 +67,63 @@ ignored.
 This is the seed-kernel recursion applied where it belongs: "evidence
 reinforces, absence decays," on the lens.
 
+## Council verdict (2026-05-28, `council_476703aafb5f71a8`)
+
+Ran a cross-provider council on three candidate architectures
+(A = deterministic accumulator, B = chairman-maintains-lens fixpoint
+`lens_{n+1}=chairman(corpus+lens_n)`, C = status quo). Chairman codex/
+gpt-5.5, winner claude, confidence high. Unanimous agreed claims:
+
+- **A is the best architecture; C rejected; B lacks a structural
+  stability guarantee.**
+- **No extra LLM calls needed.**
+- **Reuse the existing routing-accumulator *pattern*** — not a
+  lens-specific reinvention.
+- **Lens state tracks support + demotion over time.**
+
+The load-bearing disagreement (claude vs codex): **B isn't just weaker
+— it's error lock-in.** A wrong tension the chairman writes into
+`lens_n` is re-fed as context every rebuild and *reinforced*. The
+recursion that makes B elegant is exactly what compounds its mistakes.
+A can *decay* a wrong tension; B *entrenches* it. The chairman's
+eval_seed stated the principle: **"chairman output is evidence, not
+authority over persistent lens state."** The chairman proposes; the
+accumulator disposes — and must be able to overrule the chairman by
+decay. → **B rejected.**
+
+## Complexity audit — the v1 doc over-built A
+
+The session's own lesson (we just deleted the moves Bayesian gate for
+being over-engineered) applies to A. Grounding "reuse the routing
+pattern" in what routing *actually* does:
+`aggregate_routing_table()` keeps **simple `{wins, n}` counts,
+recomputed from the append-only `council_outcomes` ledger every read.
+No stateful Beta-Binomial. No mutable counters.** That is the pattern
+to copy. Audit of the v1 design's pieces:
+
+| v1 proposed | Verdict | Why |
+|---|---|---|
+| `alpha`/`beta` Beta-Binomial per tension | **CUT** | Routing uses simple counts; Beta-Binomial is the exact over-engineering we deleted from moves. Use `support_count`. |
+| stored `status` (active/dormant) | **CUT** | Derive at render from (support, recency). One less mutable field to corrupt. |
+| `first_seen` timestamp | **CUT** | Observability, not load-bearing. (Same dead-field trim as dream_calibration.) |
+| two-floor decay (ACTIVE + DORMANT hysteresis) | **CUT → one rule** | Hysteresis is premature; add only if flapping is observed on real rebuilds. |
+| `basins_spanned` union-growth | **DEFER** | Nice (coverage accretes) but adds merge logic; start with latest, add later if needed. |
+| cold-start Bayesian priors (MBTI seeds) | **CUT** | Designing for a hypothetical cold user; this user has a corpus. Evidence-first. |
+| `tension_id` (cosine identity) | **KEEP** | The core — without stable identity there's no accretion. |
+| `last_confirmed` timestamp | **KEEP** | The one load-bearing timestamp; drives decay. |
+| reconcile step | **KEEP** | The load-bearing new logic. |
+
+**Bigger simplification the audit surfaced:** support should be
+**recomputed from the evidence ledger, not stored as a mutable
+counter** — exactly how the routing table is recomputed from
+`council_outcomes`. The only *new persisted state* is a tiny **tension
+registry** (`tension_id → canonical poles + embedding`) so identity is
+stable across rebuilds. `support_count` and `last_confirmed` are
+*derived* from how many ledger records map to each tension and when the
+latest one landed. This eliminates the mutable-counter corruption class
+entirely — the same category as the clobber incident (#194). The lens
+becomes a **view over an append-only ledger**, not stateful counters.
+
 ## Every stage, evaluated against the goal
 
 | Stage | Today | Keep / Change | Why |
@@ -80,55 +137,67 @@ reinforces, absence decays," on the lens.
 | **5 — distill (core.md)** | Reads tensions | **Change**: read *high-support* tensions first | The distillation should reflect the durable core, not this-run's noise |
 | **2.5 — vocabulary** | Homonyms/synonyms | **Keep** — and use it in 4.5 identity matching | Two phrasings of one tension ("refine"/"tighten") must resolve to one identity; vocabulary is that bridge |
 
-## The new accumulation primitive (Stage 4.5)
+## The accumulation primitive (Stage 4.5) — post-audit lean version
 
-**Tension identity.** The chairman phrases the same tension differently
-across runs ("mechanism inspection ↔ speculative inference" one day,
-"rigor ↔ speed" another). Surface-hashing won't match. Use **semantic
-identity**: a candidate matches an existing tension if
+**Tension identity** (the one piece of new persisted state). The
+chairman phrases the same tension differently across runs ("mechanism
+inspection ↔ speculative inference" one day, "rigor ↔ speed" another).
+Surface-hashing won't match. Use **semantic identity**: a candidate
+matches an existing tension if
 `cosine(probe(candidate), probe(existing)) ≥ MATCH_THRESHOLD` (~0.80).
-This is the same T2 embedding primitive from #186 — recursion again, the
-embedder bridging two phrasings of one idea. (Requires MLX; under TF-IDF
-fall back to surface-pole overlap — see #185's lesson.)
+Same T2 embedding primitive as #186 — the embedder bridging two
+phrasings of one idea. (Requires MLX; under TF-IDF fall back to
+surface-pole overlap — #185's lesson.) Persist a tiny **registry**:
+`tension_id → {canonical_poles, probe_embedding, supporting_evidence_ids}`.
 
-**Support state per tension** (new fields on the persisted lens entry):
-- `tension_id` — stable, assigned on first appearance.
-- `alpha` / `beta` — Beta-Binomial. `alpha++` each rebuild that
-  reconfirms (a candidate matches); `beta++` each rebuild that runs but
-  *doesn't* reconfirm. `support = alpha / (alpha+beta)`.
-- `first_seen` / `last_confirmed` — timestamps for the decay clock.
-- `basins_spanned` — as today, but unioned across confirmations (a
-  tension's basin coverage *grows* as new evidence lands).
+**Support is DERIVED, not stored** (the routing-table pattern):
+- `support_count(t)` = number of distinct evidence records in
+  `merges.jsonl` linked to `t` (via supporting_evidence_ids, unioned
+  across rebuilds).
+- `last_confirmed(t)` = timestamp of the newest such record.
+- `active(t)` = `support_count ≥ ACTIVE_MIN` **and** `last_confirmed`
+  within the recency window. Computed at render. No stored status.
 
-**The reconcile algorithm** (deterministic, no LLM):
+**The reconcile step** (deterministic, no LLM):
 ```
 for candidate in stage4_accepted:
-    match = best_existing_tension_by_cosine(candidate, existing_lens)
-    if match and cosine >= MATCH_THRESHOLD:
-        match.alpha += 1
-        match.last_confirmed = now
-        match.basins_spanned |= candidate.basins_spanned
+    match = best_registry_tension_by_cosine(candidate)   # ≥ MATCH_THRESHOLD
+    if match:
+        match.supporting_evidence_ids |= candidate.evidence_ids   # accrue
     else:
-        add candidate as provisional (alpha=1, beta=0, first_seen=now)
-for tension in existing_lens not matched this run:
-    tension.beta += 1                      # ran, didn't reconfirm
-# promotion / demotion by support + recency
-for tension in lens:
-    if support(tension) >= ACTIVE_FLOOR and recent(last_confirmed):
-        tension.status = "active"          # rendered in lens.md
-    elif support(tension) < DORMANT_FLOOR or stale(last_confirmed):
-        tension.status = "dormant"         # kept, not rendered (revivable)
+        register new tension (id, canonical poles, embedding, evidence_ids)
+# nothing to "decay" actively — support + recency are recomputed from the
+# ledger each render. A tension whose newest evidence ages out simply
+# stops being active. Absence IS decay; no beta counter needed.
 ```
 
-**Decay policy.** Dormant ≠ deleted. A tension that drops below
-`DORMANT_FLOOR` or hasn't been confirmed in N rebuilds / M days moves to
-`dormant` — preserved (like the moves archive was) so a later run can
-revive it, but excluded from the rendered lens + chairman context. This
-gives the graceful decay property without losing history.
+**Render** (lens.md): include only `active` tensions, **sorted by
+support_count descending** — the MBTI "function stack" insight: the
+dominant (highest-support) tensions lead; the chairman weights them
+heaviest. Inactive tensions stay in the registry (revivable), unrendered.
 
-**Stability falls out for free**: a single bad chairman run now
-`beta++`s the unconfirmed tensions slightly — it can't *erase* them.
-Reshaping the lens requires *sustained* absence across many rebuilds.
+**Why this is robust AND simpler than v1:**
+- **Stability**: a single bad chairman run adds no confirming evidence
+  to existing tensions — it can't erase them (their support is recomputed
+  from the ledger, untouched). Reshaping requires *sustained* new
+  evidence, not one call.
+- **No mutable counters** → no counter-corruption class (the clobber
+  category). The ledger is the single source of truth; the lens is a
+  view.
+- **Graceful decay** for free: recency-of-newest-evidence, computed at
+  render. No floors-hysteresis, no stored status, no Beta-Binomial.
+
+## Optional, separate from the core: blind-spot surfacing (MBTI)
+
+NOT part of the accumulator — a render-only insight feature, own task.
+MBTI's "inferior function" = each tension's **underweighted pole** =
+your blind spot. Trinity already extracts `pole_a_failure` /
+`pole_b_failure` (the cost of over-indexing a pole). Surface it as a
+self-awareness line: *"your lens leans hard toward mechanism-inspection;
+the cost you pay is speed."* That's the most genuinely useful thing a
+personality lens can say — not "you're type X" but "here's the edge you
+keep choosing and what it costs." Cheap (uses existing fields), high
+insight-value, but orthogonal to robustness — ship after the core.
 
 ## Where #182 (trajectory lens) plugs in
 
@@ -139,48 +208,60 @@ mined by the existing Stage 3 primitive). The only change: arc-derived
 candidates don't get their own storage or gate — they flow into the
 accumulator alongside synchronic candidates and earn support the same
 way. A diachronic tension that recurs across threads accrues support
-and goes active; one seen once stays provisional and decays.
+and goes active; one seen once stays provisional and ages out.
 
 This is why #182 *should not* ship before the accumulator: built the
 old from-scratch way, a trajectory lens is just as fragile. Built on the
 accumulator, it's durable by construction.
 
-## Build sequence (proposed)
+## Build sequence (post-audit)
 
-1. **Lens accumulation core** — add `tension_id` + `alpha`/`beta` +
-   `first_seen`/`last_confirmed`/`status` to the lens entry; the Stage
-   4.5 reconcile step; render only `active` tensions to lens.md with
-   their support score. Wire `merges.jsonl` as the read-back evidence
-   source. (This is the load-bearing change.)
-2. **Migration** — existing 3-tension lens.md → seed the accumulator
-   with `alpha=1` each (provisional), so the first reconciled rebuild
-   reinforces rather than replaces.
+1. **Lens accumulation core** (load-bearing). Add the tension registry
+   (`tension_id → canonical poles + probe embedding +
+   supporting_evidence_ids`); the Stage 4.5 reconcile step (cosine-match
+   candidates, union evidence ids); derive `support_count` +
+   `last_confirmed` from the ledger at render; render only `active`
+   tensions, sorted by support_count. ~80 LOC + 1 small registry file
+   (down from the v1 doc's ~150 LOC + per-tension Beta-Binomial state).
+2. **Migration** — existing 3-tension lens.md → register each with its
+   current supporting decisions as the seed evidence set, so the first
+   reconciled rebuild reinforces rather than replaces.
 3. **#182 trajectory arc-pairs** — as a candidate source into 4.5.
-4. **Decay tuning** — pick ACTIVE_FLOOR / DORMANT_FLOOR / staleness
-   window from real rebuild cadence (needs a few real rebuilds to
-   calibrate — same "run on real data" discipline this session kept
+4. **Threshold tuning** — pick `MATCH_THRESHOLD` + `ACTIVE_MIN` +
+   recency window from real rebuild cadence (a few real rebuilds to
+   calibrate — the "run on real data" discipline this session kept
    proving).
+5. **(Optional, later) blind-spot surfacing** — render the
+   underweighted-pole cost per tension. Separate task; orthogonal to
+   robustness.
 
 ## Risks / open decisions
 
-1. **Basin identity across rebuilds.** Stage 4.5 identity matching
-   leans on basin centroids being stable. k-means with a fixed seed is
-   *mostly* stable but not guaranteed as the corpus grows. If basins
-   drift, tension-basin links rot. Mitigation: match tensions by
-   *probe-text cosine* (basin-independent) as the primary key; treat
-   basins_spanned as evidence, not identity. (Already the plan above.)
+1. **Basin identity across rebuilds.** k-means with a fixed seed is
+   *mostly* stable but not guaranteed as the corpus grows. Mitigation
+   (already the plan): tension identity is **probe-text cosine**, which
+   is basin-independent; basins_spanned is evidence, not identity.
 2. **MATCH_THRESHOLD calibration.** Too high → the same tension splits
    into duplicates each rebuild (no accretion). Too low → distinct
-   tensions merge (loss of resolution). Needs real-data tuning; start
-   0.80, watch for duplicate-vs-merged.
-3. **Cold-start.** First-ever lens-build has no existing lens to
-   reconcile against — every candidate is provisional `alpha=1`. That's
-   correct: a brand-new user's lens *should* be low-confidence until
-   confirmed across rebuilds.
-4. **TF-IDF fallback** (no MLX) — semantic identity degrades to
-   surface-pole overlap. Acceptable but coarser; same constraint #185
-   surfaced. The accumulator still works (support/decay are
-   backend-independent); only the matching is coarser.
+   tensions merge (lost resolution). Start 0.80, watch duplicate-vs-merged
+   on real rebuilds.
+3. **Cold-start.** First-ever build registers every tension fresh with a
+   single evidence record → all low-support. Correct: a new user's lens
+   *should* be low-confidence until confirmed across rebuilds.
+4. **TF-IDF fallback** (no MLX) — identity matching degrades to
+   surface-pole overlap (#185's constraint). Support/recency are
+   backend-independent; only matching is coarser.
+
+## What the audit removed (and why it's safe)
+
+- **Beta-Binomial alpha/beta → simple derived support_count.** Routing
+  uses simple counts; the moves Beta-Binomial we deleted (#184) is the
+  exact over-engineering to avoid. Absence-as-decay (recency of newest
+  evidence) replaces the beta counter entirely.
+- **Stored `status` → derived at render.** No mutable field to corrupt.
+- **`first_seen`, two-floor hysteresis, basins union-growth, cold-start
+  priors → cut/deferred.** None load-bearing for the four robustness
+  properties; each addable later if real rebuilds show a need.
 
 ## What this does NOT change
 
@@ -191,5 +272,7 @@ accumulator, it's durable by construction.
   included.
 
 The net: the chairman keeps *proposing* tensions (good at that); the
-accumulator decides what *persists* (the part that makes a lens stand
-the test of time).
+**ledger** decides what *persists* (the part that makes a lens stand the
+test of time). The lens is a **view over append-only evidence**, not
+stateful counters — which is both simpler than the v1 design and immune
+to the counter-corruption class that produced this session's incidents.
