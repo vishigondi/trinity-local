@@ -6836,3 +6836,48 @@ class TestClaudeMdLineCap:
             "as a regression-guarded surface, so 'load-bearing' has a "
             "higher bar than 'feels useful to mention.'"
         )
+
+
+class TestNoUnannotatedOrphans:
+    """The gstack ratchet pattern from #184/#187/#188.
+
+    Every `.py` file under `src/trinity_local/` must be reachable
+    from a production entry point (main.py, mcp_server.py, plus the
+    commands modules main.py dynamically loads), OR explicitly
+    whitelisted in `scripts/known_orphans.txt` with a reason.
+
+    What this catches: whole-module orphans like the moves substrate
+    bug (substrate existed + had tests, but had zero production
+    callers; lived dormant for weeks). pyflakes/vulture don't see
+    module-level orphans because individual functions inside the
+    module DO have call sites — within the orphan.
+
+    Limitations (intentional, see #185):
+    - Doesn't catch "feature exists + has callers + produces empty
+      output" (the moves-dormancy variant where T1 rejected 100% of
+      candidates). That's an output-shape smoke test problem, not a
+      reachability problem.
+    - String-based dynamic imports beyond `CORE_COMMAND_MODULES` /
+      `OPTIONAL_COMMAND_MODULES` may show as orphan; add to the
+      whitelist with reason.
+    """
+
+    def test_orphan_set_matches_whitelist_exactly(self):
+        import subprocess
+        repo = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [".venv/bin/python", "scripts/find_orphans.py"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, (
+            "scripts/find_orphans.py reports orphan drift. "
+            "Either wire the orphan into a live caller, or add it "
+            "to scripts/known_orphans.txt with a reason. If a "
+            "whitelist entry is no longer orphan (it's been wired "
+            "up), remove the line.\n\n"
+            f"--- script stdout ---\n{result.stdout}\n"
+            f"--- script stderr ---\n{result.stderr}"
+        )

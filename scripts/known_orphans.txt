@@ -1,0 +1,15 @@
+# Modules under src/trinity_local/ that are intentionally orphan from
+# the production entry-point graph. Format: `path : reason`.
+#
+# Each line is a ratchet — when a new orphan appears (someone shipped
+# code that's not reachable from main.py / mcp_server.py / the
+# CORE_COMMAND_MODULES dispatch), CI fails until either:
+#   1. The new module gets wired into a live caller, OR
+#   2. It's added here with an explicit reason for why orphan is OK.
+#
+# Conversely, when an entry here stops being orphan (someone wired it
+# up), CI also fails — remove the line so the whitelist reflects truth.
+#
+# See scripts/find_orphans.py for the analyzer.
+
+src/trinity_local/retired_names.py : Registry consumed only by tests (test_retired_names_registry.py, test_doc_count_consistency.py). The point of the file IS to be a tests-only registry of dead names — production has nothing to learn from it at runtime.

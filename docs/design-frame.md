@@ -145,7 +145,7 @@ framework points hardest.
   surfaces) was the cost. Gap A makes this O(1) instead of O(N).
 
 **The recurring pattern:** Trinity has good DISCIPLINE around right
-paths (the 62-iter sweep, the <!-- canonical:doc_consistency_guards -->104<!-- /canonical --> guards) but weak STRUCTURE that
+paths (the 62-iter sweep, the <!-- canonical:doc_consistency_guards -->105<!-- /canonical --> guards) but weak STRUCTURE that
 makes them cheap. Discipline scales with attention; structure scales
 with itself.
 
@@ -183,7 +183,7 @@ doc layer doesn't yet.
 
 claude.md principle #14 ("every shipped feature gets a smoke regression
 guard within one tick") is self-correction discipline at the CATCH
-level. The <!-- canonical:doc_consistency_guards -->104<!-- /canonical --> doc-consistency guards are self-correction at the test
+level. The <!-- canonical:doc_consistency_guards -->105<!-- /canonical --> doc-consistency guards are self-correction at the test
 level. Browser smoke is self-correction at the visual level.
 
 What's missing at the AUTOMATIC-FIX level:

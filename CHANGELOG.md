@@ -7,6 +7,48 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.16 — scripts/find_orphans.py + CI guard activate (#188)] — 2026-05-27
+
+Ships the gstack ratchet for module-level orphans. Same shape as
+the existing retirement registry + canonical placeholder patterns:
+fail CI when the orphan set drifts from the known-acceptable list,
+either direction (new unwhitelisted orphan → wire it up or
+whitelist with reason; whitelist entry stops being orphan → remove
+the line).
+
+What's new vs the /tmp/orphan_finder.py prototype used during #187:
+- Fixes the relative-import resolution bug for __init__.py files
+  (`from .x import Y` inside __init__.py now resolves against the
+  package itself, not the parent — caught the false positive that
+  flagged ranker/+knn_* during #187 when they're actually live).
+- Propagates parent-package reachability: when `pkg.submodule` is
+  reached, mark `pkg/__init__.py` reached too (Python executes
+  parent __init__ before submodule). Drops the package-marker
+  false positives.
+- Whitelist mechanism: `scripts/known_orphans.txt` with one
+  `path : reason` line per intentional orphan. Each line is a
+  ratchet entry.
+- CI guard: `TestNoUnannotatedOrphans` in
+  test_doc_count_consistency.py runs the script and fails when
+  exit code is non-zero.
+
+Current whitelist: 1 entry — retired_names.py (tests-only registry
+by design).
+
+Tests: 1956 passed + 10 skipped. Doc-consistency guards: 104 → 105.
+
+What this catches that existing patterns miss:
+- Whole-module orphans (vulture only sees per-function dead code
+  within a file).
+- Chain orphans (modules calling each other heavily but the chain
+  has no live entry-point caller — the pattern that bit us with
+  the moves substrate).
+
+What it still doesn't catch (deferred to #185):
+- Features that exist + are called + produce empty output (the
+  moves-dormancy variant where T1 filtered 100% of candidates).
+  That's an output-shape smoke problem, not a reachability one.
+
 ## [v1.7.15 — post-moves dead-code cleanup: me/depth.py + setup_guidance.py] — 2026-05-27
 
 Two real orphan modules surfaced and deleted during #187. The
@@ -926,7 +968,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1961<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1962<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
