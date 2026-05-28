@@ -7,6 +7,32 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.21 — output-shape smoke for live producers (#193)] — 2026-05-27
+
+The #191 audit's second promotion. The bug class: a feature runs,
+doesn't crash, produces EMPTY/wrong output. Unit tests on internals
+pass; only feeding realistic input through the whole producer and
+asserting non-empty output catches it. Found twice in shipped code
+(030bad4 memory-compare silent 0/0; the moves substrate dormancy) —
+both since retired, so these smokes target the LIVE producers.
+
+tests/test_output_shape_smoke.py (5 tests):
+- build_eval_set: N realistic rejections → N eval items (core smoke);
+  absent rejections → raises (not silent empty); malformed rows
+  dropped without emptying or crashing.
+- stage4_post_filter: a valid 3-basin tension → non-empty accepted
+  lenses + persisted lenses.json (the moves-dormancy class applied
+  to the live lens pipeline); a 1-basin tension demoted to orderings,
+  not silently vanished.
+
+Deterministic (no LLM; count-only Stage 4 path) so they run on any
+backend. This closes the audit's two promotions (#192 doc guard +
+#193 output-shape) — the gstack ratchet family is now backed by
+empirical ROI rather than speculation.
+
+Tests +5. Doc-consistency guards unchanged (smoke lives in its own
+file).
+
 ## [v1.7.20 — doc-side retired-name guard: close the leg #191 audit flagged (#192)] — 2026-05-27
 
 The #191 history audit found ≥2 cases where retired names leaked into
@@ -1108,7 +1134,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1976<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1981<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
