@@ -53,6 +53,11 @@ def register(subparsers):
         "--legacy", action="store_true",
         help="Use the old single-pass chairman builder (pre-Option C).",
     )
+    build_parser.add_argument(
+        "--force", action="store_true",
+        help="Rebuild even if the corpus is unchanged since the last build "
+             "(skips the no-corpus-change shortcut).",
+    )
     build_parser.set_defaults(handler=handle_me_build)
 
     show_parser = subparsers.add_parser(
@@ -99,6 +104,7 @@ def handle_me_build(args):
             sample_size=args.sample_size,
             k_basins=args.k_basins,
             dry_run=args.dry_run,
+            force=getattr(args, "force", False),
         )
     # Lens was just rewritten → freeze the routing table to disk +
     # auto-fire distill. Both are no-ops if the data hasn't changed

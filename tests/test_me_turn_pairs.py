@@ -306,3 +306,44 @@ class TestStage0LowEffortExtractor:
         from trinity_local.me_builder import _STAGE0_BATCH_SIZE
         # Smaller batches keep per-call generation under the timeout.
         assert _STAGE0_BATCH_SIZE <= 20
+
+
+class TestCorpusFingerprintSkip:
+    """#1 skip-if-unchanged: an unchanged corpus → same fingerprint → the
+    next build short-circuits with zero model calls."""
+
+    def test_fingerprint_stable_for_same_corpus(self, patch_trinity_home):
+        from trinity_local.memory import upsert_prompt_node
+        from trinity_local.memory.schemas import PromptNode
+        from trinity_local.me_builder import _corpus_fingerprint
+        for i in range(3):
+            upsert_prompt_node(PromptNode(
+                id=f"p{i}", transcript_id="t", provider="claude", source_path="/x",
+                turn_index=i, text=f"prompt {i}", embedding=[0.0]*8,
+                created_at="2026-05-12T00:00:00Z", following_assistant_text="",
+            ))
+        fp1 = _corpus_fingerprint()
+        fp2 = _corpus_fingerprint()
+        assert fp1 == fp2 and ":" in fp1  # deterministic, "count:hash" shape
+
+    def test_fingerprint_changes_when_corpus_grows(self, patch_trinity_home):
+        from trinity_local.memory import upsert_prompt_node
+        from trinity_local.memory.schemas import PromptNode
+        from trinity_local.me_builder import _corpus_fingerprint
+        def add(i):
+            upsert_prompt_node(PromptNode(
+                id=f"p{i}", transcript_id="t", provider="claude", source_path="/x",
+                turn_index=i, text=f"prompt {i}", embedding=[0.0]*8,
+                created_at="2026-05-12T00:00:00Z", following_assistant_text="",
+            ))
+        add(0); add(1)
+        before = _corpus_fingerprint()
+        add(2)
+        assert _corpus_fingerprint() != before  # new prompt → new fingerprint
+
+
+class TestStage0ConcurrencyCap:
+    def test_concurrency_cap_is_bounded(self):
+        from trinity_local.me_builder import _STAGE0_MAX_CONCURRENCY
+        # Capped so we don't spawn a swarm of claude subprocesses.
+        assert 1 <= _STAGE0_MAX_CONCURRENCY <= 8

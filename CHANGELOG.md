@@ -7,6 +7,40 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.38 — lens-build: skip-if-unchanged + parallel Stage 0] — 2026-05-28
+
+Two optimizations grounded in a finding: a full lens-build is ~8 *single*
+chairman calls (not a council — all to one provider) run in series, and
+it re-extracts the whole corpus every time even when nothing changed.
+
+- **#1 skip-if-unchanged.** A corpus fingerprint (`count:sha1(prompt_ids)`)
+  is recorded after each successful build. If the next build sees the same
+  fingerprint and a lens already exists, it short-circuits before sampling
+  — zero model calls. Validated live: a no-change rebuild went from
+  minutes / 8 calls to **4.4s / 0 calls**. `--force` (and `dry_run`)
+  bypass. This is what makes the #197 accumulation *pay off* in cost: the
+  registry already remembers, so an unchanged rebuild has nothing to do.
+- **#3 parallel Stage 0.** The chunked Stage-0 batches are independent
+  (disjoint turn-pairs), so they now run concurrently via a
+  ThreadPoolExecutor capped at `_STAGE0_MAX_CONCURRENCY=4` (blocking
+  `claude -p` subprocesses → threads suffice; cap avoids a subprocess
+  swarm contending on rate limits). Results kept in batch order; the #203
+  abort-on-batch-failure semantics preserved across the parallel set
+  (any timeout/empty → abort, no partial save).
+
+The undefined-names guard caught a real one on the way in: the
+fingerprint-save used `now_iso` unimported at module scope — a NameError
+that only fires on a *successful* build (the skip path returns before
+it), invisible to unit tests. Fixed.
+
+Note: full delta-extraction (process only NEW turn-pairs, not just
+skip-when-identical) is the larger follow-on; skip-if-unchanged is the
+80/20 that covers the common no-change rebuild.
+
+Tests: 2065 passed + 7 skipped (fingerprint stability/change, concurrency
+cap, + the predicate guard). Skip path validated on the real corpus;
+parallel path exercised on the next changed/forced build.
+
 ## [v1.7.37 — per-stage low effort for Stage 0/2 extraction + smaller batch] — 2026-05-28
 
 Makes lens-build actually complete. A real run (effort=high) timed out at
@@ -1573,7 +1607,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2066<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2069<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

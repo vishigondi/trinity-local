@@ -66,6 +66,39 @@ ME_SAMPLE_SIZE = 80
 _STAGE0_BATCH_SIZE = 20
 
 
+# Stage 0 batch concurrency (#3). The batches are independent (each
+# classifies a disjoint set of turn-pairs), so they run in parallel —
+# blocking `claude -p` subprocess calls, so threads (I/O-bound) suffice.
+# Capped to avoid spawning a swarm of chairman subprocesses that contend
+# on rate limits / cold-start; 4 is a conservative middle ground.
+_STAGE0_MAX_CONCURRENCY = 4
+
+
+def _lens_build_state_path() -> Path:
+    """`~/.trinity/me/lens_build_state.json` — records the corpus
+    fingerprint of the last successful build, so an unchanged rebuild can
+    skip the whole pipeline (#1 skip-if-unchanged)."""
+    from .me.basins import me_dir
+    return me_dir() / "lens_build_state.json"
+
+
+def _corpus_fingerprint() -> str:
+    """A cheap content fingerprint of the prompt corpus: count + a hash of
+    the prompt-node ids. If it matches the last successful build's, nothing
+    new was ingested and the lens is already current — skip (no model
+    calls). Reading the id index is ~1s vs the ~22s embedder load a full
+    build pays, so the gate saves the most by running first."""
+    import hashlib
+
+    from .memory.store import iter_prompt_nodes
+
+    ids = sorted(
+        (getattr(n, "id", "") or "") for n in iter_prompt_nodes(limit=None)
+    )
+    digest = hashlib.sha1("|".join(ids).encode("utf-8")).hexdigest()[:16]
+    return f"{len(ids)}:{digest}"
+
+
 def _stage0_batch_failed(result) -> bool:
     """True if a Stage 0 chairman batch call failed (#203). A timed-out
     call sets returncode == -1 (providers._run_command sentinel); an empty
@@ -455,6 +488,7 @@ def build_me_via_lens_pipeline(
     k_basins: int = 20,
     seed: int = 42,
     dry_run: bool = False,
+    force: bool = False,
 ) -> tuple[Path, dict]:
     """Run the 5-stage lens-discovery pipeline (Option C + Stage 0).
 
@@ -492,6 +526,30 @@ def build_me_via_lens_pipeline(
     from .memory import search_prompt_nodes
     from .providers import make_provider
     from .ranker import predict_strongest_chairman
+
+    # #1 skip-if-unchanged: if the corpus hasn't changed since the last
+    # successful build AND a lens already exists, there's nothing to
+    # re-extract — the registry + lens.md are current. Skip the whole
+    # pipeline (zero model calls). `force=True` or `dry_run` bypasses.
+    # Runs before sampling so we skip the ~22s embedder load too.
+    fingerprint = _corpus_fingerprint()
+    if not force and not dry_run and me_path().exists():
+        import json as _json
+        sp = _lens_build_state_path()
+        if sp.exists():
+            try:
+                prior = _json.loads(sp.read_text(encoding="utf-8")).get("fingerprint")
+            except (OSError, ValueError):
+                prior = None
+            if prior and prior == fingerprint:
+                print("  Skipped — corpus unchanged since last build "
+                      "(use --force to rebuild anyway).", flush=True)
+                return me_path(), {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": "no_corpus_change",
+                    "fingerprint": fingerprint,
+                }
 
     samples = _sample_diverse_with_embeddings(
         top_k=sample_size,
@@ -563,42 +621,56 @@ def build_me_via_lens_pipeline(
     rejections: list = []
     rejected_records: list = []
     if turn_pairs:
+        import concurrent.futures
+
         from .me.turn_pairs import save_rejections, DegenerateExtractionError as _DEE
-        # Chunk the batch (#195). Packing all 200 turn-pairs into ONE
-        # prompt produced a ~37K-token call that claude -p returned
-        # EMPTY for — zero rejections, every run. Split into batches
-        # so each chairman call stays well under the size that triggers
-        # an empty response, parse each WITHOUT saving, accumulate, then
-        # save once so the #194 guard sees the full count.
-        for batch_start in range(0, len(turn_pairs), _STAGE0_BATCH_SIZE):
-            batch = turn_pairs[batch_start:batch_start + _STAGE0_BATCH_SIZE]
-            stage0_prompt = stage0_turn_pair_prompt(batch, basins)
-            stage0_result = extractor.run(stage0_prompt, cwd=Path.cwd())
-            # Per-batch failure detection (#203). A timed-out call returns
-            # returncode == -1 (providers._run_command sentinel); an empty
-            # response (the #195 cliff) yields blank stdout. Either way this
-            # batch contributes 0 rejections — and because the final
-            # save_rejections() persists the ACCUMULATED set, a silent
-            # partial (e.g. 40 of 50 pairs) sails past the #194 clobber
-            # guard, which only catches a near-total cliff-drop. Abort the
-            # whole build instead of saving a degraded corpus.
-            stage0_stdout = (stage0_result.stdout or "").strip()
-            if _stage0_batch_failed(stage0_result):
+        # Chunk the batch (#195) — packing all 200 turn-pairs into ONE
+        # prompt produced a ~37K-token call claude -p returned EMPTY for.
+        # The batches are INDEPENDENT (each classifies a disjoint slice),
+        # so run them concurrently (#3) — capped at _STAGE0_MAX_CONCURRENCY
+        # blocking subprocesses. Parse-without-save, accumulate, save once
+        # so the #194 guard sees the full count. Results are kept in batch
+        # order (deterministic) even though they complete out of order.
+        batches = [
+            turn_pairs[i:i + _STAGE0_BATCH_SIZE]
+            for i in range(0, len(turn_pairs), _STAGE0_BATCH_SIZE)
+        ]
+        results: list = [None] * len(batches)
+
+        def _run_stage0_batch(idx: int):
+            prompt = stage0_turn_pair_prompt(batches[idx], basins)
+            return idx, extractor.run(prompt, cwd=Path.cwd())
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=_STAGE0_MAX_CONCURRENCY
+        ) as pool:
+            for fut in concurrent.futures.as_completed(
+                pool.submit(_run_stage0_batch, i) for i in range(len(batches))
+            ):
+                idx, res = fut.result()
+                results[idx] = res
+
+        # Per-batch failure detection (#203), now across all parallel
+        # results: if ANY batch timed out (returncode == -1) or returned
+        # empty (the #195 cliff), abort the whole build rather than save a
+        # silently-partial corpus that slips past the #194 clobber guard.
+        for idx, res in enumerate(results):
+            if _stage0_batch_failed(res):
                 print(
-                    "  Stage 0 ABORTED — batch "
-                    f"{batch_start // _STAGE0_BATCH_SIZE + 1} failed "
-                    f"(returncode={stage0_result.returncode}, "
-                    f"empty={not stage0_stdout}); refusing partial save",
+                    f"  Stage 0 ABORTED — batch {idx + 1}/{len(batches)} failed "
+                    f"(returncode={res.returncode}, empty={not (res.stdout or '').strip()}); "
+                    f"refusing partial save",
                     flush=True,
                 )
                 return me_path(), {
                     "ok": False,
                     "aborted": "stage0_batch_failed",
-                    "reason": (stage0_result.stderr or "chairman returned empty output")[:500],
+                    "reason": (res.stderr or "chairman returned empty output")[:500],
                     "extracted": len(rejections),
                 }
+        for res in results:
             batch_kept, batch_dropped = stage0_parse_and_validate(
-                stage0_stdout, basins, pair_index, save=False,
+                (res.stdout or "").strip(), basins, pair_index, save=False,
             )
             rejections.extend(batch_kept)
             rejected_records.extend(batch_dropped)
@@ -800,6 +872,19 @@ def build_me_via_lens_pipeline(
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")
+    # #1: record the corpus fingerprint so the next unchanged rebuild
+    # skips the whole pipeline. Best-effort — a state-write failure must
+    # never fail an otherwise-successful build (worst case: the next build
+    # doesn't skip).
+    try:
+        import json as _json
+        from .utils import now_iso as _now_iso
+        _lens_build_state_path().write_text(
+            _json.dumps({"fingerprint": fingerprint, "built_at": _now_iso()}),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
     return path, {
         "samples": len(samples),
         "basins": len(basins),
