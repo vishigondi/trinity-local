@@ -80,7 +80,12 @@ class TestRoundTrip:
 
 @pytest.mark.usefixtures("patch_trinity_home")
 class TestUnifiedReader:
-    def test_iter_unions_rejections_and_decisions(self):
+    """EXTRACT Stage 4a: iter_preference_acts reads the unified ledger and
+    self-heals from the legacy stores (merge-forward) so a cold/stale ledger
+    can never lose data while the legacy writers are still live."""
+
+    def test_iter_merges_legacy_when_ledger_cold(self):
+        # Legacy stores populated, ledger empty → iter content-merges them in.
         save_rejections([
             RejectionSignal(id="r1", type="REFRAME", model_quote="m", user_substitute="u"),
         ])
@@ -96,6 +101,34 @@ class TestUnifiedReader:
         assert acts[0].trigger == MODEL_MISS
         assert acts[1].trigger == SELF_EXPRESSED
 
+    def test_iter_is_a_pure_read(self):
+        # A read must NOT mutate the ledger on disk (no write-on-read footgun
+        # for callers like eval-build). Cold ledger stays cold after a read.
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            preference_acts_path,
+        )
+        save_rejections([
+            RejectionSignal(id="r1", type="REFRAME", model_quote="m", user_substitute="u"),
+        ])
+        assert iter_preference_acts()  # non-empty merged view
+        # ...but the ledger file was never written by the read.
+        assert not preference_acts_path().exists()
+        assert load_preference_acts() == []
+
+    def test_iter_collapses_distinct_records_sharing_a_bad_id(self):
+        # The real-data bug: legacy rejections share id "r_001" but have
+        # DISTINCT content. Content-keyed merge must preserve all of them
+        # (id-keyed merge would have collapsed 8 → 1, losing taste signal).
+        save_rejections([
+            RejectionSignal(id="r_001", type="REFRAME", model_quote="m1", user_substitute="u1"),
+            RejectionSignal(id="r_001", type="REDIRECT", model_quote="m2", user_substitute="u2"),
+            RejectionSignal(id="r_001", type="REFRAME", model_quote="m1", user_substitute="u1"),  # true dup
+        ])
+        acts = iter_preference_acts()
+        # 2 distinct contents survive; the exact duplicate collapses.
+        assert len(acts) == 2
+
     def test_iter_empty_when_no_stores(self):
         assert iter_preference_acts() == []
 
@@ -105,6 +138,37 @@ class TestUnifiedReader:
         ])
         acts = iter_preference_acts()
         assert len(acts) == 1 and acts[0].trigger == MODEL_MISS
+
+    def test_iter_reads_ledger_as_source_of_truth(self):
+        # A record present ONLY in the ledger (not in the legacy stores —
+        # e.g. a provider-import dual-write) is returned. This is the flip:
+        # pre-4a, iter unioned the legacy stores and would miss it.
+        from trinity_local.me.preference_acts import save_preference_acts
+        save_preference_acts([
+            PreferenceAct(id="ledger_only", trigger=MODEL_MISS, privileged="p",
+                          sacrificed="s", kind="REDIRECT"),
+        ])
+        acts = iter_preference_acts()
+        assert any(a.id == "ledger_only" for a in acts)
+
+    def test_iter_ledger_wins_on_content_collision(self):
+        # Same CONTENT in both stores → one act, the ledger copy wins (it
+        # carries the canonical id + enrichment like source/weight).
+        from trinity_local.me.preference_acts import save_preference_acts
+        save_rejections([
+            RejectionSignal(id="legacy_id", type="REFRAME", model_quote="m",
+                            user_substitute="u"),
+        ])
+        save_preference_acts([
+            PreferenceAct(id="ledger_id", trigger=MODEL_MISS, privileged="u",
+                          sacrificed="m", kind="REFRAME", source="lens-build", weight=2.0),
+        ])
+        acts = iter_preference_acts()
+        # Same content (REFRAME, u over m) → collapsed to one, ledger copy.
+        match = [a for a in acts if a.privileged == "u" and a.sacrificed == "m"]
+        assert len(match) == 1
+        assert match[0].id == "ledger_id"  # ledger copy wins
+        assert match[0].weight == 2.0
 
 
 @pytest.mark.usefixtures("patch_trinity_home")

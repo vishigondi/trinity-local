@@ -1544,39 +1544,39 @@ def _load_cortex_rules() -> dict | None:
 
 
 def _load_decisions_by_id() -> dict:
-    """Read `~/.trinity/me/decisions.jsonl` into a `{id: decision}` map.
+    """Map each self-expressed preference act → `{id: decision}` for the
+    launchpad lens card's "justified by" backrefs.
 
-    Each decision carries the privileged/sacrificed pair + verbatim
-    quote that justified one lens claim. Returns {} when the file
-    doesn't exist (cold install, lens-build never ran). Resilient to
-    malformed lines — skips them rather than aborting the whole load.
+    EXTRACT-unification Stage 4a (read-path flip): sources the unified
+    ledger (`preference_acts.jsonl`, trigger=self_expressed) instead of the
+    legacy `decisions.jsonl`. The template keys (privileged / sacrificed /
+    verbatim / basin / valence) are preserved by mapping the PreferenceAct
+    fields back: verbatim←context, valence←kind. Returns {} on a cold
+    ledger. Resilient — load_preference_acts already skips malformed lines.
 
-    Surfaced on the launchpad lens card so every claim's
-    `tension_decisions` IDs render as clickable backrefs to their
-    source rejection pair. Traceability per principle #22 (empty
-    callbacks swallow dispatch failures) + the README's "if it can't
-    show its work, it doesn't get to claim the thought."
+    Surfaced on the launchpad lens card so every claim's `tension_decisions`
+    IDs render as clickable backrefs to their source pair. Traceability per
+    the README's "if it can't show its work, it doesn't get to claim the
+    thought."
     """
-    from .state_paths import trinity_home
-    path = trinity_home() / "me" / "decisions.jsonl"
-    if not path.exists():
-        return {}
-    out: dict = {}
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
+        from .me.preference_acts import SELF_EXPRESSED, load_preference_acts
+        out: dict = {}
+        for a in load_preference_acts():
+            if a.trigger != SELF_EXPRESSED or not a.id:
                 continue
-            try:
-                d = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            did = d.get("id")
-            if did:
-                out[str(did)] = d
-    except OSError:
+            out[str(a.id)] = {
+                "id": a.id,
+                "privileged": a.privileged,
+                "sacrificed": a.sacrificed,
+                "verbatim": a.context,
+                "basin": a.basin,
+                "valence": a.kind,
+                "prompt_id": a.prompt_id,
+            }
+        return out
+    except Exception:
         return {}
-    return out
 
 
 def _load_taste_lenses() -> dict | None:

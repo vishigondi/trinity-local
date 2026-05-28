@@ -12,38 +12,46 @@ from __future__ import annotations
 import json
 
 
-def test_load_decisions_by_id_reads_jsonl(tmp_path, monkeypatch):
+def test_load_decisions_by_id_reads_ledger(tmp_path, monkeypatch):
+    # EXTRACT Stage 4a: the backref map now sources self_expressed acts from
+    # the unified ledger (preference_acts.jsonl), not the legacy decisions.jsonl.
+    # The launchpad keys (privileged/sacrificed/verbatim/valence/basin) are
+    # mapped back from the PreferenceAct fields (verbatim←context, valence←kind).
     from trinity_local import launchpad_data
     from trinity_local import state_paths
 
     me_dir = tmp_path / "me"
     me_dir.mkdir()
-    (me_dir / "decisions.jsonl").write_text(
-        json.dumps({"id": "d_001", "privileged": "X", "sacrificed": "Y",
-                    "valence": "satisfaction", "basin": "b00",
-                    "verbatim": "I'd rather ship X than polish Y",
+    (me_dir / "preference_acts.jsonl").write_text(
+        json.dumps({"id": "d_001", "trigger": "self_expressed", "privileged": "X",
+                    "sacrificed": "Y", "kind": "satisfaction", "basin": "b00",
+                    "context": "I'd rather ship X than polish Y",
                     "prompt_id": "p_001"}) + "\n"
-        + json.dumps({"id": "d_002", "privileged": "A", "sacrificed": "B",
-                      "valence": "unresolved", "basin": "b01",
-                      "verbatim": "A is more useful here",
+        + json.dumps({"id": "d_002", "trigger": "self_expressed", "privileged": "A",
+                      "sacrificed": "B", "kind": "unresolved", "basin": "b01",
+                      "context": "A is more useful here",
                       "prompt_id": "p_002"}) + "\n"
+        # A model_miss act must NOT land in the backref map (decisions only).
+        + json.dumps({"id": "r_001", "trigger": "model_miss", "privileged": "u",
+                      "sacrificed": "m", "kind": "REFRAME"}) + "\n"
         + "\n"  # blank line — must skip cleanly
         + "{garbage}\n"  # malformed JSON — must skip cleanly
     )
     monkeypatch.setattr(state_paths, "trinity_home", lambda: tmp_path)
 
     decisions = launchpad_data._load_decisions_by_id()
-    assert set(decisions.keys()) == {"d_001", "d_002"}
+    assert set(decisions.keys()) == {"d_001", "d_002"}  # model_miss excluded
     assert decisions["d_001"]["privileged"] == "X"
-    assert decisions["d_002"]["verbatim"] == "A is more useful here"
+    assert decisions["d_001"]["valence"] == "satisfaction"  # kind→valence
+    assert decisions["d_002"]["verbatim"] == "A is more useful here"  # context→verbatim
 
 
-def test_load_decisions_by_id_handles_missing_file(tmp_path, monkeypatch):
+def test_load_decisions_by_id_handles_missing_ledger(tmp_path, monkeypatch):
     from trinity_local import launchpad_data
     from trinity_local import state_paths
 
     monkeypatch.setattr(state_paths, "trinity_home", lambda: tmp_path)
-    # No me/decisions.jsonl exists.
+    # No me/preference_acts.jsonl exists.
     assert launchpad_data._load_decisions_by_id() == {}
 
 
@@ -105,7 +113,7 @@ def test_lens_card_graceful_when_decision_missing():
     a useful message — not silently disappear."""
     from trinity_local.launchpad_template import render_launchpad_html
     html = render_launchpad_html(page_data={}, recent_cards="")
-    assert "not found in decisions.jsonl" in html, (
+    assert "not found in the preference-act ledger" in html, (
         "missing decision must produce a visible 'stale lens' hint, "
         "not just an empty chip — same honesty pattern as the n<3 axis "
         "low-confidence suppression"

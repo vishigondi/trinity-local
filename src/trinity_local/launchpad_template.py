@@ -1790,7 +1790,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                     <div
                       style="margin-top: 6px; padding: 6px 8px; font-size: 11px; color: #8a7d68; font-style: italic;"
                       v-else>
-                      Decision {{{{ did }}}} not found in decisions.jsonl — lens may be stale; re-run trinity-local lens-build.
+                      Decision {{{{ did }}}} not found in the preference-act ledger — lens may be stale; re-run trinity-local lens-build.
                     </div>
                   </details>
                 </span>

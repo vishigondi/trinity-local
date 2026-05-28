@@ -25,8 +25,12 @@ class TestRejectionParser:
             '{"id":"r_3","type":"COMPRESSION","model_quote":"x","user_substitute":"y","why_signal":"a","prompt_id":"p1"}\n'
         )
         sigs = parse_rejections(raw, basins=[])
-        assert {s.id for s in sigs} == {"r_1", "r_3"}
+        # ids are content hashes now (not the chairman's r_1/r_2 sequence),
+        # so assert on count + types, and that every id is a globally-stable
+        # r_<hash> (the BOGUS-type row is dropped).
+        assert len(sigs) == 2
         assert all(s.type in {"REFRAME", "COMPRESSION"} for s in sigs)
+        assert all(s.id.startswith("r_") and len(s.id) > 5 for s in sigs)
 
     def test_parse_rejections_re_tags_basin_from_prompt_id(self):
         # Same trick as Stage 2 — chairman's basin field isn't trusted;

@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.39 — EXTRACT Stage 4a: read-path flip + content-stable rejection ids] — 2026-05-28
+
+The final EXTRACT-unification stage starts: flip the readers onto the
+unified `preference_acts.jsonl` ledger. Real-data validation surfaced a
+latent **HIGH bug** the flip would otherwise have inherited — so this ship
+fixes the root cause first.
+
+- **Content-stable rejection ids (root-cause fix).** `parse_rejections`
+  was trusting the chairman's own `id` field — batch-local sequence ids
+  (`r_001`, `r_002`, per the prompt template). Once Stage 0 began parsing
+  chunked batches separately (#195), those ids collided across batches:
+  on the real corpus, eight *distinct* rejections all landed as `r_001`
+  (59 rows, 16 unique ids). Every id-keyed consumer (the ledger's
+  identity, eval dedup) was silently built on a false premise. Fixed by
+  hashing the substantive content (`stable_id("r", type, quote, sub,
+  prompt_id)`) — globally unique + stable, genuine duplicates collapse,
+  distinct rejections never do. Same scheme as the provider-import path.
+- **Read-path flip (Stage 4a).** `iter_preference_acts` now reads the
+  ledger as the source of truth, **content-keyed merged** with the legacy
+  stores so it's loss-proof while the legacy writers are still live — and
+  it's a **pure read** (no write-on-read; eval-build no longer mutates the
+  ledger as a side effect). `_load_decisions_by_id` (launchpad backrefs)
+  sources self-expressed acts from the ledger. `eval-import` dual-writes
+  each rejection to the ledger and dedups against it.
+- **Validated on real data.** A content-keyed read recovered all 93
+  distinct preference acts (the earlier id-keyed approach would have
+  collapsed them to 50 — real taste signal lost); build (59 model-miss
+  eval items) + launchpad (34 decision backrefs) + ledger all agree.
+- Both stores stay populated → fully reversible. Stage 4b retires the
+  legacy split.
+
 ## [v1.7.38 — lens-build: skip-if-unchanged + parallel Stage 0] — 2026-05-28
 
 Two optimizations grounded in a finding: a full lens-build is ~8 *single*
@@ -1607,7 +1638,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2069<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2075<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -153,8 +153,10 @@ class TestBuildEvalSet:
         assert eval_set.items[0].source_id == "r1"
 
     def test_limit_caps_items(self, home):
+        # Distinct content per row — the unified reader content-dedups, so
+        # identical (type, quote, substitute) rows would (correctly) collapse.
         _write_rejections(home, [
-            {"id": f"r{i}", "type": "REFRAME", "model_quote": "m", "user_substitute": "u", "prompt_id": None}
+            {"id": f"r{i}", "type": "REFRAME", "model_quote": f"m{i}", "user_substitute": f"u{i}", "prompt_id": None}
             for i in range(10)
         ])
         from trinity_local.evals.builder import build_eval_set
@@ -180,9 +182,11 @@ class TestBuildEvalSet:
             {"id": "r1", "type": "REFRAME", "model_quote": "m", "user_substitute": "u", "prompt_id": None},
         ])
         first = build_eval_set().eval_id
+        # r2 must be DISTINCT content (not just a distinct id) — the unified
+        # reader content-dedups, so a duplicate-content row wouldn't grow the set.
         _write_rejections(home, [
             {"id": "r1", "type": "REFRAME", "model_quote": "m", "user_substitute": "u", "prompt_id": None},
-            {"id": "r2", "type": "REFRAME", "model_quote": "m", "user_substitute": "u", "prompt_id": None},
+            {"id": "r2", "type": "REFRAME", "model_quote": "m2", "user_substitute": "u2", "prompt_id": None},
         ])
         second = build_eval_set().eval_id
         assert first != second

@@ -244,9 +244,20 @@ PAIRS:
 
 
 def parse_rejections(raw: str, basins: list[Basin]) -> list[RejectionSignal]:
-    """Parse chairman output. Re-tags basin from prompt_id ground truth."""
+    """Parse chairman output. Re-tags basin from prompt_id ground truth.
+
+    The id is a CONTENT hash, never the chairman's own ``id`` field. The
+    chairman emits batch-local sequence ids (``r_001``, ``r_002`` per the
+    prompt template), so when Stage 0 parses chunked batches separately
+    (#195) those ids collide across batches — eight distinct rejections all
+    land as ``r_001``. That breaks every id-keyed consumer (the unified
+    ledger's identity, eval dedup). Hashing the substantive content instead
+    makes ids globally unique AND stable: a genuine duplicate (same
+    type/quote/substitute) collapses, distinct rejections never do. Same
+    scheme as the provider-import path (`eval_import._provider_dict_to_rejection_signal`)."""
+    from ..utils import stable_id
+
     signals: list[RejectionSignal] = []
-    next_auto_id = 1
     seen_ids: set[str] = set()
 
     text = raw.strip()
@@ -273,14 +284,15 @@ def parse_rejections(raw: str, basins: list[Basin]) -> list[RejectionSignal]:
         if basin_id is None:
             basin_id = (obj.get("basin") or "").strip() or None
 
-        r_id = (obj.get("id") or "").strip()
-        if not r_id or r_id in seen_ids:
-            r_id = f"r_{next_auto_id:03d}"
-            while r_id in seen_ids:
-                next_auto_id += 1
-                r_id = f"r_{next_auto_id:03d}"
+        # Content hash → globally unique + stable. prompt_id is folded in so
+        # the same model/user phrasing against two different prompts stays
+        # distinct; genuine duplicates within or across batches collapse.
+        r_id = stable_id(
+            "r", sig_type, model_quote[:200], user_substitute[:200], prompt_id or ""
+        )
+        if r_id in seen_ids:
+            continue  # true content duplicate — collapse
         seen_ids.add(r_id)
-        next_auto_id += 1
 
         signals.append(RejectionSignal(
             id=r_id,

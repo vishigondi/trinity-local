@@ -193,32 +193,50 @@ def _provider_dict_to_rejection_signal(
 
 
 def _read_existing_ids() -> set[str]:
-    """Load ids from rejections.jsonl for dedup. Skinny — just the id field."""
-    path = rejections_path()
-    if not path.exists():
-        return set()
+    """Load ids for dedup. Skinny — just the id field. Unions rejections.jsonl
+    with the unified ledger (preference_acts.jsonl): post Stage 4a the ledger
+    is the read path, so a signal already in the ledger must not be re-added
+    even if rejections.jsonl was trimmed."""
     ids: set[str] = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        rid = obj.get("id")
-        if rid:
-            ids.add(rid)
+    path = rejections_path()
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            rid = obj.get("id")
+            if rid:
+                ids.add(rid)
+    try:
+        from ..me.preference_acts import load_preference_acts
+        ids.update(a.id for a in load_preference_acts() if a.id)
+    except Exception:
+        pass
     return ids
 
 
 def _append_signals(signals: list[RejectionSignal]) -> None:
-    """Append-only write to rejections.jsonl. Same convention as turn_pairs."""
+    """Append-only write to rejections.jsonl AND the unified ledger
+    (EXTRACT-unification Stage 4a dual-write). Both stores stay populated
+    so the read-path flip is reversible; Stage 4b drops the rejections.jsonl
+    append. Same append convention as turn_pairs."""
     path = rejections_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         for s in signals:
             fh.write(json.dumps(s.to_dict()) + "\n")
+    # Dual-write the unified ledger: append each as a model_miss act so the
+    # flipped read path (iter_preference_acts → ledger) sees provider imports
+    # without waiting for the next lens-build. Best-effort.
+    try:
+        from ..me.preference_acts import append_preference_acts, from_rejection
+        append_preference_acts([from_rejection(s) for s in signals])
+    except Exception:
+        pass
 
 
 def handle_eval_import(args) -> int:

@@ -218,6 +218,63 @@ class TestCliEndToEnd:
         assert result["source_provider"] == "codex"
 
 
+class TestLedgerDualWrite:
+    """EXTRACT Stage 4a: eval-import dual-writes each rejection to the unified
+    ledger (preference_acts.jsonl) so the flipped read path sees provider
+    imports without waiting for the next lens-build."""
+
+    def test_import_also_appends_to_ledger(self, home, tmp_path, capsys):
+        from trinity_local.me.preference_acts import (
+            MODEL_MISS,
+            load_preference_acts,
+        )
+
+        payload_file = tmp_path / "evals.json"
+        payload_file.write_text(json.dumps(_payload([
+            _good_rejection("REFRAME"),
+            _good_rejection("REDIRECT"),
+        ])))
+        rc = handle_eval_import(Namespace(
+            path=str(payload_file), from_json=False, dry_run=False, as_json=True,
+        ))
+        assert rc == 0
+        capsys.readouterr()
+        acts = load_preference_acts()
+        assert len(acts) == 2
+        assert all(a.trigger == MODEL_MISS for a in acts)
+        # The ledger id matches the rejections.jsonl id (same stable id).
+        rej_ids = {
+            json.loads(ln)["id"]
+            for ln in rejections_path().read_text(encoding="utf-8").splitlines()
+        }
+        assert {a.id for a in acts} == rej_ids
+
+    def test_dedup_reads_the_ledger(self, home, tmp_path, capsys):
+        # Seed the ledger directly (as a prior lens-build would have), then
+        # import the SAME rejection — it must dedup against the ledger even
+        # though rejections.jsonl is empty.
+        from trinity_local.commands.eval_import import (
+            _provider_dict_to_rejection_signal,
+        )
+        from trinity_local.me.preference_acts import (
+            from_rejection,
+            save_preference_acts,
+        )
+
+        sig = _provider_dict_to_rejection_signal(_good_rejection("REFRAME"), "claude", 0)
+        save_preference_acts([from_rejection(sig)])
+
+        payload_file = tmp_path / "evals.json"
+        payload_file.write_text(json.dumps(_payload([_good_rejection("REFRAME")])))
+        rc = handle_eval_import(Namespace(
+            path=str(payload_file), from_json=False, dry_run=False, as_json=True,
+        ))
+        assert rc == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["rejections"]["new"] == 0
+        assert result["rejections"]["duplicates"] == 1
+
+
 class TestEvalPromptCli:
     def test_prompt_body_starts_with_the_user_instruction(self, capsys):
         rc = handle_eval_prompt(Namespace(with_instructions=False))
