@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.17 — retirement denylist expansion: import paths + CLI flags (#189)] — 2026-05-27
+
+Two new AST-based CI guards driven by `retired_names.RETIRED` as
+the source of truth — the gstack ratchet extended past CLI-verb
+retirements to imports and argparse flags.
+
+- `TestNoImportsFromRetiredModules`: for every `kind='module'`
+  registry entry, no .py file may `import` or `from`-import that
+  module's dotted path. Translates file-path keys
+  (`src/trinity_local/moves/`) and dotted-name keys (`commands.X`)
+  to import paths automatically.
+- `TestNoArgparseRegistrationsOfRetiredFlags`: for every
+  `kind='config_field'` entry containing a `--flag`, no
+  `add_argument("--flag")` call may appear in src/.
+
+The first guard immediately caught real drift: tests/test_real_corpus_invariants.py
+still imported `trinity_local.me.depth` (deleted in #187) in two
+gracefully-skipped test classes. The imports referenced a retired
+module even though the tests pytest.skip'd — exactly the latent
+drift the guard exists to surface. Deleted both classes
+(TestDirectAgentsViaDepthSignal, TestDepthSignalNotDominatedByShortThreads,
+~130 LOC) since the depth signal they defended no longer exists.
+
+This is the pattern working as designed: a ratchet installed during
+one cleanup (the module retirement) catching residue the cleanup
+itself missed. The author who deleted depth.py removed the module +
+its dedicated test file but missed the cross-references in a
+different test file; the guard found them at the next test run.
+
+Tests: 1957 passed + 7 skipped. Doc-consistency guards: 105 → 107.
+
 ## [v1.7.16 — scripts/find_orphans.py + CI guard activate (#188)] — 2026-05-27
 
 Ships the gstack ratchet for module-level orphans. Same shape as
@@ -968,7 +999,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1962<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1961<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

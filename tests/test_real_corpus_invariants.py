@@ -185,76 +185,10 @@ class TestNoJunkDrawerForWhoIAm:
         )
 
 
-@pytest.mark.real_corpus
-class TestDirectAgentsViaDepthSignal:
-    """Direct-agents-like-me invariants on the depth signal.
-
-    `depth_score` feeds the rank of which threads count as 'the user's
-    voice' when the chairman and cortex are picking what to learn
-    from. NaN scores or degenerate output (all zeros) silently swap
-    the user's signal for noise, and every harness pulling persona
-    via `get_persona` ends up steered by that noise. These tests
-    catch composite regressions before they propagate downstream."""
-
-    def test_depth_score_returns_non_degenerate(self):
-        """Catches the tick #53 failure mode: all-zero composite from
-        multiplicative shape on single-turn-heavy corpus. With the
-        tick #54 redesign (additive composition), at least 10% of
-        threads should have a score > 0."""
-        path = _real_topics_path()
-        if not path.exists():
-            pytest.skip("no real corpus")
-        try:
-            from trinity_local.memory.store import iter_prompt_nodes
-            from trinity_local.me.depth import depth_score
-        except Exception as exc:
-            pytest.skip(f"depth module unavailable: {exc}")
-        # Filter to nodes with embeddings — recent ingest skips
-        # embedding for the hot path, so the head of the iterator can
-        # be sparse. Read all, keep ones with usable embeddings.
-        embedded = [
-            n for n in iter_prompt_nodes(limit=None)
-            if getattr(n, "embedding", None)
-        ]
-        if len(embedded) < 50:
-            pytest.skip(
-                f"only {len(embedded)} embedded prompt nodes "
-                "(need ≥50 for a meaningful sanity check)"
-            )
-        scores = depth_score(embedded)
-        if not scores:
-            pytest.skip("depth_score returned empty (all threads degenerate)")
-        nonzero = sum(1 for v in scores.values() if v > 0)
-        share = nonzero / len(scores)
-        assert share >= 0.10, (
-            f"only {share:.1%} of threads have nonzero depth_score; "
-            f"composite is degenerate. Multiplicative shape may have "
-            f"crept back in (regressed from tick #54 additive design)."
-        )
-
-    def test_no_nan_or_inf_scores(self):
-        path = _real_topics_path()
-        if not path.exists():
-            pytest.skip("no real corpus")
-        try:
-            from trinity_local.memory.store import iter_prompt_nodes
-            from trinity_local.me.depth import depth_score
-        except Exception as exc:
-            pytest.skip(f"depth module unavailable: {exc}")
-        embedded = [
-            n for n in iter_prompt_nodes(limit=None)
-            if getattr(n, "embedding", None)
-        ]
-        if len(embedded) < 50:
-            pytest.skip(f"only {len(embedded)} embedded prompt nodes")
-        scores = depth_score(embedded)
-        bad = [(tid, v) for tid, v in scores.items()
-               if not math.isfinite(v)]
-        assert not bad, (
-            f"depth_score produced non-finite values: {bad[:5]}. "
-            f"Likely LID divergence on near-duplicate pairs — "
-            f"LID_CAP or EPS clamp regressed."
-        )
+# TestDirectAgentsViaDepthSignal + TestDepthSignalNotDominatedByShortThreads
+# deleted 2026-05-27 with the me/depth.py retirement (#187). The depth
+# signal was never wired into a live consumer, so these invariant tests
+# had nothing real to defend. See retired_names.py for the module record.
 
 
 @pytest.mark.real_corpus
@@ -428,63 +362,5 @@ class TestVocabularyDistillationOnRealCorpus:
         )
 
 
-@pytest.mark.real_corpus
-class TestDepthSignalNotDominatedByShortThreads:
-    """Tick #85 — guard against the LID-cap-artifact regression caught
-    in tick #84. Before that fix, 6 of the top-10 most-"surprising"
-    threads were 2-turn one-offs with lid=50.00 (LID_CAP) — TwoNN
-    saturating because d2/d1 degenerates below N=5. The cap injected
-    a fake +0.5 into every short thread's score via tanh(50/10)≈1.0,
-    so the depth ranking was dominated by chore prompts ("wedding
-    invite", "give me 10 items") instead of substantive multi-turn
-    work.
-
-    LID_MIN_TURNS=5 gate fixed this. This test pins the fix: the
-    top-10 depth-ranked threads must have a median turn count ≥ 5
-    on real corpora. Below 5 indicates the gate regressed or the
-    composite weights shifted to favor short threads again.
-
-    Why median and not min: the corpus may legitimately have one
-    very-novel-but-short thread (high cd, low everything else) that
-    earns top-10 status via corpus_distance alone. That's not noise.
-    What WAS noise was systematic short-thread dominance, which
-    median-of-top-10 catches without false-positive failing on a
-    single legitimate outlier.
-    """
-
-    def test_top_ten_depth_threads_arent_short(self):
-        path = _real_topics_path()
-        if not path.exists():
-            pytest.skip("no real corpus")
-        try:
-            from trinity_local.memory.store import iter_prompt_nodes
-            from trinity_local.me.depth import rank_threads_by_depth
-        except Exception as exc:
-            pytest.skip(f"depth module unavailable: {exc}")
-        embedded = [
-            n for n in iter_prompt_nodes(limit=None)
-            if getattr(n, "embedding", None)
-        ]
-        if len(embedded) < 200:
-            pytest.skip(f"only {len(embedded)} embedded nodes")
-        # Group nodes by thread to count turns
-        by_thread: dict[str, int] = {}
-        for n in embedded:
-            tid = getattr(n, "transcript_id", None)
-            if tid:
-                by_thread[tid] = by_thread.get(tid, 0) + 1
-        top_ten = rank_threads_by_depth(embedded, top_k=10)
-        if len(top_ten) < 5:
-            pytest.skip(f"only {len(top_ten)} threads ranked")
-        turn_counts = sorted(by_thread.get(tid, 0) for tid, _ in top_ten)
-        median = turn_counts[len(turn_counts) // 2]
-        # Median ≥ 5 is the regression target. The LID_MIN_TURNS=5
-        # gate (tick #84) guarantees the top is dominated by threads
-        # where TwoNN actually has signal to contribute.
-        assert median >= 5, (
-            f"top-10 depth-ranked threads have median turn count "
-            f"{median} (counts: {turn_counts}). Below 5 means the "
-            f"LID gate regressed or weights shifted to favor short "
-            f"threads — depth ranking is back to surfacing one-off "
-            f"chore prompts instead of substantive multi-turn work."
-        )
+# TestDepthSignalNotDominatedByShortThreads deleted 2026-05-27 with
+# the me/depth.py retirement (#187). See retired_names.py.

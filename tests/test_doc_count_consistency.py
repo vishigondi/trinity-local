@@ -6838,6 +6838,187 @@ class TestClaudeMdLineCap:
         )
 
 
+class TestNoImportsFromRetiredModules:
+    """#189 — extend the gstack ratchet beyond the CLI-verb denylist.
+
+    For each `kind='module'` entry in `retired_names.RETIRED`, no
+    .py file in the repo (other than retired_names.py itself) may
+    import from that module's dotted path.
+
+    Catches the most common drift mode: someone reads stale code or
+    a stale README, types `from trinity_local.moves import X`, and
+    the test suite happily passes because the import would have
+    worked back when moves still existed. This guard fails CI at
+    PR time with the exact retired path + retirement record so the
+    author knows to use the replacement noted in `retired_names.py`.
+
+    What's guarded: file-path retirements (`src/trinity_local/X.py`,
+    `src/trinity_local/X/`) and dotted-name retirements (`commands.X`
+    → `trinity_local.commands.X`). Leaf function names + ambiguous
+    concept tokens are not guarded — too noisy.
+    """
+
+    def _retired_module_paths(self) -> set[str]:
+        from trinity_local.retired_names import RETIRED
+        paths: set[str] = set()
+        for key, record in RETIRED.items():
+            if record.kind != "module":
+                continue
+            if key.startswith("src/trinity_local/"):
+                rel = key[len("src/trinity_local/"):].rstrip("/")
+                if rel.endswith(".py"):
+                    rel = rel[:-3]
+                paths.add(f"trinity_local.{rel.replace('/', '.')}")
+            elif "." in key and not key.startswith("_"):
+                if key.startswith("trinity_local."):
+                    paths.add(key)
+                else:
+                    paths.add(f"trinity_local.{key}")
+            # else: leaf names like `_rate_limit_saves`, `thread_context`
+            # are out of scope for this AST guard
+        return paths
+
+    def test_no_py_file_imports_a_retired_module(self):
+        import ast
+        repo = Path(__file__).resolve().parents[1]
+        retired = self._retired_module_paths()
+        if not retired:
+            return  # vacuous when registry empty
+
+        # retired_names.py mentions retired paths in docstrings/comments
+        # but does NOT import them — exclude from the scan anyway as a
+        # safety margin against future bare `import retired_names`-style
+        # introspection.
+        skip_files = {
+            repo / "src" / "trinity_local" / "retired_names.py",
+        }
+
+        violations: list[tuple[str, int, str]] = []
+        for path in [
+            *(repo / "src").rglob("*.py"),
+            *(repo / "tests").rglob("*.py"),
+            *(repo / "scripts").rglob("*.py"),
+        ]:
+            if path in skip_files:
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except (SyntaxError, OSError):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    if node.level > 0:
+                        # Relative imports — too noisy to fully resolve
+                        # here; the orphan finder catches reachability,
+                        # and absolute imports cover the common case
+                        continue
+                    for r in retired:
+                        if node.module == r or node.module.startswith(r + "."):
+                            violations.append(
+                                (str(path.relative_to(repo)), node.lineno, node.module)
+                            )
+                            break
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        for r in retired:
+                            if alias.name == r or alias.name.startswith(r + "."):
+                                violations.append(
+                                    (str(path.relative_to(repo)), node.lineno, alias.name)
+                                )
+                                break
+
+        if violations:
+            lines = ["Imports from retired modules detected:"]
+            for path, lineno, mod in violations[:20]:
+                lines.append(f"  {path}:{lineno}  imports `{mod}`")
+            if len(violations) > 20:
+                lines.append(f"  ... and {len(violations) - 20} more")
+            lines.append("")
+            lines.append(
+                "Each retired module has a record in "
+                "src/trinity_local/retired_names.py with a `replacement` "
+                "field pointing at the current API. Use that instead. "
+                "If the retirement is wrong (the module shouldn't have "
+                "been retired), update retired_names.py — but think "
+                "twice; retirements aren't ratchets to un-pull lightly."
+            )
+            raise AssertionError("\n".join(lines))
+
+
+class TestNoArgparseRegistrationsOfRetiredFlags:
+    """#189 — retired CLI flags can't be re-introduced via argparse.
+
+    For each `kind='config_field'` entry in `retired_names.RETIRED`
+    whose name contains a `--flag`, no `add_argument("--flag")`
+    call may appear in any .py file in the repo.
+
+    Catches the drift mode where someone reads stale docs that
+    mention a retired flag (e.g., `--skip-moves`) and re-adds it
+    to argparse without realizing the underlying feature is gone.
+    """
+
+    def _retired_cli_flags(self) -> set[str]:
+        from trinity_local.retired_names import RETIRED
+        flags: set[str] = set()
+        for key, record in RETIRED.items():
+            if record.kind != "config_field":
+                continue
+            for token in key.split():
+                if token.startswith("--"):
+                    flags.add(token)
+        return flags
+
+    def test_no_argparse_registers_a_retired_flag(self):
+        import ast
+        repo = Path(__file__).resolve().parents[1]
+        retired = self._retired_cli_flags()
+        if not retired:
+            return  # vacuous when registry has no flag entries
+
+        violations: list[tuple[str, int, str]] = []
+        for path in (repo / "src").rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except (SyntaxError, OSError):
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                # Match `<expr>.add_argument(...)` calls
+                if not (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "add_argument"
+                ):
+                    continue
+                # First positional arg is the flag name
+                if not node.args:
+                    continue
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    if first.value in retired:
+                        violations.append(
+                            (str(path.relative_to(repo)), node.lineno, first.value)
+                        )
+
+        if violations:
+            lines = ["argparse registrations of retired CLI flags:"]
+            for path, lineno, flag in violations:
+                lines.append(f"  {path}:{lineno}  add_argument({flag!r})")
+            lines.append("")
+            lines.append(
+                "Each retired flag has a record in retired_names.py — "
+                "see the `reason` field for what was actually retired. "
+                "If you need a similar flag with a different purpose, "
+                "use a fresh name to avoid users confusing it with the "
+                "retired behaviour."
+            )
+            raise AssertionError("\n".join(lines))
+
+
 class TestNoUnannotatedOrphans:
     """The gstack ratchet pattern from #184/#187/#188.
 
