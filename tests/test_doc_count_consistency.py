@@ -7146,9 +7146,12 @@ class TestNoUnannotatedOrphans:
 
     def test_orphan_set_matches_whitelist_exactly(self):
         import subprocess
+        import sys
         repo = Path(__file__).resolve().parents[1]
         result = subprocess.run(
-            [".venv/bin/python", "scripts/find_orphans.py"],
+            # sys.executable, not ".venv/bin/python" — works on CI where
+            # there is no .venv (the runner installs into its own Python).
+            [sys.executable, "scripts/find_orphans.py"],
             cwd=repo,
             capture_output=True,
             text=True,

@@ -45,7 +45,7 @@ def canonical_test_count() -> int:
     or rely on stdout shape.
     """
     result = subprocess.run(
-        [".venv/bin/python", "-m", "pytest", "--collect-only", "-q"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -68,7 +68,7 @@ def canonical_test_count() -> int:
 def canonical_skipped_count() -> int:
     """Count skipped tests separately."""
     result = subprocess.run(
-        [".venv/bin/python", "-m", "pytest", "--collect-only", "-q"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -88,7 +88,7 @@ def canonical_doc_consistency_guard_count() -> int:
     """Count test methods in test_doc_count_consistency.py."""
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "pytest",
+            sys.executable, "-m", "pytest",
             "tests/test_doc_count_consistency.py",
             "--collect-only", "-q",
         ],
