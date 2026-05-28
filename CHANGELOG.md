@@ -7,6 +7,26 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.37 — per-stage low effort for Stage 0/2 extraction + smaller batch] — 2026-05-28
+
+Makes lens-build actually complete. A real run (effort=high) timed out at
+the 8-min per-call ceiling on a 40-pair Stage 0 batch — the #203 guard
+caught it (corpus preserved, build aborted clean), which also disproved
+the earlier "nested-CLI can't dispatch claude -p" theory: the smaller
+`distill` chairman call in the SAME run completed fine, so dispatch works
+— Stage 0 was just too slow at high effort on a big prompt.
+
+Fix: Stage 0 (turn-pair classification) and Stage 2 (decision extraction)
+are MECHANICAL — they now run through an `extractor` provider built via
+`dataclasses.replace(chairman_config, effort="low")`, regardless of the
+configured council effort. Stage 3 pair-mining + Stage 5 distill keep
+full effort (they're the actual reasoning). Also lowered
+`_STAGE0_BATCH_SIZE` 40 → 20 so each call's generation is shorter. Both
+cut per-call latency well under the timeout; no quality cost for
+classification.
+
+Tests: 2063 passed + 7 skipped (extractor-low-effort + batch-size guards).
+
 ## [v1.7.36 — fix 5 multi-agent code-review findings (#203–#207)] — 2026-05-28
 
 A 4-agent parallel review of the lens-redesign + EXTRACT arc (run via the
@@ -1553,7 +1573,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2064<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2066<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

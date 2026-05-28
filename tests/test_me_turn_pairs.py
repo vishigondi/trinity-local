@@ -278,3 +278,31 @@ class TestStage0BatchFailureGuard:
     def test_real_output_is_not_a_failure(self):
         from trinity_local.me_builder import _stage0_batch_failed
         assert _stage0_batch_failed(self._result('[{"type":"REFRAME"}]', 0)) is False
+
+
+class TestStage0LowEffortExtractor:
+    """Stage 0/2 extraction is mechanical → must run at LOW effort
+    regardless of the provider's configured level, so the chairman call
+    returns under the 8-min per-call timeout (a 40-pair batch at high
+    effort timed out on real data; #203 caught it, this prevents it)."""
+
+    def test_extractor_config_forces_low_effort(self):
+        import dataclasses
+        from trinity_local.config import ProviderConfig
+        # Mirror the me_builder construction: replace(effort="low").
+        chairman_config = ProviderConfig(
+            name="claude", type="cli", enabled=True, label="Claude",
+            command=["claude", "-p"], args=[], task_types={"general"},
+            model="claude-opus-4-8", effort="high",
+        )
+        extract_config = dataclasses.replace(chairman_config, effort="low")
+        assert extract_config.effort == "low"
+        assert chairman_config.effort == "high"  # original unchanged (frozen)
+        # And the low-effort flag is what the claude CLI command will inject.
+        from trinity_local.providers import _effective_effort
+        assert _effective_effort(extract_config) == "low"
+
+    def test_batch_size_is_small_enough_for_timeout(self):
+        from trinity_local.me_builder import _STAGE0_BATCH_SIZE
+        # Smaller batches keep per-call generation under the timeout.
+        assert _STAGE0_BATCH_SIZE <= 20

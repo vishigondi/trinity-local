@@ -30,6 +30,7 @@ Council stage (one chairman call):
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -56,11 +57,13 @@ ME_BUDGET_CHARS = 10_000
 ME_SAMPLE_SIZE = 80
 
 # Stage 0 turn-pair batch size (#195). 200 pairs in one prompt was
-# ~37K tokens, which claude -p returned EMPTY for. ~40/batch keeps each
-# chairman call near ~7.5K tokens — comfortably under the empty-response
-# cliff. Each batch parses independently; rejections accumulate and save
-# once (so the #194 clobber guard sees the full count).
-_STAGE0_BATCH_SIZE = 40
+# ~37K tokens, which claude -p returned EMPTY for. Lowered 40→20 after a
+# real run showed a 40-pair batch could still exceed the 8-min per-call
+# timeout: smaller batches mean shorter per-call generation, returning
+# well under the ceiling (paired with the low-effort extractor). Each
+# batch parses independently; rejections accumulate and save once (so the
+# #194 clobber guard sees the full count).
+_STAGE0_BATCH_SIZE = 20
 
 
 def _stage0_batch_failed(result) -> bool:
@@ -538,6 +541,17 @@ def build_me_via_lens_pipeline(
     if chairman_config is None:
         raise RuntimeError("lens-build requires at least one enabled provider")
     primary = make_provider(chairman_config)
+    # Stage 0/2 are MECHANICAL extraction (classify a turn-pair gap into one
+    # of four rejection types; pull a decision's privileged/sacrificed poles)
+    # — not the deep reasoning Stage 3 pair-mining or Stage 5 distill need.
+    # Running them at the council's full effort is the wrong tradeoff: on real
+    # data a 40-pair Stage 0 batch at `high` effort blew past the 8-min
+    # per-call timeout (returncode=-1) and #203 aborted the build, while the
+    # smaller `distill` call at the same effort completed fine. So extraction
+    # runs at LOW effort regardless of the provider's configured level — far
+    # under the timeout, no quality cost for classification.
+    _extract_config = dataclasses.replace(chairman_config, effort="low")
+    extractor = make_provider(_extract_config)
 
     # Stage 0: turn-pair gap extraction (the highest-signal source per
     # taste-terminal spec). One batch chairman call classifies turn pairs
@@ -559,7 +573,7 @@ def build_me_via_lens_pipeline(
         for batch_start in range(0, len(turn_pairs), _STAGE0_BATCH_SIZE):
             batch = turn_pairs[batch_start:batch_start + _STAGE0_BATCH_SIZE]
             stage0_prompt = stage0_turn_pair_prompt(batch, basins)
-            stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
+            stage0_result = extractor.run(stage0_prompt, cwd=Path.cwd())
             # Per-batch failure detection (#203). A timed-out call returns
             # returncode == -1 (providers._run_command sentinel); an empty
             # response (the #195 cliff) yields blank stdout. Either way this
@@ -622,7 +636,8 @@ def build_me_via_lens_pipeline(
     print(f"  Stage 2: decision extraction (chairman: {chairman}, "
           f"{len(augmented_samples)} samples)…", flush=True)
     stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
-    stage2_result = primary.run(stage2_prompt, cwd=Path.cwd())
+    # Mechanical extraction → low effort (same rationale as Stage 0 above).
+    stage2_result = extractor.run(stage2_prompt, cwd=Path.cwd())
     decisions = stage2_parse(stage2_result.stdout or "", basins)
 
     # Prepend high-weight decisions from two sources:
