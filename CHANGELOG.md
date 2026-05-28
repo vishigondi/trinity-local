@@ -7,6 +7,40 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.22 — lens-build clobber guard: degenerate Stage 0 can't gut the corpus (#194)] — 2026-05-28
+
+Live incident, caught by dogfooding the lens pipeline: a transient
+chairman-empty Stage 0 run extracted 0 rejections (was 49);
+lens-build overwrote rejections.jsonl AND lens.md with empty results
+and reported ok:true. The lens was silently gutted. Recovery relied
+on a stale 3-day-old .bak that happened to exist — there is NO
+automatic backup in the write path. Pure luck.
+
+This is the output-shape-smoke principle (#193) on the WRITE side:
+#193 tested "valid input → non-empty output" but not "degenerate
+upstream → don't destroy existing good state."
+
+Fix:
+- `save_rejections` (the single truncation point) now refuses to
+  overwrite a populated corpus with a cliff-drop result: empty when
+  ≥5 rows exist, or below 25% of the existing count. It writes the
+  would-be result to a `.degenerate` sidecar and raises
+  `DegenerateExtractionError`. Live corpus preserved. `allow_shrink=True`
+  is the explicit escape hatch for a real shrink.
+- me_builder Stage 0 catches the exception and aborts the build
+  BEFORE Stages 2-4, so lens.md isn't overwritten either. Both files
+  protected; returns ok:False with reason.
+
+5 new tests in TestClobberGuard: empty-overwrite refused, cliff-drop
+refused, allow_shrink escape hatch, cold-start empty OK, normal
+rebuild unaffected.
+
+The transient chairman-empty root cause wasn't chased (today's
+earlier dream synthesized 239/249 fine — it was a blip). The durable
+fix is the guard, not the blip.
+
+Tests: 1983 passed + 7 skipped.
+
 ## [v1.7.21 — output-shape smoke for live producers (#193)] — 2026-05-27
 
 The #191 audit's second promotion. The bug class: a feature runs,
@@ -1134,7 +1168,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1981<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1986<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

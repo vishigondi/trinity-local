@@ -468,6 +468,7 @@ def build_me_via_lens_pipeline(
         stage3_parse,
         stage4_post_filter,
     )
+    from .me.turn_pairs import DegenerateExtractionError
     from .memory import search_prompt_nodes
     from .providers import make_provider
     from .ranker import predict_strongest_chairman
@@ -533,9 +534,22 @@ def build_me_via_lens_pipeline(
     if turn_pairs:
         stage0_prompt = stage0_turn_pair_prompt(turn_pairs, basins)
         stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
-        rejections, rejected_records = stage0_parse_and_validate(
-            stage0_result.stdout or "", basins, pair_index,
-        )
+        try:
+            rejections, rejected_records = stage0_parse_and_validate(
+                stage0_result.stdout or "", basins, pair_index,
+            )
+        except DegenerateExtractionError as exc:
+            # Transient chairman-empty Stage 0 run. save_rejections
+            # already refused to clobber rejections.jsonl; abort here
+            # BEFORE Stages 2-4 so lens.md isn't overwritten with an
+            # empty lens either. Both files preserved. (#194)
+            print(f"  Stage 0 ABORTED — degenerate extraction: {exc}", flush=True)
+            return me_path(), {
+                "ok": False,
+                "aborted": "degenerate_stage0",
+                "reason": str(exc),
+                "extracted": 0,
+            }
         print(f"           → {len(rejections)} rejection signals kept, {len(rejected_records)} dropped by validators", flush=True)
     else:
         print("           → no turn pairs yet, skipping", flush=True)

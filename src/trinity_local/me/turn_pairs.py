@@ -361,8 +361,63 @@ def _validate_one(
     return False, f"unknown signal type {t}"
 
 
-def save_rejections(signals: list[RejectionSignal]) -> Path:
+class DegenerateExtractionError(RuntimeError):
+    """save_rejections was asked to overwrite a populated corpus with a
+    cliff-drop result. Almost always a transient chairman-empty run
+    (the Stage 0 call returned nothing parseable), NOT a real signal
+    change. Raised instead of silently truncating — the live corpus is
+    preserved and the would-be result is written to a `.degenerate`
+    sidecar for inspection.
+
+    Live incident 2026-05-28 (#194): a chairman blip made Stage 0
+    extract 0 rejections; lens-build overwrote 49 rejections + a
+    3-tension lens with empty results and reported ok:true. Recovery
+    relied on a stale 3-day-old .bak that happened to exist. This guard
+    removes the luck.
+    """
+
+
+# Clobber-guard thresholds. A new extraction must not wipe the corpus
+# when it's a cliff-drop vs what's on disk: empty when ≥MIN_EXISTING
+# rows exist, or below MIN_FRACTION of the existing count.
+_CLOBBER_MIN_EXISTING = 5
+_CLOBBER_MIN_FRACTION = 0.25
+
+
+def save_rejections(
+    signals: list[RejectionSignal], *, allow_shrink: bool = False
+) -> Path:
     path = rejections_path()
+    existing = 0
+    if path.exists():
+        try:
+            existing = sum(
+                1 for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()
+            )
+        except OSError:
+            existing = 0
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
+    if (
+        not allow_shrink
+        and existing >= _CLOBBER_MIN_EXISTING
+        and len(signals) < floor
+    ):
+        # Preserve the live corpus; stash the would-be result for debugging.
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            with sidecar.open("w", encoding="utf-8") as f:
+                for sig in signals:
+                    f.write(json.dumps(sig.to_dict()) + "\n")
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} rejections with "
+            f"{len(signals)} (cliff-drop below {floor}). Almost certainly "
+            f"a transient chairman-empty Stage 0 run, not a real shrink. "
+            f"Live corpus preserved; degenerate result written to "
+            f"{sidecar.name}. Re-run lens-build; pass allow_shrink=True "
+            f"only if the corpus genuinely shrank."
+        )
     with path.open("w") as f:
         for sig in signals:
             f.write(json.dumps(sig.to_dict()) + "\n")

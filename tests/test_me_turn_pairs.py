@@ -162,3 +162,63 @@ class TestValidators:
         }}
         kept, _ = validate_signals([self._sig("REFRAME")], index)
         assert len(kept) == 1
+
+
+class TestClobberGuard:
+    """#194 — save_rejections must not wipe a populated corpus with a
+    cliff-drop result (transient chairman-empty Stage 0 run). Live
+    incident 2026-05-28: 0-rejection run overwrote 49 + gutted the lens.
+    """
+
+    def _sig(self, i: int) -> RejectionSignal:
+        return RejectionSignal(
+            id=f"r_{i}", type="REFRAME", model_quote="q",
+            user_substitute="s", why_signal="d", prompt_id=f"p{i}", basin=None,
+        )
+
+    def test_empty_overwrite_of_populated_corpus_refused(self, patch_trinity_home):
+        from trinity_local.me.turn_pairs import (
+            save_rejections, rejections_path, DegenerateExtractionError,
+        )
+        # Seed 10 rejections
+        save_rejections([self._sig(i) for i in range(10)])
+        path = rejections_path()
+        assert sum(1 for _ in path.open()) == 10
+        # A degenerate (empty) extraction must be refused
+        import pytest
+        with pytest.raises(DegenerateExtractionError):
+            save_rejections([])
+        # Live corpus preserved
+        assert sum(1 for _ in path.open()) == 10
+        # Degenerate result stashed for inspection
+        assert (path.parent / (path.name + ".degenerate")).exists()
+
+    def test_cliff_drop_below_fraction_refused(self, patch_trinity_home):
+        from trinity_local.me.turn_pairs import save_rejections, rejections_path, DegenerateExtractionError
+        save_rejections([self._sig(i) for i in range(20)])
+        import pytest
+        # 2 < 25% of 20 (=5) → refused
+        with pytest.raises(DegenerateExtractionError):
+            save_rejections([self._sig(0), self._sig(1)])
+        assert sum(1 for _ in rejections_path().open()) == 20
+
+    def test_allow_shrink_escape_hatch(self, patch_trinity_home):
+        from trinity_local.me.turn_pairs import save_rejections, rejections_path
+        save_rejections([self._sig(i) for i in range(10)])
+        # Explicit opt-in lets a real shrink through
+        save_rejections([self._sig(0)], allow_shrink=True)
+        assert sum(1 for _ in rejections_path().open()) == 1
+
+    def test_cold_start_empty_is_fine(self, patch_trinity_home):
+        from trinity_local.me.turn_pairs import save_rejections, rejections_path
+        # No existing corpus → empty write is legitimate (cold install)
+        save_rejections([])
+        assert rejections_path().exists()
+        assert sum(1 for _ in rejections_path().open()) == 0
+
+    def test_growth_and_normal_rebuild_unaffected(self, patch_trinity_home):
+        from trinity_local.me.turn_pairs import save_rejections, rejections_path
+        save_rejections([self._sig(i) for i in range(10)])
+        # A normal rebuild with similar/more counts proceeds
+        save_rejections([self._sig(i) for i in range(12)])
+        assert sum(1 for _ in rejections_path().open()) == 12
