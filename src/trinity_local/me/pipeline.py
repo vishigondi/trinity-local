@@ -77,15 +77,23 @@ def stage0_parse_and_validate(
     raw_output: str,
     basins: list[Basin],
     pair_index: dict[str, dict[str, Any]],
+    *,
+    save: bool = True,
 ) -> tuple[list[RejectionSignal], list[dict]]:
     """Parse chairman output, then run deterministic validators.
 
     Returns (kept_signals, rejected_records). The `rejected` list carries
     `reason` fields so chairman drift is auditable across rebuilds.
+
+    `save=False` skips the save_rejections write — used by the chunked
+    Stage 0 path (#195), which parses each batch separately then saves
+    the accumulated set ONCE so the #194 clobber guard sees the full
+    count, not a partial batch.
     """
     raw_signals = parse_rejections(raw_output, basins)
     kept, rejected = validate_signals(raw_signals, pair_index)
-    save_rejections(kept)
+    if save:
+        save_rejections(kept)
     return kept, rejected
 
 

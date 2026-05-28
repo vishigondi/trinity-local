@@ -222,3 +222,36 @@ class TestClobberGuard:
         # A normal rebuild with similar/more counts proceeds
         save_rejections([self._sig(i) for i in range(12)])
         assert sum(1 for _ in rejections_path().open()) == 12
+
+
+class TestStage0SaveFlag:
+    """#195 — stage0_parse_and_validate(save=False) must NOT write
+    rejections.jsonl. The chunked Stage 0 path parses each batch with
+    save=False, accumulates, then saves once — so the #194 clobber
+    guard sees the full count, not a partial batch."""
+
+    def test_save_false_does_not_write(self, patch_trinity_home):
+        from trinity_local.me.pipeline import stage0_parse_and_validate
+        from trinity_local.me.turn_pairs import rejections_path
+        # A chairman output with one valid REFRAME signal
+        raw = (
+            '[{"type":"REFRAME","model_quote":"long answer",'
+            '"user_substitute":"different frame","why_signal":"pivot",'
+            '"prompt_id":"p1"}]'
+        )
+        index = {"p1": {"assistant_text": "a", "user_text": "u", "next_user_text": ""}}
+        kept, _ = stage0_parse_and_validate(raw, [], index, save=False)
+        # Parsed in-memory but nothing written
+        assert not rejections_path().exists() or sum(1 for _ in rejections_path().open()) == 0
+
+    def test_save_true_writes(self, patch_trinity_home):
+        from trinity_local.me.pipeline import stage0_parse_and_validate
+        from trinity_local.me.turn_pairs import rejections_path
+        raw = (
+            '[{"type":"REFRAME","model_quote":"long answer",'
+            '"user_substitute":"different frame","why_signal":"pivot",'
+            '"prompt_id":"p1"}]'
+        )
+        index = {"p1": {"assistant_text": "a", "user_text": "u", "next_user_text": ""}}
+        kept, _ = stage0_parse_and_validate(raw, [], index, save=True)
+        assert rejections_path().exists()

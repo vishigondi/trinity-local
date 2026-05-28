@@ -7,6 +7,33 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.23 — Stage 0 prompt chunking: the actual root cause of the empty extraction (#195)] — 2026-05-28
+
+The clobber guard (#194) made the lens-gutting incident safe; this
+fixes WHY Stage 0 returned 0. Diagnosis (captured the raw chairman
+call): Stage 0 packed all 200 turn-pairs into ONE 149KB / ~37K-token
+prompt, and `claude -p` returned `STDOUT length: 0 chars` for it —
+an empty response, every run. Not transient; a hard size cliff. The
+earlier dream worked because it makes small per-cluster calls; Stage 0
+was the one giant batch.
+
+Fix: chunk the turn-pairs into batches of 40 (~7.5K tokens each).
+me_builder Stage 0 now loops — builds a prompt per batch, runs the
+chairman, parses + validates each WITHOUT saving — then saves the
+accumulated set ONCE. The single save means the #194 clobber guard
+sees the full count (a genuinely empty extraction across ALL batches
+still aborts cleanly).
+
+`stage0_parse_and_validate` gained a `save=False` param so the
+batched path can parse-without-write and the caller controls the
+single final save. 2 tests pin that contract; 5 clobber-guard tests
+(#194) still green.
+
+This unblocks the original goal — validating the #186 T2 lens filter
+on real data, which had been masked by Stage 0 producing nothing.
+
+Tests: 1984 passed + 7 skipped.
+
 ## [v1.7.22 — lens-build clobber guard: degenerate Stage 0 can't gut the corpus (#194)] — 2026-05-28
 
 Live incident, caught by dogfooding the lens pipeline: a transient
@@ -1168,7 +1195,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1986<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1988<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

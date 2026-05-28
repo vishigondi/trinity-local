@@ -55,6 +55,13 @@ ME_BUDGET_CHARS = 10_000
 # enough to fit in a single prompt with their preceding-assistant context.
 ME_SAMPLE_SIZE = 80
 
+# Stage 0 turn-pair batch size (#195). 200 pairs in one prompt was
+# ~37K tokens, which claude -p returned EMPTY for. ~40/batch keeps each
+# chairman call near ~7.5K tokens — comfortably under the empty-response
+# cliff. Each batch parses independently; rejections accumulate and save
+# once (so the #194 clobber guard sees the full count).
+_STAGE0_BATCH_SIZE = 40
+
 
 def me_path() -> Path:
     """The lens file. Renamed from `me.md` → `memories/lens.md` per the
@@ -468,7 +475,6 @@ def build_me_via_lens_pipeline(
         stage3_parse,
         stage4_post_filter,
     )
-    from .me.turn_pairs import DegenerateExtractionError
     from .memory import search_prompt_nodes
     from .providers import make_provider
     from .ranker import predict_strongest_chairman
@@ -532,23 +538,34 @@ def build_me_via_lens_pipeline(
     rejections: list = []
     rejected_records: list = []
     if turn_pairs:
-        stage0_prompt = stage0_turn_pair_prompt(turn_pairs, basins)
-        stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
-        try:
-            rejections, rejected_records = stage0_parse_and_validate(
-                stage0_result.stdout or "", basins, pair_index,
+        from .me.turn_pairs import save_rejections, DegenerateExtractionError as _DEE
+        # Chunk the batch (#195). Packing all 200 turn-pairs into ONE
+        # prompt produced a ~37K-token call that claude -p returned
+        # EMPTY for — zero rejections, every run. Split into batches
+        # so each chairman call stays well under the size that triggers
+        # an empty response, parse each WITHOUT saving, accumulate, then
+        # save once so the #194 guard sees the full count.
+        for batch_start in range(0, len(turn_pairs), _STAGE0_BATCH_SIZE):
+            batch = turn_pairs[batch_start:batch_start + _STAGE0_BATCH_SIZE]
+            stage0_prompt = stage0_turn_pair_prompt(batch, basins)
+            stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
+            batch_kept, batch_dropped = stage0_parse_and_validate(
+                stage0_result.stdout or "", basins, pair_index, save=False,
             )
-        except DegenerateExtractionError as exc:
-            # Transient chairman-empty Stage 0 run. save_rejections
-            # already refused to clobber rejections.jsonl; abort here
-            # BEFORE Stages 2-4 so lens.md isn't overwritten with an
-            # empty lens either. Both files preserved. (#194)
+            rejections.extend(batch_kept)
+            rejected_records.extend(batch_dropped)
+        # Save the accumulated set once. The clobber guard fires here on
+        # the full count — a genuinely empty extraction across ALL
+        # batches still aborts cleanly (#194), preserving the corpus.
+        try:
+            save_rejections(rejections)
+        except _DEE as exc:
             print(f"  Stage 0 ABORTED — degenerate extraction: {exc}", flush=True)
             return me_path(), {
                 "ok": False,
                 "aborted": "degenerate_stage0",
                 "reason": str(exc),
-                "extracted": 0,
+                "extracted": len(rejections),
             }
         print(f"           → {len(rejections)} rejection signals kept, {len(rejected_records)} dropped by validators", flush=True)
     else:
