@@ -7,6 +7,43 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.28 — find_anchors: stop surfacing Trinity's own scaffolding as your vocabulary (#196)] — 2026-05-28
+
+The vocabulary memory's Anchors section was garbage: the top 15 were all
+Trinity's own prompt scaffolding ("RULES", "STRICT JSON", "WRONG",
+"Output", "DURABLE", "NON-OBVIOUS"…), captured back into the corpus when
+its prompts run through the user's CLI. They dominated because they recur
+in ~75% of all conversations. This matters beyond cosmetics — the lens
+redesign's "canonicalize tensions to user vocabulary" step
+(`docs/lens-redesign.md` Stage 4.25) reads these anchors, so the noise
+would have polluted the lens too.
+
+Three guards in `find_anchors` (#196):
+
+- **Prevalence cap (IDF)**: a phrase in more than
+  `DEFAULT_ANCHOR_MAX_THREAD_FRACTION` (0.40) of all threads is
+  boilerplate, not a distinctive anchor — ubiquity carries no signal, the
+  same reason TF-IDF down-weights common terms. Gated on
+  `MIN_THREADS_FOR_PREVALENCE_CAP` (20) so it never fires on a tiny/new
+  corpus, where a phrase in 100% of 4 threads IS the signal.
+- **Thread attribution**: a node with no transcript_id is skipped. The
+  old `transcript_id or node.id` fallback counted each unattributed node
+  as its OWN thread, inflating recurrence past the real conversation
+  count — the original symptom of this bug.
+- **Imperative/emphasis blacklist**: the lower-prevalence residue
+  ("MUST", "Change", "Read", "Fix", "Every", "One") — capitalized verbs
+  and emphasis words that name no entity — joins the existing
+  sentence-start blacklist.
+
+Result on the real corpus: anchors went from RULES/STRICT JSON/WRONG to
+LDK / Living / Gallery / Kitchen / Bath / Entry / Deck / Loft Bedroom —
+genuine personal vocabulary. Regenerated the real vocabulary.md and
+**verified in the browser**: the memory viewer's Anchors table renders
+the real terms, zero console errors.
+
+Tests: 2031 passed + 7 skipped (5 new prevalence/attribution/blacklist
+cases).
+
 ## [v1.7.27 — accumulation chip on the launchpad lens card (#200)] — 2026-05-28
 
 The RENDER verb, completed across surfaces. lens.md showed support +
@@ -1309,7 +1346,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2029<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2034<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

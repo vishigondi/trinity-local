@@ -46,6 +46,18 @@ DEFAULT_TOP_HOMONYMS = 10
 DEFAULT_TOP_SYNONYMS = 10
 DEFAULT_TOP_ANCHORS = 15
 DEFAULT_ANCHOR_MIN_THREADS = 3
+# An anchor in more than this fraction of ALL threads is boilerplate, not a
+# distinctive personal anchor (the IDF intuition). 0.40 cleanly separates
+# Trinity's own captured prompt scaffolding (~70-75% prevalence) from real
+# user vocabulary (a few %). See find_anchors (#196).
+DEFAULT_ANCHOR_MAX_THREAD_FRACTION = 0.40
+# The prevalence cap only kicks in once there are enough threads for "in
+# most conversations" vs "in a few" to be a real distinction — IDF is
+# meaningless on a tiny corpus, where a phrase in 100% of 4 threads is the
+# signal, not boilerplate. Below this, the min_threads recurrence gate
+# stands alone (a small/new user hasn't generated scaffolding pollution
+# yet anyway — that needs many Trinity runs = many threads).
+MIN_THREADS_FOR_PREVALENCE_CAP = 20
 DEFAULT_SYNONYM_COSINE_THRESHOLD = 0.92
 
 # Stopwords kept tight — only words a developer would reflexively skip,
@@ -79,6 +91,20 @@ _ANCHOR_BLACKLIST = frozenset({
     "is", "are", "was", "were", "be", "been", "being",
     "do", "does", "did", "have", "has", "had",
     "ok", "okay", "well", "now", "then", "just", "let", "lets",
+    # Imperatives + emphasis + quantifiers that capitalize (sentence start,
+    # ALL-CAPS emphasis, or instruction prose) but name no entity. These
+    # dominate the anchor list because Trinity's own prompt scaffolding —
+    # captured back into the corpus when its prompts run through the user's
+    # CLI — is full of them ("RULES", "STRICT", "WRONG", "Output", "Skip",
+    # "MUST", "DURABLE", "NON-OBVIOUS"). The prevalence cap in find_anchors
+    # removes the most ubiquitous; this catches the lower-prevalence
+    # residue (#196). Anchors are entities (Kitchen, LDK), not verbs.
+    "read", "fix", "make", "use", "add", "get", "set", "run", "change",
+    "update", "create", "build", "write", "show", "find", "give", "take",
+    "note", "skip", "pack", "list", "output", "keep", "stop", "start",
+    "must", "wrong", "rules", "strict", "only", "durable", "every", "new",
+    "one", "all", "each", "more", "most", "also", "even", "for", "an",
+    "non-obvious", "users", "downloads",
 })
 
 
@@ -113,7 +139,11 @@ def _extract_proper_phrases(text: str) -> list[str]:
 
 
 def find_anchors(
-    nodes: Iterable, *, min_threads: int, top_n: int,
+    nodes: Iterable,
+    *,
+    min_threads: int,
+    top_n: int,
+    max_thread_fraction: float = DEFAULT_ANCHOR_MAX_THREAD_FRACTION,
 ) -> list[tuple[str, int, int]]:
     """Rank proper-noun phrases by distinct-thread count.
 
@@ -121,20 +151,45 @@ def find_anchors(
     recurrence then mention count. Filters to phrases appearing in
     ≥ min_threads distinct transcripts — the recurrence signal is what
     makes a token an anchor instead of a one-off proper noun.
+
+    Two correctness guards (#196):
+
+    - **Thread attribution**: a node with no transcript_id is skipped for
+      anchor purposes. The old `transcript_id or node.id` fallback counted
+      every unattributed node as its OWN thread, inflating recurrence past
+      the real conversation count. A node we can't place in a thread can't
+      establish cross-thread recurrence — the whole point of an anchor.
+
+    - **Prevalence cap (IDF)**: a phrase appearing in more than
+      `max_thread_fraction` of ALL threads is boilerplate, not a
+      distinctive anchor. Trinity's own prompt scaffolding, captured back
+      into the corpus, recurs in 70–75% of conversations ("RULES",
+      "STRICT JSON", "WRONG", …); a real personal anchor recurs in a few
+      percent. Ubiquity = no signal, so we drop it — the same reason
+      TF-IDF down-weights common terms.
     """
     # phrase → {transcript_ids}, mention count
     threads: dict[str, set] = defaultdict(set)
     mentions: dict[str, int] = defaultdict(int)
+    all_threads: set = set()
     for node in nodes:
-        text = getattr(node, "text", "") or ""
-        tid = getattr(node, "transcript_id", None) or getattr(node, "id", None)
-        for phrase in _extract_proper_phrases(text):
+        tid = getattr(node, "transcript_id", None)
+        if not tid:
+            continue
+        all_threads.add(tid)
+        for phrase in _extract_proper_phrases(getattr(node, "text", "") or ""):
             threads[phrase].add(tid)
             mentions[phrase] += 1
+    total_threads = len(all_threads)
+    cap = (
+        int(total_threads * max_thread_fraction)
+        if total_threads >= MIN_THREADS_FOR_PREVALENCE_CAP
+        else 0
+    )
     ranked = [
         (phrase, len(tids), mentions[phrase])
         for phrase, tids in threads.items()
-        if len(tids) >= min_threads
+        if len(tids) >= min_threads and (cap == 0 or len(tids) <= cap)
     ]
     # Sort by (thread recurrence DESC, mention count DESC). Recurrence first
     # because "appeared in 8 different conversations" is the load-bearing

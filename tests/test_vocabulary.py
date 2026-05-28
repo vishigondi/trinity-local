@@ -219,6 +219,71 @@ class TestAnchorDetection:
         assert "When" not in phrases
 
 
+class _StubNode:
+    """Minimal node for find_anchors unit tests — it reads .text +
+    .transcript_id via getattr, so a namespace is enough."""
+    def __init__(self, text, transcript_id):
+        self.text = text
+        self.transcript_id = transcript_id
+
+
+class TestAnchorPrevalenceCap:
+    """#196: a phrase in more than max_thread_fraction of ALL threads is
+    boilerplate (Trinity's captured prompt scaffolding recurs in ~75% of
+    conversations), not a distinctive anchor — the IDF intuition."""
+
+    def test_ubiquitous_phrase_dropped_as_boilerplate(self):
+        # ≥ MIN_THREADS_FOR_PREVALENCE_CAP (20) total threads so the cap is live.
+        from trinity_local.vocabulary import find_anchors
+        nodes = [_StubNode("Acme dashboard", f"t{i}") for i in range(20)]
+        nodes += [_StubNode("Kitchen remodel", f"k{i}") for i in range(8)]
+        anchors = find_anchors(nodes, min_threads=3, top_n=10, max_thread_fraction=0.5)
+        names = [p for p, *_ in anchors]
+        assert "Acme" not in names   # 20/28 = 71% > 50% cap → boilerplate
+        assert "Kitchen" in names    # 8/28 = 29% ≤ 50% → kept
+
+    def test_high_cap_keeps_ubiquitous(self):
+        # Proves the cap is what drops it: lift the cap, Acme returns.
+        from trinity_local.vocabulary import find_anchors
+        nodes = [_StubNode("Acme dashboard", f"t{i}") for i in range(20)]
+        anchors = find_anchors(nodes, min_threads=3, top_n=10, max_thread_fraction=1.0)
+        assert any(p == "Acme" for p, *_ in anchors)
+
+    def test_cap_inactive_below_min_threads(self):
+        # Tiny corpus: a phrase in 100% of 4 threads IS the signal, not
+        # boilerplate — the cap must not fire below the floor.
+        from trinity_local.vocabulary import find_anchors
+        nodes = [_StubNode("Acme dashboard", f"t{i}") for i in range(4)]
+        anchors = find_anchors(nodes, min_threads=3, top_n=10, max_thread_fraction=0.4)
+        assert any(p == "Acme" for p, *_ in anchors)
+
+
+class TestAnchorThreadAttribution:
+    """#196: a node with no transcript_id can't establish cross-thread
+    recurrence. The old `transcript_id or node.id` fallback counted each
+    such node as its OWN thread, inflating recurrence past the real
+    conversation count."""
+
+    def test_missing_transcript_id_does_not_inflate(self):
+        from trinity_local.vocabulary import find_anchors
+        nodes = [_StubNode("Acme dashboard", None) for _ in range(5)]
+        anchors = find_anchors(nodes, min_threads=3, top_n=10, max_thread_fraction=1.0)
+        assert not any(p == "Acme" for p, *_ in anchors)
+
+
+class TestAnchorImperativeBlacklist:
+    """#196: imperative / emphasis words that capitalize (sentence start,
+    ALL-CAPS emphasis, instruction prose) name no entity and shouldn't
+    anchor — the residue left after the prevalence cap."""
+
+    def test_imperative_and_emphasis_caps_not_anchors(self):
+        from trinity_local.vocabulary import _extract_proper_phrases
+        for w in ("MUST", "Change", "Read", "Fix", "Output", "Every", "One"):
+            assert w not in _extract_proper_phrases(f"{w} the thing now"), w
+        # Control: a real Title-case entity is untouched.
+        assert "Kitchen" in _extract_proper_phrases("Kitchen remodel plan")
+
+
 class TestVocabularyPath:
     def test_writes_to_memories_vocabulary_md(self, isolated_home):
         from trinity_local.vocabulary import distill_vocabulary
