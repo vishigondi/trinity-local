@@ -420,3 +420,55 @@ The remaining work is **blocked in this dev environment**, not by design:
 
 Net: finish the retirement (and the optional prompt-merge / #182) from a
 shell where `trinity-local lens-build` can actually reach a provider.
+
+### Stage 4 — storage migration + legacy retirement (the final EXTRACT step)
+
+The capstone of #202: make `preference_acts.jsonl` the single source of
+truth and retire `rejections.jsonl` + `decisions.jsonl`. This is the
+highest-blast-radius step, so it's sequenced dual-write → flip-reads →
+retire, with a rollback window at each stage.
+
+**Dependency map (verified 2026-05-28):**
+
+- *Real disk consumers of the legacy stores:*
+  - `commands/eval_import.py` — provider-import APPENDS to rejections.jsonl
+    (`_append_signals`) + dedup-reads it (`_load_existing_ids`).
+  - `launchpad_data._load_decisions_by_id` — reads decisions.jsonl for the
+    lens-card "justified by" backref map.
+  - Stage 0 (`me_builder` → `save_rejections`) + Stage 2
+    (`save_decisions`) writers.
+  - `iter_preference_acts()` — the unified reader (currently unions both
+    legacy stores).
+- *NOT dependencies (docstring mentions only):* `council_runtime.py`
+  (describes rejections.jsonl as conceptual input; data actually flows via
+  lens.md + the prompt) and `me/pair_mining.py` (Stage 3 takes
+  `decisions: list[Decision]` IN MEMORY from Stage 2, no disk read).
+
+**Sequenced migration:**
+
+1. **Dual-write** (reversible; nothing reads the new file as truth yet):
+   lens-build/lens-resync already export `preference_acts.jsonl` via
+   `save_preference_acts`. Add the missing writer: `eval_import` appends a
+   `PreferenceAct` (trigger=model_miss) to the ledger alongside its
+   rejections.jsonl append. Now every writer keeps both stores current.
+2. **Backfill**: a one-time pass (`iter_preference_acts()` reads the legacy
+   union → `save_preference_acts`) guarantees the ledger is complete before
+   any reader trusts it. `lens-resync` already does exactly this.
+3. **Flip reads** (one PR, easily reverted): point the two real readers at
+   the ledger — `iter_preference_acts()` reads `load_preference_acts()`
+   instead of unioning the legacy stores; `_load_decisions_by_id` reads the
+   self_expressed acts from the ledger. Validate on real data: a build + a
+   provider-import + a launchpad render all agree.
+4. **Retire** (only after #3 proves out): stop the legacy writers (Stage
+   0/2 save only the ledger; eval_import appends only the ledger), then add
+   `rejections.jsonl` / `decisions.jsonl` + `save_rejections` /
+   `load_rejections` / `save_decisions` / `load_decisions` to
+   `retired_names.py`, and delete the now-dead writers/readers. Keep the
+   clobber guard (#194 pattern, already on `save_preference_acts` per
+   v1.7.33).
+
+**Rollback safety:** through step 3 both stores stay populated, so any
+step reverts by flipping the read back. Step 4 is the point of no return —
+take it only once a real build + import + launchpad cycle has confirmed
+the ledger is authoritative. Blocked on nothing now (dispatch works);
+gated only on wanting a green real-data cycle first.
