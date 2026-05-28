@@ -298,6 +298,186 @@ class TestPairMiningPostFilter:
         assert filtered[0].verdict == "dropped"
 
 
+class TestStage4SemanticFilter:
+    """T2 semantic filter for Stage 4 — #186.
+
+    The lens-build chairman sometimes tags tensions to plausible-looking
+    but semantically wrong basins. The count-only filter (basin_post_filter
+    pre-#186) accepted any tension that claimed 3+ basin IDs without
+    checking whether those basins' actual content matched the tension.
+    The T2 filter (cosine vs basin centroid) catches this — basins whose
+    centroid is semantically far from the tension probe text get dropped
+    BEFORE the count rule decides the verdict.
+    """
+
+    def _make_decisions(self):
+        from trinity_local.me.decisions import Decision
+        return [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="b01", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="correction", basin="b02", verbatim="z"),
+        ]
+
+    def test_no_centroids_falls_through_unchanged(self):
+        """Without basin_centroids the filter is a no-op — backward
+        compat for callers that don't load topics.json."""
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        pair = LensPair(
+            pole_a="speed", pole_b="quality",
+            failure_a="hack", failure_b="paralysis",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        filtered = basin_post_filter([pair], self._make_decisions(), basin_centroids=None)
+        assert filtered[0].verdict == "accepted"
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+
+    def test_basins_without_centroid_pass_through(self):
+        """If a basin id has no centroid in the map (e.g. novel basin
+        since topics.json was last built), keep it — avoid silent data
+        loss."""
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        # Empty dict but truthy via being passed as non-None default
+        # actually disables T2 entirely; this test pins the "centroid
+        # missing for THIS basin" case where the map is non-empty but
+        # the specific basin is absent.
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        # Provide centroid only for b99 (basin the pair doesn't claim)
+        centroids = {"b99": [0.0] * 384}
+        filtered = basin_post_filter(
+            [pair], self._make_decisions(), basin_centroids=centroids,
+        )
+        # b00/b01/b02 have no centroid → all kept via the pass-through branch
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+
+    def test_semantically_close_basins_kept_far_ones_dropped(self):
+        """The real T2 work — when the tension's probe text aligns
+        semantically with some basin centroids but not others, only
+        the close ones survive.
+
+        Uses an orthogonal-basis synthetic embedding so cosine is
+        deterministic without depending on the real embedder. Patches
+        the embed() function to return a fixed vector aligned with
+        b_close's centroid.
+        """
+        from unittest.mock import patch
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+
+        # 3D orthogonal basis: tension aligns with axis 0.
+        tension_emb = [1.0, 0.0, 0.0]
+        centroids = {
+            "b_close": [0.95, 0.05, 0.0],   # cosine ~0.99 with tension
+            "b_far_1": [0.0, 1.0, 0.0],     # cosine 0.0 — orthogonal
+            "b_far_2": [-0.5, 0.5, 0.7],    # cosine -0.5 — opposite
+        }
+        from trinity_local.me.decisions import Decision
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b_close", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="b_far_1", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="correction", basin="b_far_2", verbatim="z"),
+        ]
+        pair = LensPair(
+            pole_a="abstract_pole_a", pole_b="abstract_pole_b",
+            failure_a="pure_a_failure", failure_b="pure_b_failure",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+
+        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+            filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
+
+        # Only b_close survives the 0.40 threshold → 1 basin → demoted
+        # from "accepted" (needs ≥3) to "preserve_as_ordering" (1-2)
+        assert filtered[0].basins_spanned == ["b_close"]
+        assert filtered[0].verdict == "preserve_as_ordering"
+
+    def test_all_basins_pass_when_above_threshold(self):
+        """Sanity inverse: when every basin centroid is semantically
+        close, all three survive and the tension stays accepted."""
+        from unittest.mock import patch
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        from trinity_local.me.decisions import Decision
+
+        tension_emb = [1.0, 0.0, 0.0]
+        centroids = {
+            "b00": [0.95, 0.05, 0.0],
+            "b01": [0.90, 0.10, 0.0],
+            "b02": [0.85, 0.15, 0.0],
+        }
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="b01", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="correction", basin="b02", verbatim="z"),
+        ]
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+            filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
+        assert filtered[0].verdict == "accepted"
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+
+    def test_embedder_failure_falls_through_safely(self):
+        """If the embedder raises (offline + no fallback), keep all
+        basins — semantic filtering is advisory, not load-bearing.
+        Without this, an offline machine with stale embed config
+        would silently drop every tension to 'dropped'."""
+        from unittest.mock import patch
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        from trinity_local.me.decisions import Decision
+
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="b01", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="correction", basin="b02", verbatim="z"),
+        ]
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        centroids = {"b00": [1.0, 0.0], "b01": [0.0, 1.0], "b02": [0.5, 0.5]}
+        with patch(
+            "trinity_local.embeddings.embed",
+            side_effect=RuntimeError("embed backend down"),
+        ):
+            filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
+        # Embedder failed → all basins kept (no silent data loss)
+        assert filtered[0].verdict == "accepted"
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+
+    def test_dimension_mismatch_keeps_basin(self):
+        """If basin centroid dim ≠ tension embedding dim (embedder
+        changed since topics.json was built), keep the basin and
+        let the user re-run dream to refresh."""
+        from unittest.mock import patch
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        from trinity_local.me.decisions import Decision
+
+        tension_emb = [1.0, 0.0, 0.0]  # 3-dim
+        centroids = {
+            "b00": [1.0, 0.0, 0.0, 0.0],  # 4-dim — mismatched
+        }
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="x"),
+        ]
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1"],
+            verdict="accepted",
+        )
+        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+            filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
+        # Dim mismatch → b00 kept via pass-through
+        assert filtered[0].basins_spanned == ["b00"]
+
+
 class TestPairMiningParser:
     def test_parses_array_with_markdown_fences(self):
         from trinity_local.me.pair_mining import parse_pair_mining_output

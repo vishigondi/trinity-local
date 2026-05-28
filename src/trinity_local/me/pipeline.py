@@ -139,9 +139,33 @@ def stage3_parse(raw_output: str) -> list[LensPair]:
     return parse_pair_mining_output(raw_output)
 
 
+def _load_basin_centroids() -> dict[str, list[float]]:
+    """Read basin centroids from ~/.trinity/memories/topics.json so
+    Stage 4's T2 semantic filter can score each tension against each
+    basin's geometric center. Returns {} if topics.json is missing or
+    malformed — basin_post_filter degrades gracefully (count-only)."""
+    import json
+    from .. import state_paths as _sp
+    path = _sp.memories_dir() / "topics.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out: dict[str, list[float]] = {}
+    for basin in data.get("basins", []):
+        bid = basin.get("id")
+        centroid = basin.get("centroid")
+        if isinstance(bid, str) and isinstance(centroid, list):
+            out[bid] = centroid
+    return out
+
+
 def stage4_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> tuple[list[LensPair], list[LensPair]]:
-    """Apply basin post-filter, then split by verdict."""
-    filtered = basin_post_filter(pairs, decisions)
+    """Apply basin post-filter (count + semantic), then split by verdict."""
+    basin_centroids = _load_basin_centroids()
+    filtered = basin_post_filter(pairs, decisions, basin_centroids=basin_centroids)
     accepted, orderings = split_by_verdict(filtered)
     save_lenses(accepted, orderings)
     return accepted, orderings

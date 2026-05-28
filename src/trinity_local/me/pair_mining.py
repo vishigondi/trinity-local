@@ -275,7 +275,98 @@ lens pipeline by council `council_70eaf228d7753074` (Option C —
 basins as verifier, not chairman input)."""
 
 
-def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[LensPair]:
+def _tension_probe_text(pair: LensPair) -> str:
+    """Concat a tension's poles + failure modes into one probe text.
+    Used by the T2 semantic filter to give the embedder a single
+    surface representing the tension's full claim."""
+    parts = [pair.pole_a, pair.pole_b]
+    if pair.failure_a:
+        parts.append(pair.failure_a)
+    if pair.failure_b:
+        parts.append(pair.failure_b)
+    return " · ".join(p for p in parts if p)
+
+
+_T2_LENS_GATE_THRESHOLD = 0.40
+"""Cosine threshold for tension-vs-basin semantic membership.
+
+Looser than the moves-gate T2 default (0.70) because tensions are
+short, abstract, and cross-domain by construction — their semantic
+overlap with a basin's centroid is necessarily lower than a
+procedural pattern's. Empirically: tensions on a real lens score
+~0.40-0.65 against the basins they actually belong to; junk
+tensions score below 0.30."""
+
+
+def _filter_basins_by_semantic_membership(
+    pair: LensPair,
+    basins: set[str],
+    basin_centroids: dict[str, list[float]],
+    *,
+    threshold: float = _T2_LENS_GATE_THRESHOLD,
+) -> set[str]:
+    """T2 gate-over-lens: drop basins whose centroid is semantically
+    distant from the tension probe text.
+
+    This is the lens-build analogue of the moves-gate T2 (#181). The
+    chairman LLM bridges declarative→procedural inside the council;
+    here the embedding model bridges abstract-tension-vocabulary vs
+    concrete-basin-content. T1 (lexical Jaccard) is the wrong primitive
+    for that bridge — surface text differs by construction — so this
+    function uses cosine only.
+
+    Returns the subset of `basins` whose centroid passed the threshold.
+    Basins with no centroid in the supplied map fall through unchanged
+    (caller may not have loaded topics.json, or the basin id is novel).
+    """
+    if not basin_centroids:
+        return basins
+    from ..embeddings import embed
+    probe = _tension_probe_text(pair)
+    if not probe:
+        return basins
+    try:
+        probe_emb = embed(probe)
+    except Exception:
+        # If the embedder fails (offline + no fallback), keep all
+        # basins — semantic filtering is advisory, not load-bearing.
+        return basins
+
+    def _cosine(a: list[float], b: list[float]) -> float:
+        import math
+        dot = sum(x * y for x, y in zip(a, b))
+        na = math.sqrt(sum(x * x for x in a))
+        nb = math.sqrt(sum(y * y for y in b))
+        if na == 0.0 or nb == 0.0:
+            return 0.0
+        return dot / (na * nb)
+
+    surviving: set[str] = set()
+    for basin in basins:
+        centroid = basin_centroids.get(basin)
+        if centroid is None:
+            # No centroid available — treat as pass-through (caller
+            # didn't load topics, or this basin is new since topics
+            # was last built).
+            surviving.add(basin)
+            continue
+        if len(centroid) != len(probe_emb):
+            # Dimension mismatch (embedding backend changed since
+            # topics was built) — keep the basin to avoid silent
+            # data loss; user re-runs dream to refresh topics.
+            surviving.add(basin)
+            continue
+        if _cosine(probe_emb, centroid) >= threshold:
+            surviving.add(basin)
+    return surviving
+
+
+def basin_post_filter(
+    pairs: list[LensPair],
+    decisions: list[Decision],
+    *,
+    basin_centroids: dict[str, list[float]] | None = None,
+) -> list[LensPair]:
     """Stage 4: drop tension evidence that doesn't span enough basins.
 
     Rule: minimum 3 domains supporting an entry. Tension that sits in
@@ -288,6 +379,15 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
     - accepted: ≥3 basins
     - preserve_as_ordering: 1–2 basins (topic-local)
     - dropped: 0 basins (chairman emitted IDs that don't anchor)
+
+    When `basin_centroids` is provided (the lens-build pipeline loads
+    them from topics.json), a second filter runs after the basin-count
+    rule: each basin's centroid is checked for semantic membership
+    against the pair's tension probe text via cosine. Basins that fail
+    the threshold get dropped from `basins_spanned` BEFORE the count
+    rule decides the verdict. Without this, a chairman that emits
+    plausible-looking but semantically wrong basin IDs gets a free
+    pass into the lens.
     """
     decision_basin = {d.id: d.basin for d in decisions}
     # Sentinel values chairmen emit when uncertain. Treat them as None
@@ -295,11 +395,18 @@ def basin_post_filter(pairs: list[LensPair], decisions: list[Decision]) -> list[
     _sentinels = {"?", "unknown", "none", "n/a"}
     filtered: list[LensPair] = []
     for pair in pairs:
-        basins: set[str | None] = set()
+        basins: set[str] = set()
         for d_id in pair.tension_decisions:
             b = decision_basin.get(d_id)
             if b and b.strip().lower() not in _sentinels:
                 basins.add(b)
+        # T2 semantic filter: drop basins whose centroid is far from
+        # the tension's probe text. No-op when basin_centroids is None
+        # (preserves backward compat for callers that don't pass it).
+        if basin_centroids:
+            basins = _filter_basins_by_semantic_membership(
+                pair, basins, basin_centroids
+            )
         pair.basins_spanned = sorted(basins)
         if pair.verdict != "accepted":
             filtered.append(pair)

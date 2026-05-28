@@ -7,6 +7,41 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.14 — T2 lens validation activates: cosine vs basin centroid in Stage 4] — 2026-05-27
+
+Activates the recursion edge the #184 teardown implied but didn't
+wire. `basin_post_filter` now takes an optional `basin_centroids`
+arg; when provided (Stage 4 of lens-build loads them from
+`topics.json`), each LensPair's claimed basins are checked for
+semantic membership via cosine of (tension probe text embedding,
+basin centroid). Basins below the 0.40 threshold get dropped from
+`basins_spanned` BEFORE the ≥3-basin count rule decides the verdict.
+
+The right primitive in the right layer. T1 lexical was wrong for
+this gate because tension vocabulary ("mechanism inspection") and
+basin patterns ("discord mcp") live at different abstraction
+registers — they share zero trigrams by construction. T2 embedding
+bridges that gap; the chairman LLM and the embedder do their
+respective jobs and the rest of the architecture stays simple.
+
+Graceful degradation:
+- No basin_centroids → backward-compat no-op (count-only filter)
+- No centroid for a specific basin → pass-through (don't drop novel
+  basins introduced since topics.json was last built)
+- Embedder failure → keep all basins (advisory, not load-bearing —
+  offline machine with stale embed config shouldn't silently drop
+  every tension to 'dropped')
+- Dimension mismatch (embedding backend changed) → pass-through +
+  user re-runs dream to refresh
+
+Six new tests in `tests/test_me_pipeline.py::TestStage4SemanticFilter`
+cover: no-centroids fallthrough, missing-centroid pass-through,
+semantically-close basins kept / far ones dropped (the load-bearing
+test with synthetic orthogonal embeddings), all-pass sanity inverse,
+embedder failure safety, dimension mismatch.
+
+Tests: 1986 passed + 7 skipped.
+
 ## [v1.7.13 — moves substrate teardown: chairman LLM is the procedural compiler] — 2026-05-27
 
 Real-data dream cycle proved the 4-tier Bayesian gate (shipped
@@ -853,7 +888,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1980<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1986<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
