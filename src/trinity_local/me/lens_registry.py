@@ -303,6 +303,12 @@ def reconcile(candidates: list[LensPair], *, now: str | None = None) -> list[Reg
             )
             # Keep the parallel embedding list aligned so a second
             # candidate this run can match the just-registered tension.
+            # cand_emb may be None under the TF-IDF fallback / offline embed
+            # (documented degradation, risk #4): that just-registered tension
+            # is then invisible to later same-run cosine matches, but the
+            # tension_id fallback in _best_match still catches exact-pole
+            # repeats, so support isn't lost — only same-run merges of
+            # reworded duplicates are.
             reg_embs.append(cand_emb)
 
     save_registry(registry)
@@ -347,12 +353,21 @@ def support_index(
     """Map (pole_a, pole_b) → accumulation signal for the lens renderer.
     Keyed by canonical poles because that's what `to_lens_pair()` carries
     into render — the renderer looks up support without needing the
-    tension_id."""
-    return {
-        (e.pole_a, e.pole_b): {
+    tension_id.
+
+    Two distinct tension_ids can share identical poles (#204-A4); keying by
+    poles means the second would silently overwrite the first and the render
+    would show the wrong support. On a key collision, keep the entry with the
+    higher support_count so the renderer surfaces the strongest one."""
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for e in entries:
+        key = (e.pole_a, e.pole_b)
+        prior = out.get(key)
+        if prior is not None and prior["support_count"] >= e.support_count:
+            continue
+        out[key] = {
             "support_count": e.support_count,
             "first_seen": e.first_seen,
             "last_confirmed": e.last_confirmed,
         }
-        for e in entries
-    }
+    return out

@@ -112,6 +112,17 @@ def _tokenize(text: str) -> list[str]:
     return [t.lower() for t in _TOKEN_RX.findall(text or "") if t.lower() not in _STOPWORDS]
 
 
+# "new" / "one" are blacklisted (a lone capitalized "New"/"One" is
+# scaffolding, and find_anchors still treats them as noise), but they also
+# lead genuine compound proper nouns — "New Relic", "New York Times",
+# "One Drive". So they're SOFT leads: stripped only when they stand alone or
+# when the word after them is itself blacklisted ("For New Users" → the
+# "Users" follower is blacklist, so "New" still goes, collapsing the
+# scaffolding prefix #196 guards against). A soft lead followed by a real
+# entity word is kept, preserving the brand/project name (#206).
+_SOFT_ANCHOR_LEAD = frozenset({"new", "one"})
+
+
 def _extract_proper_phrases(text: str) -> list[str]:
     """Pull capitalized multi-word entity candidates from text.
 
@@ -126,9 +137,14 @@ def _extract_proper_phrases(text: str) -> list[str]:
         # Strip ALL leading blacklisted words, not just the first — a
         # compound scaffolding prefix ("For New Users", "Output Downloads")
         # would otherwise survive after only its first word was removed,
-        # leaking exactly the noise #196 set out to filter.
+        # leaking exactly the noise #196 set out to filter. Exception:
+        # SOFT leads ("new"/"one") are kept when they head a real compound
+        # entity — i.e. only stripped when sole token or followed by another
+        # blacklisted word (#206, "New Relic" / "One Drive" survive).
         words = raw.strip().split()
         while words and words[0].lower() in _ANCHOR_BLACKLIST:
+            if words[0].lower() in _SOFT_ANCHOR_LEAD and len(words) > 1 and words[1].lower() not in _ANCHOR_BLACKLIST:
+                break
             words = words[1:]
         if not words:
             continue

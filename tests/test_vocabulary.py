@@ -290,10 +290,38 @@ class TestAnchorImperativeBlacklist:
         from trinity_local.vocabulary import _extract_proper_phrases
         phrases = _extract_proper_phrases("For New Users the flow matters")
         # "For", "New", "Users" are all blacklisted → nothing capitalized
-        # entity-like survives.
+        # entity-like survives. "New" is a SOFT lead (#206) but its follower
+        # "Users" is blacklisted, so it's still stripped here.
         assert not any("New" in p or "Users" in p for p in phrases)
-        # A real entity after a compound prefix still survives.
-        assert "Kitchen" in _extract_proper_phrases("For New Kitchen design")
+        # A real entity after a compound prefix still survives. Because "New"
+        # is a soft lead and "Kitchen" is a real entity, the phrase is kept
+        # as "New Kitchen" (#206); the entity word is no longer orphaned.
+        assert "New Kitchen" in _extract_proper_phrases("For New Kitchen design")
+
+
+class TestAnchorCompoundProperNoun:
+    """#206: "new"/"one" are blacklisted but also lead genuine compound
+    proper nouns. The recursive lead-strip must not gut brand/project names
+    down to their tail token."""
+
+    def test_soft_lead_compound_proper_nouns_survive(self):
+        from trinity_local.vocabulary import _extract_proper_phrases
+        # Full phrases survive — NOT stripped to "Relic" / "Drive".
+        assert "New Relic" in _extract_proper_phrases("We migrated to New Relic last quarter")
+        assert "One Drive" in _extract_proper_phrases("Synced the files to One Drive overnight")
+        # Three-word brand survives intact — NOT stripped to "York Times".
+        assert "New York Times" in _extract_proper_phrases("Quoted in the New York Times today")
+        # And the tail-only mangled forms must NOT appear.
+        relic = _extract_proper_phrases("We migrated to New Relic last quarter")
+        assert "Relic" not in relic
+        drive = _extract_proper_phrases("Synced the files to One Drive overnight")
+        assert "Drive" not in drive
+
+    def test_lone_soft_lead_still_dropped(self):
+        from trinity_local.vocabulary import _extract_proper_phrases
+        # A standalone capitalized "New"/"One" is still scaffolding — dropped.
+        assert "New" not in _extract_proper_phrases("New the thing now")
+        assert "One" not in _extract_proper_phrases("One the thing now")
 
 
 class TestVocabularyPath:

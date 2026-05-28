@@ -255,3 +255,26 @@ class TestStage0SaveFlag:
         index = {"p1": {"assistant_text": "a", "user_text": "u", "next_user_text": ""}}
         kept, _ = stage0_parse_and_validate(raw, [], index, save=True)
         assert rejections_path().exists()
+
+
+class TestStage0BatchFailureGuard:
+    """#203: a per-batch chairman failure (timeout returncode==-1, or empty
+    stdout) must be detected so the loop aborts instead of accumulating a
+    silently-partial corpus that slips past the #194 clobber guard."""
+
+    def _result(self, stdout, returncode):
+        from trinity_local.providers import ProviderResult
+        return ProviderResult(provider="claude", stdout=stdout, stderr="", returncode=returncode)
+
+    def test_timeout_sentinel_is_a_failure(self):
+        from trinity_local.me_builder import _stage0_batch_failed
+        assert _stage0_batch_failed(self._result("", -1)) is True
+
+    def test_empty_stdout_is_a_failure(self):
+        from trinity_local.me_builder import _stage0_batch_failed
+        assert _stage0_batch_failed(self._result("", 0)) is True
+        assert _stage0_batch_failed(self._result("   \n  ", 0)) is True
+
+    def test_real_output_is_not_a_failure(self):
+        from trinity_local.me_builder import _stage0_batch_failed
+        assert _stage0_batch_failed(self._result('[{"type":"REFRAME"}]', 0)) is False

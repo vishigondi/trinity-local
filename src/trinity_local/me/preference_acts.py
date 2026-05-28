@@ -231,6 +231,20 @@ def load_preference_acts() -> list[PreferenceAct]:
             d = json.loads(line)
         except ValueError:
             continue
-        if isinstance(d, dict) and d.get("id") and d.get("trigger"):
+        if not (
+            isinstance(d, dict)
+            and d.get("id")
+            and d.get("trigger")
+            and d.get("privileged")
+            and d.get("sacrificed")
+        ):
+            continue
+        # Defense in depth: even past the guard, a record could be missing
+        # a required dataclass field (partial write, external import) and
+        # blow up from_dict's positional construction. Skip it, don't crash
+        # the whole load.
+        try:
             out.append(PreferenceAct.from_dict(d))
+        except (TypeError, KeyError):
+            continue
     return out

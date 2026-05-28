@@ -309,3 +309,48 @@ class TestEvalCLIRegistered:
         choices = sub_actions[0].choices  # dict[name -> ArgumentParser]
         assert "eval-build" in choices
         assert "eval-stats" in choices
+
+
+class TestPreferenceActAdapterContract:
+    """Pin the RejectionSignal -> from_rejection -> PreferenceAct ->
+    EvalItem adapter chain that Stage-2 eval-build now sources through.
+
+    Every other test in this file writes rejections.jsonl as raw JSON,
+    so a field-swap inside from_rejection (e.g. transposing privileged
+    vs sacrificed, or mapping the wrong attribute onto kind) would stay
+    green because the assertions never seed through the dataclass with
+    all fields distinct. This test seeds via save_rejections([
+    RejectionSignal(...)]) -- the real producer path -- with values
+    that are pairwise distinct and asserts the resulting eval item's
+    rejection_type / user_substitute / prompt_id equal the seeded
+    RejectionSignal's type / user_substitute / prompt_id. A swap in the
+    adapter (e.g. privileged=model_quote) then fails here.
+    """
+
+    def test_from_rejection_field_mapping_survives_to_eval_item(self, home):
+        from trinity_local.me.turn_pairs import RejectionSignal, save_rejections
+        from trinity_local.evals.builder import build_eval_set
+
+        # Pairwise-distinct field values so any transposition is visible.
+        save_rejections([RejectionSignal(
+            id="r_adapter",
+            type="REFRAME",
+            model_quote="MODEL_QUOTE_TEXT",
+            user_substitute="USER_SUBSTITUTE_TEXT",
+            why_signal="WHY_SIGNAL_TEXT",
+            prompt_id="PROMPT_ID_TEXT",
+            basin="b07",
+            next_user_turn="NEXT_USER_TURN_TEXT",
+        )])
+
+        eval_set = build_eval_set()
+        assert len(eval_set.items) == 1
+        item = eval_set.items[0]
+        # type -> kind -> rejection_type
+        assert item.rejection_type == "REFRAME"
+        # user_substitute -> privileged -> user_substitute (NOT model_quote)
+        assert item.user_substitute == "USER_SUBSTITUTE_TEXT"
+        assert item.rejected_response == "MODEL_QUOTE_TEXT"
+        # prompt_id passes through unchanged
+        assert item.prompt_id == "PROMPT_ID_TEXT"
+        assert item.source_id == "r_adapter"

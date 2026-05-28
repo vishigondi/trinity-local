@@ -63,6 +63,17 @@ ME_SAMPLE_SIZE = 80
 _STAGE0_BATCH_SIZE = 40
 
 
+def _stage0_batch_failed(result) -> bool:
+    """True if a Stage 0 chairman batch call failed (#203). A timed-out
+    call sets returncode == -1 (providers._run_command sentinel); an empty
+    response (the #195 cliff) yields blank stdout. Either means the batch
+    contributed nothing — and since the loop persists the ACCUMULATED set
+    once at the end, accepting a failed batch would silently save a partial
+    corpus that slips past the #194 clobber guard (which only catches a
+    near-total cliff-drop). The caller aborts the whole build instead."""
+    return getattr(result, "returncode", 0) == -1 or not (result.stdout or "").strip()
+
+
 def me_path() -> Path:
     """The lens file. Renamed from `me.md` → `memories/lens.md` per the
     brand axis (lens is one of the three thinking memories in the
@@ -549,8 +560,31 @@ def build_me_via_lens_pipeline(
             batch = turn_pairs[batch_start:batch_start + _STAGE0_BATCH_SIZE]
             stage0_prompt = stage0_turn_pair_prompt(batch, basins)
             stage0_result = primary.run(stage0_prompt, cwd=Path.cwd())
+            # Per-batch failure detection (#203). A timed-out call returns
+            # returncode == -1 (providers._run_command sentinel); an empty
+            # response (the #195 cliff) yields blank stdout. Either way this
+            # batch contributes 0 rejections — and because the final
+            # save_rejections() persists the ACCUMULATED set, a silent
+            # partial (e.g. 40 of 50 pairs) sails past the #194 clobber
+            # guard, which only catches a near-total cliff-drop. Abort the
+            # whole build instead of saving a degraded corpus.
+            stage0_stdout = (stage0_result.stdout or "").strip()
+            if _stage0_batch_failed(stage0_result):
+                print(
+                    "  Stage 0 ABORTED — batch "
+                    f"{batch_start // _STAGE0_BATCH_SIZE + 1} failed "
+                    f"(returncode={stage0_result.returncode}, "
+                    f"empty={not stage0_stdout}); refusing partial save",
+                    flush=True,
+                )
+                return me_path(), {
+                    "ok": False,
+                    "aborted": "stage0_batch_failed",
+                    "reason": (stage0_result.stderr or "chairman returned empty output")[:500],
+                    "extracted": len(rejections),
+                }
             batch_kept, batch_dropped = stage0_parse_and_validate(
-                stage0_result.stdout or "", basins, pair_index, save=False,
+                stage0_stdout, basins, pair_index, save=False,
             )
             rejections.extend(batch_kept)
             rejected_records.extend(batch_dropped)
@@ -716,6 +750,11 @@ def build_me_via_lens_pipeline(
                 f"rendering by support",
                 flush=True,
             )
+    except OSError:
+        # A4400 #204-A3: a disk error in reconcile()'s save_registry() must
+        # NOT be swallowed — silently losing this run's accumulation is the
+        # exact corruption class accretion exists to prevent. Propagate.
+        raise
     except Exception as exc:
         print(
             f"  Stage 4.5: registry skipped ({exc}); rendering raw accepted",

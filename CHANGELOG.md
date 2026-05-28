@@ -7,6 +7,45 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.36 — fix 5 multi-agent code-review findings (#203–#207)] — 2026-05-28
+
+A 4-agent parallel review of the lens-redesign + EXTRACT arc (run via the
+Workflow tool on Opus 4.8) surfaced five real issues; all fixed + tested:
+
+- **#203 (HIGH) — Stage 0 partial-batch silent corpus degradation.** The
+  chunked Stage 0 loop persists the ACCUMULATED rejections once at the
+  end; a single batch's chairman call timing out (returncode == -1) or
+  returning empty contributed 0 silently, and a partial set (e.g. 40 of
+  50) sailed past the #194 clobber guard (which only catches a near-total
+  cliff-drop). Now `_stage0_batch_failed()` detects a failed batch and
+  aborts the whole build (mirrors the degenerate-Stage0 abort shape) —
+  no partial save. Extracted as a named predicate + unit-tested (timeout,
+  empty, whitespace, real-output).
+- **#204 — lens-build hardening.** Stage 4.5 now lets an OSError from
+  `save_registry()` propagate instead of swallowing it (a disk failure
+  silently losing accretion is the exact corruption class accretion
+  prevents); `support_index` keeps the higher-support entry on an
+  identical-poles key collision instead of last-wins; documented the
+  None-embedding same-run degradation.
+- **#205 — `load_preference_acts` crash-proofing.** A ledger line with
+  id+trigger but missing privileged/sacrificed raised TypeError and
+  crashed the whole load; now guarded + try/except'd (defensive before
+  the Stage-4 read-path flip).
+- **#206 — find_anchors blacklist over-reach.** "new"/"one" were stripped
+  from the lead of genuine compounds ("New Relic"→"Relic", "One
+  Drive"→"Drive"); they're now SOFT leads — dropped only as a sole token
+  or before another blacklisted word, so brand/project names survive
+  whole while the scaffolding-collapse ("For New Users") still fires.
+- **#207 — test hardening.** Added an eval-build adapter-contract
+  regression test (seeds via save_rejections → asserts the eval item's
+  fields, pinning RejectionSignal→from_rejection→PreferenceAct) and an
+  evidence-union assertion to the first-phrasing-wins registry test.
+
+Tests: 2060 passed + 7 skipped (+ the new predicate/adapter/anchor/ledger
+regression tests). The HIGH finding (#203) is notable: the multi-agent
+pass caught a silent-degradation gap that two prior single-pass reviews
+missed.
+
 ## [v1.7.35 — default provider effort max/xhigh → high] — 2026-05-28
 
 Lowered the shipped-template reasoning effort: `claude` `max` → `high`,
@@ -1514,7 +1553,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2057<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2064<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

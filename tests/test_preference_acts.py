@@ -151,6 +151,25 @@ class TestUnifiedLedgerFile:
         back = load_preference_acts()
         assert [a.id for a in back] == ["r1"]
 
+    def test_load_skips_line_missing_required_fields(self):
+        # #205: a line with id+trigger but missing privileged/sacrificed must
+        # not crash from_dict's positional construction — skip it, keep the
+        # valid one.
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            preference_acts_path,
+        )
+        p = preference_acts_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            '{"id":"r1","trigger":"model_miss","privileged":"u","sacrificed":"m"}\n'
+            '{"id":"bad","trigger":"model_miss"}\n'   # no privileged/sacrificed -> skip, no crash
+            ,
+            encoding="utf-8",
+        )
+        back = load_preference_acts()
+        assert [a.id for a in back] == ["r1"]
+
 
 @pytest.mark.usefixtures("patch_trinity_home")
 class TestLedgerClobberGuard:

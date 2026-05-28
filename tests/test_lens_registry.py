@@ -188,6 +188,9 @@ class TestReconcile:
         assert (e.pole_a, e.pole_b) == ("speed", "rigor")
         assert e.first_seen == first_seen  # first_seen frozen
         assert e.first_seen != e.last_confirmed  # last_confirmed advanced
+        # #207-D4: evidence unions across the two reconcile calls — the
+        # re-confirm accretes d9 onto the original d1 rather than replacing.
+        assert sorted(e.evidence_ids) == ["d1", "d9"]
 
     def test_canonical_failure_modes_survive_reconfirm(self):
         # Failure modes are part of the canonical phrasing — a re-confirm
