@@ -1616,6 +1616,29 @@ def _load_taste_lenses() -> dict | None:
         "abstract_lenses_share_text": "",
         "combined_share_text": "",
     }
+    # Enrich each paired lens with its accumulation signal from the
+    # tension registry (#197/#198) so the launchpad lens card shows the
+    # same support + stability the memory viewer's lens.md does. Matched
+    # by (pole_a, pole_b) against the active registry entries. Additive
+    # and graceful: if the registry is empty or unavailable, the keys
+    # simply aren't set and the card renders without the support chip.
+    try:
+        from .me.lens_registry import (
+            LOW_CONFIDENCE_BELOW,
+            active_tensions_sorted,
+            support_index,
+        )
+
+        sidx = support_index(active_tensions_sorted())
+        for pl in paired:
+            sig = sidx.get((pl.get("pole_a"), pl.get("pole_b")))
+            if sig:
+                pl["support_count"] = sig["support_count"]
+                pl["first_seen"] = sig["first_seen"]
+                pl["last_confirmed"] = sig["last_confirmed"]
+                pl["low_confidence"] = sig["support_count"] < LOW_CONFIDENCE_BELOW
+    except Exception:
+        pass
     out["paired_lenses"] = paired
     out["orderings"] = orderings
     # Traceability: load decisions.jsonl into a {id: {...}} map so the

@@ -7,6 +7,29 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.27 — accumulation chip on the launchpad lens card (#200)] — 2026-05-28
+
+The RENDER verb, completed across surfaces. lens.md showed support +
+stability (#198), but the launchpad lens card — the human-facing
+surface — rendered tensions with no durability signal. Now each card
+carries an accumulation chip: "9 decisions", amber + "low confidence"
+when n < `LOW_CONFIDENCE_BELOW` (3), with a "stable since <date>"
+tooltip.
+
+`_load_taste_lenses` enriches each paired lens with the registry's
+support (matched by pole pair via `support_index`); the template renders
+the chip beside the existing provenance chip. Additive + graceful: no
+registry → keys absent → card renders as before.
+
+Browser-verified (playwright — the 34-surface smoke + a focused
+assertion): the served launchpad's lens card renders "9 decisions" and
+"6 decisions" on the two real tensions, neither flagged. Screenshot
+`docs/launchpad_example.png` regenerated. (Surface 11 — autofill apply —
+fails on this install for lack of suggestion data, unrelated to the
+lens card.)
+
+Tests: 2026 passed + 7 skipped (6 new template + data-enrichment tests).
+
 ## [v1.7.26 — lens-resync: the migration that makes accretion real (#199)] — 2026-05-28
 
 The accumulation core (#197) + render signal (#198) only populate the
@@ -1286,7 +1309,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2023<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2029<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -1704,6 +1704,21 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                     :title="p.verdict === 'accepted' ? 'Built from your local rejection corpus via lens-build' : 'Imported from a provider via trinity-local lens-import'">
                 {{{{ p.verdict === 'accepted' ? 'lens-build' : ('via ' + ((p.dual_evidence && p.dual_evidence.source_provider && p.dual_evidence.source_provider[0]) || 'provider')) }}}}
               </span>
+              <!-- Accumulation chip (#200): support count + stability from
+                   the tension registry. Surfaces the durability signal —
+                   how many distinct decisions back this tension and how
+                   long it has persisted across rebuilds — so the card
+                   weights a 9-decision tension differently from a 1-off.
+                   Low-confidence (n<3) tints amber + says so, same
+                   confidence-honesty pattern as the n= axis labels. Only
+                   renders when the registry has support for this tension
+                   (set server-side in _load_taste_lenses). -->
+              <span v-if="p.support_count"
+                    class="meta"
+                    :style="'display: inline-block; margin-left: 8px; padding: 1px 6px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 3px; ' + (p.low_confidence ? 'background: rgba(176, 122, 30, 0.10); color: #8a6d1e;' : 'background: rgba(49, 92, 133, 0.08); color: #315c85;')"
+                    :title="'Backed by ' + p.support_count + ' distinct decision(s)' + (p.first_seen ? '; stable since ' + p.first_seen.slice(0, 10) : '') + (p.low_confidence ? ' — thin evidence, treat as tentative' : '')">
+                {{{{ p.support_count }}}} {{{{ p.support_count === 1 ? 'decision' : 'decisions' }}}}<span v-if="p.low_confidence"> · low confidence</span>
+              </span>
               <!-- Pole → failure-mode lines (readability fix 2026-05-21).
                    Was "pure-<pole> fails as <failure>" — two filler
                    words ("pure-" prefix + "fails as" verb) before the
