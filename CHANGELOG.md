@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.34 — adopt Claude Opus 4.8 as the default Claude model] — 2026-05-28
+
+Anthropic shipped Claude Opus 4.8 today (`claude-opus-4-8`): better
+coding/agentic/reasoning scores, fast mode 2.5× faster + ~3× cheaper, an
+effort-control feature, and "~4× less likely to overlook code flaws" —
+the last is squarely relevant to Trinity's chairman/reviewer role. Bumped
+the default Claude model 4.7 → 4.8 in the three live surfaces: the shipped
+`config.example.json` (both top-level + the bundled `src/.../data/` copy
+fresh installs fall back to), the `claude.md` provider-trio table, and
+`tools/sync_reference_evals.py` (so future eval syncs pull 4.8).
+
+Left untouched on purpose: `data/reference_evals.json` carries *recorded*
+4.7 benchmark numbers — relabeling them 4.8 without re-running would be
+fabrication; they update when the eval is actually re-synced. Test
+fixtures + historical docs keep their 4.7 strings (they pin mechanics /
+history, not the current default).
+
+Not a fix for the lens-build slowness: that's `--effort max` (a config
+choice) on mechanical Stage 0/2 extraction, not the model version —
+lowering the claude provider's `effort` to `high`/`medium` is the
+unblock; per-stage effort is a separate proposed change.
+
 ## [v1.7.33 — clobber guard on the unified ledger (#202)] — 2026-05-28
 
 Hardening before the unified `preference_acts.jsonl` ledger becomes the

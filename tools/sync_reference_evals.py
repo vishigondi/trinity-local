@@ -15,7 +15,7 @@ from pathlib import Path
 # Map provider name (as used in trinity config.json) -> the slug used by
 # artificialanalysis.ai. Update when bumping config models.
 PROVIDER_TO_SLUG = {
-    "claude": "claude-opus-4-7",            # Adaptive Reasoning, Max Effort
+    "claude": "claude-opus-4-8",            # Adaptive Reasoning, Max Effort
     "gemini": "gemini-3-1-pro-preview",     # AA's slug; CLI accepts "gemini-3.1-pro-preview"
     "codex": "gpt-5-5",                      # GPT-5.5 (xhigh) — top OpenAI on AA
 }
