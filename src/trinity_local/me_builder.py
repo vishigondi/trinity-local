@@ -696,14 +696,20 @@ def build_me_via_lens_pipeline(
     # back to raw `accepted` if the registry layer fails — accretion is
     # additive, never load-bearing for producing *a* lens.
     render_pairs = accepted
+    tension_support: dict | None = None
     active_count = 0
     try:
-        from .me.lens_registry import active_tensions_sorted, reconcile
+        from .me.lens_registry import (
+            active_tensions_sorted,
+            reconcile,
+            support_index,
+        )
 
         reconcile(accepted)
         active = active_tensions_sorted()
         if active:
             render_pairs = [e.to_lens_pair() for e in active]
+            tension_support = support_index(active)
             active_count = len(active)
             print(
                 f"  Stage 4.5: registry has {active_count} active tension(s); "
@@ -716,7 +722,7 @@ def build_me_via_lens_pipeline(
             flush=True,
         )
 
-    me_doc = render_me_markdown(render_pairs, orderings, rejections)
+    me_doc = render_me_markdown(render_pairs, orderings, rejections, tension_support)
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(me_doc, encoding="utf-8")

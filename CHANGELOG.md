@@ -7,6 +7,29 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.25 — accretion goes visible: lens.md shows support + stability (#198)] — 2026-05-28
+
+The accumulation core (#197) made the lens accrete, but lens.md rendered
+identically — the durability was invisible. Now each tension carries its
+accumulation signal, drawn from the registry: how many distinct decisions
+back it and how long it has persisted.
+
+`render_me_markdown` gained an optional `tension_support` map
+((pole_a, pole_b) → support_count / first_seen / last_confirmed); me_builder
+builds it from the active registry entries via `support_index` and passes
+it through. Each tension renders e.g. "Supported by 9 decisions · stable
+since 2026-05-28" (or "first seen X, last confirmed Y" once it has drifted
+across rebuilds). The confidence-honesty pattern applies: tensions backed
+by fewer than `LOW_CONFIDENCE_BELOW` (3) decisions get a "low confidence —
+seen in few decisions" caveat so a thin signal isn't stated as settled.
+
+Backward-compatible: omit `tension_support` and the lens renders the old
+shape (the registry-skipped fallback path keeps working). Dogfooded on the
+real lens — both real tensions render their support (9 and 6 decisions),
+neither flagged.
+
+Tests: 2017 passed + 4 skipped (4 new render/support tests).
+
 ## [v1.7.24 — lens accumulation core: the lens stops being stateless (#197)] — 2026-05-28
 
 Build-step-1 of the lens redesign (`docs/lens-redesign.md`). Until now
@@ -1237,7 +1260,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2013<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2017<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

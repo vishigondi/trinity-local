@@ -217,6 +217,7 @@ def render_me_markdown(
     accepted: list[LensPair],
     orderings: list[LensPair],
     rejections: list[RejectionSignal] | None = None,
+    tension_support: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> str:
     """Render lens artifacts as the lens-document markdown (written by
     the caller to ~/.trinity/memories/lens.md — function name retained
@@ -224,10 +225,22 @@ def render_me_markdown(
     context loader picks them up. This replaces the old single-virtue-
     list shape with paired tensions.
 
+    `tension_support` (#198) carries the accumulation signal from the
+    lens registry, keyed by (pole_a, pole_b): `support_count`,
+    `first_seen`, `last_confirmed`. When present, each tension renders
+    how much evidence backs it and how long it has persisted — the
+    durability the chairman should weight by. Tensions backed by fewer
+    than `LOW_CONFIDENCE_BELOW` decisions are flagged so a thin signal
+    isn't stated as if it were settled. Absent (e.g. registry layer
+    skipped), tensions render without the line — graceful degradation.
+
     Rejections (Stage 0 turn-pair gaps) get a section too — they're
     behavioral evidence the chairman should see when scoring future
     council members against the user's actual choices.
     """
+    from .lens_registry import LOW_CONFIDENCE_BELOW
+
+    support = tension_support or {}
     lines: list[str] = ["# Lens", "", "## Lenses (paired tensions)", ""]
     if not accepted:
         lines.append("(No paired tensions found yet — run lens-build with more decisions.)")
@@ -236,6 +249,19 @@ def render_me_markdown(
         lines.append(f"- Pure-{p.pole_a} fails as: **{p.failure_a or 'unspecified'}**")
         lines.append(f"- Pure-{p.pole_b} fails as: **{p.failure_b or 'unspecified'}**")
         lines.append(f"- Tension evidence spans basins: {', '.join(p.basins_spanned) or '(none)'}")
+        sig = support.get((p.pole_a, p.pole_b))
+        if sig:
+            n = sig.get("support_count", 0)
+            first = (sig.get("first_seen") or "")[:10]
+            last = (sig.get("last_confirmed") or "")[:10]
+            stability = f"stable since {first}" if first and first == last else (
+                f"first seen {first}, last confirmed {last}" if first or last else ""
+            )
+            caveat = " _(low confidence — seen in few decisions)_" if n < LOW_CONFIDENCE_BELOW else ""
+            support_line = f"- Supported by {n} decision{'s' if n != 1 else ''}"
+            if stability:
+                support_line += f" · {stability}"
+            lines.append(support_line + caveat)
         lines.append("")
     if orderings:
         lines.append("## Orderings (preferences without dual regret)")

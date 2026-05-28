@@ -12,6 +12,7 @@ import pytest
 
 from trinity_local.me.lens_registry import (
     ACTIVE_MIN,
+    LOW_CONFIDENCE_BELOW,
     MATCH_THRESHOLD,
     RECENCY_DAYS,
     RegistryEntry,
@@ -22,8 +23,10 @@ from trinity_local.me.lens_registry import (
     load_registry,
     reconcile,
     save_registry,
+    support_index,
 )
 from trinity_local.me.pair_mining import LensPair
+from trinity_local.me.pipeline import render_me_markdown
 
 
 def _pair(pole_a, pole_b, *, decisions=None, dual=None, basins=None, fa="", fb=""):
@@ -224,3 +227,42 @@ class TestRenderView:
     def test_empty_registry_renders_nothing(self):
         assert active_tensions_sorted() == []
         assert load_registry() == []
+
+
+class TestSupportIndex:
+    def test_keys_by_canonical_poles(self):
+        entries = [
+            RegistryEntry(tension_id="t", pole_a="speed", pole_b="rigor", evidence_ids=["d1", "d2"]),
+        ]
+        idx = support_index(entries)
+        assert ("speed", "rigor") in idx
+        assert idx[("speed", "rigor")]["support_count"] == 2
+
+
+class TestRenderSupportAnnotation:
+    def _pair(self, a, b):
+        return LensPair(pole_a=a, pole_b=b, failure_a="fa", failure_b="fb", verdict="accepted")
+
+    def test_high_support_renders_count_without_caveat(self):
+        p = self._pair("speed", "rigor")
+        support = {("speed", "rigor"): {"support_count": 9, "first_seen": "2026-05-01T00:00:00+00:00", "last_confirmed": "2026-05-20T00:00:00+00:00"}}
+        out = render_me_markdown([p], [], None, support)
+        assert "Supported by 9 decisions" in out
+        assert "low confidence" not in out
+        assert "first seen 2026-05-01, last confirmed 2026-05-20" in out
+
+    def test_low_support_gets_confidence_caveat(self):
+        assert LOW_CONFIDENCE_BELOW == 3
+        p = self._pair("a", "b")
+        support = {("a", "b"): {"support_count": 1, "first_seen": "2026-05-20T00:00:00+00:00", "last_confirmed": "2026-05-20T00:00:00+00:00"}}
+        out = render_me_markdown([p], [], None, support)
+        assert "Supported by 1 decision" in out  # singular
+        assert "low confidence" in out
+        assert "stable since 2026-05-20" in out  # first==last → "stable since"
+
+    def test_no_support_map_renders_no_support_line(self):
+        # Backward-compatible: omitting tension_support yields the old shape.
+        p = self._pair("a", "b")
+        out = render_me_markdown([p], [])
+        assert "Supported by" not in out
+        assert "a ↔ b" in out

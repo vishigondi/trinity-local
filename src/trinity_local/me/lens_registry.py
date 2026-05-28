@@ -74,6 +74,12 @@ ACTIVE_MIN = 1
 # fades to inactive regardless of accumulated support — graceful decay.
 RECENCY_DAYS = 90
 
+# Below this much evidence a rendered tension is flagged low-confidence
+# (the confidence-honesty pattern: n<3 is too thin to state plainly).
+# Distinct from ACTIVE_MIN: a tension can be active-and-rendered yet still
+# carry the "seen in few decisions" caveat.
+LOW_CONFIDENCE_BELOW = 3
+
 
 def registry_path() -> Path:
     """``~/.trinity/me/lens_registry.json`` — the durable tension registry."""
@@ -323,3 +329,20 @@ def active_tensions_sorted(*, now: str | None = None) -> list[RegistryEntry]:
     active = [e for e in load_registry() if is_active(e, now=now)]
     active.sort(key=lambda e: (e.support_count, e.last_confirmed), reverse=True)
     return active
+
+
+def support_index(
+    entries: list[RegistryEntry],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Map (pole_a, pole_b) → accumulation signal for the lens renderer.
+    Keyed by canonical poles because that's what `to_lens_pair()` carries
+    into render — the renderer looks up support without needing the
+    tension_id."""
+    return {
+        (e.pole_a, e.pole_b): {
+            "support_count": e.support_count,
+            "first_seen": e.first_seen,
+            "last_confirmed": e.last_confirmed,
+        }
+        for e in entries
+    }
