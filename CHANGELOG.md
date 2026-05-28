@@ -7,6 +7,21 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.43 — model-launch loop slice 2: launchpad banner + eval celebration] — 2026-05-28
+
+Closes the Q7 detect→notify→eval→eval-card loop's last mile.
+
+- **Launchpad new-model banner.** `build_page_data` now carries `newModels`
+  (from `detect_new_models()`); the launchpad renders a celebratory card —
+  per-model name, what's-new, and a click-to-copy `eval-run --target <slug>`
+  chip — that self-hides once every current model is scored.
+- **eval-run celebration nudge.** After a run completes, if it scored the
+  provider's *current* canonical model (per the manifest), the output leads
+  with "🎉 You scored the latest model!" and front-doors
+  `eval-share --target <slug>` — the viral, lab-impossible eval-card.
+- Both halves of the notify→share surface are now live (CLI `status` + the
+  launchpad); detection (slice 1, v1.7.42) feeds both.
+
 ## [v1.7.42 — model-launch detection + provider-name aliases] — 2026-05-28
 
 Slice 1 of the **detect → notify → eval → eval-card** celebration loop (Q7):
@@ -1717,7 +1732,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2094<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2096<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

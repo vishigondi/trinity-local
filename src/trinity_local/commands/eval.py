@@ -402,6 +402,24 @@ def handle_eval_run(args):
                       + (f"  — {hint}" if hint else ""))
     print(f"\n  → {path}")
 
+    # #218 celebration: if this run scored the provider's CURRENT canonical
+    # model (per the manifest), it just closed a new-model loop — front-door
+    # the shareable eval-card, the viral lab-impossible artifact. Always offer
+    # the share command; lead with 🎉 when it's the current model.
+    if run_result.aggregate_score is not None:
+        is_current = False
+        try:
+            from ..models import current_models
+            cur = (current_models().get(args.target) or {}).get("model")
+            is_current = bool(cur) and cur == run_result.target_model
+        except Exception:
+            is_current = False
+        lead = "  🎉 You scored the latest model! " if is_current else "  "
+        print(
+            f"\n{lead}Share it — a number no lab can produce:\n"
+            f"    trinity-local eval-share --target {args.target}"
+        )
+
 
 def _latest_result_path(target: str | None, eval_id: str | None):
     """Find the most-recent result file under ~/.trinity/evals/results/,

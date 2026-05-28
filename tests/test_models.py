@@ -85,3 +85,21 @@ class TestDetectNewModels:
         from trinity_local.models import detect_new_models
         ev = next(e for e in detect_new_models() if e.slug == "antigravity")
         assert "eval-run --target antigravity" in ev.nudge()
+
+
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestLaunchpadNewModelsBanner:
+    def test_new_models_payload_shape(self):
+        from trinity_local.launchpad_data import _new_models_for_launchpad
+        items = _new_models_for_launchpad()
+        # Cold install → every provider is new; each carries a copy-ready command.
+        assert items
+        for it in items:
+            assert set(it) >= {"slug", "display", "command"}
+            assert it["command"] == f"trinity-local eval-run --target {it['slug']}"
+
+    def test_banner_renders_in_template(self):
+        from trinity_local.launchpad_template import render_launchpad_html
+        html = render_launchpad_html(page_data={}, recent_cards="")
+        assert "New model 🎉" in html
+        assert "pageData.newModels" in html

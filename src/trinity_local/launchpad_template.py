@@ -1306,6 +1306,34 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
            prompt-and-CTA: build the eval set (if missing), then run
            against each council provider. Click-to-copy chips so the
            user can paste-and-run without typing from memory. -->
+      <!-- #218 new-model celebration banner: a current provider model the
+           user hasn't scored against their taste yet. Self-hides (empty list)
+           once every current model is scored. The eval-card produced by the
+           suggested command is the viral, lab-impossible artifact. -->
+      <section class="card new-models-card"
+               v-if="pageData.newModels && pageData.newModels.length"
+               style="margin-bottom: 18px; border-left: 3px solid rgba(45, 138, 62, 0.55); background: rgba(45, 138, 62, 0.05);">
+        <div class="eyebrow" style="color: #2d8a3e;">New model 🎉</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Score {{{{ pageData.newModels.length === 1 ? 'it' : 'them' }}}} against YOUR taste
+        </h2>
+        <p class="meta" style="margin-top: 4px; margin-bottom: 12px;">
+          A number no lab can produce — only the layer above all three sees your
+          cross-provider rejection signal. One run builds a shareable eval-card.
+        </p>
+        <div v-for="nm in pageData.newModels" :key="nm.slug" style="margin-bottom: 10px;">
+          <div style="font-weight: 600; margin-bottom: 4px;">{{{{ nm.display }}}}</div>
+          <p v-if="nm.whatsNew" class="meta" style="margin: 0 0 6px; font-size: 12px;">{{{{ nm.whatsNew }}}}</p>
+          <button type="button"
+                  class="suggestion-chip"
+                  style="font-family: ui-monospace, monospace; font-size: 13px; cursor: pointer; padding: 6px 12px;"
+                  @click.stop="copyText(nm.command, 'newmodel-' + nm.slug)">
+            <span v-if="copiedKey === 'newmodel-' + nm.slug">✓ Copied</span>
+            <span v-else>{{{{ nm.command }}}}</span>
+          </button>
+        </div>
+      </section>
+
       <section class="card eval-empty-state-card"
                v-if="pageData.evalSummary && !pageData.evalSummary.has_results"
                style="margin-bottom: 18px; border-left: 3px solid rgba(45, 138, 62, 0.4); background: rgba(45, 138, 62, 0.03);">

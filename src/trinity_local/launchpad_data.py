@@ -684,6 +684,11 @@ def build_page_data(
         # benchmark numbers without cat'ing JSON. Empty state (CTA)
         # when no runs have completed yet.
         "evalSummary": _eval_summary(),
+        # #218 — new-model celebration banner: providers whose current model
+        # the user hasn't scored against their taste yet. The launchpad half
+        # of the detect→notify loop (status carries the CLI half). Empty list
+        # when every current model has been scored, so the banner self-hides.
+        "newModels": _new_models_for_launchpad(),
         # rateLimitSaves removed from pageData 2026-05-21 alongside
         # the rate-action / pending-ratings mechanism retirement. The
         # launchpad never rendered a card for it (the user explicitly
@@ -707,6 +712,26 @@ def build_page_data(
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
     }
+
+
+def _new_models_for_launchpad() -> list[dict]:
+    """New-model events for the launchpad banner (#218). Each carries the
+    slug + display name + the ready-to-run eval command. Best-effort: a
+    manifest/eval read failure degrades to no banner, never a crash."""
+    try:
+        from .models import detect_new_models
+
+        return [
+            {
+                "slug": ev.slug,
+                "display": ev.display,
+                "whatsNew": ev.whats_new,
+                "command": f"trinity-local eval-run --target {ev.slug}",
+            }
+            for ev in detect_new_models()
+        ]
+    except Exception:
+        return []
 
 
 def _eval_summary() -> dict:
