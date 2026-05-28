@@ -341,6 +341,16 @@ def handle_eval_run(args):
         print(f"✗ eval set {eval_id} not found")
         raise SystemExit(2)
 
+    # Accept user-facing names (gemini/gpt/chatgpt/…) for --target and
+    # --judge — the most viral feature ("score the new model against my
+    # taste") must not fail because the user typed the brand instead of the
+    # internal slug (`antigravity`). Resolve to the slug; canonical slugs +
+    # unknown names pass through unchanged.
+    from ..council_schema import resolve_provider_alias
+    args.target = resolve_provider_alias(args.target)
+    if getattr(args, "judge", None):
+        args.judge = resolve_provider_alias(args.judge)
+
     config = load_config(getattr(args, "config", None), required=True)
     provider_configs = {name: p for name, p in config.providers.items() if p.enabled}
     if args.target not in provider_configs:

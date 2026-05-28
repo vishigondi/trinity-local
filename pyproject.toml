@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trinity-local"
-version = "1.7.41"
+version = "1.7.42"
 description = "Cross-provider memory layer for Claude, Codex, and Gemini — local-first councils, handoff, and personal benchmarks. Rides on your existing subscriptions."
 readme = "README.md"
 license = "MIT"
@@ -47,6 +47,7 @@ trinity_local = [
     "data/skills/**/*.md",
     "data/vendor/*.js",
     "data/config.example.json",
+    "data/models.json",
 ]
 
 [project.optional-dependencies]

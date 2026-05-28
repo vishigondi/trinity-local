@@ -343,6 +343,23 @@ def handle_status(args):
         print("  Drift:     no alerts")
     print()
 
+    # Model news (#218) — a current provider model the user hasn't scored
+    # against their taste yet. The celebration nudge lives here (and on the
+    # launchpad), not behind a new verb — the surface stays collapsed to
+    # lens/council. Best-effort: a manifest/eval read failure must never
+    # break status.
+    try:
+        from ..models import detect_new_models
+
+        new_models = detect_new_models()
+        if new_models:
+            print("  New models:")
+            for ev in new_models:
+                print(f"    {ev.nudge()}")
+            print()
+    except Exception:
+        pass
+
     # Actionable signals — surfaces the same per-feature counts the
     # launchpad shows so CLI-only users see "you have N edits queued"
     # without opening the file:// surface. Each line silently hidden

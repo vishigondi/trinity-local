@@ -31,6 +31,36 @@ def normalize_provider_slug(slug: Any) -> Any:
     return _LEGACY_PROVIDER_ALIASES.get(slug, slug)
 
 
+# User-facing model/brand names → internal Trinity slug. The internal slugs
+# (claude / codex / antigravity) are a leaky abstraction at the CLI: a user who
+# wants to score the new Gemini types `eval-run --target gemini` and it fails
+# because the config key is `antigravity`. This map accepts the names people
+# actually type — brand, lab, and underlying-model aliases — and resolves them
+# to the slug. Superset of the legacy disk-normalization map above.
+_PROVIDER_NAME_ALIASES: dict[str, str] = {
+    "gemini": "antigravity",
+    "google": "antigravity",
+    "bard": "antigravity",
+    "gpt": "codex",
+    "chatgpt": "codex",
+    "openai": "codex",
+    "anthropic": "claude",
+    "opus": "claude",
+    "sonnet": "claude",
+}
+
+
+def resolve_provider_alias(name: Any) -> Any:
+    """Resolve a user-facing provider name (CLI input) to its internal slug.
+
+    Case-insensitive on the alias key. Already-canonical slugs and unknown
+    names pass through unchanged, so this is safe to apply unconditionally to
+    `--target` / `--provider` style arguments. Non-str passes through."""
+    if not isinstance(name, str):
+        return name
+    return _PROVIDER_NAME_ALIASES.get(name.strip().lower(), name)
+
+
 @dataclass
 class PromptBundle:
     bundle_id: str

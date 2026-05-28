@@ -7,6 +7,32 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.42 — model-launch detection + provider-name aliases] — 2026-05-28
+
+Slice 1 of the **detect → notify → eval → eval-card** celebration loop (Q7):
+when a lab ships a new model, Trinity nudges the user to score it against
+their taste — the viral, lab-impossible artifact.
+
+- **Provider-name aliases (Q5).** `resolve_provider_alias` accepts the names
+  people actually type (`gemini`/`google`, `gpt`/`chatgpt`/`openai`,
+  `anthropic`/`opus`/`sonnet`) and resolves them to the internal slug. Wired
+  into `eval-run --target`/`--judge`, so `eval-run --target gemini` no longer
+  fails because the config key is `antigravity` — the breakage that hit the
+  most viral feature at peak intent.
+- **Model-launch detection.** A version-controlled `data/models.json`
+  manifest (canonical model per slug + release + what's-new) ships in the
+  package and rides Trinity releases — the local-first "how does the user
+  learn a model launched" signal, no server. `models.detect_new_models()`
+  diffs it against the model the user *last evaluated* (each eval run's
+  `target_model`, authoritative since v1.7.40), so a provider whose current
+  model hasn't been scored surfaces a celebration nudge.
+- **Notify, no new verb.** Surfaced in `trinity-local status` (and, in slice
+  2, the launchpad) — the surface stays collapsed to lens/council per the
+  Q4 decision. Dogfood: status now nudges Claude Opus 4.8 + Gemini 3.1 Pro
+  (unscored on current model) while codex stays silent (already scored).
+- Slice 2 (#218 follow-on): launchpad banner + auto eval-card on a
+  new-model eval.
+
 ## [v1.7.41 — council-first re-lead + doc consolidation] — 2026-05-28
 
 Founder decision (memory `product_relead_council_first`): **lead with the
@@ -1691,7 +1717,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2083<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2094<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
