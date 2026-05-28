@@ -1625,11 +1625,17 @@ def _load_taste_lenses() -> dict | None:
     try:
         from .me.lens_registry import (
             LOW_CONFIDENCE_BELOW,
-            active_tensions_sorted,
+            load_registry,
             support_index,
         )
 
-        sidx = support_index(active_tensions_sorted())
+        # Index ALL registry entries, not just active ones: the card renders
+        # tensions from lenses.json regardless of registry recency, so a
+        # tension that's gone inactive (>RECENCY_DAYS since last rebuild)
+        # should still show its accumulated support rather than silently
+        # losing the chip. Active/inactive visibility is the lens.md render
+        # layer's job, not the card's.
+        sidx = support_index(load_registry())
         for pl in paired:
             sig = sidx.get((pl.get("pole_a"), pl.get("pole_b")))
             if sig:

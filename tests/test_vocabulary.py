@@ -283,6 +283,18 @@ class TestAnchorImperativeBlacklist:
         # Control: a real Title-case entity is untouched.
         assert "Kitchen" in _extract_proper_phrases("Kitchen remodel plan")
 
+    def test_compound_blacklisted_prefix_fully_stripped(self):
+        """Review finding #5: stripping only the FIRST blacklisted word let
+        compound scaffolding prefixes survive ("For New Users" → "New
+        Users"). All leading blacklisted words must be removed."""
+        from trinity_local.vocabulary import _extract_proper_phrases
+        phrases = _extract_proper_phrases("For New Users the flow matters")
+        # "For", "New", "Users" are all blacklisted → nothing capitalized
+        # entity-like survives.
+        assert not any("New" in p or "Users" in p for p in phrases)
+        # A real entity after a compound prefix still survives.
+        assert "Kitchen" in _extract_proper_phrases("For New Kitchen design")
+
 
 class TestVocabularyPath:
     def test_writes_to_memories_vocabulary_md(self, isolated_home):

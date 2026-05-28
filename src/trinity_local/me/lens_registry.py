@@ -259,7 +259,18 @@ def reconcile(candidates: list[LensPair], *, now: str | None = None) -> list[Reg
         probe = _tension_probe_text(cand)
         cand_emb = _embed_probes([probe])[0]
         evidence = _evidence_ids_for(cand)
+        tid = stable_id("tension", cand.pole_a, cand.pole_b)
         match_idx = _best_match(cand_emb, probe, reg_embs, registry)
+        if match_idx is None:
+            # Fallback to the content-addressed id: cosine + exact-probe both
+            # missed (embeddings flipped TF-IDF<->MLX across builds, or the
+            # failure-mode text was reworded so the probe differs), but the
+            # poles are identical. Update that entry instead of appending a
+            # second one with the SAME tension_id (which would split support
+            # and let active_tensions_sorted return duplicates).
+            match_idx = next(
+                (i for i, e in enumerate(registry) if e.tension_id == tid), None
+            )
 
         if match_idx is not None:
             entry = registry[match_idx]
@@ -275,7 +286,6 @@ def reconcile(candidates: list[LensPair], *, now: str | None = None) -> list[Reg
                     entry.basins_spanned.append(b)
             entry.last_confirmed = ts
         else:
-            tid = stable_id("tension", cand.pole_a, cand.pole_b)
             registry.append(
                 RegistryEntry(
                     tension_id=tid,

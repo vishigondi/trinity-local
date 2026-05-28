@@ -7,6 +7,30 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.29 — fix 3 self-review findings on the lens-accumulation arc (#201)] — 2026-05-28
+
+A fresh-eyes code review of the v1.7.24–v1.7.28 arc (the lens registry,
+render surfaces, and find_anchors fix) caught three real issues:
+
+- **Compound blacklisted prefix leaked anchors** (`vocabulary.py`): the
+  #196 fix stripped only the FIRST blacklisted word, so "For New Users"
+  survived as "New Users" — re-leaking the scaffolding it was meant to
+  filter. Now strips ALL leading blacklisted words in a loop.
+- **Duplicate tension_id on cosine miss** (`lens_registry.py`):
+  `reconcile` fresh-registered a tension when cosine + exact-probe both
+  missed even though the poles (and thus the content-addressed
+  tension_id) were identical — possible when embeddings flip TF-IDF↔MLX
+  across builds or failure-mode text is reworded. It would split support
+  and let `active_tensions_sorted` return duplicates. Now falls back to a
+  tension_id exact-match and updates in place.
+- **Launchpad chip vanished on stale tensions** (`launchpad_data.py`):
+  the card enriched from `active_tensions_sorted()`, so a tension still
+  rendered from lenses.json but inactive (>90 days unrebuilt) silently
+  lost its support chip. Now enriches from the full `load_registry()`.
+
+Tests: 2035 passed + 7 skipped (3 new regression cases). Real-corpus
+anchors unchanged (LDK/Kitchen/Bath/…); browser re-verified.
+
 ## [v1.7.28 — find_anchors: stop surfacing Trinity's own scaffolding as your vocabulary (#196)] — 2026-05-28
 
 The vocabulary memory's Anchors section was garbage: the top 15 were all
@@ -1346,7 +1370,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2034<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2036<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

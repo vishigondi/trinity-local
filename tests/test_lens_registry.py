@@ -156,6 +156,27 @@ class TestReconcile:
         reconcile([_pair("breadth", "depth", decisions=["d2"])])
         assert len(load_registry()) == 2
 
+    def test_same_poles_reworded_failures_no_duplicate_id(self):
+        # Review finding #4: when cosine + exact-probe both miss but the
+        # poles are identical (here forced via differing failure text →
+        # different probe, plus a low match threshold can't save it), the
+        # tension_id fallback must update in place, not append a duplicate.
+        import trinity_local.me.lens_registry as reg
+        # Force the cosine/probe match to fail so we exercise the tid path:
+        # monkeypatch _best_match to always return None.
+        orig = reg._best_match
+        reg._best_match = lambda *a, **k: None
+        try:
+            reconcile([_pair("speed", "rigor", decisions=["d1"], fa="sloppy", fb="slow")])
+            reconcile([_pair("speed", "rigor", decisions=["d2"], fa="hasty", fb="glacial")])
+        finally:
+            reg._best_match = orig
+        entries = load_registry()
+        assert len(entries) == 1, "same poles must not split into duplicate tension_ids"
+        assert sorted(entries[0].evidence_ids) == ["d1", "d2"]  # evidence merged
+        # First-phrasing-wins: canonical poles/failures from first registration.
+        assert (entries[0].failure_a, entries[0].failure_b) == ("sloppy", "slow")
+
     def test_first_phrasing_wins_keeps_canonical_poles(self):
         # First registration sets canonical phrasing. Re-mining the
         # identical probe keeps the registry's poles (stability) — here we

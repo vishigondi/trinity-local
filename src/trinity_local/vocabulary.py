@@ -123,18 +123,16 @@ def _extract_proper_phrases(text: str) -> list[str]:
     if not text:
         return out
     for raw in _PROPER_TOKEN_RX.findall(text):
-        phrase = raw.strip()
-        if not phrase:
+        # Strip ALL leading blacklisted words, not just the first — a
+        # compound scaffolding prefix ("For New Users", "Output Downloads")
+        # would otherwise survive after only its first word was removed,
+        # leaking exactly the noise #196 set out to filter.
+        words = raw.strip().split()
+        while words and words[0].lower() in _ANCHOR_BLACKLIST:
+            words = words[1:]
+        if not words:
             continue
-        first = phrase.split()[0].lower()
-        if first in _ANCHOR_BLACKLIST:
-            # Strip a sentence-start blacklisted word; keep rest only if it
-            # still has ≥1 capitalized token left.
-            rest = phrase.split(maxsplit=1)
-            if len(rest) < 2:
-                continue
-            phrase = rest[1]
-        out.append(phrase)
+        out.append(" ".join(words))
     return out
 
 
