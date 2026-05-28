@@ -4,8 +4,8 @@ class: aspirational
 
 # Trinity Local: Scale to Every Claude Code User
 
-> **Status (2026-05-19):** v1.0 shipped May 13–15, 2026 — see [`../CHANGELOG.md`](../CHANGELOG.md)
-> and [`spec-v1.md`](spec-v1.md). Phases 0–8 below describe the v1 substrate (lens
+> **Status (2026-05-19):** v1.0 shipped May 13–15, 2026 — see [`../CHANGELOG.md`](../../CHANGELOG.md)
+> and [`spec-v1.md`](../spec-v1.md). Phases 0–8 below describe the v1 substrate (lens
 > pipeline, ledger, embeddings, MCP server). All accurate as v1 reference.
 >
 > **Next trajectory = v1.5** (ships June 3, 2026) — see [`spec-v1.5.md`](spec-v1.5.md).
@@ -337,7 +337,7 @@ This plan is ordered by impact/effort ratio: the highest-leverage moves first.
 > describe what is now the Antigravity CLI (`agy` binary); the disk
 > paths (`~/.gemini/settings.json`, etc.) stayed stable for
 > back-compat, but the canonical user-facing CLI name is Antigravity.
-> See [`../claude.md`](../claude.md) "provider trio across layers"
+> See [`../claude.md`](../../claude.md) "provider trio across layers"
 > for the current naming layer-by-layer.
 
 **Why**: MCP is an open protocol — the same stdio server works in Claude Code, Gemini CLI, and any other MCP-compatible host. Trinity tools become available mid-conversation in whichever AI CLI the user is currently in.
@@ -368,7 +368,7 @@ Expose tools via `stdio` transport using the MCP SDK's `Server` class. Tools to 
 > `watch_once`/`get_elo`/`get_status`/`get_recent_councils` were
 > moved off the MCP surface (still importable for the launchpad but
 > not exposed to harnesses). The canonical live tool list is in
-> [`../claude.md`](../claude.md) "The eight MCP tools" — currently 4
+> [`../claude.md`](../../claude.md) "The eight MCP tools" — currently 4
 > canonical + 3 v1.5 + 1 launch-arc = 8 tools.
 
 | Tool | Maps to | Description shown to host AI |
@@ -866,8 +866,8 @@ For Trinity Local that means:
 > Total: **8 tools**.
 >
 > Canonical current surface lives in
-> [`../claude.md`](../claude.md#the-eight-mcp-tools-mcp_serverpy) and
-> [`product-spec.md`](product-spec.md). The
+> [`../claude.md`](../../claude.md#the-eight-mcp-tools-mcp_serverpy) and
+> [`product-spec.md`](../product-spec.md). The
 > `TestMcpToolNameConsistency` / `TestMcpCanonicalSubsetCountClaims`
 > guards in `tests/test_doc_count_consistency.py` pin the count
 > against `src/trinity_local/mcp_server.py`.

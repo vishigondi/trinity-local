@@ -1,3 +1,7 @@
+---
+class: live
+---
+
 # Provider-side lens prompt
 
 Paste this verbatim into a fresh chat with Claude, ChatGPT/Codex, or Gemini.

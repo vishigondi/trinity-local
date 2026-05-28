@@ -5,7 +5,7 @@ class: historical
 # Training Data
 
 > **Sunset notice (2026-05-11):** the trained-coordinator path Phase 9
-> describes is **sunset** per [`claude.md`](../claude.md). Trinity v1.5
+> describes is **sunset** per [`claude.md`](../../claude.md). Trinity v1.5
 > ships the routing-coordinator architecture via *context engineering*
 > (flagship reads cortex picks + lens) instead of training a tiny adapter.
 > The Phase 9 spec is preserved as architectural-decision history;

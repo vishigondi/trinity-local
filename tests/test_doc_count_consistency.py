@@ -1182,6 +1182,14 @@ class TestBrandAxisConsistency:
     # phrasing as the record of the pivot trail. Guard FAILS if any
     # launch surface reverts to a prior hero or invents a third one.
     ACCEPTED_HEROES: list[str] = [
+        # Council-first re-lead (founder decision 2026-05-28, memory
+        # product_relead_council_first): the painkiller leads, "Own your
+        # taste" demotes to the retention/moat beat. README carries the new
+        # hero; launch.md / launch-package.md / spec-v1.md still carry the
+        # old one during propagation — both accepted per this guard's
+        # transition contract until the re-lead reaches every surface, then
+        # drop "Own your taste." to lock the new framing in.
+        "Stop tab-hopping between Claude, ChatGPT, and Gemini.",
         "Own your taste.",
     ]
     ACCEPTED_SUBS: list[str] = [

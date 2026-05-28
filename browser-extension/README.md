@@ -9,7 +9,7 @@ to `~/.trinity/conversations/<provider>/<conv_id>.json`. No listening
 server, no daemon — Chrome spawns the local capture host on demand via
 Native Messaging.
 
-Full spec: [`docs/spec-v1.6.md`](../docs/spec-v1.6.md).
+Full spec: [`docs/spec-v1.6.md`](../docs/historical/spec-v1.6.md).
 
 ## Architecture (60-second version)
 

@@ -119,7 +119,7 @@ daemon is offline. The architectural commitment ("providers are
 parameters to `ask`/`run_council`, not their own MCP tools") means
 the 8-tool MCP surface stays constant regardless of how many local
 models the user has pulled. Documented in
-[`docs/install-deep.md`](install-deep.md) "Local models" section.
+[`docs/install-deep.md`](../install-deep.md) "Local models" section.
 Re-add to the pitch held until the HN demo confirms dispatch
 resilience in the wild — the code is there; the wild test is what
 remains.

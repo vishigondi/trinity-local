@@ -142,4 +142,4 @@ The taste you build with Trinity is the persistent thing across model generation
 - [CLAUDE.md](../claude.md) — internal architecture, glossary, the 200-line discipline
 - [`three-tier-architecture.md`](three-tier-architecture.md) — on-disk contract (MCP server / pip engine / Chrome extension)
 - [`PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) — the rejection-corpus + Bayesian gate spec
-- [`scale-plan.md`](scale-plan.md) — long-form roadmap
+- [`scale-plan.md`](historical/scale-plan.md) — long-form roadmap

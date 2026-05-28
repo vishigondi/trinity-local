@@ -151,7 +151,7 @@ enough to justify rebuilding the orchestration layer; the harness
 better than Trinity should. Task #128 deleted.
 
 The architectural reference + the ratifying council outcomes live
-in [`docs/v2-loop-constitution.md`](../v2-loop-constitution.md).
+in [`docs/v2-loop-constitution.md`](v2-loop-constitution.md).
 Git history preserves the prior implementation as architectural
 reference.
 

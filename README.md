@@ -9,9 +9,9 @@ class: live
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Own your taste.
+## Stop tab-hopping between Claude, ChatGPT, and Gemini.
 
-It runs your hard questions through Claude, Codex, and Gemini in parallel and picks the answer in your voice — not the generic one.
+Ask your hard question once. Trinity runs it through all three in parallel and returns **one synthesized answer — with exactly where they split and why each split matters — in your voice.** No more pasting the same prompt into three tabs and eyeballing which one to trust.
 
 ![the launchpad — what a brand-new install opens to on first run](docs/launchpad_example.png)
 
@@ -19,11 +19,20 @@ Inside Claude Code (or Codex CLI / Antigravity / Cursor) — just ask:
 
 > Run a Trinity council on whether to use SQLite or DuckDB for this analytics workload.
 
-The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel. The chairman synthesizes through your lens and returns the verdict inline: winner, runner-up, agreed claims, where they split, why each split matters. The launchpad above is the same surface in a browser tab — open it from the Chrome extension when you want to scan recent councils, your `lens`, and the topic graph without leaving the keyboard for a chat window.
+The agent calls `mcp__trinity-local__run_council` for you. Claude, Codex, and Gemini answer in parallel; the chairman synthesizes and returns the verdict inline:
+
+> **Winner: DuckDB** — all three agree it wins on analytical scan speed.
+> **Where they split:** Claude flags SQLite's simpler ops story; Codex and Gemini don't. *Why it matters for you:* you've shipped solo before and kept picking the lower-ops option — so the chairman weights that split toward "SQLite if you'll operate it alone."
+
+That last move — the chairman knowing which split matters to **you** — is the part no single chat tab can do. It reads your **lens**: the pattern in how you rephrase, judge, and decide, distilled from your own transcripts. The launchpad above is the same surface in a browser tab — open it from the Chrome extension to scan recent councils, your lens, and the topic graph.
 
 **The Chrome extension does two things.** As you chat on claude.ai / chatgpt.com / gemini.google.com, it captures each conversation to `~/.trinity/conversations/` on your machine — no listening port, no upload; Chrome's Native Messaging spawns a local capture host on demand. And it hosts the launchpad you click open from the toolbar. Together with the CLI sessions on disk (`~/.claude/`, `~/.codex/`, `~/.gemini/`), the extension's captures are what your lens distills from.
 
-**No new app. No service. No API key.** Captures flow *to* your machine; prompts never leave it. Everything else is an MCP server inside the harnesses you already use.
+**You'll want at least Claude + Codex CLI installed.** The magic is the *disagreement* — a council needs a second voice. One provider runs, but the "where they split" payoff needs two.
+
+**Own your taste — the part that compounds.** The council is the painkiller; the lens is the moat. Every council, every rejected answer, every rephrase sharpens a profile of your judgment that no lab can see across competitors (Anthropic can't read your ChatGPT; OpenAI can't read your Claude). The longer you use it, the more the synthesized answer is the one *you* would have written.
+
+**No new app. No service. No API key.** Captures flow *to* your machine; prompts never leave it. Everything else is an MCP server inside the harnesses you already use. **Free for individuals, forever** — MIT, local. (A hosted Trinity-for-Teams is the eventual revenue path; it never gates the individual experience.)
 
 ## Install
 
@@ -215,11 +224,11 @@ parallel (or `chain` mode for sequential refinement); lens-discovery is a 5-stag
 pipeline (Stage 0 turn-pair rejections + Stages 1-4 basins→decisions→pair-mining→post-filter) ratifying tensions across ≥3 topical basins.
 
 **Want the full picture?** [`docs/how-trinity-works.md`](docs/how-trinity-works.md) walks the pipeline end-to-end — transcripts → embeddings → dream → the 4-tier gate → runtime. Wire diagram + design rationale in [`docs/architecture.md`](docs/architecture.md). Agent context lives in
-[`claude.md`](claude.md); long-form roadmap in [`docs/scale-plan.md`](docs/scale-plan.md).
+[`claude.md`](claude.md); long-form roadmap in [`docs/historical/scale-plan.md`](docs/historical/scale-plan.md).
 
 ## What's next
 
-Trinity Local v1.7.4 shipped May 13–15, 2026; v1.7.5 post-launch cleanup shipped May 22, 2026 (full rating retirement, claude.md cut to 200 lines, Auto-Dream coexistence framing, ⠕ brand mark — see [`CHANGELOG.md`](CHANGELOG.md)). Roadmap in [`docs/spec-v1.5.md`](docs/spec-v1.5.md) (next: June 3, 2026).
+Trinity Local v1.7.4 shipped May 13–15, 2026; v1.7.5 post-launch cleanup shipped May 22, 2026 (full rating retirement, claude.md cut to 200 lines, Auto-Dream coexistence framing, ⠕ brand mark — see [`CHANGELOG.md`](CHANGELOG.md)). Roadmap in [`docs/historical/spec-v1.5.md`](docs/historical/spec-v1.5.md) (next: June 3, 2026).
 
 ## Help
 

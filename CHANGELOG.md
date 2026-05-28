@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.41 — council-first re-lead + doc consolidation] — 2026-05-28
+
+Founder decision (memory `product_relead_council_first`): **lead with the
+council painkiller, demote "Own your taste" to the retention/moat beat.**
+
+- **README hero re-lead.** New H1 "Stop tab-hopping between Claude, ChatGPT,
+  and Gemini" + a concrete sample verdict surfacing the `disagreed_claims` /
+  why-it-matters payload (the screenshot-able artifact, previously buried).
+  "Own your taste" becomes the *compounds-over-time* moat paragraph. Added
+  the honest-minimum note (Claude + Codex CLI — a council needs a second
+  voice, Q3) and the Teams-is-revenue / free-for-individuals line (Q6). The
+  brand-axis guard's transition contract carries both heroes until the
+  re-lead reaches every launch surface.
+- **Doc consolidation (post Opus-4.8).** Fixed all 23 genuinely-broken
+  relative Markdown links (specs/scale-plan that moved to `docs/historical/`,
+  plus depth-relative fixes inside `historical/`). Bumped an illustrative
+  "Opus 4.7" quote in product-spec to 4.8. Added `class: live` frontmatter to
+  the two provider-prompt docs. Deleted `schemas/examples/move.example.md`
+  (orphan of the moves substrate retired in #184). The judgment-heavy doc
+  merges (frontend-architecture→DESIGN, launch→launch-package) and the
+  historical class-retags remain as #215 follow-on.
+
 ## [v1.7.40 — fix 4 HIGH bugs from the multi-agent review] — 2026-05-28
 
 A 9-agent codebase+GTM review (post Opus-4.8) surfaced four HIGH-severity

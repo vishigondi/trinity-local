@@ -7,7 +7,7 @@ class: live
 > Long-form companion to the README. The README covers what Trinity does
 > and how to install it; this file covers *how* it works under the hood.
 > For the full agent-facing context, see [`claude.md`](../claude.md). For
-> the long-form roadmap, see [`scale-plan.md`](scale-plan.md).
+> the long-form roadmap, see [`scale-plan.md`](historical/scale-plan.md).
 
 ## Trinity reads what you've already typed
 

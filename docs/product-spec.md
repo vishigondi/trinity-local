@@ -8,8 +8,8 @@ class: aspirational
 > mechanic + Routing JSON ledger described below. **v1.5 ships June 3, 2026** with
 > the MCP-primary routing surface (`ask` cheap default + `run_council` for hard
 > questions) + hippocampus + cortex two-tier memory + local model dispatch + rate-
-> limit dodge. Active next-spec: [`spec-v1.5.md`](spec-v1.5.md). Trained-coordinator
-> v2 is **sunset** — see sunset header in [`spec-v2.md`](spec-v2.md).
+> limit dodge. Active next-spec: [`spec-v1.5.md`](historical/spec-v1.5.md). Trained-coordinator
+> v2 is **sunset** — see sunset header in [`spec-v2.md`](historical/spec-v2.md).
 
 ## The One-Liner
 
@@ -103,7 +103,7 @@ Trinity watches transcript histories across all tools. When it detects a pattern
 
 ### 4. Latency-Aware Routing
 
-> "GPT-5.5 xhigh wins on quality but takes 30+ seconds. Claude Opus 4.7 is 90% as good in 3 seconds for this task. You said you wanted fast."
+> "GPT-5.5 xhigh wins on quality but takes 30+ seconds. Claude Opus 4.8 is 90% as good in 3 seconds for this task. You said you wanted fast."
 
 External benchmarks (artificialanalysis.ai's Intelligence/Coding/Agentic indices) capture quality but ignore latency. Trinity records per-provider latency and routes against your `(budget, latency)` constraints — the most underrated lever once gpt-5.5 xhigh becomes the default-quality winner.
 
@@ -345,7 +345,7 @@ See [telemetry-spec.md](telemetry-spec.md) for the event schema and upload caden
 
 ## Roadmap
 
-For the long-form Phase 0–9 plan (TRM-style learned coordinator, aggregation endpoint, Phase 9 training pipeline), see [`docs/scale-plan.md`](scale-plan.md). This file stays product-spec-shaped: positioning, GTM, what's in/out of v1.
+For the long-form Phase 0–9 plan (TRM-style learned coordinator, aggregation endpoint, Phase 9 training pipeline), see [`docs/scale-plan.md`](historical/scale-plan.md). This file stays product-spec-shaped: positioning, GTM, what's in/out of v1.
 
 The destination matches the convergence of Lottery Ticket → HRM → TRM: a small learned controller (~10K params) over frontier models, with a verifier head, that recursively refines via chain mode. The chairman + `lens` primitive Trinity ships today is the supervision-signal generator that feeds Phase 9; chairman synthesis is `lens`-conditioned, so the Phase 9 router learns `(task_text, lens_embedding) → routing_decision` rather than a generic mapping.
 
