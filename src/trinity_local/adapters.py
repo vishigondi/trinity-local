@@ -3,8 +3,8 @@
 Checks which provider CLIs are available, their versions, and transcript paths.
 Used by ``trinity-local status`` to render the provider-adapter table.
 (The dedicated ``adapters`` CLI verb was retired 2026-05-27 — see
-``retired_names.py``; this library module survives because status,
-setup_guidance, and launchpad_data all read AdapterStatus.)
+``retired_names.py``; this library module survives because status
+and launchpad_data both read AdapterStatus.)
 """
 from __future__ import annotations
 

@@ -64,6 +64,23 @@ class RetirementRecord:
 # Add entries in the SAME commit as the deletion. Sorted by retirement
 # date (most recent first) for ease of audit.
 RETIRED: dict[str, RetirementRecord] = {
+    # ── 2026-05-27 post-moves dead-code cleanup (#187) ──
+    "src/trinity_local/me/depth.py": RetirementRecord(
+        name="src/trinity_local/me/depth.py",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — depth_score never wired into a live consumer)",
+        reason="Task #139 (multi-resolution horizon tagging) shipped depth_score (371 LOC) but nothing in production reads its output. Surfaced by the orphan finder built during #184/#187 — module passed unit tests but had zero non-test consumers. The TestDirectAgentsViaDepthSignal class in tests/test_real_corpus_invariants.py wraps its imports in try/except + pytest.skip, so it degrades to skipped rather than red. Future re-introduction should wire into chairman/cortex consumption before re-landing.",
+        kind="module",
+    ),
+    "src/trinity_local/setup_guidance.py": RetirementRecord(
+        name="src/trinity_local/setup_guidance.py",
+        retired_at="2026-05-27",
+        commit="",
+        replacement="(none — health_checks + status absorbed its surface)",
+        reason="60 LOC of cold-install guidance helper with zero production import statements (only mentioned in stale comments inside main.py, adapters.py, launchpad_data.py). The CLI surface it powered was absorbed into health_checks.py + the status verb prior to this commit. Test file (33 LOC) deleted alongside.",
+        kind="module",
+    ),
     # ── 2026-05-27 moves substrate teardown (#184) ──
     "trinity-local moves-build": RetirementRecord(
         name="trinity-local moves-build",

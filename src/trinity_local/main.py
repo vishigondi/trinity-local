@@ -35,7 +35,7 @@ CORE_COMMAND_MODULES = (
     # `trinity-local status` already shows provider adapter status; the
     # dedicated verb was a duplicate surface with zero unique value.
     # The src/trinity_local/adapters.py library module survives (used by
-    # status / setup_guidance / launchpad_data). See retired_names.py.
+    # status / launchpad_data). See retired_names.py.
     "cortex",
     "council",
     "debug",

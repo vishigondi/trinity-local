@@ -243,11 +243,11 @@ _TIER_PROVIDER_BINARY: dict[str, str] = {
     "antigravity": "agy",
 }
 
-# Per-provider install commands. The canonical form per provider lives
-# here AND in setup_guidance.py + doctor.py — keep all three in sync
-# (the iter-#39 fix harmonized them after discovering the launchpad
-# taught `curl https://claude.ai/install.sh | bash` while setup_guidance
-# + tests both taught `npm install -g @anthropic-ai/claude-code`).
+# Per-provider install commands. Canonical-source here; the historical
+# iter-#39 fix harmonized this map with setup_guidance.py + doctor.py,
+# both of which have since been retired (see retired_names.py). The
+# canonical bind is now: this map → tests/test_install_commands.py
+# guards the install URLs match.
 _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
     # provider -> (display name, install command, value proposition)
     "claude": (

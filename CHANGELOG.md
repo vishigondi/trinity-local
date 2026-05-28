@@ -7,6 +7,44 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.15 — post-moves dead-code cleanup: me/depth.py + setup_guidance.py] — 2026-05-27
+
+Two real orphan modules surfaced and deleted during #187. The
+orphan-finder script written for #184/#187 flagged ~15 candidates;
+manual verification confirmed only two were truly orphan, the rest
+were false positives from a relative-import resolution bug in the
+finder (`from .x import Y` inside `__init__.py` was misresolving
+to the parent package). The bug itself becomes the kickoff signal
+for #188 — ship the finder as a proper script + CI guard, with the
+relative-import bug fixed and a known-orphan whitelist.
+
+Deleted:
+- `src/trinity_local/me/depth.py` (371 LOC) — task #139 multi-
+  resolution horizon tagging. Shipped but never wired into any
+  live consumer. `TestDirectAgentsViaDepthSignal` in
+  test_real_corpus_invariants.py degrades to pytest.skip when the
+  module is unavailable, so the deletion is safe.
+- `src/trinity_local/setup_guidance.py` (60 LOC) — cold-install
+  guidance helper absorbed into health_checks.py + status verb.
+  Zero production imports; only comment references remained.
+- `tests/test_me_depth.py` (377 LOC) + `tests/test_setup_guidance.py`
+  (33 LOC).
+
+Net: -841 LOC. Comment references in main.py / adapters.py /
+launchpad_data.py scrubbed.
+
+Important false-positive learning: ranker/, knn_advisor.py,
+knn_analytics.py looked orphan in the finder but are actually live
+in production — reached via ranker/__init__.py's re-exports →
+`build_default_ranker` → `FallbackRanker` → `KnnRanker` →
+`knn_advisor` + `knn_analytics`. The chain works; the orphan
+finder's __init__.py relative-import resolution doesn't. This is
+the kind of bug a proper CI guard (#188) catches at PR time.
+
+Retirements registered in retired_names.py (kind=module).
+Tests: 1954 passed + 10 skipped (depth-related tests now skip
+gracefully instead of running their checks).
+
 ## [v1.7.14 — T2 lens validation activates: cosine vs basin centroid in Stage 4] — 2026-05-27
 
 Activates the recursion edge the #184 teardown implied but didn't
@@ -888,7 +926,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1986<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1961<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
