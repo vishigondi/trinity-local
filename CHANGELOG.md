@@ -7,6 +7,21 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.33 — clobber guard on the unified ledger (#202)] — 2026-05-28
+
+Hardening before the unified `preference_acts.jsonl` ledger becomes the
+source of truth: `save_preference_acts` now carries the #194 clobber
+guard. A degenerate overwrite of a populated ledger (empty when ≥5 rows
+exist, or below 25% of the existing count) is refused — the live ledger
+is preserved and the would-be result stashed to a `.degenerate`
+sidecar; `allow_shrink=True` is the escape hatch. Reuses the
+`DegenerateExtractionError` + thresholds from save_rejections. The
+read-path flip can't make the ledger load-bearing without first making
+it as gutting-proof as the store it replaces.
+
+Tests: 2053 passed + 7 skipped (cliff-drop refused, allow_shrink, cold
+start, growth).
+
 ## [v1.7.32 — EXTRACT unification Stage 3: the unified ledger (#202)] — 2026-05-28
 
 Strangler-Fig step 3 — the "one ledger" the beauty audit wanted, as a
@@ -1455,7 +1470,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2053<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2057<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

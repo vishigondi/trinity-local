@@ -160,13 +160,53 @@ def preference_acts_path():
     return me_dir() / "preference_acts.jsonl"
 
 
-def save_preference_acts(acts: list[PreferenceAct]):
-    """Write the unified ledger atomically (one JSON object per line)."""
+def save_preference_acts(acts: list[PreferenceAct], *, allow_shrink: bool = False):
+    """Write the unified ledger atomically (one JSON object per line).
+
+    Carries the #194 clobber guard, because this ledger is on its way to
+    becoming the source of truth: refuse to overwrite a populated ledger
+    with a cliff-drop (empty when >= _CLOBBER_MIN_EXISTING rows exist, or
+    below _CLOBBER_MIN_FRACTION of the existing count) — almost always a
+    transient empty build, not a real shrink. The live ledger is
+    preserved and the would-be result is stashed to a `.degenerate`
+    sidecar. `allow_shrink=True` is the escape hatch for a genuine
+    shrink. The callers (lens-build / lens-resync) wrap this best-effort,
+    so a raised guard preserves the ledger and the build continues on the
+    legacy stores."""
     import json
 
     from ..utils import atomic_write_text
+    from .turn_pairs import (
+        _CLOBBER_MIN_EXISTING,
+        _CLOBBER_MIN_FRACTION,
+        DegenerateExtractionError,
+    )
 
     path = preference_acts_path()
+    existing = 0
+    if path.exists():
+        try:
+            existing = sum(
+                1 for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()
+            )
+        except OSError:
+            existing = 0
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
+    if not allow_shrink and existing >= _CLOBBER_MIN_EXISTING and len(acts) < floor:
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            sidecar.write_text(
+                "\n".join(json.dumps(a.to_dict()) for a in acts) + ("\n" if acts else ""),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} preference acts with "
+            f"{len(acts)} (cliff-drop below {floor}). Live ledger preserved; "
+            f"degenerate result written to {sidecar.name}. Pass "
+            f"allow_shrink=True only if the corpus genuinely shrank."
+        )
     body = "\n".join(json.dumps(a.to_dict()) for a in acts)
     atomic_write_text(path, body + "\n" if body else "")
     return path

@@ -834,7 +834,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: <!-- canonical:test_count -->2053<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
+>   tests after dead-code removal." Live: <!-- canonical:test_count -->2057<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.

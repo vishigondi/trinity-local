@@ -152,6 +152,52 @@ class TestUnifiedLedgerFile:
         assert [a.id for a in back] == ["r1"]
 
 
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestLedgerClobberGuard:
+    """The unified ledger is on its way to being the source of truth, so
+    it carries the #194 clobber guard — a degenerate (empty / cliff-drop)
+    overwrite of a populated ledger is refused."""
+
+    def _acts(self, n):
+        return [PreferenceAct(id=f"a{i}", trigger=MODEL_MISS, privileged="p", sacrificed="s")
+                for i in range(n)]
+
+    def test_cliff_drop_refused_and_ledger_preserved(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            preference_acts_path,
+            save_preference_acts,
+        )
+        from trinity_local.me.turn_pairs import DegenerateExtractionError
+        save_preference_acts(self._acts(6))
+        with pytest.raises(DegenerateExtractionError):
+            save_preference_acts([])  # 0 vs 6 existing → cliff-drop
+        assert len(load_preference_acts()) == 6  # live ledger preserved
+        assert (preference_acts_path().parent / "preference_acts.jsonl.degenerate").exists()
+
+    def test_allow_shrink_escape_hatch(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            save_preference_acts,
+        )
+        save_preference_acts(self._acts(6))
+        save_preference_acts([], allow_shrink=True)  # explicit genuine shrink
+        assert load_preference_acts() == []
+
+    def test_cold_start_empty_is_fine(self):
+        from trinity_local.me.preference_acts import save_preference_acts
+        save_preference_acts([])  # no existing → no guard
+
+    def test_growth_unaffected(self):
+        from trinity_local.me.preference_acts import (
+            load_preference_acts,
+            save_preference_acts,
+        )
+        save_preference_acts(self._acts(6))
+        save_preference_acts(self._acts(8))  # growth → fine
+        assert len(load_preference_acts()) == 8
+
+
 class TestRenderUnifiedSection:
     def test_preference_acts_render_both_triggers(self):
         from trinity_local.me.pipeline import render_me_markdown
