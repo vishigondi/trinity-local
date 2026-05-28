@@ -6838,6 +6838,107 @@ class TestClaudeMdLineCap:
         )
 
 
+class TestNoRetiredNamesInLiveDocs:
+    """#192 — doc-side leg of the retirement denylist (extends #189).
+
+    #189 guards CODE against retired imports + CLI flags. This guards
+    DOCS: a `class: live` doc must not reference a retired dotted
+    module path (`trinity_local.moves`) or retired CLI invocation
+    (`trinity-local handoff`) as if it were live.
+
+    The #191 history audit found ≥2 instances where this leaked:
+    `742207a` (cross-platform-spec stale rating-UX refs — "escaped
+    #134") and `920b2d5` (browser-extension README, 4 stale claims).
+    Both were retired things still documented as live because only
+    code was guarded.
+
+    False-positive management (verified 0 on the current tree):
+    - Match SPECIFIC forms only — dotted module paths and
+      `trinity-local <verb>` invocations, never bare words
+      ("moves"/"handoff"/"depth" appear legitimately in prose).
+    - Exempt retirement ANNOTATIONS: if a retired/deprecated/removed/
+      sunset/legacy/historical keyword appears within ±2 lines of the
+      form, it's documenting the retirement (fine), not using it.
+    - Exclude CHANGELOG.md (retrospective by nature — every entry
+      documents what changed/was retired) and class:historical docs.
+    """
+
+    _ANNOTATION = None  # compiled lazily
+
+    def _scannable_forms(self) -> set[str]:
+        from trinity_local.retired_names import RETIRED
+        forms: set[str] = set()
+        for key, rec in RETIRED.items():
+            if rec.kind == "cli" and key.startswith("trinity-local "):
+                forms.add(key)
+            elif rec.kind == "module":
+                if key.startswith("src/trinity_local/"):
+                    rel = key[len("src/trinity_local/"):].rstrip("/")
+                    if rel.endswith(".py"):
+                        rel = rel[:-3]
+                    forms.add(f"trinity_local.{rel.replace('/', '.')}")
+                elif "." in key and not key.startswith("_"):
+                    forms.add(
+                        key if key.startswith("trinity_local.")
+                        else f"trinity_local.{key}"
+                    )
+        return forms
+
+    def test_no_live_doc_references_a_retired_name(self):
+        import re
+        repo = Path(__file__).resolve().parents[1]
+        forms = self._scannable_forms()
+        if not forms:
+            return
+
+        annotation = re.compile(
+            r"retir|deprecat|remov|sunset|\bcut\b|former|legacy|no longer|gone|historical",
+            re.IGNORECASE,
+        )
+        exclude_names = {"CHANGELOG.md"}
+        WINDOW = 2
+
+        violations: list[tuple[str, int, str]] = []
+        for md in repo.rglob("*.md"):
+            if any(p in md.parts for p in ("node_modules", ".git", "historical")):
+                continue
+            if md.name in exclude_names:
+                continue
+            try:
+                text = md.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if "class: live" not in text[:200]:
+                continue
+            lines = text.splitlines()
+            for i, line in enumerate(lines):
+                for form in forms:
+                    if form in line:
+                        lo = max(0, i - WINDOW)
+                        hi = min(len(lines), i + WINDOW + 1)
+                        window = "\n".join(lines[lo:hi])
+                        if not annotation.search(window):
+                            violations.append(
+                                (str(md.relative_to(repo)), i + 1, form)
+                            )
+
+        if violations:
+            msg = ["Retired names referenced in live docs (not as annotations):"]
+            for path, lineno, form in violations:
+                msg.append(f"  {path}:{lineno}  «{form}»")
+            msg.append("")
+            msg.append(
+                "Each is a retired module/CLI from retired_names.py used "
+                "as if live. Either update the doc to the replacement (see "
+                "the record's `replacement` field), or — if you're "
+                "documenting the retirement — add a retired/deprecated/"
+                "removed keyword within 2 lines so the guard recognizes "
+                "it as an annotation. CHANGELOG + class:historical docs "
+                "are already exempt."
+            )
+            raise AssertionError("\n".join(msg))
+
+
 class TestNoImportsFromRetiredModules:
     """#189 — extend the gstack ratchet beyond the CLI-verb denylist.
 

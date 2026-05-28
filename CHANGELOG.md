@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.20 — doc-side retired-name guard: close the leg #191 audit flagged (#192)] — 2026-05-27
+
+The #191 history audit found ≥2 cases where retired names leaked into
+live docs because #189 only guarded code (`742207a` cross-platform-spec
+"escaped #134" rating refs; `920b2d5` browser-extension README). This
+closes that leg.
+
+`TestNoRetiredNamesInLiveDocs`: scans `class: live` markdown for
+retired dotted module paths (`trinity_local.moves`) and retired CLI
+invocations (`trinity-local handoff`) drawn from
+`retired_names.RETIRED`. A live doc may not reference them as if live.
+
+False-positive management (verified 0 on the current tree across 41
+live docs):
+- Matches SPECIFIC forms only — dotted paths + `trinity-local <verb>`,
+  never bare words ("moves"/"handoff" appear legitimately in prose).
+- Exempts retirement ANNOTATIONS via a ±2-line window: if a
+  retired/deprecated/removed/sunset/legacy/historical keyword sits
+  within 2 lines of the form, it's documenting the retirement (e.g.
+  three-tier-architecture.md's `trinity_local.trust` note, demo/
+  README's handoff retirement note) — not using it.
+- Excludes CHANGELOG.md (retrospective) + class:historical docs.
+
+The window check matters: the initial same-line version false-flagged
+both legitimate annotations because their "retired" keyword was on the
+adjacent line. The dry-run scan caught that before shipping — the
+realistic-data discipline applied to the guard itself.
+
+Doc-consistency guards: 107 → 108. Tests +1.
+
 ## [v1.7.19 — Stage 4 T2 filter: skip under TF-IDF fallback (#185 found a real bug)] — 2026-05-27
 
 #185 (realistic-backend gate testing) surfaced a latent bug in the
@@ -1078,7 +1108,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1975<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1976<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
