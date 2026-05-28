@@ -387,7 +387,11 @@ class TestStage4SemanticFilter:
             verdict="accepted",
         )
 
-        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+        # The semantic filter only runs when MLX is loaded (TF-IDF
+        # can't bridge abstract↔concrete) — force it on for this test
+        # of the discrimination logic.
+        with patch("trinity_local.embeddings.mlx_actually_loaded", return_value=True), \
+             patch("trinity_local.embeddings.embed", return_value=tension_emb):
             filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
 
         # Only b_close survives the 0.40 threshold → 1 basin → demoted
@@ -418,7 +422,8 @@ class TestStage4SemanticFilter:
             tension_decisions=["d1", "d2", "d3"],
             verdict="accepted",
         )
-        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+        with patch("trinity_local.embeddings.mlx_actually_loaded", return_value=True), \
+             patch("trinity_local.embeddings.embed", return_value=tension_emb):
             filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
         assert filtered[0].verdict == "accepted"
         assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
@@ -443,10 +448,11 @@ class TestStage4SemanticFilter:
             verdict="accepted",
         )
         centroids = {"b00": [1.0, 0.0], "b01": [0.0, 1.0], "b02": [0.5, 0.5]}
-        with patch(
-            "trinity_local.embeddings.embed",
-            side_effect=RuntimeError("embed backend down"),
-        ):
+        with patch("trinity_local.embeddings.mlx_actually_loaded", return_value=True), \
+             patch(
+                 "trinity_local.embeddings.embed",
+                 side_effect=RuntimeError("embed backend down"),
+             ):
             filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
         # Embedder failed → all basins kept (no silent data loss)
         assert filtered[0].verdict == "accepted"
@@ -472,10 +478,60 @@ class TestStage4SemanticFilter:
             tension_decisions=["d1"],
             verdict="accepted",
         )
-        with patch("trinity_local.embeddings.embed", return_value=tension_emb):
+        with patch("trinity_local.embeddings.mlx_actually_loaded", return_value=True), \
+             patch("trinity_local.embeddings.embed", return_value=tension_emb):
             filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
         # Dim mismatch → b00 kept via pass-through
         assert filtered[0].basins_spanned == ["b00"]
+
+    def test_tfidf_fallback_skips_semantic_filter(self):
+        """#185 — the load-bearing robustness guard. Under TF-IDF
+        fallback (no MLX), the cosine of an abstract tension vs a
+        concrete basin centroid collapses (~0.14 even for a RELATED
+        pair, because TF-IDF is lexical and the texts share almost no
+        tokens). Applying the 0.40 threshold would over-reject every
+        tension and silently gut the lens — the same dormancy class
+        as the retired moves T1 gate.
+
+        So when mlx_actually_loaded() is False, the semantic filter
+        must be a no-op: keep all basins, let the count-only rule
+        stand. This test forces MLX off + provides centroids that
+        WOULD fail the cosine threshold, and asserts nothing is
+        dropped.
+        """
+        from unittest.mock import patch
+        from trinity_local.me.pair_mining import LensPair, basin_post_filter
+        from trinity_local.me.decisions import Decision
+
+        # Orthogonal centroids — every cosine vs the tension probe is
+        # 0.0, well below threshold. If the filter ran, all basins
+        # would be dropped → tension dropped entirely.
+        centroids = {
+            "b00": [0.0, 1.0, 0.0],
+            "b01": [0.0, 0.0, 1.0],
+            "b02": [0.0, 1.0, 1.0],
+        }
+        decisions = [
+            Decision(id="d1", privileged="a", sacrificed="b", valence="regret", basin="b00", verbatim="x"),
+            Decision(id="d2", privileged="b", sacrificed="a", valence="regret", basin="b01", verbatim="y"),
+            Decision(id="d3", privileged="a", sacrificed="b", valence="correction", basin="b02", verbatim="z"),
+        ]
+        pair = LensPair(
+            pole_a="a", pole_b="b", failure_a="x", failure_b="y",
+            tension_decisions=["d1", "d2", "d3"],
+            verdict="accepted",
+        )
+        # embed would return a tension vector orthogonal to all
+        # centroids — but mlx_actually_loaded=False must short-circuit
+        # BEFORE embed is even called.
+        with patch("trinity_local.embeddings.mlx_actually_loaded", return_value=False), \
+             patch("trinity_local.embeddings.embed", return_value=[1.0, 0.0, 0.0]) as mock_embed:
+            filtered = basin_post_filter([pair], decisions, basin_centroids=centroids)
+        # All basins kept despite orthogonal centroids — filter skipped
+        assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
+        assert filtered[0].verdict == "accepted"
+        # embed should never be called when MLX isn't loaded
+        mock_embed.assert_not_called()
 
 
 class TestPairMiningParser:

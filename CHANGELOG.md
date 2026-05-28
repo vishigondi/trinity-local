@@ -7,6 +7,44 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.19 — Stage 4 T2 filter: skip under TF-IDF fallback (#185 found a real bug)] — 2026-05-27
+
+#185 (realistic-backend gate testing) surfaced a latent bug in the
+#186 code I shipped two commits ago — and this is the session's
+"run on real data / realistic backends" lesson recurring in
+miniature.
+
+The bug: the Stage 4 T2 semantic filter (cosine of tension probe vs
+basin centroid) requires REAL (MLX) embeddings. Verified empirically
+by forcing TRINITY_DISABLE_MLX=1:
+  - MLX:    abstract-tension vs related-concrete cosine = 0.72 (> 0.40 ✓)
+  - TF-IDF: abstract-tension vs related-concrete cosine = 0.14 (< 0.40 ✗)
+TF-IDF is a lexical projection — abstract tension vocabulary
+("mechanism inspection") and concrete basin patterns ("discord mcp")
+share almost no tokens, so the cosine collapses. A user without the
+`[mlx]` extras would have had EVERY tension's basins dropped below
+the ≥3 threshold → lens silently gutted. Same dormancy class as the
+retired moves T1 gate.
+
+The fix (src/trinity_local/me/pair_mining.py): the semantic filter
+now checks `mlx_actually_loaded()` and degrades to count-only when
+MLX isn't loaded. My #186 code only guarded `embed()` *raising* —
+not `embed()` returning weak TF-IDF vectors. The synthetic-
+orthogonal-embedding tests in #186 passed precisely because they
+mocked embed() and never exercised the real TF-IDF backend.
+
+New test: TestStage4SemanticFilter::test_tfidf_fallback_skips_semantic_filter
+forces MLX off + orthogonal centroids (every cosine 0.0) and asserts
+nothing is dropped + embed() is never called. The four MLX-path tests
+from #186 now explicitly patch mlx_actually_loaded=True so they pin
+the discrimination logic regardless of the test machine's backend.
+
+On tier-isolation (the third leg of #185's original scope): moot
+post-moves-teardown. The multi-tier OR-semantics gate it targeted is
+gone; the lens pipeline has a single semantic tier.
+
+Tests: 1971 passed + 7 skipped.
+
 ## [v1.7.18 — round-trip persistence guard; gstack-expansion empirical triage (#190)] — 2026-05-27
 
 #190 proposed five gstack drift-detection patterns. Empirical
@@ -1040,7 +1078,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1974<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1975<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

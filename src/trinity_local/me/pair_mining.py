@@ -318,10 +318,24 @@ def _filter_basins_by_semantic_membership(
     Returns the subset of `basins` whose centroid passed the threshold.
     Basins with no centroid in the supplied map fall through unchanged
     (caller may not have loaded topics.json, or the basin id is novel).
+
+    REQUIRES real (MLX) embeddings. Under the TF-IDF fallback the
+    cosine collapses for the abstract-tension/concrete-pattern pair
+    this filter exists to judge — empirically a *related* tension
+    scores ~0.14 (well below threshold) because TF-IDF is lexical and
+    the two texts share almost no tokens. Applying the threshold under
+    TF-IDF would over-reject every tension and silently gut the lens
+    (the same dormancy class as the retired moves T1 gate). So when
+    MLX isn't loaded we skip the semantic filter entirely and let the
+    count-only rule stand.
     """
     if not basin_centroids:
         return basins
-    from ..embeddings import embed
+    from ..embeddings import embed, mlx_actually_loaded
+    if not mlx_actually_loaded():
+        # TF-IDF fallback can't bridge abstract↔concrete vocab — the
+        # cosine threshold would over-reject. Degrade to count-only.
+        return basins
     probe = _tension_probe_text(pair)
     if not probe:
         return basins
