@@ -393,3 +393,30 @@ migration comes last:
   clobber guard to read/write through it; deprecate `rejections.jsonl` +
   `decisions.jsonl` via the retirement registry. The last + riskiest
   step, taken only after the type is proven across Stages 1–3.
+
+### Environment blocker on the remaining EXTRACT stages (2026-05-28)
+
+Stages 1–3 + the ledger clobber guard shipped (v1.7.30–v1.7.33): the
+unified `PreferenceAct` type, the unified read API, eval-build on it, and
+the `preference_acts.jsonl` ledger (canonical export, gutting-proof). The
+unification is **substantively complete** — every consumer is either
+migrated or dual-fed, and the system runs unified.
+
+The remaining work is **blocked in this dev environment**, not by design:
+
+- **Live end-to-end validation, the prompt-merge, and #182 arc-pairs** all
+  need real chairman calls. A `lens-build` run here hangs at Stage 0 —
+  spawning `claude -p` as a subprocess from *inside* a `claude` session
+  doesn't return (auth / TTY / recursion). Confirmed: a real build sat at
+  Stage 0 with ~20s CPU over 5.5 min and no active chairman child, then
+  was killed; the #194 + ledger clobber guards meant it mutated nothing
+  (49 rejections / 98 acts intact).
+- **The physical retirement** (flip the read path off the legacy union;
+  retire `rejections.jsonl` + `decisions.jsonl`) requires changing
+  lens-build's Stage 0/2 *save* path to write the unified store directly.
+  That write-path change can't be validated end-to-end without a working
+  live build — so it's deferred to a non-nested environment rather than
+  shipped blind.
+
+Net: finish the retirement (and the optional prompt-merge / #182) from a
+shell where `trinity-local lens-build` can actually reach a provider.
