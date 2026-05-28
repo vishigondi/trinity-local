@@ -7,6 +7,47 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.18 — round-trip persistence guard; gstack-expansion empirical triage (#190)] — 2026-05-27
+
+#190 proposed five gstack drift-detection patterns. Empirical
+inspection showed only ONE has real ROI for Trinity's current state;
+the other four either conflict with the architecture or are vacuous.
+Honest triage beats shipping guards that fight the codebase.
+
+SHIPPED — round-trip persistence (tests/test_roundtrip_persistence.py,
+13 tests): for every dataclass with both to_dict() AND from_dict(),
+assert idempotent serialization + populated-instance object equality
++ unknown-key tolerance. A scan found 50 classes with to_dict() but
+only 4 with from_dict() (the rest are serialize-out only). The 4 —
+PromptNode, TurnWindow, CouncilChainStep, CouncilRoutingLabel — are
+the load-bearing persistence boundaries. A coverage ratchet
+(TestRoundTripCoverageMatchesScan) fails if a 5th class grows a
+from_dict without joining the test.
+
+NOT SHIPPED, with reasons:
+- No-silent-failure AST guard — scan found 131 silent-except blocks,
+  the overwhelming majority intentional. CLAUDE.md mandates graceful
+  degradation ("Analytics never crash", "[mlx] features fall back
+  silently"). A blanket guard would fight an explicit architectural
+  commitment. Skipped.
+- Dated-TODO guard — scan found 0 bare TODOs. The codebase is
+  already clean on this axis; a guard would be vacuous. Skipped.
+- Layered-imports lint — commands/ ↔ core is intentional bidirectional
+  delegation (mcp_server.py reuses handle_council_launch /
+  handle_lens_import / handle_eval_import; launchpad_data reuses
+  extension_repair detection). No clean unidirectional layering to
+  enforce; a guard would flag legitimate delegation. Skipped.
+- Output-shape smoke — real value (would have caught the moves
+  dormancy directly) but needs realistic corpus fixtures. That IS
+  the scope of #185; folded there rather than duplicated here.
+
+The meta-finding: the gstack expansion was speculative, and Trinity
+is already clean or intentional on 4 of the 5 axes. The one real gap
+(round-trip coverage on persistence boundaries) is now closed.
+
+Tests: +13. Doc-consistency guards unchanged (round-trip test lives
+in its own file, not test_doc_count_consistency.py).
+
 ## [v1.7.17 — retirement denylist expansion: import paths + CLI flags (#189)] — 2026-05-27
 
 Two new AST-based CI guards driven by `retired_names.RETIRED` as
@@ -999,7 +1040,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->1961<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->1974<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
