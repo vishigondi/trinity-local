@@ -193,6 +193,95 @@ def similarity(text_a: str, text_b: str, *, dim: int = DEFAULT_DIM) -> float:
     return cosine_similarity(vec_a, vec_b)
 
 
+def prompt_node_embedding_coverage() -> dict:
+    """Coverage of finite embeddings over text-bearing PromptNodes.
+
+    incremental_ingest.ingest_recent writes PromptNodes with ``embedding=[]``
+    (the fast launchpad/search path) and relies on a later offline pass
+    (lens-build / dream) to backfill the real vectors. Backfill stalled
+    2026-05-12, so ~66% of text-bearing nodes carried empty embeddings —
+    invisible to k-means basins, which silently skip them
+    (`is_finite_embedding` filter in me/basins.py). This is the metric the
+    floor-guard test asserts against.
+
+    Returns ``{text_bearing, embedded, missing, fraction_missing}`` where the
+    denominator is *text-bearing* nodes only (an empty-text node legitimately
+    has no embedding to compute, so counting it would understate coverage).
+    """
+    from ..memory.store import iter_prompt_nodes
+
+    text_bearing = 0
+    embedded = 0
+    for node in iter_prompt_nodes(limit=None):
+        if not (getattr(node, "text", "") or "").strip():
+            continue
+        text_bearing += 1
+        if is_finite_embedding(getattr(node, "embedding", None)):
+            embedded += 1
+    missing = text_bearing - embedded
+    return {
+        "text_bearing": text_bearing,
+        "embedded": embedded,
+        "missing": missing,
+        "fraction_missing": (missing / text_bearing) if text_bearing else 0.0,
+    }
+
+
+def backfill_prompt_node_embeddings(
+    *, batch_size: int = 64, limit: int | None = None
+) -> dict:
+    """Embed every text-bearing PromptNode that lacks a finite embedding and
+    re-upsert it, closing the gap incremental_ingest leaves (#235).
+
+    `ingest_recent` writes nodes with ``embedding=[]`` to keep the hot path
+    fast; this is the deferred offline backfill that gives the basins /
+    lens-build pipeline real vectors to cluster. Pure embeddings — no LLM
+    call — so it honors the "no LLM outside councils" commitment and degrades
+    gracefully to the TF-IDF projection when MLX isn't loaded.
+
+    Idempotent: nodes that already carry a finite embedding are skipped, so
+    re-running is a near-no-op (one full scan, zero embed calls). `limit`
+    caps how many nodes are backfilled in one pass (None = all).
+
+    Returns ``{scanned, backfilled, remaining}``.
+    """
+    from ..memory import upsert_prompt_node
+    from ..memory.store import iter_prompt_nodes
+
+    # Materialize first — we re-upsert into the same store mid-iteration,
+    # so don't lazily consume the generator while writing to it.
+    nodes = list(iter_prompt_nodes(limit=None))
+    pending: list = []
+    for node in nodes:
+        if not (getattr(node, "text", "") or "").strip():
+            continue
+        if is_finite_embedding(getattr(node, "embedding", None)):
+            continue
+        pending.append(node)
+        if limit is not None and len(pending) >= limit:
+            break
+
+    scanned = len(pending)
+    backfilled = 0
+    for start in range(0, len(pending), batch_size):
+        chunk = pending[start : start + batch_size]
+        vectors = embed_batch([n.text for n in chunk], batch_size=batch_size)
+        for node, vec in zip(chunk, vectors):
+            # embed_batch already sanitizes non-finite vectors via the
+            # TF-IDF fallback, so a finite check here is belt-and-suspenders.
+            if not is_finite_embedding(vec):
+                continue
+            node.embedding = vec
+            upsert_prompt_node(node)
+            backfilled += 1
+
+    return {
+        "scanned": scanned,
+        "backfilled": backfilled,
+        "remaining": scanned - backfilled,
+    }
+
+
 def setup_model(*, force: bool = False) -> str:
     """Download the MLX model. Returns status message."""
     try:

@@ -443,12 +443,61 @@ def split_by_verdict(pairs: list[LensPair]) -> tuple[list[LensPair], list[LensPa
     return accepted, orderings
 
 
-def save_lenses(accepted: list[LensPair], orderings: list[LensPair]) -> tuple[Path, Path]:
+def _guarded_pair_write(
+    path: Path,
+    key: str,
+    pairs: list[LensPair],
+    loader,
+    *,
+    allow_shrink: bool,
+) -> None:
+    """Atomic write of a {key: [pairs]} JSON file carrying the #194 clobber
+    guard: refuse to overwrite a populated store with a cliff-drop (empty
+    when >= _CLOBBER_MIN_EXISTING entries exist, or below
+    _CLOBBER_MIN_FRACTION of the existing count). A degenerate Stage 3
+    (chairman returned empty, parse failed) would otherwise wipe the live
+    lens. The live file is preserved and the would-be result lands in a
+    `.degenerate` sidecar."""
     from ..utils import atomic_write_text
+    from .turn_pairs import (
+        _CLOBBER_MIN_EXISTING,
+        _CLOBBER_MIN_FRACTION,
+        DegenerateExtractionError,
+    )
+
+    existing = len(loader())
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
+    payload = json.dumps({key: [p.to_dict() for p in pairs]}, indent=2)
+    if not allow_shrink and existing >= _CLOBBER_MIN_EXISTING and len(pairs) < floor:
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            sidecar.write_text(payload, encoding="utf-8")
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} {key} with {len(pairs)} "
+            f"(cliff-drop below {floor}). Live {key} preserved; degenerate "
+            f"result written to {sidecar.name}. Pass allow_shrink=True only "
+            f"if the corpus genuinely shrank."
+        )
+    atomic_write_text(path, payload)
+
+
+def save_lenses(
+    accepted: list[LensPair],
+    orderings: list[LensPair],
+    *,
+    allow_shrink: bool = False,
+) -> tuple[Path, Path]:
+    """Persist accepted lenses + orderings atomically, each behind the #194
+    clobber guard. `allow_shrink=True` bypasses the guard on both files for
+    a genuine shrink. A guard raise on the lenses write preserves BOTH
+    files (orderings is written second, after the lenses guard passes), so
+    the live lens never goes degenerate from a transient empty Stage 3."""
     lp = lenses_path()
     op = orderings_path()
-    atomic_write_text(lp, json.dumps({"lenses": [p.to_dict() for p in accepted]}, indent=2))
-    atomic_write_text(op, json.dumps({"orderings": [p.to_dict() for p in orderings]}, indent=2))
+    _guarded_pair_write(lp, "lenses", accepted, load_lenses, allow_shrink=allow_shrink)
+    _guarded_pair_write(op, "orderings", orderings, load_orderings, allow_shrink=allow_shrink)
     return lp, op
 
 

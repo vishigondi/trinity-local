@@ -503,10 +503,43 @@ def _pick_label_snippet(reps: list[dict]) -> str:
     return best[1]
 
 
-def save_basins(basins: list[Basin]) -> Path:
+def save_basins(basins: list[Basin], *, allow_shrink: bool = False) -> Path:
+    """Persist topics.json atomically, carrying the #194 clobber guard:
+    refuse to overwrite a populated topology with a cliff-drop (empty when
+    >= _CLOBBER_MIN_EXISTING basins exist, or below _CLOBBER_MIN_FRACTION
+    of the existing count). A degenerate `compute_basins` (corpus failed to
+    load, embeddings all stripped) would otherwise blow away a good
+    topology that Stage 2/4 + the topology viewer depend on. The live
+    file is preserved and the would-be result is stashed to a `.degenerate`
+    sidecar. `allow_shrink=True` is the escape hatch.
+
+    Previously a plain (non-atomic) `write_text`; now atomic so a crash
+    mid-write can't leave a truncated topics.json that `load_basins` then
+    fails to parse."""
+    from ..utils import atomic_write_text
+    from .turn_pairs import (
+        _CLOBBER_MIN_EXISTING,
+        _CLOBBER_MIN_FRACTION,
+        DegenerateExtractionError,
+    )
+
     path = basins_path()
+    existing = len(load_basins())
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
     payload = {"basins": [b.to_dict() for b in basins]}
-    path.write_text(json.dumps(payload, indent=2))
+    if not allow_shrink and existing >= _CLOBBER_MIN_EXISTING and len(basins) < floor:
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            sidecar.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} basins with {len(basins)} "
+            f"(cliff-drop below {floor}). Live topology preserved; degenerate "
+            f"result written to {sidecar.name}. Pass allow_shrink=True only "
+            f"if the corpus genuinely shrank."
+        )
+    atomic_write_text(path, json.dumps(payload, indent=2))
     return path
 
 

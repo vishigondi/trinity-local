@@ -9,8 +9,16 @@
 // the chrome extension runtime — so it loads standalone (independently
 // browser-testable) and is
 // the SINGLE SOURCE OF TRUTH for the config shapes (mirrors the Python
-// `install-mcp` writer in src/trinity_local/commands/install.py, but uvx-
-// based: the recommended zero-prereq path that auto-updates per invocation).
+// `install-mcp` writer in src/trinity_local/commands/install.py).
+//
+// Curl-primary (founder decision, 2026-05-29): the recommended install is the
+// one-line bootstrap (`curl … install.sh | bash`), which clones the repo,
+// installs runtime deps, and runs `install-mcp` for every harness it detects.
+// These paste-in blocks are the MANUAL fallback for a harness the bootstrap
+// didn't auto-wire — they mirror exactly what `install-mcp` writes:
+// `command = <your python>`, `args = ["-m", "trinity_local.main", "--mcp"]`.
+// `PYTHON` below is a placeholder — substitute the absolute path printed by
+// the bootstrap (e.g. `/opt/homebrew/bin/python3.12`) or `which python3`.
 //
 // Exposed as `globalThis.TRINITY_HARNESS_SNIPPETS` (data) +
 // `globalThis.renderHarnessPicker(targetEl)` (UI). popup.js calls the
@@ -19,15 +27,20 @@
 (function () {
   "use strict";
 
-  // The uvx invocation every harness shares. uvx ships with `uv`; it pulls
-  // + runs trinity-local with no prior `pip install`, and re-resolves to the
-  // latest on each launch — so "paste this once" stays current.
+  // The one-line install everyone should prefer — clones the repo (auditable),
+  // installs deps, and registers the MCP server in every detected harness.
+  var BOOTSTRAP_CMD =
+    "curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash";
+
+  // Manual fallback — what `install-mcp` writes (module-mode, no PyPI runner).
+  // PYTHON is a placeholder for the absolute interpreter path the bootstrap
+  // bakes into the wrapper; swap in `which python3` if you wire it by hand.
   var JSON_BLOCK =
     '{\n' +
     '  "mcpServers": {\n' +
     '    "trinity-local": {\n' +
-    '      "command": "uvx",\n' +
-    '      "args": ["trinity-local", "--mcp"]\n' +
+    '      "command": "PYTHON",\n' +
+    '      "args": ["-m", "trinity_local.main", "--mcp"]\n' +
     '    }\n' +
     '  }\n' +
     '}';
@@ -35,8 +48,8 @@
   // Codex reads TOML, not JSON. Same command/args, different surface.
   var TOML_BLOCK =
     '[mcp_servers.trinity-local]\n' +
-    'command = "uvx"\n' +
-    'args = ["trinity-local", "--mcp"]';
+    'command = "PYTHON"\n' +
+    'args = ["-m", "trinity_local.main", "--mcp"]';
 
   // Each harness: where the block goes + the block itself. `merge` tells the
   // user this is an ADD into an existing object, not a whole-file replace
@@ -109,7 +122,10 @@
 
     var heading = doc.createElement("p");
     heading.className = "setup-step";
-    heading.textContent = "Or paste the config straight into your harness:";
+    heading.textContent =
+      "Recommended: run the one-line bootstrap (" + BOOTSTRAP_CMD +
+      ") — it wires every harness for you. Or paste the config straight into " +
+      "your harness:";
     wrap.appendChild(heading);
 
     var pillRow = doc.createElement("div");
@@ -184,6 +200,7 @@
 
   var root = (typeof globalThis !== "undefined") ? globalThis : window;
   root.TRINITY_HARNESS_SNIPPETS = SNIPPETS;
+  root.TRINITY_BOOTSTRAP_CMD = BOOTSTRAP_CMD;
   root.trinitySnippetFor = snippetFor;
   root.renderHarnessPicker = renderHarnessPicker;
 })();

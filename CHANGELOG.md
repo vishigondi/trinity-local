@@ -7,6 +7,45 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.62 — launch-hardening batch (provider-name canon + workflow-tackled backlog)] — 2026-05-29
+
+A dogfood batch: a council gap-review + a 5-group tackle-workflow drove a
+launch-hardening sweep (workflow-drafted, full-suite-verified + spot-checked).
+
+**Provider-name canonicalization.** `_LEGACY_PROVIDER_ALIASES` learned the
+web-capture brand names (`chatgpt`→`codex`, `claude_ai`→`claude`, +
+openai/gpt/google/bard/anthropic/claude.ai) so the load-boundary normalizer
+canonicalizes all 547 council outcomes **at read** — the winner-distribution
+stat aggregates per-lab (codex 49% / claude 44% / antigravity 7%) instead of
+fragmenting `chatgpt` (44%) from `codex` (5%). Raw files keep brand names as
+provenance; the `model` field is untouched (model-grain comparison preserved).
+Not the v1.7.40 model-naming bug — a capture-path gap that was never
+canonicalized (`_LEGACY_PROVIDER_ALIASES` held only `gemini`).
+
+**Clobber-guard propagation (#230).** The #194 degenerate-clobber guard,
+previously on `save_preference_acts` only, now covers `save_registry`,
+`save_basins` (+ converted to atomic write), `save_lenses`/`save_orderings`,
+`save_routing_patterns` (preserving `mark_pick_wrong` override_count), and the
+`build_me` empty-chairman branch (preserves the existing `lens.md`).
+
+**Embedding backfill (#235).** `backfill_prompt_node_embeddings` +
+`prompt_node_embedding_coverage` + a coverage floor-guard for the
+66%-unembedded-corpus shape (embedding backfill had stalled since 2026-05-12).
+
+**Curl-primary install (#226) + install.sh honesty (#232).** README +
+harness-snippets drop `uvx`; Codex TOML header fixed to
+`[mcp_servers.trinity-local]`; the broken `download-embedder` suggestion, the
+false "auto-updates via Web Store" claim, and the capture false-green health
+signal corrected. **Degraded-first-run honesty (#238)** + activity-gated lens
+refresh **cross-process lock (#234)**.
+
+**Telemetry no-PII (#231) + share-card redaction (#237) — TEST-FIRST.**
+`tests/test_telemetry_no_pii.py` encodes the contract (categorical-only payload,
+disclosed `elo_snapshot`, browser credential-gate, no raw content baked into
+cards) and is **xfail-marked pending the implementation** — the founder
+principle is telemetry default-ON but provably no-PII, so the guard ships before
+the code. Full suite: 2245 passed + 7 xfailed.
+
 ## [v1.7.61 — eval/launchpad record the dispatched antigravity model] — 2026-05-29
 
 Closed the recorded≠dispatched gap on the eval path (the same invariant the
@@ -2183,7 +2222,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2174<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2245<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

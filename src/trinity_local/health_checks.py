@@ -596,6 +596,128 @@ def _check_cortex_freshness() -> CheckResult:
     )
 
 
+def _check_embedding_backend() -> CheckResult:
+    """Degraded-honesty (#238): is the real MLX embedder live, or is Trinity
+    silently on the SHA-1 TF-IDF fallback?
+
+    Why this is load-bearing: without the `[mlx]` extras (or with the extras
+    but no downloaded nomic model), every embedding silently falls back to a
+    stable-but-lexical TF-IDF projection. Lens-build's Stage-4 semantic
+    filtering then runs on lexical vectors — exactly the #185/#186 latent
+    degradation where the lens looks built but the tension geometry is
+    keyword-shaped, not meaning-shaped. The fallback is intentional graceful
+    degradation; the SIN is doing it silently. This check tells the user the
+    truth so a thin lens has an explanation.
+
+    Soft (ok=True) — Trinity still runs on TF-IDF; this is a quality signal,
+    not a blocker. Best-effort: an import blow-up must not break `status`.
+    """
+    try:
+        from .embeddings import get_backend, is_available, mlx_actually_loaded
+    except Exception as exc:
+        return CheckResult(
+            name="embedding_backend",
+            ok=True,
+            detail=f"could not probe embedding backend: {exc}",
+        )
+
+    try:
+        backend = get_backend()
+        imported = is_available()
+        # mlx_actually_loaded() does a real probe embed — distinguishes
+        # "mlx module imported" from "mlx can actually produce vectors".
+        live = mlx_actually_loaded()
+    except Exception as exc:
+        return CheckResult(
+            name="embedding_backend",
+            ok=True,
+            detail=f"embedding backend probe failed: {exc}",
+        )
+
+    if live:
+        return CheckResult(
+            name="embedding_backend",
+            ok=True,
+            detail="MLX embeddings live (nomic-embed-text-v1.5, 768d semantic vectors)",
+        )
+
+    if imported and backend == "mlx":
+        # Extras installed but the model never produced a vector — almost
+        # always the nomic weights aren't downloaded yet.
+        return CheckResult(
+            name="embedding_backend",
+            ok=True,  # soft — TF-IDF still works
+            detail=(
+                "MLX extras installed but the embedder can't produce vectors "
+                "(nomic model not downloaded) — Trinity is on the lexical TF-IDF "
+                "fallback, so lens tensions are keyword-shaped, not meaning-shaped"
+            ),
+            fix="huggingface-cli download nomic-ai/nomic-embed-text-v1.5   # then `trinity-local lens --force`",
+        )
+
+    return CheckResult(
+        name="embedding_backend",
+        ok=True,  # soft — TF-IDF is a deliberate fallback
+        detail=(
+            "running on the SHA-1 TF-IDF embedding fallback (MLX extras not "
+            "installed) — the lens still builds, but on lexical (keyword) "
+            "vectors rather than semantic ones, so tension quality is reduced"
+        ),
+        fix="pip install -e '.[mlx]' && huggingface-cli download nomic-ai/nomic-embed-text-v1.5",
+    )
+
+
+def _check_council_breadth() -> CheckResult:
+    """Degraded-honesty (#238): a council needs ≥2 authed providers to be a
+    *council* — one voice plus a chairman is just a single-model answer with
+    extra latency.
+
+    `ready_for_council` (the launch bar) only requires ONE provider, which is
+    correct: Trinity must still run with one CLI authed. But running with one
+    is a REDUCED mode, and the prior surfaces never said so out loud — the
+    user could authenticate only Claude, run "a council", and get a
+    single-member result silently dressed up as cross-provider deliberation.
+    The asymmetric value (cross-provider disagreement no single lab can see)
+    is exactly what's missing at n=1. This check names it.
+
+    Counts the same provider-auth indicators `_check_provider` uses, so the
+    breadth verdict matches the per-provider rows.
+
+    ok=True when ≥2 are ready (real council possible). ok=False (soft gap,
+    not a hard blocker) when exactly 1 is ready — honest "reduced" signal.
+    Returns a distinct detail for the 0-ready case so the message isn't a
+    lie about a council that can't run at all.
+    """
+    ready: list[str] = []
+    for provider, cli in (("claude", "claude"), ("codex", "codex"), ("antigravity", "agy")):
+        if _check_provider(provider, cli).ok:
+            ready.append(provider)
+
+    if len(ready) >= 2:
+        return CheckResult(
+            name="council_breadth",
+            ok=True,
+            detail=f"{len(ready)} providers authed ({', '.join(ready)}) — full cross-provider council available",
+        )
+    if len(ready) == 1:
+        return CheckResult(
+            name="council_breadth",
+            ok=False,  # soft gap — councils run, but in reduced single-voice mode
+            detail=(
+                f"only 1 provider authed ({ready[0]}) — councils run in REDUCED mode "
+                "(one voice + chairman, no cross-provider disagreement). Trinity's "
+                "asymmetric edge needs ≥2 providers."
+            ),
+            fix="auth a second CLI (e.g. `codex --login` or run any one-shot `agy`/`claude` command)",
+        )
+    return CheckResult(
+        name="council_breadth",
+        ok=False,
+        detail="no providers authed — councils cannot run yet",
+        fix="install + authenticate at least one CLI: claude, codex, or agy",
+    )
+
+
 def _check_browser_capture() -> CheckResult:
     """v1.6 browser-capture preflight.
 
@@ -694,15 +816,43 @@ def _check_browser_capture() -> CheckResult:
                 capture_files.append(f)
 
     if not capture_files:
-        return CheckResult(
-            name="browser_capture",
-            ok=True,
-            detail=(
+        # The manifest existing is NOT proof capture works. install.sh
+        # pre-wires the host for registry.CANONICAL_EXTENSION_ID before the
+        # user installs anything — so a green "manifest written" can sit on
+        # top of a dead pipe. A SIDELOADED (Load-unpacked) build gets a
+        # different per-machine id, and the host only accepts connections
+        # whose origin is in allowed_origins. When the manifest still points
+        # at the canonical id but nothing has been captured, name that as the
+        # prime suspect rather than a generic "check the ID" nudge.
+        provisional = False
+        try:
+            from .registry import CANONICAL_EXTENSION_ID
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            origins = manifest_data.get("allowed_origins") or []
+            provisional = any(CANONICAL_EXTENSION_ID in str(o) for o in origins)
+        except (OSError, ValueError, json.JSONDecodeError):
+            provisional = False
+        if provisional:
+            detail = (
+                "Manifest written but PROVISIONAL — it points at Trinity's canonical "
+                "(Web Store) extension id, which install.sh pre-wires before any "
+                "extension is installed. If you SIDELOADED the extension (Load "
+                "unpacked), Chrome assigned it a different per-machine id, so the host "
+                "rejects the connection and capture is silently dead. Fix: copy the id "
+                "from chrome://extensions, then `trinity-local install-extension "
+                "--extension-id <that id>`. Skip if you don't use chat-UI captures."
+            )
+        else:
+            detail = (
                 "Manifest installed but no captures yet. Check: extension loaded in "
                 "chrome://extensions, extension ID in the manifest matches Chrome's "
                 "assigned ID, then send a message on claude.ai or chatgpt.com. "
                 "Debug steps in `browser-extension/README.md`."
-            ),
+            )
+        return CheckResult(
+            name="browser_capture",
+            ok=True,
+            detail=detail,
         )
 
     # Stage 4 — freshness.
@@ -821,6 +971,8 @@ def run_doctor() -> DoctorReport:
     report.checks.append(_check_provider("claude", "claude"))
     report.checks.append(_check_provider("codex", "codex"))
     report.checks.append(_check_provider("antigravity", "agy"))
+    report.checks.append(_check_council_breadth())
+    report.checks.append(_check_embedding_backend())
     report.checks.append(_check_prompts_seeded())
     report.checks.append(_check_lens_built())
     report.checks.append(_check_core_distilled())

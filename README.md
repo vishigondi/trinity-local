@@ -38,38 +38,42 @@ That last move — the chairman knowing which split matters to **you** — is th
 
 ## Install
 
-**Recommended** — one line via `uvx` (Astral's `uv`-based PyPI runner; installs into an isolated venv, auto-updates on each invocation):
-
-```bash
-# Claude Code / Claude Desktop
-claude mcp add trinity-local --command "uvx trinity-local --mcp"
-```
-
-For **Codex CLI**, add to `~/.codex/config.toml`:
-
-```toml
-[mcp.trinity-local]
-command = "uvx"
-args = ["trinity-local", "--mcp"]
-```
-
-For **Cursor / Cline / Continue** — paste into the harness's MCP config UI:
-
-```json
-{ "command": "uvx", "args": ["trinity-local", "--mcp"] }
-```
-
-For **Antigravity** (`agy` CLI) — model selection happens inside agy itself, not via MCP. Run `/model` and pick `Gemini 3.1 Pro (high)`; Trinity's launchpad reads the persisted selection from `~/.gemini/antigravity-cli/settings.json`.
-
-Then ask any of these agents: *"Run a Trinity council on …"* — the MCP tools appear inline. Free, local, MIT. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface.
-
-**Full bootstrap** — if you want the Chrome extension (browser-capture + dispatch from claude.ai / chatgpt.com / gemini.google.com), the optional MLX embedding backend, and shell aliases all installed at once:
+**Recommended** — one line. Clones the repo (you can read it end-to-end), installs the runtime deps, registers Trinity's MCP server in every harness it detects (Claude Code, Codex CLI, Antigravity, Cursor), and pre-wires the Chrome-capture host:
 
 ```bash
 <!-- canonical:install_command -->curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash<!-- /canonical -->
 ```
 
-This clones the repo (you can read it end-to-end), pip-installs Trinity, sets up the Chrome extension, and seeds the embedder model.
+No PyPI, no npm, no API key — just `git clone` + a couple of shell wrappers in `~/.local/bin/`. Verify with `trinity-local status`. To remove: `trinity-local uninstall --yes`.
+
+**Not comfortable in a terminal?** Paste that one line into **Claude Code** — it runs inside your terminal *and* in the **Claude Desktop** app — and let Claude run the install for you. That's the easiest path if you arrived via the Chrome extension and have never opened a shell.
+
+**Manual MCP config** — if the bootstrap missed a harness, or you want to wire one by hand, that's exactly what `trinity-local install-mcp` writes. Substitute `PYTHON` with your interpreter (`which python3`, or the absolute path the bootstrap printed).
+
+For **Claude Code** (`~/.claude.json`), **Cursor** (`~/.cursor/mcp.json`), **Antigravity** (`~/.gemini/settings.json`), and other JSON harnesses — merge into the top-level `mcpServers` object:
+
+```json
+{
+  "mcpServers": {
+    "trinity-local": {
+      "command": "PYTHON",
+      "args": ["-m", "trinity_local.main", "--mcp"]
+    }
+  }
+}
+```
+
+For **Codex CLI**, append to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.trinity-local]
+command = "PYTHON"
+args = ["-m", "trinity_local.main", "--mcp"]
+```
+
+For **Antigravity** (`agy` CLI) — model selection happens inside agy itself, not via MCP. Run `/model` and pick your Gemini (e.g. `Gemini 3.5 Flash (high)`); Trinity's launchpad reads the persisted selection from `~/.gemini/antigravity-cli/settings.json`.
+
+Then ask any of these agents: *"Run a Trinity council on …"* — the MCP tools appear inline. Free, local, MIT. The CLI (`trinity-local status`, `trinity-local dream`, etc.) is the engine; the MCP tools are the agent surface.
 
 Requirements: Python 3.10+ and at least one of the `claude` / `codex` / `agy` CLIs authenticated — Trinity works with just one (chairman synthesis + your lens), gets stronger with two (real disagreement), full canonical council with three. **Ollama / MLX models you've pulled locally are auto-discovered** and join the routing pool as free council members (`ollama:<model>` / `mlx:<model>`) — no config edit, no extra MCP tools. To remove: `trinity-local uninstall --yes`.
 

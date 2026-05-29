@@ -331,14 +331,38 @@ echo "CLI:    $TRINITY_BIN_DIR/trinity-local"
 echo "Data:   $HOME/.trinity/ (prompts, council outcomes, lens)"
 echo "Docs:   $TRINITY_SKILL_DIR/docs/INSTALL-skill.md"
 echo ""
+# Is the extension actually published to the Chrome Web Store yet? The
+# canonical source of truth is registry.CHROME_WEB_STORE_URL — empty until
+# publish. Don't promise "Add to Chrome / auto-updates" before there's a
+# listing; that's the kind of claim that erodes trust on a fresh install.
+WEB_STORE_URL=""
+if [[ -d "$TRINITY_SKILL_DIR/src/trinity_local" ]]; then
+  WEB_STORE_URL=$(PYTHONPATH="$TRINITY_SKILL_DIR/src" "$PYTHON_BIN" -c \
+    'from trinity_local.registry import CHROME_WEB_STORE_URL as u; print(u)' \
+    2>/dev/null || echo "")
+fi
+
 printf "%sOptional next step — install the Chrome extension:%s\n" "$C_BOLD" "$C_RESET"
 echo "  - Captures conversations from claude.ai / chatgpt.com /"
 echo "    gemini.google.com into ~/.trinity/conversations/"
-echo "  - Auto-updates via Chrome Web Store (Python ships in the"
-echo "    extension package so 'trinity-local update' becomes optional)"
+if [[ -n "$WEB_STORE_URL" ]]; then
+  echo "  - One-click install + auto-updates via the Chrome Web Store:"
+  echo "      $WEB_STORE_URL"
+else
+  echo "  - Not yet on the Chrome Web Store — load it unpacked: open"
+  echo "    chrome://extensions, enable Developer mode, 'Load unpacked',"
+  echo "    and pick $TRINITY_SKILL_DIR/browser-extension/."
+  echo "  - No auto-update yet; 'trinity-local update' refreshes the source."
+fi
 echo "  - See $TRINITY_SKILL_DIR/docs/INSTALL-extension.md"
 echo ""
 printf "%sOptional — pre-fetch the deeper-memory model (~700MB):%s\n" "$C_BOLD" "$C_RESET"
 echo "  - lens-build / dream / vocabulary need the nomic-embed model."
-echo "  - Without it, those commands fail fast with an actionable error."
-echo "  - To prefetch: 'trinity-local download-embedder' (one-time)."
+echo "  - Without it, those commands fall back to the SHA-1 TF-IDF embedder"
+echo "    (no download, lower-fidelity vectors) — they still run."
+echo "  - The real model needs the [mlx] extras AND a one-time online pull"
+echo "    (Trinity pins HF_HUB_OFFLINE=1, so the download MUST opt back in):"
+echo "      $PYTHON_BIN -m pip install 'sentence-transformers>=2.2' einops 'torch>=2.0'"
+echo "      HF_HUB_OFFLINE=0 trinity-local download-embedder"
+echo "    A bare 'trinity-local download-embedder' WILL fail on a clean box"
+echo "    (no [mlx] extras + the offline pin) — run the two lines above instead."

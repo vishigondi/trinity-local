@@ -16,6 +16,22 @@ from typing import Any
 # Cortex.py:373,484 already does the same shape for failure_modes keys.
 _LEGACY_PROVIDER_ALIASES: dict[str, str] = {
     "gemini": "antigravity",
+    # Web-capture councils (Chrome extension: claude.ai / chatgpt.com /
+    # gemini.google.com) recorded BRAND names on disk while CLI councils
+    # recorded slugs — so the same lab fragmented across two names
+    # (chatgpt vs codex, claude_ai vs claude). Canonicalize the brand names
+    # to the trio slug at the load boundary so routing tables, scoreboards,
+    # and the winner-distribution stat aggregate per-lab, not per-entry-
+    # surface. Raw files keep the brand name as provenance; normalization
+    # happens at read.
+    "chatgpt": "codex",
+    "openai": "codex",
+    "gpt": "codex",
+    "claude_ai": "claude",
+    "claude.ai": "claude",
+    "anthropic": "claude",
+    "google": "antigravity",
+    "bard": "antigravity",
 }
 
 

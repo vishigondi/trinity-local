@@ -189,10 +189,48 @@ def load_registry() -> list[RegistryEntry]:
     return out
 
 
-def save_registry(entries: list[RegistryEntry]) -> Path:
+def save_registry(entries: list[RegistryEntry], *, allow_shrink: bool = False) -> Path:
+    """Persist the tension registry atomically, carrying the #194 clobber
+    guard: refuse to overwrite a populated registry with a cliff-drop
+    (empty when >= _CLOBBER_MIN_EXISTING tensions exist, or below
+    _CLOBBER_MIN_FRACTION of the existing count) — almost always a
+    transient empty rebuild, not a real shrink. The live registry is
+    preserved and the would-be result is stashed to a `.degenerate`
+    sidecar. `allow_shrink=True` is the escape hatch for a genuine
+    shrink (a manual prune). The registry is append-only by construction
+    (reconcile only unions evidence and bumps recency), so a count
+    cliff-drop is a strong corruption signal — the same class #194 caught
+    on the rejections corpus."""
     import json
 
+    from .turn_pairs import (
+        _CLOBBER_MIN_EXISTING,
+        _CLOBBER_MIN_FRACTION,
+        DegenerateExtractionError,
+    )
+
     path = registry_path()
+    existing = len(load_registry())
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
+    if not allow_shrink and existing >= _CLOBBER_MIN_EXISTING and len(entries) < floor:
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            sidecar.write_text(
+                json.dumps(
+                    {"tensions": [e.to_dict() for e in entries]},
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} registry tensions with "
+            f"{len(entries)} (cliff-drop below {floor}). Live registry "
+            f"preserved; degenerate result written to {sidecar.name}. Pass "
+            f"allow_shrink=True only if the registry genuinely shrank."
+        )
     payload = {"tensions": [e.to_dict() for e in entries]}
     atomic_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
     return path

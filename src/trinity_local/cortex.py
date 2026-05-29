@@ -349,13 +349,50 @@ def load_routing_patterns() -> dict[str, RoutingPattern]:
     return out
 
 
-def save_routing_patterns(patterns: dict[str, RoutingPattern]) -> None:
+def save_routing_patterns(
+    patterns: dict[str, RoutingPattern], *, allow_shrink: bool = False
+) -> None:
     """Write the cortex routing patterns to `~/.trinity/scoreboard/picks.json`
     atomically. (Function name preserved; file path moved during pre-launch
-    migrations — see `load_routing_patterns()` for lineage.)"""
+    migrations — see `load_routing_patterns()` for lineage.)
+
+    Carries the #194 clobber guard: refuse to overwrite a populated picks
+    store with a cliff-drop (empty when >= _CLOBBER_MIN_EXISTING patterns
+    exist, or below _CLOBBER_MIN_FRACTION of the existing count). A
+    consolidation that produced no patterns (every basin fell below
+    min_basin_size, or extraction failed) would otherwise erase the live
+    routing scoreboard — and with it every user `mark_pick_wrong`
+    override_count, the durable user-veto signal. The live file is
+    preserved and the would-be result lands in a `.degenerate` sidecar.
+    `allow_shrink=True` is the escape hatch.
+
+    Note: override_count survives a *normal* (non-degenerate) re-write
+    because the consolidate-all loop reads each existing pattern's
+    override_count and threads it through `prior_override_count`; this
+    guard adds a second backstop against the degenerate-empty case."""
     from .utils import atomic_write_text
+    from .me.turn_pairs import (
+        _CLOBBER_MIN_EXISTING,
+        _CLOBBER_MIN_FRACTION,
+        DegenerateExtractionError,
+    )
     path = cortex_routing_patterns_path()
     serialized = {basin_id: p.to_dict() for basin_id, p in patterns.items()}
+    existing = len(load_routing_patterns())
+    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
+    if not allow_shrink and existing >= _CLOBBER_MIN_EXISTING and len(patterns) < floor:
+        sidecar = path.parent / (path.name + ".degenerate")
+        try:
+            sidecar.write_text(json.dumps(serialized, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+        raise DegenerateExtractionError(
+            f"Refusing to overwrite {existing} routing patterns with "
+            f"{len(patterns)} (cliff-drop below {floor}). Live picks "
+            f"(and user overrides) preserved; degenerate result written to "
+            f"{sidecar.name}. Pass allow_shrink=True only if the basin set "
+            f"genuinely shrank."
+        )
     atomic_write_text(path, json.dumps(serialized, indent=2))
 
 

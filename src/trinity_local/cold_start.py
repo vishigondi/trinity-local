@@ -270,10 +270,18 @@ def maybe_kick_cold_start() -> dict | None:
 REFRESH_MIN_AGE_H = 24.0          # Auto-Dream's 24h floor
 REFRESH_MIN_NEW_PROMPTS = 5       # Auto-Dream's "5 sessions" analog — enough new material
 _REFRESH_COOLDOWN_S = 1800.0      # don't re-kick within 30 min (in-flight damping)
+# A refresh lock older than this is presumed dead (its owner crashed mid-build
+# and never released it). Bounds the cost of a single lost lock to one stale
+# window. Comfortably larger than a real delta rebuild + a safety margin.
+_REFRESH_LOCK_STALE_S = 3600.0
 
 
 def lens_refresh_marker_path() -> Path:
     return state_dir() / "lens_refresh.json"
+
+
+def lens_refresh_lock_path() -> Path:
+    return state_dir() / "lens_refresh.lock"
 
 
 def _hours_since(iso: str | None) -> float | None:
@@ -351,16 +359,83 @@ def _write_refresh_marker(payload: dict) -> None:
         pass
 
 
+def _try_claim_refresh_lock() -> bool:
+    """Atomic cross-process claim. Returns True iff THIS caller won the right
+    to rebuild.
+
+    Why this exists (#234): every CLI harness the user has connected (Claude
+    Code + Codex CLI + Cursor + Antigravity) spawns its own MCP child, and
+    they all hit `maybe_kick_lens_refresh()` on connect. `should_refresh_lens()`
+    and `_recently_kicked()` are both pure reads, so without a lock all four
+    children pass the gate in the same instant and each kicks a full chairman-
+    driven rebuild — quadruple spend and four writers racing on the same
+    ledger. The single-process cooldown marker can't close this: it's written
+    AFTER the check, so concurrent racers all read it as absent.
+
+    The lock is an `O_CREAT | O_EXCL` create — the OS guarantees exactly one
+    creator even across processes. A lock older than `_REFRESH_LOCK_STALE_S`
+    is treated as abandoned (owner crashed mid-build) and reclaimed, so a lost
+    lock self-heals after one stale window instead of wedging refresh forever.
+    """
+    import os as _os
+
+    path = lens_refresh_lock_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+
+    # Reclaim a stale lock (crashed owner) before attempting the claim.
+    try:
+        age_s = time.time() - path.stat().st_mtime
+        if age_s > _REFRESH_LOCK_STALE_S:
+            path.unlink()
+    except OSError:
+        pass  # missing (fine) or unstattable (let the create attempt decide)
+
+    try:
+        fd = _os.open(str(path), _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY, 0o644)
+    except FileExistsError:
+        return False  # another harness holds the lock — it owns this rebuild
+    except OSError:
+        return False
+    try:
+        _os.write(fd, f"{_os.getpid()}|{now_iso()}".encode("utf-8"))
+    except OSError:
+        pass
+    finally:
+        _os.close(fd)
+    return True
+
+
+def _release_refresh_lock() -> None:
+    try:
+        lens_refresh_lock_path().unlink()
+    except OSError:
+        pass
+
+
 def maybe_kick_lens_refresh() -> dict | None:
     """If the activity gate is open and no refresh is in flight, background-
     kick a (cheap, delta) lens rebuild. Best-effort: every failure path is
     swallowed so it can't crash or block the MCP server. Returns the kick
-    record, or None when skipped."""
+    record, or None when skipped.
+
+    #234: the actual in-flight guard is the cross-process lock claimed by
+    `_try_claim_refresh_lock()` — only ONE concurrently-connecting harness
+    wins it and rebuilds; the rest see the existing lock and bail. The
+    `_recently_kicked()` cooldown stays as a cheap pre-filter so the common
+    no-op connect doesn't even touch the lockfile."""
     if _autoscan_disabled():
         return None
     try:
         ok, reason = should_refresh_lens()
         if not ok or _recently_kicked():
+            return None
+        # Atomic check-and-set: only the lock winner proceeds. Closes the
+        # TOCTOU window where N harnesses all pass the pure-read gate above
+        # in the same instant and each spawns a rebuild.
+        if not _try_claim_refresh_lock():
             return None
         _write_refresh_marker({"last_kick_at": now_iso(), "reason": reason, "status": "in_progress"})
 
@@ -377,6 +452,8 @@ def maybe_kick_lens_refresh() -> dict | None:
                     "last_kick_at": now_iso(), "reason": reason, "status": "failed",
                     "finished_at": now_iso(), "error": str(exc)[:200],
                 })
+            finally:
+                _release_refresh_lock()
 
         threading.Thread(target=_run, daemon=True, name="trinity-lens-refresh").start()
         return {"status": "kicked", "reason": reason}

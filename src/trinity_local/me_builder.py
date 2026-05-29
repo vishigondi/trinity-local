@@ -453,15 +453,24 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
     result = primary.run(prompt, cwd=Path.cwd())
     me_doc = (result.stdout or "").strip()
     if not me_doc:
-        # Chairman returned nothing — surface stderr so the CLI can show why.
-        me_doc = f"# /me\n\n_lens-build failed: chairman returned empty output. stderr:_\n\n```\n{result.stderr or '(empty)'}\n```\n"
+        # Chairman returned nothing — almost always a transient empty
+        # build (the #194 clobber-guard class: a chairman blip wiping a
+        # good lens). Do NOT overwrite the persisted lens.md with a
+        # failure marker — that's the exact data-loss this guard exists to
+        # prevent. Preserve whatever is on disk and surface stderr in the
+        # result dict so the CLI can show why; the user can re-run
+        # lens-build and the prior lens keeps working in the meantime.
         path = me_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(me_doc, encoding="utf-8")
         return path, {
             "samples": len(samples), "chairman": chairman,
-            "chairman_model": chairman_config.model, "size_chars": len(me_doc),
+            "chairman_model": chairman_config.model,
+            "size_chars": path.stat().st_size if path.exists() else 0,
             "skipped": False, "validation_failed": True,
+            "note": (
+                "Chairman returned empty output; existing /me preserved. "
+                "Re-run lens-build."
+            ),
+            "stderr": (result.stderr or "")[:2000],
         }
 
     # Validate the chairman emitted the expected structure before overwriting
