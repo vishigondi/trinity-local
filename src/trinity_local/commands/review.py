@@ -23,7 +23,17 @@ def _reviewer_command_for(*, reviewer: str, config_path: str | None) -> list[str
         return DEFAULT_REVIEWER_COMMANDS.get(reviewer, [reviewer])
     provider_config = config.providers.get(reviewer)
     if provider_config:
-        return list(provider_config.command)
+        command = list(provider_config.command)
+        # Inject the authoritative model. Since v1.7.40 the config loader
+        # strips any inline `--model` from command/args into config.model, so
+        # the raw command no longer carries it — without this the reviewer
+        # runs on the CLI's default model, not the configured one. Insert
+        # right after the binary so it lands before any prompt-consuming flag
+        # (e.g. claude `-p`). Skip antigravity: agy's CLI has no --model flag.
+        model = getattr(provider_config, "model", None)
+        if model and reviewer != "antigravity" and "--model" not in command:
+            command[1:1] = ["--model", model]
+        return command
     return DEFAULT_REVIEWER_COMMANDS.get(reviewer, [reviewer])
 
 

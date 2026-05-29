@@ -326,6 +326,12 @@ class TestIngestRecent:
             "trinity_local.incremental_ingest._load_cursors",
             lambda: {},
         )
+        # Disable the #216 drained-skip so the file is actually re-parsed and
+        # the node-id dedupe path (not the cheaper drained-skip) is exercised.
+        monkeypatch.setattr(
+            "trinity_local.incremental_ingest._load_drained",
+            lambda: {},
+        )
 
         r1 = ingest_recent(sources=["claude"])
         r2 = ingest_recent(sources=["claude"])
@@ -372,3 +378,65 @@ def test_empty_embedding_does_not_shadow_real(tmp_path, monkeypatch):
     # Without the guard, latest-wins would keep the empty embedding.
     plain = {r["id"]: r for r in _iter_jsonl_latest_by_id(path)}
     assert plain["n1"]["embedding"] == []  # confirms the guard is what protects it
+
+
+def test_drained_boundary_file_skipped_when_unchanged(tmp_path, monkeypatch):
+    """#216: a fully-drained boundary file at the cursor mtime must not be
+    re-parsed on the next call while it's unchanged (the cost of the inclusive
+    `>=` boundary). A size change re-includes it."""
+    monkeypatch.setenv("TRINITY_HOME", str(tmp_path))  # isolate cursors.json + store
+    from trinity_local import incremental_ingest as ii
+    from trinity_local import watch_runtime
+
+    f = tmp_path / "t.jsonl"
+    f.write_text("{}\n", encoding="utf-8")
+
+    # _iter_recent_paths + _parse_source_path are imported into watch_runtime;
+    # iter_prompt_turns is a module attr of incremental_ingest.
+    monkeypatch.setattr(watch_runtime, "_iter_recent_paths",
+                        lambda source, since: iter([f]) if source == "claude" else iter([]))
+    monkeypatch.setattr(watch_runtime, "_parse_source_path", lambda source, p: _FakeSession())
+    parse_calls = {"n": 0}
+    def _count_turns(session):
+        parse_calls["n"] += 1
+        return []
+    monkeypatch.setattr(ii, "iter_prompt_turns", _count_turns)
+
+    ii.ingest_recent(sources=["claude"], deadline_s=5.0)
+    first = parse_calls["n"]
+    assert first == 1, "first run should parse the file"
+
+    # Second call, file unchanged → drained-skip kicks in, no re-parse.
+    ii.ingest_recent(sources=["claude"], deadline_s=5.0)
+    assert parse_calls["n"] == first, "unchanged boundary file was re-parsed"
+
+    # Grow the file → size changes → re-parsed.
+    f.write_text("{}\n{}\n", encoding="utf-8")
+    ii.ingest_recent(sources=["claude"], deadline_s=5.0)
+    assert parse_calls["n"] == first + 1, "grown file should be re-parsed"
+
+
+def test_review_command_injects_reconciled_model(tmp_path, monkeypatch):
+    """#217: review.py must inject the authoritative config.model (which the
+    v1.7.40 loader strips out of command/args) so the reviewer doesn't run on
+    the CLI default."""
+    import json as _json
+    from trinity_local.commands.review import _reviewer_command_for
+
+    cfg = tmp_path / "config.json"
+    cfg.write_text(_json.dumps({
+        "providers": {
+            "codex": {"type": "codex", "command": ["codex", "--quiet"],
+                      "args": ["--model", "gpt-5.3-codex"]},
+            "antigravity": {"type": "antigravity", "command": ["agy", "-p"],
+                            "model": "Gemini 3.1 Pro (high)"},
+        },
+    }), encoding="utf-8")
+
+    codex_cmd = _reviewer_command_for(reviewer="codex", config_path=str(cfg))
+    assert "--model" in codex_cmd and "gpt-5.3-codex" in codex_cmd
+    assert codex_cmd[0] == "codex"  # binary stays first
+
+    # antigravity has no --model flag → never injected.
+    agy_cmd = _reviewer_command_for(reviewer="antigravity", config_path=str(cfg))
+    assert "--model" not in agy_cmd

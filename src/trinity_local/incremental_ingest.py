@@ -79,10 +79,40 @@ def _load_cursors() -> dict[str, float]:
     return out
 
 
-def _save_cursors(cursors: dict[str, float]) -> None:
+def _load_drained() -> dict[str, tuple[str, int]]:
+    """Per-source ``{source: (drained_path, drained_size)}`` — the highest-mtime
+    file fully processed last run. Lets a re-scan skip an unchanged boundary
+    file instead of re-parsing it every call (the cost of the inclusive `>=`
+    boundary on the 1s MCP path). Absent/legacy entries → no skip."""
+    path = ingest_cursors_path()
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    out: dict[str, tuple[str, int]] = {}
+    for source, entry in raw.items():
+        if isinstance(entry, dict):
+            dp, ds = entry.get("drained_path"), entry.get("drained_size")
+            if isinstance(dp, str) and isinstance(ds, int):
+                out[source] = (dp, ds)
+    return out
+
+
+def _save_cursors(
+    cursors: dict[str, float],
+    drained: dict[str, tuple[str, int]] | None = None,
+) -> None:
     from .utils import atomic_write_text
     path = ingest_cursors_path()
-    payload = {source: {"last_mtime": mtime} for source, mtime in cursors.items()}
+    drained = drained or {}
+    payload: dict[str, dict] = {}
+    for source, mtime in cursors.items():
+        entry: dict = {"last_mtime": mtime}
+        if source in drained:
+            entry["drained_path"], entry["drained_size"] = drained[source]
+        payload[source] = entry
     atomic_write_text(path, json.dumps(payload, indent=2))
 
 
@@ -106,6 +136,7 @@ def ingest_recent(
 
     sources = list(sources or DEFAULT_SOURCES)
     cursors = _load_cursors()
+    drained = _load_drained()
     existing_ids = _existing_prompt_node_ids()
 
     started = time.monotonic()
@@ -117,6 +148,11 @@ def ingest_recent(
             break
         last_mtime = cursors.get(source, 0.0)
         max_mtime = last_mtime
+        # Highest-mtime file fully processed this run → recorded so the next
+        # scan can skip it if unchanged (the `>=` boundary would otherwise
+        # re-parse it every call). (path_str, size, mtime).
+        boundary: tuple[str, int, float] | None = None
+        drained_path, drained_size = drained.get(source, ("", -1))
 
         try:
             paths = list(_iter_recent_paths(source, last_mtime))
@@ -130,9 +166,20 @@ def ingest_recent(
             result.scanned += 1
             try:
                 file_mtime = path.stat().st_mtime
+                file_size = path.stat().st_size
             except OSError:
                 continue
             max_mtime = max(max_mtime, file_mtime)
+            # Skip a fully-drained, unchanged boundary file (same path + size).
+            # A grown file has a different size → re-parsed; a sibling at the
+            # same mtime has a different path → still scanned (equal-mtime
+            # safety preserved). Track the highest-mtime file we processed.
+            if str(path) == drained_path and file_size == drained_size:
+                if boundary is None or file_mtime >= boundary[2]:
+                    boundary = (str(path), file_size, file_mtime)
+                continue
+            if boundary is None or file_mtime >= boundary[2]:
+                boundary = (str(path), file_size, file_mtime)
 
             try:
                 session = _parse_source_path(source, path)
@@ -175,7 +222,9 @@ def ingest_recent(
                 result.added += 1
 
         cursors[source] = max_mtime
+        if boundary is not None:
+            drained[source] = (boundary[0], boundary[1])
 
-    _save_cursors(cursors)
+    _save_cursors(cursors, drained)
     result.took_ms = int((time.monotonic() - started) * 1000)
     return result

@@ -7,6 +7,23 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.44 — review follow-ups: ingest re-parse cost + review.py model] — 2026-05-28
+
+Clears the two low-priority follow-ups the v1.7.40 verification surfaced.
+
+- **#216 ingest hot-path re-parse.** The inclusive `>=` cursor boundary (v1.7.40)
+  re-parsed the unchanged boundary file (the live transcript) on every `ask`
+  MCP call. `ingest_recent` now records the fully-drained boundary file's
+  `(path, size)` in `cursors.json` and skips it next call while unchanged — a
+  grown file (new size) is re-parsed, a same-mtime sibling (different path) is
+  still scanned, so the equal-mtime data-loss fix stays intact.
+- **#217 review.py model.** Since v1.7.40 the loader strips inline `--model`
+  into `config.model`; `_reviewer_command_for` now re-injects it (after the
+  binary, before any prompt flag) so the reviewer runs the configured model,
+  not the CLI default. Antigravity skipped (agy has no flag).
+- Plus a store.py clarifier on `protect_field`'s whole-record suppression for
+  future metadata-patch writers.
+
 ## [v1.7.43 — model-launch loop slice 2: launchpad banner + eval celebration] — 2026-05-28
 
 Closes the Q7 detect→notify→eval→eval-card loop's last mile.
@@ -1732,7 +1749,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2096<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2098<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

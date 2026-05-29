@@ -46,7 +46,13 @@ def _iter_jsonl_latest_by_id(path: Path, *, protect_field: str | None = None) ->
     overwrite a stored record whose `protect_field` is non-empty. Used for
     `embedding` so an empty-embedding PromptNode (written cheaply by
     incremental ingest) can't shadow the same id's fully-embedded record —
-    the dim-0 / lost-vector hazard the basin filter only papers over."""
+    the dim-0 / lost-vector hazard the basin filter only papers over.
+
+    NOTE for future writers: suppression is whole-record — when a later empty
+    record is dropped, ANY non-embedding fields it carried are dropped with it.
+    Harmless today (no writer upserts an empty-embedding metadata patch onto an
+    existing id), but a future "patch metadata, keep embedding" writer would
+    need a field-level merge here instead."""
     if not path.exists():
         return
     seen: dict[str, dict] = {}
