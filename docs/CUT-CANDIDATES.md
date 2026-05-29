@@ -1,5 +1,5 @@
 ---
-class: live
+class: historical
 ---
 
 # Cut Candidates — Honest Review

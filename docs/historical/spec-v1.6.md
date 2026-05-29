@@ -1,5 +1,5 @@
 ---
-class: aspirational
+class: historical
 ---
 
 # Trinity v1.6 — Browser-side conversation capture (no server, no daemon)

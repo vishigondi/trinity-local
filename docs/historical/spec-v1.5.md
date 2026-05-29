@@ -1,5 +1,5 @@
 ---
-class: aspirational
+class: historical
 ---
 
 # Trinity v1.5 — locked next-trajectory spec

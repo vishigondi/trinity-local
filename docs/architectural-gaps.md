@@ -1,5 +1,5 @@
 ---
-class: aspirational
+class: historical
 ---
 
 # Architectural gaps surfaced by the 62-iter doc sweep
@@ -167,7 +167,7 @@ verify_against: code
 
 ```yaml
 ---
-class: aspirational
+class: historical
 verify_against: claude.md "## Status"
 last_synced: 2026-05-19
 ---

@@ -1,5 +1,5 @@
 ---
-class: live
+class: historical
 ---
 
 # Parasitism Audit — entangled dead/live code patterns

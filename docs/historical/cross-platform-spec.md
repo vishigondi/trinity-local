@@ -1,5 +1,5 @@
 ---
-class: aspirational
+class: historical
 ---
 
 # Trinity Cross-Platform Spec

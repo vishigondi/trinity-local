@@ -1179,15 +1179,15 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         <div class="eyebrow">What Trinity will learn about you</div>
         <h2>Run <code>trinity-local consolidate</code> after a few councils</h2>
         <p class="meta">
-          Once you've rated a handful of councils, the cortex layer extracts routing patterns from them: which provider wins for which kind of question, why, and the failure modes of the losers. Those rules then drive the next ask call — Trinity learns at two levels (hippocampus for episodes, cortex for patterns).
+          Once you've run a handful of councils, the cortex layer extracts routing patterns from them: which provider wins for which kind of question, why, and the failure modes of the losers. Those rules then drive the next ask call — Trinity learns at two levels (hippocampus for episodes, cortex for patterns).
         </p>
       </section>
 
       <section class="card">
-        <div class="eyebrow">Ratings</div>
+        <div class="eyebrow">Routing</div>
         <h2>Which model wins for which kind of question</h2>
         <p class="meta" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
-          From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every rating. Categories match LMArena so you can compare against public evals later.
+          From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every council. Categories match LMArena so you can compare against public evals later.
         </p>
         <p class="meta" v-else>
           Run a few councils via <code>trinity-local council-launch --task "&lt;your question&gt;"</code> and this chart fills in with per-category strength for each provider, computed from your own council preferences.

@@ -7,6 +7,27 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.45 — doc consolidation: retired-rating sweep + class retags] — 2026-05-28
+
+Completes the high-value #215 work (the v1.7.41 ship did the dead-link +
+stale-copy + orphan-delete half).
+
+- **Retired-rating copy sweep (review MED ui-trust).** The launchpad's
+  routing/cortex cards still said "Ratings" / "Once you've rated…" / "the
+  bars sharpen with every rating" — but the rating UX was sunset 2026-05-21,
+  so new users hunted for a button that doesn't exist. Swept to
+  council/routing language + a `test_launchpad_rating_copy_retired` guard so
+  the retired vocabulary can't resurface.
+- **Doc-class retags.** Five completed one-time audits (CUT-CANDIDATES,
+  PARASITISM-AUDIT, architectural-gaps, launcher-patterns, design-frame) and
+  four relocated specs (historical/ spec-v1.5, spec-v1.6, scale-plan,
+  cross-platform-spec) retagged to `class: historical` to match their status.
+- Deferred by judgment (low user value / high coupling — they don't compound
+  per the council-first re-lead): physically relocating the five audit docs
+  into `docs/historical/` (tests/scripts/runtime + the doc-class path list
+  all reference them) and the two content-merges (frontend-architecture→DESIGN,
+  launch→launch-package, the latter entangled with the brand-axis hero guard).
+
 ## [v1.7.44 — review follow-ups: ingest re-parse cost + review.py model] — 2026-05-28
 
 Clears the two low-priority follow-ups the v1.7.40 verification surfaced.
@@ -1749,7 +1770,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2098<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2099<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -1,5 +1,5 @@
 ---
-class: aspirational
+class: historical
 ---
 
 # A design frame for Trinity's drift-resistance work
