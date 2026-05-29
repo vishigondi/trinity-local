@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.54 — Chrome extension: per-harness paste-in snippet generator (#166)] — 2026-05-29
+
+Replaces the "go run install-mcp in the right CLI" friction with: pick your
+app, copy the exact MCP config block, paste it where it says. The setup
+card's primary path stays the agent-brief / shell-commands; this adds a
+direct paste route for users who'd rather drop the config in themselves —
+and don't need to know which CLI they're in.
+
+- `browser-extension/harness-snippets.js` — a PURE module (no extension
+  APIs, so it loads standalone + is independently browser-testable) that is
+  the single source of truth for the per-harness MCP config shapes. Six
+  harnesses: Claude Code, Claude Desktop, Codex CLI, Cursor, Antigravity,
+  Cline. Every harness rides the uvx zero-prereq invocation (`uvx
+  trinity-local --mcp`); JSON harnesses get the `mcpServers` block, Codex
+  gets its TOML `[mcp_servers.trinity-local]` table. Each shows the target
+  file path + a "merge into … (don't replace the file)" note (the #1
+  paste-in footgun).
+- The popup's setup card renders a row of harness pills → click → reveals
+  the file + a copyable config block. `renderHarnessPicker()` is pure DOM
+  (document + navigator.clipboard).
+- **Real-Chrome verified**: served the module standalone, rendered the
+  picker, clicked Codex → TOML block + `~/.codex/config.toml`, clicked
+  Claude Code → JSON `mcpServers` + `~/.claude.json`, active-pill toggles.
+- Python guards pin all six harnesses, the uvx command, the JSON-vs-TOML
+  surfaces, the file paths, chrome-free purity, and the popup wiring (loads
+  the module before popup.js + invokes the picker).
+
+Honest scope: "detected harness pills" (auto-detecting which CLIs are
+installed) needs filesystem access the popup doesn't have — Phase B via the
+Native-Messaging host. Phase A shows all six; the user picks theirs.
+
 ## [v1.7.53 — schema versioning + forward migration runner (#183)] — 2026-05-29
 
 `~/.trinity/` had no version marker; schema growth was additive-only and
@@ -1976,7 +2007,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2119<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2130<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

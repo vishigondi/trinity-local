@@ -261,6 +261,53 @@
     }
     .setup-footer a { color: var(--info); text-decoration: none; }
     .setup-footer a:hover { text-decoration: underline; }
+
+    /* Per-harness paste-in snippet picker (#166). Pills wrap to fit the
+       440px popup; the selected harness reveals its target file + a
+       copyable config block. */
+    .harness-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 4px;
+    }
+    .harness-pill {
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .harness-pill:hover { border-color: var(--action); color: var(--action); }
+    .harness-pill.active {
+      background: var(--action);
+      border-color: var(--action);
+      color: var(--action-text);
+    }
+    .harness-detail { margin-top: 10px; }
+    .harness-file {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 0 0 6px 0;
+      line-height: 1.4;
+    }
+    .harness-snippet {
+      background: var(--bg-wash);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px 12px;
+      margin: 0 0 8px 0;
+      overflow-x: auto;
+      font-family: "SF Mono", ui-monospace, "Menlo", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      white-space: pre;
+    }
   </style>
 </head>
 <body>
@@ -299,6 +346,7 @@
     </div>
   </div>
 
+  <script src="harness-snippets.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

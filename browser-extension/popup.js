@@ -153,6 +153,14 @@ function showSetupCard(reason) {
     }
   });
 
+  // Per-harness paste-in snippet picker (#166). For users who'd rather
+  // drop the MCP config block straight into their harness than run the
+  // CLI. Rendered by the pure harness-snippets.js module (no chrome.*),
+  // which is the single source of truth for the per-harness config shapes.
+  if (typeof renderHarnessPicker === "function") {
+    renderHarnessPicker(body);
+  }
+
   body.appendChild(el("p", { class: "setup-step", text:
     "After installing, reload this popup."
   }));
