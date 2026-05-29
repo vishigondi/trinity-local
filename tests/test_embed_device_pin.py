@@ -1,12 +1,18 @@
-"""#241: the embedder must pin device=cpu by default (TRINITY_EMBED_DEVICE override).
+"""#241: embedder device selection — prefer CUDA, never auto-select MPS.
 
-The "MLX" backend is actually sentence-transformers + torch. nomic-embed-v1.5's
-trust_remote_code custom ops are MPS-incompatible → per-op CPU fallback, and the
-Metal path can WEDGE on a GPU command-buffer recovery: a real backfill dragged
-from ~56 nodes/s to ~12 nodes/MIN after an "innocent victim" Metal error and
-never recovered. Measured fresh on M1 Ultra: CPU 56 nodes/s + 3s load vs MPS
-97/s but 77s load + wedge-fragile. So we pin CPU. This guard stops a refactor
-from silently dropping the pin and re-introducing the wedge.
+nomic-embed-v1.5 stays the model (Matryoshka dims + 8k context are why it's
+chosen). The "MLX" backend is actually sentence-transformers + torch. nomic's
+trust_remote_code custom ops have gaps in Apple-Metal's op coverage → per-op CPU
+fallback, and the Metal path can WEDGE (a real backfill dragged from ~56 nodes/s
+to ~12 nodes/MIN). But CUDA has full op coverage, so torch IS the fast
+cross-platform GPU path. So the device rule:
+
+  - explicit TRINITY_EMBED_DEVICE wins (incl. opt-in "mps" at the wedge risk),
+  - else CUDA when available (Linux/Windows NVIDIA — fast + clean),
+  - else CPU (Apple-safe default; never auto-MPS for nomic).
+
+These guards stop a refactor from (a) dropping back to unconditional CPU (which
+penalises CUDA boxes) or (b) auto-selecting MPS (which reopens the wedge).
 """
 from __future__ import annotations
 
@@ -27,20 +33,35 @@ def _install_fake_sentence_transformers(monkeypatch, recorder):
     monkeypatch.setitem(sys.modules, "sentence_transformers", fake)
 
 
-def test_default_embed_device_is_cpu(monkeypatch):
+def test_prefers_cuda_when_available(monkeypatch):
     monkeypatch.delenv("TRINITY_EMBED_DEVICE", raising=False)
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     rec: dict = {}
     _install_fake_sentence_transformers(monkeypatch, rec)
     from trinity_local.embeddings.backend_mlx import MlxEmbedder
 
     MlxEmbedder()._load()
-    assert rec["device"] == "cpu", (
-        f"default embed device must be cpu to avoid the MPS Metal-wedge; got {rec.get('device')!r}"
-    )
+    assert rec["device"] == "cuda", f"must prefer cuda when available; got {rec.get('device')!r}"
     assert rec["trust_remote_code"] is True
 
 
-def test_embed_device_env_override_honored(monkeypatch):
+def test_cpu_when_no_cuda_never_auto_mps(monkeypatch):
+    monkeypatch.delenv("TRINITY_EMBED_DEVICE", raising=False)
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    rec: dict = {}
+    _install_fake_sentence_transformers(monkeypatch, rec)
+    from trinity_local.embeddings.backend_mlx import MlxEmbedder
+
+    MlxEmbedder()._load()
+    # Apple/CPU-only default is cpu — NEVER auto-mps (that reopens the wedge).
+    assert rec["device"] == "cpu", f"no-cuda default must be cpu (never auto-mps); got {rec.get('device')!r}"
+
+
+def test_env_override_honored(monkeypatch):
     monkeypatch.setenv("TRINITY_EMBED_DEVICE", "mps")
     rec: dict = {}
     _install_fake_sentence_transformers(monkeypatch, rec)
@@ -48,5 +69,5 @@ def test_embed_device_env_override_honored(monkeypatch):
 
     MlxEmbedder()._load()
     assert rec["device"] == "mps", (
-        f"TRINITY_EMBED_DEVICE must override the cpu default; got {rec.get('device')!r}"
+        f"TRINITY_EMBED_DEVICE must override the default (opt-in mps at the wedge risk); got {rec.get('device')!r}"
     )

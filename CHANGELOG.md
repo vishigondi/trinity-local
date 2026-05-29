@@ -7,6 +7,25 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.65 — device-aware embedder: CUDA-preferred, never auto-MPS (#241)] — 2026-05-29
+
+Corrects v1.7.64's *unconditional* `device="cpu"`, which penalised Linux/Windows
+NVIDIA boxes (forced slow CPU even with a fast GPU). The embedder now selects:
+explicit `TRINITY_EMBED_DEVICE` > **CUDA if available** (full PyTorch op coverage
+— fast + clean on NVIDIA/ROCm) > **CPU** (Apple-safe default). It **never
+auto-selects MPS**: nomic-embed-v1.5's `trust_remote_code` custom ops have
+Metal op-coverage gaps → per-op CPU fallback + the command-buffer wedge (a
+backfill dragged to ~12 nodes/min).
+
+Key reframe (founder): **nomic stays the model** — its Matryoshka dims (used via
+`vector[:dim]`) + 8k context are *why* it was chosen, and the only problem was
+ever the Apple-**MPS runtime**, not the model or torch. **torch stays too** — it
+IS the cross-platform GPU path (CUDA/ROCm); MLX is Apple-only, so sunsetting
+torch would cost Linux/Windows GPU users their fast path. MLX becomes an
+*optional Apple-GPU accelerator* (#241 follow-on), not a replacement. So no
+platform loses real embeddings. Guards updated (`test_embed_device_pin.py`:
+cuda-when-available / cpu-otherwise-never-mps / env-override).
+
 ## [v1.7.64 — pin embedder to CPU (#241): kill the MPS Metal-wedge] — 2026-05-29
 
 The embedding backfill crawled at ~12 nodes/MIN — diagnosed live. Root cause:
@@ -2248,7 +2267,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2247<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2248<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
