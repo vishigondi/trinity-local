@@ -364,3 +364,58 @@ class TestVocabularyDistillationOnRealCorpus:
 
 # TestDepthSignalNotDominatedByShortThreads deleted 2026-05-27 with
 # the me/depth.py retirement (#187). See retired_names.py.
+
+
+@pytest.mark.real_corpus
+class TestPromptCorpusPurity:
+    """#245: the indexed prompt corpus must be overwhelmingly user-authored.
+
+    A 2026-05-12 bulk ingest leaked 24,708 non-user prompts (43% of the
+    corpus) — mostly Trinity's own "You are extracting durable facts…"
+    extractor scaffolding — which poisoned basins/lens/cold-open until a
+    re-apply of the ingest filter purged them. `_is_user_facing_prompt`
+    rejects them at the boundary now; this guard re-checks the LIVE corpus
+    (not the downstream basins, which the junk-drawer guard covers) so a
+    future bulk-ingest that bypasses the filter fails loudly instead of
+    silently re-poisoning the lens. (Source-level check — principle #3.)
+    """
+
+    # The corpus is allowed a little harness noise (a stray dispatch verb the
+    # filter doesn't yet pattern-match), but 5% is far below the 43% blowout.
+    MAX_SCAFFOLDING_FRACTION = 0.05
+    MIN_CORPUS_FOR_SIGNAL = 200
+
+    def test_corpus_is_overwhelmingly_user_authored(self):
+        try:
+            from trinity_local.ingest import _is_user_facing_prompt
+            from trinity_local.memory.store import iter_prompt_nodes_no_embedding
+            from trinity_local.session_schema import SessionMessage
+        except Exception as exc:  # pragma: no cover - import guard
+            pytest.skip(f"module unavailable: {exc}")
+
+        total = 0
+        scaffolding = 0
+        examples: list[str] = []
+        for node in iter_prompt_nodes_no_embedding(limit=None):
+            text = (getattr(node, "text", "") or "").strip()
+            if not text:
+                continue
+            total += 1
+            # Re-run the boundary filter against the stored prompt. A clean
+            # corpus passes everything it indexed; pollution surfaces as the
+            # filter now rejecting rows that were indexed before it tightened.
+            if not _is_user_facing_prompt(SessionMessage(role="user", text=text)):
+                scaffolding += 1
+                if len(examples) < 3:
+                    examples.append(text[:80])
+
+        if total < self.MIN_CORPUS_FOR_SIGNAL:
+            pytest.skip(f"corpus too small ({total} prompts) for a purity signal")
+
+        fraction = scaffolding / total
+        assert fraction < self.MAX_SCAFFOLDING_FRACTION, (
+            f"{fraction:.0%} of the {total}-prompt corpus is non-user "
+            f"scaffolding ({scaffolding} rows) — above the "
+            f"{self.MAX_SCAFFOLDING_FRACTION:.0%} ceiling. A bulk ingest "
+            f"bypassed _is_user_facing_prompt (#245). Examples: {examples}"
+        )

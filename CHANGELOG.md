@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.67 — corpus-purity floor-guard (#245)] — 2026-05-29
+
+A standing guard against the silent lens-poisoning the embedding mining
+exposed. Clustering the clean modernbert vectors revealed that **a 2026-05-12
+bulk ingest had leaked 24,708 non-user prompts — 46% of the corpus** — mostly
+Trinity's own `You are extracting durable facts…` extractor scaffolding,
+captured as `role=user` because the CLI sees them as input. They poisoned
+basins, the lens, and the cold-open tension. Re-applying the (since-tightened)
+`_is_user_facing_prompt` filter purged the live corpus to **28,618 real
+prompts**, and the actual topic map surfaced (floorplan/WikiHouse design,
+appliance specs, Trinity dev, email, AI strategy, prompt-craft).
+
+This release ships the **guard** so it can't recur silently:
+
+- **`TestPromptCorpusPurity`** (`tests/test_real_corpus_invariants.py`,
+  `real_corpus`-marked) re-runs the boundary filter over the LIVE
+  `prompt_nodes.jsonl` — a **source-level** check, distinct from the
+  junk-drawer guard that only watches downstream basin sizes (principle #3:
+  catch pollution at the boundary, not the symptom). Fails if >5% of the
+  corpus is non-user scaffolding.
+- **Mutation-verified**: passes on the clean corpus (0.0% scaffolding), and
+  fires on the pre-purge backup (46.3% ≥ 5% ceiling). A green substring assert
+  that can't fail on real pollution would be worthless (principle: mutation-test
+  load-bearing regressions).
+- **Boundary audit**: confirmed both live `PromptNode` writers
+  (`incremental_ingest.py` + `ingest_helpers.py`) already route through
+  `iter_prompt_turns` → `_is_user_facing_prompt`, so the leak was a
+  now-retired ingest path, not a live hole. The filter is the single
+  chokepoint; the guard is the tripwire if a future path bypasses it.
+
 ## [v1.7.66 — real Apple-MLX embedder: modernbert-embed-base (#244)] — 2026-05-29
 
 The end of the embedding saga. Trinity finally uses **real Apple MLX**:
@@ -2295,7 +2325,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2253<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2254<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
