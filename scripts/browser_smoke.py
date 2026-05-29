@@ -28,7 +28,6 @@ Prereqs (installed once):
 
 Surfaces:
     1. Launchpad cold-render: Ratings chart bars rendered
-   1b. Autofill content quality: no scaffolding leaks in councilSuggestions
     2. Settings gear: modal opens, telemetry-sharing toggle present
        (auto-chain + polish-auto-iterate global toggles retired
        2026-05-18 — auto-chain is now per-council on the review page)
@@ -42,7 +41,6 @@ Surfaces:
     9. Multi-round thread render: 3 chain segments visible with round numbers
    10. Recent council card content: title + winner + rounds badge per card,
        plus cross-memory chips → picks + routing viewer (tick #15)
-   11. Autofill apply: clicking a suggestion fills the textarea
    12. Settings toggle binding: each :checked reflects underlying telemetry state
    13. Lens card render: paired-lenses block populates when tasteLenses exists,
        includes "View full lens →" cross-link to memory viewer (tick #12)
@@ -221,46 +219,6 @@ def main() -> int:
             reason = chart_data.get("reason") or "no bars in any dataset"
             print(f"[ ✗ ] Surface 1 launchpad: {reason}")
             fails.append((1, "launchpad cold-render", reason))
-
-        # ─── Surface 1b: autofill content quality ────────────────────────────
-        # Trinity's own extractor / lens-build prompts can leak into the
-        # user's CLI transcripts as role=user. We filter them at ingest +
-        # search, but a regression in either path silently floods the
-        # autofill with "You are extracting durable facts..." clones.
-        # See commit 71c3a83 (replay-history fix) and the launchpad fix
-        # that followed. Catch any new leak from the rendered DOM.
-        # councilSuggestions is loaded into pageData regardless of whether the
-        # suggestion panel is currently rendered (panel is v-if="showSuggestions",
-        # only shown on textarea focus). Pull it directly from the inline JSON
-        # so the check works without simulating user focus.
-        autofill = page.evaluate(
-            """() => {
-              const script = document.getElementById('page-data');
-              if (!script) return [];
-              try {
-                const data = JSON.parse(script.textContent || '{}');
-                return (data.councilSuggestions || []).slice(0, 15).map(
-                  s => (typeof s === 'string' ? s : (s.text || '')).trim()
-                );
-              } catch (_) { return []; }
-            }"""
-        )
-        leak_count = sum(
-            1 for t in autofill
-            if t.lower().startswith(("you are ", "you will "))
-        )
-        prefixes = [t[:200] for t in autofill if t]
-        dup_count = len(prefixes) - len(set(prefixes))
-        # Only fail on scaffolding leaks. Prefix duplicates can be legitimate
-        # template reuse (e.g. running the same floorplan-analysis template
-        # against the same target multiple times) — report for visibility but
-        # don't fail.
-        if leak_count == 0:
-            print(f"[ ✓ ] Surface 1b autofill: {len(autofill)} entries, no scaffolding leaks (dups={dup_count})")
-        else:
-            reason = f"leak={leak_count} (first: {autofill[0][:80] if autofill else 'empty'!r})"
-            print(f"[ ✗ ] Surface 1b autofill: {reason}")
-            fails.append((1, "autofill scaffolding leak", reason))
 
         # ─── Surface 2: Settings gear ────────────────────────────────────────
         gear_clicked = page.evaluate(
@@ -718,59 +676,6 @@ def main() -> int:
             reason = f"count={cards_state.get('count')} sample={sample}"
             print(f"[ ✗ ] Surface 10 recent cards: {reason}")
             fails.append((10, "recent card content", reason))
-
-        # ─── Surface 11: Autofill suggestion click → textarea fills ──────────
-        # Surface 1b validates the suggestion DATA. This validates the
-        # APPLY path: focus the textarea, pick the first non-empty
-        # suggestion, click it, verify the textarea now contains that text.
-        # Catches regressions in @mousedown handling / applySuggestion().
-        apply_state = page.evaluate(
-            """() => new Promise(resolve => {
-              const textarea = document.querySelector('textarea');
-              if (!textarea) { resolve({ok: false, reason: 'no textarea'}); return; }
-              // Focus opens the panel (v-if="showSuggestions")
-              textarea.focus();
-              setTimeout(() => {
-                const items = Array.from(document.querySelectorAll('.suggestion-item'));
-                if (items.length === 0) { resolve({ok: false, reason: 'no suggestion items rendered after focus'}); return; }
-                const target = items[0];
-                const targetText = target.querySelector('.suggestion-text')?.textContent?.trim() || '';
-                // Suggestion buttons use @mousedown.prevent — dispatch that.
-                target.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}));
-                setTimeout(() => {
-                  // Tick #78: include() not startsWith() because applySuggestion
-                  // wraps the prompt with a "Prior conversation context —" prefix
-                  // when the suggestion carries thread history (preceding_assistant_text).
-                  // The invariant being tested is "clicked suggestion ends up in the
-                  // textarea somewhere," not "textarea starts with clicked text."
-                  // Substring presence catches a broken applySuggestion handler
-                  // without false-positive failing on the correct wrapper path.
-                  const value = textarea.value || '';
-                  resolve({
-                    ok: true,
-                    targetHead: targetText.slice(0, 80),
-                    valueHead: value.slice(0, 80),
-                    matches: targetText.length > 0 && value.includes(targetText.slice(0, 40)),
-                  });
-                }, 400);
-              }, 400);
-            })"""
-        )
-        if apply_state.get("ok") and apply_state.get("matches"):
-            print(f"[ ✓ ] Surface 11 autofill apply: textarea filled from suggestion ('{apply_state['valueHead']}...')")
-        else:
-            reason = apply_state.get("reason") or f"target={apply_state.get('targetHead')!r} value={apply_state.get('valueHead')!r}"
-            print(f"[ ✗ ] Surface 11 autofill apply: {reason}")
-            fails.append((11, "autofill apply", reason))
-
-        # Clear textarea + blur so it doesn't intercept later surfaces.
-        page.evaluate(
-            """() => {
-              const t = document.querySelector('textarea');
-              if (t) { t.value = ''; t.dispatchEvent(new Event('input', {bubbles: true})); t.blur(); }
-            }"""
-        )
-        page.wait_for_timeout(300)
 
         # ─── Surface 12: Settings toggle binding ─────────────────────────────
         # Surface 2 confirms toggles are present. This confirms each toggle's

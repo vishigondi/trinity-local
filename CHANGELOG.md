@@ -7,6 +7,17 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.63 — drop dead autofill smoke surfaces (#222)] — 2026-05-29
+
+Removed Surface 1b (autofill content quality) + Surface 11 (autofill apply) from
+`scripts/browser_smoke.py` — both tested the autofill suggestion panel that was
+intentionally removed in commit `2934195` ("Top used council queries was
+polluting w/ session-noise"). Surface 11 hard-failed with "no suggestion items
+rendered after focus" (the regression the founder spotted); Surface 1b passed
+vacuously on an empty `councilSuggestions`. Smoke gate 34→32 surfaces; the
+`canonical:smoke_surface_count` placeholder auto-updated. (The feature is
+correctly gone — this clears the dead test, it doesn't restore autofill.)
+
 ## [v1.7.62 — launch-hardening batch (provider-name canon + workflow-tackled backlog)] — 2026-05-29
 
 A dogfood batch: a council gap-review + a 5-group tackle-workflow drove a
