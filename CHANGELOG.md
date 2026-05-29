@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.57 — extension auto-wire: pre-register the host for the canonical id] — 2026-05-29
+
+Makes "install the extension and capture just works" real — no second
+command, no copying a 32-char id. The mechanism: a Chrome extension can't
+write its own native-messaging host manifest (no FS access), so instead
+**install.sh pre-registers the host for ONE fixed extension id** ahead of
+time. The host is inert until an extension with that exact id connects, so
+pre-wiring is safe — and the moment the user adds the published extension
+(same id), capture is live.
+
+- `registry.CANONICAL_EXTENSION_ID` is the single source of truth (today the
+  locally-loaded id `caaojjh…`; swap for the assigned Web Store id on
+  publish). `test_extension_id_sync` keeps the bash resolver's hard-coded
+  default in lockstep.
+- `install-extension` with no `--extension-id` now **defaults to the
+  canonical id** and writes the manifest (was: print Load-unpacked
+  instructions and no-op). A sideloaded build still passes `--extension-id`.
+- `install.sh` calls `install-extension` best-effort after MCP registration,
+  so every fresh terminal install pre-wires the host.
+- `registry.CHROME_WEB_STORE_URL` (empty until published) flips the launchpad
+  install card from sideload instructions to a one-click **"Add to Chrome"**
+  button — the single switch that turns the non-coder funnel on. Threaded
+  via `_browser_extension().webStoreUrl`.
+- Terminal `council` now offers to open the result in the browser (TTY-gated
+  prompt, so the launchpad's non-TTY dispatcher is never blocked).
+
+Verified end-to-end in a fake home: bare `install-extension` writes the host
+manifest gated to `chrome-extension://caaojjh…/` pointing at the user's
+capture binary. Regression guards in `test_extension_autowire.py`.
+
 ## [v1.7.56 — fix 2 silent new-user bugs on the extension-first install path] — 2026-05-29
 
 Found by actually running both onboarding paths from a clean fake-home as a
@@ -2067,7 +2097,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2153<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2160<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

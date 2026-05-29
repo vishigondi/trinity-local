@@ -56,6 +56,30 @@ CANONICAL_LAB_PROVIDERS: tuple[str, ...] = tuple(
 CAPTURE_PROVIDERS: tuple[str, ...] = ("claude", "chatgpt", "gemini")
 
 
+# The canonical Chrome extension ID — the SINGLE source of truth.
+#
+# This is what makes "the extension auto-wires itself to Trinity" possible:
+# install.sh pre-registers the native-messaging host for THIS id, so when
+# the user installs the published extension (which has this fixed id) the
+# host is already there and the extension connects on first run. A bare
+# native-messaging host only accepts connections whose origin is in its
+# allowed_origins, so the id MUST match the installed extension.
+#
+# Today this is the id Chrome assigned to the locally-loaded unpacked build.
+# On Web Store publish, replace it with the assigned store id (the store id
+# is fixed forever once published). The bash resolver
+# (scripts/launcher_path_resolver.sh) hard-codes the same value as its
+# default — `test_extension_id_sync` keeps the two in lockstep.
+CANONICAL_EXTENSION_ID: str = "caaojjhagginmgobdaheincllmblcjoi"
+
+
+# The Chrome Web Store listing URL. EMPTY until published — when empty,
+# install CTAs fall back to the sideload (Load unpacked) instructions;
+# once set, they flip to a one-click "Add to Chrome" button. This is the
+# single switch that turns the non-coder funnel on.
+CHROME_WEB_STORE_URL: str = ""
+
+
 # The 9 MCP tools registered in mcp_server.py's handle_list_tools().
 # Order matches the registration order. Tested for drift against the
 # live tool list in tests/test_registry.py — adding/removing/renaming

@@ -894,7 +894,20 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           ships Trinity's Python via Chrome's Web Store auto-update path so
           you don't have to manually <code>git pull</code> for new versions.
         </p>
-        <p class="meta" style="margin-top: 8px;">
+        <!-- Web Store published → one-click "Add to Chrome". Until then
+             (webStoreUrl empty) → sideload instructions. The single
+             CHROME_WEB_STORE_URL constant flips this. -->
+        <p class="meta" style="margin-top: 8px;" v-if="pageData.browserExtension.webStoreUrl">
+          <a :href="pageData.browserExtension.webStoreUrl" target="_blank"
+             class="btn" style="display:inline-block; width:auto; text-decoration:none; padding:8px 16px;">
+            Add to Chrome →
+          </a>
+          <span style="display:block; margin-top:8px; color: var(--text-muted);">
+            One click. After it installs, capture starts automatically — the
+            host was pre-wired at setup. Nothing else to run.
+          </span>
+        </p>
+        <p class="meta" style="margin-top: 8px;" v-else>
           See <a href="https://github.com/vishigondi/trinity-local/blob/main/docs/INSTALL-extension.md"
             target="_blank" style="color: #315c85;">docs/INSTALL-extension.md</a>
           for the sideload steps (Web Store publish is post-launch).

@@ -296,6 +296,22 @@ else
   warn "install-mcp reported issues — run 'trinity-local install-mcp' to retry"
 fi
 
+# ─── 4b. Pre-wire the browser-capture native host ──────────────────
+#
+# Register the Native Messaging host for the CANONICAL extension id NOW,
+# before the user installs the extension. The host is inert until an
+# extension with that exact id connects, so this is safe to do ahead of
+# time — and it means when the user later adds the published Trinity
+# extension, capture "just works" with zero further setup (no copying the
+# 32-char id, no second command). Best-effort: a failure here never fails
+# the install (browser capture is optional; councils work without it).
+step "Pre-wiring browser-capture host (optional)"
+if "$TRINITY_BIN_DIR/trinity-local" install-extension >/dev/null 2>&1; then
+  ok "capture host pre-wired (canonical extension id)"
+else
+  warn "could not pre-wire capture host — run 'trinity-local install-extension' after installing the extension"
+fi
+
 # ─── 5. Verify ─────────────────────────────────────────────────────
 
 step "Running health check"

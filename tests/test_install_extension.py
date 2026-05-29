@@ -136,13 +136,28 @@ def test_rejects_missing_host_path(fake_home, capsys, monkeypatch):
     assert "trinity-local-capture-host" in out
 
 
-def test_no_extension_id_prints_instructions(fake_home, capsys):
-    """When --extension-id is omitted, print the Load-unpacked
-    instructions and exit 0 (informational, not error)."""
+def test_no_extension_id_defaults_to_canonical(fake_home, capsys):
+    """When --extension-id is omitted, default to the canonical (published
+    Web Store) id and pre-wire the host for it — so install.sh's best-effort
+    pre-wire and a bare `install-extension` both register the host the
+    published extension connects to. (Changed from the old 'print
+    Load-unpacked instructions' behavior, which dead-ended the auto-wire.)"""
+    import json
+
     from trinity_local.commands.install import handle_install_extension
+    from trinity_local.registry import CANONICAL_EXTENSION_ID
 
     rc = handle_install_extension(_make_args(extension_id=None))
-    assert rc == 0
+    assert rc in (0, None)
     out = capsys.readouterr().out
-    assert "chrome://extensions" in out
-    assert "Load unpacked" in out
+    assert "canonical extension id" in out
+    if sys.platform == "darwin":
+        manifest = (fake_home / "Library/Application Support/Google/Chrome/"
+                    "NativeMessagingHosts/local.trinity.capture.json")
+    else:
+        manifest = (fake_home / ".config/google-chrome/NativeMessagingHosts/"
+                    "local.trinity.capture.json")
+    assert manifest.exists()
+    assert json.loads(manifest.read_text())["allowed_origins"] == [
+        f"chrome-extension://{CANONICAL_EXTENSION_ID}/"
+    ]

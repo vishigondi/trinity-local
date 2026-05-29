@@ -631,18 +631,19 @@ def handle_install_extension(args):
         return 1
 
     if not extension_id:
+        # Default to the canonical (published Web Store) id so a bare
+        # `install-extension` — and install.sh's best-effort pre-wire —
+        # registers the host for the extension users actually install. The
+        # host is inert until an extension with this exact id connects, so
+        # pre-registering ahead of the install is safe. A SIDELOADED build
+        # gets a different per-machine id; that user passes --extension-id.
+        from ..registry import CANONICAL_EXTENSION_ID
+        extension_id = CANONICAL_EXTENSION_ID
         print(
-            "install-extension needs the Chrome-assigned extension ID.\n"
-            "\n"
-            "1. Open chrome://extensions in Chrome and enable Developer mode.\n"
-            "2. Click 'Load unpacked' and select browser-extension/ in this repo.\n"
-            "3. Copy the 32-character ID Chrome assigns to the extension.\n"
-            "4. Rerun: trinity-local install-extension --extension-id <ID>\n"
-            "\n"
-            "(The ID gates which extension can invoke the local capture host. The host "
-            "is otherwise unreachable.)"
+            f"  Using the canonical extension id ({extension_id}).\n"
+            "  Sideloaded a local build instead? Re-run with "
+            "--extension-id <the id from chrome://extensions>."
         )
-        return 0
 
     extension_id = extension_id.strip().lower()
     if not re.fullmatch(r"[a-p]{32}", extension_id):

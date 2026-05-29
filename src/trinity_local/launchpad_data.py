@@ -1143,19 +1143,20 @@ def _browser_extension() -> dict:
     dispatch script gates on `configured`: if False, skip the extension
     probe and go straight to shortcut/install-prompt.
     """
+    from .registry import CHROME_WEB_STORE_URL as _ws
     try:
         from . import state_paths as _sp
         settings_path = _sp.telemetry_settings_dir() / "extension.json"
         if not settings_path.exists():
-            return {"extensionId": None, "configured": False}
+            return {"extensionId": None, "configured": False, "webStoreUrl": _ws}
         import json as _json
         data = _json.loads(settings_path.read_text())
         ext_id = data.get("extension_id")
         if isinstance(ext_id, str) and ext_id:
-            return {"extensionId": ext_id, "configured": True}
-        return {"extensionId": None, "configured": False}
+            return {"extensionId": ext_id, "configured": True, "webStoreUrl": _ws}
+        return {"extensionId": None, "configured": False, "webStoreUrl": _ws}
     except Exception:
-        return {"extensionId": None, "configured": False}
+        return {"extensionId": None, "configured": False, "webStoreUrl": _ws}
 
 
 def dispatch_readiness() -> dict:

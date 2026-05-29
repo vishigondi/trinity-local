@@ -43,7 +43,7 @@ def test_browser_extension_empty_when_settings_file_missing(isolated_home):
     from trinity_local.launchpad_data import _browser_extension
 
     result = _browser_extension()
-    assert result == {"extensionId": None, "configured": False}
+    assert result == {"extensionId": None, "configured": False, "webStoreUrl": ""}
 
 
 def test_browser_extension_reads_persisted_id(isolated_home, monkeypatch):
@@ -65,6 +65,7 @@ def test_browser_extension_reads_persisted_id(isolated_home, monkeypatch):
     assert result == {
         "extensionId": "abcdefghijklmnopabcdefghijklmnop",
         "configured": True,
+        "webStoreUrl": "",
     }
 
 

@@ -278,6 +278,18 @@ def handle_council_start(args):
     # action wires that click to `council-iterate` programmatically.
 
     opened = open_path(result.review_path) if args.open_browser else False
+    # Interactive terminal users get offered the review page. Gated on a TTY
+    # so the launchpad's Native-Messaging dispatcher (non-TTY, consumes the
+    # JSON below) is never blocked on input.
+    if not opened:
+        import sys as _sys
+        if _sys.stdin.isatty() and _sys.stdout.isatty():
+            try:
+                ans = input("\nOpen the result in your browser? [Y/n] ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                ans = "n"
+            if ans in ("", "y", "yes"):
+                opened = open_path(result.review_path)
     payload = {
         "task_path": str(result.task_path or task_path),
         "sync_path": str(result.sync_path or sync_path),
