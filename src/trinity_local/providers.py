@@ -160,7 +160,16 @@ class CLIProvider(BaseProvider):
         tail: str | None = None
         if len(command) > 1 and command[-1].startswith("-"):
             tail = command.pop()
-        if model and "--model" not in command and "--model" not in self.config.args:
+        # --model is claude-only among CLIProvider configs (claude + agy).
+        # agy has no --model flag — model is its `/model` slash-command — and
+        # exits 2 if given one. Allowlist claude, mirroring the --effort gate.
+        inject_model = (
+            model
+            and self.config.name == "claude"
+            and "--model" not in command
+            and "--model" not in self.config.args
+        )
+        if inject_model:
             command.extend(["--model", model])
         if inject_effort:
             command.extend(["--effort", effort])

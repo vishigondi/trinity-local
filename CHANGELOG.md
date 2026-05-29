@@ -7,6 +7,34 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.60 — agy --model dispatch fix + project-lens map] — 2026-05-29
+
+The council-dogfood ship. Fixed a **regression** that broke every antigravity
+council/eval member: Trinity injected `--model` into `agy -p`, but agy has no
+`--model` flag, so it exited 2 (`flags provided but not defined: -model`) in
+~0.07s and the member silently failed. The `--effort` injection was correctly
+gated to claude, but `--model` injection had **no provider gate**. Now
+allowlisted to claude in `CLIProvider` (codex injects via `CodexProvider`'s own
+path; agy uses its `/model` slash-command persisted in
+`~/.gemini/antigravity-cli/settings.json`). Proven on real dispatch: the failing
+eval went from 0/3 (instant) to 2/2 dispatched. Added 3 regression guards in
+`test_provider_effort_injection.py` incl. `test_no_model_flag_injected_for_antigravity`
+— the prior antigravity test only asserted `--effort` was absent, never
+`--model`, which is exactly how the regression slipped through.
+
+Also rendered **`docs/project-lens.md`** — the descriptive project-lens the
+`project-lens-extract` + `guard-coverage-gap` dogfood workflows extracted from
+Trinity's own git fix-history + 9 regression-guard families: 6 load-bearing
+invariants → recurring failure-mode tensions with **support counts** (doc/claim
+drift 117, recorded≠dispatched 21 — the `--model` bug's family — degenerate
+clobber 4, mock-green-while-real-fails 8, …) → subsystem basins → canonical/
+retired vocabulary. Kept as a **map you read, not a gating system**, per the
+dogfood council (`council_c2d959d1496bf6b2`, winner: claude): *"kill the overbuilt
+lens, keep the invariant as executable guards"* — judged an LLM-advisory
+hierarchy to be moves-substrate-2.0 (the layer retired in #184). The executable
+form is the guard-coverage-gap follow-on (clobber-guard propagation to all
+`save_*` stores + the telemetry-payload categorical-only guard).
+
 ## [v1.7.59 — sharper hero copy (README + landing)] — 2026-05-29
 
 Tightened the README + `docs/index.html` Trinity product card to the
@@ -2137,7 +2165,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2169<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2171<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

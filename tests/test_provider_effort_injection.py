@@ -247,6 +247,58 @@ class TestAntigravityNoEffortFlag:
             f"got: {cmd}"
         )
 
+    def test_no_model_flag_injected_for_antigravity(self, monkeypatch):
+        """Regression: agy CLI has no --model flag (model is its `/model` slash
+        command); a truthy config.model used to leak `--model <sku>` and agy
+        exits 2 ("flags provided but not defined: -model"), failing the member."""
+        from trinity_local.providers import CLIProvider
+
+        config = _make_provider_config(
+            "antigravity",
+            model="Gemini 3.1 Pro (high)",
+            effort="high",
+            command=["agy", "-p"],
+        )
+        provider = CLIProvider(config)
+        captured = {}
+        monkeypatch.setattr(
+            CLIProvider, "_run_command",
+            lambda self, command, cwd: (captured.__setitem__("command", command),
+                                         SimpleNamespace(stdout="ok", stderr="", returncode=0,
+                                                         elapsed_seconds=0.0, provider="antigravity"))[1],
+        )
+        provider.run("test", Path("."))
+        cmd = captured["command"]
+        assert "--model" not in cmd, (
+            f"--model must NOT be injected for antigravity (agy CLI exits 2 on it); "
+            f"got: {cmd}"
+        )
+        # The agy command should be exactly its base + the prompt — no flags.
+        assert cmd == ["agy", "-p", "test"], f"unexpected agy command shape: {cmd}"
+
+    def test_claude_and_codex_still_get_model(self, monkeypatch):
+        """The antigravity exclusion must not regress --model for providers that
+        accept it: claude (via CLIProvider) and codex (via CodexProvider)."""
+        from trinity_local.providers import CLIProvider, CodexProvider
+
+        for cls, name, command in (
+            (CLIProvider, "claude", ["claude", "-p"]),
+            (CodexProvider, "codex", ["codex", "exec"]),
+        ):
+            config = _make_provider_config(name, model="some-model-v9", command=command)
+            provider = cls(config)
+            captured = {}
+            monkeypatch.setattr(
+                cls, "_run_command",
+                lambda self, command, cwd: (captured.__setitem__("command", command),
+                                             SimpleNamespace(stdout="ok", stderr="", returncode=0,
+                                                             elapsed_seconds=0.0, provider=name))[1],
+            )
+            provider.run("test", Path("."))
+            assert "--model" in captured["command"], (
+                f"{name} must still get --model injected; got: {captured['command']}"
+            )
+
 
 class TestProviderConfigEffortField:
     """ProviderConfig accepts an `effort` field. None when missing from
