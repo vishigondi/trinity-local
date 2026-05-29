@@ -98,7 +98,18 @@ class MlxEmbedder:
         from sentence_transformers import SentenceTransformer
 
         try:
-            self._model = SentenceTransformer(MODEL_ID, trust_remote_code=True)
+            # Pin CPU by default. This backend is sentence-transformers + torch
+            # (NOT Apple MLX, despite the filename). nomic-embed-v1.5's
+            # trust_remote_code custom ops are MPS-incompatible → per-op CPU
+            # fallback thrash, and the Metal path can WEDGE on a GPU
+            # command-buffer recovery: a real backfill dragged from ~56 nodes/s
+            # to ~12 nodes/MIN after an "innocent victim" Metal error and never
+            # recovered. Measured fresh on an M1 Ultra: CPU = 56 nodes/s + 3s
+            # load; MPS = 97 nodes/s but 77s load + wedge-fragile. CPU wins for
+            # both batch backfill (no wedge, ~10min for 33k) and interactive
+            # single-embed (3s vs 77s load). Override with TRINITY_EMBED_DEVICE.
+            device = os.environ.get("TRINITY_EMBED_DEVICE", "cpu")
+            self._model = SentenceTransformer(MODEL_ID, trust_remote_code=True, device=device)
         except Exception as exc:
             # HF_HUB_OFFLINE=1 + missing cache surfaces as an obscure
             # OfflineModeIsEnabled / FileNotFoundError. Translate to an

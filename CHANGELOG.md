@@ -7,6 +7,21 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.64 — pin embedder to CPU (#241): kill the MPS Metal-wedge] — 2026-05-29
+
+The embedding backfill crawled at ~12 nodes/MIN — diagnosed live. Root cause:
+`backend_mlx.py` is a misnomer (it's sentence-transformers + torch, NO Apple
+MLX). nomic-embed-v1.5's `trust_remote_code` custom ops are MPS-incompatible →
+per-op CPU fallback, and the Metal path WEDGED on a GPU command-buffer recovery
+(an "innocent victim" error dragged a fresh ~56 nodes/s run down to ~12/min and
+it never recovered). Measured fresh on an M1 Ultra: **CPU 56 nodes/s + 3s load**
+vs **MPS 97/s but 77s load + wedge-fragile**. So `_load` now pins
+`device="cpu"` (override with `TRINITY_EMBED_DEVICE`) — the 33k-node backfill
+finishes in ~10 min reliably, and interactive single-embed loads in 3s not 77s.
++2 guards (`test_embed_device_pin.py`) so a refactor can't drop the pin and
+reopen the wedge. (Real Apple-MLX embeddings + cold-start decoupling are #241/#242
+follow-ons; this is the immediate unblock.)
+
 ## [v1.7.63 — drop dead autofill smoke surfaces (#222)] — 2026-05-29
 
 Removed Surface 1b (autofill content quality) + Surface 11 (autofill apply) from
@@ -2233,7 +2248,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2245<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2247<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
