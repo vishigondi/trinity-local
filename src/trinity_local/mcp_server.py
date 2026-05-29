@@ -1640,9 +1640,15 @@ async def run_stdio_server():
     # dirs (~/.claude, ~/.codex, ~/.gemini, cowork) exist, kick a background
     # ingest so the first council the user fires already has personalization
     # signal. No-op when corpus is populated or no source dirs found.
-    from .cold_start import maybe_kick_cold_start
+    from .cold_start import maybe_kick_cold_start, maybe_kick_lens_refresh
 
     maybe_kick_cold_start()
+    # Activity-gated lens refresh (Anthropic's Auto-Dream pattern, not a
+    # nightly cron): once the user HAS a lens, refresh it in the background
+    # when ≥24h have passed AND enough new conversation has accumulated.
+    # Evaluated here, on connect, so it runs during an authenticated session
+    # — never a 3am cron with no provider auth. No-op (zero cost) otherwise.
+    maybe_kick_lens_refresh()
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

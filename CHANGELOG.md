@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.58 — activity-gated lens refresh (Auto-Dream pattern, not a cron)] — 2026-05-29
+
+Closes the "councils gain taste automatically" loop — the right way. The
+question was "nightly dream, or something better?" Anthropic's Auto-Dream
+doesn't run on a wall-clock nightly cron; it's **activity-gated** (24h
+elapsed AND 5 sessions). We mirror that exactly, which is strictly better
+than a cron:
+
+- No OS scheduler (no launchd/cron, no system modification, cross-platform).
+- It fires at **MCP connect** — an authenticated session — so the provider
+  CLIs are live. A 3am cron would hit `claude -p` with no session and fail.
+- It only spends when there's genuinely new material; a quiet day is $0.
+
+`cold_start.maybe_kick_lens_refresh()` (called on connect, next to the
+cold-start kick): when a lens already exists, `should_refresh_lens()` opens
+the gate iff `≥REFRESH_MIN_AGE_H` (24h) since the last build AND
+`≥REFRESH_MIN_NEW_PROMPTS` (5 — the "5 sessions" analog) new prompts have
+landed. Both signals are already persisted in `lens_build_state.json`
+(`built_at` + the `count:sha1` fingerprint), so the gate is a cheap read.
+When open, it background-kicks the delta lens rebuild (low-effort,
+skip-if-unchanged); a 30-min cooldown damps re-kicks on repeated connects;
+every path is best-effort so it can't crash or block the MCP server. Result
+is recorded to `lens_refresh.json` for surfacing. cold-start still owns the
+FIRST build; this owns the keep-current refresh.
+
+Tests: the gate fires/holds across all five branches (aged+new, no-lens,
+within-floor, unchanged, too-few-new); the kick marks done, respects the
+cooldown, no-ops when autoscan-disabled or the gate is closed.
+
 ## [v1.7.57 — extension auto-wire: pre-register the host for the canonical id] — 2026-05-29
 
 Makes "install the extension and capture just works" real — no second
@@ -2097,7 +2126,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2160<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2169<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

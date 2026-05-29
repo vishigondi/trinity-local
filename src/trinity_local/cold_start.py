@@ -257,6 +257,133 @@ def maybe_kick_cold_start() -> dict | None:
         return None
 
 
+# ── activity-gated lens refresh (Anthropic Auto-Dream pattern) ─────────
+#
+# Auto-Dream triggers on "24h elapsed AND 5 sessions" — NOT a wall-clock
+# nightly cron. We mirror that: refresh an EXISTING lens when enough time
+# has passed AND enough new conversation has accumulated, evaluated at MCP
+# connect (a natural "session" event) so it runs inside an authenticated
+# session — never a 3am cron with no provider auth, never a surprise spend
+# on a quiet day. cold-start handles the FIRST build; this handles the
+# keep-current refresh.
+
+REFRESH_MIN_AGE_H = 24.0          # Auto-Dream's 24h floor
+REFRESH_MIN_NEW_PROMPTS = 5       # Auto-Dream's "5 sessions" analog — enough new material
+_REFRESH_COOLDOWN_S = 1800.0      # don't re-kick within 30 min (in-flight damping)
+
+
+def lens_refresh_marker_path() -> Path:
+    return state_dir() / "lens_refresh.json"
+
+
+def _hours_since(iso: str | None) -> float | None:
+    if not iso or not isinstance(iso, str):
+        return None
+    import datetime as _dt
+    try:
+        ts = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=_dt.timezone.utc)
+    return (_dt.datetime.now(_dt.timezone.utc) - ts).total_seconds() / 3600.0
+
+
+def _fingerprint_count(fp: str) -> int:
+    """Fingerprints are 'count:sha1'. Pull the leading count, or 0."""
+    head = (fp or "").split(":", 1)[0]
+    return int(head) if head.isdigit() else 0
+
+
+def should_refresh_lens() -> tuple[bool, str]:
+    """Activity gate: refresh iff a lens exists, ≥REFRESH_MIN_AGE_H since the
+    last build, AND ≥REFRESH_MIN_NEW_PROMPTS new prompts have landed. Returns
+    (should, human_reason). Pure read — never raises."""
+    try:
+        from .me_builder import _corpus_fingerprint, _lens_build_state_path, me_path
+
+        if not me_path().exists():
+            return False, "no lens yet (cold-start territory, not refresh)"
+        sp = _lens_build_state_path()
+        if not sp.exists():
+            return False, "no build-state to age against"
+        try:
+            st = json.loads(sp.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False, "unreadable build state"
+        age_h = _hours_since(st.get("built_at"))
+        if age_h is None:
+            return False, "no built_at timestamp"
+        if age_h < REFRESH_MIN_AGE_H:
+            return False, f"last build {age_h:.1f}h ago (< {REFRESH_MIN_AGE_H:.0f}h floor)"
+        prior_fp = st.get("fingerprint") or ""
+        cur_fp = _corpus_fingerprint()
+        if cur_fp == prior_fp:
+            return False, "corpus unchanged since last build"
+        new_prompts = _fingerprint_count(cur_fp) - _fingerprint_count(prior_fp)
+        if new_prompts < REFRESH_MIN_NEW_PROMPTS:
+            return False, f"only {new_prompts} new prompt(s) (< {REFRESH_MIN_NEW_PROMPTS})"
+        return True, f"{new_prompts} new prompts, {age_h:.0f}h since last build"
+    except Exception as exc:
+        return False, f"gate error: {exc}"
+
+
+def _recently_kicked() -> bool:
+    """True if a refresh was kicked within the cooldown — damps re-kicks on
+    repeated connects while one is still in flight."""
+    p = lens_refresh_marker_path()
+    if not p.exists():
+        return False
+    try:
+        last = _hours_since(json.loads(p.read_text(encoding="utf-8")).get("last_kick_at"))
+    except (OSError, ValueError):
+        return False
+    return last is not None and (last * 3600.0) < _REFRESH_COOLDOWN_S
+
+
+def _write_refresh_marker(payload: dict) -> None:
+    try:
+        from .utils import atomic_write_text
+        p = lens_refresh_marker_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(p, json.dumps(payload))
+    except Exception:
+        pass
+
+
+def maybe_kick_lens_refresh() -> dict | None:
+    """If the activity gate is open and no refresh is in flight, background-
+    kick a (cheap, delta) lens rebuild. Best-effort: every failure path is
+    swallowed so it can't crash or block the MCP server. Returns the kick
+    record, or None when skipped."""
+    if _autoscan_disabled():
+        return None
+    try:
+        ok, reason = should_refresh_lens()
+        if not ok or _recently_kicked():
+            return None
+        _write_refresh_marker({"last_kick_at": now_iso(), "reason": reason, "status": "in_progress"})
+
+        def _run():
+            try:
+                from .me_builder import build_me_via_lens_pipeline
+                _path, summary = build_me_via_lens_pipeline()
+                _write_refresh_marker({
+                    "last_kick_at": now_iso(), "reason": reason, "status": "done",
+                    "finished_at": now_iso(), "summary": summary,
+                })
+            except Exception as exc:
+                _write_refresh_marker({
+                    "last_kick_at": now_iso(), "reason": reason, "status": "failed",
+                    "finished_at": now_iso(), "error": str(exc)[:200],
+                })
+
+        threading.Thread(target=_run, daemon=True, name="trinity-lens-refresh").start()
+        return {"status": "kicked", "reason": reason}
+    except Exception:
+        return None
+
+
 def cold_open_tension() -> str | None:
     """The cold-start *aha* (#212 / Q2): ONE surprising, true thing about how
     the user decides — surfaced the instant their lens has any signal, before
