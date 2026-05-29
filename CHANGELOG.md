@@ -7,6 +7,34 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.66 — real Apple-MLX embedder: modernbert-embed-base (#244)] — 2026-05-29
+
+The end of the embedding saga. Trinity finally uses **real Apple MLX**:
+`embeddings/backend_mlx_native.py` (mlx-embeddings) runs
+**nomic-ai/modernbert-embed-base** natively on Apple Silicon at ~6,300 nodes/s.
+The package selector prefers it, falling through to the torch backend
+(`backend_mlx.py` — the historical misnomer, now also pointed at
+modernbert-embed-base so vectors are model-consistent across runtimes; standard
+ModernBERT arch → MPS-clean, no `nomic_bert` wedge) then TF-IDF.
+
+**Why this model** (#243, measured on real data, not MTEB-on-paper):
+modernbert-embed-base beat the whole MLX-able field — Qwen3-Embedding-0.6B
+(200× slower on MLX), EmbeddingGemma (license-gated → breaks frictionless
+install), gte-modernbert (70× slower + reshuffled structure), bge-m3 (won't
+load) — on Trinity's actual constraints (MLX-fast · ungated · 8192 ctx ·
+Matryoshka · 94% NN-equivalent to the prior v1.5 vectors). nomic-embed-v1.5's
+custom `nomic_bert` arch was the root cause behind the MPS wedge, the MLX
+"unsupported" error, and the CPU thrash — one root, three symptoms; swapping the
+model dissolved all three (principle #29).
+
+`[mlx]` extras now install `mlx` + `mlx-embeddings` on Apple Silicon (markers),
+torch + sentence-transformers everywhere else. `MODEL_ID` /
+`TRINITY_EMBED_MODEL` overridable. The live corpus was re-embedded in place
+(53,326 nodes → 100% modernbert coverage, JSONL compacted, backed up to
+`.v15bak`; verified cosine(stored, fresh) = 1.000). +7 guards
+(`test_embed_modernbert_migration.py`, `test_embed_device_pin.py`). macOS
+NLEmbedding (OS-built-in) was evaluated + rejected (31 nodes/s, 44% agreement).
+
 ## [v1.7.65 — device-aware embedder: CUDA-preferred, never auto-MPS (#241)] — 2026-05-29
 
 Corrects v1.7.64's *unconditional* `device="cpu"`, which penalised Linux/Windows
@@ -2267,7 +2295,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2248<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2253<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

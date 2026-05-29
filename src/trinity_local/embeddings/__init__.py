@@ -37,14 +37,26 @@ _backend_name = "tfidf"
 # tests where monkeypatching the parent process can't reach the child).
 import os as _os
 if _os.environ.get("TRINITY_DISABLE_MLX") != "1":
+    # #244: prefer the REAL Apple-MLX backend (mlx-embeddings +
+    # modernbert-embed-base, ~6300 nodes/s on M-series) when available; fall
+    # through to the torch/sentence-transformers backend (backend_mlx.py — the
+    # historical misnomer, now also modernbert so vectors are model-consistent),
+    # then to TF-IDF. Both semantic backends report as "mlx" for back-compat.
     try:
-        from .backend_mlx import MlxEmbedder
-        _mlx_backend = MlxEmbedder()
-        _backend_name = "mlx"  # Optimistic; embed() will fall back if it fails
-    except ImportError:
-        _mlx_backend = None
+        from .backend_mlx_native import MlxNativeEmbedder
+        _mlx_backend = MlxNativeEmbedder()
+        _backend_name = "mlx"  # Optimistic; embed() falls back if it fails
     except Exception:
         _mlx_backend = None
+    if _mlx_backend is None:
+        try:
+            from .backend_mlx import MlxEmbedder
+            _mlx_backend = MlxEmbedder()
+            _backend_name = "mlx"  # Optimistic; embed() falls back if it fails
+        except ImportError:
+            _mlx_backend = None
+        except Exception:
+            _mlx_backend = None
 
 
 def is_available() -> bool:

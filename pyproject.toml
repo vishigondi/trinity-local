@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trinity-local"
-version = "1.7.65"
+version = "1.7.66"
 description = "Cross-provider memory layer for Claude, Codex, and Gemini — local-first councils, handoff, and personal benchmarks. Rides on your existing subscriptions."
 readme = "README.md"
 license = "MIT"
@@ -53,6 +53,13 @@ trinity_local = [
 [project.optional-dependencies]
 test = ["pytest>=7"]
 mlx = [
+    # Real Apple-MLX path (#244): mlx + mlx-embeddings run modernbert-embed-base
+    # natively on Apple Silicon (~6300 nodes/s). Markers gate them to arm64 macOS
+    # so non-Apple installs skip them and use the torch path below.
+    "mlx>=0.20; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "mlx-embeddings>=0.1; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    # Cross-platform fallback (Linux/Windows CUDA/ROCm, Intel Mac): the same
+    # modernbert-embed-base on torch (standard arch — MPS-clean, no nomic_bert wedge).
     "sentence-transformers>=2.2",
     "einops",
     "torch>=2.0",

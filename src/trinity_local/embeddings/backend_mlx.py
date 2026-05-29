@@ -12,7 +12,14 @@ import math
 from pathlib import Path
 
 
-MODEL_ID = "nomic-ai/nomic-embed-text-v1.5"
+# #244: modernbert-embed-base (standard ModernBERT arch) — 8192 ctx, Matryoshka,
+# nomic-trained, Apache-2.0. Replaces nomic-embed-text-v1.5, whose custom
+# nomic_bert arch was unsupported by MLX and wedged torch-MPS. ModernBERT is a
+# standard arch, so this torch path runs clean on CUDA/CPU (and MPS) — and the
+# Apple-MLX path (backend_mlx_native.py) uses the SAME model, so a machine's
+# vectors are model-consistent regardless of runtime. Override via TRINITY_EMBED_MODEL.
+import os as _os
+MODEL_ID = _os.environ.get("TRINITY_EMBED_MODEL", "nomic-ai/modernbert-embed-base")
 MAX_TOKENS = 8192
 DEFAULT_DIM = 768
 
