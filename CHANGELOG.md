@@ -7,6 +7,24 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.61 — eval/launchpad record the dispatched antigravity model] — 2026-05-29
+
+Closed the recorded≠dispatched gap on the eval path (the same invariant the
+`--model` fix lives under). `eval-run` recorded `target_model=config.model`, but
+for antigravity `config.model` is a **dead value** — the flagless agy CLI runs
+whatever `/model` set in `~/.gemini/antigravity-cli/settings.json`. So a Gemini
+3.5 Flash eval was being stamped "Gemini 3.1 Pro (high)" (the config default),
+mislabeling the eval/leaderboard card and breaking the new-model detect diff.
+
+New shared single source of truth in `providers.py`: `read_agy_active_model_raw()`
+(reads agy's settings.json) + `dispatched_model(config)` (returns the agy-side
+selection for antigravity, `config.model` otherwise). `evals/runner.py` records
+`dispatched_model(config)`; `launchpad_data.py` now reads through the *same*
+helper instead of its own duplicate file-read, so the chip and the recorded
+model can't diverge. +3 guards in `test_provider_effort_injection.py`. (The
+manifest's `antigravity.model` still needs a founder bump to "Gemini 3.5 Flash"
+for the celebratory new-model card to fire — the one irreducible manual step.)
+
 ## [v1.7.60 — agy --model dispatch fix + project-lens map] — 2026-05-29
 
 The council-dogfood ship. Fixed a **regression** that broke every antigravity
@@ -2165,7 +2183,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2171<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2174<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

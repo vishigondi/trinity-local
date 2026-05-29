@@ -300,6 +300,38 @@ class TestAntigravityNoEffortFlag:
             )
 
 
+class TestDispatchedModelReadsAgySettings:
+    """recorded == dispatched: antigravity's RECORDED model (eval/council
+    target_model) must come from agy's settings.json — the flagless agy CLI
+    ignores config.model, so recording config.model mislabels the model that
+    actually ran (e.g. eval card says 'Gemini 3.1 Pro' while agy ran 3.5 Flash)."""
+
+    def test_antigravity_reads_agy_settings(self, tmp_path, monkeypatch):
+        import json
+        from trinity_local.providers import dispatched_model
+        gem = tmp_path / ".gemini" / "antigravity-cli"
+        gem.mkdir(parents=True)
+        (gem / "settings.json").write_text(json.dumps({"model": "Gemini 3.5 Flash (High)"}))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        config = _make_provider_config("antigravity", model="Gemini 3.1 Pro (high)",
+                                       command=["agy", "-p"])
+        # The agy-side selection wins over the stale config value.
+        assert dispatched_model(config) == "Gemini 3.5 Flash (High)"
+
+    def test_antigravity_falls_back_to_config_when_no_settings(self, tmp_path, monkeypatch):
+        from trinity_local.providers import dispatched_model
+        monkeypatch.setenv("HOME", str(tmp_path))  # no agy settings file present
+        config = _make_provider_config("antigravity", model="Gemini 3.1 Pro (high)",
+                                       command=["agy", "-p"])
+        assert dispatched_model(config) == "Gemini 3.1 Pro (high)"
+
+    def test_non_antigravity_uses_config_model(self, tmp_path, monkeypatch):
+        from trinity_local.providers import dispatched_model
+        monkeypatch.setenv("HOME", str(tmp_path))
+        config = _make_provider_config("claude", model="claude-opus-4-8", command=["claude", "-p"])
+        assert dispatched_model(config) == "claude-opus-4-8"
+
+
 class TestProviderConfigEffortField:
     """ProviderConfig accepts an `effort` field. None when missing from
     config.json — matches model's optional shape."""

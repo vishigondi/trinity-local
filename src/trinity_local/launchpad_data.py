@@ -584,31 +584,21 @@ def build_page_data(
     # the only honest source. Model SKUs encode effort in parentheses
     # ("Gemini 3.1 Pro (high)"), so split that into model + effort for
     # the chip.
-    try:
-        agy_settings_path = Path.home() / ".gemini" / "antigravity-cli" / "settings.json"
-        if agy_settings_path.exists():
-            import json as _json
-            agy_settings = _json.loads(agy_settings_path.read_text())
-            # Key name is the agy slash-command persistence target. We
-            # check a few likely shapes — the schema isn't public so a
-            # version bump may rename it; the .get() fall-through means
-            # we degrade silently rather than crash.
-            agy_model = (
-                agy_settings.get("defaultReasoningModel")
-                or agy_settings.get("reasoningModel")
-                or agy_settings.get("model")
-            )
-            if agy_model and isinstance(agy_model, str):
-                # Split "Gemini 3.1 Pro (high)" -> model="Gemini 3.1 Pro", effort="high"
-                import re as _re
-                m = _re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", agy_model)
-                if m:
-                    provider_models["antigravity"] = m.group(1).strip()
-                    provider_efforts["antigravity"] = m.group(2).strip().lower()
-                else:
-                    provider_models["antigravity"] = agy_model
-    except Exception:
-        pass
+    # Read agy's active model via the shared single source of truth
+    # (providers.read_agy_active_model_raw — the same read the eval recorder
+    # uses, so the chip and the recorded target_model can't diverge). SKUs
+    # encode effort in parentheses ("Gemini 3.1 Pro (high)"); split for the chip.
+    from .providers import read_agy_active_model_raw
+
+    agy_model = read_agy_active_model_raw()
+    if agy_model:
+        import re as _re
+        m = _re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", agy_model)
+        if m:
+            provider_models["antigravity"] = m.group(1).strip()
+            provider_efforts["antigravity"] = m.group(2).strip().lower()
+        else:
+            provider_models["antigravity"] = agy_model
     return {
         "shortcutName": DEFAULT_SHORTCUT_NAME,
         "defaultGoal": "Find the strongest answer.",

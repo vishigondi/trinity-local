@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import ProviderConfig
-from ..providers import make_provider, ProviderResult
+from ..providers import make_provider, ProviderResult, dispatched_model
 from .builder import EvalSet, results_dir
 
 
@@ -148,7 +148,10 @@ def run_eval(
     return EvalRunResult(
         eval_id=eval_set.eval_id,
         target_provider=target_provider,
-        target_model=config.model,
+        # recorded == dispatched: for antigravity this reads agy's
+        # settings.json (config.model is ignored by the flagless agy CLI),
+        # so the eval card attributes the model that actually ran.
+        target_model=dispatched_model(config),
         started_at=started,
         completed_at=completed,
         items_total=len(items_to_run),

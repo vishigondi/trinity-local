@@ -118,6 +118,47 @@ def _effective_effort(config: ProviderConfig) -> str | None:
     return config.effort
 
 
+def read_agy_active_model_raw() -> str | None:
+    """The raw model SKU agy will ACTUALLY dispatch (e.g. ``"Gemini 3.5 Flash
+    (High)"``), read from agy's own ``~/.gemini/antigravity-cli/settings.json``.
+
+    This is the single honest source for antigravity's model: agy has no
+    ``--model`` flag, so ``config.model`` is *ignored* by the CLI — the user's
+    ``/model`` slash-command selection in that file is what runs. Returns
+    ``None`` on any miss (file absent, unknown key, parse error) so callers
+    degrade quietly to ``config.model``. The schema isn't public, so we probe a
+    few likely keys.
+    """
+    try:
+        import json as _json
+
+        path = Path.home() / ".gemini" / "antigravity-cli" / "settings.json"
+        if not path.exists():
+            return None
+        settings = _json.loads(path.read_text())
+        model = (
+            settings.get("defaultReasoningModel")
+            or settings.get("reasoningModel")
+            or settings.get("model")
+        )
+        return model if isinstance(model, str) and model else None
+    except Exception:
+        return None
+
+
+def dispatched_model(config: ProviderConfig) -> str | None:
+    """The model that will ACTUALLY run for this provider — what eval/council
+    must RECORD (the recorded == dispatched invariant). For antigravity this is
+    agy's settings.json selection (``config.model`` is a dead value the CLI
+    ignores); for every other provider it's ``config.model``.
+    """
+    if config.name == "antigravity":
+        agy_model = read_agy_active_model_raw()
+        if agy_model:
+            return agy_model
+    return config.model
+
+
 class CLIProvider(BaseProvider):
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
         # MCP host sampling — preferred path for the Claude voice when
