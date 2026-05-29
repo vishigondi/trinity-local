@@ -53,6 +53,29 @@ KLLMmeansHook = Callable[
 _DEFAULT_K = 20
 _DEFAULT_SEED = 42
 _TOP_TERMS_PER_BASIN = 3
+
+# Corpus-size-aware k (#245 follow-on). A fixed k=20 junk-drawers on a large
+# corpus: once the 2026-05-12 scaffolding pollution was purged, the clean
+# 28.6k-prompt corpus packed 29.6% of prompts into one b00 basin at k=20 —
+# above the 20% junk-drawer ceiling the real_corpus guard enforces. k must
+# scale with the corpus so no single basin dominates as history grows.
+# Empirically (clean corpus): k=20→29.6%, k=40→19.9%, k=50→16.1%. Sized by
+# PROMPT count (what the junk-drawer guard measures), ~one basin per
+# _PROMPTS_PER_BASIN prompts → k≈44 at 28.6k → ~18% top basin.
+_PROMPTS_PER_BASIN = 650
+_MAX_K = 60  # cap: more basins than this fragments the topic map past usefulness
+
+
+def auto_k(n_prompts: int) -> int:
+    """Pick a basin count that scales with the corpus, clamped to
+    [_DEFAULT_K, _MAX_K]. Below ~13k prompts this floors at the historical
+    k=20 (behaviour-preserving for small/fresh installs); it only grows k
+    once the corpus is large enough that k=20 would junk-drawer. Sized by
+    prompt count, not thread count — the junk-drawer guard measures a basin's
+    share of PROMPTS, and a few long multi-turn export threads otherwise let
+    one basin dominate prompt-share while looking small in thread-share."""
+    target = round(n_prompts / _PROMPTS_PER_BASIN)
+    return max(_DEFAULT_K, min(_MAX_K, target))
 # Stop words that crowd out distinctive vocabulary in tiny corpora.
 _STOPWORDS = {
     "the", "a", "an", "and", "or", "but", "if", "is", "are", "was", "were",
@@ -218,7 +241,7 @@ def _top_terms_for_cluster(texts: list[str], all_texts: list[str], top_n: int = 
 
 def compute_basins(
     *,
-    k: int = _DEFAULT_K,
+    k: int | None = None,
     seed: int = _DEFAULT_SEED,
     iterations: int = 1,
     relabel_hook: Optional[KLLMmeansHook] = None,
@@ -295,7 +318,14 @@ def compute_basins(
         )
 
     # Cluster THREADS, not turns. `labels[ti]` is the basin id for thread `tid`.
-    labels, basin_centroids = _kmeans(thread_centroids, k=min(k, len(thread_ids)), seed=seed)
+    # k=None → corpus-size-aware (avoids the junk-drawer a fixed k=20 produces
+    # on large corpora, #245); an explicit k always wins (CLI --k-basins / tests).
+    # Size k by TURN count (len(nodes)) — that's what the junk-drawer guard
+    # measures (a basin's share of prompts), and what the k-sweep that picked
+    # _THREADS_PER_BASIN was measured against. Still capped at len(thread_ids)
+    # since k-means can't make more clusters than there are points.
+    effective_k = auto_k(len(nodes)) if k is None else k
+    labels, basin_centroids = _kmeans(thread_centroids, k=min(effective_k, len(thread_ids)), seed=seed)
 
     REPRESENTATIVE_K = 5
     REPRESENTATIVE_MAX_CHARS = 280

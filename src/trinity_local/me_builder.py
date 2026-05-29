@@ -513,7 +513,7 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
 def build_me_via_lens_pipeline(
     *,
     sample_size: int = ME_SAMPLE_SIZE,
-    k_basins: int = 20,
+    k_basins: int | None = None,
     seed: int = 42,
     dry_run: bool = False,
     force: bool = False,

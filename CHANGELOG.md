@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.68 — corpus-size-aware basin count (#245 follow-on)] — 2026-05-29
+
+The purge had a second-order effect the topic-map guard caught: a **fixed
+k=20 junk-drawers on a large corpus**. Removing the 46% scaffolding pollution
+*concentrated* the remaining real prompts, so re-clustering the clean
+28,618-prompt corpus at the historical k=20 packed **29.6% of prompts into
+one b00 basin** — over the 20% junk-drawer ceiling the `real_corpus` guard
+enforces. The topic map and cold-open would have shown one giant
+"use-AI-to-code" blob instead of the real spread.
+
+- **`auto_k(n_prompts)`** (`me/basins.py`) sizes the basin count to the
+  corpus — ≈1 basin per 650 prompts, clamped to `[20, 60]`. `compute_basins`,
+  `stage1_basins`, `build_me_via_lens_pipeline`, and `lens --k-basins` all
+  default to `k=None` (auto); an explicit `--k-basins N` still wins (the CLI
+  escape hatch + every existing test pass explicit k).
+- **Sized by prompt count, not thread count.** k-means clusters *threads*,
+  but the junk-drawer guard measures a basin's share of *prompts* — and a few
+  long multi-turn export threads let one basin dominate prompt-share while
+  looking small in thread-share. Sizing k on `len(nodes)` is what the k-sweep
+  that picked the ratio measured against.
+- **Behaviour-preserving for small installs**: below ~13k prompts `auto_k`
+  floors at the historical k=20, so fresh/small corpora are unchanged.
+- Measured on the clean corpus: k=20→29.6%, k=40→19.9%, k=50→16.1%; auto-k
+  picks **44 → top basin 19.5%**, under the ceiling. Live `topics.json`
+  rebuilt — the real topic spread now surfaces (account/product/email ·
+  AI-usage · creative-writing · frontend · smart-home · property/tax).
+- Guards: `tests/test_basin_auto_k.py` pins the clamp boundaries, monotonicity,
+  and that explicit k never consults `auto_k`.
+
 ## [v1.7.67 — corpus-purity floor-guard (#245)] — 2026-05-29
 
 A standing guard against the silent lens-poisoning the embedding mining
@@ -2325,7 +2354,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2254<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2260<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

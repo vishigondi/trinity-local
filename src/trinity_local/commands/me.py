@@ -46,8 +46,10 @@ def register(subparsers):
         help=f"How many representative prompts to feed the chairman (default {ME_SAMPLE_SIZE}).",
     )
     build_parser.add_argument(
-        "--k-basins", type=int, default=20,
-        help="Stage 1 k-means cluster count (default 20).",
+        "--k-basins", type=int, default=None,
+        help="Stage 1 k-means cluster count. Default: corpus-size-aware "
+             "(≈1 basin per 650 threads, 20–60) so the topic map doesn't "
+             "junk-drawer as history grows (#245). Pass an int to force k.",
     )
     build_parser.add_argument(
         "--dry-run", action="store_true",

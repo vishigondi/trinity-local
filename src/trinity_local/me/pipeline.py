@@ -56,8 +56,11 @@ class PipelineState:
     orderings: list[LensPair]
 
 
-def stage1_basins(*, k: int = 20, seed: int = 42) -> list[Basin]:
-    """Cluster PromptNodes into basins. Pure numpy, no LLM."""
+def stage1_basins(*, k: int | None = None, seed: int = 42) -> list[Basin]:
+    """Cluster PromptNodes into basins. Pure numpy, no LLM.
+
+    k=None → corpus-size-aware basin count (compute_basins.auto_k), so the
+    topic map doesn't junk-drawer as history grows (#245)."""
     basins = compute_basins(k=k, seed=seed)
     save_basins(basins)
     return basins
