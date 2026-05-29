@@ -7,6 +7,30 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.48 — Stage 0 full delta-extraction (#210)] — 2026-05-29
+
+Beyond the v1.7.38 skip-if-unchanged gate (whole build skips when the corpus
+is byte-identical): when the corpus **grew**, Stage 0 now classifies only the
+NEW turn-pairs instead of re-sending the whole 200-pair window to the
+chairman every build. On a large, slowly-growing corpus that's the
+difference between a handful of chairman calls and a full re-classification.
+
+- `lens_build_state.json` gains `extracted_pair_ids` — the set of turn-pair
+  prompt_ids Stage 0 has already classified (whether or not they yielded a
+  rejection, so a no-signal pair isn't re-asked). Backward-compatible: a
+  pre-#210 state file (fingerprint only) reads as no-extracted.
+- The previously-extracted rejections are **reloaded from the unified
+  ledger** (`to_rejection`, the inverse of `from_rejection`) and merged with
+  the freshly-extracted ones, deduped by the content-stable id. So the ledger
+  carries the full corpus even though only the delta hit the chairman.
+- Guards preserved: #203 abort-on-failed-batch still fires on any new batch;
+  the #194/#203 degenerate-Stage-0 clobber guard is computed against the
+  ledger's existing model-miss count — with delta on, the carried-forward
+  rejections keep the count ≥ existing, so it only bites a `--force` full
+  re-extraction that came back empty.
+- `--force` disables the delta (re-extracts everything, the pre-#210
+  behavior) for a user who suspects stale extraction and wants a clean pass.
+
 ## [v1.7.47 — EXTRACT unification Stage 4b: legacy split retired (#202/#209)] — 2026-05-28
 
 The final stage of the Strangler-Fig EXTRACT unification (`docs/lens-redesign.md`).
@@ -1822,7 +1846,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2094<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2102<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

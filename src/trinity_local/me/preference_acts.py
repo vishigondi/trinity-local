@@ -109,6 +109,28 @@ def from_rejection(r) -> PreferenceAct:
     )
 
 
+def to_rejection(a: "PreferenceAct"):
+    """PreferenceAct (model_miss) → RejectionSignal — the inverse of
+    ``from_rejection``. Lets lens-build's delta-extraction (#210) reload the
+    previously-extracted rejections from the ledger and merge new ones into
+    them without re-running Stage 0 over the whole corpus. Lossless for
+    model_miss acts (id is content-stable, so a re-extraction collapses onto
+    the same row). Imported lazily to avoid a turn_pairs↔preference_acts
+    import cycle."""
+    from .turn_pairs import RejectionSignal
+
+    return RejectionSignal(
+        id=a.id,
+        type=a.kind,
+        model_quote=a.sacrificed,
+        user_substitute=a.privileged,
+        why_signal=a.why,
+        prompt_id=a.prompt_id,
+        basin=a.basin,
+        next_user_turn=a.context,
+    )
+
+
 def from_decision(d) -> PreferenceAct:
     """Decision → PreferenceAct. The decision already names privileged vs
     sacrificed directly; the valence becomes the `kind`."""

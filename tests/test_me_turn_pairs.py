@@ -258,3 +258,211 @@ class TestStage0ConcurrencyCap:
         from trinity_local.me_builder import _STAGE0_MAX_CONCURRENCY
         # Capped so we don't spawn a swarm of claude subprocesses.
         assert 1 <= _STAGE0_MAX_CONCURRENCY <= 8
+
+
+class TestExtractedPairIdsState:
+    """#210: lens_build_state.json carries the set of turn-pairs Stage 0 has
+    already classified, so the next build skips them (delta-extraction)."""
+
+    def test_empty_when_no_state(self, patch_trinity_home):
+        from trinity_local.me_builder import _extracted_pair_ids
+        assert _extracted_pair_ids() == set()
+
+    def test_reads_recorded_ids(self, patch_trinity_home):
+        import json
+        from trinity_local.me_builder import (
+            _extracted_pair_ids,
+            _lens_build_state_path,
+        )
+        sp = _lens_build_state_path()
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        sp.write_text(json.dumps({
+            "fingerprint": "3:abc", "extracted_pair_ids": ["p1", "p2", "p3"],
+        }), encoding="utf-8")
+        assert _extracted_pair_ids() == {"p1", "p2", "p3"}
+
+    def test_malformed_state_yields_empty(self, patch_trinity_home):
+        from trinity_local.me_builder import (
+            _extracted_pair_ids,
+            _lens_build_state_path,
+        )
+        sp = _lens_build_state_path()
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        sp.write_text("not json", encoding="utf-8")
+        assert _extracted_pair_ids() == set()
+
+    def test_missing_key_is_backward_compatible(self, patch_trinity_home):
+        # A pre-#210 state file (fingerprint only) must read as no-extracted.
+        import json
+        from trinity_local.me_builder import (
+            _extracted_pair_ids,
+            _lens_build_state_path,
+        )
+        sp = _lens_build_state_path()
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        sp.write_text(json.dumps({"fingerprint": "3:abc"}), encoding="utf-8")
+        assert _extracted_pair_ids() == set()
+
+
+class TestToRejectionRoundTrip:
+    """#210: to_rejection is the inverse of from_rejection, so delta-build
+    can reload prior rejections from the unified ledger and merge new ones."""
+
+    def test_round_trips_through_preference_act(self):
+        from trinity_local.me.preference_acts import from_rejection, to_rejection
+        original = RejectionSignal(
+            id="r_abc", type="REDIRECT", model_quote="a long multi-thread answer",
+            user_substitute="just thread two", why_signal="ignored the rest",
+            prompt_id="p7", basin="b03", next_user_turn="and then what",
+        )
+        back = to_rejection(from_rejection(original))
+        assert back.id == original.id
+        assert back.type == original.type
+        assert back.model_quote == original.model_quote
+        assert back.user_substitute == original.user_substitute
+        assert back.why_signal == original.why_signal
+        assert back.prompt_id == original.prompt_id
+        assert back.basin == original.basin
+        assert back.next_user_turn == original.next_user_turn
+
+
+class _RecordingProvider:
+    """A fake provider that records which turn-pair ids each Stage 0 prompt
+    asked about, and returns parseable output for every lens-build stage."""
+
+    def __init__(self):
+        self.stage0_batches: list[list[str]] = []
+
+    def run(self, prompt, cwd=None):
+        import json
+        import re
+        from trinity_local.providers import ProviderResult
+
+        # Stage 0 turn-pair prompt: has the four-signal preamble + [id · basin=]
+        # headers. Record the ids and emit one rejection per pair.
+        if "THE FOUR SIGNAL TYPES" in prompt:
+            ids = [m.strip() for m in re.findall(r"\[([^\]·]+) · basin=", prompt)]
+            self.stage0_batches.append(ids)
+            lines = "\n".join(
+                json.dumps({
+                    "id": "r", "type": "REFRAME",
+                    "model_quote": "a verbose multi-paragraph framing of the answer",
+                    "user_substitute": "no — reframe it around the cost instead",
+                    "why_signal": "user pivoted the frame", "prompt_id": pid,
+                })
+                for pid in ids
+            )
+            return ProviderResult(provider="claude", stdout=lines, stderr="", returncode=0)
+
+        # Stage 2 decision extraction: emit one decision so the build doesn't
+        # short-circuit on "no_decisions_extracted" (which skips the state write).
+        if "privileged" in prompt and "sacrificed" in prompt:
+            return ProviderResult(
+                provider="claude",
+                stdout=json.dumps({
+                    "id": "d1", "privileged": "ship velocity", "sacrificed": "polish",
+                    "valence": "correction", "basin": "b00",
+                    "verbatim": "just ship it", "prompt_id": "p0",
+                }),
+                stderr="", returncode=0,
+            )
+
+        # Stage 3 pair-mining (and anything else): no pairs needed for the
+        # delta assertion; an empty array parses cleanly.
+        return ProviderResult(provider="claude", stdout="[]", stderr="", returncode=0)
+
+
+class TestStage0DeltaExtraction:
+    """#210: the second build classifies ONLY turn-pairs the first build
+    didn't — the central delta-extraction guarantee."""
+
+    def _seed_pairs(self, n: int, *, start: int = 0):
+        from trinity_local.memory import upsert_prompt_node
+        from trinity_local.memory.schemas import PromptNode
+        for i in range(start, start + n):
+            upsert_prompt_node(PromptNode(
+                id=f"p{i}", transcript_id="t", provider="claude", source_path="/x",
+                turn_index=i,
+                text=f"user turn number {i} with enough words to be a real prompt",
+                embedding=[0.0] * 8,
+                created_at="2026-05-12T00:00:00Z",
+                preceding_assistant_text=(
+                    f"assistant said something verbose and multi-part for turn {i}"
+                ),
+                following_assistant_text="",
+            ))
+
+    def test_second_build_extracts_only_new_pairs(self, patch_trinity_home, monkeypatch):
+        from unittest.mock import patch as _patch
+
+        from trinity_local import me_builder
+
+        self._seed_pairs(3)
+        fake = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3)
+        first_seen = {pid for batch in fake.stage0_batches for pid in batch}
+        assert {"p0", "p1", "p2"} <= first_seen, (
+            f"first build should classify all seeded pairs; saw {first_seen}"
+        )
+
+        # Add one new turn-pair; the corpus fingerprint changes so the build
+        # is NOT skipped, but Stage 0 should only see the new pair.
+        self._seed_pairs(1, start=3)
+        fake2 = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake2):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3)
+        second_seen = {pid for batch in fake2.stage0_batches for pid in batch}
+        assert second_seen == {"p3"}, (
+            f"delta build should classify ONLY the new pair; saw {second_seen}"
+        )
+
+    def test_force_re_extracts_everything(self, patch_trinity_home):
+        from unittest.mock import patch as _patch
+
+        from trinity_local import me_builder
+
+        self._seed_pairs(3)
+        fake = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3)
+
+        # force=True bypasses the delta — every pair is re-classified.
+        fake2 = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake2):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3, force=True)
+        forced_seen = {pid for batch in fake2.stage0_batches for pid in batch}
+        assert {"p0", "p1", "p2"} <= forced_seen, (
+            f"force should re-extract all pairs; saw {forced_seen}"
+        )
+
+    def test_delta_preserves_prior_rejections_in_ledger(self, patch_trinity_home):
+        from unittest.mock import patch as _patch
+
+        from trinity_local import me_builder
+        from trinity_local.me.preference_acts import (
+            MODEL_MISS,
+            load_preference_acts,
+        )
+
+        self._seed_pairs(3)
+        fake = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3)
+        after_first = [
+            a for a in load_preference_acts() if a.trigger == MODEL_MISS
+        ]
+
+        self._seed_pairs(1, start=3)
+        fake2 = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake2):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3)
+        after_second = [
+            a for a in load_preference_acts() if a.trigger == MODEL_MISS
+        ]
+        # The delta build re-extracted only p3 but the ledger must still
+        # carry the p0–p2 rejections (carried forward, not dropped).
+        first_ids = {a.id for a in after_first}
+        assert first_ids <= {a.id for a in after_second}, (
+            "delta build dropped previously-extracted rejections from the ledger"
+        )

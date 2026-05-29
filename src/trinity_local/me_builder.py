@@ -99,6 +99,25 @@ def _corpus_fingerprint() -> str:
     return f"{len(ids)}:{digest}"
 
 
+def _extracted_pair_ids() -> set[str]:
+    """The set of turn-pair prompt_ids Stage 0 has already classified in a
+    prior successful build (#210 delta-extraction). A pair in this set —
+    whether or not it yielded a rejection — is NOT re-sent to the chairman;
+    its rejections (if any) are reloaded from the ledger instead. Read from
+    ``lens_build_state.json``; empty on cold start or malformed state."""
+    import json as _json
+
+    sp = _lens_build_state_path()
+    if not sp.exists():
+        return set()
+    try:
+        data = _json.loads(sp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    ids = data.get("extracted_pair_ids")
+    return set(ids) if isinstance(ids, list) else set()
+
+
 def _stage0_batch_failed(result) -> bool:
     """True if a Stage 0 chairman batch call failed (#203). A timed-out
     call sets returncode == -1 (providers._run_command sentinel); an empty
@@ -620,6 +639,10 @@ def build_me_via_lens_pipeline(
     turn_pairs, pair_index = collect_turn_pairs(limit=max(200, sample_size * 2))
     rejections: list = []
     rejected_records: list = []
+    # The set of pair prompt_ids actually classified this run (new pairs +
+    # whatever was already extracted). Pinned to lens_build_state.json after a
+    # successful build so the next build skips them (#210).
+    processed_pair_ids: set[str] = set()
     if turn_pairs:
         import concurrent.futures
 
@@ -627,11 +650,46 @@ def build_me_via_lens_pipeline(
         # in-memory into the unified ledger save downstream. The #194/#203
         # degenerate-abort guard now checks against the ledger's existing
         # model-miss count (constants still live in turn_pairs).
-        from .me.preference_acts import MODEL_MISS as _MODEL_MISS, load_preference_acts as _load_acts
+        from .me.preference_acts import (
+            MODEL_MISS as _MODEL_MISS,
+            load_preference_acts as _load_acts,
+            to_rejection as _to_rejection,
+        )
         from .me.turn_pairs import _CLOBBER_MIN_EXISTING, _CLOBBER_MIN_FRACTION
 
-        def _existing_model_miss_acts():
-            return _load_acts()
+        existing_acts = _load_acts()
+        existing_mm_acts = [a for a in existing_acts if a.trigger == _MODEL_MISS]
+
+        # #210 delta-extraction: only classify turn-pairs Stage 0 hasn't seen
+        # before. The previously-extracted pairs' rejections are reloaded from
+        # the ledger and merged with the new ones — so a corpus that grew by a
+        # few threads pays for only those threads' chairman calls, not a full
+        # re-classification of the whole 200-pair window. `--force` disables
+        # the delta (re-extracts everything, the pre-#210 behavior) so a user
+        # who suspects stale extraction can always get a clean full pass.
+        delta_enabled = not force
+        already = _extracted_pair_ids() if delta_enabled else set()
+        existing_rejections = (
+            [_to_rejection(a) for a in existing_mm_acts] if delta_enabled else []
+        )
+        new_pairs = (
+            [p for p in turn_pairs if p.get("prompt_id") not in already]
+            if delta_enabled
+            else turn_pairs
+        )
+        # Every collected pair is "processed" after this run: the new ones via
+        # the chairman, the old ones by carry-forward from the ledger.
+        processed_pair_ids = {
+            p.get("prompt_id") for p in turn_pairs if p.get("prompt_id")
+        } | already
+        skipped_seen = len(turn_pairs) - len(new_pairs)
+        if delta_enabled and skipped_seen:
+            print(
+                f"           → delta: {len(new_pairs)} new pair(s), "
+                f"{skipped_seen} already extracted (reusing ledger)",
+                flush=True,
+            )
+
         # Chunk the batch (#195) — packing all 200 turn-pairs into ONE
         # prompt produced a ~37K-token call claude -p returned EMPTY for.
         # The batches are INDEPENDENT (each classifies a disjoint slice),
@@ -640,8 +698,8 @@ def build_me_via_lens_pipeline(
         # so the #194 guard sees the full count. Results are kept in batch
         # order (deterministic) even though they complete out of order.
         batches = [
-            turn_pairs[i:i + _STAGE0_BATCH_SIZE]
-            for i in range(0, len(turn_pairs), _STAGE0_BATCH_SIZE)
+            new_pairs[i:i + _STAGE0_BATCH_SIZE]
+            for i in range(0, len(new_pairs), _STAGE0_BATCH_SIZE)
         ]
         results: list = [None] * len(batches)
 
@@ -649,14 +707,15 @@ def build_me_via_lens_pipeline(
             prompt = stage0_turn_pair_prompt(batches[idx], basins)
             return idx, extractor.run(prompt, cwd=Path.cwd())
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=_STAGE0_MAX_CONCURRENCY
-        ) as pool:
-            for fut in concurrent.futures.as_completed(
-                pool.submit(_run_stage0_batch, i) for i in range(len(batches))
-            ):
-                idx, res = fut.result()
-                results[idx] = res
+        if batches:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=_STAGE0_MAX_CONCURRENCY
+            ) as pool:
+                for fut in concurrent.futures.as_completed(
+                    pool.submit(_run_stage0_batch, i) for i in range(len(batches))
+                ):
+                    idx, res = fut.result()
+                    results[idx] = res
 
         # Per-batch failure detection (#203), now across all parallel
         # results: if ANY batch timed out (returncode == -1) or returned
@@ -676,21 +735,31 @@ def build_me_via_lens_pipeline(
                     "reason": (res.stderr or "chairman returned empty output")[:500],
                     "extracted": len(rejections),
                 }
+        new_rejections: list = []
         for res in results:
             batch_kept, batch_dropped = stage0_parse_and_validate(
                 (res.stdout or "").strip(), basins, pair_index,
             )
-            rejections.extend(batch_kept)
+            new_rejections.extend(batch_kept)
             rejected_records.extend(batch_dropped)
+        # Merge carried-forward (ledger) + freshly-extracted rejections,
+        # deduped by the content-stable id (a re-extracted pair collapses
+        # onto its existing row; distinct rejections never collide — see
+        # parse_rejections' id scheme). New wins on collision so a re-run
+        # picks up any refinement.
+        merged: dict[str, object] = {r.id: r for r in existing_rejections}
+        for r in new_rejections:
+            merged[r.id] = r
+        rejections = list(merged.values())
+
         # Degenerate-Stage-0 abort (#194/#203), now against the LEDGER —
         # legacy rejections.jsonl was retired (#209). If a populated corpus
         # would be cliff-dropped to near-zero model-miss acts (the #195 empty
         # symptom that slips past the #203 batch check), abort rather than let
-        # the later ledger save overwrite the user's corpus. Rejections stay
-        # in-memory and flow into the unified ledger save downstream.
-        existing_mm = sum(
-            1 for a in _existing_model_miss_acts() if a.trigger == _MODEL_MISS
-        )
+        # the later ledger save overwrite the user's corpus. With delta on,
+        # the carried-forward rejections keep the count ≥ existing, so this
+        # only bites on a `--force` full re-extraction that came back empty.
+        existing_mm = len(existing_mm_acts)
         floor = max(1, int(existing_mm * _CLOBBER_MIN_FRACTION))
         if existing_mm >= _CLOBBER_MIN_EXISTING and len(rejections) < floor:
             print(
@@ -705,7 +774,12 @@ def build_me_via_lens_pipeline(
                 "reason": f"{len(rejections)} < floor {floor} (existing {existing_mm})",
                 "extracted": len(rejections),
             }
-        print(f"           → {len(rejections)} rejection signals kept, {len(rejected_records)} dropped by validators", flush=True)
+        print(
+            f"           → {len(rejections)} rejection signals "
+            f"({len(new_rejections)} new, {len(existing_rejections)} carried), "
+            f"{len(rejected_records)} dropped by validators",
+            flush=True,
+        )
     else:
         print("           → no turn pairs yet, skipping", flush=True)
 
@@ -898,7 +972,13 @@ def build_me_via_lens_pipeline(
         import json as _json
         from .utils import now_iso as _now_iso
         _lens_build_state_path().write_text(
-            _json.dumps({"fingerprint": fingerprint, "built_at": _now_iso()}),
+            _json.dumps({
+                "fingerprint": fingerprint,
+                "built_at": _now_iso(),
+                # #210: the pairs Stage 0 has now classified — the next build
+                # skips them (delta-extraction). Sorted for a stable diff.
+                "extracted_pair_ids": sorted(processed_pair_ids),
+            }),
             encoding="utf-8",
         )
     except OSError:
