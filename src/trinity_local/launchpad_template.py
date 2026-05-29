@@ -679,6 +679,21 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
              style="margin-top: 10px; padding: 10px 14px; border-left: 3px solid var(--accent, #2d8a3e); background: rgba(45,138,62,0.06); font-size: 14px; line-height: 1.5;">
             🪞 {{{{ pageData.coldOpen }}}}
           </p>
+          <!-- #236 council value proof: the council-first painkiller in one
+               stat — how often the chairman picked a different model than the
+               user's default. Self-hides below the headline threshold
+               (councilValue is null). Reads council_outcomes/, no model calls. -->
+          <p class="council-value" v-if="pageData.councilValue"
+             style="margin-top: 10px; padding: 10px 14px; border-left: 3px solid #4a6fa5; background: rgba(74,111,165,0.07); font-size: 14px; line-height: 1.5;">
+            ⚖ Across your <b>{{{{ pageData.councilValue.councils }}}}</b> councils, the synthesized
+            winner differed from your default <b>{{{{ pageData.councilValue.changedPct }}}}%</b> of the time —
+            that's how often a single-tab habit would have shipped the worse answer.
+            <span class="meta" style="display: block; margin-top: 4px;">
+              wins:
+              <span v-for="(w, i) in pageData.councilValue.wins" :key="w.label">
+                <span v-if="i > 0"> · </span>{{{{ w.label }}}} {{{{ w.pct }}}}%</span>
+            </span>
+          </p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>

@@ -683,6 +683,12 @@ def build_page_data(
         # of the detect→notify loop (status carries the CLI half). Empty list
         # when every current model has been scored, so the banner self-hides.
         "newModels": _new_models_for_launchpad(),
+        # #236 council value proof: how often the chairman picked a DIFFERENT
+        # model than the user's default (the council-first painkiller, in one
+        # stat) + the per-lab win split. Computed from council_outcomes/, no
+        # model calls. None below the headline threshold so the card self-hides
+        # on a thin ledger.
+        "councilValue": _council_value_for_launchpad(),
         # rateLimitSaves removed from pageData 2026-05-21 alongside
         # the rate-action / pending-ratings mechanism retirement. The
         # launchpad never rendered a card for it (the user explicitly
@@ -713,6 +719,30 @@ def _cold_open_for_launchpad() -> str | None:
     try:
         from .cold_start import cold_open_tension
         return cold_open_tension()
+    except Exception:
+        return None
+
+
+def _council_value_for_launchpad() -> dict | None:
+    """The #236 council value proof for the launchpad, enriched with
+    user-facing brand names. None below the headline threshold (or on any
+    read failure) so the card self-hides rather than touting a thin number.
+    """
+    try:
+        from .personal_routing import council_value_proof
+        vp = council_value_proof()
+        if not vp.get("ready"):
+            return None
+        brand = {"codex": "GPT", "claude": "Claude", "antigravity": "Gemini"}
+        wins = [
+            {"label": brand.get(p, p), "pct": d["pct"], "count": d["count"]}
+            for p, d in vp["win_split"].items()
+        ]
+        return {
+            "councils": vp["comparable"],
+            "changedPct": vp["changed_pct"],
+            "wins": wins,
+        }
     except Exception:
         return None
 

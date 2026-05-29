@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.69 — surface the council value proof (#236)] — 2026-05-29
+
+The council-first painkiller, finally surfaced from the data Trinity already
+has. No new eval, no model calls — pure aggregation over the 551 council
+outcomes on disk.
+
+The headline stat: **across [redacted corpus stat] the synthesized winner differed from
+the user's default 56% of the time** — i.e. a single-tab habit (their default
+was Claude 498/551 times) would have shipped the worse answer more than half
+the time. The per-lab win split: **GPT 49% · Claude 44% · Gemini 7%** (robust
+at n=551; provider names canonicalized at the load boundary so web-capture
+brand names fold into the canonical slugs, per v1.7.62).
+
+- **`personal_routing.council_value_proof()`** computes `{changed_pct,
+  win_split, comparable, n}` from `_scan_outcomes()` (reuses the existing
+  ledger walk; added `primary_provider` to the scan record). Returns
+  `{ready: False}` below 10 councils — the confidence-honesty rule (n<3
+  suppress) generalized to the proof surface, so a thin ledger stays quiet
+  rather than touting a noisy number.
+- **Surfaced, no new verb** (Q4 surface-collapse): a `status` "Council value"
+  line + `council_value` JSON payload key; a launchpad hero card
+  (`councilValue` page-data + a `v-if`-guarded block beside the cold-open
+  that self-hides on a thin ledger). User-facing brand names (GPT/Claude/
+  Gemini); slugs never leak to the UI.
+- The per-task-type winner splits were deliberately NOT surfaced — too thin
+  (n=1–9 across 423 task types) to clear the confidence bar.
+- Guards: `tests/test_council_value_proof.py` (changed-pick math, n<threshold
+  suppression, brand canonicalization, slug-never-leaks, card self-hide).
+
 ## [v1.7.68 — corpus-size-aware basin count (#245 follow-on)] — 2026-05-29
 
 The purge had a second-order effect the topic-map guard caught: a **fixed
@@ -2354,7 +2383,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2260<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2264<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

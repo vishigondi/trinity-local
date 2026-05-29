@@ -216,6 +216,15 @@ def handle_status(args):
         }
         if captures_payload is not None:
             payload["captures"] = captures_payload
+        # Council value proof (#236) — present only when the ledger clears the
+        # headline threshold, so scripts can branch on its presence.
+        try:
+            from ..personal_routing import council_value_proof
+            vp = council_value_proof()
+            if vp.get("ready"):
+                payload["council_value"] = vp
+        except Exception:
+            pass
         print(json.dumps(payload, indent=2))
         return
 
@@ -306,6 +315,25 @@ def handle_status(args):
     print(f"  Actions:   {pending_action_count} pending, {completed_action_count} completed")
     print(f"  Reviews:   {review_count}")
     print(f"  Councils:  {council_count}")
+    # Council value proof (#236) — the council-first painkiller, in one stat:
+    # how often the chairman picked a DIFFERENT model than the user's default
+    # (i.e. how often a single-provider user would have shipped the worse
+    # answer). Computed from council_outcomes/, no model calls. Stays quiet on
+    # a thin ledger (n < threshold).
+    try:
+        from ..personal_routing import council_value_proof
+        _brand = {"codex": "GPT", "claude": "Claude", "antigravity": "Gemini"}
+        vp = council_value_proof()
+        if vp.get("ready"):
+            print(f"    Council value: picked a different model than your "
+                  f"default {vp['changed_pct']}% of the time "
+                  f"(across {vp['comparable']} councils)")
+            split = " · ".join(
+                f"{_brand.get(p, p)} {d['pct']}%" for p, d in vp["win_split"].items()
+            )
+            print(f"                   wins: {split}")
+    except Exception:
+        pass
     print()
 
     # Lens hierarchy + scoreboards. Per v1.7 architectural collapse,

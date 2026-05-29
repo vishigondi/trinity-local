@@ -204,6 +204,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
             "routing_label": label_dict,
             "chairman_winner": chairman_winner,
             "winner_provider": outcome.winner_provider,
+            "primary_provider": outcome.primary_provider,
         })
     return records, all_clean
 
@@ -219,6 +220,61 @@ def _iter_rated_councils() -> Iterable[dict[str, Any]]:
     """
     records, _ = _scan_outcomes()
     yield from records
+
+
+# Below this many councils the aggregate isn't worth a headline — the
+# confidence-honesty rule (n<3 suppress) generalized to the proof surface.
+_VALUE_PROOF_MIN_COUNCILS = 10
+
+
+def council_value_proof() -> dict[str, Any]:
+    """The council-first value proof, computed from the council_outcomes/
+    ledger — no new eval, no model calls (#236).
+
+    The painkiller, in one stat: a single-provider user gets their default
+    model's answer every time. Trinity's chairman, having heard all three
+    labs, picks a DIFFERENT model than the user's default a large fraction
+    of the time — meaning that fraction of the time the default would have
+    been the worse answer. We also surface the per-lab win split (robust at
+    n=551; provider names canonicalized at the load boundary so web-capture
+    brand names — chatgpt/claude_ai/gemini — fold into codex/claude/antigravity).
+
+    Returns `{"ready": False, "n": <count>}` below the headline threshold so
+    callers can stay quiet on a thin ledger rather than tout a noisy number.
+    """
+    from .council_schema import normalize_provider_slug
+
+    records, _ = _scan_outcomes()
+    n = len(records)
+    if n < _VALUE_PROOF_MIN_COUNCILS:
+        return {"ready": False, "n": n, "min_councils": _VALUE_PROOF_MIN_COUNCILS}
+
+    win_counts: dict[str, int] = {}
+    changed = 0
+    comparable = 0  # outcomes where both winner and default are known
+    for r in records:
+        winner = normalize_provider_slug(r.get("chairman_winner") or r.get("winner_provider") or "")
+        default = normalize_provider_slug(r.get("primary_provider") or "")
+        if winner:
+            win_counts[winner] = win_counts.get(winner, 0) + 1
+        if winner and default:
+            comparable += 1
+            if winner != default:
+                changed += 1
+
+    changed_pct = round(100 * changed / comparable) if comparable else 0
+    win_split = {
+        p: {"count": c, "pct": round(100 * c / n)}
+        for p, c in sorted(win_counts.items(), key=lambda kv: -kv[1])
+    }
+    return {
+        "ready": True,
+        "n": n,
+        "changed_pick": changed,
+        "comparable": comparable,
+        "changed_pct": changed_pct,
+        "win_split": win_split,
+    }
 
 
 _CACHE: dict[str, Any] | None = None
