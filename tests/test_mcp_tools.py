@@ -138,6 +138,39 @@ class TestRoute:
         assert result["challenger"] in ("claude", "antigravity", "codex")
 
 
+class TestAskRouteMode:
+    """#213 Q4: `route` merged into `ask` as `mode='route'`. The standalone
+    `route` tool stays registered (deprecated) for back-compat."""
+
+    def test_ask_mode_route_returns_routing_decision(self, home: Path):
+        result = _call_tool_sync("ask", {
+            "query": "refactor this Python function to remove duplication",
+            "mode": "route",
+            "available_providers": ["claude", "antigravity", "codex"],
+        })
+        # Same payload shape as the route tool — a routing decision, NOT a
+        # dispatched answer (no model call in route mode).
+        assert "mode" in result and "primary" in result and "confidence" in result
+        assert "answer" not in result
+        # Deterministic: coding → codex, exactly like the route tool.
+        assert result["primary"] == "codex"
+
+    def test_ask_schema_exposes_route_mode(self):
+        from trinity_local.mcp_server import handle_list_tools
+        tools = asyncio.run(handle_list_tools())
+        ask = next(t for t in tools if t.name == "ask")
+        mode = ask.inputSchema["properties"].get("mode", {})
+        assert mode.get("enum") == ["answer", "route"]
+        assert mode.get("default") == "answer"
+
+    def test_route_tool_marked_deprecated(self):
+        from trinity_local.mcp_server import handle_list_tools
+        tools = asyncio.run(handle_list_tools())
+        route = next(t for t in tools if t.name == "route")
+        assert "DEPRECATED" in route.description
+        assert "ask(mode='route')" in route.description
+
+
 class TestRunCouncilChainPropagation:
     """The verification council caught that MCP `run_council(mode='chain')` was
     silently dispatching parallel because `_run_council` didn't add `mode`/

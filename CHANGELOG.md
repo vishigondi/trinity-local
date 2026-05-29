@@ -7,6 +7,29 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.52 — Q4 surface-collapse slice 3: MCP route→ask merge — #213 CLOSED] — 2026-05-29
+
+The final #213 slice. `route` is merged into `ask` as `mode="route"`:
+`ask(query, mode="route", …)` returns the routing decision
+`{mode, primary, challenger, confidence, reason, fallback}` with **no model
+call** — the old `route` tool's exact job, now reachable from the one entry
+the agent already knows. `mode="answer"` (default) is the existing dispatch.
+
+Deprecation, not removal — the standalone `route` tool stays registered
+(its description now leads with "DEPRECATED — prefer `ask(mode='route')`")
+because external harnesses (Claude Code / Cursor / Codex) call MCP tools by
+name; the published 8-tool contract is unchanged. A future major can drop it.
+
+`ask`'s schema gains `mode` (enum answer|route) + the route hints
+(`budget` / `latency` / `current_provider` / `harness`). Tests: route-mode
+returns the routing shape (deterministic codex pick), schema exposes the
+mode, route stays marked deprecated. claude.md signatures + the
+signature-coverage guard updated.
+
+**#213 (Q4 aggressive surface-collapse) is now complete** across all three
+surfaces: CLI (v1.7.49 — lens/council primary verbs), launchpad copy
+(v1.7.51 — product-word commands), MCP (this — route folded into ask).
+
 ## [v1.7.51 — Q4 surface-collapse slice 2: launchpad copy uses the product words (#213)] — 2026-05-29
 
 The launchpad / memory-viewer / status / me-card now hand users the two
@@ -1924,7 +1947,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2107<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2110<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

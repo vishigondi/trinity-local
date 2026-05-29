@@ -56,6 +56,8 @@ async def handle_list_tools() -> list[Tool]:
         Tool(
             name="route",
             description=(
+                "DEPRECATED — prefer `ask(mode='route')`, which returns the same routing "
+                "decision (#213 Q4 surface-collapse). Kept for back-compat.\n\n"
                 "Recommend a routing decision for a task: which model to use, whether to "
                 "run a council, and how confident the recommendation is. Cheap and fast "
                 "(no model calls). Call this BEFORE choosing a model. Use when you need "
@@ -97,18 +99,33 @@ async def handle_list_tools() -> list[Tool]:
                 "Cost: ~$0.01–0.05 typical for one model call. Latency 3–30s dominated by "
                 "the dispatched provider's response time (Trinity overhead is <1s). Single "
                 "dispatched call, no flagship planning, no multi-model fan-out. If you genuinely "
-                "need disagreement-vs-agreement structure, use `run_council` instead."
+                "need disagreement-vs-agreement structure, use `run_council` instead.\n\n"
+                "MODE: default `mode='answer'` dispatches one call and returns the answer. "
+                "`mode='route'` returns ONLY the routing decision "
+                "{mode, primary, challenger, confidence, reason, fallback} with NO model call — "
+                "use it to decide which provider to use before you call anything. (This subsumes "
+                "the standalone `route` tool, which is kept for back-compat.)"
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "The user's question or task"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["answer", "route"],
+                        "default": "answer",
+                        "description": "`answer` (default): dispatch one call, return the answer. `route`: return the routing decision only, no model call.",
+                    },
                     "available_providers": {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Provider names allowed to route to (default: all enabled in config)",
                     },
-                    "top_k": {"type": "integer", "default": 5, "description": "How many past prompts to retrieve for the vote"},
+                    "top_k": {"type": "integer", "default": 5, "description": "How many past prompts to retrieve for the vote (answer mode)"},
+                    "budget": {"type": "string", "enum": ["low", "normal", "high"], "default": "normal", "description": "route mode: cost preference"},
+                    "latency": {"type": "string", "enum": ["fast", "normal", "patient"], "default": "normal", "description": "route mode: latency preference"},
+                    "current_provider": {"type": "string", "description": "route mode: provider currently in use (optional)"},
+                    "harness": {"type": "string", "description": "route mode: calling harness name (optional)"},
                 },
                 "required": ["query"],
             },
@@ -782,12 +799,29 @@ def _full_provider_pool() -> list[str]:
 async def _ask(args: dict) -> list[Any]:
     """Handle mcp__trinity-local__ask. Routes via kNN + dispatches once.
     See `src/trinity_local/ask.py` for orchestration logic.
+
+    Q4 surface-collapse (#213): `route` merged into `ask` as a mode.
+    `mode="route"` returns the routing decision (which model, council-or-not,
+    confidence) WITHOUT dispatching a call — the old `route` tool's job. The
+    standalone `route` tool stays registered for back-compat (deprecated).
     """
     from .ask import run_ask
 
     query = args.get("query")
     if not query or not isinstance(query, str):
         return [ErrorData(code=400, message="`query` is required and must be a string")]
+
+    mode = (args.get("mode") or "answer").lower()
+    if mode == "route":
+        # Delegate to the routing path: query→task, available_providers→
+        # available_models; pass the routing hints through unchanged.
+        route_args: dict = {"task": query}
+        if "available_providers" in args:
+            route_args["available_models"] = args.get("available_providers")
+        for k in ("harness", "budget", "latency", "current_provider"):
+            if args.get(k) is not None:
+                route_args[k] = args[k]
+        return await _route(route_args)
 
     _trigger_incremental_ingest()
 
