@@ -672,6 +672,13 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <h1>{{{{ heroTitle }}}}</h1>
           <p class="lede">{{{{ heroLede }}}}</p>
           <p class="meta hero-mechanism" v-if="heroMechanism">{{{{ heroMechanism }}}}</p>
+          <!-- #212 cold-start aha: ONE surprising true tension the instant the
+               lens has signal. The differentiated wow that no chat tab can do;
+               self-hides on a cold install (coldOpen is null). -->
+          <p class="cold-open" v-if="pageData.coldOpen"
+             style="margin-top: 10px; padding: 10px 14px; border-left: 3px solid var(--accent, #2d8a3e); background: rgba(45,138,62,0.06); font-size: 14px; line-height: 1.5;">
+            🪞 {{{{ pageData.coldOpen }}}}
+          </p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
           <span aria-hidden="true" style="font-size: 24px; line-height: 1;">⚙</span>

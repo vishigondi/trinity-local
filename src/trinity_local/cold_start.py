@@ -255,3 +255,43 @@ def maybe_kick_cold_start() -> dict | None:
         return kick_cold_start_scan()
     except Exception:
         return None
+
+
+def cold_open_tension() -> str | None:
+    """The cold-start *aha* (#212 / Q2): ONE surprising, true thing about how
+    the user decides — surfaced the instant their lens has any signal, before
+    they've learned a single verb.
+
+    It names the single highest-support decision *axis* from the lens (the
+    tension they keep navigating), NOT a fixed winner — the lens models a
+    both-defensible tension, so claiming "you always pick X" would overclaim.
+    Returns None until a lens/registry tension exists (cold install). Pure
+    read, fully best-effort: never raises into a startup/status path."""
+    try:
+        from .me.lens_registry import LOW_CONFIDENCE_BELOW, active_tensions_sorted
+
+        tensions = active_tensions_sorted()
+        if tensions:
+            t = tensions[0]
+            n = t.support_count
+            prov = f" — seen across {n} of your decisions" if n >= LOW_CONFIDENCE_BELOW else ""
+            return (
+                f"One axis your lens already surfaces: “{t.pole_a}” vs "
+                f"“{t.pole_b}” — the tension you keep navigating{prov}."
+            )
+    except Exception:
+        pass
+    # Fallback for a pre-registry lens: the first accepted pair.
+    try:
+        from .me.pair_mining import load_lenses
+
+        pairs = load_lenses()
+        if pairs:
+            p = pairs[0]
+            return (
+                f"One axis your lens already surfaces: “{p.pole_a}” vs "
+                f"“{p.pole_b}” — the tension you keep navigating."
+            )
+    except Exception:
+        pass
+    return None

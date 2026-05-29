@@ -360,6 +360,18 @@ def handle_status(args):
     except Exception:
         pass
 
+    # #212 cold-start aha: ONE surprising true tension once the lens has
+    # signal. Best-effort, self-hides on a cold install.
+    try:
+        from ..cold_start import cold_open_tension
+
+        co = cold_open_tension()
+        if co:
+            print(f"  Lens insight: 🪞 {co}")
+            print()
+    except Exception:
+        pass
+
     # Actionable signals — surfaces the same per-feature counts the
     # launchpad shows so CLI-only users see "you have N edits queued"
     # without opening the file:// surface. Each line silently hidden

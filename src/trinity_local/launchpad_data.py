@@ -684,6 +684,10 @@ def build_page_data(
         # benchmark numbers without cat'ing JSON. Empty state (CTA)
         # when no runs have completed yet.
         "evalSummary": _eval_summary(),
+        # #212 cold-start aha: ONE surprising true tension about how the user
+        # decides, shown as the hero cold-open the instant the lens has signal.
+        # None on a cold install (hero shows the council promise instead).
+        "coldOpen": _cold_open_for_launchpad(),
         # #218 — new-model celebration banner: providers whose current model
         # the user hasn't scored against their taste yet. The launchpad half
         # of the detect→notify loop (status carries the CLI half). Empty list
@@ -712,6 +716,15 @@ def build_page_data(
         # stamp after pip upgrade or fix-deploy, they need to hard-reload.
         "regeneratedAt": now_iso(),
     }
+
+
+def _cold_open_for_launchpad() -> str | None:
+    """The #212 cold-open tension for the launchpad hero. Best-effort."""
+    try:
+        from .cold_start import cold_open_tension
+        return cold_open_tension()
+    except Exception:
+        return None
 
 
 def _new_models_for_launchpad() -> list[dict]:

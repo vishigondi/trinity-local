@@ -585,6 +585,20 @@ def _text(payload: dict | str) -> dict:
                     payload["cold_start"] = hint
             except Exception:
                 pass
+        # #212 cold-start aha: once the lens has signal, surface ONE surprising
+        # true tension so the agent can open with "here's one thing I've
+        # learned about how you decide" — the differentiated wow, before the
+        # user has learned a verb. Self-omits on a cold install (None).
+        if "lens_cold_open" not in payload:
+            try:
+                from .cold_start import cold_open_tension
+
+                co = cold_open_tension()
+                if co:
+                    payload = dict(payload)
+                    payload["lens_cold_open"] = co
+            except Exception:
+                pass
         if "extension_status" not in payload:
             try:
                 hint = _extension_status_hint()

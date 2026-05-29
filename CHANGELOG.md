@@ -7,6 +7,25 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.46 — cold-start aha: one true tension cold-open (Q2)] — 2026-05-28
+
+The differentiated wow, before the user learns a verb. The auto-scan already
+kicks on first MCP connect (`maybe_kick_cold_start`); this adds the *insight*
+half — `cold_open_tension()` surfaces the single highest-support decision
+*axis* from the lens (the tension the user keeps navigating, NOT a fixed
+winner — the lens models a both-defensible tension). Falls back to the first
+accepted lens pair pre-registry; returns None on a cold install.
+
+Surfaced on three surfaces, no new verb (Q4 surface-collapse):
+- **Launchpad hero** — a 🪞 cold-open line above the fold, self-hiding when
+  null. **Browser-verified in real Chrome**: rendered *"One axis your lens
+  already surfaces: 'executable artifact' vs 'explanatory description' — the
+  tension you keep navigating — seen across 17 of your decisions"*, no
+  console errors, Vue mounts clean.
+- **`trinity-local status`** — a "Lens insight" line.
+- **MCP** — a `lens_cold_open` field on dict tool payloads so the agent can
+  open with "here's one thing I've learned about how you decide."
+
 ## [v1.7.45 — doc consolidation: retired-rating sweep + class retags] — 2026-05-28
 
 Completes the high-value #215 work (the v1.7.41 ship did the dead-link +
@@ -1770,7 +1789,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2099<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2103<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
