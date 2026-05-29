@@ -7,6 +7,34 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.56 — fix 2 silent new-user bugs on the extension-first install path] — 2026-05-29
+
+Found by actually running both onboarding paths from a clean fake-home as a
+new user (not just reading the code). The terminal/Claude-Code path worked
+end-to-end (install EXIT=0, `status` runs, Schema v1 migration fires, MCP
+registered in all 4 harnesses). The **extension-first capture path was
+silently dead on a fresh install** — two bugs the CLI path masked:
+
+1. **Bare-name interpreter.** The capture-host wrapper `exec`ed
+   `python3.12` by name. Chrome/Edge launch a native-messaging host with a
+   **sanitized PATH** (no Homebrew `/opt/homebrew/bin`), so on the common
+   Mac setup `python3.12` didn't resolve → capture died with the error
+   buried in Chrome's logs. Fix: install.sh bakes the **absolute**
+   interpreter path via `command -v` (also how NM hosts should be
+   registered).
+2. **Script-mode launch.** The wrapper ran `python capture_host.py` — but
+   `capture_host.py` uses relative imports (`from .registry import …`),
+   which raise *"attempted relative import with no known parent package"*
+   when run as a file. Fix: `python -m trinity_local.capture_host` (module
+   mode, PYTHONPATH already set), mirroring the working CLI wrapper.
+
+Verified the fix end-to-end: under a Chrome-like sanitized PATH the host now
+launches and completes a real native-messaging round-trip (4-byte-framed
+JSON in → structured JSON out). Regression guards added in
+`test_install_wrapper_uses_resolver.py`: capture-host wrapper must run as a
+module (not a script file) and install.sh must resolve an absolute
+interpreter path. Full suite 2149 passed + 7 skipped.
+
 ## [v1.7.55 — trajectory lens: diachronic arc-pair extraction (#182)] — 2026-05-29
 
 The diachronic layer over Stage 0's synchronic turn-pairs — and the
@@ -2039,7 +2067,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2151<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2153<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

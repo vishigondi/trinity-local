@@ -118,7 +118,49 @@ class TestCaptureHostWrapper:
             "means CLI auto-updates but Native Messaging stays stale."
         )
         assert "SOURCE_DIR" in body
-        assert "capture_host.py" in body
+        assert "trinity_local.capture_host" in body
+
+
+class TestCaptureHostLaunchRobustness:
+    """Two bugs that ONLY bit the extension-first path (the CLI path masked
+    them): Chrome launches the Native Messaging host with a SANITIZED PATH
+    and the host runs as a script. Both made capture silently dead on a
+    fresh install. Guards so they can't regress."""
+
+    def test_capture_host_runs_as_module_not_script(self, install_script):
+        """capture_host.py uses relative imports (`from .registry import …`)
+        which raise 'attempted relative import with no known parent package'
+        when run as a file. The wrapper MUST invoke it as a module under
+        `-m` (PYTHONPATH set to .../src), exactly like the CLI wrapper does
+        with trinity_local.main."""
+        for marker in ("CAPTURE_EOF", "CAPTURE_LEGACY_EOF"):
+            m = re.search(rf"<<{marker}\s*(.+?)\n{marker}", install_script, re.DOTALL)
+            assert m, f"install.sh must write the capture-host wrapper via {marker}."
+            body = m.group(1)
+            assert "-m trinity_local.capture_host" in body, (
+                f"{marker} wrapper must exec `python -m trinity_local.capture_host`, "
+                f"not run capture_host.py as a script — relative imports break "
+                f"the moment Chrome launches the host."
+            )
+            # The exec line must NOT pass the .py file as python's first arg.
+            exec_line = next(
+                (ln for ln in body.splitlines() if ln.strip().startswith("exec ")),
+                "",
+            )
+            assert "capture_host.py" not in exec_line, (
+                f"{marker} exec line still runs the script file directly: {exec_line!r}"
+            )
+
+    def test_interpreter_path_is_absolute(self, install_script):
+        """The wrappers exec $PYTHON_BIN. Chrome launches the host with a
+        sanitized PATH (no Homebrew /opt/homebrew/bin), so a bare
+        `python3.12` fails to resolve. install.sh must bake the ABSOLUTE
+        interpreter path via `command -v`."""
+        assert 'PYTHON_BIN="$(command -v "$candidate")"' in install_script, (
+            "install.sh must resolve PYTHON_BIN to an absolute path "
+            "(command -v), not store the bare candidate name — Chrome's "
+            "sanitized native-messaging PATH can't find a bare python3.12."
+        )
 
 
 class TestLegacyFallbackBranch:

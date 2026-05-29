@@ -66,8 +66,14 @@ for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
     PY_MAJOR=${PY_VER%%.*}
     PY_MINOR=${PY_VER##*.}
     if [[ "$PY_MAJOR" == "3" ]] && (( PY_MINOR >= 10 )); then
-      PYTHON_BIN="$candidate"
-      ok "$candidate ($PY_VER)"
+      # Bake the ABSOLUTE interpreter path, not the bare name. The
+      # capture-host wrapper is launched by Chrome/Edge as a native-
+      # messaging host with a SANITIZED PATH (typically /usr/bin:/bin,
+      # without Homebrew's /opt/homebrew/bin). A bare `python3.12` then
+      # fails to resolve and capture silently dies. The absolute path
+      # works regardless of the launcher's PATH (Chrome, launchd, cron).
+      PYTHON_BIN="$(command -v "$candidate")"
+      ok "$candidate ($PY_VER) → $PYTHON_BIN"
       break
     fi
   fi
@@ -209,14 +215,19 @@ SOURCE_DIR=\$("$RESOLVER_DST" 2>/dev/null) || {
   exit 1
 }
 export PYTHONPATH="\$SOURCE_DIR/src:\${PYTHONPATH:-}"
-exec "$PYTHON_BIN" "\$SOURCE_DIR/src/trinity_local/capture_host.py" "\$@"
+# Run as a MODULE, not a script file: capture_host.py uses relative
+# imports (from .registry import …) which only resolve under -m. Running
+# the file directly raises "attempted relative import with no known
+# parent package" the moment Chrome launches the host.
+exec "$PYTHON_BIN" -m trinity_local.capture_host "\$@"
 CAPTURE_EOF
 else
   cat > "$TRINITY_BIN_DIR/trinity-local-capture-host" <<CAPTURE_LEGACY_EOF
 #!/usr/bin/env bash
 TRINITY_SKILL_DIR="\${TRINITY_SKILL_DIR:-\$HOME/.claude/skills/trinity}"
 export PYTHONPATH="\$TRINITY_SKILL_DIR/src:\${PYTHONPATH:-}"
-exec "$PYTHON_BIN" "\$TRINITY_SKILL_DIR/src/trinity_local/capture_host.py" "\$@"
+# Module mode — capture_host.py uses relative imports (see above).
+exec "$PYTHON_BIN" -m trinity_local.capture_host "\$@"
 CAPTURE_LEGACY_EOF
 fi
 chmod +x "$TRINITY_BIN_DIR/trinity-local-capture-host"
