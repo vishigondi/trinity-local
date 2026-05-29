@@ -29,9 +29,13 @@ from ..me_builder import (
 
 
 def register(subparsers):
+    # Q4 surface-collapse (#213): `lens` is the user-facing product word.
+    # `lens-build` is kept as an alias so launchpad/extension dispatch and
+    # the copy-paste command strings in memory_viewer keep resolving.
     build_parser = subparsers.add_parser(
-        "lens-build",
-        help="Build ~/.trinity/memories/lens.md via the 5-stage lens-discovery pipeline.",
+        "lens",
+        aliases=["lens-build"],
+        help="Build your lens (~/.trinity/memories/lens.md) from your transcripts.",
     )
     build_parser.add_argument(
         "--budget-chars", type=int, default=ME_BUDGET_CHARS,

@@ -5987,11 +5987,13 @@ class TestLensPipelineStageCountConsistent:
         for action in parser._actions:
             if isinstance(action, argparse._SubParsersAction):
                 for choice_action in action._choices_actions:
-                    if choice_action.dest == "lens-build":
+                    # Q4 #213: the primary verb is now `lens` (lens-build is
+                    # an alias); the pseudo-action's dest is the primary name.
+                    if choice_action.dest == "lens":
                         help_text = choice_action.help or ""
                         if "3-stage" in help_text or "3 stage" in help_text:
                             raise AssertionError(
-                                f"lens-build --help says '3-stage' but the live "
+                                f"lens --help says '3-stage' but the live "
                                 f"pipeline is 5 stages (0–4 inclusive). Doc surfaces "
                                 f"(claude.md, README.md, docs/spec-v1.md, "
                                 f"docs/architecture.md) all say 5-stage. Update the "
@@ -5999,7 +6001,7 @@ class TestLensPipelineStageCountConsistent:
                                 f"Current help: {help_text!r}"
                             )
                         return
-        raise AssertionError("Couldn't locate lens-build subparser in argparse")
+        raise AssertionError("Couldn't locate lens subparser in argparse")
 
     def test_me_package_docstrings_say_five_stage(self):
         repo = Path(__file__).resolve().parent.parent

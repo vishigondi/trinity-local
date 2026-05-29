@@ -117,12 +117,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     # `metavar` overrides argparse's auto-generated choice list (which
     # would print all 40+ registered subparsers in both the usage line
-    # AND the descriptive table heading). The {install,status,...}
-    # form gives the user the canonical 5 verbs at a glance.
+    # AND the descriptive table heading). Q4 surface-collapse (#213) leads
+    # with the two product words — `lens` and `council` — then the setup +
+    # cold-start essentials.
     subparsers = parser.add_subparsers(
         dest="command",
         required=False,
-        metavar="{install,status,update,dream,debug}",
+        metavar="{lens,council,dream,status,install}",
     )
 
     for module in _iter_command_modules():
@@ -132,21 +133,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# Area 5: CLI consolidation. The user-visible surface is exactly these
-# five verbs; everything else stays registered (the launchpad's Native
-# Messaging dispatch and the Chrome extension's action allowlist both
-# call subparsers by name — dropping the registrations would break
-# real flows) but gets `help=argparse.SUPPRESS`'d so it doesn't appear
-# in `trinity-local --help`. Power-user verbs are reachable both by
-# their original names AND under `trinity-local debug <subcmd>` for
-# discoverability.
-USER_FACING_COMMANDS = frozenset({
-    "install",
-    "status",
-    "update",
+# Area 5 → Q4 surface-collapse (#213). The user-visible surface is exactly
+# these five verbs, led by the two product words (`lens`, `council`);
+# everything else stays registered (the launchpad's Native Messaging
+# dispatch and the Chrome extension's action allowlist both call subparsers
+# by name — dropping the registrations would break real flows) but is
+# omitted from `trinity-local --help`. Power-user verbs keep working by
+# their original names and remain reachable under `trinity-local debug
+# <subcmd>` for discoverability. Order here IS the help order.
+USER_FACING_COMMANDS = (
+    "lens",
+    "council",
     "dream",
-    "debug",
-})
+    "status",
+    "install",
+)
 
 
 def _hide_non_canonical_from_help(subparsers: argparse._SubParsersAction) -> None:
@@ -167,9 +168,14 @@ def _hide_non_canonical_from_help(subparsers: argparse._SubParsersAction) -> Non
     remove the entries entirely. The parsers stay in `subparsers.choices`
     — still callable, just no longer advertised in `--help`.
     """
-    subparsers._choices_actions = [
-        action for action in subparsers._choices_actions
+    kept = {
+        action.dest: action
+        for action in subparsers._choices_actions
         if action.dest in USER_FACING_COMMANDS
+    }
+    # Render in the canonical product-first order, not registration order.
+    subparsers._choices_actions = [
+        kept[name] for name in USER_FACING_COMMANDS if name in kept
     ]
 
 

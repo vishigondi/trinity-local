@@ -7,6 +7,31 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.49 — Q4 surface-collapse: lens + council are the product words (#213 slice 1)] — 2026-05-29
+
+The founder Q4 decision: collapse the user-facing surface toward two words —
+**lens** and **council**. `trinity-local --help` already collapsed to five
+verbs (v1.0 Area 5), but it led with `install/status/update/dream/debug` —
+the plumbing, not the product. This slice promotes the two product words to
+first-class, leading verbs.
+
+- `lens` is now the primary verb (alias `lens-build`); `council` is the
+  primary verb (alias `council-launch`). Pure addition via argparse aliases —
+  the long forms keep resolving, so launchpad Native-Messaging dispatch, the
+  Chrome-extension action allowlist, and the copy-paste command strings in
+  the memory viewer all keep working unchanged.
+- `--help` now leads, in order: **lens, council**, dream, status, install.
+  The metavar matches. `_hide_non_canonical_from_help` renders in this
+  product-first order, not registration order.
+- Routing is unaffected (it dispatches on `args.handler`, never the command
+  string), so the aliases carry zero behavioral risk.
+
+Remaining #213 slices (deferred, each its own change): launchpad card
+demotion (lead with lens + council, push cortex/telemetry/extension-repair
+below the fold) and the MCP-tool merge (`route` into `ask` as a mode) — the
+latter needs a deprecation window since external harnesses call the tools by
+name, so it can't be a silent rename.
+
 ## [v1.7.48 — Stage 0 full delta-extraction (#210)] — 2026-05-29
 
 Beyond the v1.7.38 skip-if-unchanged gate (whole build skips when the corpus

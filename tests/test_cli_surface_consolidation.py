@@ -1,16 +1,15 @@
-"""Tests for the Area 5 CLI consolidation (21 → 5 user-facing).
-
-`trinity-local --help` shows exactly five verbs:
-  - install   (umbrella: install-mcp, install-extension, ...)
-  - status
-  - update
+"""Tests for the Q4 surface-collapse (#213) — `trinity-local --help`
+shows exactly five verbs, led by the two product words:
+  - lens      (alias: lens-build)
+  - council   (alias: council-launch)
   - dream
-  - debug     (umbrella: replay-history, consolidate, ...)
+  - status
+  - install   (umbrella: install-mcp, install-extension, ...)
 
 Everything else stays registered (launchpad dispatch + Chrome ext
 action allowlist call subparsers by name; dropping the registrations
 breaks those flows) but disappears from `--help`'s discoverable
-surface.
+surface. Power-user verbs remain reachable under `debug`.
 """
 from __future__ import annotations
 
@@ -24,45 +23,45 @@ from trinity_local.main import (
 
 
 class TestUserFacingSurface:
+    _EXPECTED = ("lens", "council", "dream", "status", "install")
+
     def test_user_facing_set_is_exactly_five(self):
-        """The cron spec calls out 5 user-facing verbs. Drift here
-        (someone adds a sixth or drops one) silently changes the
-        marketing claim 'trinity-local has just 5 verbs you need to
-        know.'"""
-        assert USER_FACING_COMMANDS == frozenset(
-            {"install", "status", "update", "dream", "debug"}
-        ), (
-            f"USER_FACING_COMMANDS must be exactly the 5 verbs from the "
-            f"Area 5 spec; got {sorted(USER_FACING_COMMANDS)!r}."
+        """Q4 surface-collapse: exactly 5 user-facing verbs, led by the
+        two product words. Drift here (a sixth, or a dropped one)
+        silently changes the marketing claim 'two words: lens, council.'"""
+        assert tuple(USER_FACING_COMMANDS) == self._EXPECTED, (
+            f"USER_FACING_COMMANDS must be exactly {self._EXPECTED!r} "
+            f"(product-first order); got {tuple(USER_FACING_COMMANDS)!r}."
         )
 
     def test_help_lists_only_five_subparsers_in_descriptive_table(self):
         """The descriptive table (the part below the usage line) must
-        show exactly the five user-facing verbs. Non-canonical
-        subparsers stay registered but should NOT appear here."""
+        show exactly the five user-facing verbs, in product-first order.
+        Non-canonical subparsers stay registered but should NOT appear."""
         parser = build_parser()
         # Find the subparsers action.
         sub_action = next(
             a for a in parser._actions
             if isinstance(a, argparse._SubParsersAction)
         )
-        # The descriptive table is generated from `_choices_actions`.
-        listed = {a.dest for a in sub_action._choices_actions}
-        assert listed == USER_FACING_COMMANDS, (
+        # The descriptive table is generated from `_choices_actions`;
+        # order is load-bearing (lens/council lead).
+        listed = [a.dest for a in sub_action._choices_actions]
+        assert listed == list(self._EXPECTED), (
             f"--help descriptive table must list exactly the 5 user-"
-            f"facing verbs; got {sorted(listed)!r}."
+            f"facing verbs in product-first order; got {listed!r}."
         )
 
     def test_metavar_overrides_noisy_usage_line(self):
         """Without an explicit metavar, argparse prints all 40+
         registered choices in the usage line. The metavar collapses
-        it to {install,status,update,dream,debug}."""
+        it to the product-first five."""
         parser = build_parser()
         sub_action = next(
             a for a in parser._actions
             if isinstance(a, argparse._SubParsersAction)
         )
-        assert sub_action.metavar == "{install,status,update,dream,debug}", (
+        assert sub_action.metavar == "{lens,council,dream,status,install}", (
             f"Subparsers metavar must be the user-facing 5; got "
             f"{sub_action.metavar!r}."
         )

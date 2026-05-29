@@ -65,9 +65,14 @@ def register(subparsers):
     council_start_parser.add_argument("--open-browser", action="store_true")
     council_start_parser.set_defaults(handler=handle_council_start)
 
+    # Q4 surface-collapse (#213): `council` is the user-facing product word
+    # for "run all three providers on this and synthesize". `council-launch`
+    # stays as an alias — launchpad Native-Messaging dispatch + the Chrome
+    # extension action allowlist both call it by that name.
     council_launch_parser = subparsers.add_parser(
-        "council-launch",
-        help="Create a prompt bundle from task text, run council, and open the result",
+        "council",
+        aliases=["council-launch"],
+        help="Run a council: all three providers answer, the chairman synthesizes one verdict in your voice.",
     )
     council_launch_parser.add_argument("--task", required=True, help="Task text to compare across providers")
     council_launch_parser.add_argument("--goal", default="Find the strongest answer.")
