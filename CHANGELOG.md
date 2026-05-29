@@ -7,6 +7,17 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.59 — sharper hero copy (README + landing)] — 2026-05-29
+
+Tightened the README + `docs/index.html` Trinity product card to the
+founder's sharper hero: **"Own your taste."** + *"Stop copy-pasting prompts
+between tabs like an animal. Ask once. Trinity fans it out to Claude, GPT,
+and Gemini. Shows you where they split. Makes the call the way your taste
+would."* + the install line *"Just an MCP and a Chrome extension — no new
+app, no cloud, no API key."* Keeps the guard-pinned hero (`Own your taste.`)
+and the canonical privacy sub; the council-painkiller mechanic moves into
+the body. No code change.
+
 ## [v1.7.58 — activity-gated lens refresh (Auto-Dream pattern, not a cron)] — 2026-05-29
 
 Closes the "councils gain taste automatically" loop — the right way. The

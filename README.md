@@ -9,9 +9,11 @@ class: live
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 [![security](https://img.shields.io/badge/security-policy-green.svg)](SECURITY.md)
 
-## Stop tab-hopping between Claude, ChatGPT, and Gemini.
+## Own your taste.
 
-Ask your hard question once. Trinity runs it through all three in parallel and returns **one synthesized answer — with exactly where they split and why each split matters — in your voice.** No more pasting the same prompt into three tabs and eyeballing which one to trust.
+Stop copy-pasting prompts between tabs like an animal. Ask once. Trinity fans it out to Claude, GPT, and Gemini. Shows you where they split. Makes the call the way your taste would.
+
+**Install** — just an MCP and a Chrome extension. No new app, no cloud, no API key.
 
 ![the launchpad — what a brand-new install opens to on first run](docs/launchpad_example.png)
 
