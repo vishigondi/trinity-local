@@ -179,8 +179,24 @@ def _hide_non_canonical_from_help(subparsers: argparse._SubParsersAction) -> Non
     ]
 
 
+def _run_schema_migrations() -> None:
+    """Forward-migrate `~/.trinity/` on the first launch under a new binary
+    (#183). Cheap + idempotent when current; never raises. This is the one
+    invocation point — `main()` covers both the bare CLI and the `--mcp`
+    server it spawns."""
+    try:
+        from .migrations import run_migrations
+
+        run_migrations()
+    except Exception:
+        # Schema migration must never block startup. A real failure surfaces
+        # in `status` (which reports the recorded vs current version).
+        pass
+
+
 def main() -> None:
     _pin_hf_offline()
+    _run_schema_migrations()
     parser = build_parser()
     parser.add_argument("--mcp", action="store_true", help="Run as an MCP server")
     args = parser.parse_args()

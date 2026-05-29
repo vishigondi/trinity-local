@@ -180,8 +180,16 @@ def handle_status(args):
         except Exception:
             pass
 
+        from ..migrations import SCHEMA_VERSION, current_schema_version
+        _recorded_schema = current_schema_version()
+
         payload: dict = {
             "trinity_home": str(home),
+            # #183: schema version of ~/.trinity/. `recorded` is the marker on
+            # disk; `current` is what this binary expects. They match after a
+            # normal launch (migrations run at startup); a mismatch means a
+            # migration failed — visible here for debugging.
+            "schema_version": {"recorded": _recorded_schema, "current": SCHEMA_VERSION},
             "health": health.to_dict(),
             "adapters": {
                 "ready": len(ready_adapters),
@@ -221,6 +229,14 @@ def handle_status(args):
     # detail surfaces on health failure via `--json` or by calling
     # run_doctor() / format_human() directly.
     print(f"  Health:    {format_one_line(health)}")
+    # #183: schema version line — flags a failed migration (recorded < current).
+    from ..migrations import SCHEMA_VERSION, current_schema_version
+    _recorded = current_schema_version()
+    if _recorded == SCHEMA_VERSION:
+        print(f"  Schema:    v{SCHEMA_VERSION}")
+    else:
+        print(f"  Schema:    v{_recorded} → v{SCHEMA_VERSION} pending "
+              f"(migration will run on next launch)")
     print()
 
     # Adapters

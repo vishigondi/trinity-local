@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.53 — schema versioning + forward migration runner (#183)] — 2026-05-29
+
+`~/.trinity/` had no version marker; schema growth was additive-only and
+relied on luck — a real forward-compat blind spot before any breaking change.
+
+- A single monotonic `schema_version` for the whole state dir (per-shape
+  versioning is over-engineering for an additive-only history) in
+  `~/.trinity/.trinity-version`. A missing marker reads as **v0** (every
+  pre-versioning install). `migrations.py`: `SCHEMA_VERSION`,
+  `current_schema_version()`, a `Migration` dataclass + `MIGRATIONS`
+  registry, and `run_migrations()`.
+- `run_migrations()` walks the recorded version forward to `SCHEMA_VERSION`,
+  applying each contiguous migration. **Fail-safe**: a raised migration stops
+  the walk at the last success (the marker never half-advances past a failed
+  step, so the next launch retries), and the runner itself never raises — a
+  migration bug must not brick startup.
+- Wired into `main()` (the one entry covering both the bare CLI and the
+  `--mcp` server it spawns). Cheap when current: one tiny file read + an int
+  compare. Idempotent.
+- First registered migration **v0→v1** makes the #209 legacy→ledger recovery
+  (`_migrate_legacy_preference_stores`) a first-class run-once schema step —
+  it now fires at startup, not only inside lens-build/resync/eval-build.
+- `status` reports the schema version (human "Schema: vN" line +
+  `schema_version: {recorded, current}` in the JSON), flagging a pending/
+  failed migration when `recorded < current`.
+
+Decisions recorded: single-doc version (not per-shape); inline-at-startup
+(not a separate `migrate` verb — Q4 surface discipline). Unblocks #182.
+
 ## [v1.7.52 — Q4 surface-collapse slice 3: MCP route→ask merge — #213 CLOSED] — 2026-05-29
 
 The final #213 slice. `route` is merged into `ask` as `mode="route"`:
@@ -1947,7 +1976,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2110<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2119<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
