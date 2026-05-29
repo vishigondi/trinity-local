@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -99,10 +99,6 @@ class Decision:
         if self.weight != 1.0:
             out["weight"] = self.weight
         return out
-
-
-def decisions_path() -> Path:
-    return me_dir() / "decisions.jsonl"
 
 
 def decision_log_path() -> Path:
@@ -355,42 +351,6 @@ def load_decision_log(basins: list[Basin]) -> list[Decision]:
             logged_at=(obj.get("logged_at") or "").strip(),
             weight=float(obj.get("weight", 2.0)),
         ))
-    return out
-
-
-def save_decisions(decisions: list[Decision]) -> Path:
-    path = decisions_path()
-    with path.open("w") as f:
-        for d in decisions:
-            f.write(json.dumps(d.to_dict()) + "\n")
-    return path
-
-
-def load_decisions() -> list[Decision]:
-    """Read decisions.jsonl into Decision objects — symmetric to
-    save_decisions. Tolerant: skips malformed / under-specified lines and
-    supplies defaults for the optional fields (#201/EXTRACT-unification
-    Stage 1 needs a disk reader so preference_acts can union decisions
-    with rejections)."""
-    path = decisions_path()
-    if not path.exists():
-        return []
-    known = {f.name for f in fields(Decision)}
-    required = ("id", "privileged", "sacrificed", "valence", "verbatim")
-    out: list[Decision] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(obj, dict) or not all(k in obj for k in required):
-            continue
-        kwargs = {k: v for k, v in obj.items() if k in known}
-        kwargs.setdefault("basin", None)  # required positional, nullable
-        out.append(Decision(**kwargs))
     return out
 
 

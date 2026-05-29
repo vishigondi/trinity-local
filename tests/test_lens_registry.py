@@ -293,42 +293,6 @@ class TestRenderSupportAnnotation:
 
 
 @pytest.mark.usefixtures("patch_trinity_home")
-class TestLoadRejections:
-    def test_round_trips_with_save(self):
-        from trinity_local.me.turn_pairs import (
-            RejectionSignal,
-            load_rejections,
-            save_rejections,
-        )
-        sigs = [
-            RejectionSignal(id="r1", type="REFRAME", model_quote="m1", user_substitute="u1", why_signal="w1"),
-            RejectionSignal(id="r2", type="REDIRECT", model_quote="m2", user_substitute="u2"),
-        ]
-        save_rejections(sigs)
-        back = load_rejections()
-        assert {r.id for r in back} == {"r1", "r2"}
-        assert {r.type for r in back} == {"REFRAME", "REDIRECT"}
-
-    def test_tolerates_extra_keys_and_skips_malformed(self):
-        from trinity_local.me.turn_pairs import load_rejections, rejections_path
-        p = rejections_path()
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(
-            # extra provider keys → kept; missing required → skipped; junk → skipped
-            '{"id":"r1","type":"REFRAME","model_quote":"m","user_substitute":"u","source_provider":"claude","confidence":"high"}\n'
-            '{"id":"r2","type":"REFRAME"}\n'
-            'not json\n',
-            encoding="utf-8",
-        )
-        back = load_rejections()
-        assert [r.id for r in back] == ["r1"]
-
-    def test_missing_file_returns_empty(self):
-        from trinity_local.me.turn_pairs import load_rejections
-        assert load_rejections() == []
-
-
-@pytest.mark.usefixtures("patch_trinity_home")
 class TestResyncFromDisk:
     def _seed_lenses(self):
         from trinity_local.me.pair_mining import save_lenses

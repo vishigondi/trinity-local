@@ -18,12 +18,31 @@ def home(patch_trinity_home: Path) -> Path:
 
 
 def _write_rejections(home: Path, entries: list[dict]) -> Path:
-    rej_path = home / "me" / "rejections.jsonl"
-    rej_path.parent.mkdir(parents=True, exist_ok=True)
-    with rej_path.open("w", encoding="utf-8") as fh:
-        for e in entries:
-            fh.write(json.dumps(e) + "\n")
-    return rej_path
+    # #209: the unified ledger (preference_acts.jsonl) is the sole store.
+    # Seed it via the canonical from_rejection adapter (trigger=model_miss)
+    # so eval-build's iter_preference_acts(model_miss) sees these.
+    from trinity_local.me.preference_acts import (
+        from_rejection,
+        preference_acts_path,
+        save_preference_acts,
+    )
+    from trinity_local.me.turn_pairs import RejectionSignal
+
+    acts = []
+    for e in entries:
+        sig = RejectionSignal(
+            id=e.get("id", ""),
+            type=e.get("type", "REFRAME"),
+            model_quote=e.get("model_quote", ""),
+            user_substitute=e.get("user_substitute", ""),
+            why_signal=e.get("why_signal", ""),
+            prompt_id=e.get("prompt_id"),
+            basin=e.get("basin"),
+            next_user_turn=e.get("next_user_turn", ""),
+        )
+        acts.append(from_rejection(sig))
+    save_preference_acts(acts, allow_shrink=True)
+    return preference_acts_path()
 
 
 def _write_prompt_node(home: Path, prompt_id: str, text: str, *, provider: str = "claude") -> None:
@@ -51,7 +70,7 @@ def _write_prompt_node(home: Path, prompt_id: str, text: str, *, provider: str =
 class TestBuildEvalSet:
     def test_raises_when_no_rejections_file(self, home):
         from trinity_local.evals.builder import build_eval_set
-        with pytest.raises(FileNotFoundError, match="No rejections file"):
+        with pytest.raises(FileNotFoundError, match="No preference-act ledger"):
             build_eval_set()
 
     def test_unsupported_source_raises_not_implemented(self, home):
@@ -137,14 +156,20 @@ class TestBuildEvalSet:
         assert types[0][1] >= types[-1][1]
 
     def test_skips_malformed_rejection_lines(self, home):
-        rej_path = home / "me" / "rejections.jsonl"
-        rej_path.parent.mkdir(parents=True, exist_ok=True)
-        rej_path.write_text("\n".join([
+        # #209: the builder reads the unified ledger; malformed-line skipping
+        # is the ledger loader's job (load_preference_acts). Write malformed
+        # ledger lines + one valid model_miss act → only the valid one survives.
+        from trinity_local.me.preference_acts import preference_acts_path
+        p = preference_acts_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("\n".join([
             "not json",
-            json.dumps({"id": "r1", "type": "REFRAME", "model_quote": "ok"}),
+            json.dumps({"id": "r1", "trigger": "model_miss", "privileged": "u",
+                        "sacrificed": "m", "kind": "REFRAME"}),
             "",
-            json.dumps({"id": "r2", "type": "REFRAME"}),  # missing model_quote — skip
-            json.dumps({"id": "", "type": "REFRAME", "model_quote": "ok"}),  # blank id — skip
+            json.dumps({"id": "r2", "trigger": "model_miss"}),  # missing privileged/sacrificed — skip
+            json.dumps({"id": "", "trigger": "model_miss", "privileged": "u",
+                        "sacrificed": "m"}),  # blank id — skip
         ]) + "\n", encoding="utf-8")
         from trinity_local.evals.builder import build_eval_set
         eval_set = build_eval_set()
@@ -267,20 +292,17 @@ class TestEvalBuildReScoreNudge:
         """End-to-end smoke: after a rebuild with prior results, output
         contains one `eval-run --target X --eval-id Y` line per
         prior-scored provider."""
-        import json as _json
         from trinity_local.commands.eval import handle_eval_build
         from argparse import Namespace
 
-        # Plant a rejections.jsonl + prior runs against ANOTHER eval set
-        rej_path = home / "me" / "rejections.jsonl"
-        rej_path.parent.mkdir(parents=True, exist_ok=True)
-        rej_path.write_text(_json.dumps({
+        # Plant the ledger + prior runs against ANOTHER eval set
+        _write_rejections(home, [{
             "id": "r_001", "type": "REFRAME",
             "model_quote": "long explanation",
             "user_substitute": "just the answer",
             "why_signal": "wants direct answers",
             "prompt_id": "pn_1", "basin": "b00", "next_user_turn": "",
-        }))
+        }])
         self._write_result("eval_OLD_set", "claude")
         self._write_result("eval_OLD_set", "codex")
 
@@ -332,20 +354,19 @@ class TestPreferenceActAdapterContract:
     """
 
     def test_from_rejection_field_mapping_survives_to_eval_item(self, home):
-        from trinity_local.me.turn_pairs import RejectionSignal, save_rejections
         from trinity_local.evals.builder import build_eval_set
 
         # Pairwise-distinct field values so any transposition is visible.
-        save_rejections([RejectionSignal(
-            id="r_adapter",
-            type="REFRAME",
-            model_quote="MODEL_QUOTE_TEXT",
-            user_substitute="USER_SUBSTITUTE_TEXT",
-            why_signal="WHY_SIGNAL_TEXT",
-            prompt_id="PROMPT_ID_TEXT",
-            basin="b07",
-            next_user_turn="NEXT_USER_TURN_TEXT",
-        )])
+        _write_rejections(home, [{
+            "id": "r_adapter",
+            "type": "REFRAME",
+            "model_quote": "MODEL_QUOTE_TEXT",
+            "user_substitute": "USER_SUBSTITUTE_TEXT",
+            "why_signal": "WHY_SIGNAL_TEXT",
+            "prompt_id": "PROMPT_ID_TEXT",
+            "basin": "b07",
+            "next_user_turn": "NEXT_USER_TURN_TEXT",
+        }])
 
         eval_set = build_eval_set()
         assert len(eval_set.items) == 1

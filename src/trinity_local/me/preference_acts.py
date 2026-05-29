@@ -30,7 +30,7 @@ after the type is proven on real data.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from typing import Any
 
 # Trigger discriminator values.
@@ -127,58 +127,19 @@ def from_decision(d) -> PreferenceAct:
     )
 
 
-def _legacy_union() -> list[PreferenceAct]:
-    """The two legacy stores (rejections.jsonl + decisions.jsonl) read
-    through the adapters as one stream. Model-miss first, then
-    self-expressed, each in file order. Retired in Stage 4b once the
-    legacy writers stop; kept here through Stage 4a as the self-healing
-    source for the ledger."""
-    from .decisions import load_decisions
-    from .turn_pairs import load_rejections
-
-    acts: list[PreferenceAct] = [from_rejection(r) for r in load_rejections()]
-    acts.extend(from_decision(d) for d in load_decisions())
-    return acts
-
-
-def _content_key(a: PreferenceAct) -> tuple:
-    """Content identity of a preference act — what was privileged over what,
-    in which mode. The merge dedups on THIS, not on ``id``, because legacy
-    rejection ids aren't trustworthy: pre-fix, Stage 0 minted batch-local
-    sequence ids (``r_001``) that collide across batches, so eight distinct
-    rejections could share one id. Keying on content collapses genuine
-    duplicates while preserving every distinct act regardless of id clashes."""
-    return (a.trigger, a.kind, a.privileged.strip(), a.sacrificed.strip())
-
-
 def iter_preference_acts() -> list[PreferenceAct]:
     """The unified read layer: every preference act, model-miss and
     self-expressed, as one stream. Order: model_miss first, then
     self_expressed.
 
-    EXTRACT-unification Stage 4a (read-path flip): reads the unified ledger
-    (``preference_acts.jsonl``) as the source of truth, content-merged with
-    the legacy stores so it stays loss-proof while the legacy writers (Stage
-    0/2, eval-import) are still live. This is a PURE READ — it never writes
-    the ledger (a read that mutates state on the side is a footgun for
-    callers like eval-build). The on-disk ledger is refreshed authoritatively
-    by lens-build / lens-resync (full rewrite) and eval-import (append); the
-    read-time content-merge here guarantees the RETURNED view is correct even
-    if the on-disk ledger is momentarily behind. Stage 4b drops the legacy
-    read once the writers retire and the ledger is the only store."""
-    ledger = load_preference_acts()
-    legacy = _legacy_union()
-    # Content-keyed union: ledger wins on a content collision (it carries
-    # the canonical id + any enrichment), legacy fills in anything missing.
-    merged_by_content: dict[tuple, PreferenceAct] = {}
-    for a in legacy:
-        merged_by_content.setdefault(_content_key(a), a)
-    for a in ledger:
-        merged_by_content[_content_key(a)] = a
-    merged = list(merged_by_content.values())
-    # Stable: model_miss first, then self_expressed.
-    merged.sort(key=lambda a: 0 if a.trigger == MODEL_MISS else 1)
-    return merged
+    EXTRACT-unification Stage 4b (legacy retirement): reads the unified
+    ledger (``preference_acts.jsonl``) as the SOLE store. The legacy
+    rejections.jsonl + decisions.jsonl stores were retired here — every
+    writer (Stage 0/2 lens-build, eval-import) now writes only the ledger,
+    so there's nothing left to merge. Pure read."""
+    acts = load_preference_acts()
+    acts.sort(key=lambda a: 0 if a.trigger == MODEL_MISS else 1)
+    return acts
 
 
 def preference_acts_path():

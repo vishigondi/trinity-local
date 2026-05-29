@@ -623,7 +623,15 @@ def build_me_via_lens_pipeline(
     if turn_pairs:
         import concurrent.futures
 
-        from .me.turn_pairs import save_rejections, DegenerateExtractionError as _DEE
+        # #209: legacy rejections.jsonl retired — Stage 0 rejections flow
+        # in-memory into the unified ledger save downstream. The #194/#203
+        # degenerate-abort guard now checks against the ledger's existing
+        # model-miss count (constants still live in turn_pairs).
+        from .me.preference_acts import MODEL_MISS as _MODEL_MISS, load_preference_acts as _load_acts
+        from .me.turn_pairs import _CLOBBER_MIN_EXISTING, _CLOBBER_MIN_FRACTION
+
+        def _existing_model_miss_acts():
+            return _load_acts()
         # Chunk the batch (#195) — packing all 200 turn-pairs into ONE
         # prompt produced a ~37K-token call claude -p returned EMPTY for.
         # The batches are INDEPENDENT (each classifies a disjoint slice),
@@ -670,21 +678,31 @@ def build_me_via_lens_pipeline(
                 }
         for res in results:
             batch_kept, batch_dropped = stage0_parse_and_validate(
-                (res.stdout or "").strip(), basins, pair_index, save=False,
+                (res.stdout or "").strip(), basins, pair_index,
             )
             rejections.extend(batch_kept)
             rejected_records.extend(batch_dropped)
-        # Save the accumulated set once. The clobber guard fires here on
-        # the full count — a genuinely empty extraction across ALL
-        # batches still aborts cleanly (#194), preserving the corpus.
-        try:
-            save_rejections(rejections)
-        except _DEE as exc:
-            print(f"  Stage 0 ABORTED — degenerate extraction: {exc}", flush=True)
+        # Degenerate-Stage-0 abort (#194/#203), now against the LEDGER —
+        # legacy rejections.jsonl was retired (#209). If a populated corpus
+        # would be cliff-dropped to near-zero model-miss acts (the #195 empty
+        # symptom that slips past the #203 batch check), abort rather than let
+        # the later ledger save overwrite the user's corpus. Rejections stay
+        # in-memory and flow into the unified ledger save downstream.
+        existing_mm = sum(
+            1 for a in _existing_model_miss_acts() if a.trigger == _MODEL_MISS
+        )
+        floor = max(1, int(existing_mm * _CLOBBER_MIN_FRACTION))
+        if existing_mm >= _CLOBBER_MIN_EXISTING and len(rejections) < floor:
+            print(
+                f"  Stage 0 ABORTED — degenerate extraction: {len(rejections)} "
+                f"rejections vs {existing_mm} existing (cliff-drop below {floor}); "
+                f"preserving the ledger",
+                flush=True,
+            )
             return me_path(), {
                 "ok": False,
                 "aborted": "degenerate_stage0",
-                "reason": str(exc),
+                "reason": f"{len(rejections)} < floor {floor} (existing {existing_mm})",
                 "extracted": len(rejections),
             }
         print(f"           → {len(rejections)} rejection signals kept, {len(rejected_records)} dropped by validators", flush=True)
@@ -930,7 +948,6 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
     )
     from .me.pair_mining import load_lenses, load_orderings
     from .me.pipeline import render_me_markdown
-    from .me.turn_pairs import load_rejections
 
     accepted = load_lenses()
     if not accepted:
@@ -945,7 +962,10 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
         pass
 
     orderings = load_orderings()
-    rejections = load_rejections()
+    # Legacy rejections.jsonl retired (#209); the render uses preference_acts
+    # when present (always, post-unification), so the rejections arg is the
+    # dead legacy-fallback path — pass empty.
+    rejections: list = []
     from .me.preference_acts import iter_preference_acts, save_preference_acts
 
     preference_acts = iter_preference_acts()

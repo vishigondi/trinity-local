@@ -154,61 +154,6 @@ class TestCortexOverrideRow:
         assert row["new_count"] == 0
 
 
-class TestInThreadOverwriteRow:
-    """Tick #46 — in_thread_overwrite rows from Stage 0 of lens-build.
-    save_rejections truncates rejections.jsonl on every run; the
-    merge log is append-only so re-runs must dedup on signal_id."""
-
-    def _signal(self, sid: str, sig_type: str = "COMPRESSION"):
-        from trinity_local.me.turn_pairs import RejectionSignal
-        return RejectionSignal(
-            id=sid,
-            type=sig_type,
-            model_quote="model said this",
-            user_substitute="user said that",
-            why_signal="user dropped 90% of the words",
-            prompt_id=f"prompt_for_{sid}",
-            basin="b03",
-        )
-
-    def test_first_run_appends_one_row_per_signal(self, isolated_home):
-        from trinity_local.me.turn_pairs import save_rejections
-        from trinity_local.merges import iter_merge_records
-        signals = [self._signal("r_001"), self._signal("r_002", "REDIRECT")]
-        save_rejections(signals)
-        rows = [r for r in iter_merge_records() if r["type"] == "in_thread_overwrite"]
-        assert len(rows) == 2, f"expected 2 rows, got {len(rows)}"
-        # Schema contract — keys downstream consumers will read.
-        for row in rows:
-            for key in ("type", "signal_type", "signal_id", "prompt_id", "basin",
-                        "model_quote", "user_substitute", "why_signal", "ts"):
-                assert key in row, f"required key {key!r} missing"
-
-    def test_rerun_dedups_on_signal_id(self, isolated_home):
-        from trinity_local.me.turn_pairs import save_rejections
-        from trinity_local.merges import iter_merge_records
-        signals = [self._signal("r_001"), self._signal("r_002")]
-        save_rejections(signals)
-        # Second lens-build run: same signal ids should NOT double-count.
-        save_rejections(signals)
-        rows = [r for r in iter_merge_records() if r["type"] == "in_thread_overwrite"]
-        assert len(rows) == 2, (
-            f"dedup failed; got {len(rows)} rows after re-run with same ids"
-        )
-
-    def test_rerun_appends_only_new_signals(self, isolated_home):
-        from trinity_local.me.turn_pairs import save_rejections
-        from trinity_local.merges import iter_merge_records
-        save_rejections([self._signal("r_001")])
-        # New run with one repeated + one fresh signal.
-        save_rejections([self._signal("r_001"), self._signal("r_002")])
-        rows = [r for r in iter_merge_records() if r["type"] == "in_thread_overwrite"]
-        ids = sorted(r["signal_id"] for r in rows)
-        assert ids == ["r_001", "r_002"], (
-            f"expected both signals exactly once each; got {ids}"
-        )
-
-
 class TestSummarizeMerges:
     """Tick #47 — first concrete consumer of the merge corpus.
     summarize_merges() walks the log and returns counts per type

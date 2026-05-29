@@ -29,12 +29,11 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, fields
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 from ..memory.store import iter_prompt_nodes
-from .basins import Basin, basin_for_prompt, me_dir
+from .basins import Basin, basin_for_prompt
 
 
 VALID_SIGNAL_TYPES = {"REFRAME", "COMPRESSION", "REDIRECT", "SHARPENING"}
@@ -84,44 +83,6 @@ class RejectionSignal:
             "basin": self.basin,
             "next_user_turn": self.next_user_turn,
         }
-
-
-def rejections_path() -> Path:
-    return me_dir() / "rejections.jsonl"
-
-
-def load_rejections() -> list[RejectionSignal]:
-    """Read rejections.jsonl back into RejectionSignal objects — symmetric
-    to save_rejections. Tolerant of extra keys from provider-imported
-    records (eval-import adds source_provider/confidence): only the
-    dataclass fields are consumed. Skips malformed or under-specified
-    lines rather than failing the whole load."""
-    path = rejections_path()
-    if not path.exists():
-        return []
-    known = {f.name for f in fields(RejectionSignal)}
-    # Match the (pre-unification) eval-builder's leniency: a rejection needs
-    # id + type + model_quote to carry signal; user_substitute is the schema
-    # 4th required field but historic lines + degenerate captures omit it, so
-    # default it to "" rather than dropping the row (EXTRACT-unification
-    # Stage 2 routes eval-build through here — must not silently shrink the
-    # eval set vs the old raw-dict reader).
-    required = ("id", "type", "model_quote")
-    out: list[RejectionSignal] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            d = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(d, dict) or not all(k in d for k in required):
-            continue
-        kwargs = {k: v for k, v in d.items() if k in known}
-        kwargs.setdefault("user_substitute", "")
-        out.append(RejectionSignal(**kwargs))
-    return out
 
 
 def iter_turn_pairs(limit: int | None = None):
@@ -408,12 +369,12 @@ def _validate_one(
 
 
 class DegenerateExtractionError(RuntimeError):
-    """save_rejections was asked to overwrite a populated corpus with a
-    cliff-drop result. Almost always a transient chairman-empty run
-    (the Stage 0 call returned nothing parseable), NOT a real signal
-    change. Raised instead of silently truncating — the live corpus is
-    preserved and the would-be result is written to a `.degenerate`
-    sidecar for inspection.
+    """A populated preference-act corpus was about to be overwritten with a
+    cliff-drop result. Almost always a transient chairman-empty run (the
+    Stage 0 call returned nothing parseable), NOT a real signal change. Raised
+    (by the ledger's save_preference_acts clobber guard, #209) instead of
+    silently truncating — the live corpus is preserved and the would-be result
+    is written to a `.degenerate` sidecar for inspection.
 
     Live incident 2026-05-28 (#194): a chairman blip made Stage 0
     extract 0 rejections; lens-build overwrote 49 rejections + a
@@ -428,79 +389,5 @@ class DegenerateExtractionError(RuntimeError):
 # rows exist, or below MIN_FRACTION of the existing count.
 _CLOBBER_MIN_EXISTING = 5
 _CLOBBER_MIN_FRACTION = 0.25
-
-
-def save_rejections(
-    signals: list[RejectionSignal], *, allow_shrink: bool = False
-) -> Path:
-    path = rejections_path()
-    existing = 0
-    if path.exists():
-        try:
-            existing = sum(
-                1 for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()
-            )
-        except OSError:
-            existing = 0
-    floor = max(1, int(existing * _CLOBBER_MIN_FRACTION))
-    if (
-        not allow_shrink
-        and existing >= _CLOBBER_MIN_EXISTING
-        and len(signals) < floor
-    ):
-        # Preserve the live corpus; stash the would-be result for debugging.
-        sidecar = path.parent / (path.name + ".degenerate")
-        try:
-            with sidecar.open("w", encoding="utf-8") as f:
-                for sig in signals:
-                    f.write(json.dumps(sig.to_dict()) + "\n")
-        except OSError:
-            pass
-        raise DegenerateExtractionError(
-            f"Refusing to overwrite {existing} rejections with "
-            f"{len(signals)} (cliff-drop below {floor}). Almost certainly "
-            f"a transient chairman-empty Stage 0 run, not a real shrink. "
-            f"Live corpus preserved; degenerate result written to "
-            f"{sidecar.name}. Re-run lens-build; pass allow_shrink=True "
-            f"only if the corpus genuinely shrank."
-        )
-    with path.open("w") as f:
-        for sig in signals:
-            f.write(json.dumps(sig.to_dict()) + "\n")
-    # Also fan out to the unified merges.jsonl corpus (tick #46). The
-    # rejections.jsonl is the canonical store for lens-build's own
-    # pipeline; the merge log is a side-channel that aggregates ALL
-    # tacit-record acts (council winners + cortex overrides + these
-    # in-thread overwrites) so v1.5+ direction-of-preference vectors
-    # have one place to read from.
-    #
-    # Dedup on (signal_id) so re-runs of lens-build don't double-count
-    # the same (prompt_id, type) pair — save_rejections truncates
-    # rejections.jsonl but the merge log is append-only.
-    try:
-        from ..merges import record_merge, iter_merge_records
-        seen_ids: set[str] = set()
-        for row in iter_merge_records():
-            if row.get("type") == "in_thread_overwrite":
-                sid = row.get("signal_id")
-                if isinstance(sid, str):
-                    seen_ids.add(sid)
-        for sig in signals:
-            if sig.id in seen_ids:
-                continue
-            record_merge({
-                "type": "in_thread_overwrite",
-                "signal_type": sig.type,
-                "signal_id": sig.id,
-                "prompt_id": sig.prompt_id,
-                "basin": sig.basin,
-                "model_quote": sig.model_quote,
-                "user_substitute": sig.user_substitute,
-                "why_signal": sig.why_signal,
-            })
-    except Exception:
-        # Side-channel: failure here can't break lens-build.
-        pass
-    return path
 
 

@@ -7,6 +7,39 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.47 — EXTRACT unification Stage 4b: legacy split retired (#202/#209)] — 2026-05-28
+
+The final stage of the Strangler-Fig EXTRACT unification (`docs/lens-redesign.md`).
+With Stage 4a having flipped every reader to the unified
+`preference_acts.jsonl` ledger, this stage **retires the legacy split** —
+`rejections.jsonl` + `decisions.jsonl` are no longer written or read, and
+the functions that touched them are gone.
+
+- `iter_preference_acts()` is now a pure read of the ledger as the **sole**
+  store (no more union-over-legacy). `me/turn_pairs.py` drops
+  `save_rejections` / `load_rejections` / `rejections_path`;
+  `me/decisions.py` drops `save_decisions` / `load_decisions` /
+  `decisions_path`. The 6 retired functions are registered in
+  `retired_names.py` so the AST guard blocks any re-import.
+- The **#194/#203 degenerate-Stage-0 clobber guard** moved with the data:
+  it now lives on `save_preference_acts` (cliff-drop refused, live ledger
+  preserved, `.degenerate` sidecar) and `me_builder` Stage 0 aborts against
+  the existing model-miss count in the ledger. No regression in the
+  protection that the live 2026-05-28 incident motivated.
+- Every writer flipped: `eval-import` / `import_provider_memory` append
+  model_miss acts straight to the ledger; lens-build / lens-resync do the
+  full rewrite. The eval harness (`evals/builder.py`) sources the ledger.
+- Stage 0 parse functions (`stage0_parse_and_validate`, `stage2_parse`) are
+  now **pure** (no `save=` side-channel) — the chunked path accumulates and
+  the single final ledger write sees the full count.
+- The `in_thread_overwrite` merge-telemetry side-effect retired with
+  `save_rejections`; the launchpad merges card still surfaces
+  `cortex_override` records.
+
+Behavior-preserving on real data (the ledger already carried 98 acts from
+Stage 3). Tests migrated to seed the ledger; the deleted-function test
+classes retired.
+
 ## [v1.7.46 — cold-start aha: one true tension cold-open (Q2)] — 2026-05-28
 
 The differentiated wow, before the user learns a verb. The auto-scan already
@@ -1789,7 +1822,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2103<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2094<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

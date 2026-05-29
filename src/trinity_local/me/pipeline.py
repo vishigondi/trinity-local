@@ -27,7 +27,6 @@ from .decisions import (
     Decision,
     parse_decisions,
     render_extraction_prompt,
-    save_decisions,
 )
 from .pair_mining import (
     LensPair,
@@ -42,7 +41,6 @@ from .turn_pairs import (
     iter_turn_pairs,
     parse_rejections,
     render_extraction_prompt as render_turn_pair_prompt,
-    save_rejections,
     validate_signals,
 )
 
@@ -77,23 +75,15 @@ def stage0_parse_and_validate(
     raw_output: str,
     basins: list[Basin],
     pair_index: dict[str, dict[str, Any]],
-    *,
-    save: bool = True,
 ) -> tuple[list[RejectionSignal], list[dict]]:
     """Parse chairman output, then run deterministic validators.
 
     Returns (kept_signals, rejected_records). The `rejected` list carries
-    `reason` fields so chairman drift is auditable across rebuilds.
-
-    `save=False` skips the save_rejections write — used by the chunked
-    Stage 0 path (#195), which parses each batch separately then saves
-    the accumulated set ONCE so the #194 clobber guard sees the full
-    count, not a partial batch.
-    """
+    `reason` fields so chairman drift is auditable across rebuilds. Pure —
+    no disk write; rejections flow in-memory into the unified ledger save
+    (legacy rejections.jsonl retired in #209)."""
     raw_signals = parse_rejections(raw_output, basins)
     kept, rejected = validate_signals(raw_signals, pair_index)
-    if save:
-        save_rejections(kept)
     return kept, rejected
 
 
@@ -134,9 +124,9 @@ def stage2_extraction_prompt(samples: list[dict[str, Any]], basins: list[Basin])
 
 
 def stage2_parse(raw_output: str, basins: list[Basin]) -> list[Decision]:
-    decisions = parse_decisions(raw_output, basins)
-    save_decisions(decisions)
-    return decisions
+    # Pure parse — no disk write. Decisions flow in-memory into the unified
+    # ledger save (legacy decisions.jsonl retired in #209).
+    return parse_decisions(raw_output, basins)
 
 
 def stage3_pair_mining_prompt(decisions: list[Decision]) -> str:

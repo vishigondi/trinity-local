@@ -81,17 +81,18 @@ class TestEvalSetSchema:
         writer, validate against the schema. If the writer ever emits
         a field the schema doesn't allow (or omits a required one),
         this fires loudly."""
-        # Stage a rejection that the builder can consume
-        rej_path = patch_trinity_home / "me" / "rejections.jsonl"
-        rej_path.parent.mkdir(parents=True, exist_ok=True)
-        rej_path.write_text(
+        # Stage a model_miss act in the unified ledger (the builder's
+        # source since #209).
+        led_path = patch_trinity_home / "me" / "preference_acts.jsonl"
+        led_path.parent.mkdir(parents=True, exist_ok=True)
+        led_path.write_text(
             json.dumps({
                 "id": "r_001",
-                "type": "REFRAME",
-                "model_quote": "Here's a multi-section strategy",
-                "user_substitute": "just write the spec",
-                "why_signal": "user substituted a different frame",
-                "prompt_id": None,
+                "trigger": "model_miss",
+                "privileged": "just write the spec",
+                "sacrificed": "Here's a multi-section strategy",
+                "kind": "REFRAME",
+                "why": "user substituted a different frame",
                 "basin": "b03",
             }) + "\n",
             encoding="utf-8",

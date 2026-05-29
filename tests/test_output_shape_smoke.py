@@ -32,18 +32,20 @@ import pytest
 
 
 def _seed_rejections(home: Path, n: int) -> None:
-    rej_path = home / "me" / "rejections.jsonl"
-    rej_path.parent.mkdir(parents=True, exist_ok=True)
+    # #209: the eval harness reads the unified ledger now, so seed
+    # model_miss preference acts (the rejection subset) directly.
+    led_path = home / "me" / "preference_acts.jsonl"
+    led_path.parent.mkdir(parents=True, exist_ok=True)
     types = ["REFRAME", "REDIRECT", "COMPRESSION", "SHARPENING"]
-    with rej_path.open("w", encoding="utf-8") as fh:
+    with led_path.open("w", encoding="utf-8") as fh:
         for i in range(n):
             fh.write(json.dumps({
                 "id": f"r_{i:04d}",
-                "type": types[i % len(types)],
-                "model_quote": f"a verbose multi-paragraph answer number {i}",
-                "user_substitute": f"just the spec, item {i}",
-                "why_signal": "user wanted the shape changed",
-                "prompt_id": None,
+                "trigger": "model_miss",
+                "privileged": f"just the spec, item {i}",
+                "sacrificed": f"a verbose multi-paragraph answer number {i}",
+                "kind": types[i % len(types)],
+                "why": "user wanted the shape changed",
                 "basin": f"b{i % 3:02d}",
             }) + "\n")
 
@@ -75,13 +77,13 @@ class TestEvalBuildOutputShape:
         """Realistic corpus churn: some rows missing structural fields.
         The producer should keep the valid ones (non-empty output),
         not crash and not return empty."""
-        rej_path = patch_trinity_home / "me" / "rejections.jsonl"
-        rej_path.parent.mkdir(parents=True, exist_ok=True)
-        rej_path.write_text(
-            json.dumps({"id": "r_ok", "type": "REFRAME",
-                        "model_quote": "verbose", "user_substitute": "terse",
-                        "prompt_id": None, "basin": "b00"}) + "\n"
-            + json.dumps({"id": "r_bad"}) + "\n"  # missing type/model_quote
+        led_path = patch_trinity_home / "me" / "preference_acts.jsonl"
+        led_path.parent.mkdir(parents=True, exist_ok=True)
+        led_path.write_text(
+            json.dumps({"id": "r_ok", "trigger": "model_miss",
+                        "privileged": "terse", "sacrificed": "verbose",
+                        "kind": "REFRAME", "basin": "b00"}) + "\n"
+            + json.dumps({"id": "r_bad"}) + "\n"  # missing privileged/sacrificed
             + "not even json\n",
             encoding="utf-8",
         )

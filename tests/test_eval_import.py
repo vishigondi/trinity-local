@@ -18,7 +18,7 @@ from trinity_local.commands.eval_import import (
     handle_eval_import,
     handle_eval_prompt,
 )
-from trinity_local.me.turn_pairs import rejections_path
+from trinity_local.me.preference_acts import preference_acts_path
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ class TestCliEndToEnd:
         assert result["rejections"]["new"] == 3
         assert result["rejections"]["duplicates"] == 0
         # File written, lines match
-        lines = rejections_path().read_text(encoding="utf-8").splitlines()
+        lines = preference_acts_path().read_text(encoding="utf-8").splitlines()
         assert len(lines) == 3
 
     def test_re_import_same_payload_dedups(self, home, tmp_path, capsys):
@@ -135,7 +135,7 @@ class TestCliEndToEnd:
         assert second["rejections"]["new"] == 0
         assert second["rejections"]["duplicates"] == 2
         # File still has only 2 lines (append-only didn't double)
-        lines = rejections_path().read_text(encoding="utf-8").splitlines()
+        lines = preference_acts_path().read_text(encoding="utf-8").splitlines()
         assert len(lines) == 2
 
     def test_dry_run_does_not_write(self, home, tmp_path, capsys):
@@ -245,7 +245,7 @@ class TestLedgerDualWrite:
         # The ledger id matches the rejections.jsonl id (same stable id).
         rej_ids = {
             json.loads(ln)["id"]
-            for ln in rejections_path().read_text(encoding="utf-8").splitlines()
+            for ln in preference_acts_path().read_text(encoding="utf-8").splitlines()
         }
         assert {a.id for a in acts} == rej_ids
 

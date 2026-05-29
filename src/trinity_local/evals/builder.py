@@ -144,17 +144,20 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
     Raises FileNotFoundError if rejections.jsonl doesn't exist — better
     than silently returning an empty set, which would mask a misconfig.
     """
-    from ..me.turn_pairs import rejections_path
+    from ..me.preference_acts import preference_acts_path
 
     if source != "rejections":
         raise NotImplementedError(
             f"source={source!r} not yet wired. MVP supports 'rejections' only."
         )
 
-    rej_path = rejections_path()
-    if not rej_path.exists():
+    # #209: the unified ledger is the sole store. Eval items still draw the
+    # model_miss subset (via iter_preference_acts below); the existence check
+    # points at the ledger.
+    ledger_path = preference_acts_path()
+    if not ledger_path.exists():
         raise FileNotFoundError(
-            f"No rejections file at {rej_path}. "
+            f"No preference-act ledger at {ledger_path}. "
             f"Run `trinity-local lens-build` to mine rejections from turn pairs first."
         )
 

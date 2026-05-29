@@ -905,6 +905,59 @@ RETIRED: dict[str, RetirementRecord] = {
         reason="Tier 1 #3: computed from council_outcomes/ at read time, no durable state",
         kind="file",
     ),
+    # ── 2026-05-28 EXTRACT-unification Stage 4b: legacy split retired (#209) ──
+    # The two legacy stores collapsed into the unified preference_acts.jsonl
+    # ledger. RejectionSignal / Decision dataclasses survive (Stage 0/2 produce
+    # them in memory; pair_mining/post-filter consume them) — only the disk
+    # persistence retired. The ledger is now the sole store.
+    "save_rejections": RetirementRecord(
+        name="save_rejections",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="save_preference_acts (me/preference_acts.py)",
+        reason="EXTRACT Stage 4b (#209): rejections.jsonl retired. Stage 0 rejections flow in-memory into the unified ledger; the #194 clobber guard now lives on save_preference_acts.",
+        kind="function",
+    ),
+    "load_rejections": RetirementRecord(
+        name="load_rejections",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="iter_preference_acts() (model_miss subset)",
+        reason="EXTRACT Stage 4b (#209): the ledger is the sole store; iter_preference_acts reads it.",
+        kind="function",
+    ),
+    "rejections_path": RetirementRecord(
+        name="rejections_path",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="preference_acts_path()",
+        reason="EXTRACT Stage 4b (#209): rejections.jsonl retired in favor of preference_acts.jsonl.",
+        kind="function",
+    ),
+    "save_decisions": RetirementRecord(
+        name="save_decisions",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="save_preference_acts (me/preference_acts.py)",
+        reason="EXTRACT Stage 4b (#209): decisions.jsonl retired. Stage 2 decisions flow in-memory into the unified ledger.",
+        kind="function",
+    ),
+    "load_decisions": RetirementRecord(
+        name="load_decisions",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="iter_preference_acts() (self_expressed subset)",
+        reason="EXTRACT Stage 4b (#209): the ledger is the sole store.",
+        kind="function",
+    ),
+    "decisions_path": RetirementRecord(
+        name="decisions_path",
+        retired_at="2026-05-28",
+        commit="",
+        replacement="preference_acts_path()",
+        reason="EXTRACT Stage 4b (#209): decisions.jsonl retired in favor of preference_acts.jsonl. (decision_log.jsonl + decision_log_path survive — separate live-capture log.)",
+        kind="function",
+    ),
 }
 
 
