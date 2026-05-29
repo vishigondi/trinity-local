@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import time
@@ -293,6 +294,36 @@ class MLXProvider(BaseProvider):
         return self._run_command(command, cwd)
 
 
+# Ollama's `run` streams a reasoning model's full chain-of-thought followed by
+# a "...done thinking." sentinel and then the actual answer, and it emits ANSI
+# spinner/cursor escape sequences even when stdout is redirected to a pipe.
+# Neither belongs in a council member's captured response — the thinking trace
+# balloons the output 6-9x and the escape bytes render as terminal garble in
+# the chairman's context. `--hidethinking`/`--think false` would suppress it at
+# the source but return EMPTY on Qwen3.6-class models (whose whole reply lives
+# in the thinking stream), so we strip in post instead.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[=>PX^_].*?(?:\x1b\\|\x07)|\x1b[=>]")
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_DONE_THINKING = "done thinking."
+
+
+def clean_ollama_output(text: str) -> str:
+    """Strip ANSI/control bytes and the chain-of-thought trace from raw
+    `ollama run` stdout, leaving only the model's final answer."""
+    if not text:
+        return text
+    text = _ANSI_RE.sub("", text)
+    text = _CTRL_RE.sub("", text)
+    text = _THINK_TAG_RE.sub("", text)
+    # Reasoning models close their thinking with "...done thinking." right
+    # before the answer. Keep only what follows the LAST such sentinel.
+    idx = text.lower().rfind(_DONE_THINKING)
+    if idx != -1:
+        text = text[idx + len(_DONE_THINKING):]
+    return text.strip()
+
+
 class OllamaProvider(BaseProvider):
     """Local model dispatch via Ollama. Each model the user has pulled (via
     `ollama pull <name>`) is a candidate worker; the chosen model goes through
@@ -307,9 +338,9 @@ class OllamaProvider(BaseProvider):
         if not self.config.model:
             raise ProviderError("Ollama provider requires a model name in config.")
         # Ollama CLI: `ollama run <model> "<prompt>"` reads prompt as argv,
-        # outputs to stdout. The --hidethinking flag suppresses thinking
-        # blocks from reasoning models; not all models support it so we
-        # add it via config.args (configurable).
+        # outputs to stdout. We post-process to drop the thinking trace +
+        # ANSI escape bytes (see clean_ollama_output) rather than rely on
+        # --hidethinking, which returns empty on Qwen3.6-class reasoners.
         command = [
             *self.config.command,
             "run",
@@ -317,7 +348,9 @@ class OllamaProvider(BaseProvider):
             prompt,
             *self.config.args,
         ]
-        return self._run_command(command, cwd)
+        result = self._run_command(command, cwd)
+        result.stdout = clean_ollama_output(result.stdout)
+        return result
 
 
 def make_provider(config: ProviderConfig) -> BaseProvider:

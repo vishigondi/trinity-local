@@ -198,6 +198,16 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
             (label_dict or {}).get("winner")
             or outcome.winner_provider
         )
+        # How many members actually produced a real answer (>= 200 chars).
+        # A council where only one member responded substantively isn't a
+        # real contest — its "winner" won by default, not on quality. The
+        # value proof (#236) filters on this so the headline measures
+        # answer quality, not dispatch reliability (a third of the captured
+        # ledger predates the dispatch fixes and has empty/echoed members).
+        substantive_members = sum(
+            1 for m in (outcome.member_results or [])
+            if len((getattr(m, "output_text", "") or "").strip()) >= _SUBSTANTIVE_MIN_CHARS
+        )
         records.append({
             "council_run_id": council_id,
             "task_type": task_type,
@@ -205,6 +215,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
             "chairman_winner": chairman_winner,
             "winner_provider": outcome.winner_provider,
             "primary_provider": outcome.primary_provider,
+            "substantive_members": substantive_members,
         })
     return records, all_clean
 
@@ -222,9 +233,29 @@ def _iter_rated_councils() -> Iterable[dict[str, Any]]:
     yield from records
 
 
-# Below this many councils the aggregate isn't worth a headline — the
+# A member output below this many chars is empty/echoed/a one-liner, not a
+# real answer. Used to tell a genuine 3-way contest from a council where only
+# one model responded (the rest of the captured ledger predates dispatch fixes).
+_SUBSTANTIVE_MIN_CHARS = 200
+
+# Below this many real contests the aggregate isn't worth a headline — the
 # confidence-honesty rule (n<3 suppress) generalized to the proof surface.
 _VALUE_PROOF_MIN_COUNCILS = 10
+
+# A coarse category family needs at least this many real contests AND a
+# win-margin this large before we'll name a leader — otherwise it's noise
+# (the per-task-type grain is 400+ near-unique chairman labels; coarsening to
+# the head token gives families like product_* → "product", strategic_* →
+# "strategic" that carry real signal).
+_WEDGE_MIN_CONTESTS = 8
+_WEDGE_MIN_MARGIN = 3
+
+
+def _is_real_contest(record: dict[str, Any]) -> bool:
+    """A council is a real contest when >= 2 members gave a substantive
+    answer. Records predating the substantive_members field default to True
+    (assume real) so synthetic/legacy records aren't silently dropped."""
+    return record.get("substantive_members", 2) >= 2
 
 
 def council_value_proof() -> dict[str, Any]:
@@ -235,23 +266,33 @@ def council_value_proof() -> dict[str, Any]:
     model's answer every time. Trinity's chairman, having heard all three
     labs, picks a DIFFERENT model than the user's default a large fraction
     of the time — meaning that fraction of the time the default would have
-    been the worse answer. We also surface the per-lab win split (robust at
-    n=551; provider names canonicalized at the load boundary so web-capture
-    brand names — chatgpt/claude_ai/gemini — fold into codex/claude/antigravity).
+    been the worse answer. We also surface the per-lab win split (provider
+    names canonicalized at the load boundary so web-capture brand names —
+    chatgpt/claude_ai/gemini — fold into codex/claude/antigravity).
 
-    Returns `{"ready": False, "n": <count>}` below the headline threshold so
-    callers can stay quiet on a thin ledger rather than tout a noisy number.
+    Restricted to REAL contests (>= 2 members gave a substantive answer) so
+    the number measures answer quality, not dispatch reliability — a third of
+    the captured ledger predates the dispatch fixes and has empty/echoed
+    members whose "winner" won by default. (Empirically the filter doesn't
+    move the headline — 56% before and after — but it makes the claim
+    defensible.)
+
+    Returns `{"ready": False, ...}` below the headline threshold so callers
+    can stay quiet on a thin ledger rather than tout a noisy number.
     """
     from .council_schema import normalize_provider_slug
 
-    records, _ = _scan_outcomes()
+    all_records, _ = _scan_outcomes()
+    total = len(all_records)
+    records = [r for r in all_records if _is_real_contest(r)]
     n = len(records)
     if n < _VALUE_PROOF_MIN_COUNCILS:
-        return {"ready": False, "n": n, "min_councils": _VALUE_PROOF_MIN_COUNCILS}
+        return {"ready": False, "n": n, "total": total,
+                "min_councils": _VALUE_PROOF_MIN_COUNCILS}
 
     win_counts: dict[str, int] = {}
     changed = 0
-    comparable = 0  # outcomes where both winner and default are known
+    comparable = 0  # real contests where both winner and default are known
     for r in records:
         winner = normalize_provider_slug(r.get("chairman_winner") or r.get("winner_provider") or "")
         default = normalize_provider_slug(r.get("primary_provider") or "")
@@ -270,11 +311,64 @@ def council_value_proof() -> dict[str, Any]:
     return {
         "ready": True,
         "n": n,
+        "total": total,
+        "real_contests": n,
         "changed_pick": changed,
         "comparable": comparable,
         "changed_pct": changed_pct,
         "win_split": win_split,
     }
+
+
+def council_category_wedge() -> list[dict[str, Any]]:
+    """The asymmetric wedge, per category: which lab wins which KIND of
+    question (#236). Different labs genuinely specialize — Claude wins
+    deliberation (strategy/architecture/hardware), GPT wins generation
+    (product/creative/vendor) — and a single-provider user can't see it.
+
+    Coarsens the 400+ near-unique chairman task_type labels to their head
+    token (product_recommendation/product_research → "product"), restricts to
+    REAL contests, and names a leader only where the family clears both a
+    volume floor and a win-margin floor (else noise). Sorted by volume.
+    Empty list on a thin ledger.
+    """
+    import collections
+
+    from .council_schema import normalize_provider_slug
+
+    all_records, _ = _scan_outcomes()
+    fam: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    for r in all_records:
+        if not _is_real_contest(r):
+            continue
+        winner = normalize_provider_slug(r.get("chairman_winner") or r.get("winner_provider") or "")
+        # The chairman's task_type lives on the routing_label (551/551 populated);
+        # the metadata-sourced record field is mostly empty.
+        label = r.get("routing_label") or {}
+        task_type = (label.get("task_type") or r.get("task_type") or "").lower()
+        if not winner or not task_type:
+            continue
+        fam[task_type.split("_")[0]][winner] += 1
+
+    wedge: list[dict[str, Any]] = []
+    for family, counts in fam.items():
+        n = sum(counts.values())
+        if n < _WEDGE_MIN_CONTESTS:
+            continue
+        ranked = counts.most_common()
+        leader, lead_n = ranked[0]
+        runner_n = ranked[1][1] if len(ranked) > 1 else 0
+        if lead_n - runner_n < _WEDGE_MIN_MARGIN:
+            continue  # contested — don't crown a leader
+        wedge.append({
+            "family": family,
+            "leader": leader,
+            "n": n,
+            "lead_count": lead_n,
+            "margin": lead_n - runner_n,
+        })
+    wedge.sort(key=lambda w: -w["n"])
+    return wedge
 
 
 _CACHE: dict[str, Any] | None = None

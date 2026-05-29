@@ -219,9 +219,11 @@ def handle_status(args):
         # Council value proof (#236) — present only when the ledger clears the
         # headline threshold, so scripts can branch on its presence.
         try:
-            from ..personal_routing import council_value_proof
+            from ..personal_routing import council_category_wedge, council_value_proof
             vp = council_value_proof()
             if vp.get("ready"):
+                vp = dict(vp)
+                vp["category_wedge"] = council_category_wedge()
                 payload["council_value"] = vp
         except Exception:
             pass
@@ -321,17 +323,24 @@ def handle_status(args):
     # answer). Computed from council_outcomes/, no model calls. Stays quiet on
     # a thin ledger (n < threshold).
     try:
-        from ..personal_routing import council_value_proof
+        from ..personal_routing import council_category_wedge, council_value_proof
         _brand = {"codex": "GPT", "claude": "Claude", "antigravity": "Gemini"}
         vp = council_value_proof()
         if vp.get("ready"):
             print(f"    Council value: picked a different model than your "
                   f"default {vp['changed_pct']}% of the time "
-                  f"(across {vp['comparable']} councils)")
+                  f"(across {vp['comparable']} real contests)")
             split = " · ".join(
                 f"{_brand.get(p, p)} {d['pct']}%" for p, d in vp["win_split"].items()
             )
             print(f"                   wins: {split}")
+            wedge = council_category_wedge()
+            if wedge:
+                kinds = ", ".join(
+                    f"{w['family']}→{_brand.get(w['leader'], w['leader'])}"
+                    for w in wedge[:4]
+                )
+                print(f"                   by kind: {kinds}")
     except Exception:
         pass
     print()

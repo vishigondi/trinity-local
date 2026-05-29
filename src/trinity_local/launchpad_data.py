@@ -729,7 +729,7 @@ def _council_value_for_launchpad() -> dict | None:
     read failure) so the card self-hides rather than touting a thin number.
     """
     try:
-        from .personal_routing import council_value_proof
+        from .personal_routing import council_category_wedge, council_value_proof
         vp = council_value_proof()
         if not vp.get("ready"):
             return None
@@ -738,10 +738,18 @@ def _council_value_for_launchpad() -> dict | None:
             {"label": brand.get(p, p), "pct": d["pct"], "count": d["count"]}
             for p, d in vp["win_split"].items()
         ]
+        # The asymmetric wedge: which lab wins which KIND of question. Only the
+        # confident families (volume + margin floors) come back, so this self-
+        # trims to a tight, honest "who wins what" list.
+        wedge = [
+            {"family": w["family"], "leader": brand.get(w["leader"], w["leader"])}
+            for w in council_category_wedge()[:4]
+        ]
         return {
             "councils": vp["comparable"],
             "changedPct": vp["changed_pct"],
             "wins": wins,
+            "wedge": wedge,
         }
     except Exception:
         return None

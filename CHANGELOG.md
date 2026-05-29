@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.70 — council value proof: real-contest filter + category wedge (#236)] — 2026-05-29
+
+A data-sampling pass on the v1.7.69 proof (founder: "sample data to see the
+categories each model won, so we know we're doing it right") validated the
+headline and surfaced a stronger, honest cut.
+
+**The validation.** Eyeballing raw synthesis rows showed a confound: **36% of
+the [redacted corpus stat] aren't real contests** — only 1 (or 0) of 3 members gave a
+substantive (≥200-char) answer; the rest are empty/echoed leftovers from the
+flaky-capture era (the agy `--model` bug, echoed ChatGPT captures). Their
+"winner" won by default, not on quality. But restricting to the **354 real
+contests** barely moves the headline (56%→56% changed-pick; split 49/44/7 →
+48/47/5), so the proof wasn't inflated — it's just now defensible.
+
+- **Real-contest filter.** `council_value_proof()` now counts only councils
+  with ≥2 substantive members (`_scan_outcomes` records gained a
+  `substantive_members` count). The headline reads "across N real contests";
+  the JSON carries `total` + `real_contests`.
+- **The category wedge** (`council_category_wedge()`). The asymmetric proof a
+  single-provider user can't see: which lab wins which KIND of question. The
+  raw `task_type` grain is 400+ near-unique chairman labels (noise), so it
+  coarsens to the head token (product_*→"product") and names a leader only
+  where a family clears a volume floor (≥8 real contests) AND a margin floor
+  (≥3). Result: **product→GPT (+10), strategic→Claude (+12),
+  architecture→Claude (+4)** — Claude wins deliberation, GPT wins generation,
+  Gemini wins no category. Surfaced on `status` ("by kind:" line) + the
+  launchpad card ("by kind:" row); self-trims to confident families only.
+- Guards: 3 new tests (solo-council exclusion, wedge volume+margin floors,
+  wedge excludes solo councils) on top of the existing 4.
+
 ## [v1.7.69 — surface the council value proof (#236)] — 2026-05-29
 
 The council-first painkiller, finally surfaced from the data Trinity already
@@ -2383,7 +2413,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2264<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2267<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

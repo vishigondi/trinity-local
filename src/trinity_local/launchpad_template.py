@@ -693,6 +693,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
               <span v-for="(w, i) in pageData.councilValue.wins" :key="w.label">
                 <span v-if="i > 0"> · </span>{{{{ w.label }}}} {{{{ w.pct }}}}%</span>
             </span>
+            <!-- the asymmetric wedge: which lab wins which KIND of question.
+                 Self-hides when no family clears the volume+margin floor. -->
+            <span class="meta" style="display: block; margin-top: 2px;"
+                  v-if="pageData.councilValue.wedge && pageData.councilValue.wedge.length">
+              by kind:
+              <span v-for="(w, i) in pageData.councilValue.wedge" :key="w.family">
+                <span v-if="i > 0"> · </span>{{{{ w.family }}}}→<b>{{{{ w.leader }}}}</b></span>
+            </span>
           </p>
         </div>
         <button type="button" @click="settingsOpen = !settingsOpen" style="background: none; border: none; cursor: pointer; padding: 8px; opacity: 0.7; flex-shrink: 0;" title="Settings" aria-label="Open settings">
