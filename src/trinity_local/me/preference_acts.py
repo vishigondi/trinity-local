@@ -165,13 +165,12 @@ def iter_preference_acts() -> list[PreferenceAct]:
 
 
 def preference_acts_path():
-    """``~/.trinity/me/preference_acts.jsonl`` — the unified ledger
-    (EXTRACT-unification Stage 3). The single serialization of every
-    preference act, refreshed by lens-build / lens-resync. Today a
-    canonical export (the read path still unions the legacy stores via
-    iter_preference_acts); the storage migration retires
-    rejections.jsonl + decisions.jsonl in its favor once every reader has
-    moved to it."""
+    """``~/.trinity/me/preference_acts.jsonl`` — the unified ledger, the
+    SOLE store of every preference act (EXTRACT-unification complete at
+    #209). Refreshed by lens-build / lens-resync; every reader sources it.
+    The legacy rejections.jsonl + decisions.jsonl stores were retired in
+    #209 (a one-time `_migrate_legacy_preference_stores` recovers them into
+    the ledger on the next lens-build/resync for upgrades)."""
     from .basins import me_dir
 
     return me_dir() / "preference_acts.jsonl"
@@ -188,8 +187,10 @@ def save_preference_acts(acts: list[PreferenceAct], *, allow_shrink: bool = Fals
     preserved and the would-be result is stashed to a `.degenerate`
     sidecar. `allow_shrink=True` is the escape hatch for a genuine
     shrink. The callers (lens-build / lens-resync) wrap this best-effort,
-    so a raised guard preserves the ledger and the build continues on the
-    legacy stores."""
+    so a raised guard preserves the existing ledger on disk and the build
+    proceeds with the prior ledger contents (the legacy
+    rejections.jsonl / decisions.jsonl stores were retired in #209 — the
+    unified ledger is the sole store now)."""
     import json
 
     from ..utils import atomic_write_text
@@ -246,11 +247,107 @@ def append_preference_acts(acts: list[PreferenceAct]) -> None:
             fh.write(json.dumps(a.to_dict()) + "\n")
 
 
+def _migrate_legacy_preference_stores() -> int:
+    """One-time, idempotent recovery of the unified ledger from any legacy
+    ``rejections.jsonl`` / ``decisions.jsonl`` a pre-#209 build left behind.
+
+    #209 retired the legacy file readers and made ``preference_acts.jsonl``
+    the sole store, but shipped no migration. A user upgrading from a build
+    whose ledger predates v1.7.32 (when the ledger first started being
+    written) would otherwise see an empty/stale ledger — every reader
+    (eval-build, the launchpad lens card, lens-acts) silently empty — until
+    the next ``lens-build`` re-extracts. And self-expressed decisions live
+    ONLY in decisions.jsonl, so they'd be unrecoverable without a Stage 2
+    chairman re-run (review finding #3).
+
+    This reads the legacy files inline (the named loaders are retired, so we
+    can't call them) and appends only acts whose content-stable id isn't
+    already in the ledger — safe to call repeatedly, a no-op once migrated
+    or when the legacy files are absent. Called from the ledger-repopulating
+    entry points (lens-build, lens-resync, eval-build); never from the pure
+    ``iter_preference_acts`` read path. Returns the count recovered."""
+    import json
+
+    from .basins import me_dir
+    from .decisions import Decision
+    from .turn_pairs import RejectionSignal
+
+    d = me_dir()
+    rej_path = d / "rejections.jsonl"
+    dec_path = d / "decisions.jsonl"
+    if not rej_path.exists() and not dec_path.exists():
+        return 0
+
+    def _rows(path):
+        if not path.exists():
+            return []
+        out = []
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get("id"):
+                out.append(obj)
+        return out
+
+    seen = {a.id for a in load_preference_acts()}
+    recovered: list[PreferenceAct] = []
+
+    for obj in _rows(rej_path):
+        if not (obj.get("model_quote") and obj.get("user_substitute")):
+            continue
+        try:
+            act = from_rejection(RejectionSignal(
+                id=obj["id"], type=obj.get("type", ""),
+                model_quote=obj.get("model_quote", ""),
+                user_substitute=obj.get("user_substitute", ""),
+                why_signal=obj.get("why_signal", ""),
+                prompt_id=obj.get("prompt_id"), basin=obj.get("basin"),
+                next_user_turn=obj.get("next_user_turn", ""),
+            ))
+        except (TypeError, KeyError):
+            continue
+        if act.id not in seen:
+            seen.add(act.id)
+            recovered.append(act)
+
+    for obj in _rows(dec_path):
+        if not (obj.get("privileged") and obj.get("sacrificed")):
+            continue
+        try:
+            act = from_decision(Decision(
+                id=obj["id"], privileged=obj.get("privileged", ""),
+                sacrificed=obj.get("sacrificed", ""), valence=obj.get("valence", ""),
+                basin=obj.get("basin"), verbatim=obj.get("verbatim", ""),
+                prompt_id=obj.get("prompt_id"),
+                would_flip_if=obj.get("would_flip_if", ""),
+                source=obj.get("source", "transcript"),
+                weight=float(obj.get("weight", 1.0) or 1.0),
+            ))
+        except (TypeError, KeyError, ValueError):
+            continue
+        if act.id not in seen:
+            seen.add(act.id)
+            recovered.append(act)
+
+    if recovered:
+        append_preference_acts(recovered)
+    return len(recovered)
+
+
 def load_preference_acts() -> list[PreferenceAct]:
     """Read the unified ledger back. Tolerant: skips malformed /
-    under-specified lines. (Distinct from iter_preference_acts, which
-    unions the legacy stores — this reads the exported file directly,
-    e.g. for `lens-acts` introspection and the eventual read-path flip.)"""
+    under-specified lines. The raw store reader; `iter_preference_acts`
+    is the same data sorted (model_miss first). Both read the ledger as
+    the sole store post-#209."""
     import json
 
     path = preference_acts_path()

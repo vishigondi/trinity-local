@@ -153,7 +153,14 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
 
     # #209: the unified ledger is the sole store. Eval items still draw the
     # model_miss subset (via iter_preference_acts below); the existence check
-    # points at the ledger.
+    # points at the ledger. First, best-effort recover any legacy
+    # rejections.jsonl / decisions.jsonl into the ledger (review finding #3)
+    # so an un-migrated upgrade doesn't see an empty eval set.
+    try:
+        from ..me.preference_acts import _migrate_legacy_preference_stores
+        _migrate_legacy_preference_stores()
+    except Exception:
+        pass
     ledger_path = preference_acts_path()
     if not ledger_path.exists():
         raise FileNotFoundError(

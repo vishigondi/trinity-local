@@ -546,6 +546,20 @@ def build_me_via_lens_pipeline(
     from .providers import make_provider
     from .ranker import predict_strongest_chairman
 
+    # Upgrade recovery (review finding #3): seed the ledger from any legacy
+    # rejections.jsonl / decisions.jsonl a pre-#209 build left behind. Runs
+    # BEFORE the fingerprint-skip — on an unchanged-corpus upgrade the skip
+    # would otherwise return with an empty ledger and never migrate.
+    # Idempotent + no-op once migrated or when no legacy files exist.
+    try:
+        from .me.preference_acts import _migrate_legacy_preference_stores
+        _recovered = _migrate_legacy_preference_stores()
+        if _recovered:
+            print(f"  Recovered {_recovered} preference act(s) from legacy "
+                  f"stores into the unified ledger.", flush=True)
+    except Exception:
+        pass
+
     # #1 skip-if-unchanged: if the corpus hasn't changed since the last
     # successful build AND a lens already exists, there's nothing to
     # re-extract — the registry + lens.md are current. Skip the whole
@@ -733,7 +747,10 @@ def build_me_via_lens_pipeline(
                     "ok": False,
                     "aborted": "stage0_batch_failed",
                     "reason": (res.stderr or "chairman returned empty output")[:500],
-                    "extracted": len(rejections),
+                    # The merge into `rejections` hasn't run yet at this abort
+                    # point; report the carried-forward count so the telemetry
+                    # isn't a misleading 0 in delta mode (review finding #1).
+                    "extracted": len(existing_rejections),
                 }
         new_rejections: list = []
         for res in results:
@@ -940,20 +957,40 @@ def build_me_via_lens_pipeline(
             flush=True,
         )
 
-    # EXTRACT-unification Stage 1: render rejections + decisions as one
-    # preference-act stream. The two extraction passes still write their
-    # own stores; we just unify them at the render boundary here.
+    # EXTRACT-unification: render rejections + decisions as one
+    # preference-act stream and refresh the unified ledger from it.
     from .me.preference_acts import (
+        MODEL_MISS as _MODEL_MISS_SAVE,
         from_decision,
         from_rejection,
+        load_preference_acts as _load_acts_save,
         save_preference_acts,
     )
 
     preference_acts = [from_rejection(r) for r in rejections] + [
         from_decision(d) for d in decisions
     ]
-    # Stage 3: refresh the unified ledger (canonical export of every
-    # preference act). Best-effort — never let the export break a build.
+    # Preserve provider-imported model_miss acts the build can't reproduce
+    # (review finding #2). `eval-import` / `import_provider_memory` append
+    # acts with prompt_id=None — they don't originate from a transcript
+    # turn-pair, so Stage 0 re-extraction never re-derives them. In the
+    # delta path they survive via carry-forward, but a `--force` rebuild
+    # sets existing_rejections=[] and would drop them. Re-attach any ledger
+    # model_miss act with no prompt_id that this build didn't already
+    # produce (fresh acts win on id collision; idempotent in both modes).
+    fresh_ids = {a.id for a in preference_acts}
+    try:
+        imported = [
+            a for a in _load_acts_save()
+            if a.trigger == _MODEL_MISS_SAVE
+            and not a.prompt_id
+            and a.id not in fresh_ids
+        ]
+        preference_acts.extend(imported)
+    except Exception:
+        pass
+    # Refresh the unified ledger (canonical export of every preference
+    # act). Best-effort — never let the export break a build.
     try:
         save_preference_acts(preference_acts)
     except Exception:
@@ -1028,6 +1065,16 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
     )
     from .me.pair_mining import load_lenses, load_orderings
     from .me.pipeline import render_me_markdown
+    from .me.preference_acts import _migrate_legacy_preference_stores
+
+    # Upgrade recovery (review finding #3): resync is the documented
+    # migration verb, so it must pull any legacy rejections.jsonl /
+    # decisions.jsonl into the ledger before the (ledger-only) read below —
+    # otherwise resync round-trips an empty ledger and recovers nothing.
+    try:
+        _migrate_legacy_preference_stores()
+    except Exception:
+        pass
 
     accepted = load_lenses()
     if not accepted:

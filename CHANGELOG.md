@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.50 — fix 4 findings from the adversarial review of tonight's ships (#219)] — 2026-05-29
+
+A 9-agent adversarial workflow reviewed #209/#210/#213 and confirmed 4 real
+findings (2 MEDIUM data-correctness, 2 LOW polish). All fixed:
+
+- **MEDIUM — `lens --force` dropped provider-imported acts.** `eval-import` /
+  `import_provider_memory` append model_miss acts with `prompt_id=None` —
+  not re-derivable from any turn-pair. The delta path carried them forward,
+  but `--force` (which clears the carry-forward) rewrote the ledger from
+  freshly-extracted acts only, silently discarding them (the clobber guard
+  doesn't catch a moderate drop). The final ledger save now re-attaches any
+  ledger model_miss act with no `prompt_id` that the build didn't reproduce
+  (idempotent in both modes; fresh acts win on id collision).
+- **MEDIUM — no legacy→ledger migration on upgrade.** #209 made the ledger
+  the sole store but shipped no migration; an upgrade whose ledger predates
+  v1.7.32 would read empty until the next lens-build, and `lens-resync`
+  (the documented migration verb) round-tripped the empty ledger and
+  recovered nothing. Added `_migrate_legacy_preference_stores()` — a
+  one-time, idempotent recovery that reads the retired `rejections.jsonl` /
+  `decisions.jsonl` inline and appends missing-by-id acts. Invoked at the
+  start of lens-build (before the fingerprint-skip), lens-resync, and
+  eval-build. Recovers self-expressed decisions too (otherwise lost — not
+  rejection-mineable).
+- **LOW — batch-failed abort telemetry undercount.** The #203 abort reported
+  `extracted=0` because the merge hadn't run; now reports the carried-forward
+  count, matching the degenerate-abort sibling.
+- **LOW — stale "continues on the legacy stores" docstrings** in
+  `preference_acts.py` (the legacy stores were retired in #209) — corrected.
+
 ## [v1.7.49 — Q4 surface-collapse: lens + council are the product words (#213 slice 1)] — 2026-05-29
 
 The founder Q4 decision: collapse the user-facing surface toward two words —
@@ -1871,7 +1900,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2102<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2107<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

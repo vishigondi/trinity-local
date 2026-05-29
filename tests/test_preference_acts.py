@@ -250,6 +250,83 @@ class TestLedgerClobberGuard:
         assert len(load_preference_acts()) == 8
 
 
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestLegacyMigration:
+    """Review finding #3: a one-time, idempotent recovery seeds the ledger
+    from legacy rejections.jsonl / decisions.jsonl left by a pre-#209 build,
+    so an upgrade doesn't silently lose data until the next lens-build."""
+
+    def _write_legacy(self, *, rejections=None, decisions=None):
+        import json
+        from trinity_local.me.basins import me_dir
+        d = me_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        if rejections is not None:
+            (d / "rejections.jsonl").write_text(
+                "\n".join(json.dumps(r) for r in rejections) + "\n", encoding="utf-8")
+        if decisions is not None:
+            (d / "decisions.jsonl").write_text(
+                "\n".join(json.dumps(x) for x in decisions) + "\n", encoding="utf-8")
+
+    def test_recovers_rejections_and_decisions_into_ledger(self):
+        from trinity_local.me.preference_acts import (
+            MODEL_MISS,
+            SELF_EXPRESSED,
+            _migrate_legacy_preference_stores,
+            load_preference_acts,
+        )
+        self._write_legacy(
+            rejections=[{"id": "r1", "type": "REFRAME", "model_quote": "verbose",
+                         "user_substitute": "terse", "why_signal": "w", "prompt_id": "p1"}],
+            decisions=[{"id": "d1", "privileged": "speed", "sacrificed": "polish",
+                        "valence": "correction", "basin": "b0", "verbatim": "ship it"}],
+        )
+        n = _migrate_legacy_preference_stores()
+        assert n == 2
+        acts = load_preference_acts()
+        by_trigger = {a.trigger for a in acts}
+        assert by_trigger == {MODEL_MISS, SELF_EXPRESSED}
+        assert {a.id for a in acts} == {"r1", "d1"}
+
+    def test_is_idempotent(self):
+        from trinity_local.me.preference_acts import (
+            _migrate_legacy_preference_stores,
+            load_preference_acts,
+        )
+        self._write_legacy(rejections=[
+            {"id": "r1", "type": "REFRAME", "model_quote": "m", "user_substitute": "u"},
+        ])
+        assert _migrate_legacy_preference_stores() == 1
+        # Second run recovers nothing — the id is already in the ledger.
+        assert _migrate_legacy_preference_stores() == 0
+        assert len(load_preference_acts()) == 1
+
+    def test_noop_when_no_legacy_files(self):
+        from trinity_local.me.preference_acts import _migrate_legacy_preference_stores
+        assert _migrate_legacy_preference_stores() == 0
+
+    def test_does_not_clobber_existing_ledger_entries(self):
+        from trinity_local.me.preference_acts import (
+            MODEL_MISS,
+            PreferenceAct,
+            _migrate_legacy_preference_stores,
+            load_preference_acts,
+            save_preference_acts,
+        )
+        # Ledger already has an act with the same id as a legacy row — the
+        # ledger entry must win (migration only adds MISSING ids).
+        save_preference_acts([PreferenceAct(
+            id="r1", trigger=MODEL_MISS, privileged="LEDGER", sacrificed="x")])
+        self._write_legacy(rejections=[
+            {"id": "r1", "type": "REFRAME", "model_quote": "LEGACY", "user_substitute": "LEGACY"},
+            {"id": "r2", "type": "REDIRECT", "model_quote": "m2", "user_substitute": "u2"},
+        ])
+        assert _migrate_legacy_preference_stores() == 1  # only r2 is new
+        acts = {a.id: a for a in load_preference_acts()}
+        assert acts["r1"].privileged == "LEDGER"  # ledger entry preserved
+        assert "r2" in acts
+
+
 class TestRenderUnifiedSection:
     def test_preference_acts_render_both_triggers(self):
         from trinity_local.me.pipeline import render_me_markdown

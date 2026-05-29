@@ -436,6 +436,36 @@ class TestStage0DeltaExtraction:
             f"force should re-extract all pairs; saw {forced_seen}"
         )
 
+    def test_force_preserves_provider_imported_acts(self, patch_trinity_home):
+        # Review finding #2: a model_miss act imported via eval-import /
+        # import_provider_memory has prompt_id=None and is not re-derivable
+        # from turn-pairs. A `--force` rebuild (which sets existing_rejections
+        # =[]) must NOT drop it from the ledger.
+        from unittest.mock import patch as _patch
+
+        from trinity_local import me_builder
+        from trinity_local.me.preference_acts import (
+            MODEL_MISS,
+            PreferenceAct,
+            append_preference_acts,
+            load_preference_acts,
+        )
+
+        self._seed_pairs(3)
+        # Imported signal: no prompt_id, distinct content id.
+        append_preference_acts([PreferenceAct(
+            id="imported_xyz", trigger=MODEL_MISS, privileged="user phrasing",
+            sacrificed="model phrasing", kind="REFRAME", prompt_id=None)])
+
+        fake = _RecordingProvider()
+        with _patch("trinity_local.providers.make_provider", return_value=fake):
+            me_builder.build_me_via_lens_pipeline(sample_size=10, k_basins=3, force=True)
+
+        survivors = {a.id for a in load_preference_acts()}
+        assert "imported_xyz" in survivors, (
+            "a --force rebuild dropped the provider-imported model_miss act"
+        )
+
     def test_delta_preserves_prior_rejections_in_ledger(self, patch_trinity_home):
         from unittest.mock import patch as _patch
 
