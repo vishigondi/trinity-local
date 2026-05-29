@@ -358,7 +358,7 @@ class TestMemoryHealthSurfacing:
         assert len(lens_issues) == 1
         assert lens_issues[0]["status"] == "edits-pending"
         assert "2" in lens_issues[0]["hint"]  # 2 line diffs
-        assert lens_issues[0]["command"] == "trinity-local lens-build"
+        assert lens_issues[0]["command"] == "trinity-local lens"
 
     def test_no_pending_edits_no_lens_issue(self, lens_edit_env):
         from trinity_local.launchpad_data import _memory_health

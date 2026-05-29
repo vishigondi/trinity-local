@@ -1377,7 +1377,7 @@ def _memory_health() -> dict:
                     "name": "topics.json",
                     "status": "pre-thread-aware",
                     "hint": "Topology was computed per-turn (older schema).",
-                    "command": "trinity-local lens-build",
+                    "command": "trinity-local lens",
                     "href": None,
                 })
     except Exception:
@@ -1437,7 +1437,7 @@ def _memory_health() -> dict:
                 "name": "lens.md",
                 "status": "edits-pending",
                 "hint": f"{pending} hand-edit(s) will be picked up by the next lens-build (weight=3.0, strongest signal).",
-                "command": "trinity-local lens-build",
+                "command": "trinity-local lens",
                 "href": None,
             })
     except Exception:

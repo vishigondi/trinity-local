@@ -147,7 +147,7 @@ class TestActionableSignals:
         assert "Signals:" in out
         assert "lens.md edits" in out
         assert "3 pending" in out
-        assert "trinity-local lens-build" in out
+        assert "trinity-local lens" in out
 
     def test_conflicts_surface_with_lens_md_pointer(self, tmp_path, monkeypatch, capsys):
         monkeypatch.setenv("TRINITY_HOME", str(tmp_path))
@@ -357,7 +357,7 @@ class TestActionableSignals:
         # Per-signal payload carries count + fix_command
         edits = next(s for s in payload["signals"] if s["kind"] == "lens_edits_pending")
         assert edits["count"] == 7
-        assert edits["fix_command"] == "trinity-local lens-build"
+        assert edits["fix_command"] == "trinity-local lens"
 
     def test_signals_empty_list_when_steady_green_in_json(
         self, tmp_path, monkeypatch, capsys,

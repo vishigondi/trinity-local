@@ -172,7 +172,7 @@ def render_me_card(data: CardLensData) -> bytes:
             y += 44
     else:
         # Empty state — invite the user to build their own /me
-        draw.text((margin, y), "Run trinity-local lens-build",
+        draw.text((margin, y), "Run trinity-local lens",
                   font=headline, fill=COLOR_INK)
         y += 80
         draw.text((margin, y),

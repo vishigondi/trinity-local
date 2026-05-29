@@ -1,7 +1,7 @@
 """Lens empty state: provider-side prompt CTAs.
 
 The lens-empty card (`v-if="!tasteLenses"`) used to advertise only
-`trinity-local lens-build`, which assumes the user already has local
+`trinity-local lens`, which assumes the user already has local
 transcripts. The provider-side loop (`lens-prompt | pbcopy` →
 `lens-import --provider …`) is the parallel path for users who don't
 have transcripts indexed locally. This test pins those chips so a
@@ -22,7 +22,7 @@ class TestLensEmptyStateChips:
         """Primary path stays in front: lens-build is still the
         first thing the user sees in the empty card."""
         html = _render_with_no_lens()
-        assert "trinity-local lens-build" in html
+        assert "trinity-local lens" in html
 
     def test_lens_prompt_chip_renders(self):
         html = _render_with_no_lens()

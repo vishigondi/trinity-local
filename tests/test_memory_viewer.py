@@ -127,7 +127,7 @@ class TestViewerRebuildChip:
         # suggestionFor itself must keep the canonical CLI names. If a
         # CLI is renamed, both this guard and Surface 18 catch it.
         for marker in (
-            '"lens.md" || name === "topics.json") return "lens-build"',
+            '"lens.md" || name === "topics.json") return "lens"',
             '"picks.json") return "consolidate"',
             # core.md was previously suggested via `distill`; flipped to
             # `dream` 2026-05-18 (iter #11) when distill CLI was hidden
@@ -165,8 +165,8 @@ class TestTopicLaunchChip:
         html = _render()
         # If the CLI is renamed (council-launch → run_council or similar),
         # the chip silently copies a broken command.
-        assert "'trinity-local council-launch --task \"'" in html, (
-            "launch chip no longer copies trinity-local council-launch --task — template drift"
+        assert "'trinity-local council --task \"'" in html, (
+            "launch chip no longer copies trinity-local council --task — template drift"
         )
 
     def test_launch_chip_escapes_shell_metas(self, isolated_home):
@@ -476,7 +476,7 @@ class TestStaleBasinBanner:
             "land silently with no user feedback"
         )
         # The rebuild chip should copy the lens-build CLI when clicked.
-        assert "trinity-local lens-build" in html, (
+        assert "trinity-local lens" in html, (
             "stale-basin banner doesn't surface the rebuild CLI chip"
         )
 

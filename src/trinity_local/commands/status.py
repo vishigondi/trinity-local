@@ -48,7 +48,7 @@ def _topics_summary(path) -> str:
         thread_counts = [int(b.get("thread_count") or 0) for b in basins]
         if not any(thread_counts):
             # Legacy per-turn topics.json — emit a hint to refresh.
-            return f"  · {len(basins)} basins · pre-thread-aware (run `trinity-local lens-build`)"
+            return f"  · {len(basins)} basins · pre-thread-aware (run `trinity-local lens`)"
         total_threads = sum(thread_counts)
         return (
             f"  · {len(basins)} basins · {total_turns:,} turns"
@@ -106,7 +106,7 @@ def handle_status(args):
                 signals_payload.append({
                     "kind": "lens_edits_pending",
                     "count": n_edits,
-                    "fix_command": "trinity-local lens-build",
+                    "fix_command": "trinity-local lens",
                 })
         except Exception:
             pass
@@ -386,7 +386,7 @@ def handle_status(args):
             signals.append((
                 "lens.md edits",
                 f"{n_edits} pending",
-                "run `trinity-local lens-build` to fold them in (weight=3.0)",
+                "run `trinity-local lens` to fold them in (weight=3.0)",
             ))
     except Exception:
         pass

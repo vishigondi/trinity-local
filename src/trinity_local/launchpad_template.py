@@ -1197,7 +1197,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           From your own {{{{ personalRoutingTable.councils_aggregated }}}} councils — the bars sharpen with every council. Categories match LMArena so you can compare against public evals later.
         </p>
         <p class="meta" v-else>
-          Run a few councils via <code>trinity-local council-launch --task "&lt;your question&gt;"</code> and this chart fills in with per-category strength for each provider, computed from your own council preferences.
+          Run a few councils via <code>trinity-local council --task "&lt;your question&gt;"</code> and this chart fills in with per-category strength for each provider, computed from your own council preferences.
         </p>
 
         <div class="chart-shell" v-if="personalRoutingTable && personalRoutingTable.councils_aggregated">
@@ -1290,7 +1290,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           table. A handful of councils on real questions is enough to see "which model wins for
           what kind of work" — the bars sharpen with every council.
         </p>
-        <pre class="md-code-block"><code>trinity-local council-launch --task "&lt;your question&gt;"</code></pre>
+        <pre class="md-code-block"><code>trinity-local council --task "&lt;your question&gt;"</code></pre>
       </section>
 
       <!-- Empirical benchmark — most-recent eval-run result rendered
@@ -1706,8 +1706,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           <button v-if="tasteLenses"
                   type="button"
                   class="lp-rebuild-chip"
-                  @click.stop="copyText('trinity-local lens-build', 'lens-rebuild')"
-                  title="Copy: trinity-local lens-build">
+                  @click.stop="copyText('trinity-local lens', 'lens-rebuild')"
+                  title="Copy: trinity-local lens">
             <span v-if="copiedKey === 'lens-rebuild'">✓ Copied</span>
             <span v-else>↻ Rebuild</span>
           </button>
@@ -1825,7 +1825,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                     <div
                       style="margin-top: 6px; padding: 6px 8px; font-size: 11px; color: #8a7d68; font-style: italic;"
                       v-else>
-                      Decision {{{{ did }}}} not found in the preference-act ledger — lens may be stale; re-run trinity-local lens-build.
+                      Decision {{{{ did }}}} not found in the preference-act ledger — lens may be stale; re-run trinity-local lens.
                     </div>
                   </details>
                 </span>
@@ -1903,14 +1903,14 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
 
       <section class="card" v-if="!tasteLenses">
         <div class="eyebrow">Your taste, distilled</div>
-        <h2>Run lens-build to extract your pair-wise taste lenses</h2>
+        <h2>Run lens to extract your pair-wise taste lenses</h2>
         <p class="meta">
           The chairman reads your prompt history and surfaces a lens document with
           implicit rejections (model-said vs. you-substituted), vocabulary you
           repeat, and abstract lenses your interactions encode. Each card is
           shareable — paste a single lens to socials without exposing the prompts.
         </p>
-        <pre class="md-code-block"><code>trinity-local lens-build</code></pre>
+        <pre class="md-code-block"><code>trinity-local lens</code></pre>
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06);">
           <p class="meta" style="font-size: 13px; margin-bottom: 8px;">
             <strong>No local transcripts yet?</strong> Ask each provider directly —

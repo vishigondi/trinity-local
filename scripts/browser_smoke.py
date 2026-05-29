@@ -1211,7 +1211,7 @@ def main() -> int:
         # _memory_health flags an issue). Walk three memories with distinct
         # rebuild CLIs to verify the per-file mapping isn't broken.
         rebuild_targets = [
-            ("lens.md", "trinity-local lens-build"),
+            ("lens.md", "trinity-local lens"),
             ("picks.json", "trinity-local consolidate"),
             # core.md previously suggested `distill` but the CLI was
             # hidden in commit c9b1f9d; the rebuild chip now points at
@@ -1264,7 +1264,7 @@ def main() -> int:
 
         # ─── Surface 19: Topic-graph launch-council chip ─────────────────────
         # The topic graph node detail panel now carries a .topics-launch-chip
-        # that copies a `trinity-local council-launch --task "<headline>"`
+        # that copies a `trinity-local council --task "<headline>"`
         # command, using the closest-to-centroid representative as the seed.
         # Gracefully SKIP if topics.json has no representatives (legacy
         # schema or empty install) — the chip can't render without a seed.
@@ -1298,7 +1298,7 @@ def main() -> int:
                 setTimeout(() => {
                   if (orig) navigator.clipboard.writeText = orig;
                   resolve({
-                    ok: copied && copied.startsWith('trinity-local council-launch --task "'),
+                    ok: copied && copied.startsWith('trinity-local council --task "'),
                     copied: (copied || '').slice(0, 80),
                     flashed: chip.textContent.includes('Copied'),
                     basin: chip.dataset.basin,
@@ -1349,7 +1349,7 @@ def main() -> int:
                 if (orig) navigator.clipboard.writeText = orig;
                 const stillSameExpand = li ? (li.classList.contains('open') === wasOpen) : true;
                 resolve({
-                  ok: copied && copied.startsWith('trinity-local council-launch --task "') && stillSameExpand,
+                  ok: copied && copied.startsWith('trinity-local council --task "') && stillSameExpand,
                   copied: (copied || '').slice(0, 90),
                   flashed: target.textContent.includes('Copied'),
                   total_chips: chips.length,

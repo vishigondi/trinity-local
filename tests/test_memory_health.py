@@ -107,7 +107,7 @@ class TestTopicsThreadAwareSignal:
         topic_issues = [i for i in issues if i["name"] == "topics.json"]
         assert len(topic_issues) == 1
         assert topic_issues[0]["status"] == "pre-thread-aware"
-        assert topic_issues[0]["command"] == "trinity-local lens-build"
+        assert topic_issues[0]["command"] == "trinity-local lens"
 
     def test_thread_aware_topics_is_silent(self, isolated_home):
         topics = isolated_home / "memories" / "topics.json"

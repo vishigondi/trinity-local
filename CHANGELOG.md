@@ -7,6 +7,30 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.51 — Q4 surface-collapse slice 2: launchpad copy uses the product words (#213)] — 2026-05-29
+
+The launchpad / memory-viewer / status / me-card now hand users the two
+product words in every **command-to-run** string: `trinity-local lens` and
+`trinity-local council --task "…"` (was `lens-build` / `council-launch`).
+
+Carefully scoped — three string classes were kept distinct:
+- **Commands to run** (copy chips, code blocks, status hints, the me-card
+  CTA, the memory-viewer rebuild chip's `suggestionFor` map) → shortened.
+- **Provenance labels** (`verdict==='accepted' ? 'lens-build'`, "Written by
+  lens-build" taglines) → **kept** — they name the build pipeline that wrote
+  a tension, not a command, and "lens" there would be ambiguous.
+- **Internal dispatch** (capture_host ACTION_ALLOWLIST → `council-launch`,
+  `command_for_dispatch`) → **untouched**; it's the subprocess invocation,
+  resolves via the v1.7.49 aliases, and isn't user-visible.
+
+Browser-verified: Surfaces 18/19/20 now copy `trinity-local lens` /
+`trinity-local council --task …`; the provenance-chip + dispatch tests stay
+green untouched. Regenerated `docs/launchpad_example.png` +
+`docs/me_card_example.png`. Coupled smoke + test assertions updated.
+
+Remaining #213 slice: the MCP `route`→`ask` merge (needs a deprecation
+window — external harnesses call the tools by name).
+
 ## [v1.7.50 — fix 4 findings from the adversarial review of tonight's ships (#219)] — 2026-05-29
 
 A 9-agent adversarial workflow reviewed #209/#210/#213 and confirmed 4 real

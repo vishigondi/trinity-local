@@ -1385,7 +1385,7 @@ def render_memory_viewer_html() -> str:
       // user can SEE which subjects cluster vs. which sit alone.
       const basins = Array.isArray(topics.basins) ? topics.basins.slice() : [];
       if (basins.length === 0) {{
-        target.appendChild(el("p", "meta", "No topics yet — run trinity-local lens-build to compute basins."));
+        target.appendChild(el("p", "meta", "No topics yet — run trinity-local lens to compute basins."));
         return;
       }}
 
@@ -1683,19 +1683,19 @@ def render_memory_viewer_html() -> str:
           const hint = el("span", "viewer-health-hint");
           hint.textContent =
             'Basin "' + focusBasin + '" not in the current topology — ' +
-            'this link may reference a stale lens-build. Rebuild via ' +
-            'trinity-local lens-build.';
+            'this link may reference a stale lens build. Rebuild via ' +
+            'trinity-local lens.';
           banner.appendChild(hint);
           const chip = el("button", "viewer-health-cmd");
           chip.type = "button";
-          chip.textContent = "trinity-local lens-build";
-          chip.title = "Copy: trinity-local lens-build";
+          chip.textContent = "trinity-local lens";
+          chip.title = "Copy: trinity-local lens";
           chip.addEventListener("click", () => {{
             if (navigator.clipboard?.writeText) {{
-              navigator.clipboard.writeText("trinity-local lens-build").catch(() => null);
+              navigator.clipboard.writeText("trinity-local lens").catch(() => null);
             }}
             chip.textContent = "✓ Copied";
-            setTimeout(() => {{ chip.textContent = "trinity-local lens-build"; }}, 2200);
+            setTimeout(() => {{ chip.textContent = "trinity-local lens"; }}, 2200);
           }});
           banner.appendChild(chip);
           detail.appendChild(banner);
@@ -1728,7 +1728,7 @@ def render_memory_viewer_html() -> str:
         headRow.appendChild(el("span", "topics-rep-headline", rep.headline || "(no headline)"));
         const replaySeed = rep.headline || (rep.turns && rep.turns[0] && rep.turns[0].snippet) || "";
         if (replaySeed) {{
-          const replayCmd = 'trinity-local council-launch --task "' + escapeBashArg(replaySeed) + '"';
+          const replayCmd = 'trinity-local council --task "' + escapeBashArg(replaySeed) + '"';
           const replay = el("button", "topics-rep-replay", "Replay");
           replay.type = "button";
           replay.title = "Copy: " + replayCmd;
@@ -1842,7 +1842,7 @@ def render_memory_viewer_html() -> str:
         if (seedText) {{
           // Bash-safe quoting handled by escapeBashArg (shared with the
           // per-rep replay chip in renderThreadRep).
-          const launchCmd = 'trinity-local council-launch --task "' + escapeBashArg(seedText) + '"';
+          const launchCmd = 'trinity-local council --task "' + escapeBashArg(seedText) + '"';
           const chip = el("button", "topics-launch-chip", "Launch council on this topic");
           chip.type = "button";
           chip.title = "Copy: " + launchCmd;
@@ -1866,7 +1866,7 @@ def render_memory_viewer_html() -> str:
           note.style.fontSize = "12px";
           note.appendChild(document.createTextNode(
             "Stale topology: prompt_ids carries " + idCount + " entries vs basin size " +
-            (b.size || 0) + ". Re-run trinity-local lens-build to refresh."));
+            (b.size || 0) + ". Re-run trinity-local lens to refresh."));
           detail.appendChild(note);
         }}
       }}
@@ -1903,7 +1903,7 @@ def render_memory_viewer_html() -> str:
       // an internal Phase-5 callable inside dream). For users clicking
       // the rebuild chip, `dream` is the live path — heavier than
       // pure distill but always works and ships in v1.7.4.
-      if (name === "lens.md" || name === "topics.json") return "lens-build";
+      if (name === "lens.md" || name === "topics.json") return "lens";
       if (name === "picks.json") return "consolidate";
       if (name === "routing.json") return "dream";
       if (name === "vocabulary.md") return "vocabulary";
