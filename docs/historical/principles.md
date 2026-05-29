@@ -6,7 +6,7 @@ class: historical
 
 > Historical context relocated from `claude.md` on 2026-05-22 during
 > the v1.7.5 cleanup pass (cut claude.md from 918 → ~200 lines). The
-> 21 principles below are still authoritative — they earned their
+> principles below are still authoritative — they earned their
 > rules by costing time. The cleanup moved them here so the
 > agent-facing `claude.md` could fit Anthropic's Auto-Dream 200-line
 > MEMORY.md discipline without losing the institutional learning.
@@ -316,3 +316,85 @@ rules by costing time:
     error is set. Reviewer's question: "if state X transitions, what
     in this DOM tree disappears, and does any of it need to keep
     showing the error?"
+
+26. **Sample the real distribution, not the aggregate — presence ≠
+    coverage ≠ correctness.** Earned across the 2026-05-29 embedding/eval
+    arc; the single most-applied lesson of the session. A pipeline can
+    report success (runs, produces output, tests green) while the
+    underlying data is degenerate — empty for most rows, collapsed onto
+    one value, dominated by your own scaffolding, or silently on a
+    fallback path. Cases: 66% of `prompt_nodes` carried empty embeddings
+    (backfill had stalled 2026-05-12) yet every aggregate check was green
+    because the eval items happened to resolve to the embedded 34%; 71% of
+    eval items had `user_substitute == prompt` (the rubric target was the
+    user's restated prompt — visible only by reading raw items, not the
+    score); macOS NLEmbedding *sounded* ideal (zero-download, on-device)
+    but measured 44% NN-agreement + 31 nodes/s; Qwen3-Embedding was
+    MTEB-SOTA on paper but 200× slower on MLX. The discipline, before
+    trusting any data-derived artifact: sample the real population and
+    measure the four things aggregate/green checks hide — (1) **coverage**
+    (fraction with a REAL, non-empty/non-fallback value), (2) **collapse**
+    (pinned to one value / one cluster / the input itself?), (3) **fallback
+    rate** (how often the real backend silently degraded), (4)
+    **recency/skew** (is the populated subset stale or biased) — then pin a
+    floor guard that fails LOUDLY when coverage/collapse crosses a
+    threshold, and eyeball N raw rows (summaries lie; rows don't). The
+    positive form of #5 (real-data validation) + #6 (fixtures mirror
+    production): don't just run on real data — measure its distribution and
+    guard the floor.
+
+27. **A name (or extras key) that claims a capability the code lacks
+    becomes a believed fact.** Earned 2026-05-29: `embeddings/backend_mlx.py`
+    + the `[mlx]` pyproject extras had used `sentence-transformers` + torch
+    since their *first* commit (`cd35f1c`) — never any Apple MLX — yet the
+    name was convincing enough that even the founder *remembered* "we used
+    MLX initially." The misnomer didn't just confuse; it manufactured a
+    false institutional memory AND sent debugging down the wrong path (the
+    torch-MPS wedge looked like "an MLX problem"). Distinct from #8/#20
+    (true facts drifting in prose) — this is a name asserting a FALSE
+    capability from birth. Rule: name modules/flags/extras for what they
+    ARE, not what they aspire to be; an aspirational name is a lie that
+    compounds. If something is named for a technology, add a guard that
+    asserts it actually uses it — or rename it.
+
+28. **Rank candidates on YOUR deployment constraints, measured — not the
+    headline benchmark.** Earned 2026-05-29 choosing an embedder. External
+    leaderboards (MTEB) rank on their axes; Trinity's axes are
+    MLX-fast-on-Apple, ungated/frictionless-install, sufficient-context,
+    local-sized. Measured on real data + hardware: Qwen3-Embedding-0.6B
+    (MTEB-leading, 32k ctx) ran **200× slower** on MLX (32 vs 6315 nodes/s);
+    EmbeddingGemma was **license-gated** (breaks `curl|bash`, no-API-key
+    install); gte-modernbert was **70× slower** + reshuffled the semantic
+    structure; bge-m3 wouldn't load. A 2024 model (modernbert-embed-base)
+    beat the entire 2025 SOTA field on the constraints that actually ship.
+    "Newest / highest-MTEB" is the *benchmark's* ranking, not yours —
+    benchmark the candidates on your hardware, license, and install model
+    before adopting one.
+
+29. **One root cause surfaces as many symptoms; fix the root, not each
+    symptom.** Earned 2026-05-29: nomic-embed-v1.5's custom `nomic_bert`
+    (`trust_remote_code`) arch produced THREE distinct-looking failures
+    across layers — the torch-MPS command-buffer wedge (#241), the "model
+    type nomic_bert not supported" MLX error (#244), and the 14-core CPU
+    thrash. Each tempted a per-symptom patch (CPU pin, device selection,
+    thread cap). The leverage was fixing the ROOT — swap to a standard-arch
+    model (modernbert-embed-base) — which dissolved all three at once.
+    Distinct from #4 (one bug SHAPE recurring across N call-sites): this is
+    one ROOT manifesting as different-looking failures across subsystems.
+    When symptoms cluster around one component, name the root before
+    patching the symptoms.
+
+30. **Right-size the fix, and guard the exact invariant that broke — not an
+    adjacent one.** Two precision failures this session. (a) *Over-correction*:
+    v1.7.64 fixed the MPS wedge by pinning `device="cpu"` UNCONDITIONALLY —
+    which then forced slow CPU on CUDA boxes (the mirror failure on the
+    other side); the right fix was conditional (CUDA-if-available, never
+    auto-MPS). A blunt "always X" fix routinely creates the opposite bug.
+    (b) *Adjacent guard*: the `--model` dispatch regression shipped because
+    the antigravity test asserted no `--effort` was injected but never
+    checked `--model` — green on the wrong property while the real invariant
+    broke. A guard that asserts a neighbor gives false confidence. Rule:
+    prefer the conditional/right-sized fix over the blunt one, and make the
+    guard assert the SPECIFIC thing that can break (here: agy's command is
+    *exactly* `["agy", "-p", prompt]`), not an adjacent property. Sharpens
+    #23 (test depth) with a "test the right property" corollary.
