@@ -995,8 +995,41 @@ def build_me_via_lens_pipeline(
         save_preference_acts(preference_acts)
     except Exception:
         pass
+    # Trajectory lens (#182): detect diachronic arcs from the model_miss
+    # acts (deterministic — no LLM), aggregate to directional preferences,
+    # persist, and feed the new lens.md "Trajectories" section. Best-effort:
+    # the trajectory layer is additive, never load-bearing for producing a
+    # lens, so any failure degrades to the synchronic lens.
+    trajectories: list = []
+    try:
+        from .me.arc_mining import (
+            aggregate_trajectories,
+            detect_arcs,
+            save_arcs,
+            save_trajectories,
+        )
+        from .memory.store import iter_prompt_nodes as _iter_nodes
+
+        node_lookup = {
+            n.id: (getattr(n, "transcript_id", "") or "", getattr(n, "turn_index", 0) or 0)
+            for n in _iter_nodes(limit=None)
+        }
+        arcs = detect_arcs(preference_acts, node_lookup)
+        trajectories = aggregate_trajectories(arcs)
+        if arcs:
+            save_arcs(arcs)
+            save_trajectories(trajectories)
+            print(
+                f"  Trajectory lens: {len(arcs)} arc(s) → "
+                f"{len(trajectories)} directional preference(s)",
+                flush=True,
+            )
+    except Exception as exc:
+        print(f"  Trajectory lens skipped ({exc})", flush=True)
+        trajectories = []
     me_doc = render_me_markdown(
-        render_pairs, orderings, rejections, tension_support, preference_acts
+        render_pairs, orderings, rejections, tension_support, preference_acts,
+        trajectories,
     )
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1106,8 +1139,17 @@ def resync_lens_from_disk() -> tuple[Path, dict]:
     render_pairs = [e.to_lens_pair() for e in active] if active else accepted
     tension_support = support_index(active) if active else None
 
+    # #182: re-render the diachronic trajectories from disk (resync is a
+    # cheap re-flow — no re-detection, just surface what lens-build saved).
+    try:
+        from .me.arc_mining import load_trajectories
+        trajectories = load_trajectories()
+    except Exception:
+        trajectories = []
+
     me_doc = render_me_markdown(
-        render_pairs, orderings, rejections, tension_support, preference_acts
+        render_pairs, orderings, rejections, tension_support, preference_acts,
+        trajectories,
     )
     path = me_path()
     path.parent.mkdir(parents=True, exist_ok=True)

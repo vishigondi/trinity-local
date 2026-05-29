@@ -7,6 +7,38 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.55 — trajectory lens: diachronic arc-pair extraction (#182)] — 2026-05-29
+
+The diachronic layer over Stage 0's synchronic turn-pairs — and the
+asymmetric advantage no within-session memory (Auto-Dream included) can see.
+Stage 0 classifies one (model, user-next) gap at a time; this asks: within
+ONE thread, did the user steer the SAME direction repeatedly across turns?
+That sustained arc is settled taste, not a one-off.
+
+- `me/arc_mining.py`: `TurnArc` (a within-thread trajectory — one rejection
+  kind recurring ≥`MIN_ARC_LEN`=3 times in a transcript) + `Trajectory`
+  (kind aggregated across threads). **Detection is deterministic** — no LLM
+  (Trinity's "LLM only inside councils" commitment): group model_miss acts
+  by their originating transcript (prompt_id → PromptNode), find ≥3-of-a-kind
+  runs, roll up across threads.
+- Wired into lens-build (deterministic, no new model call) + lens-resync
+  (re-render from disk). New lens.md "## Trajectories" section renders the
+  sustained pulls so the chairman weights them as durable taste. Persisted
+  to `arcs.jsonl` / `trajectories.jsonl` (schema-versioned via #183).
+- The chairman-enrichment path (`render_arc_prompt` / `parse_trajectories`,
+  to name each trajectory in the user's voice) is built + tested as the
+  available follow-on; the deterministic aggregation is what ships today.
+- **Real-data validation (no LLM)**: all 63 model_miss acts in the live
+  ledger resolve to transcripts (mechanism works end-to-end), but the max
+  same-kind concentration in any one thread is 2 — just under the threshold,
+  so 0 arcs surface yet. That's a TRUE empirical result, not a bug: 2 is a
+  coincidence, 3 is a pattern. The detector activates as the corpus deepens;
+  the threshold was NOT lowered to manufacture arcs.
+
+`TurnArc` + `Trajectory` registered in the round-trip persistence guard
+(#190). Full suite 2147 passed + 7 skipped. This was the last open backlog
+item.
+
 ## [v1.7.54 — Chrome extension: per-harness paste-in snippet generator (#166)] — 2026-05-29
 
 Replaces the "go run install-mcp in the right CLI" friction with: pick your
@@ -2007,7 +2039,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2130<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2151<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

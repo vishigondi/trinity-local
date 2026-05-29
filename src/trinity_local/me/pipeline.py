@@ -209,6 +209,7 @@ def render_me_markdown(
     rejections: list[RejectionSignal] | None = None,
     tension_support: dict[tuple[str, str], dict[str, Any]] | None = None,
     preference_acts: list | None = None,
+    trajectories: list | None = None,
 ) -> str:
     """Render lens artifacts as the lens-document markdown (written by
     the caller to ~/.trinity/memories/lens.md — function name retained
@@ -381,4 +382,10 @@ def render_me_markdown(
             if len(items) > 5:
                 lines.append(f"  _({len(items) - 5} more)_")
             lines.append("")
+    # Trajectory lens (#182): diachronic pulls aggregated across threads.
+    # Rendered last so the chairman reads the synchronic acts first, then the
+    # sustained arcs they compose into.
+    if trajectories:
+        from .arc_mining import render_trajectory_lines
+        lines.extend(render_trajectory_lines(trajectories))
     return "\n".join(lines)

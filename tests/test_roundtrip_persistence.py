@@ -136,6 +136,24 @@ def _populated_preference_act() -> PreferenceAct:
     )
 
 
+def _populated_turn_arc():
+    from trinity_local.me.arc_mining import TurnArc
+    return TurnArc(
+        transcript_id="t_abc", kind="COMPRESSION", count=4, turn_span=8,
+        act_ids=["a1", "a2", "a3", "a4"], exemplars=["just the spec", "drop the preamble"],
+    )
+
+
+def _populated_trajectory():
+    from trinity_local.me.arc_mining import Trajectory
+    return Trajectory(
+        kind="COMPRESSION", thread_count=3, total_pulls=11,
+        exemplars=["just the spec"],
+    )
+
+
+from trinity_local.me.arc_mining import Trajectory, TurnArc  # noqa: E402
+
 ROUND_TRIPPABLE = {
     "PromptNode": (PromptNode, _populated_prompt_node),
     "TurnWindow": (TurnWindow, _populated_turn_window),
@@ -143,6 +161,8 @@ ROUND_TRIPPABLE = {
     "CouncilRoutingLabel": (CouncilRoutingLabel, _populated_routing_label),
     "RegistryEntry": (RegistryEntry, _populated_registry_entry),
     "PreferenceAct": (PreferenceAct, _populated_preference_act),
+    "TurnArc": (TurnArc, _populated_turn_arc),
+    "Trajectory": (Trajectory, _populated_trajectory),
 }
 
 
