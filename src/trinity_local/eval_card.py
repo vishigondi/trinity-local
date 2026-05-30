@@ -55,6 +55,10 @@ class EvalCardData:
     aggregate + up to 4 per-axis bars + the install CTA."""
     target_provider: str
     target_model: str | None = None
+    # #239 — thinking level, the third leg of the identity triple (slug +
+    # model + effort). Rendered next to the model id so the card honestly
+    # attributes which CONFIGURATION scored, not just the model family.
+    target_effort: str | None = None
     aggregate_score: float | None = None
     items_total: int = 0
     items_completed: int = 0
@@ -67,6 +71,7 @@ class EvalCardData:
         return {
             "target_provider": self.target_provider,
             "target_model": self.target_model,
+            "target_effort": self.target_effort,
             "aggregate_score": self.aggregate_score,
             "items_total": self.items_total,
             "items_completed": self.items_completed,
@@ -110,6 +115,7 @@ def collect_card_data_from_result(result) -> EvalCardData:
     return EvalCardData(
         target_provider=result.target_provider,
         target_model=result.target_model,
+        target_effort=getattr(result, "target_effort", None),
         aggregate_score=result.aggregate_score,
         items_total=result.items_total,
         items_completed=result.items_completed,
@@ -187,6 +193,16 @@ def render_eval_card(data: EvalCardData) -> bytes:
                   f"{provider_name} scored {score_str}",
                   font=headline, fill=COLOR_INK)
         y += 76
+
+        # #239 identity line: the exact model + thinking level that scored, so
+        # the card attributes the CONFIGURATION (the same model at a different
+        # effort is a different contestant), not just the provider family.
+        identity = " · ".join(
+            b for b in (data.target_model, data.target_effort) if b
+        )
+        if identity:
+            draw.text((margin, y), identity, font=sub, fill=COLOR_MUTED)
+            y += 40
 
         # Subhead: "on YOUR kind of question · 20 prompts, 4 axes"
         axis_count = len(data.by_axis)

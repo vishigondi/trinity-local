@@ -17,8 +17,27 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..config import ProviderConfig
-from ..providers import make_provider, ProviderResult, dispatched_model
+from ..providers import (
+    _effective_effort,
+    dispatched_model,
+    make_provider,
+    ProviderResult,
+)
 from .builder import EvalSet, results_dir
+
+
+def _identity_effort(config: ProviderConfig, model: str | None) -> str | None:
+    """The thinking-level half of the #239 identity triple.
+
+    Returns the configured effort, EXCEPT when it's already baked into the
+    model string (agy renders "Gemini 3.1 Pro (high)") — avoids "(high) · high"
+    double-rendering on the card."""
+    effort = _effective_effort(config)
+    if not effort:
+        return None
+    if model and f"({effort})".lower() in model.lower():
+        return None
+    return effort
 
 
 @dataclass
@@ -54,6 +73,12 @@ class EvalRunResult:
     items: list[EvalItemRun] = field(default_factory=list)
     aggregate_score: float | None = None
     by_rejection_type: dict[str, dict[str, float]] = field(default_factory=dict)
+    # #239 — the model IDENTITY is a triple: slug (target_provider) + model
+    # name/version (target_model) + thinking level (target_effort). The SAME
+    # model at a different effort is a different contestant, so the effort must
+    # be recorded for an honest cross-run comparison. None when not configured
+    # (or, for agy, when the level is already baked into target_model).
+    target_effort: str | None = None
     # True when scoring was degenerate (>50% of items hit the empty/unparseable
     # 0.5 default — e.g. a non-LLM judge that returns nothing). aggregate_score
     # is forced to None in that case so a fabricated benchmark never persists.
@@ -73,6 +98,7 @@ class EvalRunResult:
             "aggregate_score": self.aggregate_score,
             "by_rejection_type": self.by_rejection_type,
             "scoring_degraded": self.scoring_degraded,
+            "target_effort": self.target_effort,
         }
 
     def result_path(self) -> Path:
@@ -157,6 +183,10 @@ def run_eval(
         # settings.json (config.model is ignored by the flagless agy CLI),
         # so the eval card attributes the model that actually ran.
         target_model=dispatched_model(config),
+        # #239: record the thinking level so the same model at a different
+        # effort is a distinguishable contestant. Suppressed when the level is
+        # already in the model string (agy bakes "(high)" into target_model).
+        target_effort=_identity_effort(config, dispatched_model(config)),
         started_at=started,
         completed_at=completed,
         items_total=len(items_to_run),
@@ -209,4 +239,6 @@ def load_run_result(path: Path) -> EvalRunResult | None:
         items=items,
         aggregate_score=raw.get("aggregate_score"),
         by_rejection_type=raw.get("by_rejection_type", {}),
+        scoring_degraded=bool(raw.get("scoring_degraded", False)),
+        target_effort=raw.get("target_effort"),
     )

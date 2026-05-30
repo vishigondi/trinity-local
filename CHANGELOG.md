@@ -7,6 +7,27 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.84 — model identity triple: record + display the thinking level (#239)] — 2026-05-30
+
+A model's identity for eval comparison is a triple — slug (`claude`) + model
+name/version (`claude-opus-4-8`) + thinking level (`high`). v1.7.40/#61 already
+fixed recorded==dispatched for the model; the missing leg was effort. The SAME
+model at a different effort is a different contestant, so two runs at `high` vs
+`max` were indistinguishable in the record and on the card.
+
+- `EvalRunResult` gains `target_effort`, recorded via `_identity_effort(config,
+  model)` — the configured effort, suppressed when it's already baked into the
+  model string (agy renders "Gemini 3.1 Pro (high)", so no "(high) · high"
+  double-render). Round-trips through save/load (which also now restores
+  `scoring_degraded`, a latent load-path gap).
+- The eval share card renders an identity line (`claude-opus-4-8 · high`) under
+  the headline, so the viral "scored 0.79 on YOUR taste" card attributes the
+  exact configuration, not just the provider family. `EvalCardData.target_effort`
+  + `to_dict` carry it to the launchpad payload.
+
+Codex's `gpt-5.3-codex` (dispatched) vs `GPT-5.5 (Codex)` (manifest display) is
+intentional codex-variant labeling, not a drift — left as-is. 5 new tests.
+
 ## [v1.7.83 — vocabulary de-pollution: the broken stage produces real terms (#250)] — 2026-05-30
 
 The vocabulary stage was structurally broken on the real corpus: every view was
@@ -61,7 +82,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2332<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2337<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

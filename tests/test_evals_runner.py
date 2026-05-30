@@ -584,3 +584,67 @@ class TestDefaultJudgeProviderPicker:
                 "_default_judge_provider — has the function been "
                 "refactored? Update this guard accordingly."
             )
+
+
+class TestModelIdentityTriple:
+    """#239 — the recorded identity is slug + model + thinking level. The same
+    model at a different effort is a different contestant, so effort is
+    recorded and survives the save/load round-trip + reaches the card."""
+
+    def _config(self, *, model=None, effort=None):
+        from trinity_local.config import ProviderConfig
+        return ProviderConfig(
+            name="claude", type="cli", enabled=True, label="Claude",
+            command=["claude"], args=[], task_types=set(),
+            model=model, effort=effort,
+        )
+
+    def test_identity_effort_recorded_when_separate(self):
+        from trinity_local.evals.runner import _identity_effort
+        cfg = self._config(model="claude-opus-4-8", effort="high")
+        assert _identity_effort(cfg, "claude-opus-4-8") == "high"
+
+    def test_identity_effort_suppressed_when_baked_into_model(self):
+        # agy renders the level into the model string — don't double-render.
+        from trinity_local.evals.runner import _identity_effort
+        cfg = self._config(model="Gemini 3.1 Pro (high)", effort="high")
+        assert _identity_effort(cfg, "Gemini 3.1 Pro (high)") is None
+
+    def test_identity_effort_none_when_unset(self):
+        from trinity_local.evals.runner import _identity_effort
+        cfg = self._config(model="gpt-5.3-codex", effort=None)
+        assert _identity_effort(cfg, "gpt-5.3-codex") is None
+
+    def test_effort_round_trips_through_save_load(self, tmp_path, monkeypatch):
+        import trinity_local.state_paths as sp
+        monkeypatch.setattr(sp, "state_dir", lambda: tmp_path)
+        from trinity_local.evals.runner import (
+            EvalRunResult, save_run_result, load_run_result,
+        )
+        rr = EvalRunResult(
+            eval_id="e1", target_provider="claude",
+            target_model="claude-opus-4-8", target_effort="high",
+            started_at="2026-05-30T00:00:00+00:00",
+            completed_at="2026-05-30T00:01:00+00:00",
+            items_total=3, items_completed=3, items_failed=0,
+        )
+        path = save_run_result(rr)
+        loaded = load_run_result(path)
+        assert loaded is not None
+        assert loaded.target_effort == "high"
+
+    def test_card_renders_identity_line_with_effort(self):
+        from trinity_local.eval_card import collect_card_data_from_result
+
+        class _Result:
+            target_provider = "claude"
+            target_model = "claude-opus-4-8"
+            target_effort = "high"
+            aggregate_score = 0.79
+            items_total = 20
+            items_completed = 20
+            by_rejection_type = {}
+
+        data = collect_card_data_from_result(_Result())
+        assert data.target_effort == "high"
+        assert data.to_dict()["target_effort"] == "high"
