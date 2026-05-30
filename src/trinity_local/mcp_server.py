@@ -37,6 +37,7 @@ remain importable for the launchpad but are not exposed via MCP.
 from __future__ import annotations
 
 import json
+import threading
 from typing import Any
 
 from mcp.server import Server
@@ -383,6 +384,31 @@ async def handle_list_tools() -> list[Tool]:
     ]
 
 
+_lens_kicks_fired = False
+_lens_kicks_lock = threading.Lock()
+
+
+def _maybe_fire_lens_kicks() -> None:
+    """Fire the first-lens-build + activity-refresh kicks once per process, on
+    the first tool call (where an MCP session is registered so the build can
+    sample). Best-effort: never let an auto-kick failure break a tool call."""
+    global _lens_kicks_fired
+    with _lens_kicks_lock:
+        if _lens_kicks_fired:
+            return
+        _lens_kicks_fired = True
+    try:
+        from .cold_start import maybe_kick_first_lens_build, maybe_kick_lens_refresh
+
+        # First build owns the cold-start case; refresh owns keep-current. Each
+        # internally gates (should_build/should_refresh + the shared lock), so
+        # calling both is a cheap no-op once a current lens exists.
+        maybe_kick_first_lens_build()
+        maybe_kick_lens_refresh()
+    except Exception:
+        pass
+
+
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     arguments = arguments or {}
@@ -403,6 +429,14 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
         # or this is invoked outside a real MCP request (e.g., tests),
         # skip session registration and let sampling auto-decline.
         pass
+
+    # #263 keystone: fire the LLM-making auto-kicks (first lens build +
+    # activity-gated refresh) HERE — on the first tool call, with the session
+    # registered above — so their Claude stages route through sampling and
+    # ride the user's Claude Code subscription instead of burning `claude -p`
+    # quota. copy_context() inside the kick snapshots the active session for
+    # the build thread (independent of the finally-clear below). Fire-once.
+    _maybe_fire_lens_kicks()
 
     try:
         if name == "ask":
@@ -1640,25 +1674,17 @@ async def run_stdio_server():
     # dirs (~/.claude, ~/.codex, ~/.gemini, cowork) exist, kick a background
     # ingest so the first council the user fires already has personalization
     # signal. No-op when corpus is populated or no source dirs found.
-    from .cold_start import (
-        maybe_kick_cold_start,
-        maybe_kick_first_lens_build,
-        maybe_kick_lens_refresh,
-    )
+    from .cold_start import maybe_kick_cold_start
 
+    # The cold-start *scan* is pure ingest (no LLM) — safe to run at startup
+    # before any session exists. The two LLM-making kicks (first-build +
+    # refresh) are deliberately NOT fired here: they're moved to the first
+    # tool call (see `_maybe_fire_lens_kicks` in handle_call_tool) so they run
+    # with an active MCP session and route their Claude stages through
+    # sampling/createMessage instead of burning `claude -p` quota. Firing them
+    # here — before server.run() — means no session is registered yet, so they
+    # could never sample (the #263 keystone bug).
     maybe_kick_cold_start()
-    # #242(a): once the cold-start scan has ingested AND the corpus is embedded,
-    # auto-kick the FIRST lens build in the background here (an authenticated
-    # session — provider CLIs are live). Closes the gap where a fresh user saw
-    # "the deeper lens is still building" while nothing actually built it. The
-    # build writes live progress the launchpad shows + honors a user cancel.
-    maybe_kick_first_lens_build()
-    # Activity-gated lens refresh (Anthropic's Auto-Dream pattern, not a
-    # nightly cron): once the user HAS a lens, refresh it in the background
-    # when ≥24h have passed AND enough new conversation has accumulated.
-    # Evaluated here, on connect, so it runs during an authenticated session
-    # — never a 3am cron with no provider auth. No-op (zero cost) otherwise.
-    maybe_kick_lens_refresh()
 
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

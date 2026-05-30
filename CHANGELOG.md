@@ -7,6 +7,40 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.95 — keystone: the auto lens build samples via MCP instead of burning `claude -p`] — 2026-05-30
+
+The activity-gated first-build + refresh (#242a / #234) ran the lens pipeline
+in a background thread inside the MCP server — but the thread was spawned in
+`run_stdio_server()` **before `server.run()`**, i.e. at startup *before any
+tool call*. `set_active_session()` only runs inside `handle_call_tool`, so when
+the build kicked there was no session registered to sample from: every Stage 0/2/3
++ distill chairman call fell through to the `claude -p` subprocess and burned the
+user's Claude quota — the same exhaustion that left this morning's councils stuck
+at "running". (Councils launched via the `run_council` tool already sampled
+correctly, because they fire *inside* a tool call with the session live.)
+
+Two changes close it (the keystone the founder picked, 2026-05-30):
+
+1. **Fire on the first tool call, not at startup.** `maybe_kick_first_lens_build`
+   + `maybe_kick_lens_refresh` move out of `run_stdio_server` into a fire-once
+   `_maybe_fire_lens_kicks()` invoked from `handle_call_tool` right after
+   `set_active_session`. The no-LLM cold-start *scan* (`maybe_kick_cold_start`)
+   stays at startup — it needs no session.
+2. **Inherit the sampling ContextVar.** Both build threads now spawn via
+   `contextvars.copy_context().run(...)` (the exact primitive `council_runner`
+   uses) so the worker inherits `_active`. The snapshot is independent of the
+   triggering tool call's `finally`-clear, so the minutes-long build keeps
+   sampling from the connection-lived session.
+
+Net: when you (or the activity gate) trigger a lens build from inside Claude
+Code, Stage 0/2/3 + distill now route through `sampling/createMessage` and ride
+your Claude Code session — zero `claude -p` quota. Falls back to the subprocess
+unchanged when no sampling-capable session is active (CLI use, Codex/Cursor
+harnesses that don't advertise sampling). +5 guards in
+`test_lens_sampling_keystone.py` pin: startup no longer kicks the LLM builds,
+the kick is fire-once and never raises, and the build thread provably sees the
+active sampling session. (#263)
+
 ## [v1.7.94 — local council members usable: strip Ollama thinking-trace + ANSI from output] — 2026-05-30
 
 Local Ollama members were technically dispatching but their output was unusable
@@ -307,7 +341,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2373<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2378<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

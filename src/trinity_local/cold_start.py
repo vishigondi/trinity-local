@@ -21,6 +21,7 @@ real ``~/.claude/``.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import threading
@@ -482,7 +483,17 @@ def maybe_kick_lens_refresh() -> dict | None:
             finally:
                 _release_refresh_lock()
 
-        threading.Thread(target=_run, daemon=True, name="trinity-lens-refresh").start()
+        # Inherit the MCP active-sampling ContextVar (set in
+        # handle_call_tool) so the build's Claude stages route through
+        # `sampling/createMessage` — riding the user's Claude Code session
+        # instead of burning `claude -p` quota. A bare Thread does NOT copy
+        # ContextVars; copy_context() snapshots `_active` so the worker can
+        # sample even after the triggering tool call clears the main context
+        # (the snapshot is independent). Same primitive councils use.
+        ctx = contextvars.copy_context()
+        threading.Thread(
+            target=lambda: ctx.run(_run), daemon=True, name="trinity-lens-refresh"
+        ).start()
         return {"status": "kicked", "reason": reason}
     except Exception:
         return None
@@ -582,7 +593,13 @@ def maybe_kick_first_lens_build() -> dict | None:
             finally:
                 _release_refresh_lock()
 
-        threading.Thread(target=_run, daemon=True, name="trinity-first-lens-build").start()
+        # Inherit the MCP active-sampling ContextVar so the first build's
+        # Claude stages ride the user's session via sampling (see the
+        # refresh kick above for the full rationale).
+        ctx = contextvars.copy_context()
+        threading.Thread(
+            target=lambda: ctx.run(_run), daemon=True, name="trinity-first-lens-build"
+        ).start()
         return {"status": "kicked", "reason": reason}
     except Exception:
         return None
