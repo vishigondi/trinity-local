@@ -93,7 +93,14 @@ class TestHomonymDetection:
             _plant_node(id_=f"b{i}", text=f"task progress check in domain beta {i}", embedding=emb)
 
         from trinity_local.vocabulary import distill_vocabulary
-        report = distill_vocabulary(min_freq=5, top_homonyms=10, synonym_threshold=0.99)
+        # Relax the #250 production guards: this fixture uses degenerate
+        # identical-embedding clusters (2 effective-distinct contexts) to
+        # isolate the bimodality primitive — the realistic min_distinct/
+        # thread floors would (correctly) filter it on real data.
+        report = distill_vocabulary(
+            min_freq=5, top_homonyms=10, synonym_threshold=0.99,
+            min_distinct=0, homonym_min_threads=0,
+        )
         assert report["ok"] is True
         text = (isolated_home / "memories" / "vocabulary.md").read_text()
         # Homonym section must list "task" because its contexts split between
@@ -143,7 +150,13 @@ class TestSynonymDetection:
             _plant_node(id_=f"r{i}", text=f"remove the obsolete record {i}", embedding=emb)
 
         from trinity_local.vocabulary import distill_vocabulary
-        report = distill_vocabulary(min_freq=5, synonym_threshold=0.85)
+        # Relax the #250 guards for this isolation fixture (identical-embedding
+        # clusters → 1 effective-distinct context, and 50% prevalence): the
+        # production min_distinct / prevalence cap would correctly drop them.
+        report = distill_vocabulary(
+            min_freq=5, synonym_threshold=0.85,
+            min_distinct=0, synonym_max_prevalence=1.0, synonym_max_jaccard=1.0,
+        )
         assert report["ok"] is True
         text = (isolated_home / "memories" / "vocabulary.md").read_text()
         # Synonym table should pair delete and remove.
@@ -337,3 +350,163 @@ class TestVocabularyPath:
         assert report["ok"] is True
         assert vocabulary_path().exists()
         assert report["path"] == str(vocabulary_path())
+
+
+class TestSynonymJaccardGuard:
+    """#250: cos≈1.0 pairs that always co-occur in the same prompts are a
+    co-occurrence artifact, not synonymy. The Jaccard guard drops them."""
+
+    def _identical_context_pair(self):
+        import numpy as np
+        v = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        # Identical mean vectors -> cosine 1.0.
+        return {"alpha": [v, v, v], "beta": [v, v, v]}
+
+    def test_co_occurring_pair_dropped(self):
+        from trinity_local.vocabulary import find_synonyms
+        contexts = self._identical_context_pair()
+        # Both tokens live in the SAME three prompts -> Jaccard 1.0.
+        token_prompts = {"alpha": {"p1", "p2", "p3"}, "beta": {"p1", "p2", "p3"}}
+        out = find_synonyms(
+            contexts, top_n=10, threshold=0.9,
+            token_prompts=token_prompts, max_jaccard=0.5,
+        )
+        assert out == [], "fully co-occurring cos=1.0 pair must be dropped"
+
+    def test_distinct_prompt_pair_kept(self):
+        from trinity_local.vocabulary import find_synonyms
+        contexts = self._identical_context_pair()
+        # Same context vectors but DISJOINT prompts -> Jaccard 0 -> real synonym.
+        token_prompts = {"alpha": {"p1", "p2"}, "beta": {"p3", "p4"}}
+        out = find_synonyms(
+            contexts, top_n=10, threshold=0.9,
+            token_prompts=token_prompts, max_jaccard=0.5,
+        )
+        assert len(out) == 1 and {out[0][0], out[0][1]} == {"alpha", "beta"}
+
+    def test_default_no_guard_preserves_old_behavior(self):
+        from trinity_local.vocabulary import find_synonyms
+        contexts = self._identical_context_pair()
+        # No token_prompts -> back-compat: the pair survives.
+        out = find_synonyms(contexts, top_n=10, threshold=0.9)
+        assert len(out) == 1
+
+
+class TestHomonymDistinctThreadFloor:
+    """#250: a high-bimodality token whose occurrences all live in ONE thread
+    is intra-session phrasing noise, not a cross-context overload."""
+
+    def _bimodal_contexts(self):
+        import numpy as np
+        a = np.array([1.0, 0.0, 0.0, 0.0])
+        b = np.array([0.0, 1.0, 0.0, 0.0])
+        # Two far-apart clusters -> high k=2 silhouette.
+        return {"lens": [a, a, a, b, b, b]}
+
+    def test_single_thread_token_floored(self):
+        from trinity_local.vocabulary import find_homonyms
+        contexts = self._bimodal_contexts()
+        token_threads = {"lens": {"t_only"}}  # all 6 uses in one conversation
+        out = find_homonyms(
+            contexts, top_n=10, token_threads=token_threads, min_threads=3,
+        )
+        assert out == [], "single-thread homonym must be floored out"
+
+    def test_multi_thread_token_kept(self):
+        from trinity_local.vocabulary import find_homonyms
+        contexts = self._bimodal_contexts()
+        token_threads = {"lens": {"t1", "t2", "t3"}}
+        out = find_homonyms(
+            contexts, top_n=10, token_threads=token_threads, min_threads=3,
+        )
+        assert len(out) == 1 and out[0][0] == "lens"
+
+    def test_default_no_floor_preserves_old_behavior(self):
+        from trinity_local.vocabulary import find_homonyms
+        contexts = self._bimodal_contexts()
+        out = find_homonyms(contexts, top_n=10)  # no thread map -> no floor
+        assert len(out) == 1
+
+
+class TestVocabScanLineHonesty:
+    """#250 staleness: the 'Scanned N' line named only the embedded count as
+    if it were the whole corpus. When embedded < total, name both."""
+
+    def test_names_both_counts_when_they_differ(self):
+        from trinity_local.vocabulary import render_vocabulary_md
+        md = render_vocabulary_md(
+            homonyms=[], synonyms=[], anchors=[],
+            corpus_size=18270, total_corpus=27225,
+        )
+        assert "27225 prompts for anchors" in md
+        assert "18270 embedded" in md
+
+    def test_single_count_when_equal_or_unset(self):
+        from trinity_local.vocabulary import render_vocabulary_md
+        md = render_vocabulary_md(
+            homonyms=[], synonyms=[], anchors=[], corpus_size=500,
+        )
+        assert "Scanned 500 prompts." in md
+
+
+class TestTemplateConcentrationGuard:
+    """#250: tokens from a repeated template (one agent loop emitting the same
+    JSON shape) collapse to few effectively-distinct contexts and must be
+    dropped from homonyms/synonyms even at high raw frequency."""
+
+    def test_effective_distinct_collapses_near_duplicates(self):
+        import numpy as np
+        from trinity_local.vocabulary import _effective_distinct_contexts
+        a = np.array([1.0, 0.0, 0.0, 0.0])
+        # 6 near-identical template vectors -> 1 effective distinct context.
+        dup = [a + np.array([0, 0, 0, 1e-6]) for _ in range(6)]
+        assert _effective_distinct_contexts(dup) == 1
+        # 4 genuinely different vectors -> 4 distinct.
+        diverse = [
+            np.array([1.0, 0, 0, 0]), np.array([0, 1.0, 0, 0]),
+            np.array([0, 0, 1.0, 0]), np.array([0, 0, 0, 1.0]),
+        ]
+        assert _effective_distinct_contexts(diverse) == 4
+
+    def test_template_token_floored_from_homonyms(self):
+        import numpy as np
+        from trinity_local.vocabulary import find_homonyms
+        a, b = np.array([1.0, 0, 0, 0]), np.array([0, 1.0, 0, 0])
+        # Bimodal (2 clusters) but each cluster is one near-dup template form ->
+        # effective distinct = 2 < min_distinct=4 -> dropped.
+        contexts = {"availableroomids": [a, a, a, b, b, b]}
+        out = find_homonyms(contexts, top_n=10, min_distinct=4)
+        assert out == []
+        # Without the floor it would surface (back-compat).
+        assert find_homonyms(contexts, top_n=10) != []
+
+    def test_token_ending_in_connector_dropped(self):
+        from trinity_local.vocabulary import _tokenize
+        toks = _tokenize("the nsird_screencaptureui_ path and kitchen-sink stays")
+        assert "nsird_screencaptureui_" not in toks
+        assert "kitchen-sink" in toks  # real compound kept
+
+
+class TestSynonymPrevalenceCap:
+    """#250: high-frequency function/common words collapse to the centroid and
+    score spurious cosine against each other — drop them by prevalence (IDF)."""
+
+    def test_ubiquitous_token_dropped(self):
+        import numpy as np
+        from trinity_local.vocabulary import find_synonyms
+        v = np.array([1.0, 0.0, 0.0, 0.0])
+        contexts = {"been": [v] * 10, "within": [v] * 10, "lens": [v] * 5}
+        # been/within in 50% of a 20-prompt corpus -> over the 2% cap -> dropped;
+        # only the rare distinctive token survives, so no pair forms.
+        prompts = {
+            "been": {f"p{i}" for i in range(10)},
+            "within": {f"q{i}" for i in range(10)},
+            "lens": {f"r{i}" for i in range(5)},
+        }
+        out = find_synonyms(
+            contexts, top_n=10, threshold=0.5,
+            token_prompts=prompts, corpus_prompts=20, max_prevalence=0.10,
+            min_distinct=0,
+        )
+        flat = {t for pair in out for t in pair[:2]}
+        assert "been" not in flat and "within" not in flat

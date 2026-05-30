@@ -7,6 +7,50 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.83 — vocabulary de-pollution: the broken stage produces real terms (#250)] — 2026-05-30
+
+The vocabulary stage was structurally broken on the real corpus: every view was
+flooded by ONE automated agent loop's output (a floor-plan engine emitting the
+same JSON shape thousands of times). Homonyms were `availableroomids` /
+`appliedlayers` / `iw-l`; synonyms were `iw-l`↔`lounge_chair` at cos 1.000; the
+"Scanned N" line showed a stale embedded-only count (18,270 while 27,225 ingested).
+Diagnosed per the data-sampling principle by eyeballing the raw rows.
+
+Five geometric guards, each measured on the live corpus:
+
+- **Template-concentration floor** (the dominant fix): `_effective_distinct_contexts`
+  near-dup-collapses a token's context vectors. A token whose prompts are
+  near-identical template instances collapses to a tiny count even at high raw
+  frequency → dropped from homonyms/synonyms (`min_distinct=4`). This cleared the
+  JSON field-name flood — homonyms now surface real terms (`outbuilding`,
+  `staircase`, `affordance`, `staggered`, `orphan`).
+- **Distinct-thread floor for homonyms** (`min_threads=3`): a high bimodality
+  score off occurrences all in ONE conversation is intra-session phrasing noise.
+- **Jaccard co-occurrence guard for synonyms**: drops cos≈1.0 pairs that live in
+  the same prompts (always-together tokens, not synonyms).
+- **Prevalence cap for synonyms** (`≤2%`): high-frequency function words
+  (`been`/`within`/`every`/`state`) collapse onto the corpus centroid and score
+  spurious cosine; the IDF intuition removes them.
+- **Connector-suffix junk trim** in `_tokenize`: drops pasted path/identifier
+  fragments ending in `_`/`-` (e.g. `nsird_screencaptureui_`) while keeping real
+  compounds (`kitchen-sink`).
+
+Staleness fixed: the "Scanned N" line now names the embedded count AND the full
+anchor-scan count when they differ. Anchors now show the real project vocabulary
+(LDK / Kitchen / Bath / Entry / Loft Bedroom).
+
+Known limitation (documented, not a regression): the synonym view uses
+mean-context-cosine, which finds distributionally-similar tokens — that includes
+topically co-located terms (`adjacency`/`horizontal`), not only true synonyms.
+Distributional-similarity ≠ synonymy is a known-hard problem; the guards remove
+the scaffolding/function-word noise, not the topical-similarity tail. An optional
+`centroid_margin` knob exists for corpora where centroid-collapse dominates (it
+had no effect on this corpus, so it's off by default).
+
+All guards are tuning params on `distill_vocabulary` (overridable like
+`min_freq`); 11 new tests; the two primitive-detection tests relax the guards to
+isolate the bimodality/cosine math.
+
 ## [v1.7.82 — stop hardcoding test-gate counts in live docs (#224)] — 2026-05-30
 
 `docs/three-tier-architecture.md` cited a "1290-test green gate" while the real
@@ -17,7 +61,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2320<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2332<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

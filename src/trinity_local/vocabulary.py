@@ -59,6 +59,37 @@ DEFAULT_ANCHOR_MAX_THREAD_FRACTION = 0.40
 # yet anyway — that needs many Trinity runs = many threads).
 MIN_THREADS_FOR_PREVALENCE_CAP = 20
 DEFAULT_SYNONYM_COSINE_THRESHOLD = 0.92
+# #250 — a homonym needs evidence from enough DISTINCT conversations, not just
+# ≥ min_freq occurrences. A token used 5 times in ONE thread can score high
+# bimodality off noise (two phrasings within a single session); a real overload
+# ("lens" the optic vs "lens" the taste model) shows up across separate threads.
+DEFAULT_HOMONYM_MIN_THREADS = 3
+# #250 — two tokens with cosine ≈ 1.0 are usually a CO-OCCURRENCE artifact: they
+# appear in (nearly) the same prompts, so their mean context vectors collapse
+# onto each other. That's not synonymy — it's two words that always travel
+# together (template phrasing, a fixed bigram). A true synonym pair occupies
+# DIFFERENT prompts with similar surrounding context. Drop pairs whose prompt
+# sets overlap at or above this Jaccard.
+DEFAULT_SYNONYM_MAX_JACCARD = 0.5
+# #250 — the DOMINANT vocab pollution on a real corpus is template
+# concentration: one automated agent loop (e.g. a floor-plan engine emitting
+# the same JSON shape thousands of times) floods every token view with its
+# field names (`availableRoomIds`, `appliedLayers`, …). Those tokens have high
+# raw frequency but their prompts are near-DUPLICATES of each other — so they
+# collapse to very few *distinct* contexts. A real vocabulary word recurs across
+# genuinely different prompts. Require ≥ this many effectively-distinct contexts
+# (near-dup-collapsed) before a token can surface as a homonym or synonym.
+DEFAULT_MIN_DISTINCT_CONTEXTS = 4
+# Two context vectors at or above this cosine are treated as the same prompt
+# (near-duplicate template instance) when counting distinct contexts.
+DEFAULT_CONTEXT_DUP_COSINE = 0.97
+# #250 — a synonym candidate appearing in more than this fraction of ALL prompts
+# is a high-frequency function/common word ("been", "within", "every", "state");
+# its mean context vector collapses onto the corpus centroid, so it scores
+# spuriously high cosine against every other ubiquitous word. The IDF intuition,
+# tuned tight (real distinctive vocab sits well under 1% prevalence; the function
+# words that polluted the synonym view sit at 3-5%).
+DEFAULT_SYNONYM_MAX_PREVALENCE = 0.02
 
 # Stopwords kept tight — only words a developer would reflexively skip,
 # nothing that could plausibly be a load-bearing term. The whole point is
@@ -109,7 +140,19 @@ _ANCHOR_BLACKLIST = frozenset({
 
 
 def _tokenize(text: str) -> list[str]:
-    return [t.lower() for t in _TOKEN_RX.findall(text or "") if t.lower() not in _STOPWORDS]
+    out: list[str] = []
+    for raw in _TOKEN_RX.findall(text or ""):
+        tok = raw.lower()
+        if tok in _STOPWORDS:
+            continue
+        # #250 — drop tokens that end in a connector (`_`/`-`): no natural word
+        # does, but pasted path/identifier fragments do (e.g. the macOS
+        # screencapture temp dir `nsird_screencaptureui_`). Conservative — keeps
+        # real compounds like `kitchen-sink` / `lounge_chair`.
+        if tok.endswith(("_", "-")):
+            continue
+        out.append(tok)
+    return out
 
 
 # "new" / "one" are blacklisted (a lone capitalized "New"/"One" is
@@ -218,6 +261,30 @@ def _l2_normalize(vec):
     return vec / norm if norm > 0 else vec
 
 
+def _effective_distinct_contexts(
+    vecs, *, dup_cosine: float = DEFAULT_CONTEXT_DUP_COSINE, max_check: int = 80
+) -> int:
+    """Count effectively-distinct context vectors (near-duplicates collapsed).
+
+    Greedy: walk the vectors, keep one only if it's below `dup_cosine` to every
+    already-kept vector. A token from a repeated template (the same JSON shape
+    emitted thousands of times by one agent loop) collapses to a tiny count even
+    at high raw frequency — that's the #250 template-concentration signal. A
+    real vocabulary word recurs across genuinely different prompts, so its
+    distinct count stays high. Capped at `max_check` vectors so a high-frequency
+    token stays O(max_check²), not O(freq²)."""
+    import numpy as np
+    kept: list = []
+    for v in vecs[:max_check]:
+        a = _l2_normalize(np.asarray(v, dtype=float))
+        if not np.all(np.isfinite(a)):
+            continue
+        if any(float(a @ k) >= dup_cosine for k in kept):
+            continue
+        kept.append(a)
+    return len(kept)
+
+
 def _two_means_split_variance(vectors, *, max_samples: int = 200) -> float:
     """K=2 split silhouette — bimodality score on [0, 1].
 
@@ -288,13 +355,20 @@ def _two_means_split_variance(vectors, *, max_samples: int = 200) -> float:
     return max(0.0, min(1.0, silhouette))
 
 
-def _gather_token_contexts(nodes: Iterable, *, min_freq: int) -> dict[str, list]:
-    """Map token → list of embeddings from prompts where the token appears.
+def _gather_token_index(
+    nodes: Iterable, *, min_freq: int
+) -> tuple[dict[str, list], dict[str, set], dict[str, set]]:
+    """Map each token to (context embeddings, prompt-id set, thread-id set)
+    from the prompts where it appears.
 
-    Only tokens appearing in ≥ min_freq distinct prompts are kept (cheap
-    filter against the long tail of one-off typos).
+    The prompt-id and thread-id sets power the #250 guards: Jaccard
+    co-occurrence detection for synonyms (shared prompts) and the
+    distinct-thread floor for homonyms (separate conversations). Only tokens
+    in ≥ min_freq distinct prompts are kept (cheap long-tail/typo filter).
     """
     contexts: dict[str, list] = defaultdict(list)
+    prompts: dict[str, set] = defaultdict(set)
+    threads: dict[str, set] = defaultdict(set)
     for node in nodes:
         emb = getattr(node, "embedding", None)
         # NaN-or-Inf embeddings poison the k=2 silhouette downstream
@@ -302,13 +376,39 @@ def _gather_token_contexts(nodes: Iterable, *, min_freq: int) -> dict[str, list]
         # the filter in me/depth.py and me/basins.py.
         if not is_finite_embedding(emb):
             continue
+        pid = getattr(node, "id", None)
+        tid = getattr(node, "transcript_id", None)
         text = getattr(node, "text", "") or ""
         for tok in set(_tokenize(text)):
             contexts[tok].append(emb)
-    return {tok: vecs for tok, vecs in contexts.items() if len(vecs) >= min_freq}
+            if pid:
+                prompts[tok].add(pid)
+            if tid:
+                threads[tok].add(tid)
+    keep = {tok for tok, vecs in contexts.items() if len(vecs) >= min_freq}
+    return (
+        {tok: contexts[tok] for tok in keep},
+        {tok: prompts[tok] for tok in keep},
+        {tok: threads[tok] for tok in keep},
+    )
 
 
-def find_homonyms(token_contexts: dict[str, list], *, top_n: int) -> list[tuple[str, float, int]]:
+def _gather_token_contexts(nodes: Iterable, *, min_freq: int) -> dict[str, list]:
+    """Map token → list of embeddings (back-compat wrapper over
+    `_gather_token_index`; callers that don't need the prompt/thread index
+    keep their old signature)."""
+    contexts, _prompts, _threads = _gather_token_index(nodes, min_freq=min_freq)
+    return contexts
+
+
+def find_homonyms(
+    token_contexts: dict[str, list],
+    *,
+    top_n: int,
+    token_threads: dict[str, set] | None = None,
+    min_threads: int = 0,
+    min_distinct: int = 0,
+) -> list[tuple[str, float, int]]:
     """Rank tokens by k=2 bimodality score over their context embeddings.
 
     Returns [(token, score, n_contexts), ...] descending by score, top_n only.
@@ -321,9 +421,23 @@ def find_homonyms(token_contexts: dict[str, list], *, top_n: int) -> list[tuple[
     prefer the rarer one. Domain-specific overloads ("react", "lens",
     "thread") rank above generic English ("which", "find") even when
     their raw scores are identical.
+
+    #250 distinct-thread floor: when `token_threads` is supplied and
+    `min_threads > 0`, a token is skipped unless it appears in at least
+    `min_threads` distinct conversations — a high bimodality score off
+    ≥min_freq occurrences that all live in ONE thread is intra-session
+    phrasing noise, not a real cross-context overload.
     """
     scored: list[tuple[str, float, int]] = []
     for tok, vecs in token_contexts.items():
+        if token_threads is not None and min_threads:
+            if len(token_threads.get(tok, ())) < min_threads:
+                continue
+        # #250 template-concentration floor: a bimodal score off near-duplicate
+        # template prompts (one agent loop's JSON) isn't a real overload. Require
+        # enough effectively-distinct contexts first.
+        if min_distinct and _effective_distinct_contexts(vecs) < min_distinct:
+            continue
         score = _two_means_split_variance(vecs)
         scored.append((tok, score, len(vecs)))
     # Sort by (bimodality DESC, frequency ASC) — high score + rare = most
@@ -334,21 +448,61 @@ def find_homonyms(token_contexts: dict[str, list], *, top_n: int) -> list[tuple[
 
 
 def find_synonyms(
-    token_contexts: dict[str, list], *, top_n: int, threshold: float
+    token_contexts: dict[str, list],
+    *,
+    top_n: int,
+    threshold: float,
+    token_prompts: dict[str, set] | None = None,
+    max_jaccard: float = 1.0,
+    min_distinct: int = 0,
+    corpus_prompts: int = 0,
+    max_prevalence: float = 1.0,
+    centroid_margin: float = 0.0,
 ) -> list[tuple[str, str, float, int, int]]:
     """Rank token pairs by cosine similarity of their mean context embedding.
 
     Returns [(token_a, token_b, cos_sim, n_a, n_b), ...] descending by sim,
     top_n only. Only pairs above `threshold` are returned.
+
+    #250 co-occurrence guard: when `token_prompts` is supplied and
+    `max_jaccard < 1.0`, a pair is dropped if its prompt sets overlap at or
+    above `max_jaccard` (Jaccard). Two tokens that live in (nearly) the same
+    prompts collapse onto identical mean vectors and score cos ≈ 1.0 — but
+    that's "they always travel together" (a fixed phrase), not synonymy. A
+    real synonym pair recurs in DIFFERENT prompts with similar context.
     """
     import numpy as np
     tokens = sorted(token_contexts.keys())
+    # #250 template-concentration floor: drop tokens whose occurrences collapse
+    # to too few distinct contexts (template field names) BEFORE pairing — they
+    # produce the bulk of the cos≈1.0 junk pairs.
+    if min_distinct:
+        tokens = [
+            t for t in tokens
+            if _effective_distinct_contexts(token_contexts[t]) >= min_distinct
+        ]
+    # #250 prevalence cap (IDF): drop high-frequency function/common words whose
+    # mean context collapses onto the corpus centroid and scores spurious cosine
+    # against every other ubiquitous word.
+    if token_prompts is not None and corpus_prompts and max_prevalence < 1.0:
+        cap = corpus_prompts * max_prevalence
+        tokens = [t for t in tokens if len(token_prompts.get(t) or ()) <= cap]
     if len(tokens) < 2:
         return []
     means = np.stack([
         _l2_normalize(np.asarray(token_contexts[t]).mean(axis=0)) for t in tokens
     ])
     sims = means @ means.T  # cosine since each row is L2-normalized
+    apply_jaccard = token_prompts is not None and max_jaccard < 1.0
+    # #250 centroid margin: a TRUE synonym pair sits closer to EACH OTHER than
+    # either sits to the corpus centroid. Mid-frequency words ("timed", "wet")
+    # collapse toward the centroid, so they score high cosine against each other
+    # only because both ≈ the generic average — their margin over centroid is ~0.
+    # Absolute distance-to-centroid can't separate them (real distinctive words
+    # like "lens" also sit far), but the RELATIVE margin does.
+    if centroid_margin > 0.0:
+        centroid = _l2_normalize(means.mean(axis=0))
+        cos_to_centroid = means @ centroid  # one per token
     pairs: list[tuple[str, str, float, int, int]] = []
     for i in range(len(tokens)):
         for j in range(i + 1, len(tokens)):
@@ -361,6 +515,20 @@ def find_synonyms(
                 continue
             if sim < threshold:
                 continue
+            if centroid_margin > 0.0:
+                near_centroid = max(
+                    float(cos_to_centroid[i]), float(cos_to_centroid[j])
+                )
+                if sim - near_centroid < centroid_margin:
+                    continue  # similar only because both ≈ the generic average
+            if apply_jaccard:
+                a_set = token_prompts.get(tokens[i]) or set()
+                b_set = token_prompts.get(tokens[j]) or set()
+                union = len(a_set | b_set)
+                if union:
+                    jaccard = len(a_set & b_set) / union
+                    if jaccard >= max_jaccard:
+                        continue  # co-occurrence artifact, not synonymy
             pairs.append((
                 tokens[i], tokens[j], sim,
                 len(token_contexts[tokens[i]]), len(token_contexts[tokens[j]]),
@@ -374,9 +542,27 @@ def render_vocabulary_md(
     synonyms: list[tuple[str, str, float, int, int]],
     anchors: list[tuple[str, int, int]],
     corpus_size: int,
+    total_corpus: int | None = None,
 ) -> str:
     """Compose the markdown output. Chairman reads it as one of the three
-    thinking core memories — keep it human-legible, no JSON dump."""
+    thinking core memories — keep it human-legible, no JSON dump.
+
+    `corpus_size` is the EMBEDDED prompt count the homonym/synonym scan ran
+    over; `total_corpus` (when given) is the full prompt count the anchor
+    scan saw. Naming both keeps the "Scanned N" line honest — it used to
+    print only the embedded count as if it were the whole corpus (#250
+    staleness: 18,270 embedded shown while 27,225 were ingested)."""
+    if total_corpus is not None and total_corpus != corpus_size:
+        scan_line = (
+            f"_Scanned {total_corpus} prompts for anchors; {corpus_size} embedded "
+            f"prompts for homonyms/synonyms. Tokens require ≥5 occurrences; "
+            f"anchors require ≥3 distinct threads._"
+        )
+    else:
+        scan_line = (
+            f"_Scanned {corpus_size} prompts. Tokens require ≥5 occurrences; "
+            f"anchors require ≥3 distinct threads._"
+        )
     lines = [
         "# Your vocabulary",
         "",
@@ -384,7 +570,7 @@ def render_vocabulary_md(
         "terminology — anchors, homonyms, synonyms — surfaced as one of your",
         "three thinking core memories.*",
         "",
-        f"_Scanned {corpus_size} prompts. Tokens require ≥5 occurrences; anchors require ≥3 distinct threads._",
+        scan_line,
         "",
         "## Anchors — proper nouns you return to across threads",
         "",
@@ -434,6 +620,10 @@ def distill_vocabulary(
     top_anchors: int = DEFAULT_TOP_ANCHORS,
     anchor_min_threads: int = DEFAULT_ANCHOR_MIN_THREADS,
     synonym_threshold: float = DEFAULT_SYNONYM_COSINE_THRESHOLD,
+    homonym_min_threads: int = DEFAULT_HOMONYM_MIN_THREADS,
+    min_distinct: int = DEFAULT_MIN_DISTINCT_CONTEXTS,
+    synonym_max_jaccard: float = DEFAULT_SYNONYM_MAX_JACCARD,
+    synonym_max_prevalence: float = DEFAULT_SYNONYM_MAX_PREVALENCE,
 ) -> dict:
     """End-to-end Phase 2.5: scan corpus → emit vocabulary.md.
 
@@ -458,7 +648,9 @@ def distill_vocabulary(
             "reason": "no embedded prompts yet — run `import-export` first",
         }
 
-    contexts = _gather_token_contexts(nodes_with_emb, min_freq=min_freq)
+    contexts, token_prompts, token_threads = _gather_token_index(
+        nodes_with_emb, min_freq=min_freq
+    )
     # Anchors run on the FULL node set (not just embedded ones) — proper-noun
     # recurrence is pure-text and benefits from every transcript we have.
     # Doesn't share the embedding/min_freq gate; can surface signal even when
@@ -470,11 +662,28 @@ def distill_vocabulary(
             "reason": f"no tokens meet min_freq={min_freq} and no anchors meet min_threads={anchor_min_threads}; corpus too small or too sparse",
         }
 
-    homonyms = find_homonyms(contexts, top_n=top_homonyms) if contexts else []
-    synonyms = find_synonyms(contexts, top_n=top_synonyms, threshold=synonym_threshold) if contexts else []
+    # #250: distinct-thread floor for homonyms (kills intra-session phrasing
+    # noise) + Jaccard co-occurrence guard for synonyms (kills cos≈1.0
+    # always-together artifacts).
+    homonyms = (
+        find_homonyms(
+            contexts, top_n=top_homonyms,
+            token_threads=token_threads, min_threads=homonym_min_threads,
+            min_distinct=min_distinct,
+        ) if contexts else []
+    )
+    synonyms = (
+        find_synonyms(
+            contexts, top_n=top_synonyms, threshold=synonym_threshold,
+            token_prompts=token_prompts, max_jaccard=synonym_max_jaccard,
+            min_distinct=min_distinct,
+            corpus_prompts=len(nodes_with_emb),
+            max_prevalence=synonym_max_prevalence,
+        ) if contexts else []
+    )
     md = render_vocabulary_md(
         homonyms=homonyms, synonyms=synonyms, anchors=anchors,
-        corpus_size=len(nodes_with_emb),
+        corpus_size=len(nodes_with_emb), total_corpus=len(nodes),
     )
     path = vocabulary_path()
     path.write_text(md, encoding="utf-8")
