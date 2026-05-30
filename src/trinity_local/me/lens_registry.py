@@ -80,6 +80,30 @@ RECENCY_DAYS = 90
 # carry the "seen in few decisions" caveat.
 LOW_CONFIDENCE_BELOW = 3
 
+# ─── #256 decay step-2 — recency-weight + robustness override ────────────
+#
+# The plain recency gate (above) fades ANY tension the latest build didn't
+# re-confirm within RECENCY_DAYS. Since the turn-pair window is now
+# recency-biased (v1.7.72), a DURABLE tension that simply didn't resurface in
+# the recent window would wrongly fade. The founder's rule: "decay old prompts
+# so they don't take over, but keep them if they create robust lenses."
+#
+# Two mechanisms, forward-looking (they don't alter a freshly-built registry,
+# only how it decays/ranks over subsequent builds):
+#
+#  1. Robustness override — a high-support, cross-domain tension stays active
+#     past the recency gate. `basins_spanned` is the on-entry durability signal
+#     (build timestamps can't carry evidence-time chapter-spread — they're all
+#     equal on a fresh build; cross-DOMAIN breadth is the cheap proxy for a
+#     cross-cutting, durable tension). Finer evidence-time chapter-spread is a
+#     future refinement that needs per-evidence time resolution.
+ROBUST_SUPPORT_MIN = 5
+ROBUST_BASINS_MIN = 3
+#  2. Recency-weighted ranking — support discounted by age, so a stale
+#     high-support tension (kept alive by the override) doesn't DOMINATE fresh
+#     ones. Half the weight per this many days of staleness.
+RANK_HALFLIFE_DAYS = 120
+
 
 def registry_path() -> Path:
     """``~/.trinity/me/lens_registry.json`` — the durable tension registry."""
@@ -365,6 +389,17 @@ def _parse_iso(ts: str) -> datetime | None:
     return dt
 
 
+def is_robust(entry: RegistryEntry) -> bool:
+    """#256 robustness signal: a high-support tension that recurs across many
+    DOMAINS (basins) is a durable, cross-cutting constant of the user's taste
+    — not a phase. Such tensions are kept active past the recency gate (they
+    just didn't happen to resurface in the latest recency-biased window)."""
+    return (
+        entry.support_count >= ROBUST_SUPPORT_MIN
+        and len(entry.basins_spanned) >= ROBUST_BASINS_MIN
+    )
+
+
 def is_active(entry: RegistryEntry, *, now: str | None = None) -> bool:
     if entry.support_count < ACTIVE_MIN:
         return False
@@ -372,16 +407,38 @@ def is_active(entry: RegistryEntry, *, now: str | None = None) -> bool:
     if confirmed is None:
         return False
     now_dt = _parse_iso(now or now_iso()) or datetime.now(timezone.utc)
-    return (now_dt - confirmed).days <= RECENCY_DAYS
+    if (now_dt - confirmed).days <= RECENCY_DAYS:
+        return True
+    # #256 chapter-spread override: a durable cross-domain tension survives the
+    # recency gate. The recency-weighted ranking below then keeps it from
+    # DOMINATING fresher tensions even though it stays visible.
+    return is_robust(entry)
+
+
+def _recency_weighted_support(entry: RegistryEntry, now_dt: datetime) -> float:
+    """#256: raw support discounted by staleness — half-weight per
+    RANK_HALFLIFE_DAYS since last confirmation. A stale-but-robust tension (kept
+    active by the override) ranks below a fresh one of comparable support, so
+    'old tensions don't take over' the render order / cold-open."""
+    confirmed = _parse_iso(entry.last_confirmed)
+    if confirmed is None:
+        return 0.0
+    age = max(0, (now_dt - confirmed).days)
+    return entry.support_count * (0.5 ** (age / RANK_HALFLIFE_DAYS))
 
 
 def active_tensions_sorted(*, now: str | None = None) -> list[RegistryEntry]:
-    """The render view: active tensions, highest-support first (the MBTI
-    'function stack' insight — dominant tensions lead, the chairman
-    weights them heaviest). Ties broken by recency. Inactive tensions
-    stay in the registry (revivable) but aren't rendered."""
+    """The render view: active tensions, strongest first. 'Strongest' is now
+    RECENCY-WEIGHTED support (#256) — dominant *and current* tensions lead, the
+    chairman weights them heaviest — so a high-support tension the user has
+    moved past doesn't anchor the lens. Ties broken by raw recency. Inactive
+    tensions stay in the registry (revivable) but aren't rendered."""
+    now_dt = _parse_iso(now or now_iso()) or datetime.now(timezone.utc)
     active = [e for e in load_registry() if is_active(e, now=now)]
-    active.sort(key=lambda e: (e.support_count, e.last_confirmed), reverse=True)
+    active.sort(
+        key=lambda e: (_recency_weighted_support(e, now_dt), e.last_confirmed),
+        reverse=True,
+    )
     return active
 
 

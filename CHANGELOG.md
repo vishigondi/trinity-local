@@ -7,6 +7,31 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.89 — decay-aware lens step-2: recency-weight + robustness override (#256)] — 2026-05-30
+
+The founder's rule, made executable: "decay old prompts so they don't take over,
+but keep them if they create robust lenses." The plain 90-day recency gate fades
+ANY tension the latest (now recency-biased, v1.7.72) build didn't resurface —
+including durable ones that simply didn't appear in the recent window. Two
+forward-looking mechanisms in `lens_registry`:
+
+- **Robustness override** (`is_robust`): a high-support (≥5), cross-domain
+  (≥3 basins) tension stays active past the recency gate — it's a durable
+  constant of the user's taste, not a phase. (`basins_spanned` is the on-entry
+  durability proxy: build timestamps are all-equal on a fresh build, so they
+  can't carry evidence-time chapter-spread; cross-DOMAIN breadth is the cheap
+  signal. Finer evidence-time chapter-spread is a documented future refinement.)
+- **Recency-weighted ranking** (`active_tensions_sorted`): support is discounted
+  by staleness (half-weight per 120 days), so a tension the user has moved past
+  doesn't anchor the lens / cold-open even if its raw support is high. A
+  stale-but-robust tension stays *visible* (override) but ranks *below* fresh
+  ones.
+
+Forward-looking by design: verified it does NOT alter the current freshly-built
+registry (all entries same age → recency-weight inert; top tension unchanged at
+"executable artifact" support 17). It shapes how the rebuilt registry decays and
+ranks over subsequent builds. 4 new tests.
+
 ## [v1.7.88 — prompt outliers: completing the geometric-insight toolkit (#257)] — 2026-05-30
 
 The fourth and final named #257 tool. `me/geometric_insights.py` →
@@ -155,7 +180,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2345<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2348<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -332,3 +332,45 @@ class TestResyncFromDisk:
         resync_lens_from_disk()
         resync_lens_from_disk()
         assert len(load_registry()) == 1  # accretion, not duplication
+
+
+class TestDecayStep2:
+    """#256 — recency-weighted ranking + chapter-spread (cross-domain)
+    robustness override. Forward-looking: doesn't alter a freshly-built
+    registry (all same age), only how it decays/ranks over later builds."""
+
+    def _entry(self, tid, *, support, basins, last_confirmed):
+        from trinity_local.me.lens_registry import RegistryEntry
+        return RegistryEntry(
+            tension_id=tid, pole_a=f"{tid}_a", pole_b=f"{tid}_b",
+            basins_spanned=[f"b{i:02d}" for i in range(basins)],
+            evidence_ids=[f"e{i}" for i in range(support)],
+            first_seen="2024-01-01T00:00:00+00:00",
+            last_confirmed=last_confirmed,
+        )
+
+    def test_is_robust_needs_support_and_basins(self):
+        from trinity_local.me import lens_registry as lr
+        assert lr.is_robust(self._entry("t", support=5, basins=3, last_confirmed="2024-01-01T00:00:00+00:00"))
+        # High support but only 1 basin -> not robust (not cross-cutting).
+        assert not lr.is_robust(self._entry("t", support=9, basins=1, last_confirmed="2024-01-01T00:00:00+00:00"))
+        # Cross-domain but thin support -> not robust.
+        assert not lr.is_robust(self._entry("t", support=2, basins=4, last_confirmed="2024-01-01T00:00:00+00:00"))
+
+    def test_robust_stale_tension_survives_recency_gate(self):
+        from trinity_local.me import lens_registry as lr
+        now = "2026-05-30T00:00:00+00:00"  # ~2 years after last_confirmed
+        stale = "2024-05-30T00:00:00+00:00"
+        robust = self._entry("durable", support=6, basins=3, last_confirmed=stale)
+        phase = self._entry("phase", support=6, basins=1, last_confirmed=stale)
+        assert lr.is_active(robust, now=now) is True   # override keeps it
+        assert lr.is_active(phase, now=now) is False   # non-robust phase decays
+
+    def test_recency_weighting_ranks_fresh_over_stale(self):
+        from trinity_local.me import lens_registry as lr
+        from datetime import datetime, timezone
+        now_dt = datetime(2026, 5, 30, tzinfo=timezone.utc)
+        fresh = self._entry("fresh", support=5, basins=3, last_confirmed="2026-05-29T00:00:00+00:00")
+        # Higher RAW support but a year stale -> 8 * 0.5^(365/120) ≈ 0.97 < 5.
+        stale = self._entry("stale", support=8, basins=3, last_confirmed="2025-05-29T00:00:00+00:00")
+        assert lr._recency_weighted_support(fresh, now_dt) > lr._recency_weighted_support(stale, now_dt)
