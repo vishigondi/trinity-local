@@ -130,6 +130,11 @@ def run_eval(
         )
     config = provider_configs[target_provider]
     provider = make_provider(config)
+    # #270: eval items are ANSWERED, not EXECUTED — dispatch as clean completions
+    # (no MCP, no tools, no agent loop) so an agentic item ("look at the live app
+    # and trace…") doesn't make the model try to use the browser and hang.
+    if hasattr(provider, "clean_completion"):
+        provider.clean_completion = True
     cwd = cwd or Path.cwd()
 
     items_to_run = eval_set.items[:limit] if limit else eval_set.items

@@ -160,7 +160,23 @@ def dispatched_model(config: ProviderConfig) -> str | None:
     return config.model
 
 
+# Provider-specific flags that turn an agentic CLI invocation into a plain
+# one-shot COMPLETION — no MCP servers, no tools, no agent loop. The eval
+# runner sets `clean_completion=True` so an eval item is *answered*, not
+# *executed*: without these, `claude -p <item>` inherits the user's full
+# ~/.claude.json (6 MCP hosts + tools) and an agentic eval prompt ("look at the
+# live app and trace…") makes the model try to USE the browser and hang (#270).
+_CLEAN_COMPLETION_FLAGS = {
+    "claude": ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+               "--disallowedTools", "*"],
+    # codex exec / agy -p are already non-interactive and didn't hang; add their
+    # no-tool flags here if a target ever does.
+}
+
+
 class CLIProvider(BaseProvider):
+    clean_completion: bool = False
+
     def run(self, prompt: str, cwd: Path) -> ProviderResult:
         # MCP host sampling — preferred path for the Claude voice when
         # Trinity-MCP is loaded inside a chat client (Claude Desktop)
@@ -215,6 +231,11 @@ class CLIProvider(BaseProvider):
             command.extend(["--model", model])
         if inject_effort:
             command.extend(["--effort", effort])
+        # #270: clean-completion mode (eval dispatch) — strip MCP + tools so the
+        # item is answered, not executed agentically. Flags land before the
+        # prompt-consuming tail flag, like --model/--effort.
+        if self.clean_completion:
+            command.extend(_CLEAN_COMPLETION_FLAGS.get(self.config.name, []))
         if tail is not None:
             command.append(tail)
         command.append(prompt)

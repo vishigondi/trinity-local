@@ -7,6 +7,21 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.104 — eval dispatch is a clean completion, not a full agent (was hanging 28min)] — 2026-05-30
+
+Running a real eval surfaced it: `evals/runner.py` dispatches each item via
+`provider.run()` → `claude -p <item>`, which inherits the user's `~/.claude.json`
+— all 6 MCP servers + tools. The #269 high-signal eval items are the user's REAL
+substantive work, many AGENTIC ("look at the live app and trace the wall panel
+generation"), so the model tried to USE the browser and hung (28+ min, CPU
+frozen, 6 MCP hosts spawned per item).
+
+Fix: `CLIProvider.clean_completion` injects `--strict-mcp-config --mcp-config
+'{"mcpServers":{}}' --disallowedTools '*'` for claude, and `evals/runner.py`
+enables it — the eval item is ANSWERED, not EXECUTED. Validated: a 3-item run
+went from a 28-min hang to **2 min, 0 MCP hosts**, real scores (Opus 4.8 = 0.820:
+REFRAME 0.920, REDIRECT 0.620). (#270)
+
 ## [v1.7.103 — fix CI: gracefully skip torch/real-embedding tests without the [mlx] extras] — 2026-05-30
 
 CI (`pytest` with `.[test]` only — no `[mlx]`, so no torch + TF-IDF fallback) had
@@ -559,7 +574,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2434<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2438<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
