@@ -38,6 +38,53 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_slow)
 
 
+_NM_MANIFEST_NAME = "local.trinity.capture.json"
+
+
+def _real_native_messaging_manifests() -> list[Path]:
+    """The developer's REAL Chrome/Edge native-messaging host manifests, from
+    the actual home dir (Path.home() is still real at session-collection time).
+    Best-effort — returns [] if the install module can't be imported."""
+    try:
+        from trinity_local.commands.install import _native_messaging_dirs
+
+        return [
+            d / _NM_MANIFEST_NAME
+            for _label, d in _native_messaging_dirs(["chrome", "edge"])
+            if not str(d).startswith("registry:")
+        ]
+    except Exception:
+        return []
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _protect_real_native_messaging_manifests():
+    """Snapshot the user's real native-messaging host manifests before the test
+    session and restore any that a test clobbers.
+
+    Without this, a test that registers the capture host without isolating
+    Path.home() overwrites the user's real Chrome manifest — pointing `path`
+    at a now-deleted pytest tmp dir and `allowed_origins` at a fake extension
+    id — silently killing browser capture until a reinstall (#265, found
+    2026-05-30 when a stale May-29 test run had broken live capture). This
+    makes `pytest` safe to run on a machine with Trinity installed.
+    """
+    snapshots: dict[Path, bytes] = {}
+    for p in _real_native_messaging_manifests():
+        try:
+            if p.exists():
+                snapshots[p] = p.read_bytes()
+        except Exception:
+            pass
+    yield
+    for p, data in snapshots.items():
+        try:
+            if not p.exists() or p.read_bytes() != data:
+                p.write_bytes(data)  # a test clobbered it — heal silently
+        except Exception:
+            pass
+
+
 @pytest.fixture(autouse=True)
 def _disable_cold_start_autoscan(monkeypatch: pytest.MonkeyPatch) -> None:
     """Block the MCP cold-start auto-scan from firing during tests.

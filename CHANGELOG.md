@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.97 — a test clobbered the user's real Chrome native-messaging manifest; restore + guard] — 2026-05-30
+
+Browser capture (claude.ai / chatgpt.com / gemini.google.com) had been dead
+since ~May 25–28. Root cause, found by inspecting the live manifest: a May-29
+test run wrote the developer's REAL
+`~/Library/.../Google/Chrome/NativeMessagingHosts/local.trinity.capture.json`
+with **test data** — `path` pointed at a since-deleted pytest tmp dir
+(`pytest-94/test_explicit_sideload_id_over0/…`) and `allowed_origins` at a fake
+extension id (`abcdefghij…`). Chrome execs that dead path on connect, so nothing
+captured. (The current `test_extension_autowire` test IS isolated — verified the
+real manifest's mtime is unchanged across a run — so the leak was a
+pre-isolation run; the damage just persisted.)
+
+- **Restored** the real manifest via `install-extension` — `path` → the real
+  `.venv/bin/trinity-local-capture-host` wrapper, `allowed_origins` → the
+  canonical id `caaojjhagginmgobdaheincllmblcjoi`, which matches the founder's
+  Profile-3 unpacked extension (the repo `browser-extension/` path hashes to
+  exactly that id).
+- **Guarded** so it can't recur: a session-autouse conftest fixture
+  (`_protect_real_native_messaging_manifests`) snapshots the user's real
+  Chrome/Edge manifests before the suite and silently heals any a test
+  clobbers. `pytest` is now safe to run on a machine with Trinity installed.
+- **Regression test** (`test_native_messaging_isolation.py`): `install-extension`
+  with a patched `Path.home()` writes only under the patched home and leaves the
+  REAL manifest byte-identical.
+
+To confirm capture is live again: in the browser profile where the extension is
+loaded, reload a claude.ai tab and send a message, then check
+`~/.trinity/conversations/claude/` for a fresh file (NM manifests are re-read on
+each connect — no Chrome restart needed). (#265)
+
 ## [v1.7.96 — full MCP capability set: prompts, logging, progress, roots, elicitation] — 2026-05-30
 
 Trinity used three of MCP's host capabilities (tools, resources, sampling).
@@ -375,7 +406,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2394<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2396<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
