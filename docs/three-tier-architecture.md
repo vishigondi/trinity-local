@@ -123,7 +123,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2319<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2320<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
@@ -149,7 +149,7 @@ Ratified by the council:
 
 **Do NOT attempt during a launch window.** Council verdict was
 unambiguous: the 70-module refactor under deadline pressure puts
-the 1290-test green gate at risk for a reframe that doesn't require
+the full-suite green gate at risk for a reframe that doesn't require
 code motion.
 
 What v1.1 picks up:

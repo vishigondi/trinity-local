@@ -7244,3 +7244,49 @@ class TestLiveDocsDontNameRetiredPreferenceStores:
             "ledger is the sole store (#209). Update the doc, or add a retirement "
             "marker if the mention is historical:\n  " + "\n  ".join(offenders)
         )
+
+
+class TestLiveDocsDontHardcodeTestCounts:
+    """#224 — stop committing stale hardcoded test counts in live docs.
+
+    The canonical-placeholder system (`<!-- canonical:test_count -->…<!--
+    /canonical -->`) keeps test/guard counts synced via render_docs. A
+    hardcoded "1290-test green gate" in a live doc just rots — it was
+    accurate once and silently drifts every time the suite grows. (This
+    one bit three-tier-architecture.md: "1290-test" while the real gate
+    was 2300+.)
+
+    Guard: no `class: live` doc may carry a bare "<N>-test" / "<N> tests
+    passing" gate number OUTSIDE a canonical wrapper. Historical/aspirational
+    docs are exempt by frontmatter class — their numbers are point-in-time
+    snapshots. Use the canonical placeholder or reword to drop the number.
+    """
+
+    def test_no_hardcoded_test_gate_count_in_live_docs(self):
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        gate_pat = re.compile(r"\b\d{3,4}[ -](?:tests?|passing)\b", re.IGNORECASE)
+        canonical_pat = re.compile(r"<!--\s*canonical:")
+
+        offenders = []
+        for p in list(root.glob("docs/**/*.md")) + [root / "README.md", root / "claude.md"]:
+            if not p.exists():
+                continue
+            text = p.read_text(encoding="utf-8")
+            # Only police LIVE docs — historical/aspirational/reference
+            # numbers are snapshots, not live claims.
+            head = "\n".join(text.splitlines()[:5])
+            if "class: live" not in head:
+                continue
+            for i, line in enumerate(text.splitlines()):
+                if gate_pat.search(line) and not canonical_pat.search(line):
+                    rel = p.relative_to(root).as_posix()
+                    offenders.append(f"{rel}:{i + 1}: {line.strip()[:90]}")
+
+        assert not offenders, (
+            "Live doc hardcodes a test-gate count that will drift. Use the "
+            "canonical placeholder (<!-- canonical:test_count -->…) or reword "
+            "to drop the number:\n  " + "\n  ".join(offenders)
+        )
