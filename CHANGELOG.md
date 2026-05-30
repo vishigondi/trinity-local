@@ -7,6 +7,29 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.91 — 'Your timeline' launchpad card (#252)] — 2026-05-30
+
+The user's life-chapters — datable topic surges from `detect_chapters` (the
+v1.7.72 prompt_time work) — surfaced as a chronological launchpad card. The
+asymmetric "no chat tab knows your arc" view: OZ real-estate (Property/Lots
+2025-05→2026-03), the smart-home build (Home/Smart 2025-07), the frontend phase
+(Div/Classname 2023-12→2024-10), the floor-plan engine (Add/Deck 2026-04) — built
+from prompt timestamps, no LLM.
+
+- `_timeline_for_launchpad()` returns the top chapters by volume, dev/agent-ops
+  chapters filtered (`_TIMELINE_DEV_TERMS` — the Trinity-building sprint isn't the
+  user's life), thin chapters dropped, ordered chronologically. `timeline` on
+  page-data; a self-hiding `<section>` card in the template (raw top-term labels,
+  recognizable-not-polished).
+- **Real-browser verified** (per the e2e-dogfood principle): the card renders all
+  6 chapter rows via Vue with zero console errors on the served launchpad. 3 new
+  tests (helper filter/sort + empty + template-binding).
+- `docs/launchpad_example.png` regenerated on the founder's real 4.8 lens
+  (founder-approved including the timeline in the public demo).
+
+Also fixed a stale `nomic-embed` → `modernbert-embed` comment in the
+build-deeper-memory card.
+
 ## [v1.7.90 — taste-signature cold-open (#254)] — 2026-05-30
 
 The first-run aha now leads with the user's taste in three words, then the
@@ -210,7 +233,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2352<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2355<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

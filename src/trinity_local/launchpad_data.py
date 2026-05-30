@@ -694,6 +694,10 @@ def build_page_data(
         # model calls. None below the headline threshold so the card self-hides
         # on a thin ledger.
         "councilValue": _council_value_for_launchpad(),
+        # #252 'Your timeline' — the user's life-chapters (datable topic surges)
+        # as a chronological history. Empty list on a thin/dev-only corpus so
+        # the card self-hides.
+        "timeline": _timeline_for_launchpad(),
         # rateLimitSaves removed from pageData 2026-05-21 alongside
         # the rate-action / pending-ratings mechanism retirement. The
         # launchpad never rendered a card for it (the user explicitly
@@ -726,6 +730,45 @@ def _cold_open_for_launchpad() -> str | None:
         return cold_open_tension()
     except Exception:
         return None
+
+
+# Top-terms that mark a chapter as Trinity-dev / agent-ops noise rather than a
+# real-life arc (#252 / #73) — these chapters are the tool building itself, not
+# the user's history, so they don't belong on a "your timeline" surface.
+_TIMELINE_DEV_TERMS = {"loop", "run", "commit", "mcp", "agent", "prompt", "council"}
+
+
+def _timeline_for_launchpad(max_chapters: int = 6, min_prompts: int = 80) -> list[dict]:
+    """#252 'Your timeline' — the user's life-chapters as datable topic surges
+    (from `detect_chapters`), filtered to substantive non-dev arcs, returned
+    most-substantial-first then ordered chronologically for the card.
+
+    Read-only, best-effort ([] on any failure). Labels are the chapter's raw
+    top-terms (title-cased) — auto-derived, recognizable-not-polished."""
+    try:
+        from .me.chapters import detect_chapters
+        chapters = detect_chapters() or []
+    except Exception:
+        return []
+    rows: list[dict] = []
+    for c in chapters:
+        label = getattr(c, "label", "") or ""
+        terms = [t.strip().lower() for t in label.split(",") if t.strip()]
+        if not terms or any(t in _TIMELINE_DEV_TERMS for t in terms):
+            continue
+        if getattr(c, "total_prompts", 0) < min_prompts:
+            continue
+        start, end = c.start_month, c.end_month
+        rows.append({
+            "label": ", ".join(t.strip().title() for t in label.split(",") if t.strip()),
+            "range": start if start == end else f"{start} → {end}",
+            "start": start,
+            "prompts": int(getattr(c, "total_prompts", 0)),
+        })
+    rows.sort(key=lambda r: -r["prompts"])
+    rows = rows[:max_chapters]
+    rows.sort(key=lambda r: r["start"])
+    return rows
 
 
 def _council_value_for_launchpad() -> dict | None:

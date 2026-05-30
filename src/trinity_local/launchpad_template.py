@@ -851,9 +851,29 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- #252 'Your timeline' — the user's life-chapters (datable topic
+           surges) as a chronological history. Self-hides on a thin/dev-only
+           corpus (empty list). The asymmetric 'no chat tab knows your arc'
+           surface — built from prompt_time, no LLM. -->
+      <section class="card" v-if="pageData.timeline && pageData.timeline.length">
+        <h2 style="margin-top: 4px; font-size: 18px;">🗓 Your timeline</h2>
+        <p class="meta" style="margin-top: 6px;">
+          The arcs your prompts trace through time — auto-detected topic surges,
+          most-substantial first.
+        </p>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div v-for="ch in pageData.timeline" :key="ch.start"
+               style="display: flex; align-items: baseline; gap: 12px; font-size: 14px;">
+            <span class="mono" style="color: var(--muted, #888); min-width: 130px; flex-shrink: 0;">{{{{ ch.range }}}}</span>
+            <span style="flex: 1;"><b>{{{{ ch.label }}}}</b></span>
+            <span class="meta" style="flex-shrink: 0;">{{{{ ch.prompts }}}} prompts</span>
+          </div>
+        </div>
+      </section>
+
       <!-- Build-deeper-memory card — surfaces ONLY when the user has
            prompts indexed (has signal that would benefit) but the
-           nomic-embed model isn't in their HF cache. Cold install with
+           modernbert-embed model isn't in their HF cache. Cold install with
            zero prompts shows nothing; everything-wired shows nothing.
            The card hands off a download command — explicit opt-in to
            the ~600 MB pull rather than a surprise mid-lens-build crash. -->
