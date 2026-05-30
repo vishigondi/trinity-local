@@ -49,7 +49,7 @@ The installer needs `git` + `python3.10+` on PATH. If Python is missing, recomme
 
 If any required check fails, walk the user through the surfaced fix. Don't proceed until `trinity_home_writeable`, `config_loadable`, and `mcp_available` are green. Provider CLIs are required for councils but not for setup itself.
 
-**Cold-start callout**: the first embedding call downloads `nomic-embed-text-v1.5` from Hugging Face (~600 MB, one-time, ~3 minutes on a fast connection). Mention this if the user is about to run their first ingest.
+**Cold-start callout**: the first embedding call downloads `modernbert-embed-base` from Hugging Face (~600 MB, one-time, ~3 minutes on a fast connection). Mention this if the user is about to run their first ingest.
 
 ## 4. Register the MCP server in every harness
 
@@ -168,4 +168,4 @@ Four trigger conditions — call `import_provider_memory(kind, payload, dry_run?
 
 ---
 
-**Tier-equivalence invariant** (v1.0 commitment): Trinity tiers produce the same outputs under a pinned configuration (model `nomic-ai/nomic-embed-text-v1.5`, tokenizer pinned, numpy ≥ 1.26). Embedding cosine ≥ 0.9999, identical k-means cluster assignments at production N, identical chairman picker output. NOT bit-equality — float-order differs across MLX vs torch CPU vs torch CUDA by SIMD scheduling. The pinned-config equivalence is the falsifiable form.
+**Tier-equivalence invariant** (v1.0 commitment): Trinity tiers produce the same outputs under a pinned configuration (model `nomic-ai/modernbert-embed-base`, tokenizer pinned, numpy ≥ 1.26). Embedding cosine ≥ 0.9999, identical k-means cluster assignments at production N, identical chairman picker output. NOT bit-equality — float-order differs across MLX vs torch CPU vs torch CUDA by SIMD scheduling. The pinned-config equivalence is the falsifiable form.

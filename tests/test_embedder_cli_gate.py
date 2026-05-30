@@ -15,6 +15,13 @@ from types import SimpleNamespace
 
 import pytest
 
+from trinity_local.embeddings.backend_mlx import MODEL_ID
+
+# HF cache dir name for the live embed model (modernbert-embed-base post-#244).
+# Derived from MODEL_ID so the gate-probe tests track the real model, not a
+# hardcoded nomic-v1.5 path that the gate no longer probes.
+_MODEL_DIR_ID = MODEL_ID.replace("/", "--")
+
 
 # ─── Gate primitive ─────────────────────────────────────────────────
 
@@ -29,7 +36,7 @@ class TestRequireEmbedderReady:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         snapshot = (
             tmp_path / ".cache" / "huggingface" / "hub"
-            / "models--nomic-ai--nomic-embed-text-v1.5"
+            / f"models--{_MODEL_DIR_ID}"
             / "snapshots" / "abc123"
         )
         snapshot.mkdir(parents=True)
@@ -60,7 +67,7 @@ class TestRequireEmbedderReady:
             "can run it inline without the user needing to know HF cli syntax."
         )
         # Model id should still be discoverable (in the fallback command).
-        assert "nomic-ai/nomic-embed-text-v1.5" in msg or "huggingface-cli" in msg
+        assert MODEL_ID in msg or "huggingface-cli" in msg
         # And the why ("this command needs it for ..."):
         # Tolerant size check: gate message may mention any size string
         # (currently "~600 MB"; was "~700MB" pre-2026-05-20 re-measure).
@@ -117,7 +124,7 @@ class TestRequireEmbedderReady:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         empty_snapshot = (
             tmp_path / ".cache" / "huggingface" / "hub"
-            / "models--nomic-ai--nomic-embed-text-v1.5"
+            / f"models--{_MODEL_DIR_ID}"
             / "snapshots" / "abc123"
         )
         empty_snapshot.mkdir(parents=True)

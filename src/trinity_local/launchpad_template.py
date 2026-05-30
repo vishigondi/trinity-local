@@ -868,7 +868,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </h2>
         <p class="meta" style="margin-top: 8px;">
           Trinity's lens-build, dream, and vocabulary commands use a
-          local embedding model (nomic-embed-text-v1.5, ~600 MB) to find
+          local embedding model (modernbert-embed-base, ~600 MB) to find
           topic basins in your prompts. Replay history and the council
           launchpad already work without it.
         </p>

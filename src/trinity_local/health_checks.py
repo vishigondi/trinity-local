@@ -614,6 +614,8 @@ def _check_embedding_backend() -> CheckResult:
     """
     try:
         from .embeddings import get_backend, is_available, mlx_actually_loaded
+        from .embeddings.backend_mlx import MODEL_ID
+        _model_name = MODEL_ID.split("/")[-1]
     except Exception as exc:
         return CheckResult(
             name="embedding_backend",
@@ -638,21 +640,21 @@ def _check_embedding_backend() -> CheckResult:
         return CheckResult(
             name="embedding_backend",
             ok=True,
-            detail="MLX embeddings live (nomic-embed-text-v1.5, 768d semantic vectors)",
+            detail=f"MLX embeddings live ({_model_name}, 768d semantic vectors)",
         )
 
     if imported and backend == "mlx":
         # Extras installed but the model never produced a vector — almost
-        # always the nomic weights aren't downloaded yet.
+        # always the weights aren't downloaded yet.
         return CheckResult(
             name="embedding_backend",
             ok=True,  # soft — TF-IDF still works
             detail=(
                 "MLX extras installed but the embedder can't produce vectors "
-                "(nomic model not downloaded) — Trinity is on the lexical TF-IDF "
+                f"({_model_name} not downloaded) — Trinity is on the lexical TF-IDF "
                 "fallback, so lens tensions are keyword-shaped, not meaning-shaped"
             ),
-            fix="huggingface-cli download nomic-ai/nomic-embed-text-v1.5   # then `trinity-local lens --force`",
+            fix=f"huggingface-cli download {MODEL_ID}   # then `trinity-local lens --force`",
         )
 
     return CheckResult(
@@ -663,7 +665,7 @@ def _check_embedding_backend() -> CheckResult:
             "installed) — the lens still builds, but on lexical (keyword) "
             "vectors rather than semantic ones, so tension quality is reduced"
         ),
-        fix="pip install -e '.[mlx]' && huggingface-cli download nomic-ai/nomic-embed-text-v1.5",
+        fix=f"pip install -e '.[mlx]' && huggingface-cli download {MODEL_ID}",
     )
 
 

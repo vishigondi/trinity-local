@@ -14,7 +14,7 @@ def _pin_hf_offline() -> None:
     embeddings rely on a model that's already cached at
     ``~/.cache/huggingface/hub/`` (or wherever ``HF_HOME`` points). The
     one-time download is a deliberate user action via
-    ``huggingface-cli download nomic-ai/nomic-embed-text-v1.5`` (or by
+    ``huggingface-cli download nomic-ai/modernbert-embed-base`` (or by
     running once with ``HF_HUB_OFFLINE=0 trinity-local import-export <path>``;
     the seed-from-taste-terminal verb that originally sat here retired
     2026-05-27 in favor of the auto-detecting import-export).

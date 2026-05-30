@@ -356,8 +356,8 @@ else
 fi
 echo "  - See $TRINITY_SKILL_DIR/docs/INSTALL-extension.md"
 echo ""
-printf "%sOptional — pre-fetch the deeper-memory model (~700MB):%s\n" "$C_BOLD" "$C_RESET"
-echo "  - lens-build / dream / vocabulary need the nomic-embed model."
+printf "%sOptional — pre-fetch the deeper-memory model (~600MB):%s\n" "$C_BOLD" "$C_RESET"
+echo "  - lens-build / dream / vocabulary need the modernbert-embed model."
 echo "  - Without it, those commands fall back to the SHA-1 TF-IDF embedder"
 echo "    (no download, lower-fidelity vectors) — they still run."
 echo "  - The real model needs the [mlx] extras AND a one-time online pull"

@@ -34,12 +34,15 @@ def _write_prompts(home: Path, num_records: int = 5) -> None:
 
 def _seed_hf_cache(tmp_home: Path, monkeypatch, model_present: bool) -> None:
     """Patch Path.home to return tmp_home AND optionally populate the
-    nomic snapshot dir under ~/.cache/huggingface/hub."""
+    embed-model snapshot dir under ~/.cache/huggingface/hub. The dir name
+    tracks the live MODEL_ID (modernbert-embed-base post-#244)."""
+    from trinity_local.embeddings.backend_mlx import MODEL_ID
+
     monkeypatch.setattr(Path, "home", lambda: tmp_home)
     if model_present:
         snapshot = (
             tmp_home / ".cache" / "huggingface" / "hub"
-            / "models--nomic-ai--nomic-embed-text-v1.5"
+            / f"models--{MODEL_ID.replace('/', '--')}"
             / "snapshots" / "abc123"
         )
         snapshot.mkdir(parents=True, exist_ok=True)
@@ -76,7 +79,8 @@ class TestEmbedderStatus:
         assert status["show"] is True
         # Download command must include the exact model id so the user
         # can paste it verbatim.
-        assert "nomic-ai/nomic-embed-text-v1.5" in status["downloadCommand"]
+        from trinity_local.embeddings.backend_mlx import MODEL_ID
+        assert MODEL_ID in status["downloadCommand"]
 
     def test_prompts_indexed_model_present_hides_card(
         self, isolated_home, monkeypatch

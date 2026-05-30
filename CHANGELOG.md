@@ -7,6 +7,38 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.79 — modernbert model-name sweep: the broken remediation paths] — 2026-05-29
+
+The launch-readiness workflow's second finding: after the #244 embedder swap to
+`nomic-ai/modernbert-embed-base`, ~11 sites still hardcoded the retired
+`nomic-embed-text-v1.5` name. Three of them were **functionally broken**, not just
+stale copy:
+
+- **Cache-dir checks probed the wrong dir** → `require_embedder_ready()`
+  (embeddings/__init__.py) and the launchpad "Build deeper memory" card
+  (launchpad_data._embedder_status) looked for `models--nomic-ai--nomic-embed-text-v1.5`,
+  which no longer exists. A user with the real model cached was told it was
+  **missing**, and the upsell card never hid.
+- **Download / fix commands pulled the wrong model** → the gate's fallback
+  command, the status card's `downloadCommand`, and `status`'s embedding-backend
+  `fix=` all told the user to `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`
+  — pulling a model Trinity won't load.
+- **`uninstall --include-hf-cache` silently no-op'd** → it `rmtree`'d the retired
+  nomic dir, leaving the real ~600 MB modernbert weights behind.
+
+Fix: every functional site now resolves through the single source of truth —
+`backend_mlx.MODEL_ID` (env-overridable) and `hf_cache_model_path()`. The dir name,
+download command, fix command, uninstall target, and status detail all track the
+live model. User-facing copy (download-embedder verb, launchpad memory card,
+install.sh prefetch note, SKILL.md cold-start callout + tier-equivalence invariant,
+main.py HF-offline docstring) updated to name modernbert. Historical/explanatory
+mentions in the embedder backends + migration comments are intentionally kept.
+
+Guard: `test_functional_sites_resolve_model_dir_dynamically` greps the five
+functional modules and fails if any hardcodes the retired name — the model name
+must live in exactly one place. The cache-probe tests (gate + status card) now
+derive their fake-cache dir from `MODEL_ID` so they track the real model too.
+
 ## [v1.7.78 — LAUNCH BLOCKER: a fresh curl|sh install can't spawn the MCP server] — 2026-05-29
 
 The launch-readiness workflow caught a real blocker, invisible on this dev box.
@@ -2656,7 +2688,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2317<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2318<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

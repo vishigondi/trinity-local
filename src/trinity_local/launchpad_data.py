@@ -271,7 +271,7 @@ _TIER_INSTALL_HELP: dict[str, tuple[str, str, str]] = {
 def _embedder_status() -> dict[str, object]:
     """Surface the deeper-memory opt-in state on the launchpad.
 
-    The nomic-embed-text-v1.5 weights are ~600 MB. They aren't bundled
+    The modernbert-embed-base weights are ~600 MB. They aren't bundled
     with Trinity — first lens-build / dream / vocabulary call triggers
     a HuggingFace Hub download. The CLAUDE.md status block describes
     this; the user encounters it as a RuntimeError the first time they
@@ -299,8 +299,13 @@ def _embedder_status() -> dict[str, object]:
     # to expose a `model_path()` helper that pointed at ~/.trinity/models/
     # but nothing read it, and the helper was retired 2026-05-20 (tick 28).
     # We read the real cache directly here.
-    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-    model_cache_dir = hf_cache / "models--nomic-ai--nomic-embed-text-v1.5"
+    # Resolve from the live MODEL_ID (modernbert-embed-base post-#244,
+    # env-overridable) — a hardcoded nomic-v1.5 dir probed the wrong model
+    # and showed the "Build deeper memory" card even after the real model
+    # was cached.
+    from .embeddings.backend_mlx import MODEL_ID, hf_cache_model_path
+
+    model_cache_dir = hf_cache_model_path()
     model_downloaded = False
     if model_cache_dir.exists():
         # snapshots/<commit-hash>/ holds the weight files. Any non-empty
@@ -330,9 +335,9 @@ def _embedder_status() -> dict[str, object]:
         mlx_available = False
 
     download_command = (
-        "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        f"huggingface-cli download {MODEL_ID}"
         if mlx_available
-        else "pip install 'trinity-local[mlx]' && huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+        else f"pip install 'trinity-local[mlx]' && huggingface-cli download {MODEL_ID}"
     )
 
     return {

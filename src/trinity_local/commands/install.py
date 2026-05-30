@@ -79,7 +79,7 @@ def register(subparsers):
     )
     uin.add_argument(
         "--include-hf-cache", action="store_true",
-        help="Also remove the cached nomic-embed-text-v1.5 model from ~/.cache/huggingface/.",
+        help="Also remove the cached modernbert-embed-base model from ~/.cache/huggingface/.",
     )
     uin.set_defaults(handler=handle_uninstall)
 
@@ -886,24 +886,27 @@ def _remove_trinity_data(plan: list[str], dry_run: bool) -> None:
 
 
 def _remove_hf_cache(plan: list[str], dry_run: bool) -> None:
-    """Remove just the nomic-embed-text-v1.5 model from the HuggingFace
-    cache, not the whole HF cache (other projects share it). Only fires
-    when --include-hf-cache passed."""
+    """Remove just Trinity's embedding model from the HuggingFace cache,
+    not the whole HF cache (other projects share it). Only fires when
+    --include-hf-cache passed. Resolves the dir from the live MODEL_ID
+    (modernbert-embed-base post-#244) — a hardcoded nomic-v1.5 dir
+    silently no-op'd, leaving the model behind."""
     hf_root = Path.home() / ".cache" / "huggingface" / "hub"
     if not hf_root.exists():
         return
-    # The model path is models--nomic-ai--nomic-embed-text-v1.5
-    nomic_dir = hf_root / "models--nomic-ai--nomic-embed-text-v1.5"
-    if not nomic_dir.exists():
+    from ..embeddings.backend_mlx import hf_cache_model_path
+
+    model_dir = hf_cache_model_path()
+    if not model_dir.exists():
         return
-    plan.append(f"remove {nomic_dir} (nomic embed model — first lens-build will re-download)")
+    plan.append(f"remove {model_dir} (embed model — first lens-build will re-download)")
     if dry_run:
         return
     try:
         import shutil
-        shutil.rmtree(nomic_dir, ignore_errors=True)
+        shutil.rmtree(model_dir, ignore_errors=True)
     except Exception as exc:
-        print(f"  warn: could not remove {nomic_dir}: {exc}")
+        print(f"  warn: could not remove {model_dir}: {exc}")
 
 
 def handle_uninstall(args) -> int:

@@ -37,6 +37,40 @@ def test_native_backend_has_embed_interface():
         assert callable(getattr(MlxNativeEmbedder, name, None)), f"missing {name}"
 
 
+def test_functional_sites_resolve_model_dir_dynamically():
+    """v1.7.79 launch-readiness fix: the cache-dir checks, download/fix/uninstall
+    commands, and status cards once HARDCODED the retired
+    `models--nomic-ai--nomic-embed-text-v1.5` dir. After the #244 swap that
+    probed the WRONG dir — reporting a present model as missing, pulling the
+    wrong model on `download`, and no-op'ing `uninstall --include-hf-cache`.
+
+    Guard: no live functional module may carry that literal dir/id string. They
+    must resolve through `hf_cache_model_path()` / `MODEL_ID` so the model name
+    lives in exactly one place. (Historical/explanatory mentions in the embedder
+    backends + migration comments are out of scope — this guards the *functional*
+    surfaces only.)
+    """
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent / "src" / "trinity_local"
+    functional = [
+        root / "embeddings" / "__init__.py",
+        root / "launchpad_data.py",
+        root / "health_checks.py",
+        root / "commands" / "install.py",
+        root / "commands" / "download_embedder.py",
+    ]
+    offenders = [
+        f.relative_to(root).as_posix()
+        for f in functional
+        if "nomic-embed-text-v1.5" in f.read_text(encoding="utf-8")
+    ]
+    assert not offenders, (
+        "Retired nomic-v1.5 model name hardcoded in functional site(s): "
+        f"{offenders}. Resolve via MODEL_ID / hf_cache_model_path() instead."
+    )
+
+
 def test_env_override_for_torch_model(monkeypatch):
     # TRINITY_EMBED_MODEL lets a power user pin a different model on the torch path.
     monkeypatch.setenv("TRINITY_EMBED_MODEL", "some-other/model")

@@ -1,8 +1,8 @@
-"""trinity-local download-embedder — pull the nomic-embed-text-v1.5 weights.
+"""trinity-local download-embedder — pull the modernbert-embed-base weights.
 
 The CLI gate added in tick e6d1d44 surfaces a clear error when the
 embedder model isn't on disk. Before this verb, the error told the
-user to run `huggingface-cli download nomic-ai/nomic-embed-text-v1.5`
+user to run `huggingface-cli download nomic-ai/modernbert-embed-base`
 — a raw external command that's awkward to surface in agent UX and
 requires the user to know HF cache semantics.
 
@@ -27,7 +27,7 @@ from types import SimpleNamespace
 def register(subparsers) -> None:
     parser = subparsers.add_parser(
         "download-embedder",
-        help="Download the nomic-embed-text-v1.5 memory model (~600 MB). "
+        help="Download the modernbert-embed-base memory model (~600 MB). "
              "Required for lens-build / dream / vocabulary.",
     )
     parser.add_argument(
@@ -54,7 +54,7 @@ def handle_download_embedder(args: SimpleNamespace) -> int:
 
     if not json_mode:
         print(
-            "Downloading nomic-embed-text-v1.5 (~600 MB) to "
+            "Downloading modernbert-embed-base (~600 MB) to "
             "~/.cache/huggingface/hub/ — this is a one-time download. "
             "Trinity won't contact the Hub again once it's cached.",
             file=sys.stderr,

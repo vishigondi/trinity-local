@@ -140,7 +140,7 @@ def is_finite_embedding(emb) -> bool:
 def embed(text: str, *, dim: int = DEFAULT_DIM) -> list[float]:
     """Embed text into a dense vector.
 
-    Uses MLX (nomic-embed-text-v1.5) if available, TF-IDF stub otherwise.
+    Uses MLX (modernbert-embed-base) if available, TF-IDF stub otherwise.
 
     MLX may fail at runtime (network issues, model not cached, permission errors).
     Any failure falls back gracefully to TF-IDF, ensuring offline availability.
@@ -330,8 +330,12 @@ def require_embedder_ready() -> None:
 
     # Probe the canonical HF cache layout. SentenceTransformer caches
     # models under ~/.cache/huggingface/hub/models--<org>--<name>/snapshots/<hash>/.
-    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
-    model_cache_dir = hf_cache / "models--nomic-ai--nomic-embed-text-v1.5"
+    # Resolve the dir from the live MODEL_ID (env-overridable, defaults to
+    # modernbert-embed-base post-#244) — a hardcoded nomic-v1.5 path silently
+    # probed the wrong model and reported a present model as missing.
+    from .backend_mlx import MODEL_ID, hf_cache_model_path
+
+    model_cache_dir = hf_cache_model_path()
     if model_cache_dir.exists():
         snapshots = model_cache_dir / "snapshots"
         if snapshots.exists():
@@ -348,7 +352,7 @@ def require_embedder_ready() -> None:
     except ImportError:
         libs_present = False
 
-    fallback = "huggingface-cli download nomic-ai/nomic-embed-text-v1.5"
+    fallback = f"huggingface-cli download {MODEL_ID}"
     if libs_present:
         # Preferred: Trinity verb (wraps huggingface-cli download with
         # in-product messaging + idempotency). Falls back to the raw
@@ -372,7 +376,7 @@ def require_embedder_ready() -> None:
         )
 
     raise EmbedderNotReadyError(
-        f"Trinity's embedding model (nomic-embed-text-v1.5, ~600 MB) isn't"
+        f"Trinity's embedding model ({MODEL_ID.split('/')[-1]}, ~600 MB) isn't "
         f"in your HuggingFace cache. This command needs it for topic "
         f"basins / lens-build / vocabulary distillation.\n\n"
         f"{download_block}"

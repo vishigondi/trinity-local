@@ -51,7 +51,7 @@ class TestHandlerBehavior:
 
         monkeypatch.setattr(
             "trinity_local.embeddings.setup_model",
-            lambda force=False: "Model ready: nomic-ai/nomic-embed-text-v1.5",
+            lambda force=False: "Model ready: nomic-ai/modernbert-embed-base",
         )
         args = SimpleNamespace(force=False, json=False)
         rc = handle_download_embedder(args)
@@ -104,7 +104,7 @@ class TestHandlerBehavior:
 
         monkeypatch.setattr(
             "trinity_local.embeddings.setup_model",
-            lambda force=False: "Model ready: nomic-ai/nomic-embed-text-v1.5",
+            lambda force=False: "Model ready: nomic-ai/modernbert-embed-base",
         )
         args = SimpleNamespace(force=False, json=True)
         rc = handle_download_embedder(args)
