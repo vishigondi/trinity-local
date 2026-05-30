@@ -955,6 +955,14 @@ def build_me_via_lens_pipeline(
                 f"rendering by support",
                 flush=True,
             )
+        # #254: cache the taste signature (the embedding-derived adjectives) so
+        # the cold-open can read it cheaply at every paint instead of
+        # re-embedding. Best-effort — the embedder is already loaded here.
+        try:
+            from .me.correction_lens import save_taste_signature, taste_signature
+            save_taste_signature(taste_signature())
+        except Exception:
+            pass
     except OSError:
         # A4400 #204-A3: a disk error in reconcile()'s save_registry() must
         # NOT be swallowed — silently losing this run's accumulation is the

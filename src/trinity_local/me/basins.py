@@ -61,8 +61,15 @@ _TOP_TERMS_PER_BASIN = 3
 # scale with the corpus so no single basin dominates as history grows.
 # Empirically (clean corpus): k=20→29.6%, k=40→19.9%, k=50→16.1%. Sized by
 # PROMPT count (what the junk-drawer guard measures), ~one basin per
-# _PROMPTS_PER_BASIN prompts → k≈44 at 28.6k → ~18% top basin.
-_PROMPTS_PER_BASIN = 650
+# _PROMPTS_PER_BASIN prompts.
+#
+# #255 retune: clustering input is the DEDUPED corpus (v1.7.71 dedup-at-
+# clustering), so the old 650 ratio — calibrated against the pre-dedup count —
+# came out ~30% too coarse on the deduped count (20,966 deduped → k=32 → b00
+# 24.7%, a junk-drawer). k=40 sits at 19.9% (razor-thin against the 20%
+# ceiling); 440 targets ~k=48 on this corpus → ~16% top basin, a real safety
+# margin. Verified by re-clustering the live corpus (b00 dropped under 20%).
+_PROMPTS_PER_BASIN = 440
 _MAX_K = 60  # cap: more basins than this fragments the topic map past usefulness
 
 

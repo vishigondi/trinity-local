@@ -505,6 +505,31 @@ def cold_open_tension() -> str | None:
         if tensions:
             t = tensions[0]
             n = t.support_count
+            # #254 signature+proof: when the cached taste adjectives exist, lead
+            # with the three-word signature, then the dominant tension as proof.
+            # The adjectives are read from a cheap cache (computed at lens-build);
+            # no embedding on this paint path.
+            try:
+                from .me.correction_lens import load_taste_signature
+
+                sig = load_taste_signature()
+            except Exception:
+                sig = None
+            if sig and sig.get("adjectives"):
+                words = ", ".join(sig["adjectives"][:3])
+                if n >= LOW_CONFIDENCE_BELOW:
+                    proof = (
+                        f"Across {n} decisions you've reached for “{t.pole_a}” "
+                        f"over “{t.pole_b}” — the chairman reads that on every "
+                        f"council, so answers come back in your voice."
+                    )
+                else:
+                    proof = (
+                        f"Your lens leans “{t.pole_a}” over “{t.pole_b}” — the "
+                        f"chairman reads it on every council."
+                    )
+                return f"Your taste in three words: {words}. {proof}"
+            # No cached signature yet — the original tension-only aha.
             prov = f" — seen across {n} of your decisions" if n >= LOW_CONFIDENCE_BELOW else ""
             return (
                 f"One axis your lens already surfaces: “{t.pole_a}” vs "

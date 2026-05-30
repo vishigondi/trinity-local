@@ -92,3 +92,42 @@ class TestColdOpenLaunchpad:
         html = render_launchpad_html(page_data={}, recent_cards="")
         assert "pageData.coldOpen" in html
         assert "cold-open" in html
+
+
+@pytest.mark.usefixtures("patch_trinity_home")
+class TestColdOpenSignature:
+    """#254 — when the cached taste adjectives exist, the cold-open leads with
+    the three-word signature, then the dominant tension as proof."""
+
+    def _registry(self):
+        from trinity_local.me.lens_registry import RegistryEntry, save_registry
+        from trinity_local.utils import now_iso
+        ts = now_iso()
+        save_registry([RegistryEntry(
+            tension_id="t1", pole_a="executable artifact",
+            pole_b="explanatory description",
+            evidence_ids=[f"e{i}" for i in range(17)],
+            basins_spanned=["b00", "b01", "b02"],
+            first_seen=ts, last_confirmed=ts,
+        )])
+
+    def test_signature_proof_when_cached(self):
+        import json
+        from trinity_local.me.correction_lens import _taste_signature_path
+        from trinity_local.cold_start import cold_open_tension
+        self._registry()
+        p = _taste_signature_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"adjectives": ["terse", "decisive", "action"], "n": 41}), encoding="utf-8")
+
+        line = cold_open_tension()
+        assert line.startswith("Your taste in three words: terse, decisive, action.")
+        assert "executable artifact" in line and "17 decisions" in line
+        assert "comes back in your voice" in line or "your voice" in line
+
+    def test_falls_back_to_tension_line_without_signature(self):
+        from trinity_local.cold_start import cold_open_tension
+        self._registry()  # registry but NO taste_signature.json cached
+        line = cold_open_tension()
+        assert line.startswith("One axis your lens already surfaces:")
+        assert "executable artifact" in line

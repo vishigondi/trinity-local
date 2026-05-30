@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.90 — taste-signature cold-open (#254)] — 2026-05-30
+
+The first-run aha now leads with the user's taste in three words, then the
+dominant tension as proof: *"Your taste in three words: terse, decisive, action.
+Across 17 decisions you've reached for 'executable artifact' over 'explanatory
+description' — the chairman reads that on every council, so answers come back in
+your voice."* (Founder-picked tone — the signature+proof variant over the
+quote-back, which needed a non-meta correction filter first.)
+
+- `taste_signature()` (correction_lens) derives the three adjectives from the
+  correction vectors (the pole each top axis steers toward) + a representative
+  correction. The embedding-derived adjectives are cached to
+  `me/taste_signature.json` at lens-build (`save_taste_signature`, embedder
+  already loaded) so `cold_open_tension()` reads them CHEAPLY at every paint —
+  no embedding on the launchpad/status/MCP path.
+- `cold_open_tension()` composes signature+proof when the cache + a top tension
+  exist; falls back to the prior tension-only line, then the #242 anchors, then
+  None. Self-hides on a cold install.
+
+Lands on the back of a founder-run full lens rebuild on **claude-opus-4-8** (the
+live config.json was stale at 4-7/max-effort — updated to 4.8/high, the shipped
+default, which is also why lens-build was crawling). 5 new tests.
+
+**Also (#255 slice): auto_k junk-drawer fix.** The rebuild re-clustered the live
+basins and tripped the junk-drawer guard — `auto_k`'s `_PROMPTS_PER_BASIN=650`
+ratio was calibrated against the pre-dedup count, but clustering runs on the
+DEDUPED corpus (v1.7.71), so 21k deduped → k=32 → b00 24.7% (>20% ceiling). Ratio
+retuned 650→440 → k=48 → top basin 12.5% (measured on the live corpus, re-saved
+topics.json). `test_basin_auto_k` boundaries updated to the deduped calibration.
+
 ## [v1.7.89 — decay-aware lens step-2: recency-weight + robustness override (#256)] — 2026-05-30
 
 The founder's rule, made executable: "decay old prompts so they don't take over,
@@ -180,7 +210,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2348<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2352<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -113,6 +113,110 @@ def correction_signature() -> dict:
     }
 
 
+def _taste_signature_path():
+    from .basins import me_dir
+    return me_dir() / "taste_signature.json"
+
+
+def save_taste_signature(sig: dict) -> None:
+    """Persist the (expensive, embedding-derived) taste adjectives so the
+    cold-open can read them cheaply at every paint instead of re-embedding.
+    Called at lens-build time (#254). Best-effort — never raises into a build."""
+    if not sig.get("ready"):
+        return
+    try:
+        import json
+
+        from ..utils import now_iso
+        payload = {
+            "adjectives": sig.get("adjectives", []),
+            "n": sig.get("n", 0),
+            "computed_at": now_iso(),
+        }
+        path = _taste_signature_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def load_taste_signature() -> dict | None:
+    """Read the cached taste adjectives (cheap; no embedder). None if absent."""
+    try:
+        import json
+        path = _taste_signature_path()
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if data.get("adjectives") else None
+    except Exception:
+        return None
+
+
+def taste_signature(max_axes: int = 3, min_loading: float = 0.05) -> dict:
+    """#254 cold-open material — a compact, human-facing synthesis of the
+    correction lens: the top taste axes as adjectives (the pole the user steers
+    TOWARD) plus ONE representative correction quoted in the user's OWN words.
+
+    The "quote your taste back to you" payload no chat tab can produce. Returns
+    the raw data; the user-facing copy/tone is composed at the call site (held
+    for founder review per #254). Best-effort `{"ready": False}`.
+    """
+    try:
+        from ..embeddings import embed_batch
+        from .preference_acts import iter_preference_acts
+    except Exception:
+        return {"ready": False, "reason": "imports unavailable"}
+
+    pairs = [
+        ((a.sacrificed or "").strip(), (a.privileged or "").strip())
+        for a in iter_preference_acts()
+        if (a.sacrificed or "").strip() and (a.privileged or "").strip()
+        and len((a.sacrificed or "").strip()) > 4 and len((a.privileged or "").strip()) > 2
+    ]
+    if len(pairs) < _MIN_CORRECTIONS:
+        return {"ready": False, "n": len(pairs), "min": _MIN_CORRECTIONS}
+
+    try:
+        sac = [_unit(v) for v in embed_batch([s for s, _ in pairs])]
+        pri = [_unit(v) for v in embed_batch([p for _, p in pairs])]
+        axisvec = _axis_vectors()
+    except Exception as exc:
+        return {"ready": False, "reason": f"embed failed: {exc!r}"}
+
+    corrections = [[p - s for p, s in zip(pv, sv)] for pv, sv in zip(pri, sac)]
+    mc = _unit(_mean(corrections))
+
+    # Adjectives: the pole each axis steers toward (sign of the loading).
+    loaded: list[tuple[float, str, float]] = []
+    for name, av in axisvec.items():
+        load = sum(a * b for a, b in zip(mc, av))
+        if abs(load) >= min_loading:
+            pole = name.split("↔")[0] if load > 0 else name.split("↔")[1]
+            loaded.append((abs(load), pole, round(load, 3)))
+    loaded.sort(reverse=True)
+    adjectives = [pole for _, pole, _ in loaded[:max_axes]]
+
+    # Representative correction: the steer best aligned with the mean direction
+    # — the single most "you" rephrasing, quotable in the user's own words.
+    aligns = [
+        sum(ci * mi for ci, mi in zip(_unit(c), mc)) for c in corrections
+    ]
+    best = max(range(len(pairs)), key=lambda i: aligns[i])
+    representative = {
+        "model_offered": pairs[best][0][:160],
+        "you_wanted": pairs[best][1][:160],
+        "alignment": round(aligns[best], 3),
+    }
+    return {
+        "ready": True,
+        "n": len(pairs),
+        "adjectives": adjectives,
+        "axes_loaded": [{"pole": p, "loading": l} for _, p, l in loaded[:max_axes]],
+        "representative": representative,
+    }
+
+
 def _axis_vectors() -> dict:
     """Embed the interpretable taste-axis directions (pos centroid − neg
     centroid, unit). Shared by the signature + drift computations."""

@@ -4,8 +4,11 @@ A fixed k=20 junk-drawered on the real clean corpus — once the 2026-05-12
 scaffolding pollution was purged, 28.6k threads packed 29.6% into one b00
 basin at k=20, above the 20% junk-drawer ceiling the real_corpus guard
 enforces. `auto_k` scales the basin count with the corpus (≈1 basin per
-650 threads, clamped to [20, 60]) so no single basin dominates as history
-grows. These guards pin the clamp boundaries + that an explicit k still wins.
+_PROMPTS_PER_BASIN prompts, clamped to [20, 60]) so no single basin dominates
+as history grows. #255 retune: the clustering input is the DEDUPED corpus, so
+the ratio dropped 650→440 (the 650 ratio, calibrated against the pre-dedup
+count, came out too coarse — 21k deduped → k=32 → b00 24.7%). These guards pin
+the clamp boundaries + that an explicit k still wins.
 """
 from __future__ import annotations
 
@@ -13,20 +16,20 @@ from trinity_local.me.basins import _DEFAULT_K, _MAX_K, auto_k
 
 
 def test_small_corpus_floors_at_historical_default():
-    # Behaviour-preserving for fresh/small installs: below ~13k threads,
-    # auto_k stays at the historical k=20 so nothing changes for them.
+    # Behaviour-preserving for fresh/small installs: below the floor boundary
+    # (~9k prompts at the 440 ratio), auto_k stays at the historical k=20.
     assert auto_k(0) == _DEFAULT_K
     assert auto_k(500) == _DEFAULT_K
     assert auto_k(5_000) == _DEFAULT_K
-    assert auto_k(13_000) == _DEFAULT_K  # 13000/650 = 20 → floor boundary
+    assert auto_k(8_000) == _DEFAULT_K  # 8000/440 = 18 → still floored at 20
 
 
 def test_large_corpus_scales_up():
-    # The clean corpus that exposed the bug: 28,618 threads.
-    # 28618/650 ≈ 44 — comfortably above the k=40 that first cleared
-    # the 20% junk-drawer ceiling.
-    k = auto_k(28_618)
-    assert 40 <= k <= 50, f"expected ~44 for the 28.6k corpus, got {k}"
+    # The live deduped corpus that exposed the #255 junk-drawer: ~21k prompts.
+    # 20966/440 ≈ 48 — well clear of the k=40 that sits razor-thin at the 20%
+    # ceiling, giving a real safety margin (~12.5% top basin, measured).
+    k = auto_k(20_966)
+    assert 44 <= k <= 52, f"expected ~48 for the 21k deduped corpus, got {k}"
 
 
 def test_huge_corpus_caps_at_max():

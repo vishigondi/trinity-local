@@ -97,3 +97,41 @@ def test_by_basin_high_threshold_not_ready(monkeypatch):
     # An impossibly high per-basin floor → no eligible basin → not ready.
     import trinity_local.me.correction_lens as cl
     assert cl.correction_signature_by_basin(min_per_basin=10**9).get("ready") is False
+
+
+def test_taste_signature_shape(monkeypatch):
+    """#254 cold-open material: adjectives (poles steered toward) + ONE
+    representative correction in the user's words. Uses synthetic acts so it
+    doesn't depend on the live ledger; runs through the real embedder (skips if
+    the embedder isn't producing vectors)."""
+    import trinity_local.me.correction_lens as cl
+
+    class _Act:
+        def __init__(self, sac, pri):
+            self.sacrificed, self.privileged = sac, pri
+
+    acts = [
+        _Act("explain the general concept and underlying theory at length",
+             "give me the exact command to run")
+        for _ in range(cl._MIN_CORRECTIONS + 3)
+    ]
+    monkeypatch.setattr(cl, "iter_preference_acts", lambda: acts, raising=False)
+    import trinity_local.me.preference_acts as pa
+    monkeypatch.setattr(pa, "iter_preference_acts", lambda: acts)
+
+    sig = cl.taste_signature()
+    if not sig.get("ready"):
+        import pytest
+        pytest.skip(f"signature not ready (no embedder?): {sig}")
+    assert sig["n"] == len(acts)
+    assert isinstance(sig["adjectives"], list) and sig["adjectives"]
+    rep = sig["representative"]
+    assert set(rep.keys()) == {"model_offered", "you_wanted", "alignment"}
+    assert rep["you_wanted"] and rep["model_offered"]
+
+
+def test_taste_signature_thin_ledger(monkeypatch):
+    import trinity_local.me.correction_lens as cl
+    import trinity_local.me.preference_acts as pa
+    monkeypatch.setattr(pa, "iter_preference_acts", lambda: [])
+    assert cl.taste_signature().get("ready") is False
