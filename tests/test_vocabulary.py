@@ -362,45 +362,6 @@ class TestVocabularyPath:
         assert report["path"] == str(vocabulary_path())
 
 
-class TestSynonymJaccardGuard:
-    """#250: cos≈1.0 pairs that always co-occur in the same prompts are a
-    co-occurrence artifact, not synonymy. The Jaccard guard drops them."""
-
-    def _identical_context_pair(self):
-        import numpy as np
-        v = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        # Identical mean vectors -> cosine 1.0.
-        return {"alpha": [v, v, v], "beta": [v, v, v]}
-
-    def test_co_occurring_pair_dropped(self):
-        from trinity_local.vocabulary import find_synonyms
-        contexts = self._identical_context_pair()
-        # Both tokens live in the SAME three prompts -> Jaccard 1.0.
-        token_prompts = {"alpha": {"p1", "p2", "p3"}, "beta": {"p1", "p2", "p3"}}
-        out = find_synonyms(
-            contexts, top_n=10, threshold=0.9,
-            token_prompts=token_prompts, max_jaccard=0.5,
-        )
-        assert out == [], "fully co-occurring cos=1.0 pair must be dropped"
-
-    def test_distinct_prompt_pair_kept(self):
-        from trinity_local.vocabulary import find_synonyms
-        contexts = self._identical_context_pair()
-        # Same context vectors but DISJOINT prompts -> Jaccard 0 -> real synonym.
-        token_prompts = {"alpha": {"p1", "p2"}, "beta": {"p3", "p4"}}
-        out = find_synonyms(
-            contexts, top_n=10, threshold=0.9,
-            token_prompts=token_prompts, max_jaccard=0.5,
-        )
-        assert len(out) == 1 and {out[0][0], out[0][1]} == {"alpha", "beta"}
-
-    def test_default_no_guard_preserves_old_behavior(self):
-        from trinity_local.vocabulary import find_synonyms
-        contexts = self._identical_context_pair()
-        # No token_prompts -> back-compat: the pair survives.
-        out = find_synonyms(contexts, top_n=10, threshold=0.9)
-        assert len(out) == 1
-
 
 class TestHomonymDistinctThreadFloor:
     """#250: a high-bimodality token whose occurrences all live in ONE thread
@@ -497,26 +458,3 @@ class TestTemplateConcentrationGuard:
         assert "kitchen-sink" in toks  # real compound kept
 
 
-class TestSynonymPrevalenceCap:
-    """#250: high-frequency function/common words collapse to the centroid and
-    score spurious cosine against each other — drop them by prevalence (IDF)."""
-
-    def test_ubiquitous_token_dropped(self):
-        import numpy as np
-        from trinity_local.vocabulary import find_synonyms
-        v = np.array([1.0, 0.0, 0.0, 0.0])
-        contexts = {"been": [v] * 10, "within": [v] * 10, "lens": [v] * 5}
-        # been/within in 50% of a 20-prompt corpus -> over the 2% cap -> dropped;
-        # only the rare distinctive token survives, so no pair forms.
-        prompts = {
-            "been": {f"p{i}" for i in range(10)},
-            "within": {f"q{i}" for i in range(10)},
-            "lens": {f"r{i}" for i in range(5)},
-        }
-        out = find_synonyms(
-            contexts, top_n=10, threshold=0.5,
-            token_prompts=prompts, corpus_prompts=20, max_prevalence=0.10,
-            min_distinct=0,
-        )
-        flat = {t for pair in out for t in pair[:2]}
-        assert "been" not in flat and "within" not in flat

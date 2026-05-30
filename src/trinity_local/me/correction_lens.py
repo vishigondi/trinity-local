@@ -69,10 +69,16 @@ def correction_signature() -> dict:
     each interpretable taste axis. Best-effort; `{"ready": False}` on no
     embedder or too few corrections."""
     try:
-        from ..embeddings import embed_batch
+        from ..embeddings import embed_batch, mlx_actually_loaded
         from .preference_acts import iter_preference_acts
     except Exception:
         return {"ready": False, "reason": "imports unavailable"}
+
+    # Real-embeddings gate: the correction-vector geometry is meaningless under
+    # the TF-IDF fallback (0/5 on the meaning triplet — it groups by word
+    # overlap). Abstain rather than emit inverted taste axes.
+    if not mlx_actually_loaded():
+        return {"ready": False, "reason": "needs real embeddings (install [mlx])"}
 
     pairs = [
         ((a.sacrificed or "").strip(), (a.privileged or "").strip())
@@ -163,10 +169,15 @@ def taste_signature(max_axes: int = 3, min_loading: float = 0.05) -> dict:
     for founder review per #254). Best-effort `{"ready": False}`.
     """
     try:
-        from ..embeddings import embed_batch
+        from ..embeddings import embed_batch, mlx_actually_loaded
         from .preference_acts import iter_preference_acts
     except Exception:
         return {"ready": False, "reason": "imports unavailable"}
+
+    # Real-embeddings gate (TF-IDF can't separate meaning — abstain, don't
+    # surface inverted taste adjectives in the user-facing cold-open).
+    if not mlx_actually_loaded():
+        return {"ready": False, "reason": "needs real embeddings (install [mlx])"}
 
     pairs = [
         ((a.sacrificed or "").strip(), (a.privileged or "").strip())

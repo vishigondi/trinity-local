@@ -7,6 +7,30 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.106 — gate semantic flows off TF-IDF (no inverted-garbage fallback) + delete dead find_synonyms] — 2026-05-30
+
+Founder call: a fallback that produces broken output is worse than none. Rather
+than delete TF-IDF (which would force torch-on-Linux + a CI overhaul day-before
+launch), the semantic flows now ABSTAIN on it — the honest degradation.
+
+- **correction_lens** (`correction_signature`, `taste_signature` — the
+  user-facing cold-open) now gates on `mlx_actually_loaded()`: under the TF-IDF
+  fallback (0/5 on the meaning triplet — it groups by word overlap) it returns
+  `{"ready": False, "reason": "needs real embeddings"}` instead of emitting
+  inverted taste axes. The cold-open degrades to the lexical anchors, which are
+  correct on any backend. (cortex + the dormant semantic_filter gates are a
+  documented follow-on; the cold-start lens build is already gated via
+  `_corpus_has_embeddings`.)
+- **find_synonyms deleted** (-90 LOC + 2 test classes). It was cut from the
+  pipeline in v1.7.105 (measured ~0% useful) and orphaned; removed the dead
+  function + its `TestSynonymJaccardGuard` / `TestSynonymPrevalenceCap` tests.
+
+On TF-IDF, your data proved the failure concretely: a *travel* prompt surfaced
+as the nearest neighbor of "how is anthropic using interpretability", and
+*hardware* next to "install the MCP server" — pure lexical overlap. TF-IDF stays
+ONLY as the no-`[mlx]` lexical/anchor + CI backend; full deletion (make `[mlx]`
+required) is queued as a clean post-launch simplification.
+
 ## [v1.7.105 — cut the vocab synonyms section + filter anchor template-tokens] — 2026-05-30
 
 Two measured vocab fixes (worth-keeping audit, deterministic):
@@ -593,7 +617,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2439<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2435<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
