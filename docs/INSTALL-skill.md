@@ -111,7 +111,7 @@ when the library was retired.
 - **Local-first**: every embedding, k-means, geometric median,
   descriptor extraction, signature distillation, and audit-log write
   runs on your machine. Trinity never makes outbound HTTP except for
-  the one-time `nomic-embed-text-v1.5` download from Hugging Face on
+  the one-time `modernbert-embed-base` download from Hugging Face on
   first run (~600 MB; afterwards `HF_HUB_OFFLINE=1` is pinned).
 - **Provider CLIs**: council dispatches ride your existing Claude /
   Codex / Antigravity subscriptions. Trinity calls those CLIs as

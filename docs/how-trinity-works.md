@@ -35,7 +35,7 @@ Each transcript turn becomes a `PromptNode` row in `~/.trinity/prompts/prompt_no
 
 Cursors in `~/.trinity/prompts/cursors.json` track the newest ingested node per source so re-runs are incremental — you can ingest a 50,000-turn corpus once and then top up each day in seconds.
 
-Every node gets passed through `nomic-embed-text-v1.5` (cached locally via Hugging Face Hub, offline by default). If MLX isn't installed it falls back to a stable SHA-1 TF-IDF projection. Same dimensionality either way. This is the only "model" call in the ingest path — no LLM, pure vector math.
+Every node gets passed through `modernbert-embed-base` (cached locally via Hugging Face Hub, offline by default). If MLX isn't installed it falls back to a stable SHA-1 TF-IDF projection. Same dimensionality either way. This is the only "model" call in the ingest path — no LLM, pure vector math.
 
 ## Dream — the offline synthesis pass
 
@@ -47,7 +47,7 @@ Every node gets passed through `nomic-embed-text-v1.5` (cached locally via Huggi
 
 **Phase 2.5 — Vocabulary.** Why it matters downstream: without **homonym** resolution, the chairman applies wrong-context lens to context-shifted words ("shipped" = released vs delivered). Without **synonym** resolution, near-identical rejections split into separate tensions ("refine" vs "tighten") and never cross the ≥3-basin threshold the lens-build stage requires. Vocabulary is the dedup substrate the lens stage depends on.
 
-**Phase 3 — Rejection signals.** For each TurnWindow where you turned around and asked a follow-up, extract WHAT you changed: REFRAME (different question), REDIRECT (different output shape), COMPRESSION (shorter), SHARPENING (more precise). These rejection records (`~/.trinity/me/rejections.jsonl`) are the empirical signal of your taste — the load-bearing input the chairman trains against.
+**Phase 3 — Rejection signals.** For each TurnWindow where you turned around and asked a follow-up, extract WHAT you changed: REFRAME (different question), REDIRECT (different output shape), COMPRESSION (shorter), SHARPENING (more precise). These rejection signals (stored in `~/.trinity/me/preference_acts.jsonl` with trigger=model_miss) are the empirical signal of your taste — the load-bearing input the chairman trains against.
 
 **Phase 4 — Lens-build.** Synthesize the rejections into PAIRED TENSIONS in `~/.trinity/memories/lens.md`. On a working install: things like `mechanism inspection ↔ speculative inference under uncertainty`, `concrete specificity ↔ abstract pattern recognition`. A tension must span ≥3 basins to make the lens; otherwise it's preserved as "ordering" (topic-local preference) or dropped. That floor is why one weird question can't pollute the lens.
 
@@ -78,7 +78,7 @@ After a few dream cycles, your `~/.trinity/` looks like:
 │   ├── picks.json                ← extracted "claude wins on REFRAME" rules
 │   └── routing.json              ← per-task-type win-rate
 └── me/
-    └── rejections.jsonl          ← the empirical training corpus
+    └── preference_acts.jsonl     ← the empirical training corpus (model_miss + self_expressed acts)
 ```
 
 The folder is the API. Everything in it is human-readable Markdown or JSON. Trinity disappearing tomorrow leaves your taste capture intact.
@@ -96,7 +96,7 @@ You drop a hard question into any harness (Claude Code, Codex, Cursor, Antigravi
 When Claude 5 or GPT-5.5 lands, the question isn't "how does it score on MMLU." It's "does this new model handle MY rejections better than the previous one?" Trinity ships the loop:
 
 ```
-~/.trinity/me/rejections.jsonl         (your empirical preferences)
+~/.trinity/me/preference_acts.jsonl    (your empirical preferences, trigger=model_miss acts)
               │
               ▼
    trinity-local eval-build            (corpus → eval_set)

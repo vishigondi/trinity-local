@@ -21,7 +21,7 @@ trinity-local eval-import --provider codex  ./evals-from-codex.json
 trinity-local eval-import --provider gemini ./evals-from-gemini.json
 ```
 
-Trinity merges into `~/.trinity/me/rejections.jsonl` (same file the
+Trinity merges into `~/.trinity/me/preference_acts.jsonl` (same file the
 turn-pair-extraction pipeline writes). Existing `eval-build` /
 `eval-run` / `eval-show` consume them unchanged — provider-imported
 signals become eval items the next time you build a set.

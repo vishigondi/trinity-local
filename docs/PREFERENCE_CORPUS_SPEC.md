@@ -211,7 +211,7 @@ The v1 schemas survive — they describe the council-outcome / rejection-signal 
 | File | Schema | Purpose |
 |------|--------|---------|
 | `~/.trinity/council_outcomes/council_<hash>.json` | [`council_outcome.schema.json`](../schemas/council_outcome.schema.json) | One multi-model run + chairman synthesis. Unchanged from v1. |
-| `~/.trinity/me/rejections.jsonl` | [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json) | Labeled (prompt, response, rejection_type) triples. Unchanged from v1. |
+| `~/.trinity/me/preference_acts.jsonl` | [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json) | Preference acts: rejections (trigger=model_miss) + decisions (trigger=self_expressed), unified ledger (#209). |
 | `~/.trinity/evals/eval_<hash>.json` | [`eval_set.schema.json`](../schemas/eval_set.schema.json) | Personalized eval suite. Unchanged from v1. |
 | `~/.trinity/moves/<slug>/SKILL.md` | SKILL.md spec + Trinity move-extension frontmatter ([`move.schema.json`](../schemas/move.schema.json)) | Promoted moves. New in v2. |
 | `~/.trinity/dream_rejections.jsonl` | [`dream_rejection.schema.json`](../schemas/dream_rejection.schema.json) | Candidates the eval gate rejected, with `why_rejected`. New in v2. |
@@ -244,7 +244,7 @@ Obsidian compatibility isn't a feature line — it's a consequence of the standa
 ## Adopting this in your tool
 
 1. **Read Trinity's lens.** Either through MCP Resources (`trinity://memories/lens.md`) or by reading `~/.trinity/AGENTS.md` directly. Both formats stay in sync via `dream`.
-2. **Contribute rejection signal.** Append a record to `~/.trinity/me/rejections.jsonl` following [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json). Trinity's lens-build picks it up on the next cycle.
+2. **Contribute rejection signal.** Append a record (trigger=model_miss) to `~/.trinity/me/preference_acts.jsonl` following [`rejection_signal.schema.json`](../schemas/rejection_signal.schema.json). Trinity's lens-build picks it up on the next cycle.
 3. **Contribute candidate moves.** Drop a SKILL.md file into `~/.trinity/moves/<your-slug>/`. Trinity's next dream cycle runs it through the eval gate; if it passes, it goes live. If not, it lands in `dream_rejections.jsonl` with the `why_rejected`.
 4. **Read promoted moves.** Either via MCP Resources or by listing `~/.trinity/moves/`. The SKILL.md format works in Claude Code, Cursor, Codex CLI, Cline, Continue, and 25+ other agent tools natively.
 5. **Don't invent a parallel format.** If your tool needs a field Trinity doesn't have, add a `<your_tool>_*` frontmatter field. SKILL.md's spec explicitly supports custom fields.
@@ -254,7 +254,7 @@ Obsidian compatibility isn't a feature line — it's a consequence of the standa
 Trinity Local itself is the reference. The canonical writers:
 
 - `src/trinity_local/council_runtime.py::save_council_outcome` — produces `council_outcomes/*.json`
-- `src/trinity_local/me/turn_pairs.py::save_rejections` — produces `rejections.jsonl`
+- `src/trinity_local/me/preference_acts.py::save_preference_acts` — produces `preference_acts.jsonl`
 - `src/trinity_local/evals/builder.py::save_eval_set` — produces `evals/*.json`
 - `src/trinity_local/moves/*` — produces `moves/<slug>/SKILL.md` (NEW in v2)
 - `src/trinity_local/dream.py::propose_and_gate` — runs the promotion loop (extended in v2)

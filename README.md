@@ -86,7 +86,7 @@ Trinity reads the transcripts on your machine — CLI sessions on disk (Claude C
 ### And — when a new model lands, score it against your taste
 
 ```bash
-trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/rejections.jsonl)
+trinity-local eval-build      # one-time: build from your rejection signal (~/.trinity/me/preference_acts.jsonl)
 trinity-local eval-run --target claude    # re-target whenever a new model lands (provider name: claude / codex / antigravity)
 trinity-local eval-show       # per-axis bars: REFRAME / COMPRESSION / REDIRECT / SHARPENING
 ```

@@ -6,7 +6,7 @@ class: live
 
 Freshest data refresh 2026-05-23 — **all three providers now have full
 N=45 runs on the same suite**, judged against the rejection-signal
-corpus in `~/.trinity/me/rejections.jsonl` (mined from real Stage 0
+corpus in `~/.trinity/me/preference_acts.jsonl` (mined from real Stage 0
 turn-pair gaps in Vishi's prompt history). Each provider was asked to
 produce a response to the same prompts the user actually pushed back
 on; a different model played judge so no provider grades itself. The

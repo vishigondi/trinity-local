@@ -98,7 +98,7 @@ same files with the same schemas:
 | `~/.trinity/core.md` | distillation (in-tree) | dream (Phase 5 — the standalone `distill` CLI was retired pre-launch) |
 | `~/.trinity/scoreboard/picks.json` | picks (in-tree) | consolidate |
 | `~/.trinity/scoreboard/routing.json` | routing (in-tree) | aggregation |
-| `~/.trinity/me/rejections.jsonl` | `schemas/rejection_signal.schema.json` | turn_pairs |
+| `~/.trinity/me/preference_acts.jsonl` | `schemas/rejection_signal.schema.json` | turn_pairs |
 
 ## Tier-equivalence invariant
 
@@ -123,7 +123,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2318<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2319<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
@@ -208,7 +208,7 @@ launch requirement.
   unpacked extension. Static contract guard in
   `test_phase8_integration.py` catches manifest drift in CI.
 - **HF-Hub cold start**: ~3-minute one-time download of
-  `nomic-embed-text-v1.5` on first embedding call. Surface this in
+  `modernbert-embed-base` on first embedding call. Surface this in
   SKILL.md Section 3 before the user runs `dream`.
 
 ---

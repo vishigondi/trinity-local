@@ -87,7 +87,7 @@ the (opt-in) telemetry path. `main()` pins `HF_HUB_OFFLINE=1` +
 `TRANSFORMERS_OFFLINE=1` + `HF_HUB_DISABLE_TELEMETRY=1` at startup via
 `setdefault`, so the embedding model loads from `~/.cache/huggingface/hub/`
 without contacting the Hub. The one-time download is a deliberate user
-action via `HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/nomic-embed-text-v1.5`.
+action via `HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/modernbert-embed-base`.
 MCP child processes inherit the env so the guarantee propagates through
 every spawn. Override per-invocation when explicitly pulling fresh weights.
 

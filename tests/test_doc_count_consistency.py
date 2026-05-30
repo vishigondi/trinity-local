@@ -7176,3 +7176,71 @@ class TestNoUnannotatedOrphans:
             f"--- script stdout ---\n{result.stdout}\n"
             f"--- script stderr ---\n{result.stderr}"
         )
+
+
+class TestLiveDocsDontNameRetiredPreferenceStores:
+    """#233 — the recurring doc-drift family (highest support in the
+    project-lens: doc-drift @ 117). EXTRACT Stage 4b (#209, shipped
+    2026-05-28) retired the split `~/.trinity/me/rejections.jsonl` +
+    `decisions.jsonl` stores; the unified `preference_acts.jsonl` ledger
+    is the SOLE store. A pile of live docs kept naming the legacy files
+    as the CURRENT store long after the code stopped writing them.
+
+    This guard fails when a LIVE-class doc names `me/rejections.jsonl` or
+    `me/decisions.jsonl` as a store, UNLESS the line carries a retirement
+    marker (so "rejections.jsonl was retired / merged into …" narration is
+    fine). Mirrors TestLiveDocsDontClaimRetiredMcpToolsAsLive at the
+    storage-layer.
+
+    Note: `dream_rejections.jsonl` is a DIFFERENT (moves-substrate) file
+    and is intentionally NOT matched — the pattern anchors on the `me/`
+    directory prefix.
+    """
+
+    RETIREMENT_MARKERS = [
+        "retired", "deprecated", "formerly", "used to", "legacy",
+        "→", "merged into", "unified", "subsumed", "collapsed",
+        "no longer", "replaced by", "#209", "Stage 4b",
+    ]
+
+    # Live, user/contributor-facing docs that describe the store layout.
+    DOCS_TO_CHECK = [
+        "README.md",
+        "docs/how-trinity-works.md",
+        "docs/three-tier-architecture.md",
+        "docs/evals-from-provider.md",
+        "docs/PREFERENCE_CORPUS_SPEC.md",
+        "docs/launch-day/00_leaderboard.md",
+        "docs/launch-day/10_hn_faq_full.md",
+    ]
+
+    def test_no_retired_preference_store_named_as_live(self):
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        # Anchor on the me/ dir so dream_rejections.jsonl (moves) is exempt.
+        store_pat = re.compile(r"me/(?:rejections|decisions)\.jsonl")
+        marker_pat = re.compile("|".join(self.RETIREMENT_MARKERS), re.IGNORECASE)
+
+        offenders = []
+        for rel in self.DOCS_TO_CHECK:
+            p = root / rel
+            if not p.exists():
+                continue
+            lines = p.read_text(encoding="utf-8").splitlines()
+            for i, line in enumerate(lines):
+                if not store_pat.search(line):
+                    continue
+                # ±1-line window for retirement-narration context.
+                window = "\n".join(lines[max(0, i - 1): i + 2])
+                if marker_pat.search(window):
+                    continue
+                offenders.append(f"{rel}:{i + 1}: {line.strip()[:90]}")
+
+        assert not offenders, (
+            "Live docs name a RETIRED preference store (me/rejections.jsonl or "
+            "me/decisions.jsonl) as if current. The unified preference_acts.jsonl "
+            "ledger is the sole store (#209). Update the doc, or add a retirement "
+            "marker if the mention is historical:\n  " + "\n  ".join(offenders)
+        )

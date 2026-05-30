@@ -106,11 +106,11 @@ a live council.
 
 Trinity pins `HF_HUB_OFFLINE=1` at startup, so the running system never
 makes outbound HuggingFace calls during normal operation. The embedding
-model (`nomic-embed-text-v1.5`, ~600 MB) ships once via an explicit, opt-in
+model (`modernbert-embed-base`, ~600 MB) ships once via an explicit, opt-in
 download:
 
 ```bash
-HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/nomic-embed-text-v1.5
+HF_HUB_OFFLINE=0 huggingface-cli download nomic-ai/modernbert-embed-base
 ```
 
 After that the model lives at `~/.cache/huggingface/hub/` (or `$HF_HOME`)

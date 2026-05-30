@@ -7,6 +7,30 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.81 — doc-drift sweep: retired-store + stale model-name in live docs (#233)] — 2026-05-30
+
+The highest-support tension in Trinity's own project-lens is doc-drift (support 117) —
+docs describing retired internals as current. A read-only doc-drift workflow (14
+parallel Explore readers, one per live doc) surfaced **11 high-severity live-claim**
+drifts, all the same family: docs naming the retired split stores
+`~/.trinity/me/rejections.jsonl` / `decisions.jsonl` as the CURRENT store. EXTRACT
+Stage 4b (#209) retired them 2026-05-28; the unified `preference_acts.jsonl` ledger is
+the sole store. Fixed across README, how-trinity-works, three-tier-architecture,
+evals-from-provider, PREFERENCE_CORPUS_SPEC, and both launch-day HN docs — naming
+preference_acts.jsonl with the `trigger=model_miss` / `self_expressed` distinction.
+The workflow found **zero** false Gemini-path flags (the `~/.gemini` mentions are
+correctly Antigravity's config dir), and correctly left the moves-substrate
+`dream_rejections.jsonl` alone.
+
+Folded in the same family: 6 launch-facing docs still named the retired embedder
+`nomic-embed-text-v1.5` (superseded by modernbert-embed-base in #244) — swept to the
+current model name.
+
+Guard: `TestLiveDocsDontNameRetiredPreferenceStores` fails when a live-class doc names
+`me/rejections.jsonl` / `me/decisions.jsonl` as current (retirement-marker context
+exempt; the `me/`-prefix anchor leaves `dream_rejections.jsonl` alone). Doc-consistency
+guards 108 → 109.
+
 ## [v1.7.80 — telemetry no-PII contract goes green + privacy-copy reconcile (#231/#225/#237)] — 2026-05-30
 
 Telemetry stays default-ON to close the feedback loop, but the guarantee is now
@@ -2720,7 +2744,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2318<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2319<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
