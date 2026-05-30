@@ -407,6 +407,17 @@ def _maybe_fire_lens_kicks() -> None:
         maybe_kick_lens_refresh()
     except Exception:
         pass
+    # Roots: ask the client what filesystem roots it exposes (e.g. the open
+    # project), and log them. Best-effort — surfaces what transcript dirs a
+    # future ingest could auto-discover; no-op when the client lacks roots.
+    try:
+        from .mcp_features import discover_roots, mcp_log
+
+        roots = discover_roots()
+        if roots:
+            mcp_log("info", f"Client exposed {len(roots)} root(s): {', '.join(roots[:5])}")
+    except Exception:
+        pass
 
 
 @server.call_tool()
@@ -420,10 +431,17 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
     # post-2026-06-15 Agent SDK credit pool. ContextVar set here
     # propagates to the ThreadPoolExecutor workers in council_runner
     # via copy_context().
+    from .mcp_features import clear_request_context, set_request_context
     from .mcp_sampling import clear_active_session, set_active_session
     try:
-        session = server.request_context.session
-        set_active_session(session)
+        ctx = server.request_context
+        set_active_session(ctx.session)
+        # Capture the request id + client-attached progress token so worker-
+        # thread log/progress calls (councils run off-thread) attribute
+        # themselves to this request. meta is None when the client sent no
+        # _meta; progressToken is None when it didn't ask for progress.
+        progress_token = getattr(getattr(ctx, "meta", None), "progressToken", None)
+        set_request_context(ctx.request_id, progress_token)
     except (AttributeError, LookupError):
         # Defensive: if the SDK version lacks request_context.session,
         # or this is invoked outside a real MCP request (e.g., tests),
@@ -461,6 +479,7 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[Any]:
         return [ErrorData(code=500, message=f"{type(exc).__name__}: {exc}")]
     finally:
         clear_active_session()
+        clear_request_context()
 
 
 # ─── MCP Resources — read-only context surfaces ────────────────────
@@ -606,6 +625,105 @@ async def handle_read_resource(uri: AnyUrl) -> str:
             f"On-disk path: `{path}`\n"
         )
     return path.read_text(encoding="utf-8")
+
+
+# ─── MCP Prompts — Trinity's verbs as native slash-prompts ──────────
+#
+# Registering these handlers makes the host advertise the `prompts`
+# capability, so `/council`, `/lens`, `/ask` show up in the harness's
+# slash menu. Each prompt expands to a user-role message that tells the
+# agent which Trinity tool to call — discovery for users who'd never read
+# a tool docstring. The arg becomes the task/query text.
+
+_PROMPT_CATALOG = [
+    {
+        "name": "council",
+        "description": "Compare a hard question across Claude, GPT, and Gemini "
+        "and synthesize the answer your taste would pick.",
+        "arg": ("task", "The question or task to run the council on.", True),
+        "tool": "run_council",
+        "render": lambda task: (
+            f"Run a Trinity council on this, then report the chairman's verdict "
+            f"with the agreed_claims and disagreed_claims:\n\n{task}\n\n"
+            f"Use the `mcp__trinity-local__run_council` tool."
+        ),
+    },
+    {
+        "name": "ask",
+        "description": "Route one question to the single best provider for it "
+        "(cheap — one call, chairman-blessed).",
+        "arg": ("query", "The question to route.", True),
+        "tool": "ask",
+        "render": lambda query: (
+            f"Route this question to the best provider for it and answer:\n\n{query}\n\n"
+            f"Use the `mcp__trinity-local__ask` tool."
+        ),
+    },
+    {
+        "name": "lens",
+        "description": "Read the user's taste lens so you can tailor this "
+        "session's answers to how they decide.",
+        "arg": ("focus", "Optional: what to focus the lens read on.", False),
+        "tool": "get_persona",
+        "render": lambda focus: (
+            "Read the user's Trinity taste lens via the "
+            "`mcp__trinity-local__get_persona` tool and condition your answers "
+            "on it for the rest of this session."
+            + (f" Focus especially on: {focus}." if focus else "")
+        ),
+    },
+]
+
+
+@server.list_prompts()
+async def handle_list_prompts() -> list[Any]:
+    """Advertise Trinity's verbs as MCP prompts (slash-menu entries)."""
+    from mcp.types import Prompt, PromptArgument
+
+    prompts = []
+    for spec in _PROMPT_CATALOG:
+        arg_name, arg_desc, arg_required = spec["arg"]
+        prompts.append(
+            Prompt(
+                name=spec["name"],
+                description=spec["description"],
+                arguments=[
+                    PromptArgument(
+                        name=arg_name, description=arg_desc, required=arg_required
+                    )
+                ],
+            )
+        )
+    return prompts
+
+
+@server.get_prompt()
+async def handle_get_prompt(name: str, arguments: dict | None) -> Any:
+    """Expand a Trinity prompt into a user-role message that routes the agent
+    to the matching Trinity tool."""
+    from mcp.types import GetPromptResult, PromptMessage, TextContent
+
+    arguments = arguments or {}
+    spec = next((s for s in _PROMPT_CATALOG if s["name"] == name), None)
+    if spec is None:
+        raise ValueError(f"Unknown Trinity prompt: {name}")
+    arg_name = spec["arg"][0]
+    text = spec["render"](arguments.get(arg_name, "") or "")
+    return GetPromptResult(
+        description=spec["description"],
+        messages=[
+            PromptMessage(role="user", content=TextContent(type="text", text=text))
+        ],
+    )
+
+
+@server.set_logging_level()
+async def handle_set_logging_level(level: Any) -> None:
+    """Honor the client's logging/setLevel request — filters mcp_log emissions
+    to the requested minimum level for the rest of the connection."""
+    from .mcp_features import set_min_log_level
+
+    set_min_log_level(str(level))
 
 
 def _text(payload: dict | str) -> dict:
@@ -1394,6 +1512,12 @@ async def _run_council(args: dict) -> list[Any]:
         },
     }
 
+    # MCP logging + progress (best-effort; no-op without a capable client).
+    from .mcp_features import mcp_log, mcp_progress
+
+    mcp_log("info", f"Council {council_run_id} launched ({mode})")
+    mcp_progress(0.05, 1.0, message="council dispatched")
+
     # Optional inline-wait. Polls the status file every 750ms until either
     # the council reports completed/failed/canceled, or the budget expires.
     if wait_seconds > 0:
@@ -1403,6 +1527,15 @@ async def _run_council(args: dict) -> list[Any]:
         deadline = time.monotonic() + wait_seconds
         completed_status: dict | None = None
         while time.monotonic() < deadline:
+            # Stream progress as a fraction of the wait budget elapsed, so the
+            # harness can render a live bar while members deliberate. Monotonic
+            # by construction; capped below 1.0 until the council resolves.
+            elapsed = wait_seconds - (deadline - time.monotonic())
+            mcp_progress(
+                min(0.95, 0.05 + 0.9 * (elapsed / wait_seconds)),
+                1.0,
+                message="council deliberating",
+            )
             # Use the same lookup-with-fallback logic as `_get_council_status`:
             # the live status file is keyed by status token (often the
             # bundle_id, not the council_run_id). Without the fallback scan,
@@ -1441,10 +1574,18 @@ async def _run_council(args: dict) -> list[Any]:
                     outcome_summary = None
             response["status"] = completed_status.get("status")
             response["outcome"] = outcome_summary
+            mcp_progress(1.0, 1.0, message="council complete")
+            winner = (outcome_summary or {}).get("winner") if outcome_summary else None
+            mcp_log(
+                "info",
+                f"Council {council_run_id} {completed_status.get('status')}"
+                + (f" — winner {winner}" if winner else ""),
+            )
             # rate_action injection retired 2026-05-21 alongside record_outcome.
         else:
             response["status"] = "running"
             response["timed_out_after_seconds"] = wait_seconds
+            mcp_log("warning", f"Council {council_run_id} still running after {wait_seconds}s")
 
     return [_text(response)]
 

@@ -7,6 +7,40 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.96 — full MCP capability set: prompts, logging, progress, roots, elicitation] — 2026-05-30
+
+Trinity used three of MCP's host capabilities (tools, resources, sampling).
+This adds the remaining five so the harness can do more than call opaque tools
+(founder directive, 2026-05-30). All host-side helpers live in the new
+`mcp_features.py`, reuse the `mcp_sampling._active` session/loop capture (so
+they work from the council/lens worker threads via `run_coroutine_threadsafe`),
+and quietly no-op when no capable client is connected — a logging call must
+never break a council.
+
+- **Prompts** — `list_prompts`/`get_prompt` expose `council`, `ask`, and `lens`
+  as native slash-menu entries; each expands to a user-role message routing the
+  agent to the matching Trinity tool. Discovery for users who'd never read a
+  tool docstring.
+- **Logging** — `set_logging_level` handler honors the client's threshold;
+  `mcp_log(level, msg)` emits at council launch / completion (winner) / timeout.
+- **Progress** — `mcp_progress` streams a live fraction during a blocking
+  `run_council` wait (no-op unless the client attached a progressToken).
+- **Roots** — `discover_roots()` reads the client's exposed filesystem roots on
+  the first tool call and logs them (what a future ingest could auto-discover).
+- **Elicitation** — `elicit(message, schema)` for structured mid-tool prompts;
+  returns the content on accept, None on decline/cancel/unsupported. Callers
+  MUST treat None as "proceed with default" — most harnesses don't support
+  elicitation yet, so it's a primitive-ready enhancement, not wired into any
+  hot path.
+
+Capabilities auto-advertise once the handlers are registered (mcp 1.27.1). The
+request id + client progressToken are captured at tool entry
+(`set_request_context`) and cleared in the same `finally` as the sampling
+session. +16 guards in `test_mcp_features.py` (prompts render, level filtering,
+progress token gating, file:// root parsing, elicit accept/decline, capability
+advertisement). New MCP **prompts/logging require a Claude Code restart** to
+become visible. (#264)
+
 ## [v1.7.95 — keystone: the auto lens build samples via MCP instead of burning `claude -p`] — 2026-05-30
 
 The activity-gated first-build + refresh (#242a / #234) ran the lens pipeline
@@ -341,7 +375,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2378<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2394<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
