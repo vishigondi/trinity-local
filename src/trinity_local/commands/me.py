@@ -188,6 +188,16 @@ def handle_lens_acts(args):
             payload["correction_signature"] = sig
     except Exception:
         pass
+    # #257 diachronic view: how the taste-axis loadings MOVED early→recent — the
+    # asymmetric insight no within-session memory can see (not what your taste
+    # is, but how it changed). Read-only, best-effort.
+    try:
+        from ..me.correction_lens import correction_drift
+        drift = correction_drift()
+        if drift.get("ready"):
+            payload["correction_drift"] = drift
+    except Exception:
+        pass
     print(json.dumps(payload, indent=2))
     if not acts:
         import sys

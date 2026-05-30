@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.86 — the diachronic correction lens: how your taste MOVED (#257)] — 2026-05-30
+
+Geometric-mining pass (the founder's standing "there's more gold, keep sampling"
+request). `correction_drift()` splits the user's timed corrections into an early
+and a recent half — time via each act's `prompt_id → PromptNode → prompt_time` —
+and reports how each interpretable taste-axis loading moved. This is the
+asymmetric insight no within-session memory (Auto-Dream included) can produce: not
+*what* your taste is, but how it *changed*.
+
+Validated on Trinity's own 120-correction corpus, it found a real shift: the #1
+steer moved from `concrete↔abstract` (+0.18, early 2023→24) to
+`action↔description` (+0.20, recent 2024→25) — the pull toward executability
+nearly doubled (Δ +0.10) as the models matured and the user stopped having to ask
+for concreteness. Surfaced read-only as `correction_drift` on `lens-acts` next to
+the static `correction_signature`.
+
+Best-effort (`ready: False` on no embedder / too few timed acts to split); refactors
+the axis-vector + mean-steer computation into shared helpers; 2 new tests mirror the
+signature's gating. (Note: the correction ledger currently maxes at 2025-03 — it
+predates the v1.7.72 recency-windowing fix; a lens rebuild will extend the drift
+window through 2026.)
+
 ## [v1.7.85 — first-run value before the embedding backfill (#242)] — 2026-05-30
 
 `cold_open_tension()` (the first-run "aha") returned None until the full
@@ -98,7 +120,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2339<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2341<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

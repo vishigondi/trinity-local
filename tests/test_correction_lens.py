@@ -41,3 +41,33 @@ def test_signature_thin_ledger(monkeypatch):
     monkeypatch.setattr(cl, "_MIN_CORRECTIONS", 10**9)
     sig = cl.correction_signature()
     assert sig.get("ready") is False
+
+
+def test_drift_shape_when_ready():
+    """#257 diachronic drift: split early/recent, per-axis early/recent/delta +
+    a biggest_mover. Skips when the embedder/ledger isn't available."""
+    import trinity_local.me.correction_lens as cl
+
+    drift = cl.correction_drift()
+    if not drift.get("ready"):
+        import pytest
+        pytest.skip(f"drift not ready: {drift}")
+    assert drift["n_early"] >= cl._MIN_CORRECTIONS
+    assert drift["n_recent"] >= cl._MIN_CORRECTIONS
+    assert len(drift["early_span"]) == 2 and len(drift["recent_span"]) == 2
+    # early span ends no later than recent span starts (chronological split).
+    assert drift["early_span"][1] <= drift["recent_span"][1]
+    for name, d in drift["axes"].items():
+        assert set(d.keys()) == {"early", "recent", "delta"}
+        assert abs(round(d["recent"] - d["early"], 3) - d["delta"]) < 1e-6
+    bm = drift["biggest_mover"]
+    assert bm["axis"] in drift["axes"]
+    # biggest_mover really has the max |delta|.
+    assert abs(bm["delta"]) == max(abs(d["delta"]) for d in drift["axes"].values())
+
+
+def test_drift_thin_ledger(monkeypatch):
+    # Below 2× the per-half minimum → not ready (don't split a thin ledger).
+    import trinity_local.me.correction_lens as cl
+    monkeypatch.setattr(cl, "_MIN_CORRECTIONS", 10**9)
+    assert cl.correction_drift().get("ready") is False
