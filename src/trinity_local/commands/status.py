@@ -375,6 +375,19 @@ def handle_status(args):
         print(f"    {marker} core.md       {core.stat().st_size:>8,} bytes — chairman reads this first")
     else:
         print("    · core.md       not distilled — run `trinity-local dream` (Phase 5 distills core.md)")
+    # Life chapters (#252) — datable topic episodes across the corpus timeline.
+    # Reads the TRUE `timestamp`, so it shows real history span, not ingest day.
+    try:
+        from ..me.chapters import corpus_month_span, detect_chapters
+        chapters = detect_chapters()
+        if chapters:
+            span = corpus_month_span()
+            print(f"    🕮 Chapters     {len(chapters)} across {span} months:")
+            for c in chapters[:3]:
+                when = c.start_month if c.months == 1 else f"{c.start_month}→{c.end_month}"
+                print(f"        · {c.label} ({when}, peak {c.peak_count:,}p)")
+    except Exception:
+        pass
     print()
     print("  Scoreboards:  (operational model-selection bookkeeping)")
     for label, path in [

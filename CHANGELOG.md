@@ -7,6 +7,42 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.72 — the lens sees recent data again: life chapters + turn-pair recency (#252)] — 2026-05-29
+
+Founder caught a stale tension: "[redacted user prompt] I can copy paste" was
+the lens's #1 trait, but it was a **2023 IDE-era workaround** (no apply-diff
+yet), not durable taste — "not sure why that stuck around." Sampling the data
+found the root cause, and it's the staleness their decay instinct predicted.
+
+**Root cause — Stage 0 was frozen on the oldest data.** `collect_turn_pairs`
+iterates the corpus chronologically and capped at the first 200 pairs, so the
+extractor only ever saw **2023-08 → 2025-03** — the recent 14 months were never
+reached, even though they carry 64–90% assistant-text. The lens was
+structurally stuck in the past.
+
+- **Recency-biased + diverse extraction.** `collect_turn_pairs` now walks
+  most-recent-first, capped ≈`limit/10` per calendar month so no single burst
+  (a dev sprint) fills the window, backfilling if caps leave it short. On the
+  real corpus that's 20 pairs each from the last 10 months (2025-08→2026-05) —
+  current taste. Durable tensions still recur across those months (re-confirmed);
+  phases that ended fall off and decay via the registry's 90-day fade. Guard:
+  `test_turn_pair_recency`.
+- **The canonical time field** (`me/chapters.prompt_time` = `timestamp`-or-
+  `created_at`). `created_at` is ingest day — it collapsed the 38-month corpus
+  into one month; the true `timestamp` (97% coverage) spans 2023-03→2026-05.
+- **Life chapters** (`me/chapters.detect_chapters`, deterministic, no LLM):
+  datable topic surges across the timeline — the smart-home build (2025-06→07),
+  the real-estate/OZ-deal arc (2025-05→2026-02), the frontend phase that *ended*
+  (2023-11→2024-07). Surfaced on `status` ("🕮 Chapters N across M months").
+  This is also the yardstick the decay design needs: a tension spanning many
+  chapters is a durable trait (keep); one confined to old chapters is a phase
+  (decay). Guard: `test_chapters` + a `real_corpus` time-spread floor-guard
+  (fails if a large corpus collapses to <6 months — the green-check-over-
+  degenerate-data shape).
+
+This is build-step-1 of the decay-aware lens; the registry-level recency
+weighting + chapter-spread robustness override is step-2 (founder-confirmed).
+
 ## [v1.7.71 — basin scaffolding filter + dedup-at-clustering (#248)] — 2026-05-29
 
 First fix from the pipeline-data audit (#240). The basins stage was DEGRADED:
@@ -2446,7 +2482,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2285<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2292<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -92,10 +92,56 @@ def stage0_parse_and_validate(
 
 def collect_turn_pairs(limit: int = 200) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     """Build turn pairs for the Stage 0 batch and an index keyed by prompt_id
-    so the post-validators can look up assistant/user/next_user text."""
+    so the post-validators can look up assistant/user/next_user text.
+
+    Samples the window RECENCY-BIASED but DIVERSE (#252), not the first `limit`.
+    The extractor iterates the corpus chronologically, so a `limit` passed
+    straight through froze Stage 0 on the OLDEST pairs and never reached recent
+    taste — that's how a 2023 IDE-era "give me the whole file" workaround stayed
+    the #1 lens tension for 14 months. But the pure recent tail over-corrects to
+    a single burst month (a dev sprint fills all 200). So: walk most-recent
+    first, cap per calendar month (≈limit/10) so no one month dominates, and
+    backfill if the caps leave us short. Recency tracks CURRENT taste; durable
+    tensions still recur across the recent months (re-confirmed) while phases
+    that ended fall off and decay via the registry's recency fade."""
+    all_pairs = list(iter_turn_pairs(limit=None))  # chronological
+    if limit and len(all_pairs) > limit:
+        from ..memory.store import iter_prompt_nodes_no_embedding
+        from .chapters import prompt_time
+        pid2month = {
+            getattr(n, "id", None): prompt_time(n)[:7]
+            for n in iter_prompt_nodes_no_embedding(limit=None)
+        }
+        import collections as _c
+        per_month_cap = max(1, limit // 10)
+        seen_per_month: _c.Counter = _c.Counter()
+        chosen: list = []
+        chosen_ids: set = set()
+        # Pass 1: recent-first, capped per month → diverse recent spread.
+        for pair in reversed(all_pairs):
+            m = pid2month.get(pair[2], "?")
+            if seen_per_month[m] >= per_month_cap:
+                continue
+            seen_per_month[m] += 1
+            chosen.append(pair)
+            chosen_ids.add(pair[2])
+            if len(chosen) >= limit:
+                break
+        # Pass 2: if few months meant the caps left us short, backfill the next
+        # most-recent pairs uncapped.
+        if len(chosen) < limit:
+            for pair in reversed(all_pairs):
+                if pair[2] in chosen_ids:
+                    continue
+                chosen.append(pair)
+                if len(chosen) >= limit:
+                    break
+        recent = list(reversed(chosen))  # back to chronological for the chairman
+    else:
+        recent = all_pairs
     pairs: list[dict[str, Any]] = []
     index: dict[str, dict[str, Any]] = {}
-    for assistant, user, prompt_id, next_user in iter_turn_pairs(limit=limit):
+    for assistant, user, prompt_id, next_user in recent:
         pairs.append({
             "prompt_id": prompt_id,
             "assistant_text": assistant,
