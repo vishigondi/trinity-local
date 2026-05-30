@@ -418,6 +418,111 @@ def iter_codex_sessions(root: Path | None = None) -> Iterator[SessionRecord]:
             yield session
 
 
+_AGY_USER_REQUEST_RE = re.compile(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", re.DOTALL)
+
+
+def _antigravity_user_text(content: str) -> str:
+    """Extract the user's actual request from an antigravity USER_INPUT line.
+
+    The `content` wraps the prompt in `<USER_REQUEST>…</USER_REQUEST>` followed
+    by harness-injected `<ADDITIONAL_METADATA>` / `<USER_SETTINGS_CHANGE>` tags
+    (local time, model-selection notices). Only the USER_REQUEST body is the
+    user's voice — the rest is scaffolding the lens must not learn from. When
+    no wrapper is present (older format), fall back to the raw content with any
+    angle-bracket tag blocks stripped."""
+    m = _AGY_USER_REQUEST_RE.search(content)
+    if m:
+        return m.group(1).strip()
+    # Fallback: strip any <TAG>…</TAG> blocks, keep the remainder.
+    return re.sub(r"<[A-Z_]+>.*?</[A-Z_]+>", "", content, flags=re.DOTALL).strip()
+
+
+def parse_antigravity_session(path: Path) -> SessionRecord | None:
+    """Parse an antigravity (agy) CLI transcript.
+
+    Each conversation lives at
+    `~/.gemini/antigravity-cli/brain/<conv_id>/.system_generated/logs/transcript.jsonl`
+    — one JSON object per line with a `type`: `USER_INPUT` (the user's turn,
+    content wrapped in `<USER_REQUEST>`), `PLANNER_RESPONSE` (the agent's
+    reply), plus CONVERSATION_HISTORY / ERROR_MESSAGE / tool steps we skip.
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+
+    # conv_id = the brain/<id>/ dir (path = …/<id>/.system_generated/logs/transcript.jsonl)
+    try:
+        conv_id = path.parents[2].name
+    except IndexError:
+        conv_id = path.stem
+
+    messages: list[SessionMessage] = []
+    started_at: str | None = None
+    ended_at: str | None = None
+    model: str | None = None
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            o = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(o, dict):
+            continue
+        ts = o.get("created_at")
+        if isinstance(ts, str) and ts:
+            started_at = started_at or ts
+            ended_at = ts
+        kind = o.get("type")
+        content = o.get("content")
+        if kind == "USER_INPUT" and isinstance(content, str):
+            text = _antigravity_user_text(content)
+            if text:
+                messages.append(
+                    SessionMessage(role="user", text=text, timestamp=ts, raw_type=kind)
+                )
+        elif kind == "PLANNER_RESPONSE" and isinstance(content, str) and content.strip():
+            messages.append(
+                SessionMessage(
+                    role="assistant", text=content.strip(), timestamp=ts, raw_type=kind
+                )
+            )
+
+    if not messages:
+        return None
+
+    return SessionRecord(
+        provider="antigravity",
+        session_id=conv_id,
+        source_path=str(path),
+        native_id=conv_id,
+        started_at=started_at,
+        ended_at=ended_at,
+        cwd=None,
+        project_hint=None,
+        title=None,
+        model=model,
+        cli_name="antigravity",
+        cli_version=None,
+        source_format="antigravity_transcript_jsonl",
+        source_format_version="1",
+        metadata={},
+        messages=messages,
+    )
+
+
+def iter_antigravity_sessions(root: Path | None = None) -> Iterator[SessionRecord]:
+    root = root or (Path.home() / ".gemini" / "antigravity-cli" / "brain")
+    if not root.exists():
+        return
+    for transcript in sorted(root.glob("*/.system_generated/logs/transcript.jsonl")):
+        session = parse_antigravity_session(transcript)
+        if session is not None:
+            yield session
+
+
 def parse_cowork_session(meta_path: Path) -> SessionRecord | None:
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -579,6 +684,14 @@ def _is_user_facing_prompt(message: SessionMessage) -> bool:
     # patterns observed in the audit (Subagent V tick).
     if lowered.startswith(("look at these recurring", "read the image at",
                             "for each durable fact")):
+        return False
+    # Trinity's OWN test/dispatch sentinels that reach a provider CLI as
+    # role=user (e.g. the antigravity E2E probe and council-readiness checks).
+    # `agy`'s transcript captures every prompt Trinity sends it, so these would
+    # otherwise land in the user's lens as if the user typed them (#268).
+    if "trinity_agy_e2e" in lowered or lowered.startswith(
+        ("reply with exactly:", "respond with exactly:", "respond with the word")
+    ):
         return False
     # Agent-harness instruction files + environment-context blocks captured as
     # role=user (Codex injects `# AGENTS.md instructions for <path>`; Claude

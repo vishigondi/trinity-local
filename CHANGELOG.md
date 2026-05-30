@@ -7,6 +7,32 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.100 — ingest antigravity (agy) CLI sessions: Trinity now learns from the agent it dispatches to] — 2026-05-30
+
+Part-3 audit gap, now closed. Trinity dispatched councils TO antigravity (`agy -p`)
+but never ingested the user's own antigravity sessions — the "gemini" source
+read the *old* `~/.gemini/tmp` gemini-cli (stale since 04-28), and agy's real
+transcripts live under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/
+logs/transcript.jsonl` (per-line JSONL: `USER_INPUT` with a `<USER_REQUEST>`
+body, `PLANNER_RESPONSE`, …).
+
+- `parse_antigravity_session` + `iter_antigravity_sessions` (`ingest.py`) extract
+  the user's `<USER_REQUEST>` text, stripping the injected `<ADDITIONAL_METADATA>`
+  / `<USER_SETTINGS_CHANGE>` tags. Provider tag `antigravity`, distinct from the
+  web `browser_gemini` and the stale `~/.gemini/tmp` gemini-cli.
+- Wired into `watch_runtime` (`_source_root` / `_iter_recent_paths` /
+  `_parse_source_path`) + added to `DEFAULT_SOURCES`.
+- **Self-dispatch filter:** agy's transcript captures every prompt Trinity sends
+  it, so the council-member dispatch ("You are one member of a multi-model
+  council…", already caught by the "you are " rule) and the E2E sentinels
+  ("Reply with exactly: TRINITY_AGY_E2E_OK", "respond with the word …") would
+  otherwise enter the lens as the user's own voice. `_is_user_facing_prompt` now
+  drops them. On the real corpus: 137 transcript turns scanned → 68 genuine user
+  prompts ingested (maxroom.co testing, selenium→stagehand, the monkey
+  illustration, model-choice questions); the council/E2E noise filtered out.
+
++10 guards in `test_antigravity_ingest.py`. (#268)
+
 ## [v1.7.99 — de-bias the lens: it was a software-only persona, threw away the user's cross-domain taste] — 2026-05-30
 
 Audit on freshly-synced threads: the lens build + council work end-to-end, but
@@ -461,7 +487,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2401<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2407<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

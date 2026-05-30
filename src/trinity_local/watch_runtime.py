@@ -39,6 +39,10 @@ def _source_root(source: str) -> Path:
         return home / ".codex" / "sessions"
     if source == "gemini":
         return home / ".gemini" / "tmp"
+    if source == "antigravity":
+        # agy CLI writes per-conversation transcripts under
+        # brain/<conv_id>/.system_generated/logs/transcript.jsonl
+        return home / ".gemini" / "antigravity-cli" / "brain"
     if source == "cowork":
         return home / "Library" / "Application Support" / "Claude" / "local-agent-mode-sessions"
     if source == "browser_claude":
@@ -72,6 +76,8 @@ def _iter_recent_paths(source: str, since_mtime: float) -> Iterator[Path]:
         paths = root.rglob("rollout-*.jsonl")
     elif source == "gemini":
         paths = root.rglob("session-*.json")
+    elif source == "antigravity":
+        paths = root.glob("*/.system_generated/logs/transcript.jsonl")
     elif source in ("browser_claude", "browser_chatgpt"):
         # Exclude .stream.json sidecars — they're adapter outputs without
         # the canonical structure (chat_messages for claude, mapping for
@@ -115,6 +121,9 @@ def _parse_source_path(source: str, path: Path):
     if source == "gemini":
         project_name = path.parent.parent.name if path.parent.name == "chats" else None
         return parse_gemini_cli_session(path, project_name=project_name)
+    if source == "antigravity":
+        from .ingest import parse_antigravity_session
+        return parse_antigravity_session(path)
     if source == "cowork":
         return parse_cowork_session(path)
     if source == "browser_claude":
