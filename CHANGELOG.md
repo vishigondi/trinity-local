@@ -7,6 +7,38 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.74 — semantic noise filter: geometry over regex (first cut)] — 2026-05-29
+
+Founder: "we have multi-dimensional embeddings — can't we just see them in this
+space and figure out how to filter and find the right signal?" Yes. The boundary
+filter has become a growing pile of regex (scaffolding / slash-command /
+"the human" / agent-ops) the audit warned won't generalize. The embeddings
+already separate noise from signal — validated on the real corpus:
+
+- **A few prototype vectors beat the regex pile and generalize.** 3 agent-ops
+  anchors flag held-out phrasings no rule was written for ("just reply YES,
+  nothing more", "resume the previous task") at cosine [0.51–0.63] vs real taste
+  [0.23–0.39] — one clean threshold.
+- **The non-obvious part (DUAL criterion).** A pure distance-to-noise threshold
+  ALSO flags the user's terse *taste* ("lever:on/off", "[redacted user prompt]",
+  "better") because short imperatives sit near agent-ops. So a prompt is noise
+  only when it's nearer a noise prototype than to the user's own taste regions
+  (basin centroids), by a margin. That dropped the flag rate from 7.7% (with
+  false positives on real terse taste) to **0.6%** (mostly yes/no filler),
+  sparing "terse and meaningful" while catching "terse and empty".
+- `me/semantic_filter.py`: universal `NOISE_PROTOTYPES` (add an *example*, not a
+  rule), `is_semantic_noise()` (dual-criterion, abstains without a taste
+  reference), `semantic_noise_report()` introspection. Guards in
+  `test_semantic_filter.py` (held-out generalization, terse-taste spared,
+  abstain-without-reference).
+- **Measure before deleting rules** (founder's call): the module is built +
+  validated but NOT yet wired into the lens/basin path — a documented
+  false-positive tail (real terse questions) needs threshold tuning against the
+  regex baseline first. Registered in `known_orphans.txt` as measure-first;
+  wiring (as a down-weight at basin/lens consumption) rides the #255 cohesion
+  arc. This is one of three geometric axes replacing heuristics: distance-to-
+  noise (here), cluster cohesion (#255), chapter-spread+recency (#256).
+
 ## [v1.7.73 — agent-ops noise filter (#252 validation)] — 2026-05-29
 
 Founder asked: "sample the last month's data… to see if you are making the
@@ -2513,7 +2545,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2304<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2308<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -13,3 +13,5 @@
 # See scripts/find_orphans.py for the analyzer.
 
 src/trinity_local/retired_names.py : Registry consumed only by tests (test_retired_names_registry.py, test_doc_count_consistency.py). The point of the file IS to be a tests-only registry of dead names — production has nothing to learn from it at runtime.
+
+src/trinity_local/me/semantic_filter.py : Geometric noise filter (prototype-vector replacement for the regex zoo in ingest._is_user_facing_prompt). First cut — built + validated on the real corpus (0.6% flagged at the dual-criterion threshold, mostly yes/no filler, with a documented false-positive tail on terse questions). Deliberately NOT yet wired into the lens/basin path per the founder's "measure before deleting the rules" — the threshold + the noise-vs-taste margin need tuning against the regex baseline before it replaces any boundary rule. Reachable via tests/test_semantic_filter.py + the semantic_noise_report() introspection. Wiring (down-weight at basin/lens consumption) tracked for the cohesion arc (#255).
