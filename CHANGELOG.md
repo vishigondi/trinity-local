@@ -7,6 +7,19 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.103 — fix CI: gracefully skip torch/real-embedding tests without the [mlx] extras] — 2026-05-30
+
+CI (`pytest` with `.[test]` only — no `[mlx]`, so no torch + TF-IDF fallback) had
+been red for the whole session: 3 tests hard-required dependencies the CI image
+lacks. `test_embed_device_pin`'s two device tests did a bare `import torch` →
+`ModuleNotFoundError`; now `pytest.importorskip("torch")`. `test_semantic_filter`'s
+held-out-noise test needs REAL embeddings to separate meaning (TF-IDF can't), and
+its fixture only skipped on an *empty* prototype set, not on the fallback backend;
+now it skips when `not mlx_actually_loaded()`. Both pass locally (real embeddings)
+and skip in CI — the project's graceful-degradation convention. (`test_cortex`'s
+real-embedding test already self-skips via `_has_semantic_embeddings()`, so it was
+never a CI failure.)
+
 ## [v1.7.102 — do-operator batch: user-verdict routing weight + typed-vs-pasted provenance + high-signal evals] — 2026-05-30
 
 Three do-operator-discipline closures ("learn from observation, treat the model's

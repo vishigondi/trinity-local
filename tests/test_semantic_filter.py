@@ -14,6 +14,12 @@ from trinity_local.me import semantic_filter as sf
 
 @pytest.fixture(scope="module")
 def vectors():
+    # The geometric noise filter only separates meaning under REAL embeddings;
+    # the TF-IDF fallback (CI without the [mlx] extras) produces vectors that
+    # don't cluster semantically, so skip rather than assert false there.
+    from trinity_local.embeddings import mlx_actually_loaded
+    if not mlx_actually_loaded():
+        pytest.skip("semantic filter requires real embeddings (no [mlx] extras)")
     noise = sf.noise_prototype_vectors()
     if not noise:
         pytest.skip("embedder unavailable")

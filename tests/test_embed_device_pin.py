@@ -19,6 +19,8 @@ from __future__ import annotations
 import sys
 import types
 
+import pytest
+
 
 def _install_fake_sentence_transformers(monkeypatch, recorder):
     fake = types.ModuleType("sentence_transformers")
@@ -35,7 +37,7 @@ def _install_fake_sentence_transformers(monkeypatch, recorder):
 
 def test_prefers_cuda_when_available(monkeypatch):
     monkeypatch.delenv("TRINITY_EMBED_DEVICE", raising=False)
-    import torch
+    torch = pytest.importorskip("torch")  # CI has no [mlx] extras
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     rec: dict = {}
@@ -49,7 +51,7 @@ def test_prefers_cuda_when_available(monkeypatch):
 
 def test_cpu_when_no_cuda_never_auto_mps(monkeypatch):
     monkeypatch.delenv("TRINITY_EMBED_DEVICE", raising=False)
-    import torch
+    torch = pytest.importorskip("torch")  # CI has no [mlx] extras
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     rec: dict = {}
