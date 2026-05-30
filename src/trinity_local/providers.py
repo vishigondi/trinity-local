@@ -363,3 +363,85 @@ def make_provider(config: ProviderConfig) -> BaseProvider:
     if config.type == "ollama":
         return OllamaProvider(config)
     raise ProviderError(f"Unsupported provider type: {config.type}")
+
+
+# ─── Chairman fallback (token exhaustion / rate-limit resilience) ────────
+#
+# The chairman is a single provider (default Claude). When its tokens are
+# exhausted or it rate-limits, its CLI returns non-zero / empty stdout (or the
+# call raises) — and a council/lens build that depends on it would simply fail.
+# These helpers let the caller fall back through the other enabled providers so
+# a dead primary degrades to "synthesized by GPT/Gemini instead" rather than a
+# hard failure.
+
+# Provider types that can chair a synthesis (run a real LLM). Local stubs
+# (mlx/ollama) are excluded — they're council members, not synthesis chairs.
+_CHAIR_TYPES = {"cli", "codex"}
+
+
+def chairman_fallback_order(config, primary_provider: str) -> list[str]:
+    """Ranked chair providers for a synthesis: the requested primary first,
+    then the OTHER enabled chair-capable providers (the fallback chain). Order
+    among the rest follows config insertion order — claude / codex / antigravity
+    as declared."""
+    enabled = [
+        name for name, cfg in config.providers.items()
+        if getattr(cfg, "enabled", False) and getattr(cfg, "type", None) in _CHAIR_TYPES
+    ]
+    order: list[str] = []
+    if primary_provider in enabled:
+        order.append(primary_provider)
+    for name in enabled:
+        if name not in order:
+            order.append(name)
+    return order
+
+
+def _result_is_usable(res: "ProviderResult") -> bool:
+    """A synthesis result is usable when the call succeeded AND produced real
+    stdout. A rate-limited / token-exhausted CLI returns non-zero or empty —
+    the signal to fall through to the next chair."""
+    return bool(res) and res.returncode == 0 and bool((res.stdout or "").strip())
+
+
+def run_with_chairman_fallback(
+    prompt: str,
+    config,
+    primary_provider: str,
+    cwd,
+    *,
+    on_fallback=None,
+    provider_factory=None,
+) -> tuple["ProviderResult | None", str | None, str | None]:
+    """Run `prompt` through the chairman, falling back through the other enabled
+    providers when the primary raises OR returns an unusable (empty/non-zero)
+    result — e.g. Claude's tokens are exhausted.
+
+    Returns ``(result, provider_used, error)``: on success the winning result +
+    which provider actually chaired; on total failure ``(None, None, error)``
+    with the last error. ``on_fallback(failed_provider, reason)`` is called each
+    time it advances, so the caller can record/telemetry the substitution.
+    """
+    factory = provider_factory or make_provider
+    order = chairman_fallback_order(config, primary_provider)
+    last_error: str | None = None
+    for name in order:
+        cfg = config.providers.get(name)
+        if cfg is None or not getattr(cfg, "enabled", False):
+            continue
+        try:
+            res = factory(cfg).run(prompt, cwd)
+        except Exception as exc:  # noqa: BLE001 — any failure → try next chair
+            last_error = f"{name}: {type(exc).__name__}: {exc}"
+            if on_fallback:
+                on_fallback(name, last_error)
+            continue
+        if _result_is_usable(res):
+            return res, name, None
+        last_error = (
+            f"{name}: unusable result (rc={res.returncode}, "
+            f"empty_stdout={not (res.stdout or '').strip()})"
+        )
+        if on_fallback:
+            on_fallback(name, last_error)
+    return None, None, last_error

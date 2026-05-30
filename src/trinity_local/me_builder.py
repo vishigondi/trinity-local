@@ -510,6 +510,44 @@ def build_me_via_council(*, budget_chars: int = ME_BUDGET_CHARS, sample_size: in
     }
 
 
+def _stage_run_with_fallback(prompt, config, chairman, cwd, *, low_effort=False):
+    """Run a lens-build stage chairman call, falling back through the other
+    enabled providers when the primary is rate-limited / token-exhausted (same
+    resilience as the council chairman fallback). `low_effort` runs each
+    candidate at effort=low (the mechanical Stage 0/2 extraction).
+
+    Returns a usable ProviderResult, or — if every chair fails — a final empty
+    one so the stage's existing empty-output handling degrades gracefully
+    instead of crashing the build."""
+    from .providers import (
+        ProviderResult,
+        _result_is_usable,
+        chairman_fallback_order,
+        make_provider,
+    )
+
+    order = chairman_fallback_order(config, chairman) if config else [chairman]
+    last = None
+    for name in order:
+        cfg = config.providers.get(name) if config else None
+        if cfg is None or not getattr(cfg, "enabled", False):
+            continue
+        if low_effort:
+            cfg = dataclasses.replace(cfg, effort="low")
+        try:
+            res = make_provider(cfg).run(prompt, cwd)
+        except Exception as exc:  # noqa: BLE001 — any failure → next chair
+            last = f"{name}: {exc}"
+            continue
+        if _result_is_usable(res):
+            return res
+        last = f"{name}: unusable (rc={res.returncode})"
+    return ProviderResult(
+        provider=chairman, stdout="", stderr=str(last or "all chairmen failed"),
+        returncode=1,
+    )
+
+
 def build_me_via_lens_pipeline(
     *,
     sample_size: int = ME_SAMPLE_SIZE,
@@ -552,7 +590,6 @@ def build_me_via_lens_pipeline(
         stage4_post_filter,
     )
     from .memory import search_prompt_nodes
-    from .providers import make_provider
     from .ranker import predict_strongest_chairman
 
     # Upgrade recovery (review finding #3): seed the ledger from any legacy
@@ -646,18 +683,16 @@ def build_me_via_lens_pipeline(
         chairman_config = config.providers.get(chairman) if (config and chairman) else None
     if chairman_config is None:
         raise RuntimeError("lens-build requires at least one enabled provider")
-    primary = make_provider(chairman_config)
-    # Stage 0/2 are MECHANICAL extraction (classify a turn-pair gap into one
-    # of four rejection types; pull a decision's privileged/sacrificed poles)
-    # — not the deep reasoning Stage 3 pair-mining or Stage 5 distill need.
-    # Running them at the council's full effort is the wrong tradeoff: on real
-    # data a 40-pair Stage 0 batch at `high` effort blew past the 8-min
-    # per-call timeout (returncode=-1) and #203 aborted the build, while the
-    # smaller `distill` call at the same effort completed fine. So extraction
-    # runs at LOW effort regardless of the provider's configured level — far
-    # under the timeout, no quality cost for classification.
-    _extract_config = dataclasses.replace(chairman_config, effort="low")
-    extractor = make_provider(_extract_config)
+    # Each stage dispatches through `_stage_run_with_fallback` (chairman +
+    # provider-fallback when the primary is token-exhausted). Stage 0/2 are
+    # MECHANICAL extraction (classify a turn-pair gap into one of four rejection
+    # types; pull a decision's privileged/sacrificed poles) — not the deep
+    # reasoning Stage 3 pair-mining or Stage 5 distill need. Running them at the
+    # council's full effort is the wrong tradeoff: on real data a 40-pair Stage 0
+    # batch at `high` effort blew past the 8-min per-call timeout (returncode=-1)
+    # and #203 aborted the build. So extraction passes `low_effort=True` — far
+    # under the timeout, no quality cost for classification — while Stage 3 runs
+    # at the chairman's configured effort.
 
     # Stage 0: turn-pair gap extraction (the highest-signal source per
     # taste-terminal spec). One batch chairman call classifies turn pairs
@@ -736,7 +771,7 @@ def build_me_via_lens_pipeline(
 
         def _run_stage0_batch(idx: int):
             prompt = stage0_turn_pair_prompt(batches[idx], basins)
-            return idx, extractor.run(prompt, cwd=Path.cwd())
+            return idx, _stage_run_with_fallback(prompt, config, chairman, Path.cwd(), low_effort=True)
 
         if batches:
             with concurrent.futures.ThreadPoolExecutor(
@@ -837,7 +872,7 @@ def build_me_via_lens_pipeline(
           f"{len(augmented_samples)} samples)…", flush=True)
     stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
     # Mechanical extraction → low effort (same rationale as Stage 0 above).
-    stage2_result = extractor.run(stage2_prompt, cwd=Path.cwd())
+    stage2_result = _stage_run_with_fallback(stage2_prompt, config, chairman, Path.cwd(), low_effort=True)
     decisions = stage2_parse(stage2_result.stdout or "", basins)
 
     # Prepend high-weight decisions from two sources:
@@ -900,7 +935,7 @@ def build_me_via_lens_pipeline(
     write_progress("stage3")
     print(f"  Stage 3: pair mining (chairman: {chairman})…", flush=True)
     stage3_prompt = stage3_pair_mining_prompt(decisions)
-    stage3_result = primary.run(stage3_prompt, cwd=Path.cwd())
+    stage3_result = _stage_run_with_fallback(stage3_prompt, config, chairman, Path.cwd())
     pairs = stage3_parse(stage3_result.stdout or "")
     print(f"           → {len(pairs)} candidate pairs proposed", flush=True)
 

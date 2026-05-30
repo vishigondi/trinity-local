@@ -179,6 +179,43 @@ def _provider_model(config, override: str | None) -> str | None:
     return config.model
 
 
+def _synthesize_with_fallback(
+    prompt, config, primary_provider, primary_model, cwd, state_token
+):
+    """Run the chairman synthesis with provider fallback — when the primary
+    chair (default Claude) raises or returns an unusable result (tokens
+    exhausted / rate-limited), fall through to the other enabled providers so
+    the council still produces a verdict instead of failing.
+
+    Returns ``(output, sections, error, chair_provider, chair_model)``. The
+    chair fields reflect whoever ACTUALLY synthesized (reassigned on fallback)
+    so the outcome is honest. Always flips the synthesis progress to 'done'.
+    """
+    from .providers import run_with_chairman_fallback
+
+    output = ""
+    sections: dict[str, str] = {}
+    error: str | None = None
+    chair, model = primary_provider, primary_model
+    # Pass council_runner's make_provider so tests patching it (+ the council
+    # dispatch path) flow through the fallback unchanged.
+    res, used, ferr = run_with_chairman_fallback(
+        prompt, config, primary_provider, cwd, provider_factory=make_provider,
+    )
+    try:
+        if res is not None:
+            if used and used != primary_provider:
+                chair = used
+                model = _provider_model(config.providers.get(used), None)
+            output = res.stdout or res.stderr or ""
+            sections = parse_synthesis_sections(output)
+        else:
+            error = ferr or "all chairmen unavailable (rate-limited / exhausted?)"
+    finally:
+        update_synthesis_progress(state_token, "done", output_text=output)
+    return output, sections, error, chair, model
+
+
 def _resolve_winner(
     *,
     routing_label,
@@ -379,18 +416,15 @@ def _run_chain(
     synthesis_prompt = render_primary_council_prompt(bundle, member_results)
 
     update_synthesis_progress(state_token, "running")
-    synthesis_output = ""
-    synthesis_error: str | None = None
-    sections: dict[str, str] = {}
-    primary = make_provider(primary_config)
-    try:
-        primary_result = primary.run(synthesis_prompt, cwd)
-        synthesis_output = primary_result.stdout or primary_result.stderr or ""
-        sections = parse_synthesis_sections(synthesis_output)
-    except Exception as exc:
-        synthesis_error = str(exc)
-    finally:
-        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
+    # Chairman fallback (#fallback): if the primary chair is rate-limited /
+    # token-exhausted, synthesize with the next enabled provider instead of
+    # failing. `primary_provider`/`primary_model` are reassigned to whoever
+    # actually chaired so the outcome records the truth.
+    synthesis_output, sections, synthesis_error, primary_provider, primary_model = (
+        _synthesize_with_fallback(
+            synthesis_prompt, config, primary_provider, primary_model, cwd, state_token
+        )
+    )
 
     differences = []
     if "differences" in sections:
@@ -730,28 +764,24 @@ def run_council(
     synthesis_prompt = render_primary_council_prompt(bundle, member_results)
     primary_prompt = synthesis_prompt or (render_member_prompt(bundle) if not member_results else "")
 
-    # --- Primary synthesis with failure handling ---
+    # --- Primary synthesis with failure handling + chairman fallback ---
     update_synthesis_progress(state_token, "running")
-    synthesis_output = ""
-    synthesis_error = None
-    sections: dict[str, str] = {}
     synthesis_failure: dict[str, object] | None = None
-    primary = make_provider(primary_config)
-    try:
-        primary_result = primary.run(primary_prompt, cwd)
-        synthesis_output = primary_result.stdout or primary_result.stderr or ""
-        sections = parse_synthesis_sections(synthesis_output)
-    except Exception as exc:
-        synthesis_error = str(exc)
+    # Chairman fallback: if the primary chair is rate-limited / exhausted,
+    # synthesize with the next enabled provider. primary_provider/_model are
+    # reassigned to whoever actually chaired.
+    synthesis_output, sections, synthesis_error, primary_provider, primary_model = (
+        _synthesize_with_fallback(
+            primary_prompt, config, primary_provider, primary_model, cwd, state_token
+        )
+    )
+    if synthesis_error:
         synthesis_failure = {
             "provider": primary_provider,
             "stage": "primary_synthesis",
-            "reason": "exception",
-            "error": str(exc),
+            "reason": "all_chairmen_failed",
+            "error": synthesis_error,
         }
-        synthesis_output = ""
-    finally:
-        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
 
     differences = []
     if "differences" in sections:
@@ -802,9 +832,12 @@ def run_council(
         final_metadata["synthesis_error"] = synthesis_error
         final_metadata["synthesis_failure"] = synthesis_failure
     else:
-        final_metadata["primary_returncode"] = primary_result.returncode
-        final_metadata["primary_stderr"] = primary_result.stderr
+        # The winning chair (possibly a fallback) returned usable output.
+        final_metadata["primary_returncode"] = 0
+        final_metadata["primary_stderr"] = ""
         final_metadata["parsed_sections"] = sections
+        # Record who ACTUALLY chaired (reassigned on fallback) for honesty.
+        final_metadata["chairman_provider"] = primary_provider
     if routing_label_error:
         final_metadata["routing_label_error"] = routing_label_error
 
@@ -1142,18 +1175,15 @@ def run_consensus_round(
     synthesis_prompt = render_primary_council_prompt(new_bundle, member_results)
 
     update_synthesis_progress(state_token, "running")
-    synthesis_output = ""
-    synthesis_error: str | None = None
-    sections: dict[str, str] = {}
-    primary = make_provider(primary_config)
-    try:
-        primary_result = primary.run(synthesis_prompt, cwd)
-        synthesis_output = primary_result.stdout or primary_result.stderr or ""
-        sections = parse_synthesis_sections(synthesis_output)
-    except Exception as exc:
-        synthesis_error = str(exc)
-    finally:
-        update_synthesis_progress(state_token, "done", output_text=synthesis_output)
+    # Chairman fallback (#fallback): if the primary chair is rate-limited /
+    # token-exhausted, synthesize with the next enabled provider instead of
+    # failing. `primary_provider`/`primary_model` are reassigned to whoever
+    # actually chaired so the outcome records the truth.
+    synthesis_output, sections, synthesis_error, primary_provider, primary_model = (
+        _synthesize_with_fallback(
+            synthesis_prompt, config, primary_provider, primary_model, cwd, state_token
+        )
+    )
 
     differences = []
     if "differences" in sections:

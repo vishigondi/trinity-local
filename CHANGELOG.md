@@ -7,6 +7,25 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.93 — chairman fallback: councils + lens survive a token-exhausted primary] — 2026-05-30
+
+When the chairman (default Claude) is rate-limited / out of tokens, its CLI
+returns non-zero / empty stdout (or raises) — and a council or lens build that
+depends on it simply FAILED. Now it falls through to the next enabled provider.
+
+- `providers.run_with_chairman_fallback` / `chairman_fallback_order`: try the
+  requested chair first, then the other enabled chair-capable providers, until
+  one returns a usable result (rc==0, non-empty). A `provider_factory` hook
+  keeps the existing council test stubs flowing through.
+- **Councils**: all three synthesis sites (parallel, consensus-round, chain-final)
+  go through `_synthesize_with_fallback`; `primary_provider`/`primary_model` are
+  reassigned to whoever ACTUALLY chaired so the outcome records the truth.
+- **Lens build**: Stage 0/2/3 dispatch through `_stage_run_with_fallback`
+  (extraction stages keep `low_effort`), so a token-exhausted Claude degrades the
+  lens build to GPT/Gemini instead of failing.
+
+8 new tests (raise / empty / all-fail / no-fallback / on_fallback hook).
+
 ## [v1.7.92 — auto-build the first lens + visible, stoppable progress (#242a)] — 2026-05-30
 
 Closes the fresh-install gap: the cold-open anchor line said "the deeper lens is
@@ -259,7 +278,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2362<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2367<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

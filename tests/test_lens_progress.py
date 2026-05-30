@@ -8,6 +8,8 @@ import pytest
 def _home(tmp_path, monkeypatch):
     import trinity_local.state_paths as sp
     monkeypatch.setattr(sp, "state_dir", lambda: tmp_path)
+    import trinity_local.lens_progress as _lp
+    monkeypatch.setattr(_lp, "state_dir", lambda: tmp_path)
     return tmp_path
 
 
