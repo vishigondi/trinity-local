@@ -652,6 +652,11 @@ def iter_cowork_sessions(root: Path | None = None) -> Iterator[SessionRecord]:
 
 
 def _is_user_facing_prompt(message: SessionMessage) -> bool:
+    # #260 do-operator invariant (LOAD-BEARING): only the user's OWN turns become
+    # PromptNodes. Assistant/tool/system text is a model ACTION, never the user's
+    # authored evidence — indexing it would train the lens on self-authored
+    # tokens as if they were external observation ("taste echo chamber"). This
+    # role gate is the single barrier; every ingest source routes through it.
     if message.role != "user":
         return False
     text = (message.text or "").strip()

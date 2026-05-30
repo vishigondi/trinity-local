@@ -230,11 +230,31 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
             prompt_id=prompt_id,
             provider_of_rejected_response=provider,
         ))
-        by_type[rej_type] = by_type.get(rej_type, 0) + 1
-        if act.basin:
-            by_basin[act.basin] = by_basin.get(act.basin, 0) + 1
-        if limit is not None and len(items) >= limit:
-            break
+    # #269 EVAL nomination: when limiting, draw the benchmark from the user's
+    # HIGHEST-SIGNAL threads (real, multi-turn, substantive work) rather than
+    # the first N in ledger order — the best threads make the best evals. Rank
+    # each rejection by its originating thread's signal, then truncate.
+    if limit is not None and len(items) > limit:
+        try:
+            from ..me.thread_signal import compute_thread_signals
+            from ..memory.store import iter_prompt_nodes_no_embedding
+
+            sig = compute_thread_signals()
+            pid2tid = {
+                getattr(n, "id", ""): getattr(n, "transcript_id", "") or ""
+                for n in iter_prompt_nodes_no_embedding(limit=None)
+            }
+            items.sort(key=lambda it: -sig.get(pid2tid.get(it.prompt_id, ""), 0.0))
+        except Exception:
+            pass  # ranking is a preference, never a hard dependency
+        items = items[:limit]
+
+    # Recompute the type/basin histograms over the FINAL (possibly truncated)
+    # item set so the stats describe what's actually in the eval.
+    for it in items:
+        by_type[it.rejection_type] = by_type.get(it.rejection_type, 0) + 1
+        if it.basin_id:
+            by_basin[it.basin_id] = by_basin.get(it.basin_id, 0) + 1
 
     # Content-addressed eval_id: hash of the source_ids so re-running on
     # the same corpus produces the same eval_id (idempotent), but adding

@@ -7,6 +7,36 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.102 — do-operator batch: user-verdict routing weight + typed-vs-pasted provenance + high-signal evals] — 2026-05-30
+
+Three do-operator-discipline closures ("learn from observation, treat the model's
+own output as given"):
+
+- **#260 routing now weights the user's verdict above the chairman's pick.** The
+  table counted `chairman_winner` (a model ACTION); `council_feedback.jsonl` held
+  the user's own verdicts (revealed preference — the OBSERVATION) but they were
+  unused after the rating-UX sunset. `aggregate_routing_table` now counts a user
+  vote at `USER_VOTE_WEIGHT=3`, superseding the chairman pick when present;
+  `_scan_outcomes` attaches `user_winner` from the feedback ledger (canonicalized
+  via `resolve_provider_alias`). Plus the ingest role gate (`_is_user_facing_prompt`)
+  is marked the LOAD-BEARING assistant-token barrier — only the user's own turns
+  become PromptNodes, never model output.
+
+- **#262 typed-vs-pasted provenance.** `me/provenance.py` — structural
+  `pasted_fraction` / `is_mostly_pasted` / `typed_substance` (code fences, md
+  headers, bullet/quote/JSON lines). Validated: typed questions → 0.0, a pasted
+  code block → 0.86, a pasted spec → 1.0. Wired into the thread-signal substance
+  term so a wall of pasted external content (a model's output, an article) no
+  longer inflates a thread's signal — the lens learns from what you TYPED.
+
+- **#269 high-signal evals.** `build_eval_set(limit=…)` now ranks rejections by
+  their originating thread's signal before truncating — the personal benchmark
+  draws from your best multi-turn work, not the first N in ledger order. (The
+  SEED half shipped v1.7.101.)
+
++~30 guards across `test_do_operator_routing.py`, `test_provenance.py`,
+`test_thread_signal.py`. (#260 #262 #269)
+
 ## [v1.7.101 — thread-signal SEED gate: the lens learns from high-signal threads, not the monkey] — 2026-05-30
 
 The lens seeded from a recency+diversity window that still let in throwaway test
@@ -516,7 +546,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2416<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2434<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

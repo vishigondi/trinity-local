@@ -51,14 +51,24 @@ from .utils import now_iso
 # each council are the supervision signal now.
 
 
+# #260 do-operator weighting. The user's verdict (council_feedback) is a
+# revealed-preference OBSERVATION; the chairman's pick is a model ACTION. A user
+# vote counts this many times a chairman pick, so the routing table is anchored
+# on what the user CHOSE, not on what a model judged. (Was: chairman-only, after
+# the 2026-05-21 rating-UX sunset — but the verdict DATA in council_feedback.jsonl
+# is exactly the do-operator-correct signal the audit said to weight up.)
+USER_VOTE_WEIGHT = 3
+
+
 def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any]:
-    """Group routing labels by task_type and count chairman wins per provider.
+    """Group routing labels by task_type and count weighted wins per provider.
 
     Each item should have:
         - routing_label: dict (with provider_scores + task_type + winner)
         - task_type: str (fallback when label lacks task_type)
-        - chairman_winner: str | None (the provider the chairman picked)
-        - user_winner: ignored — sunset 2026-05-21
+        - chairman_winner: str | None (the provider the chairman picked — prior)
+        - user_winner: str | None (#260: the provider the USER chose — supervision;
+          counted at USER_VOTE_WEIGHT, supersedes the chairman pick when present)
 
     Two derived stats per (task_type, provider):
         - wins: count of councils where chairman picked this provider
@@ -89,9 +99,22 @@ def aggregate_routing_table(councils: Iterable[dict[str, Any]]) -> dict[str, Any
             if overall is None:
                 continue
             by_task_scores.setdefault(task_type, {}).setdefault(provider, []).append(float(overall))
-        if chairman_winner:
-            by_task_wins.setdefault(task_type, {})[chairman_winner] = (
-                by_task_wins.get(task_type, {}).get(chairman_winner, 0) + 1
+        # #260 do-operator vote: the user's OWN verdict (revealed preference) is
+        # the supervision signal and supersedes the chairman's pick (a model
+        # action) — counted at USER_VOTE_WEIGHT. Only when the user left no
+        # verdict does the chairman pick stand in as a weight-1 prior. This
+        # anchors the routing table on what the user CHOSE, not on what a model
+        # judged — "do not train on self-authored tokens as external evidence."
+        user_winner = c.get("user_winner")
+        if user_winner:
+            vote_provider, weight = user_winner, USER_VOTE_WEIGHT
+        elif chairman_winner:
+            vote_provider, weight = chairman_winner, 1
+        else:
+            vote_provider, weight = None, 0
+        if vote_provider:
+            by_task_wins.setdefault(task_type, {})[vote_provider] = (
+                by_task_wins.get(task_type, {}).get(vote_provider, 0) + weight
             )
 
     by_task_type: dict[str, dict[str, dict[str, float]]] = {}
@@ -170,6 +193,16 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
     records: list[dict[str, Any]] = []
     if not outcomes_dir.exists():
         return records, True
+    # #260 do-operator: the user's own verdict in council_feedback.jsonl is the
+    # REVEALED preference (an observation) — the do-operator-correct supervision
+    # signal. The chairman's pick is a model ACTION (a weak prior). Load the
+    # feedback once and attach it per council so the aggregator can weight the
+    # user's choice above the chairman's. Best-effort: no feedback file → {}.
+    try:
+        from .council_feedback import latest_feedback_by_council
+        feedback = latest_feedback_by_council()
+    except Exception:
+        feedback = {}
     all_clean = True
     for outcome_path in sorted(outcomes_dir.glob("*.json")):
         council_id = outcome_path.stem
@@ -208,11 +241,23 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
             1 for m in (outcome.member_results or [])
             if _is_substantive_output(getattr(m, "output_text", "") or "")
         )
+        # #260: the provider the USER actually chose for this council (revealed
+        # preference), if they left a verdict. Canonicalize so it matches the
+        # chairman_winner provider slugs.
+        fb = feedback.get(council_id) or {}
+        user_winner = fb.get("provider") or None
+        if user_winner:
+            try:
+                from .council_schema import resolve_provider_alias
+                user_winner = resolve_provider_alias(user_winner)
+            except Exception:
+                pass
         records.append({
             "council_run_id": council_id,
             "task_type": task_type,
             "routing_label": label_dict,
             "chairman_winner": chairman_winner,
+            "user_winner": user_winner,
             "winner_provider": outcome.winner_provider,
             "primary_provider": outcome.primary_provider,
             "substantive_members": substantive_members,

@@ -54,11 +54,16 @@ def score_thread(user_texts: list[str], corrections: int = 0) -> float:
     `corrections` = count of model_miss preference acts originating in the
     thread (revealed-preference density). Weighted but sparse in practice.
     """
+    from .provenance import typed_substance
+
     texts = [t.strip() for t in user_texts if t and t.strip()]
     n = len(texts)
     if n == 0:
         return 0.0
-    avg = sum(len(t) for t in texts) / n
+    # #262 do-operator: count the user's TYPED substance, not pasted external
+    # content (a model's output, an article, a code dump) — a wall of paste
+    # isn't the user's authored voice and must not inflate the signal.
+    avg = sum(typed_substance(t) for t in texts) / n
     depth = min(n, _DEPTH_CAP) / _DEPTH_CAP
     substance = min(avg, _SUBSTANCE_CAP) / _SUBSTANCE_CAP
     cden = min(corrections / n, 1.0)

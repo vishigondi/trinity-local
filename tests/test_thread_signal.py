@@ -74,3 +74,16 @@ class TestSeedGateWiring:
         assert "LOW_SIGNAL_FLOOR" in src
         # Three-pass structure: floor+cap, floor-only, thin-corpus fallback.
         assert src.count("_sig(pair)") >= 2
+
+
+class TestEvalNominationWiring:
+    def test_eval_build_prefers_high_signal_threads_when_limiting(self):
+        """#269: build_eval_set ranks rejections by their thread's signal before
+        truncating to `limit`, so the benchmark draws from the best threads."""
+        import inspect
+
+        from trinity_local.evals import builder
+
+        src = inspect.getsource(builder.build_eval_set)
+        assert "compute_thread_signals" in src
+        assert "items.sort" in src and "items[:limit]" in src
