@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.94 — local council members usable: strip Ollama thinking-trace + ANSI from output] — 2026-05-30
+
+Local Ollama members were technically dispatching but their output was unusable
+as delivered. Raw `ollama run` stdout from a reasoning model (Qwen3.6) carries
+the FULL chain-of-thought, a `...done thinking.` sentinel, then the answer —
+plus ANSI spinner/cursor escape bytes emitted even to a pipe. A real 6-member
+dogfood council on an M1 Ultra (3 flagship + 3 local) caught it: local answers
+ran 8,878 chars vs flagships' ~1,400, and the chairman scored them 3–4/10 with
+the verdict "leaked full chain-of-thought with terminal escape artifacts —
+unusable as delivered." `--hidethinking` / `--think false` would suppress it at
+the source but return EMPTY on these reasoners (the whole reply lives in the
+thinking stream), so the fix strips in post.
+
+- `providers.clean_ollama_output()`: removes ANSI/control bytes, drops
+  `<think>...</think>` blocks, and keeps only the text after the LAST
+  `done thinking.` sentinel; wired into `OllamaProvider.run`.
+- Re-run after the fix: local output dropped 8,878 → 811 chars, clean and
+  comparable. On a level field across 3 task types, flagships still led
+  (Claude/GPT-5.5 ~8.3, Gemini 3.1 Pro 6.7, local cluster 4.7–5.3) — but the gap
+  is delivery (specificity, grounding, concision), not the verdict: local
+  converged with flagships on every core conclusion.
+- Note: registering local models as council members still requires `type:
+  "ollama"` provider entries in the local `config.json` (gitignored) —
+  `config.example.json` ships none by default (the example can't assume which
+  models a user has pulled).
+
+6 new tests (`test_ollama_output_clean.py`: thinking-drop / ANSI-strip /
+think-tag / no-sentinel / last-sentinel-wins / empty-passthrough).
+
 ## [v1.7.93 — chairman fallback: councils + lens survive a token-exhausted primary] — 2026-05-30
 
 When the chairman (default Claude) is rate-limited / out of tokens, its CLI
@@ -278,7 +307,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2367<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2373<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
