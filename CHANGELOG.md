@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.101 — thread-signal SEED gate: the lens learns from high-signal threads, not the monkey] — 2026-05-30
+
+The lens seeded from a recency+diversity window that still let in throwaway test
+threads ("make the monkey better", "say hi", "Reply with exactly: OK") and long
+mechanical CLI agent-loops. Founder: "sample my recent high-signal threads where
+we made good progress, identify more like that, use as evals + seed."
+
+Tested all four candidate signal definitions empirically over the real
+7.7k-thread corpus (the measure-don't-guess pass):
+- **Depth (uncapped)** — over-rewards 3000-turn agent grinds; buried the real
+  deliberative threads. Rejected.
+- **Depth capped + substance** — the reliable base.
+- **Correction density** — too sparse today (mostly 0.0); weight kept for later.
+- **Outcome markers** — surfaces resolved threads.
+- **Test + agent-loop penalties** — essential.
+
+`me/thread_signal.py`: `score_thread` = `0.25·capped-depth + 0.30·substance +
+0.30·corrections + 0.15·outcome`, penalized by test-shape & agent-loop;
+`compute_thread_signals` / `rank_threads` / `LOW_SIGNAL_FLOOR=0.08`. On the real
+corpus this scores the monkey/"say hi"/"OK" threads 0.002–0.022 (DROP) and the
+"$4M short-term-gain" tax / "it has to be THE movement" / SFO-travel threads
+0.49–0.70 (KEEP).
+
+**SEED wired:** `collect_turn_pairs` is now a 3-pass gate — Pass 1 high-signal +
+per-month cap (diverse recent substance), Pass 2 high-signal across any month,
+Pass 3 thin-corpus fallback — so Stage 0 learns from real work and the monkey
+never enters. EVAL nomination (`rank_threads` → eval-build candidates) is the
+next slice (#269). +18 guards. Full suite green (2413). (#269)
+
 ## [v1.7.100 — ingest antigravity (agy) CLI sessions: Trinity now learns from the agent it dispatches to] — 2026-05-30
 
 Part-3 audit gap, now closed. Trinity dispatched councils TO antigravity (`agy -p`)
@@ -487,7 +516,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2407<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2416<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

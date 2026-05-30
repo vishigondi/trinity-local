@@ -16,15 +16,21 @@ def test_collect_turn_pairs_is_recent_and_diverse(monkeypatch):
     # 25 months of pairs, 30/month, chronological (oldest first) — like the real
     # iter_turn_pairs output.
     months = [f"2024-{m:02d}" for m in range(1, 13)] + [f"2025-{m:02d}" for m in range(1, 13)] + ["2026-01"]
+    # Substantive user text so each pair's thread clears the #269 seed-signal
+    # floor — this test exercises recency + per-month diversity, not the seed
+    # gate (which has its own tests), so the gate must be a no-op here.
+    substantive = "a real substantive user prompt with genuine content " * 30
     pairs = []
     for mo in months:
         for j in range(30):
             pid = f"{mo}-{j}"
-            pairs.append(("assistant text " * 5, f"user {pid}", pid, ""))
+            pairs.append(("assistant text " * 5, substantive, pid, ""))
 
     class Node:
         def __init__(self, pid, mo):
             self.id = pid
+            self.transcript_id = pid  # each pair its own high-signal thread
+            self.text = substantive
             self.timestamp = f"{mo}-15T00:00:00"
             self.created_at = "2026-02-01"
 

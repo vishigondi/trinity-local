@@ -108,17 +108,31 @@ def collect_turn_pairs(limit: int = 200) -> tuple[list[dict[str, Any]], dict[str
     if limit and len(all_pairs) > limit:
         from ..memory.store import iter_prompt_nodes_no_embedding
         from .chapters import prompt_time
-        pid2month = {
-            getattr(n, "id", None): prompt_time(n)[:7]
-            for n in iter_prompt_nodes_no_embedding(limit=None)
-        }
+        from .thread_signal import LOW_SIGNAL_FLOOR, compute_thread_signals
+        pid2month = {}
+        pid2tid = {}
+        for n in iter_prompt_nodes_no_embedding(limit=None):
+            nid = getattr(n, "id", None)
+            pid2month[nid] = prompt_time(n)[:7]
+            pid2tid[nid] = getattr(n, "transcript_id", "") or ""
+        # SEED gate (#269): score each thread; a pair from a throwaway/test
+        # thread (the monkey, "say hi", a 3000-turn agent grind) is below the
+        # floor and skipped, so the lens learns from real, high-signal progress.
+        signals = compute_thread_signals()
+
+        def _sig(pair) -> float:
+            return signals.get(pid2tid.get(pair[2], ""), 0.0)
+
         import collections as _c
         per_month_cap = max(1, limit // 10)
         seen_per_month: _c.Counter = _c.Counter()
         chosen: list = []
         chosen_ids: set = set()
-        # Pass 1: recent-first, capped per month → diverse recent spread.
+        # Pass 1: recent-first, high-signal only, capped per month → diverse
+        # recent spread of substantive threads.
         for pair in reversed(all_pairs):
+            if _sig(pair) < LOW_SIGNAL_FLOOR:
+                continue
             m = pid2month.get(pair[2], "?")
             if seen_per_month[m] >= per_month_cap:
                 continue
@@ -127,8 +141,19 @@ def collect_turn_pairs(limit: int = 200) -> tuple[list[dict[str, Any]], dict[str
             chosen_ids.add(pair[2])
             if len(chosen) >= limit:
                 break
-        # Pass 2: if few months meant the caps left us short, backfill the next
-        # most-recent pairs uncapped.
+        # Pass 2: still high-signal, but drop the per-month cap to backfill from
+        # any month (a few high-signal months shouldn't starve the window).
+        if len(chosen) < limit:
+            for pair in reversed(all_pairs):
+                if pair[2] in chosen_ids or _sig(pair) < LOW_SIGNAL_FLOOR:
+                    continue
+                chosen.append(pair)
+                chosen_ids.add(pair[2])
+                if len(chosen) >= limit:
+                    break
+        # Pass 3: thin-corpus fallback — if high-signal pairs alone can't fill
+        # the window, backfill recent pairs uncapped (a brand-new install with
+        # little history still builds *a* lens).
         if len(chosen) < limit:
             for pair in reversed(all_pairs):
                 if pair[2] in chosen_ids:
