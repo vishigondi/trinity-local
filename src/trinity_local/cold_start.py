@@ -488,6 +488,106 @@ def maybe_kick_lens_refresh() -> dict | None:
         return None
 
 
+# ─── #242(a): auto-kick the FIRST lens build ────────────────────────────
+#
+# The activity-gated refresh above only keeps an EXISTING lens current — the
+# very first build was a manual `trinity-local lens`. So a fresh user saw the
+# #242 anchors ("…the deeper lens is still building") while nothing actually
+# built it. This closes that: once the cold-start scan has ingested AND the
+# corpus is embedded, the first build kicks in the background at MCP connect
+# (an authenticated session — provider CLIs are live), writing live progress
+# the launchpad shows + a cancel flag the user can trip. Same lock as refresh
+# (one build at a time); same "never a surprise 3am cron" discipline.
+
+def _no_lens_yet() -> bool:
+    try:
+        from .me_builder import me_path
+        return not me_path().exists()
+    except Exception:
+        return False
+
+
+def _corpus_has_embeddings(min_nodes: int = 20) -> bool:
+    """Cheap probe: are there enough embedded prompt nodes for a REAL-embedding
+    first build? Gates the auto-kick so we don't auto-produce a degraded TF-IDF
+    lens before the embedder + backfill are ready (the deeper-memory card
+    prompts the download in that window)."""
+    try:
+        from .embeddings import is_finite_embedding
+        from .memory.store import iter_prompt_nodes
+        n = 0
+        for node in iter_prompt_nodes(limit=None):
+            if is_finite_embedding(getattr(node, "embedding", None)):
+                n += 1
+                if n >= min_nodes:
+                    return True
+        return False
+    except Exception:
+        return False
+
+
+def should_build_first_lens() -> tuple[bool, str]:
+    """Gate for the auto first build: autoscan on, NO lens yet, the cold-start
+    scan has completed, and the corpus is embedded. Pure read."""
+    if _autoscan_disabled():
+        return False, "autoscan disabled"
+    if not _no_lens_yet():
+        return False, "lens exists (refresh path, not first build)"
+    st = read_state()
+    if not st or st.get("status") != "complete":
+        return False, "cold-start scan not complete"
+    if not _corpus_has_embeddings():
+        return False, "corpus not embedded yet (deeper-memory download pending)"
+    return True, "first lens build (cold-start done, embeddings ready)"
+
+
+def maybe_kick_first_lens_build() -> dict | None:
+    """Background-kick the first lens build when the gate is open and no build
+    is in flight. Best-effort; returns the kick record or None when skipped.
+
+    The build writes its own per-stage progress + a 'done' on success
+    (`lens_progress`); this wrapper only records the canceled/failed terminal
+    states and releases the shared build lock."""
+    if _autoscan_disabled():
+        return None
+    try:
+        ok, reason = should_build_first_lens()
+        if not ok or _recently_kicked():
+            return None
+        if not _try_claim_refresh_lock():
+            return None
+        _write_refresh_marker({"last_kick_at": now_iso(), "reason": reason, "status": "in_progress"})
+
+        def _run():
+            from .lens_progress import LensBuildCanceled, write_progress
+            try:
+                from .me_builder import build_me_via_lens_pipeline
+                build_me_via_lens_pipeline()  # per-stage progress + "done" on success
+                _write_refresh_marker({
+                    "last_kick_at": now_iso(), "reason": reason, "status": "done",
+                    "finished_at": now_iso(),
+                })
+            except LensBuildCanceled:
+                write_progress("canceled", status="canceled")
+                _write_refresh_marker({
+                    "last_kick_at": now_iso(), "reason": reason, "status": "canceled",
+                    "finished_at": now_iso(),
+                })
+            except Exception as exc:
+                write_progress("failed", status="failed", error=str(exc)[:200])
+                _write_refresh_marker({
+                    "last_kick_at": now_iso(), "reason": reason, "status": "failed",
+                    "finished_at": now_iso(), "error": str(exc)[:200],
+                })
+            finally:
+                _release_refresh_lock()
+
+        threading.Thread(target=_run, daemon=True, name="trinity-first-lens-build").start()
+        return {"status": "kicked", "reason": reason}
+    except Exception:
+        return None
+
+
 def cold_open_tension() -> str | None:
     """The cold-start *aha* (#212 / Q2): ONE surprising, true thing about how
     the user decides — surfaced the instant their lens has any signal, before

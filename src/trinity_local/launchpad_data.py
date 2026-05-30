@@ -698,6 +698,10 @@ def build_page_data(
         # as a chronological history. Empty list on a thin/dev-only corpus so
         # the card self-hides.
         "timeline": _timeline_for_launchpad(),
+        # #242(a) live lens-build progress — drives the 'Building your lens'
+        # card (stage + bar + stop/restart). None when no build is running or
+        # recently finished, so the card self-hides.
+        "lensBuild": _lens_build_for_launchpad(),
         # rateLimitSaves removed from pageData 2026-05-21 alongside
         # the rate-action / pending-ratings mechanism retirement. The
         # launchpad never rendered a card for it (the user explicitly
@@ -728,6 +732,39 @@ def _cold_open_for_launchpad() -> str | None:
     try:
         from .cold_start import cold_open_tension
         return cold_open_tension()
+    except Exception:
+        return None
+
+
+def _lens_build_for_launchpad() -> dict | None:
+    """#242(a) — live lens-build progress for the launchpad 'Building your lens'
+    card. Returns {building, stage, label, pct, status} while a build is running
+    OR recently finished (so the user sees the completion / failure / cancel),
+    else None so the card self-hides. Best-effort, cheap (one JSON read)."""
+    try:
+        from .lens_progress import read_progress
+        p = read_progress()
+        if p is None or not p.status:
+            return None
+        # Surface while running, OR for a short window after a terminal state so
+        # the user sees "done / canceled / failed" rather than the card just
+        # vanishing mid-glance.
+        if p.status == "running":
+            show = True
+        else:
+            from .cold_start import _hours_since
+            age_h = _hours_since(p.updated_at)
+            show = age_h is not None and age_h < 0.17  # ~10 min
+        if not show:
+            return None
+        return {
+            "building": p.status == "running",
+            "stage": p.stage,
+            "label": p.label,
+            "pct": p.pct,
+            "status": p.status,
+            "error": p.error,
+        }
     except Exception:
         return None
 

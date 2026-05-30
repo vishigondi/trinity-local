@@ -851,6 +851,39 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
+      <!-- #242(a) 'Building your lens' — live build progress (stage + bar) with
+           stop/restart. Self-hides when no build is running or recently done.
+           The first build auto-kicks at MCP connect; this makes it visible +
+           controllable instead of a silent multi-minute wait. -->
+      <section class="card" v-if="pageData.lensBuild"
+               style="border-left: 3px solid #2d8a3e; background: rgba(45,138,62,0.04);">
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          <span v-if="pageData.lensBuild.building">🧩 Building your lens…</span>
+          <span v-else-if="pageData.lensBuild.status === 'complete'">✓ Your lens is ready</span>
+          <span v-else-if="pageData.lensBuild.status === 'canceled'">⏸ Lens build stopped</span>
+          <span v-else>⚠ Lens build hit a snag</span>
+        </h2>
+        <p class="meta" style="margin-top: 6px;">
+          {{{{ pageData.lensBuild.label }}}}<span v-if="pageData.lensBuild.error"> — {{{{ pageData.lensBuild.error }}}}</span>
+        </p>
+        <div v-if="pageData.lensBuild.building"
+             style="margin-top: 8px; height: 8px; background: rgba(45,138,62,0.12); border-radius: 4px; overflow: hidden;">
+          <div :style="{{ width: pageData.lensBuild.pct + '%', height: '100%', background: '#2d8a3e', transition: 'width 0.4s' }}"></div>
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="button ghost" v-if="pageData.lensBuild.building"
+                  @click="stopLensBuild" :disabled="lensBuildAction === 'stopping'">
+            <span v-if="lensBuildAction === 'stopping'">Stopping…</span><span v-else>Stop</span>
+          </button>
+          <button type="button" class="button ghost"
+                  v-if="!pageData.lensBuild.building && pageData.lensBuild.status !== 'complete'"
+                  @click="restartLensBuild" :disabled="lensBuildAction === 'restarting'">
+            <span v-if="lensBuildAction === 'restarting'">Restarting…</span><span v-else>Restart</span>
+          </button>
+          <span class="meta" v-if="pageData.lensBuild.building">Reload to refresh progress · safe to close — it runs in the background.</span>
+        </div>
+      </section>
+
       <!-- #252 'Your timeline' — the user's life-chapters (datable topic
            surges) as a chronological history. Self-hides on a thin/dev-only
            corpus (empty list). The asymmetric 'no chat tab knows your arc'
@@ -2362,6 +2395,8 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         // — fires dream via Chrome extension; flips to 'done' for ~3s on
         // success, 'failed' on dispatch error. NEVER auto-fires.
         refreshMemoryStatus: 'idle',
+        // #242(a) lens-build card button state: 'idle' | 'stopping' | 'restarting'.
+        lensBuildAction: 'idle',
         // #147 self-healing UI surface — same shape as refreshMemoryStatus.
         // Set by repairExtension(); fires extension-repair-auto via Chrome
         // extension dispatch. NEVER auto-fires (council call is expensive
@@ -3056,6 +3091,37 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           }} else {{
             this.triggerShortcut(buildShortcutUrl(payload));
           }}
+        }},
+        stopLensBuild() {{
+          // #242(a) — write the cancel flag via the extension; the running
+          // build aborts at the next stage edge (never mid-chairman-call).
+          if (this.lensBuildAction !== 'idle') return;
+          this.lensBuildAction = 'stopping';
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const payload = {{ name: 'run_command', args: {{ command: 'trinity-local lens-stop' }} }};
+          const done = () => setTimeout(() => {{ this.lensBuildAction = 'idle'; }}, 2000);
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'lens-stop' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => {{ this.handleDispatchResult(r); done(); }},
+            }});
+          }} else {{ this.triggerShortcut(buildShortcutUrl(payload)); done(); }}
+        }},
+        restartLensBuild() {{
+          // #242(a) — re-kick the build (detached, like council-launch).
+          if (this.lensBuildAction !== 'idle') return;
+          this.lensBuildAction = 'restarting';
+          const dispatcher = window.__TRINITY_DISPATCH__;
+          const payload = {{ name: 'run_command', args: {{ command: 'trinity-local lens --force' }} }};
+          const done = () => setTimeout(() => {{ this.lensBuildAction = 'idle'; }}, 2000);
+          if (dispatcher) {{
+            dispatcher.dispatch({{
+              extensionAction: {{ kind: 'lens-build' }},
+              shortcutUrl: buildShortcutUrl(payload),
+              onResult: (r) => {{ this.handleDispatchResult(r); done(); }},
+            }});
+          }} else {{ this.triggerShortcut(buildShortcutUrl(payload)); done(); }}
         }},
         refreshMemory() {{
           // Council_1f9cbecd7104f90f priority #3 — "Refresh memory" button.

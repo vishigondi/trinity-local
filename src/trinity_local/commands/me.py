@@ -86,6 +86,14 @@ def register(subparsers):
     )
     acts_parser.set_defaults(handler=handle_lens_acts)
 
+    stop_parser = subparsers.add_parser(
+        "lens-stop",
+        help="Stop a running lens build (#242a) — drops a cancel flag the build "
+             "checks between stages, so it aborts cleanly without interrupting a "
+             "chairman call mid-flight. The launchpad 'Stop' button dispatches this.",
+    )
+    stop_parser.set_defaults(handler=handle_lens_stop)
+
 
 def handle_me_build(args):
     # Fail fast if the embedder model isn't downloaded — lens-build
@@ -106,12 +114,21 @@ def handle_me_build(args):
             sample_size=args.sample_size,
         )
     else:
-        path, summary = build_me_via_lens_pipeline(
-            sample_size=args.sample_size,
-            k_basins=args.k_basins,
-            dry_run=args.dry_run,
-            force=getattr(args, "force", False),
-        )
+        from ..lens_progress import LensBuildCanceled, write_progress
+        try:
+            path, summary = build_me_via_lens_pipeline(
+                sample_size=args.sample_size,
+                k_basins=args.k_basins,
+                dry_run=args.dry_run,
+                force=getattr(args, "force", False),
+            )
+        except LensBuildCanceled:
+            # #242a — clean stop (the launchpad/CLI cancel). Record the terminal
+            # progress state and exit non-zero without a traceback.
+            write_progress("canceled", status="canceled")
+            print(json.dumps({"ok": False, "canceled": True}, indent=2))
+            sys.stderr.write("\n→ Lens build stopped.\n")
+            sys.exit(130)
     # Lens was just rewritten → freeze the routing table to disk +
     # auto-fire distill. Both are no-ops if the data hasn't changed
     # (routing is empty without rated councils; distill skips if
@@ -224,6 +241,28 @@ def handle_lens_acts(args):
             "\n→ No preference acts yet. Build the lens first:\n"
             "    trinity-local lens-build\n"
         )
+
+
+def handle_lens_stop(args):
+    """#242a — request cancellation of a running lens build."""
+    import json
+    from ..lens_progress import read_progress, request_cancel
+    request_cancel()
+    prog = read_progress()
+    running = bool(prog and prog.status == "running")
+    print(json.dumps({
+        "ok": True,
+        "canceled_requested": True,
+        "was_running": running,
+        "stage": prog.stage if prog else None,
+    }, indent=2))
+    if not running:
+        import sys
+        sys.stderr.write(
+            "\n→ No lens build appears to be running; the cancel flag is set "
+            "anyway and the next build start clears it.\n"
+        )
+    return 0
 
 
 def handle_lens_resync(args):

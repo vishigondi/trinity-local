@@ -183,7 +183,7 @@ def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) ->
 #
 # Without this, council-launch blocks the popup for the full council
 # duration (30-90s) and times out at 120s with "Failed: unknown error".
-_DETACHED_ACTIONS = {"launch-council"}
+_DETACHED_ACTIONS = {"launch-council", "lens-build"}
 
 # Action kinds handled in-process (no subprocess). The popup uses
 # `get-council-status` to poll a council's status JSON without the
@@ -222,6 +222,19 @@ ACTION_ALLOWLIST: dict[str, tuple | None] = {
     "ingest-recent": (
         "ingest-recent",
         [],
+    ),
+    # #242(a) — the 'Building your lens' card's Stop / Restart buttons.
+    # lens-stop is a no-arg cancel (drops the flag the build checks between
+    # stages). lens-build re-kicks `lens --force` detached (a multi-minute
+    # build mustn't block the popup — same reason as launch-council).
+    "lens-stop": (
+        "lens-stop",
+        [],
+    ),
+    "lens-build": (
+        "lens",
+        [],
+        ["--force"],
     ),
     # Memory Health "Refresh memory" button (council_1f9cbecd7104f90f #3).
     # The user's intent is "don't make me open a terminal" — not "auto-run

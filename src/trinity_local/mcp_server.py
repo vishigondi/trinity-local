@@ -1640,9 +1640,19 @@ async def run_stdio_server():
     # dirs (~/.claude, ~/.codex, ~/.gemini, cowork) exist, kick a background
     # ingest so the first council the user fires already has personalization
     # signal. No-op when corpus is populated or no source dirs found.
-    from .cold_start import maybe_kick_cold_start, maybe_kick_lens_refresh
+    from .cold_start import (
+        maybe_kick_cold_start,
+        maybe_kick_first_lens_build,
+        maybe_kick_lens_refresh,
+    )
 
     maybe_kick_cold_start()
+    # #242(a): once the cold-start scan has ingested AND the corpus is embedded,
+    # auto-kick the FIRST lens build in the background here (an authenticated
+    # session — provider CLIs are live). Closes the gap where a fresh user saw
+    # "the deeper lens is still building" while nothing actually built it. The
+    # build writes live progress the launchpad shows + honors a user cancel.
+    maybe_kick_first_lens_build()
     # Activity-gated lens refresh (Anthropic's Auto-Dream pattern, not a
     # nightly cron): once the user HAS a lens, refresh it in the background
     # when ≥24h have passed AND enough new conversation has accumulated.

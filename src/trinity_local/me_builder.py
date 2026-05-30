@@ -607,6 +607,12 @@ def build_me_via_lens_pipeline(
         )
         return path, {"skipped": True, "reason": "no_prompts"}
 
+    # #242 live progress: this build is committing to run (past the skip +
+    # empty guards). Clear any stale cancel flag and start the progress bar.
+    from .lens_progress import clear_cancel, raise_if_canceled, write_progress
+    clear_cancel()
+    write_progress("basins")
+
     basins = stage1_basins(k=k_basins, seed=seed)
     sample_dicts = [
         {"prompt_id": getattr(s, "prompt_id", None) or getattr(s, "id", None), "text": getattr(s, "text", "")}
@@ -658,6 +664,8 @@ def build_me_via_lens_pipeline(
     # into REFRAME/COMPRESSION/REDIRECT/SHARPENING; deterministic
     # post-validators drop chairman-skim labels.
     # Progress messages added per persona audit P51 (silent for 30-60s).
+    raise_if_canceled()
+    write_progress("stage0")
     print(f"  Stage 0: turn-pair rejection extraction (chairman: {chairman})…", flush=True)
     turn_pairs, pair_index = collect_turn_pairs(limit=max(200, sample_size * 2))
     rejections: list = []
@@ -823,6 +831,8 @@ def build_me_via_lens_pipeline(
                 "text": f"[{sig.type}] model said \"{sig.model_quote}\"; I went with: {sig.user_substitute}. {sig.why_signal}",
             })
 
+    raise_if_canceled()
+    write_progress("stage2")
     print(f"  Stage 2: decision extraction (chairman: {chairman}, "
           f"{len(augmented_samples)} samples)…", flush=True)
     stage2_prompt = stage2_extraction_prompt(augmented_samples, basins)
@@ -886,6 +896,8 @@ def build_me_via_lens_pipeline(
     # Stage 3: pair mining (one chairman call wraps the 3-member council
     # via the standard mcp run_council path; for the first cut we run a
     # single pass through chairman over decisions.jsonl).
+    raise_if_canceled()
+    write_progress("stage3")
     print(f"  Stage 3: pair mining (chairman: {chairman})…", flush=True)
     stage3_prompt = stage3_pair_mining_prompt(decisions)
     stage3_result = primary.run(stage3_prompt, cwd=Path.cwd())
@@ -973,6 +985,8 @@ def build_me_via_lens_pipeline(
             f"  Stage 4.5: registry skipped ({exc}); rendering raw accepted",
             flush=True,
         )
+
+    write_progress("registry")
 
     # EXTRACT-unification: render rejections + decisions as one
     # preference-act stream and refresh the unified ledger from it.
@@ -1070,6 +1084,10 @@ def build_me_via_lens_pipeline(
         )
     except OSError:
         pass
+    # #242: the build proper is done. A caller may still distill core.md (fast);
+    # it bumps to "distill" then "done" itself. Marking "done" here keeps a
+    # build run directly (no distill) honest.
+    write_progress("done", status="complete")
     return path, {
         "samples": len(samples),
         "basins": len(basins),

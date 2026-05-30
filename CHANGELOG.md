@@ -7,6 +7,32 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.92 — auto-build the first lens + visible, stoppable progress (#242a)] — 2026-05-30
+
+Closes the fresh-install gap: the cold-open anchor line said "the deeper lens is
+still building" while nothing actually built it — the first lens build was a
+manual `trinity-local lens`. Now it auto-kicks, and it's observable + cancellable.
+
+- **Auto-kick** (`cold_start.maybe_kick_first_lens_build`, fired at MCP connect):
+  once the cold-start scan has ingested AND the corpus is embedded AND no lens
+  exists yet, the first build runs in the background — an authenticated session,
+  same shared lock as the activity-gated refresh, never a surprise re-spend.
+- **Live progress** (`lens_progress.py`): the build writes a per-stage
+  `lens_build_progress.json` (Reading transcripts → Clustering → Mining misses →
+  Extracting decisions → Finding tensions → Distilling, with a %), threaded into
+  `build_me_via_lens_pipeline` at every stage boundary.
+- **Stop / Restart**: a cancel flag the build checks *between* stages
+  (`raise_if_canceled` — never interrupts a chairman call mid-flight). New
+  `trinity-local lens-stop` CLI verb + `lens-stop` / `lens-build` Chrome-action
+  allowlist entries (allowlist 15 → 17).
+- **'Building your lens' launchpad card**: stage label + progress bar + Stop
+  (while running) / Restart (on fail/cancel), self-hiding otherwise.
+  **Real-browser verified** — card renders, bar at the right %, Stop button
+  present, zero console errors.
+
+Progression now: blank → #242 anchors (during the auto-build) → #254 signature
+(on completion). 8 new tests.
+
 ## [v1.7.91 — 'Your timeline' launchpad card (#252)] — 2026-05-30
 
 The user's life-chapters — datable topic surges from `detect_chapters` (the
@@ -233,7 +259,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2355<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2362<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
