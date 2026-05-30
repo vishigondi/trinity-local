@@ -7,6 +7,27 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.108 — install.sh honesty: active embedder-readiness check + unsilenced pip errors] — 2026-05-30
+
+First fixes from the install-flow audit (wf_eac6c33b, 39 holes → 17 issues). The
+report's throughline: the dangerous holes are SILENT FALSE-GREENS — install
+prints "ready" while embeddings/dispatch are hollow (the data-sampling failure
+shape at the install boundary). Two safe fixes:
+
+- **Active embedder-readiness check (#273):** instead of a passive footer, the
+  installer now PROBES whether a real embedding runtime imports (mlx_embeddings
+  or sentence_transformers) and prints a VISIBLE "⚠ Real embeddings are NOT
+  enabled — your lens will be LIMITED" warning when it can't. No more "all green"
+  over a TF-IDF-only install.
+- **Unsilenced pip errors (#274):** the base pip install no longer redirects
+  stderr to /dev/null — a read-only ~/.local (corporate Linux) or a missing
+  wheel now shows the REAL error + a venv-fallback hint, instead of a vague
+  "reported issues" that loops the user with no diagnostic.
+
+Launch-posture items from the audit are filed but founder-gated: #271 (Web-Store
+extension-id release sequencing — BLOCKER), #272 (Windows honest-scoping —
+BLOCKER), #273 full embedder auto-install/verify, #274 PYTHON_BIN fallback.
+
 ## [v1.7.107 — install.sh auto-installs the native MLX embedder on Apple Silicon] — 2026-05-30
 
 The degraded-TF-IDF first run + the "missed enable-embeddings prompt → permanently

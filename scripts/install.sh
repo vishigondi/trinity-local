@@ -273,11 +273,15 @@ if "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
     PIP_INSTALL_ARGS=(install --quiet --user --upgrade)
     PIP_MODE_LABEL="user site-packages"
   fi
+  # #274: do NOT silence pip stderr — a read-only ~/.local (corporate Linux) or
+  # a missing wheel must show the REAL error, not a vague "reported issues" that
+  # sends the user into a no-heal loop.
   if "$PYTHON_BIN" -m pip "${PIP_INSTALL_ARGS[@]}" \
-       'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26' 2>/dev/null; then
+       'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26'; then
     ok "Pillow + mcp + numpy installed ($PIP_MODE_LABEL)"
   else
-    warn "pip install reported issues (Pillow / mcp / numpy) — see 'trinity-local status'"
+    warn "pip install failed (see the error above). If it's a permissions error on"
+    warn "  ~/.local, retry in a venv: python3 -m venv ~/.trinity/venv && source it."
   fi
   # Apple Silicon: auto-install the NATIVE MLX embedder (mlx + mlx-embeddings,
   # #244). It's small (no 800MB torch) and IS the real, fast embedding path, so
@@ -370,6 +374,16 @@ else
 fi
 echo "  - See $TRINITY_SKILL_DIR/docs/INSTALL-extension.md"
 echo ""
+# Honest embedder-readiness check (#273): never let the "ready" banner hide a
+# degraded TF-IDF-only install. Actively probe whether a real embedding runtime
+# is importable — a VISIBLE warning beats a passive footer the user scrolls past.
+if "$PYTHON_BIN" -c "import mlx_embeddings" >/dev/null 2>&1 \
+   || "$PYTHON_BIN" -c "import sentence_transformers" >/dev/null 2>&1; then
+  ok "Embedding runtime present — real embeddings available"
+else
+  printf "%s⚠  Real embeddings are NOT enabled%s — your lens, cold-open, and topic\n" "$C_BOLD" "$C_RESET"
+  printf "   map will be LIMITED (lexical anchors only) until you install the embedder.\n"
+fi
 printf "%sFinish enabling real embeddings — pull the model (~600MB, one-time):%s\n" "$C_BOLD" "$C_RESET"
 echo "  - lens / dream / vocabulary use the modernbert-embed model for MEANING."
 echo "  - Without real embeddings they fall back to the SHA-1 TF-IDF projection,"
