@@ -130,6 +130,13 @@ def _run_scan(sources: list[str], deadline_s: float, start_iso: str) -> None:
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
+    # #242: decouple first-run VALUE from the (slow) embedding backfill. Anchors
+    # are pure-text proper-noun recurrence — no embeddings, no basins, no lens —
+    # so the instant the scan ingests prompts we can name the user's recurring
+    # topics. Computed ONCE here (cold-start only fires on a fresh, small corpus)
+    # and cached in the state file for cold_open_tension() to read cheaply.
+    early_anchors = _compute_early_anchors() if not error else []
+
     _write_state({
         "status": "failed" if error else "complete",
         "started_at": start_iso,
@@ -137,10 +144,30 @@ def _run_scan(sources: list[str], deadline_s: float, start_iso: str) -> None:
         "sources_detected": list(sources),
         "added": added,
         "scanned": scanned,
+        "early_anchors": early_anchors,
         "deadline_s": deadline_s,
         "duration_s": round(time.monotonic() - started, 2),
         "error": error,
     })
+
+
+def _compute_early_anchors(top_n: int = 5) -> list[str]:
+    """Pure-text top anchors (no embeddings) for the first-run insight (#242).
+
+    Best-effort: any failure returns [] so the scan thread never dies on the
+    cheap-insight path. min_threads=2 (looser than vocab's 3) because a fresh
+    install has few threads but we still want SOME signal."""
+    try:
+        from .memory.store import iter_prompt_nodes
+        from .vocabulary import find_anchors
+
+        nodes = list(iter_prompt_nodes(limit=None))
+        if not nodes:
+            return []
+        anchors = find_anchors(nodes, min_threads=2, top_n=top_n)
+        return [phrase for phrase, _threads, _mentions in anchors]
+    except Exception:
+        return []
 
 
 def kick_cold_start_scan(deadline_s: float = DEFAULT_SCAN_DEADLINE_S) -> dict | None:
@@ -496,6 +523,22 @@ def cold_open_tension() -> str | None:
                 f"One axis your lens already surfaces: “{p.pole_a}” vs "
                 f"“{p.pole_b}” — the tension you keep navigating."
             )
+    except Exception:
+        pass
+    # #242 first-run fallback: no lens yet (embeddings still backfilling), but
+    # the cold-start scan cached pure-text anchors — name the user's recurring
+    # topics so the FIRST paint after a fresh install has a real, true insight
+    # instead of a blank, while the deeper lens builds in the background.
+    try:
+        state = read_state()
+        if state:
+            anchors = [a for a in (state.get("early_anchors") or []) if a]
+            if anchors:
+                shown = ", ".join(anchors[:4])
+                return (
+                    f"Your recurring topics so far: {shown} — the deeper lens "
+                    f"is still building in the background."
+                )
     except Exception:
         pass
     return None

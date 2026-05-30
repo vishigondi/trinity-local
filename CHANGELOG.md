@@ -7,6 +7,22 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.85 — first-run value before the embedding backfill (#242)] — 2026-05-30
+
+`cold_open_tension()` (the first-run "aha") returned None until the full
+embed → basin → lens pipeline finished — so a fresh install showed a BLANK aha
+for the minutes the embedding backfill runs. Now it has an embedding-free
+fallback: the cold-start scan computes pure-text **anchors** (proper-noun
+recurrence — no embeddings, no basins, no lens) the instant it ingests prompts,
+caches them in `cold_start_scan.json`, and `cold_open_tension()` surfaces "Your
+recurring topics so far: LDK, Kitchen, Bath — the deeper lens is still building."
+
+The precedence is correct: a real lens tension (registry → pair-mining) always
+wins; anchors are only the pre-lens stopgap; a truly empty corpus still returns
+None. Anchors are cheap-once (cold-start only fires on a fresh, small corpus) and
+read-cheap thereafter. 3 new tests cover the fallback, the precedence, and the
+empty case.
+
 ## [v1.7.84 — model identity triple: record + display the thinking level (#239)] — 2026-05-30
 
 A model's identity for eval comparison is a triple — slug (`claude`) + model
@@ -82,7 +98,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2337<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2339<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

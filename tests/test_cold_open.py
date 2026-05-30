@@ -36,6 +36,42 @@ class TestColdOpenTension:
         assert "4 of your decisions" in line  # provenance shown for n>=3
         assert "depth" not in line  # only ONE tension surfaced
 
+    def test_anchor_fallback_before_lens_built(self):
+        """#242 — no lens yet (embeddings still backfilling), but the
+        cold-start scan cached pure-text anchors → first paint shows the
+        recurring topics instead of nothing."""
+        from trinity_local.cold_start import cold_open_tension, _write_state
+        from trinity_local.utils import now_iso
+
+        _write_state({
+            "status": "complete", "started_at": now_iso(),
+            "finished_at": now_iso(), "sources_detected": ["claude"],
+            "added": 120, "scanned": 120,
+            "early_anchors": ["LDK", "Kitchen", "Bath", "Entry", "Loft Bedroom"],
+        })
+        line = cold_open_tension()
+        assert line is not None
+        assert "recurring topics" in line.lower()
+        assert "LDK" in line and "Kitchen" in line
+        # Only the top 4 shown (keeps the line tight).
+        assert "Loft Bedroom" not in line
+
+    def test_lens_tension_beats_anchor_fallback(self):
+        """When a real lens tension exists, it wins over the anchor fallback —
+        the anchors are only the pre-lens first-run stopgap."""
+        from trinity_local.cold_start import cold_open_tension, _write_state
+        from trinity_local.me.lens_registry import RegistryEntry, save_registry
+        from trinity_local.utils import now_iso
+
+        ts = now_iso()
+        _write_state({"status": "complete", "early_anchors": ["LDK", "Kitchen"]})
+        save_registry([RegistryEntry(
+            tension_id="t1", pole_a="concrete", pole_b="abstract",
+            evidence_ids=["e1", "e2", "e3"], first_seen=ts, last_confirmed=ts,
+        )])
+        line = cold_open_tension()
+        assert "concrete" in line and "LDK" not in line
+
 
 @pytest.mark.usefixtures("patch_trinity_home")
 class TestColdOpenLaunchpad:
