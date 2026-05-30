@@ -7,6 +7,23 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.88 — prompt outliers: completing the geometric-insight toolkit (#257)] — 2026-05-30
+
+The fourth and final named #257 tool. `me/geometric_insights.py` →
+`outlier_prompts()` surfaces the user's most UNUSUAL prompts: those with the
+lowest max-cosine to ANY subject basin centroid — the asks that never became a
+topic. Pure geometry over the local embeddings (basin centroids from topics.json
+× embedded nodes), no LLM, no network.
+
+On Trinity's own corpus it finds the genuinely off-topic one-offs: geography
+trivia, a personal bio line, news summaries, an etymology question — all sitting
+at cosine 0.24–0.31 from their nearest basin while the user's real work clusters
+much tighter. A `min_chars` floor keeps terse fillers out so the outliers are real
+prose. Surfaced read-only as `prompt_outliers` on `lens-acts`.
+
+**#257 toolkit complete:** correction-vector (v1.7.76) · drift (v1.7.86) ·
+per-domain (v1.7.87) · outliers (here). 2 new tests.
+
 ## [v1.7.87 — the per-domain correction lens: your taste differs by subject (#257)] — 2026-05-30
 
 Second mining tool. `correction_signature_by_basin()` computes the taste-axis
@@ -138,7 +155,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2343<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2345<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

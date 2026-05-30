@@ -208,6 +208,15 @@ def handle_lens_acts(args):
             payload["correction_by_basin"] = by_basin
     except Exception:
         pass
+    # #257 prompt-space outliers: the asks farthest from every subject basin —
+    # the user's most unusual one-offs (trivia, novel directions). Read-only.
+    try:
+        from ..me.geometric_insights import outlier_prompts
+        outliers = outlier_prompts()
+        if outliers.get("ready"):
+            payload["prompt_outliers"] = outliers
+    except Exception:
+        pass
     print(json.dumps(payload, indent=2))
     if not acts:
         import sys
