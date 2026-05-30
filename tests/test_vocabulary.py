@@ -136,32 +136,42 @@ class TestHomonymDetection:
                 assert score < 0.4, f"unimodal token should score < 0.4, got {score:.3f}"
 
 
-class TestSynonymDetection:
-    def test_detects_near_identical_context_pairs(self, isolated_home):
-        """Plant `delete` and `remove` always in the same embedding context —
-        they should surface as a synonym candidate."""
-        # 6 prompts using "delete" all sit in cluster A.
+class TestSynonymSectionCut:
+    def test_vocabulary_md_has_no_synonyms_section(self, isolated_home):
+        """#250 follow-on: the Synonyms section was CUT (measured ~0% useful —
+        template co-occurrence, not synonymy). vocabulary.md must not render it,
+        even when near-identical context pairs exist."""
         for i in range(6):
             emb = [1.0, 0.0] + [0.0] * 6
             _plant_node(id_=f"d{i}", text=f"delete the obsolete record {i}", embedding=emb)
-        # 6 prompts using "remove" also in cluster A — synonyms.
-        for i in range(6):
-            emb = [1.0, 0.0] + [0.0] * 6
             _plant_node(id_=f"r{i}", text=f"remove the obsolete record {i}", embedding=emb)
 
         from trinity_local.vocabulary import distill_vocabulary
-        # Relax the #250 guards for this isolation fixture (identical-embedding
-        # clusters → 1 effective-distinct context, and 50% prevalence): the
-        # production min_distinct / prevalence cap would correctly drop them.
-        report = distill_vocabulary(
-            min_freq=5, synonym_threshold=0.85,
-            min_distinct=0, synonym_max_prevalence=1.0, synonym_max_jaccard=1.0,
-        )
+
+        report = distill_vocabulary(min_freq=5)
         assert report["ok"] is True
         text = (isolated_home / "memories" / "vocabulary.md").read_text()
-        # Synonym table should pair delete and remove.
-        assert "delete" in text.lower() and "remove" in text.lower()
-        assert "synonym" in text.lower()
+        assert "## Synonyms" not in text
+        assert "token A" not in text and "cosine" not in text
+
+
+class TestAnchorTemplateFilter:
+    def test_allcaps_template_headers_dropped_real_anchors_kept(self):
+        """#250 follow-on: ALL-CAPS template section headers (SPEC/ISSUE/AREA),
+        which recur across threads but ~once per templated doc (mentions ≈
+        threads), are filtered; real anchors (Kitchen, Deck — mixed-case and/or
+        many mentions per thread) survive."""
+        from trinity_local.vocabulary import _is_template_section_header as tpl
+
+        # template headers: ALL-CAPS, mentions ≈ threads
+        assert tpl("SPEC", 1413, 1420) is True
+        assert tpl("ISSUE", 1412, 1412) is True
+        assert tpl("AREA", 1344, 1344) is True
+        assert tpl("CURRENT FLOOR PLAN", 1344, 1344) is True
+        # real anchors: mixed-case OR many mentions per thread
+        assert tpl("Kitchen", 1676, 5466) is False   # mixed case
+        assert tpl("Deck", 1385, 9973) is False       # 7.2 mentions/thread
+        assert tpl("LDK", 2336, 3820) is False         # all-caps but 1.6 ratio
 
 
 class TestAnchorDetection:

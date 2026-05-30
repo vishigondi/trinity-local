@@ -136,6 +136,9 @@ _ANCHOR_BLACKLIST = frozenset({
     "must", "wrong", "rules", "strict", "only", "durable", "every", "new",
     "one", "all", "each", "more", "most", "also", "even", "for", "an",
     "non-obvious", "users", "downloads",
+    # #250 follow-on (measured 2026-05-30): mixed/Title-case floor-plan template
+    # words the ALL-CAPS `_is_template_section_header` ratio filter misses.
+    "valid", "compare",
 })
 
 
@@ -246,13 +249,31 @@ def find_anchors(
     ranked = [
         (phrase, len(tids), mentions[phrase])
         for phrase, tids in threads.items()
-        if len(tids) >= min_threads and (cap == 0 or len(tids) <= cap)
+        if len(tids) >= min_threads
+        and (cap == 0 or len(tids) <= cap)
+        and not _is_template_section_header(phrase, len(tids), mentions[phrase])
     ]
     # Sort by (thread recurrence DESC, mention count DESC). Recurrence first
     # because "appeared in 8 different conversations" is the load-bearing
     # signal — anchors are projects/people, not single-thread mentions.
     ranked.sort(key=lambda r: (-r[1], -r[2]))
     return ranked[:top_n]
+
+
+def _is_template_section_header(phrase: str, n_threads: int, n_mentions: int) -> bool:
+    """True for floor-plan / spec TEMPLATE section headers that masquerade as
+    anchors (#250 follow-on, measured 2026-05-30).
+
+    The user pastes a fixed floor-plan template into many threads, so its
+    ALL-CAPS section headers ("SPEC", "ISSUE", "AREA", "ROOMS", "ACTIONABLE
+    FIXES", "CURRENT FLOOR PLAN") recur across hundreds of threads — but
+    exactly ONCE per templated doc, so mentions ≈ threads. A real anchor is
+    either mixed-case (Kitchen, Bath, Deck) or recurs many times *within* a
+    thread (Deck: 9973 mentions / 1385 threads = 7.2×). The signature that
+    separates them: ALL-CAPS *and* a near-1.0 mentions/threads ratio."""
+    if phrase.isupper() and n_threads > 0 and n_mentions <= n_threads * 1.2:
+        return True
+    return False
 
 
 def _l2_normalize(vec):
@@ -555,7 +576,7 @@ def render_vocabulary_md(
     if total_corpus is not None and total_corpus != corpus_size:
         scan_line = (
             f"_Scanned {total_corpus} prompts for anchors; {corpus_size} embedded "
-            f"prompts for homonyms/synonyms. Tokens require ≥5 occurrences; "
+            f"prompts for homonyms. Tokens require ≥5 occurrences; "
             f"anchors require ≥3 distinct threads._"
         )
     else:
@@ -566,8 +587,8 @@ def render_vocabulary_md(
     lines = [
         "# Your vocabulary",
         "",
-        "*Pure-geometric scan of your prompt corpus. Three views of distinctive",
-        "terminology — anchors, homonyms, synonyms — surfaced as one of your",
+        "*Pure-geometric scan of your prompt corpus. Two views of distinctive",
+        "terminology — anchors and homonyms — surfaced as one of your",
         "three thinking core memories.*",
         "",
         scan_line,
@@ -597,18 +618,13 @@ def render_vocabulary_md(
     else:
         lines.append("_(none yet — your terms are sitting in coherent contexts)_")
     lines.append("")
-    lines.append("## Synonyms — multiple words, one meaning")
-    lines.append("")
-    if synonyms:
-        lines.append("Pairs of distinct tokens whose context vectors are near-identical — candidates for unification.")
-        lines.append("")
-        lines.append("| token A | token B | cosine | uses A | uses B |")
-        lines.append("|---|---|---|---|---|")
-        for a, b, sim, na, nb in synonyms:
-            lines.append(f"| `{a}` | `{b}` | {sim:.3f} | {na} | {nb} |")
-    else:
-        lines.append("_(none yet — your tokens occupy distinct semantic regions)_")
-    lines.append("")
+    # #250 follow-on (cut 2026-05-30): the Synonyms section is removed. Measured
+    # ~0% useful — top pairs were template co-occurrence (`opensintoroomid`/
+    # `widthft`, `timed`/`wet`), not synonymy. Near-identical context vectors
+    # mean "these tokens travel together in templated content", which neither
+    # the Jaccard nor centroid-margin guards (#250) reliably separate from real
+    # synonymy. Distance ≠ synonymy; the section produced noise, so it's gone.
+    # `synonyms` stays in the signature for back-compat (always passed empty).
     return "\n".join(lines)
 
 
@@ -672,15 +688,11 @@ def distill_vocabulary(
             min_distinct=min_distinct,
         ) if contexts else []
     )
-    synonyms = (
-        find_synonyms(
-            contexts, top_n=top_synonyms, threshold=synonym_threshold,
-            token_prompts=token_prompts, max_jaccard=synonym_max_jaccard,
-            min_distinct=min_distinct,
-            corpus_prompts=len(nodes_with_emb),
-            max_prevalence=synonym_max_prevalence,
-        ) if contexts else []
-    )
+    # #250 follow-on: the synonyms section was cut (measured ~0% useful —
+    # template co-occurrence, not synonymy). No longer computed; `find_synonyms`
+    # stays as a dormant, unit-tested function pending a redesign that separates
+    # synonymy from "tokens that travel together".
+    synonyms: list = []
     md = render_vocabulary_md(
         homonyms=homonyms, synonyms=synonyms, anchors=anchors,
         corpus_size=len(nodes_with_emb), total_corpus=len(nodes),

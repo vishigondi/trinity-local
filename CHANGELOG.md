@@ -7,6 +7,25 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.105 — cut the vocab synonyms section + filter anchor template-tokens] — 2026-05-30
+
+Two measured vocab fixes (worth-keeping audit, deterministic):
+- **Synonyms section CUT.** Measured ~0% useful — the top pairs were template
+  co-occurrence (`opensintoroomid`/`widthft`, `timed`/`wet`, `retreats`/`webgl`),
+  not synonymy. Near-identical context vectors mean "these tokens travel together
+  in templated content", which neither the #250 Jaccard nor centroid-margin guard
+  reliably separates from real synonymy. Distance ≠ synonymy. `render_vocabulary_md`
+  no longer emits the section and `distill_vocabulary` no longer computes it;
+  `find_synonyms` stays a dormant, unit-tested function pending a redesign.
+- **Anchor template-token filter.** `_is_template_section_header` drops ALL-CAPS
+  floor-plan/spec section headers (SPEC, ISSUE, AREA, ROOMS, ACTIONABLE FIXES,
+  CURRENT FLOOR PLAN) that recur across threads but ~once per templated doc
+  (mentions ≈ threads), plus the Title-case `Valid`/`Compare` via the blacklist.
+  Real anchors survive — mixed-case (Kitchen, Bath, Deck) or many mentions per
+  thread (Deck: 9973/1385 = 7.2×). ~47% of the top anchors were template leak.
+
+Guards in test_vocabulary.py (section-cut + template-filter). (#250 follow-on)
+
 ## [v1.7.104 — eval dispatch is a clean completion, not a full agent (was hanging 28min)] — 2026-05-30
 
 Running a real eval surfaced it: `evals/runner.py` dispatches each item via
@@ -574,7 +593,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2438<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2439<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
