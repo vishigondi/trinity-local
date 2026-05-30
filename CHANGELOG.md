@@ -7,6 +7,35 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.76 — the correction-vector lens: taste as geometry (#257)] — 2026-05-29
+
+The lens, reframed as a vector. Each preference act is a steer — the model
+offered `sacrificed`, the user privileged `privileged` instead — so
+`embed(privileged) − embed(sacrificed)` is the *direction* the user pushed in
+the 768-d space. Averaged over every correction, the per-act topic noise cancels
+and the residual is the user's consistent taste direction, decomposable onto
+interpretable axes.
+
+Built it and measured the signal honestly on the real 122 corrections:
+
+- **Per-act coherence is LOW (0.142, just over the 0.127 random-pairing null).**
+  Individual corrections scatter — each is about a different specific thing
+  (the corrections are terse steers like "better" / "[redacted user prompt]"
+  against verbose model output, median 33 vs 77 chars).
+- **But the mean direction is highly significant and matches the known lens.**
+  Projected onto interpretable axes (a random unit vector loads ~1/√768=0.036),
+  this user steers: **concrete +0.21, decisive +0.19, action +0.18, terse +0.18**
+  — all ~5σ. The lens-as-vector is real in AGGREGATE; the axis signature is the
+  readout, the low coherence the honest caveat.
+- `me/correction_lens.py`: `correction_signature()` (mean steer + coherence +
+  per-axis loading), `TASTE_AXES` (add an axis = add a prototype pair).
+  Surfaced read-only on `lens-acts` (`correction_signature` payload key).
+  Guards in `test_correction_lens.py` (shape, significance floor, thin-ledger).
+
+This is the first probe of the #257 embedding-insight toolkit (the lens IS the
+geometry); the remaining probes (drift, outliers, density, model-affinity) and a
+recurring mining workflow follow.
+
 ## [v1.7.75 — eval judge integrity: no fabricated benchmarks (#246)] — 2026-05-29
 
 The scariest launch blocker from the #240 audit, confirmed on disk: a real eval
@@ -2568,7 +2597,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2311<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2314<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

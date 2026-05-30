@@ -177,6 +177,17 @@ def handle_lens_acts(args):
         "by_kind": dict(sorted(by_kind.items(), key=lambda kv: -kv[1])),
         "by_basin": dict(sorted(by_basin.items(), key=lambda kv: -kv[1])[:10]),
     }
+    # The correction-vector lens (#257): the user's taste as a geometric
+    # direction, decomposed onto interpretable axes (+ leans toward the first
+    # pole). Read-only; best-effort (needs the embedder). `coherence` is low by
+    # nature (corrections scatter by topic); the axis loadings are the signal.
+    try:
+        from ..me.correction_lens import correction_signature
+        sig = correction_signature()
+        if sig.get("ready"):
+            payload["correction_signature"] = sig
+    except Exception:
+        pass
     print(json.dumps(payload, indent=2))
     if not acts:
         import sys
