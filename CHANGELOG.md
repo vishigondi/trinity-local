@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.109 — Windows→WSL2 honest scoping + cortex/semantic_filter abstain-gates] — 2026-05-30
+
+Closing install-flow audit items + the remaining TF-IDF abstain-gates.
+
+- **#272 Windows scoped to WSL2 (honestly):** install.sh now detects MSYS/Cygwin/
+  Git-Bash shells and points the user at WSL2 up front (native cmd/PowerShell
+  already fails honestly with "bash not recognized"). The `/trinity` symlink is
+  guarded — `ln -s` falls back to `cp -R` so Git-Bash (no Developer Mode) can't
+  abort the whole install with `set -e`. The extension popup's install brief
+  adds "On Windows: run inside WSL2". Full native Windows (install.ps1 + .bat
+  wrapper + registry NM host) stays post-launch.
+- **cortex + semantic_filter abstain-gates** (completing the v1.7.106 pattern):
+  on the TF-IDF fallback, `cortex.consolidate_basin` drops the basin CENTROID
+  (the only piece used for query-time semantic matching — a TF-IDF centroid
+  matches on word-overlap, worse than none; routing falls back to heuristics),
+  and `semantic_filter.noise_prototype_vectors` returns [] (disabling the
+  geometric noise filter; the regex pre-filter still runs). No semantic flow now
+  emits inverted-TF-IDF geometry.
+
+Remaining audit item: #274's PYTHON_BIN-fallback half (careful heredoc work vs
+the v1.7.56 baked-path guard) — queued.
+
 ## [v1.7.108 — install.sh honesty: active embedder-readiness check + unsilenced pip errors] — 2026-05-30
 
 First fixes from the install-flow audit (wf_eac6c33b, 39 holes → 17 issues). The

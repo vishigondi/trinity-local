@@ -52,6 +52,21 @@ fail()  { printf "  %s✗%s %s\n" "$C_RED" "$C_RESET" "$1" >&2; exit 1; }
 
 step "Checking prerequisites"
 
+# #272: Windows is supported via WSL2 (or Git Bash, best-effort) only — this
+# script is bash + UNIX paths + symlinks + a POSIX capture-host wrapper, none of
+# which work under native Windows. Detect the MSYS/Cygwin/Git-Bash shells and
+# point the user at WSL2 rather than failing halfway with a cryptic ln/path
+# error. (Native cmd/PowerShell can't run this script at all — they hit "bash
+# not recognized", which is already honest.)
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    warn "Detected a Windows shell ($(uname -s)). Trinity's installer is UNIX-only."
+    warn "  Recommended: install + run Trinity inside WSL2 (Ubuntu) — full support."
+    warn "  Git Bash is best-effort and may break on symlinks / the capture host."
+    warn "  Continuing best-effort; if it errors, switch to WSL2."
+    ;;
+esac
+
 command -v git >/dev/null 2>&1 || fail "git not found. Install git and re-run."
 ok "git $(git --version | awk '{print $3}')"
 
@@ -133,8 +148,16 @@ if [[ "$TRINITY_SKILL_DIR" != "$TRINITY_SKILL_LEGACY" ]]; then
   if [[ -L "$TRINITY_SKILL_LEGACY" ]] || [[ ! -e "$TRINITY_SKILL_LEGACY" ]]; then
     mkdir -p "$(dirname "$TRINITY_SKILL_LEGACY")"
     rm -f "$TRINITY_SKILL_LEGACY"
-    ln -s "$TRINITY_SKILL_DIR" "$TRINITY_SKILL_LEGACY"
-    ok "Symlinked $TRINITY_SKILL_LEGACY → $TRINITY_SKILL_DIR (Claude Code /trinity alias)"
+    # #272: symlinks fail under Git Bash on Windows without Developer Mode. With
+    # `set -e` an un-guarded `ln -s` would abort the whole install mid-way; fall
+    # back to a copy so the rest of the install completes.
+    if ln -s "$TRINITY_SKILL_DIR" "$TRINITY_SKILL_LEGACY" 2>/dev/null; then
+      ok "Symlinked $TRINITY_SKILL_LEGACY → $TRINITY_SKILL_DIR (Claude Code /trinity alias)"
+    elif cp -R "$TRINITY_SKILL_DIR" "$TRINITY_SKILL_LEGACY" 2>/dev/null; then
+      warn "Symlink unsupported here — copied to $TRINITY_SKILL_LEGACY instead (re-run 'update' to refresh)."
+    else
+      warn "Could not link or copy the /trinity alias — Claude Code's /trinity may be unavailable (MCP still works)."
+    fi
   else
     warn "$TRINITY_SKILL_LEGACY exists as a real directory — leaving it alone."
     warn "Migrate manually if you want a single canonical install:"
@@ -384,7 +407,8 @@ else
   printf "%s⚠  Real embeddings are NOT enabled%s — your lens, cold-open, and topic\n" "$C_BOLD" "$C_RESET"
   printf "   map will be LIMITED (lexical anchors only) until you install the embedder.\n"
 fi
-printf "%sFinish enabling real embeddings — pull the model (~600MB, one-time):%s\n" "$C_BOLD" "$C_RESET"
+printf "%sOptional — enable real embeddings by pulling the model (~600MB, one-time):%s\n" "$C_BOLD" "$C_RESET"
+echo "  - Councils + the launchpad work WITHOUT this; it's the lens/cold-open layer."
 echo "  - lens / dream / vocabulary use the modernbert-embed model for MEANING."
 echo "  - Without real embeddings they fall back to the SHA-1 TF-IDF projection,"
 echo "    which groups by word-overlap, not meaning — the lens/cold-open abstain."

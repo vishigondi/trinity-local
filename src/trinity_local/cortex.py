@@ -502,6 +502,18 @@ def consolidate_basin(
     # Compute the structured geometric prior FIRST so the flagship can
     # condition on it (rule-extraction on structure, not geometry-in-language).
     geometry = _compute_basin_geometry(outcomes)
+    # Abstain-gate the CENTROID under the TF-IDF fallback: it's the only piece
+    # used for query-time semantic matching (ask._best_centroid_match), and a
+    # TF-IDF centroid groups by word-overlap, not meaning (0/5 triplet) — worse
+    # than no centroid. Drop it so routing falls back to heuristics rather than
+    # matching on garbage geometry. coherence/manifold stay (secondary, feed
+    # trust only). The whole consolidation is already data-gated on real usage.
+    try:
+        from .embeddings import mlx_actually_loaded
+        if not mlx_actually_loaded():
+            geometry = {**geometry, "centroid": []}
+    except Exception:
+        pass
 
     # Flagship extracts the rule + failure modes + successful prompt templates.
     # Pass geometry if the extractor accepts it (production), else fall back

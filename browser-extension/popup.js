@@ -104,6 +104,8 @@ function showSetupCard(reason) {
     `2. ${registerCmd}`,
     "3. trinity-local status   (should report MCP wired and extension wired)",
     "",
+    "On Windows: run these inside WSL2 (Ubuntu) — the installer is UNIX-only.",
+    "",
     "Then reload the Trinity Chrome extension popup. Tell me when done.",
   ].join("\n");
 

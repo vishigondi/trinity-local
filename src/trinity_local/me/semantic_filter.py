@@ -84,8 +84,13 @@ def noise_prototype_vectors() -> list[list[float]]:
     [] if the embedder is unavailable, which disables semantic filtering (the
     regex pre-filter still runs)."""
     try:
-        from ..embeddings import embed_batch
+        from ..embeddings import embed_batch, mlx_actually_loaded
     except Exception:
+        return []
+    # Abstain under the TF-IDF fallback: it can't separate meaning (0/5 on the
+    # triplet test), so the dual noise-vs-taste geometry would misclassify.
+    # Returning [] disables semantic filtering (the regex pre-filter still runs).
+    if not mlx_actually_loaded():
         return []
     texts = [t for cat in NOISE_PROTOTYPES.values() for t in cat]
     try:

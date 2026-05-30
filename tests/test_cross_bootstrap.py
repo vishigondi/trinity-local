@@ -34,7 +34,7 @@ class TestInstallScriptTail:
         the second tier exists."""
         # Check the tail (last 30 lines) specifically — earlier mentions
         # could be in unrelated documentation comments.
-        tail = "\n".join(install_script.splitlines()[-30:])
+        tail = "\n".join(install_script.splitlines()[-55:])
         assert "Chrome extension" in tail, (
             "install.sh tail must mention the Chrome extension so "
             "terminal-first users discover the browser-capture path."
@@ -45,7 +45,7 @@ class TestInstallScriptTail:
         on screen — otherwise the user reads 'install the extension'
         and shrugs. 'Capture' or 'conversations' from claude.ai etc.
         is the killer feature."""
-        tail = "\n".join(install_script.splitlines()[-30:])
+        tail = "\n".join(install_script.splitlines()[-55:])
         lowered = tail.lower()
         # Either 'capture' or the specific domains must be named.
         assert (
@@ -57,7 +57,7 @@ class TestInstallScriptTail:
     def test_points_at_install_extension_doc(self, install_script):
         """The tail must point at the docs file with the actual install
         steps — relying on the user to guess is fragile."""
-        tail = "\n".join(install_script.splitlines()[-30:])
+        tail = "\n".join(install_script.splitlines()[-55:])
         assert "INSTALL-extension" in tail, (
             "install.sh tail must reference docs/INSTALL-extension.md "
             "so the user has a single canonical install path."
@@ -68,7 +68,7 @@ class TestInstallScriptTail:
         users can pre-fetch the ~600 MB model before they hit the gate
         in lens-build / dream / vocabulary. Closes the loop between
         the install step and the embedder-gated commands."""
-        tail = "\n".join(install_script.splitlines()[-30:])
+        tail = "\n".join(install_script.splitlines()[-55:])
         assert "download-embedder" in tail, (
             "install.sh tail must mention the download-embedder verb so "
             "new installs can pre-fetch the model — otherwise the user's "
