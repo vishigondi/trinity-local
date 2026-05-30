@@ -208,7 +208,12 @@ SOURCE_DIR=\$("\$RESOLVER" 2>/dev/null) || {
   exit 1
 }
 export PYTHONPATH="\$SOURCE_DIR/src:\${PYTHONPATH:-}"
-exec "$PYTHON_BIN" -m trinity_local.main "\$@"
+# #274: prefer the baked absolute interpreter (v1.7.56 — Chrome's sanitized
+# native-messaging PATH can't resolve a bare python3); fall back to a PATH
+# lookup if it moved (pyenv/asdf/brew relocate). TRINITY_PYTHON overrides.
+TRINITY_PY="\${TRINITY_PYTHON:-$PYTHON_BIN}"
+[ -x "\$TRINITY_PY" ] || TRINITY_PY="\$(command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "$PYTHON_BIN")"
+exec "\$TRINITY_PY" -m trinity_local.main "\$@"
 WRAPPER_EOF
 else
   # Legacy fallback wrapper (partial install / resolver missing).
@@ -220,7 +225,12 @@ if [[ ! -d "\$TRINITY_SKILL_DIR/src/trinity_local" ]]; then
   exit 1
 fi
 export PYTHONPATH="\$TRINITY_SKILL_DIR/src:\${PYTHONPATH:-}"
-exec "$PYTHON_BIN" -m trinity_local.main "\$@"
+# #274: prefer the baked absolute interpreter (v1.7.56 — Chrome's sanitized
+# native-messaging PATH can't resolve a bare python3); fall back to a PATH
+# lookup if it moved (pyenv/asdf/brew relocate). TRINITY_PYTHON overrides.
+TRINITY_PY="\${TRINITY_PYTHON:-$PYTHON_BIN}"
+[ -x "\$TRINITY_PY" ] || TRINITY_PY="\$(command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "$PYTHON_BIN")"
+exec "\$TRINITY_PY" -m trinity_local.main "\$@"
 LEGACY_EOF
 fi
 chmod +x "$TRINITY_BIN_DIR/trinity-local"
@@ -242,7 +252,9 @@ export PYTHONPATH="\$SOURCE_DIR/src:\${PYTHONPATH:-}"
 # imports (from .registry import …) which only resolve under -m. Running
 # the file directly raises "attempted relative import with no known
 # parent package" the moment Chrome launches the host.
-exec "$PYTHON_BIN" -m trinity_local.capture_host "\$@"
+TRINITY_PY="\${TRINITY_PYTHON:-$PYTHON_BIN}"
+[ -x "\$TRINITY_PY" ] || TRINITY_PY="\$(command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "$PYTHON_BIN")"
+exec "\$TRINITY_PY" -m trinity_local.capture_host "\$@"
 CAPTURE_EOF
 else
   cat > "$TRINITY_BIN_DIR/trinity-local-capture-host" <<CAPTURE_LEGACY_EOF
@@ -250,7 +262,9 @@ else
 TRINITY_SKILL_DIR="\${TRINITY_SKILL_DIR:-\$HOME/.claude/skills/trinity}"
 export PYTHONPATH="\$TRINITY_SKILL_DIR/src:\${PYTHONPATH:-}"
 # Module mode — capture_host.py uses relative imports (see above).
-exec "$PYTHON_BIN" -m trinity_local.capture_host "\$@"
+TRINITY_PY="\${TRINITY_PYTHON:-$PYTHON_BIN}"
+[ -x "\$TRINITY_PY" ] || TRINITY_PY="\$(command -v python3.12 2>/dev/null || command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "$PYTHON_BIN")"
+exec "\$TRINITY_PY" -m trinity_local.capture_host "\$@"
 CAPTURE_LEGACY_EOF
 fi
 chmod +x "$TRINITY_BIN_DIR/trinity-local-capture-host"

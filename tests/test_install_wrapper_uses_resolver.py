@@ -121,6 +121,28 @@ class TestCaptureHostWrapper:
         assert "trinity_local.capture_host" in body
 
 
+class TestPythonInterpreterFallback:
+    """#274: the wrappers bake the absolute interpreter (v1.7.56 — Chrome's
+    sanitized NM PATH needs it) but must fall back to a PATH lookup if Python
+    moves (pyenv/asdf/brew relocate), instead of bricking with 'No such file'."""
+
+    def test_wrappers_have_python_fallback(self, install_script):
+        # Every generated exec must go through the resilient resolver, not a
+        # bare `exec "$PYTHON_BIN"`.
+        assert 'exec "$PYTHON_BIN" -m trinity_local' not in install_script, (
+            "a wrapper execs the baked interpreter directly with no fallback — "
+            "a Python relocation would brick it (#274)."
+        )
+        assert 'exec "\\$TRINITY_PY" -m trinity_local' in install_script
+
+    def test_absolute_path_stays_primary(self, install_script):
+        # TRINITY_PYTHON override > baked absolute path > PATH lookup. The baked
+        # path must remain the default (v1.7.56 regression guard).
+        assert 'TRINITY_PY="\\${TRINITY_PYTHON:-$PYTHON_BIN}"' in install_script
+        # PATH fallback only when the baked path isn't executable.
+        assert '[ -x "\\$TRINITY_PY" ] || TRINITY_PY="\\$(command -v python3' in install_script
+
+
 class TestCaptureHostLaunchRobustness:
     """Two bugs that ONLY bit the extension-first path (the CLI path masked
     them): Chrome launches the Native Messaging host with a SANITIZED PATH

@@ -175,12 +175,14 @@ def test_install_sh_wrapper_uses_resolved_python():
     picked (e.g. `python3.13` passes, `python3` is 3.9), the wrapper
     would silently break."""
     content = INSTALL_SH.read_text()
-    # Heredoc body must reference $PYTHON_BIN (unescaped — expanded at
-    # script time) for the wrapper, NOT literal `python3 -m`.
-    assert 'exec "$PYTHON_BIN" -m trinity_local.main' in content, (
-        "wrapper should embed the resolved Python binary so it can't "
-        "drift if the user later installs a stale python3 ahead of it."
+    # #274: the resolved interpreter is baked as TRINITY_PY's default
+    # ($PYTHON_BIN expands at script time — the PRIMARY, v1.7.56), with a PATH
+    # fallback below; the exec goes through it. NOT a bare `python3 -m`.
+    assert 'TRINITY_PY="\\${TRINITY_PYTHON:-$PYTHON_BIN}"' in content, (
+        "wrapper should bake the resolved Python binary as TRINITY_PY's default "
+        "so it can't drift if the user later installs a stale python3 ahead of it."
     )
+    assert 'exec "\\$TRINITY_PY" -m trinity_local.main' in content
 
 
 # ─── trinity-local update ──────────────────────────────────────────

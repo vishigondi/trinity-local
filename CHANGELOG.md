@@ -7,6 +7,21 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.110 — install wrappers fall back to a PATH python if the baked one moves (#274 complete)] — 2026-05-30
+
+The last install-flow audit HIGH. The generated `trinity-local` + capture-host
+wrappers baked the ABSOLUTE interpreter path (v1.7.56 — Chrome's sanitized
+native-messaging PATH can't resolve a bare `python3`), but with no fallback: a
+Python upgrade/relocation (pyenv/asdf/brew move interpreters routinely) bricked
+every wrapper with "No such file or directory" and zero recovery.
+
+Now each wrapper resolves: `TRINITY_PYTHON` override > baked absolute path (still
+PRIMARY — v1.7.56 preserved) > `command -v python3.12 → python3 → python`. If the
+baked interpreter is gone, the CLI + capture host keep working via PATH. Verified
+by generating a wrapper with a missing baked path — it falls back and runs.
+Guards in test_install_wrapper_uses_resolver.py (fallback present + absolute path
+stays primary). (#274, pip-stderr half shipped v1.7.108)
+
 ## [v1.7.109 — Windows→WSL2 honest scoping + cortex/semantic_filter abstain-gates] — 2026-05-30
 
 Closing install-flow audit items + the remaining TF-IDF abstain-gates.
@@ -673,7 +688,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2435<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2437<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
