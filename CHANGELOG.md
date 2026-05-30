@@ -7,6 +7,29 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.75 — eval judge integrity: no fabricated benchmarks (#246)] — 2026-05-29
+
+The scariest launch blocker from the #240 audit, confirmed on disk: a real eval
+run was **judged by the `mlx` embedder backend** (not an LLM). It returns empty
+output, so every one of 18 items defaulted to a neutral 0.5, and
+`aggregate_score=0.5` was saved — **indistinguishable from a real benchmark**.
+The "scored on YOUR kind of question" headline can't sit on that.
+
+- **Reject non-LLM judges.** `score_run` now raises if `judge_provider` doesn't
+  resolve to a canonical council LLM (`{claude, codex, antigravity}`), with a
+  message naming the embedder trap. A misconfigured judge fails loud, not silent.
+- **Suppress degenerate aggregates.** When >50% of scored items hit the
+  empty/unparseable/dispatch-raised 0.5 default, `aggregate_score` is forced to
+  `None` and a new `scoring_degraded` flag is set — the confidence-honesty rule
+  (n<3 → suppress) applied to evals. A judge that says nothing can't mint a 0.5.
+- **Cleaned the live data:** the one fabricated 0.5 run (Gemini, 18/18 at 0.5)
+  had its aggregate nulled + flagged, so it stops surfacing as a real score.
+- Guards: `test_eval_judge_integrity.py` (rejects non-LLM judge, suppresses the
+  all-0.5 run, keeps a genuine aggregate).
+
+Next eval blocker: #247 (the prompt==user_substitute degeneracy — 71% of the
+newest set's gold answers are the user's own terse prompt).
+
 ## [v1.7.74 — semantic noise filter: geometry over regex (first cut)] — 2026-05-29
 
 Founder: "we have multi-dimensional embeddings — can't we just see them in this
@@ -2545,7 +2568,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2308<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2311<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

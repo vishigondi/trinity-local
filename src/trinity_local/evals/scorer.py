@@ -113,6 +113,19 @@ def _lens_excerpt(lens_text: str, budget: int = LENS_EXCERPT_BUDGET) -> str:
     return f"{text[:head].rstrip()}\n[... excerpted ...]\n{text[-head:].lstrip()}"
 
 
+# The canonical LLM judges (council providers). A judge must resolve to one of
+# these — local/embedder backends fabricate 0.5s (#246).
+_CANONICAL_JUDGES = {"claude", "codex", "antigravity"}
+
+# score_reason prefixes that mark a 0.5 as a non-answer (judge failed), not a
+# genuine "inconclusive" judgement — used to detect a degenerate scoring run.
+_DEGENERATE_REASONS = (
+    "judge returned empty output",
+    "judge output unparseable",
+    "judge dispatch raised",
+)
+
+
 def _parse_judge_response(raw: str) -> tuple[float, str]:
     """Extract {score, reason} from the judge's stdout. Falls back to
     a neutral 0.5 if parsing fails — better than crashing the whole
@@ -168,6 +181,19 @@ def score_run(
             f"Unknown judge provider '{judge_provider}'. "
             f"Available: {sorted(provider_configs)}"
         )
+    # A judge must be a real LLM provider. The local embedder backend ('mlx')
+    # and other non-chat configs return empty output, which defaults every item
+    # to a neutral 0.5 and fabricates a 0.5 aggregate indistinguishable from a
+    # real benchmark (#246 — a live run shipped exactly this). Restrict to the
+    # canonical council LLMs (aliases resolved).
+    from ..council_schema import normalize_provider_slug
+    if normalize_provider_slug(judge_provider) not in _CANONICAL_JUDGES:
+        raise ValueError(
+            f"Judge provider '{judge_provider}' is not a valid LLM judge — it "
+            f"must resolve to one of {sorted(_CANONICAL_JUDGES)}. A non-chat "
+            f"backend (e.g. the 'mlx' embedder) returns empty output and "
+            f"fabricates a neutral 0.5 score for every item."
+        )
     config = provider_configs[judge_provider]
     judge = make_provider(config)
     cwd = cwd or Path.cwd()
@@ -175,6 +201,7 @@ def score_run(
 
     scored_count = 0
     score_sum = 0.0
+    degenerate_count = 0
     per_type: dict[str, list[float]] = {}
 
     for idx, item in enumerate(run_result.items, start=1):
@@ -207,6 +234,8 @@ def score_run(
 
         scored_count += 1
         score_sum += score
+        if score == 0.5 and reason.startswith(_DEGENERATE_REASONS):
+            degenerate_count += 1
         per_type.setdefault(item.rejection_type, []).append(score)
 
         if progress_callback is not None:
@@ -215,7 +244,18 @@ def score_run(
             except Exception:
                 pass
 
-    run_result.aggregate_score = (score_sum / scored_count) if scored_count else None
+    # Suppress a fabricated benchmark: when most scored items hit the
+    # empty/unparseable 0.5 default, the run says nothing about the model —
+    # don't persist a real-looking aggregate (#246, the confidence-honesty rule
+    # applied to evals). aggregate_score=None + a degraded flag so every surface
+    # treats it as "no score", not "scored 0.5".
+    run_result.scoring_degraded = bool(
+        scored_count and degenerate_count / scored_count > 0.5
+    )
+    if run_result.scoring_degraded:
+        run_result.aggregate_score = None
+    else:
+        run_result.aggregate_score = (score_sum / scored_count) if scored_count else None
     run_result.by_rejection_type = {
         rtype: {
             "count": len(scores),

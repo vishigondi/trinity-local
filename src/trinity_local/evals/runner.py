@@ -54,6 +54,10 @@ class EvalRunResult:
     items: list[EvalItemRun] = field(default_factory=list)
     aggregate_score: float | None = None
     by_rejection_type: dict[str, dict[str, float]] = field(default_factory=dict)
+    # True when scoring was degenerate (>50% of items hit the empty/unparseable
+    # 0.5 default — e.g. a non-LLM judge that returns nothing). aggregate_score
+    # is forced to None in that case so a fabricated benchmark never persists.
+    scoring_degraded: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -68,6 +72,7 @@ class EvalRunResult:
             "items": [it.to_dict() for it in self.items],
             "aggregate_score": self.aggregate_score,
             "by_rejection_type": self.by_rejection_type,
+            "scoring_degraded": self.scoring_degraded,
         }
 
     def result_path(self) -> Path:
