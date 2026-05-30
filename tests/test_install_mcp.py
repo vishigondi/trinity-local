@@ -15,10 +15,37 @@ def home(patch_trinity_home: Path) -> Path:
 def _run_install(monkeypatch, home_dir: Path, scope: str = "user"):
     from types import SimpleNamespace
 
+    import sys
+
+    from trinity_local.commands import install as _install
     from trinity_local.commands.install import handle_install_mcp
 
     monkeypatch.setattr(Path, "home", lambda: home_dir)
+    # Force the interpreter-fallback path (no trinity-local wrapper on PATH) so
+    # these tests pin the pip/venv shape deterministically; the wrapper path is
+    # covered by test_resolve_mcp_command_prefers_wrapper.
+    monkeypatch.setattr(
+        _install, "_resolve_mcp_command",
+        lambda: (str(sys.executable), ["-m", "trinity_local.main", "--mcp"]),
+    )
     handle_install_mcp(SimpleNamespace(scope=scope))
+
+
+def test_resolve_mcp_command_prefers_wrapper(monkeypatch):
+    # The launch-blocker fix (v1.7.78): a harness must spawn the ABSOLUTE
+    # trinity-local wrapper (carries PYTHONPATH), not a bare interpreter that
+    # can't import trinity_local on a curl|sh install.
+    import shutil
+
+    from trinity_local.commands import install as _install
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/local/bin/trinity-local" if name == "trinity-local" else None)
+    cmd, mcp_args = _install._resolve_mcp_command()
+    assert cmd == "/usr/local/bin/trinity-local"
+    assert mcp_args == ["--mcp"]
+    # No wrapper → interpreter + module fallback (works on pip/venv).
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    cmd2, args2 = _install._resolve_mcp_command()
+    assert args2 == ["-m", "trinity_local.main", "--mcp"]
 
 
 class TestInstallMcp:

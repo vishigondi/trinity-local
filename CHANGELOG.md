@@ -7,6 +7,27 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.78 — LAUNCH BLOCKER: a fresh curl|sh install can't spawn the MCP server] — 2026-05-29
+
+The launch-readiness workflow caught a real blocker, invisible on this dev box.
+`install-mcp` wrote `command = sys.executable` + `args = ["-m",
+"trinity_local.main", "--mcp"]` into all four harness configs — but the curl|sh
+install does NOT pip-install the package; it supplies `trinity_local` via a
+wrapper's `PYTHONPATH`. So the harness later spawns a **bare interpreter** with
+no PYTHONPATH and hits `ModuleNotFoundError` — a fresh install registers in
+Claude Code / Codex / Antigravity / Cursor but **none can actually start the
+server**. (Pip/venv installs work because there `sys.executable` already imports
+the package — which is exactly why it was invisible in-repo.)
+
+- **`_resolve_mcp_command()`** now writes the ABSOLUTE path of the installed
+  `trinity-local` wrapper (`shutil.which`) with `args = ["--mcp"]`. The wrapper
+  bakes an absolute interpreter and resolves PYTHONPATH itself, so it runs under
+  a harness's sanitized env. Falls back to `sys.executable -m …` only when no
+  wrapper is on PATH (a pip/venv install, where that works). Threaded through
+  the JSON (Claude/Gemini/Cursor) and Codex TOML writers alike.
+- Guard: `test_resolve_mcp_command_prefers_wrapper` (wrapper path + interpreter
+  fallback); existing install tests pin the fallback shape via a forced stub.
+
 ## [v1.7.77 — workflow-fleet audit fixes: #247 + #249 + review follow-ups] — 2026-05-29
 
 A staggered fleet of parallel analysis/design workflows (founder: "launch as
@@ -2635,7 +2656,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2316<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2317<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

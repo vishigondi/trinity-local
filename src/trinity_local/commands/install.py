@@ -84,12 +84,32 @@ def register(subparsers):
     uin.set_defaults(handler=handle_uninstall)
 
 
+def _resolve_mcp_command() -> tuple[str, list[str]]:
+    """The (command, args) a harness should spawn to start Trinity's MCP server.
+
+    Prefer the ABSOLUTE path to the installed `trinity-local` wrapper: it bakes
+    an absolute interpreter and resolves PYTHONPATH itself, so it runs under a
+    harness's sanitized env (no inherited PATH/PYTHONPATH). Writing
+    `sys.executable -m trinity_local.main` instead BREAKS the curl|sh install
+    (launch blocker): there the package is NOT pip-installed — it's supplied via
+    the wrapper's PYTHONPATH — so a bare interpreter the harness later spawns
+    hits ModuleNotFoundError (invisible on a pip/venv dev box where
+    sys.executable already imports the package). Fall back to the interpreter +
+    module only when no wrapper is on PATH (a pip/venv install, where it works)."""
+    import shutil
+    wrapper = shutil.which("trinity-local")
+    if wrapper:
+        return wrapper, ["--mcp"]
+    return str(sys.executable), ["-m", "trinity_local.main", "--mcp"]
+
+
 def handle_install_mcp(args):
+    _command, _mcp_args = _resolve_mcp_command()
     mcp_config = {
         "mcpServers": {
             "trinity-local": {
-                "command": str(sys.executable),
-                "args": ["-m", "trinity_local.main", "--mcp"]
+                "command": _command,
+                "args": _mcp_args,
             }
         }
     }
@@ -119,7 +139,7 @@ def handle_install_mcp(args):
                 written.append(str(target))
         # Codex CLI: TOML config with `[mcp_servers.<name>]` section.
         codex_path = Path.home() / ".codex" / "config.toml"
-        if _write_codex_toml_mcp_config(codex_path, sys.executable):
+        if _write_codex_toml_mcp_config(codex_path, _command, _mcp_args):
             written.append(str(codex_path))
     else:
         # Project scope: both .mcp.json (Claude Code/Gemini default) AND
@@ -396,7 +416,7 @@ _CODEX_INLINE_TRINITY_RE = re.compile(
 )
 
 
-def _write_codex_toml_mcp_config(target: Path, python_executable: str) -> bool:
+def _write_codex_toml_mcp_config(target: Path, command: str, mcp_args: list[str]) -> bool:
     """Add (or update) the Trinity MCP server in Codex CLI's TOML config.
 
     Codex reads `~/.codex/config.toml`. MCP servers are declared as
@@ -405,10 +425,11 @@ def _write_codex_toml_mcp_config(target: Path, python_executable: str) -> bool:
     we append a fresh one. Other config lines (model, project trust, plugins)
     are left untouched.
     """
+    import json as _json
     block = (
         "\n[mcp_servers.trinity-local]\n"
-        f'command = "{python_executable}"\n'
-        'args = ["-m", "trinity_local.main", "--mcp"]\n'
+        f'command = "{command}"\n'
+        f"args = {_json.dumps(mcp_args)}\n"
     )
 
     existing = ""
