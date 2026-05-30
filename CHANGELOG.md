@@ -7,6 +7,44 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.77 — workflow-fleet audit fixes: #247 + #249 + review follow-ups] — 2026-05-29
+
+A staggered fleet of parallel analysis/design workflows (founder: "launch as
+many workflows as possible, keep what works" — now principle #31) drove this
+batch. The lens-architecture panel landed on HYBRID (geometry-finds,
+LLM-names — the full-geometric design's own author called the pure form FATAL
+given the 0.14 coherence). The adversarial review of tonight's 16 ships came
+back clean except one dormant low-severity gap. Three concrete fixes:
+
+- **#247 — eval no longer builds on tautologies.** The eval workflow root-caused
+  the 71% prompt==user_substitute degeneracy: the Stage-0 schema excerpts
+  `user_substitute` from the *same* user turn `prompt_id` points to, so for
+  short turns (median 9 words < the 25-word cap) the excerpt == the full turn
+  == the prompt, and the judge's gold IS the prompt — any echo passes.
+  `build_eval_set` now drops items where the RESOLVED prompt equals the gold
+  (the unresolved-fallback stand-in is kept), with a `skipped_degenerate` stat.
+  Live: 63→18 honest items (45 tautologies dropped). Self-judging confirmed
+  clean (0 in history).
+- **#249 — the council scoreboard stops penalizing Gemini's terseness.** The
+  council workflow caught that v1.7.70's flat 200-char "substantive" gate
+  misread Gemini's complete-but-concise answers (the 145-199 char band — real
+  answers) as non-answers, under-crediting antigravity and over-counting "won
+  by default" (181 councils stuck at 1 substantive member). Replaced with a
+  completeness heuristic (`_is_substantive_output`: floor 50 + terminal
+  punctuation, excluding colon-openers which are truncated). Live: real contests
+  354→465, Gemini 5%→6%, changed-pick 56%→53% (more honest). Feeds the
+  value-proof DISPLAY only, not routing.
+- **Review follow-up** (adversarial review): `semantic_filter._max_cosine` used
+  a bare `zip()` that would silently truncate on a Matryoshka dim-mismatch and
+  return a wrong cosine — dormant (corpus is uniformly 768-d, filter unwired)
+  but fixed defensively (align to common prefix + re-normalize) ahead of wiring.
+- **principle #31** (`docs/historical/principles.md`): fan out a fleet of cheap
+  probes; keep what shows signal; the discipline is in the prune (a cheap signal
+  test) and the bottleneck is request-rate not credits, so stagger the fleet.
+
+Guards: `test_eval_judge_integrity` extended, `test_council_value_proof`
+(substantive heuristic), `test_semantic_filter` (dim-mismatch). Full suite green.
+
 ## [v1.7.76 — the correction-vector lens: taste as geometry (#257)] — 2026-05-29
 
 The lens, reframed as a vector. Each preference act is a steer — the model
@@ -2597,7 +2635,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2314<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2316<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

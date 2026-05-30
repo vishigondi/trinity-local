@@ -68,6 +68,17 @@ def test_abstains_without_taste_reference(vectors):
     assert sf.is_semantic_noise(emb, [], [[0.0] * 768]) is False
 
 
+def test_max_cosine_handles_dim_mismatch():
+    # Matryoshka: a 768-d prototype vs a truncated stored vector must align to
+    # the common prefix + re-normalize, not silently zip-truncate (adversarial
+    # review, v1.7.77). Identical-direction vectors at different dims → ~1.0.
+    full = sf._l2([1.0, 1.0, 1.0, 1.0])
+    trunc = sf._l2([1.0, 1.0])  # same direction, fewer dims
+    assert sf._max_cosine(full, [trunc]) == pytest.approx(1.0, abs=1e-6)
+    # Orthogonal common-prefix → ~0.
+    assert sf._max_cosine(sf._l2([1.0, 0.0, 5.0]), [sf._l2([0.0, 1.0])]) == pytest.approx(0.0, abs=1e-6)
+
+
 def test_clear_noise_beats_floor_and_margin(vectors):
     from trinity_local.embeddings import embed_batch
     noise, taste = vectors

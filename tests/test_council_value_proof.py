@@ -66,6 +66,21 @@ def test_provider_names_canonicalized_at_boundary(monkeypatch):
     assert vp["win_split"]["codex"]["count"] == 10  # chatgpt + gpt
 
 
+def test_substantive_output_completeness_heuristic():
+    # #249: a flat 200-char floor misread Gemini's terse-but-complete answers.
+    f = pr._is_substantive_output
+    # complete concise answers (real, just terse) → substantive
+    assert f("Unfortunately I can't search routes yet, but here's a 17-minute walk to the park (directions).")
+    assert f("That's a good approach, but I'd phrase it to put the liability on him.")
+    # truncated colon-opener (body never arrived) → NOT substantive even if long-ish
+    assert not f("Here are some Indian stores near you that offer keto options:")
+    # empty / echo / one-liner → not substantive
+    assert not f("OK")
+    assert not f("")
+    # a long answer without terminal punct (code/table) is still substantive
+    assert f("x" * 250)
+
+
 def test_solo_councils_excluded_from_proof(monkeypatch):
     # A council where only 1 member answered substantively is NOT a real
     # contest — its winner won by default. The proof must exclude it so the

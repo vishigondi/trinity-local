@@ -65,7 +65,15 @@ def _l2(vec: Sequence[float]) -> list[float]:
 def _max_cosine(unit_vec: Sequence[float], unit_matrix: Sequence[Sequence[float]]) -> float:
     best = -1.0
     for row in unit_matrix:
-        dot = sum(a * b for a, b in zip(unit_vec, row))
+        a, b = unit_vec, row
+        # Matryoshka safety: prototypes embed at 768 but a stored vector can be
+        # a truncated dim. A bare zip() would silently dot mismatched prefixes
+        # and return a wrong (non-unit) cosine. Align to the common prefix and
+        # re-normalize so the score stays a true cosine.
+        if len(a) != len(b):
+            m = min(len(a), len(b))
+            a, b = _l2(list(a[:m])), _l2(list(b[:m]))
+        dot = sum(x * y for x, y in zip(a, b))
         if dot > best:
             best = dot
     return best

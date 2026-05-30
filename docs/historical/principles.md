@@ -398,3 +398,22 @@ rules by costing time:
     guard assert the SPECIFIC thing that can break (here: agy's command is
     *exactly* `["agy", "-p", prompt]`), not an adjacent property. Sharpens
     #23 (test depth) with a "test the right property" corollary.
+
+31. **Fan out a fleet of cheap probes; keep what shows signal.** When the
+    idea-space is wide and each probe is cheap (a sampling pass, a design
+    take, a mining angle, a candidate fix), don't pick one and commit —
+    launch as many parallel workflows/experiments as the rate limit allows,
+    let them run, and keep only the ones that come back with real signal.
+    This session ran it repeatedly: the 6-stage pipeline audit (#240), the
+    round-2 gold mining, the chairman-rotation experiment, the lens-
+    architecture judge panel — each fanned out independent agents and the
+    *aggregate* surfaced what one serial pass would have missed. The
+    discipline is in the PRUNE, not the spawn: every fleet needs a cheap
+    signal test (coherence vs a null, a confidence floor, an adversarial
+    refute-pass, "does the founder recognize this as them") so the winners
+    are kept on evidence and the rest discarded without ceremony. Corollary
+    (learned the hard way this session): the bottleneck is the per-account
+    REQUEST RATE, not credits — 10 truly-simultaneous workflows throttle each
+    other into 0-token failures, so STAGGER the fleet (launch as slots free)
+    rather than stampede. Generate-and-prune beats choose-and-defend whenever
+    a probe is cheaper than being wrong. (Founder-named, 2026-05-29.)

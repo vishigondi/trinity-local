@@ -113,6 +113,11 @@ def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}_{hashlib.sha1(blob).hexdigest()[:12]}"
 
 
+def _norm_eval_text(text: str) -> str:
+    """Whitespace+case-collapsed text for the prompt==gold degeneracy check (#247)."""
+    return " ".join((text or "").lower().split())
+
+
 def _lookup_prompt_text(prompt_id: str | None) -> tuple[str, str | None]:
     """Return (prompt_text, provider) for a given prompt_id, or
     (empty, None) if not in the index.
@@ -169,6 +174,7 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
         )
 
     items: list[EvalItem] = []
+    skipped_degenerate = 0  # #247: items dropped because prompt == gold
     by_type: dict[str, int] = {}
     by_basin: dict[str, int] = {}
 
@@ -193,12 +199,24 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
         if not (rej_type and model_quote and source_id):
             continue
         prompt_text, provider = _lookup_prompt_text(prompt_id)
+        resolved = bool(prompt_text)
         # If the prompt_id no longer resolves (corpus churn between
         # lens-build and eval-build), fall back to user_substitute as a
         # stand-in — keep the rejection-shape signal even when the
         # originating prompt has been garbage-collected.
         if not prompt_text:
             prompt_text = user_sub
+        # Drop trivially-passable items: when the RESOLVED prompt IS the gold
+        # (#247). The Stage-0 schema excerpts user_substitute from the same user
+        # turn prompt_id points to, so for short turns (median 9 words < the
+        # 25-word cap) the excerpt == the full turn == the prompt — 71% of the
+        # newest set. The judge's gold then equals the prompt, so any echo passes
+        # and the rejection-axis delta has no signal. Skip (data-sampling
+        # floor-guard). Only when the lookup RESOLVED — the unresolved fallback
+        # above is a separate corpus-churn stand-in, intentionally kept.
+        if resolved and _norm_eval_text(prompt_text) == _norm_eval_text(user_sub):
+            skipped_degenerate += 1
+            continue
         items.append(EvalItem(
             eval_item_id=_stable_id("ei", source_id, rej_type),
             prompt=prompt_text,
@@ -229,6 +247,10 @@ def build_eval_set(*, source: str = "rejections", limit: int | None = None) -> E
         "items": len(items),
         "by_rejection_type": dict(sorted(by_type.items(), key=lambda kv: -kv[1])),
         "by_basin": dict(sorted(by_basin.items(), key=lambda kv: -kv[1])),
+        # #247 visibility: how many model_miss acts were dropped as
+        # trivially-passable (prompt == gold). High values flag the Stage-0
+        # excerpt==prompt degeneracy at its source.
+        "skipped_degenerate": skipped_degenerate,
     }
 
     return EvalSet(

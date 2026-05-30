@@ -206,7 +206,7 @@ def _scan_outcomes() -> tuple[list[dict[str, Any]], bool]:
         # ledger predates the dispatch fixes and has empty/echoed members).
         substantive_members = sum(
             1 for m in (outcome.member_results or [])
-            if len((getattr(m, "output_text", "") or "").strip()) >= _SUBSTANTIVE_MIN_CHARS
+            if _is_substantive_output(getattr(m, "output_text", "") or "")
         )
         records.append({
             "council_run_id": council_id,
@@ -233,10 +233,30 @@ def _iter_rated_councils() -> Iterable[dict[str, Any]]:
     yield from records
 
 
-# A member output below this many chars is empty/echoed/a one-liner, not a
-# real answer. Used to tell a genuine 3-way contest from a council where only
-# one model responded (the rest of the captured ledger predates dispatch fixes).
-_SUBSTANTIVE_MIN_CHARS = 200
+# Substantive-output detection. A flat 200-char floor (the original) systematically
+# misread Gemini's terser register — complete concise answers in the 145-199 char
+# band (the Barcelona-route directions, the Electron diagnosis) were demoted to
+# non-answers, under-crediting antigravity and over-counting "won by default"
+# (#249: 181 councils stuck at exactly 1 substantive member, ~127 should be real
+# 2-way contests). So: a low floor to kill empties/echoes, PLUS a completeness
+# signal — ends in terminal punctuation but NOT a bare colon/heading (a
+# colon-opener like "Here are some stores:" ends "cleanly" but is a truncation
+# whose body never arrived). Feeds the value-proof DISPLAY only, not routing.
+_SUBSTANTIVE_MIN_CHARS = 50  # hard floor below which it's empty/echo regardless
+_TERMINAL_PUNCT = (".", "!", "?", '"', "'", "`", ")", "]")
+
+
+def _is_substantive_output(text: str) -> bool:
+    """True when a council member's output is a real, complete answer — not
+    empty/echoed and not a truncated opener (#249)."""
+    t = (text or "").strip()
+    if len(t) < _SUBSTANTIVE_MIN_CHARS:
+        return False
+    if t.endswith(":"):
+        return False  # "Here are the options:" — the body never arrived
+    # Long answers are substantive even without clean terminal punctuation
+    # (code blocks, tables, lists); short ones must look finished.
+    return len(t) >= 200 or t.endswith(_TERMINAL_PUNCT)
 
 # Below this many real contests the aggregate isn't worth a headline — the
 # confidence-honesty rule (n<3 suppress) generalized to the proof surface.
