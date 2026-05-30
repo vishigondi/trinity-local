@@ -611,6 +611,20 @@ def _is_user_facing_prompt(message: SessionMessage) -> bool:
         for marker in ("the human", "this human", "this person", "this session")
     ):
         return False
+    # Agent-ops / dispatch-test / automation prompts — harness or loop control,
+    # not human taste (#252 last-month sample: 16% of recent turns). Two shapes:
+    # (a) output-format probes a human never types ("respond with the word HELLO
+    # and nothing else", "output only OK") — used to test provider dispatch;
+    # (b) automation continuations from a /loop-style driver ("continue with the
+    # plan if currently paused", "continue from where you left off"). Bare
+    # "continue"/"ok" are left alone (a human might type them) — dedup + the
+    # cohesion guard handle those; here we match the distinctive control SHAPE.
+    if (lowered.startswith(("respond with ", "reply with ", "output only", "output the word"))
+            and any(s in lowered[:120] for s in ("nothing else", "single word", "the word", "only the"))):
+        return False
+    if lowered.startswith(("continue with the plan", "continue from where you left off",
+                            "proceed with the plan", "continue the plan")):
+        return False
     return True
 
 

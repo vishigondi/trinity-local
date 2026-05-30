@@ -27,6 +27,13 @@ SCAFFOLDING = [
     "Compose a 4–6 paragraph TASTE PROFILE about this person, in third person.",
     "# /loop — schedule a recurring or self-paced prompt\n\nParse the input",
     "# /council — launch a council\n\nDispatch members",
+    # Agent-ops / dispatch-test / automation control (#252) — not human taste.
+    "respond with the word HELLO and nothing else",
+    "respond with the single word OK and nothing else",
+    "output only the word DONE",
+    "continue with the plan if currently paused. do actual work",
+    "continue from where you left off.",
+    "proceed with the plan",
 ]
 
 REAL_USER = [
@@ -37,6 +44,14 @@ REAL_USER = [
     "why is my smart bulb not responding to the switch?",
     "identify the load-bearing wall in this floor plan",
     "summarize this article about ocean warming in 3 bullets",
+    # Real prompts that superficially resemble agent-ops but are genuine taste —
+    # must survive (the filter matches the control SHAPE, not the lead word).
+    "continue this story about the dragon",
+    "respond to John about the meeting time",
+    "continue",
+    "ok",
+    "output the json schema for the user model",
+    "reply with your honest assessment of this plan",
 ]
 
 

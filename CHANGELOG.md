@@ -7,6 +7,37 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.73 — agent-ops noise filter (#252 validation)] — 2026-05-29
+
+Founder asked: "sample the last month's data… to see if you are making the
+right decisions" about consuming-latest for the cold-start win. The sample
+caught a subtle one. The latest month (2026-05, 4,061 prompts) is **not
+representative taste** — it's a Trinity-building sprint: 29% Trinity-dev/meta,
+**16% explicit agent-ops control** ("respond with the word HELLO and nothing
+else", "continue with the plan if currently paused" — the loop's own
+automation + dispatch tests), and only ~11% real-life taste. Clustering
+last-month-only put 5 of 8 basins on dev/agent-ops. So **naïve "consume latest"
+would profile the user as a Trinity developer**, not the real-estate /
+smart-home / finance builder they are — recency is necessary but not
+sufficient; it needs noise-filtering + topic-diversity (the cold-start design
+for #242 was updated to "recent-but-diverse").
+
+- **Agent-ops boundary filter**: `_is_user_facing_prompt` now drops two control
+  shapes that are harness/automation, not human taste — (a) output-format
+  probes ("respond with…/output only… + nothing else/single word/the word")
+  and (b) automation continuations ("continue with the plan", "continue from
+  where you left off", "proceed with the plan"). Matches the control SHAPE, so
+  genuine prompts survive (bare "continue", "ok", "continue this story",
+  "respond to John", "output the json schema" all kept — tested). Caught 354
+  residual rows; re-purged (27,579→27,225).
+- Guard: extended `test_ingest_scaffolding_filter` (6 agent-ops dropped, 6
+  look-alike real prompts kept).
+- Surfaced a follow-on (folded into #255): v1.7.71's dedup feeds `auto_k` the
+  deduped count, making its 650-ratio ~30% too coarse → the dominant
+  'user/product/account' basin hit 24.7%. Live `topics.json` rebuilt at k=40
+  (16.3%) as a stopgap; the durable auto_k retune + a cohesion-based
+  confidence gate (k-means is unstable here) ride with the #255 cohesion work.
+
 ## [v1.7.72 — the lens sees recent data again: life chapters + turn-pair recency (#252)] — 2026-05-29
 
 Founder caught a stale tension: "[redacted user prompt] I can copy paste" was
@@ -2482,7 +2513,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2292<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2304<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
