@@ -33,14 +33,28 @@ Telemetry exists to support:
 
 ## Principles
 
-## 1. Opt-in only
+## 1. Default-on, provably no-PII, one command off
 
-Nothing is uploaded unless the user explicitly opts in.
+**Superseded 2026-05-27** (this section originally read "Opt-in only"): telemetry
+ships **on by default** to close the feedback loop — Trinity can't improve routing
+without seeing which providers win which task types. The guarantee is not *off*, it
+is *provably no-PII*: only categorical labels (`task_type`, `winner`, `member_count`,
+`mode`) and an anonymous numeric Elo snapshot ever leave the machine, enforced
+structurally by `telemetry.build_outbound_event_payload`'s `DISCLOSED_EVENT_PARAMS`
+allowlist (a param outside the set is dropped at the wire boundary) and asserted by
+`tests/test_telemetry_no_pii.py`.
 
-Consent should be offered:
+Two further gates make a stock install send **nothing**:
 
-- during install / first-run setup
-- adjustable later from Launchpad settings
+- the public build ships **no GA4 credentials** — absent `TRINITY_GA4_MEASUREMENT_ID`
+  + `TRINITY_GA4_API_SECRET`, both the CLI and the launchpad silently no-op;
+- the browser send path is withheld an `endpoint` unless those creds are present, so
+  it can't bypass the Python no-op.
+
+Control:
+
+- `trinity-local telemetry-disable` turns it off; data stops immediately.
+- adjustable later from Launchpad settings.
 
 ## 2. Summary-level sharing only
 

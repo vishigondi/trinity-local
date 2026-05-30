@@ -27,17 +27,11 @@ import pytest
 
 from trinity_local import telemetry as t
 
-# #231/#237 are TEST-FIRST: this file is the written contract for the
-# telemetry no-PII payload API (build_outbound_event_payload / build_elo_snapshot
-# / _browser_send_enabled / DISCLOSED_* constants) + the share-card content
-# redaction. The implementation is not yet in telemetry.py / launchpad_data.py /
-# the card collectors, so the module is marked xfail (non-strict: it flips to
-# XPASS the moment the impl lands, prompting removal of this marker). Tracked as
-# tasks #231 + #237.
-pytestmark = pytest.mark.xfail(
-    reason="#231/#237 telemetry no-PII API + card redaction not yet implemented",
-    strict=False,
-)
+# #231/#237: this file is the written contract for the telemetry no-PII
+# payload API (build_outbound_event_payload / build_elo_snapshot /
+# _browser_send_enabled / DISCLOSED_* constants) + the share-card content
+# redaction. Implemented in telemetry.py + the card collectors (v1.7.80);
+# the TEST-FIRST xfail marker was removed once the contract went green.
 
 
 # A distinctive sentinel we feed into the corpus / params; if it ever

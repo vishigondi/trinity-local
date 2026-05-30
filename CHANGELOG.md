@@ -7,6 +7,38 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.80 — telemetry no-PII contract goes green + privacy-copy reconcile (#231/#225/#237)] — 2026-05-30
+
+Telemetry stays default-ON to close the feedback loop, but the guarantee is now
+*provably* no-PII — the TEST-FIRST contract shipped xfail in v1.7.62 is implemented
+and green (9/9):
+
+- **#231a — wire-boundary allowlist.** `build_outbound_event_payload()` filters every
+  outbound GA4 event against `DISCLOSED_EVENT_PARAMS` (`task_type`, `winner`,
+  `member_count`, `mode`); `_send_event_to_ga4` now routes through it instead of a bare
+  `dict(params)`. A caller that accidentally passes prompt / lens / user_substitute text
+  gets it dropped at the one chokepoint — it can't reach the wire.
+- **#231b — disclosed elo snapshot.** `DISCLOSED_ELO_KEYS` / `DISCLOSED_ELO_PROVIDER_KEYS`
+  pin the snapshot to categorical + numeric only (per-provider Elo / wins / total_games /
+  win_rate / consistency — no task text). The launchpad elo_event was sending more than
+  the README documented; it's now both disclosed and bounded.
+- **#231c — browser-bypass closed.** The browser's `maybeSendTelemetry()` keys on
+  `settings.endpoint`, which always defaulted to the GA4 collect URL — so the browser
+  could POST even when the Python path no-op'd for lack of creds. `launchpad_telemetry_state`
+  now withholds `endpoint` unless `_browser_send_enabled()` (custom collector OR GA4 creds);
+  `_browser_endpoint()` returns the fully-authenticated GA4 URL when creds exist, else None.
+- **#237 — share cards.** The council/eval card collectors already drop raw prompt /
+  member-output / user_substitute text; the contract now asserts it structurally.
+
+**#225 privacy-copy reconcile.** The README contradicted itself (line 140 "on by default"
+vs line 159 "opt-in, default off"); the launch-day HN FAQs said "default OFF" with a wrong
+param list (`confidence`/`harness`). All reconciled to the shipped reality: on by default,
+provably no-PII, the public build ships no GA4 creds so a stock install sends nothing,
+disable with `trinity-local telemetry-disable`. `docs/telemetry-spec.md` Principle 1
+("Opt-in only") superseded.
+
+Guard: `tests/test_telemetry_no_pii.py` (xfail marker removed) is the standing contract.
+
 ## [v1.7.79 — modernbert model-name sweep: the broken remediation paths] — 2026-05-29
 
 The launch-readiness workflow's second finding: after the #244 embedder swap to

@@ -15,6 +15,48 @@ from .utils import now_iso
 
 TELEMETRY_VERSION = 1
 
+# ─── Disclosed-payload contract (#231 — provably no-PII) ────────────────
+#
+# Telemetry is default-ON to close the feedback loop, but the *guarantee*
+# is that only categorical labels leave the machine — never prompt text,
+# lens tensions, or user_substitute strings. These frozensets ARE that
+# contract, enforced structurally (build_outbound_event_payload allowlists
+# against DISCLOSED_EVENT_PARAMS; tests assert the elo snapshot's keys stay
+# within the ELO sets). Growing an outbound field means adding it here
+# first — and that addition is reviewable in one place.
+
+# The only categorical params any outbound GA4 event may carry. The one
+# live emitter (council_runner → "council_complete") passes exactly these.
+DISCLOSED_EVENT_PARAMS = frozenset({"task_type", "winner", "member_count", "mode"})
+
+# Top-level keys the elo snapshot (provider win-rates) may expose to the
+# wire / the browser. All categorical or numeric — no free text.
+DISCLOSED_ELO_KEYS = frozenset(
+    {"version", "window", "council_count", "providers", "matchups"}
+)
+
+# Per-provider stat keys inside snapshot["providers"][slug]. Numeric only.
+DISCLOSED_ELO_PROVIDER_KEYS = frozenset(
+    {"elo", "wins", "total_games", "win_rate", "consistency"}
+)
+
+
+def build_outbound_event_payload(
+    event_name: str, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Construct the GA4 event envelope, dropping every param outside the
+    disclosed categorical allowlist (#231a).
+
+    This is the single chokepoint every outbound council event passes
+    through. A caller that accidentally hands us ``prompt`` / ``lens`` /
+    ``user_substitute`` (or any other un-disclosed key) gets it SILENTLY
+    DROPPED here — so a coding mistake upstream can't leak free text onto
+    the wire. Returns the GA4 ``{"events": [{"name", "params"}]}`` shape
+    (caller adds ``client_id``).
+    """
+    safe = {k: params[k] for k in DISCLOSED_EVENT_PARAMS if k in params}
+    return {"events": [{"name": event_name, "params": safe}]}
+
 
 @dataclass
 class TelemetrySettings:
@@ -266,13 +308,54 @@ def _bucket_council_count(value: int) -> str:
     return "50+"
 
 
+def _browser_send_enabled() -> bool:
+    """Whether the browser launchpad is allowed to POST telemetry (#231c).
+
+    Gated on the SAME credential guarantee as the Python path: a custom
+    collector endpoint, or GA4 measurement creds. Absent both, the Python
+    `_send_event_to_ga4` no-ops — so the browser MUST no-op too, or it
+    becomes a bypass that sends events the CLI suppressed. We enforce that
+    by withholding `endpoint` from pageData (see `launchpad_telemetry_state`),
+    which short-circuits the browser's `maybeSendTelemetry()`.
+    """
+    if os.environ.get("TRINITY_TELEMETRY_ENDPOINT", "").strip():
+        return True
+    return _ga4_credentials() is not None
+
+
+def _browser_endpoint() -> str | None:
+    """The endpoint string the browser POSTs to, or None when sends aren't
+    credential-enabled. A custom collector is used verbatim; GA4 needs its
+    measurement_id + api_secret in the query string (the browser has no
+    other channel to authenticate)."""
+    custom = os.environ.get("TRINITY_TELEMETRY_ENDPOINT", "").strip()
+    if custom:
+        return custom
+    creds = _ga4_credentials()
+    if creds is None:
+        return None
+    measurement_id, api_secret = creds
+    return f"{GA4_ENDPOINT}?measurement_id={measurement_id}&api_secret={api_secret}"
+
+
 def launchpad_telemetry_state() -> dict[str, Any]:
     settings = load_telemetry_settings()
     if settings.sharing_enabled:
         ensure_share_install_id(settings)
     snapshot = build_elo_snapshot()
+    # Close the browser-bypass (#231c): only expose a usable `endpoint` when
+    # sends are credential-enabled. Without it, the browser's
+    # maybeSendTelemetry() returns early — it can't transmit what the Python
+    # path would suppress. The default GA4 collect URL (no creds) is NOT a
+    # usable endpoint and must never reach pageData.
+    settings_dict = settings.to_dict()
+    browser_endpoint = _browser_endpoint()
+    if browser_endpoint:
+        settings_dict["endpoint"] = browser_endpoint
+    else:
+        settings_dict.pop("endpoint", None)
     return {
-        "settings": settings.to_dict(),
+        "settings": settings_dict,
         "snapshot": snapshot,
         "snapshot_hash": elo_snapshot_hash(snapshot),
         "view_event": build_launchpad_view_event(settings=settings),
@@ -346,9 +429,11 @@ def _send_event_to_ga4(
         settings = ensure_share_install_id(settings)
         save_telemetry_settings(settings)
 
+    # Enforce the disclosed-param allowlist at the wire boundary (#231a) —
+    # NOT a bare dict(params) — so an upstream caller can't leak free text.
     payload = {
         "client_id": settings.share_install_id,
-        "events": [{"name": event_name, "params": dict(params)}],
+        **build_outbound_event_payload(event_name, params),
     }
     body = json.dumps(payload).encode("utf-8")
     url = f"{GA4_ENDPOINT}?measurement_id={measurement_id}&api_secret={api_secret}"

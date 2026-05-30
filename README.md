@@ -138,11 +138,14 @@ by Aider / Cline / Continue / anything else. Schema:
 - **Your prompts and the models' answers never leave your machine.** No exceptions, no opt-in
   tier that changes this.
 - **Anonymous categorical telemetry is on by default** (Google Analytics 4 property
-  `539262453` — `task_type`, `winner`, `member_count`, `mode`). No prompt content, no lens
-  text, no user_substitute strings — only the four discrete labels the chairman writes to
-  every council outcome. Disable any time with `trinity-local telemetry-disable`; the data
-  immediately stops flowing. Contributors without GA4 credentials get a silent no-op
-  (set `TRINITY_GA4_MEASUREMENT_ID` + `TRINITY_GA4_API_SECRET` to enable sending).
+  `539262453`). Two payloads, both categorical/numeric only: the per-council event
+  (`task_type`, `winner`, `member_count`, `mode`) and, from the launchpad, an anonymous
+  provider win-rate snapshot (per-provider Elo / wins / total games — no task text). No
+  prompt content, no lens text, no user_substitute strings ever. Disable any time with
+  `trinity-local telemetry-disable`; the data immediately stops flowing. Sending also
+  requires GA4 credentials that the public build does **not** ship — without
+  `TRINITY_GA4_MEASUREMENT_ID` + `TRINITY_GA4_API_SECRET` set, both the CLI and the
+  launchpad silently no-op (nothing leaves your machine).
 - **No hosted controller, no per-call billing.** Trinity dispatches via the CLIs you already
   use. Build the corpus now while inference is subsidized — the taste signal you capture
   survives the subsidy ending.
@@ -156,7 +159,7 @@ You don't. Trinity is an MCP server inside your existing harness (Claude Code, C
 Trinity isn't a daemon. The MCP server spawns when your harness opens, exits when it closes. ~62 MB resident while connected. `lsof -i | grep LISTEN` shows nothing — no listening port, no background process.
 
 **"I don't want my data sent to a server."**
-Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Telemetry is opt-in, default off, categorical labels only.
+Transcripts never leave your machine. Council fan-out goes from your laptop directly to the CLIs you already authenticated. No hosted controller. Anonymous categorical telemetry (the four discrete labels above — no prompt content) is on by default to close the feedback loop; turn it off any time with `trinity-local telemetry-disable`.
 
 **"I want my subscriptions actually used."**
 Trinity dispatches via your existing `claude` / `codex` / `agy` CLIs — using the tokens you've already paid for. Every council uses what you have. No new bill.
