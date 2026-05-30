@@ -240,8 +240,10 @@ class TestPairMiningPostFilter:
         assert filtered[0].verdict == "accepted"
         assert set(filtered[0].basins_spanned) == {"b00", "b01", "b02"}
 
-    def test_two_basin_pair_demoted_to_ordering(self):
-        # Two basins isn't enough — spec requires ≥3 domains. Demote.
+    def test_two_basin_pair_now_accepted(self):
+        # #267: threshold lowered 3→2 for cross-domain users. A tension that
+        # recurs across TWO unrelated basins is a cross-domain lens, not a
+        # topic-local virtue — it now stays accepted (was demoted under ≥3).
         from trinity_local.me.pair_mining import LensPair, basin_post_filter
         decisions = self._make_decisions()
         pair = LensPair(
@@ -251,7 +253,7 @@ class TestPairMiningPostFilter:
             verdict="accepted",
         )
         filtered = basin_post_filter([pair], decisions)
-        assert filtered[0].verdict == "preserve_as_ordering"
+        assert filtered[0].verdict == "accepted"
         assert set(filtered[0].basins_spanned) == {"b00", "b01"}
 
     def test_sentinel_basin_ids_treated_as_missing(self):

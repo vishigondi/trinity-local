@@ -7,6 +7,39 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.99 — de-bias the lens: it was a software-only persona, threw away the user's cross-domain taste] — 2026-05-30
+
+Audit on freshly-synced threads: the lens build + council work end-to-end, but
+the lens was 100% software-engineering meta-preferences while the corpus is
+heavily cross-domain (econ, real estate, health, investing, travel, hardware,
+gardening, creative, smart-home, tax). The basins SAW those domains; the lens
+discarded them. Two mechanisms, both fixed:
+
+- **`distill.py` said "this user *as a developer*"** → `core.md` collapsed to a
+  coder. Reframed to whole-person, domain-spanning ("capture the cross-domain
+  thinker… a decision-style that recurs across unrelated domains is the
+  load-bearing signal"). Before: *"You ship working artifacts you can still
+  reason about… build the generative system…"* After: *"You ship leverage, not
+  lectures… you arrive with your own live hypothesis and substitute a sharper
+  one mid-conversation, whether the subject is a tub surround, a cabernet's
+  price-per-bottle, a code regression, or where the next durable moat in AI will
+  come from… treat money as cheaper than time."*
+
+- **Stage 4 basin-span gate `_MIN_BASINS_FOR_LENS` 3→2.** The ≥3-domain rule was
+  tuned for a software-only corpus (every basin a dev sub-topic); for a
+  cross-domain user it demoted most non-software taste to flat orderings (11
+  candidates → 1 accepted). At ≥2 a style that recurs across two *unrelated*
+  domains is a lens. Rebuild: 8→12 active tensions, 1→4 accepted this run,
+  surfacing e.g. "opportunity momentum ↔ downside protection" (investing) that
+  the dev-framed lens never had. The support-count + recency registry guards
+  keep quality; the gate only governs cross-domain generality.
+
+- **Domain-specific taste** (1-basin) is now its own lens.md section with the
+  topic noted ("peak capability > cost/latency _(in b00)_"), not flattened into
+  generic orderings.
+
+Guards updated in `test_me_pipeline.py` (2-basin pair now accepted). (#267)
+
 ## [v1.7.98 — claude sync pill never showed: the `?starred=true` list clobbered the real sidebar] — 2026-05-30
 
 The "⠕ N to sync" bulk-download pill (one click → auto-walk every uncaptured

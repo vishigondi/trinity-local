@@ -262,8 +262,18 @@ def parse_pair_mining_output(raw: str) -> list[LensPair]:
     return pairs
 
 
-_MIN_BASINS_FOR_LENS = 3
-"""Spec threshold: ≥3 domains supporting each lens.
+_MIN_BASINS_FOR_LENS = 2
+"""Spec threshold: ≥2 domains supporting each lens.
+
+De-biasing change (#267, 2026-05-30): lowered 3→2. The original ≥3 rule
+was tuned for a software-only corpus where every basin was a dev sub-topic,
+so 3-domain convergence was cheap. For a genuinely cross-domain user (real
+estate + health + investing + software + …) a decision-style that recurs
+across just 2 *unrelated* domains is already a lens, not a topic-bound
+virtue — the ≥3 gate was demoting most of the user's non-software taste to
+flat orderings (this user: 11 candidates → 1 accepted at ≥3). The
+support-count + recency-decay registry guards keep the quality bar; the
+basin gate only governs cross-domain generality.
 
 Adapted from the external taste-terminal project's spec (no longer a
 Trinity runtime dependency — see claude.md "What was deliberately
@@ -383,15 +393,15 @@ def basin_post_filter(
 ) -> list[LensPair]:
     """Stage 4: drop tension evidence that doesn't span enough basins.
 
-    Rule: minimum 3 domains supporting an entry. Tension that sits in
-    <3 basins is a domain-local virtue or a stable preference, not a
-    lens that two strangers would converge on across unrelated topics.
-    Adapted from the external taste-terminal spec; ratified into
-    Trinity by `council_70eaf228d7753074`.
+    Rule: minimum `_MIN_BASINS_FOR_LENS` (2, post-#267) domains supporting
+    an entry. A tension below that sits in a single topic — a domain-local
+    virtue, kept as an ordering with its domain noted, not promoted to a
+    cross-domain lens. Ratified into Trinity by `council_70eaf228d7753074`;
+    threshold lowered 3→2 for cross-domain users (#267).
 
     Verdicts:
-    - accepted: ≥3 basins
-    - preserve_as_ordering: 1–2 basins (topic-local)
+    - accepted: ≥`_MIN_BASINS_FOR_LENS` basins (cross-domain lens)
+    - preserve_as_ordering: 1 basin (domain-local taste — still surfaced)
     - dropped: 0 basins (chairman emitted IDs that don't anchor)
 
     When `basin_centroids` is provided (the lens-build pipeline loads

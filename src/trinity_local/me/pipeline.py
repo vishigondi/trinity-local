@@ -305,10 +305,16 @@ def render_me_markdown(
             lines.append(support_line + caveat)
         lines.append("")
     if orderings:
-        lines.append("## Orderings (preferences without dual regret)")
+        lines.append("## Domain-specific taste (preferences local to one topic)")
+        lines.append("")
+        lines.append(
+            "_Not cross-domain lenses, but real taste the chairman should honor "
+            "inside that domain — kept with its topic, not flattened away (#267)._"
+        )
         lines.append("")
         for p in orderings:
-            lines.append(f"- {p.pole_a} > {p.pole_b}")
+            where = f" _(in {', '.join(p.basins_spanned)})_" if p.basins_spanned else ""
+            lines.append(f"- {p.pole_a} > {p.pole_b}{where}")
         lines.append("")
     # Stage 4b (#141 slice 3): if conflicts.json exists, surface them
     # here. We read from disk rather than thread the conflicts list
