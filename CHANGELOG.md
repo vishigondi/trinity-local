@@ -7,6 +7,28 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.98 — claude sync pill never showed: the `?starred=true` list clobbered the real sidebar] — 2026-05-30
+
+The "⠕ N to sync" bulk-download pill (one click → auto-walk every uncaptured
+thread, no per-thread clicking) worked on chatgpt + gemini but never appeared on
+claude. Root cause, found live: claude.ai fires TWO `chat_conversations_v2` GETs
+— the real recent-conversations list AND a `?starred=true` filtered subset. For
+an account with no stars the starred call returns `data: []`, and `page-hook.js`
+classified BOTH as `sidebar_list` (last-write-wins), so the empty starred
+snapshot overwrote `_sidebar.json`. `_query_sync_status` then read
+`sidebar_count=0 → missing_count=0 → pill hidden`.
+
+- **page-hook.js**: the claude `sidebar_list` branch now excludes
+  `?starred=true` — only the unfiltered recent list is the sidebar. (Needs an
+  extension reload to take effect.)
+- **capture_host `_write_capture`**: belt-and-suspenders clobber guard on the
+  `_sidebar` sentinel — refuses to overwrite a populated sidebar with an empty
+  one (shared `_count_sidebar_items` across the chatgpt `items` / claude `data`
+  / gemini list shapes). Live immediately, so reloading claude.ai's main view
+  repopulates the real list and protects it.
+
++8 guards in `test_sidebar_starred_clobber.py`. (#266)
+
 ## [v1.7.97 — a test clobbered the user's real Chrome native-messaging manifest; restore + guard] — 2026-05-30
 
 Browser capture (claude.ai / chatgpt.com / gemini.google.com) had been dead
@@ -406,7 +428,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2396<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2401<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

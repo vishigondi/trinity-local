@@ -78,7 +78,16 @@
           // pattern matched nothing, v2 is the current endpoint).
           // Match both — legacy left in case Anthropic does a rolling
           // cohort migration and some accounts still hit v1.
-          if (pat.provider === "claude" && (u.pathname.endsWith("/chat_conversations") || u.pathname.endsWith("/chat_conversations_v2")) && method === "GET") {
+          // EXCLUDE ?starred=true: claude.ai fires a SEPARATE v2 call for
+          // the "Starred" section (a filtered subset), and an account with
+          // no stars returns data:[] — capturing that as the sidebar wiped
+          // the real recent-conversations list, so the sync pill read 0 and
+          // never showed (found live 2026-05-30). Only the unfiltered list
+          // is the true sidebar.
+          if (pat.provider === "claude"
+              && (u.pathname.endsWith("/chat_conversations") || u.pathname.endsWith("/chat_conversations_v2"))
+              && method === "GET"
+              && u.searchParams.get("starred") !== "true") {
             return { provider: "claude", kind: "sidebar_list" };
           }
           if (pat.provider === "chatgpt" && u.pathname.endsWith("/backend-api/conversations") && method === "GET") {

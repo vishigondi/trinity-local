@@ -143,11 +143,38 @@ def _sanitize_id(value: str, label: str) -> str:
     return value
 
 
+def _count_sidebar_items(payload: dict[str, Any]) -> int:
+    """Number of conversations in a sidebar_list payload, across the
+    per-provider shapes (chatgpt `items`, claude `data`, gemini DOM list)."""
+    sb = payload.get("sidebar") or {}
+    if isinstance(sb, list):
+        return len(sb)
+    if isinstance(sb, dict):
+        for key in ("items", "data", "chat_conversations"):
+            v = sb.get(key)
+            if isinstance(v, list):
+                return len(v)
+    return 0
+
+
 def _write_capture(provider: str, conv_id: str, conversation: dict[str, Any]) -> Path:
     from .utils import atomic_write_text
     provider = _sanitize_id(provider, "provider")
     conv_id = _sanitize_id(conv_id, "conv_id")
     target = _conv_dir() / provider / f"{conv_id}.json"
+    # Clobber guard for the sidebar sentinel: claude.ai fires a filtered
+    # `?starred=true` v2 list that returns [] for an account with no stars;
+    # letting that empty snapshot overwrite a populated recent-conversations
+    # sidebar zeroed the sync-pill count (found 2026-05-30). Refuse to replace
+    # a non-empty sidebar with an empty one. (page-hook.js now also excludes
+    # the starred variant at the source — this is belt-and-suspenders.)
+    if conv_id == "_sidebar" and target.exists() and _count_sidebar_items(conversation) == 0:
+        try:
+            existing = json.loads(target.read_text())
+            if _count_sidebar_items(existing) > 0:
+                return target  # keep the good snapshot
+        except (json.JSONDecodeError, OSError):
+            pass
     atomic_write_text(target, json.dumps(conversation, indent=2, ensure_ascii=False))
     return target
 
