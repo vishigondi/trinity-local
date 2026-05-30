@@ -7,6 +7,24 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.87 — the per-domain correction lens: your taste differs by subject (#257)] — 2026-05-30
+
+Second mining tool. `correction_signature_by_basin()` computes the taste-axis
+signature SEPARATELY per subject basin — because the same person steers
+differently by domain, and a single global signature averages that away.
+
+Validated on Trinity's own corpus: the ticket/decision basin (b00, n=56) pushes
+hardest for `concrete` + `decisive` (both +0.23); the review (b03) and admin (b04)
+basins push for `action`/executability (+0.15/+0.20); the spatial basin (b02) has
+the weakest, terse-leaning signal. That domain-specific structure is the
+actionable part — "Claude wins your strategy work, GPT wins your product work" is
+the routing analog of the same fact.
+
+Each basin gets its full axis loadings + a `top_axis`, labelled from topics.json,
+sorted most-corrected-first; basins below `_MIN_CORRECTIONS` are dropped (don't
+profile a domain off 3 acts). Surfaced read-only as `correction_by_basin` on
+`lens-acts`. Reuses the shared axis-vector/mean-steer helpers; 2 new tests.
+
 ## [v1.7.86 — the diachronic correction lens: how your taste MOVED (#257)] — 2026-05-30
 
 Geometric-mining pass (the founder's standing "there's more gold, keep sampling"
@@ -120,7 +138,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2341<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2343<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

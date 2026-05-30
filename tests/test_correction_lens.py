@@ -71,3 +71,29 @@ def test_drift_thin_ledger(monkeypatch):
     import trinity_local.me.correction_lens as cl
     monkeypatch.setattr(cl, "_MIN_CORRECTIONS", 10**9)
     assert cl.correction_drift().get("ready") is False
+
+
+def test_by_basin_shape_when_ready():
+    """#257 per-domain signature: per-basin axis loadings + top_axis, sorted by
+    correction count. Skips when embedder/ledger unavailable."""
+    import trinity_local.me.correction_lens as cl
+
+    res = cl.correction_signature_by_basin()
+    if not res.get("ready"):
+        import pytest
+        pytest.skip(f"by-basin not ready: {res}")
+    assert res["n_basins"] == len(res["basins"]) >= 1
+    counts = [d["n"] for d in res["basins"].values()]
+    assert counts == sorted(counts, reverse=True)  # most-corrected first
+    for bid, d in res["basins"].items():
+        assert d["n"] >= cl._MIN_CORRECTIONS
+        assert set(d["axes"].keys()) == set(cl.TASTE_AXES.keys())
+        assert d["top_axis"]["axis"] in d["axes"]
+        # top_axis really is the max |loading|.
+        assert abs(d["top_axis"]["loading"]) == max(abs(v) for v in d["axes"].values())
+
+
+def test_by_basin_high_threshold_not_ready(monkeypatch):
+    # An impossibly high per-basin floor → no eligible basin → not ready.
+    import trinity_local.me.correction_lens as cl
+    assert cl.correction_signature_by_basin(min_per_basin=10**9).get("ready") is False

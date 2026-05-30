@@ -137,6 +137,88 @@ def _mean_correction_unit(pairs: list[tuple[str, str]]) -> list[float]:
     return _unit(_mean(corrections))
 
 
+def _basin_labels() -> dict:
+    """Map basin id → human label from topics.json (best-effort, {} on miss)."""
+    try:
+        import json
+
+        from ..state_paths import state_dir
+
+        topics = json.loads(
+            (state_dir() / "memories" / "topics.json").read_text(encoding="utf-8")
+        )
+        out = {}
+        for b in topics.get("basins", []):
+            bid = b.get("id")
+            if bid:
+                out[bid] = (b.get("label") or b.get("title") or b.get("name") or "").strip()
+        return out
+    except Exception:
+        return {}
+
+
+def correction_signature_by_basin(min_per_basin: int = _MIN_CORRECTIONS) -> dict:
+    """Per-domain correction lens (#257): the taste-axis signature computed
+    SEPARATELY for each subject basin with enough corrections.
+
+    The same person steers differently by domain — on Trinity's own corpus the
+    ticket/decision basin pushes hardest for `concrete` + `decisive`, while the
+    review/admin basins push for `action`/executability. A single global
+    signature averages that away; this surfaces it. Best-effort
+    `{"ready": False}` on no embedder or no basin clearing `min_per_basin`.
+    """
+    try:
+        from ..embeddings import embed_batch  # noqa: F401 — availability probe
+        from .preference_acts import iter_preference_acts
+    except Exception:
+        return {"ready": False, "reason": "imports unavailable"}
+
+    from collections import defaultdict
+
+    by_basin: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for a in iter_preference_acts():
+        s, p = (a.sacrificed or "").strip(), (a.privileged or "").strip()
+        if a.basin and len(s) > 4 and len(p) > 2:
+            by_basin[a.basin].append((s, p))
+
+    eligible = {b: pairs for b, pairs in by_basin.items() if len(pairs) >= min_per_basin}
+    if not eligible:
+        return {"ready": False, "reason": "no basin with enough corrections",
+                "min_per_basin": min_per_basin}
+
+    try:
+        axisvec = _axis_vectors()
+    except Exception as exc:
+        return {"ready": False, "reason": f"embed failed: {exc!r}"}
+
+    labels = _basin_labels()
+    basins: dict[str, dict] = {}
+    for basin, pairs in eligible.items():
+        try:
+            mc = _mean_correction_unit(pairs)
+        except Exception:
+            continue
+        loads = {
+            name: round(sum(x * y for x, y in zip(mc, av)), 3)
+            for name, av in axisvec.items()
+        }
+        ranked = sorted(loads.items(), key=lambda kv: -abs(kv[1]))
+        basins[basin] = {
+            "n": len(pairs),
+            "label": (labels.get(basin) or "")[:60],
+            "axes": dict(ranked),
+            "top_axis": {"axis": ranked[0][0], "loading": ranked[0][1]},
+        }
+    if not basins:
+        return {"ready": False, "reason": "embed failed for all basins"}
+    return {
+        "ready": True,
+        "n_basins": len(basins),
+        # Most-corrected basins first.
+        "basins": dict(sorted(basins.items(), key=lambda kv: -kv[1]["n"])),
+    }
+
+
 def correction_drift() -> dict:
     """Diachronic correction lens (#257): split the user's timed corrections
     into an early and a recent half and report how each interpretable

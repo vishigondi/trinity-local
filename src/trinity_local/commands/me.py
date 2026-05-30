@@ -198,6 +198,16 @@ def handle_lens_acts(args):
             payload["correction_drift"] = drift
     except Exception:
         pass
+    # #257 per-domain view: the same person steers differently by subject — the
+    # ticket basin pushes for concrete/decisive, the admin basin for action. A
+    # global signature averages that away; this keeps it. Read-only, best-effort.
+    try:
+        from ..me.correction_lens import correction_signature_by_basin
+        by_basin = correction_signature_by_basin()
+        if by_basin.get("ready"):
+            payload["correction_by_basin"] = by_basin
+    except Exception:
+        pass
     print(json.dumps(payload, indent=2))
     if not acts:
         import sys
