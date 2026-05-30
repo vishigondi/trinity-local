@@ -419,3 +419,56 @@ class TestPromptCorpusPurity:
             f"{self.MAX_SCAFFOLDING_FRACTION:.0%} ceiling. A bulk ingest "
             f"bypassed _is_user_facing_prompt (#245). Examples: {examples}"
         )
+
+
+@pytest.mark.real_corpus
+class TestBasinScaffoldingConcentration:
+    """#248: corpus-wide scaffolding can pass the 5% floor (#245) yet
+    CONCENTRATE into a few near-pure scaffolding basins that then surface on
+    the topic map as fake user topics. A 2026-05 audit found b19=94%, b22=90%
+    scaffolding (AGENTS.md dumps / <environment_context> / Trinity's own
+    extraction prompts) while the corpus was only 1.7% scaffolding overall.
+    The corpus-wide guard is necessary but not sufficient — concentration
+    must be guarded at the basin grain (per principle #3, catch it where it
+    shows, not only at the aggregate)."""
+
+    MAX_BASIN_SCAFFOLDING = 0.50
+    MIN_BASIN_SIZE = 20  # tiny basins are noise; the topic-map risk is sizeable ones
+
+    def test_no_basin_is_scaffolding_dominated(self):
+        try:
+            from trinity_local.ingest import _is_user_facing_prompt
+            from trinity_local.me.basins import load_basins
+            from trinity_local.memory.store import iter_prompt_nodes_no_embedding
+            from trinity_local.session_schema import SessionMessage
+        except Exception as exc:  # pragma: no cover
+            pytest.skip(f"module unavailable: {exc}")
+
+        basins = load_basins()
+        if not basins:
+            pytest.skip("no basins built yet — run trinity-local lens")
+        texts = {
+            n.id: (getattr(n, "text", "") or "")
+            for n in iter_prompt_nodes_no_embedding(limit=None)
+        }
+        offenders = []
+        for b in basins:
+            members = [texts.get(pid, "") for pid in (b.prompt_ids or []) if texts.get(pid)]
+            if len(members) < self.MIN_BASIN_SIZE:
+                continue
+            scaffold = sum(
+                1 for t in members
+                if not _is_user_facing_prompt(SessionMessage(role="user", text=t.strip()))
+            )
+            frac = scaffold / len(members)
+            if frac > self.MAX_BASIN_SCAFFOLDING:
+                offenders.append((b.id, len(members), frac, (b.top_terms or [])[:4]))
+
+        assert not offenders, (
+            "scaffolding-dominated basin(s) on the topic map (#248): "
+            + "; ".join(
+                f"{bid} (n={n}) {frac:.0%} scaffolding terms={tt}"
+                for bid, n, frac, tt in offenders
+            )
+            + ". Tighten _is_user_facing_prompt or re-purge the corpus."
+        )

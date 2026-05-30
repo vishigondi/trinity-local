@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -578,6 +579,37 @@ def _is_user_facing_prompt(message: SessionMessage) -> bool:
     # patterns observed in the audit (Subagent V tick).
     if lowered.startswith(("look at these recurring", "read the image at",
                             "for each durable fact")):
+        return False
+    # Agent-harness instruction files + environment-context blocks captured as
+    # role=user (Codex injects `# AGENTS.md instructions for <path>`; Claude
+    # Code / Codex inject `<environment_context><cwd>…`). These slip the
+    # corpus-wide purity floor (#245, 1.7% < 5%) but CONCENTRATE into near-pure
+    # scaffolding basins (b19=94%, b22=90%) — #248. Paired with the per-basin
+    # concentration guard.
+    if lowered.startswith(("# agents.md", "<environment_context>", "<instructions>",
+                            "<cwd>", "<env>")):
+        return False
+    # Slash-command skill bodies captured as role=user: when a user types
+    # `/loop …`, the harness injects the expanded skill definition
+    # (`# /loop — schedule a recurring or self-paced prompt\n\nParse …`) as the
+    # turn text. That's the command DEFINITION, not the user's words — and it
+    # repeats verbatim every invocation (the /loop body alone appeared 283× in
+    # one basin, #248). Match a markdown heading whose first token is a slash
+    # command.
+    if re.match(r"#\s*/[a-z][\w-]*\b", lowered):
+        return False
+    # Trinity's OWN lens-extraction prompts refer to the user in the third
+    # person ("Find the idiosyncratic words this human introduces", "Compose a
+    # TASTE PROFILE about this person", "Find OPEN LOOPS in this session"). A
+    # real prompt doesn't call its author "the human"/"this person" or talk
+    # about "this session" in the third person; an imperative that does is the
+    # extractor talking, not the user. (b21 — the mixed extraction-prompt basin.)
+    if lowered.startswith(
+        ("find ", "identify ", "extract ", "list ", "compose ", "summarize ")
+    ) and any(
+        marker in lowered[:280]
+        for marker in ("the human", "this human", "this person", "this session")
+    ):
         return False
     return True
 

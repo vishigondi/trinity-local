@@ -7,6 +7,39 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.71 — basin scaffolding filter + dedup-at-clustering (#248)] — 2026-05-29
+
+First fix from the pipeline-data audit (#240). The basins stage was DEGRADED:
+corpus-wide scaffolding was only 1.7% (passing #245's 5% floor) but it had
+**concentrated into near-pure scaffolding basins** that surfaced on the topic
+map as fake user topics — b19=94% (`# AGENTS.md instructions` dumps), b22=90%
+(`<environment_context>` harness injection), b21 (Trinity's own
+`Find … this human …` extraction prompts). All three leaked **100%** through
+`_is_user_facing_prompt` (which only knew prefix patterns it didn't list).
+
+- **Filter tightened** to catch them: `# agents.md` / `<environment_context>`
+  / `<cwd>` / `<instructions>` blocks; third-person extraction prompts
+  (`find`/`identify`/`extract`/`list`/`compose`/`summarize` + "the human" /
+  "this human" / "this person" / "this session"); and **slash-command skill
+  bodies** (`# /loop — schedule a recurring…`, the expanded command definition
+  the harness injects as a user turn — it alone repeated 283× in one basin).
+  Real user prompts that merely start with find/compose/list survive (tested).
+- **Dedup at the clustering boundary** (#15): `compute_basins` now collapses
+  exact-duplicate texts to ONE point. A prompt repeated 100s of times
+  ("continue" ×130, an automation prompt ×188) carries identical vectors and
+  formed a dense pseudo-cluster that dominated a basin. The STORE keeps every
+  node (provenance / prompt_id refs); only the clustering INPUT is deduped.
+- **Result on the live corpus**: re-purged 1,039 scaffolding nodes
+  (28,618→27,579), and the post-purge junk-drawer (top basin had spiked to
+  24.5%, 42% exact-duplicates) dropped to **14.5%** once dedup collapsed the
+  repeats — 32 basins over 20,975 unique texts, real topic spread, zero
+  scaffolding-dominated basins.
+- **Guards**: `test_no_basin_is_scaffolding_dominated` (real_corpus — fails if
+  any basin ≥20 is >50% scaffolding; the corpus-wide floor is necessary but
+  not sufficient, per principle #3) + `test_ingest_scaffolding_filter`
+  (9 scaffolding classes rejected, 7 real prompts survive, dedup collapses
+  100 identical texts to 1 clustering point).
+
 ## [v1.7.70 — council value proof: real-contest filter + category wedge (#236)] — 2026-05-29
 
 A data-sampling pass on the v1.7.69 proof (founder: "sample data to see the
@@ -2413,7 +2446,7 @@ shipped pre-launch:
   mcp_tool_count, doc_consistency_guards, version) from authoritative
   sources (pytest, mcp_server.py, pyproject.toml), then templates
   them into docs via HTML-comment block syntax:
-  `<!-- canonical:test_count -->2267<!-- /canonical -->`. 7 surfaces
+  `<!-- canonical:test_count -->2285<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one

@@ -287,6 +287,8 @@ def compute_basins(
     # the cap.
     nodes: list = []
     skipped_unusable = 0
+    skipped_duplicate = 0
+    _seen_texts: set[str] = set()
     for node in iter_prompt_nodes(limit=None):
         emb = getattr(node, "embedding", None)
         # is_finite_embedding rejects None, [], NaN, and Inf in one
@@ -297,6 +299,17 @@ def compute_basins(
         if not is_finite_embedding(emb):
             skipped_unusable += 1
             continue
+        # Dedup by exact text before clustering (#248/#15). Repeated prompts
+        # ("continue" ×130, an automation prompt ×188) carry identical vectors;
+        # left in, they form a dense pseudo-cluster that dominates a basin and
+        # trips the junk-drawer guard while saying nothing about taste. One
+        # unique text = one clustering point. The STORE keeps every node
+        # (provenance, prompt_id refs); only the clustering INPUT is deduped.
+        text_key = (getattr(node, "text", "") or "").strip()
+        if text_key in _seen_texts:
+            skipped_duplicate += 1
+            continue
+        _seen_texts.add(text_key)
         nodes.append(node)
 
     if not nodes:
