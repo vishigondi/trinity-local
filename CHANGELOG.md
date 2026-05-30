@@ -7,6 +7,19 @@ class: live
 All notable changes to Trinity Local. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versioning matches the project's phase + capstone cadence rather than strict semver.
 
+## [v1.7.107 — install.sh auto-installs the native MLX embedder on Apple Silicon] — 2026-05-30
+
+The degraded-TF-IDF first run + the "missed enable-embeddings prompt → permanently
+shallow lens" UX gap, fixed at the source for the Mac majority. install.sh did NOT
+install any embedder (left it a manual step, and even pointed Mac users at the
+heavy torch path). Now on Apple Silicon (`uname -s`=Darwin, `-m`=arm64) it
+auto-installs `mlx>=0.20` + `mlx-embeddings>=0.1` — the small NATIVE #244 path (no
+800MB torch) — so real embeddings work out of the box and the lens/cold-open never
+fall back to inverted TF-IDF. Non-Apple installs skip it (torch is heavy) and opt
+in via the updated deeper-memory note, which now also reflects that the lens/
+cold-open ABSTAIN (not silently degrade) without real embeddings. The model pull
+(~600MB) stays a one-time `HF_HUB_OFFLINE=0 trinity-local download-embedder`.
+
 ## [v1.7.106 — gate semantic flows off TF-IDF (no inverted-garbage fallback) + delete dead find_synonyms] — 2026-05-30
 
 Founder call: a fallback that produces broken output is worse than none. Rather

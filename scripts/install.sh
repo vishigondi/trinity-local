@@ -279,6 +279,20 @@ if "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
   else
     warn "pip install reported issues (Pillow / mcp / numpy) — see 'trinity-local status'"
   fi
+  # Apple Silicon: auto-install the NATIVE MLX embedder (mlx + mlx-embeddings,
+  # #244). It's small (no 800MB torch) and IS the real, fast embedding path, so
+  # real embeddings work out of the box — no degraded TF-IDF first run, no
+  # missed "enable embeddings" prompt. Non-Apple installs skip this (torch is
+  # heavy) and opt in later via the deeper-memory note below.
+  if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+    if "$PYTHON_BIN" -m pip "${PIP_INSTALL_ARGS[@]}" \
+         'mlx>=0.20' 'mlx-embeddings>=0.1' 2>/dev/null; then
+      ok "MLX embedder installed (Apple Silicon — real embeddings enabled)"
+    else
+      warn "MLX embedder install hit issues — lens uses the TF-IDF fallback until you run:"
+      warn "    $PYTHON_BIN -m pip install 'mlx>=0.20' 'mlx-embeddings>=0.1'"
+    fi
+  fi
 else
   warn "pip not available for $PYTHON_BIN — install pip and re-run, or:"
   warn "  $PYTHON_BIN -m ensurepip --user && $PYTHON_BIN -m pip install --user 'Pillow>=10' 'mcp>=1.0' 'numpy>=1.26'"
@@ -356,13 +370,17 @@ else
 fi
 echo "  - See $TRINITY_SKILL_DIR/docs/INSTALL-extension.md"
 echo ""
-printf "%sOptional — pre-fetch the deeper-memory model (~600MB):%s\n" "$C_BOLD" "$C_RESET"
-echo "  - lens-build / dream / vocabulary need the modernbert-embed model."
-echo "  - Without it, those commands fall back to the SHA-1 TF-IDF embedder"
-echo "    (no download, lower-fidelity vectors) — they still run."
-echo "  - The real model needs the [mlx] extras AND a one-time online pull"
-echo "    (Trinity pins HF_HUB_OFFLINE=1, so the download MUST opt back in):"
-echo "      $PYTHON_BIN -m pip install 'sentence-transformers>=2.2' einops 'torch>=2.0'"
+printf "%sFinish enabling real embeddings — pull the model (~600MB, one-time):%s\n" "$C_BOLD" "$C_RESET"
+echo "  - lens / dream / vocabulary use the modernbert-embed model for MEANING."
+echo "  - Without real embeddings they fall back to the SHA-1 TF-IDF projection,"
+echo "    which groups by word-overlap, not meaning — the lens/cold-open abstain."
+echo "  - The model pull opts back in past Trinity's offline pin:"
 echo "      HF_HUB_OFFLINE=0 trinity-local download-embedder"
-echo "    A bare 'trinity-local download-embedder' WILL fail on a clean box"
-echo "    (no [mlx] extras + the offline pin) — run the two lines above instead."
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+  echo "  - The MLX embedder was auto-installed above (Apple Silicon) — just run"
+  echo "    the pull line and your full lens builds on first connect."
+else
+  echo "  - Non-Apple: also install the embedder runtime first (heavier, torch):"
+  echo "      $PYTHON_BIN -m pip install 'sentence-transformers>=2.2' einops 'torch>=2.0'"
+  echo "    A bare 'trinity-local download-embedder' WILL fail without it."
+fi
