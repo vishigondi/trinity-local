@@ -139,7 +139,7 @@ trinity-local install-extension --extension-id <ID>
 After step 2 every click goes through tier 1. The Shortcut never
 fires unless the extension fails. You can keep your existing macOS
 Shortcut around as a safety net — but note that the `shortcut-install`
-CLI no longer exists (retired pre-launch in commit 53db635, per the
+CLI no longer exists (retired pre-launch in commit ab36d86, per the
 section below); you can't reinstall the Shortcut from scratch, only
 preserve what's already there.
 
@@ -157,7 +157,7 @@ trinity-local install-extension --extension-id <ID>
 trinity-local install-launcher
 ```
 
-The macOS Shortcut dispatcher was retired pre-launch (commit 53db635);
+The macOS Shortcut dispatcher was retired pre-launch (commit ab36d86);
 the Chrome extension is now the canonical dispatch path on all OSes.
 If you previously ran `shortcut-install`, the CLI no longer exists —
 just install the Chrome extension instead.
@@ -213,7 +213,7 @@ the warning lands, the path goes away.
 
 Until then: it's a load-bearing fallback for the installs that already
 have the Shortcut wired. The `shortcut-install` CLI was retired
-pre-launch (commit 53db635); existing macOS users keep their Shortcut
+pre-launch (commit ab36d86); existing macOS users keep their Shortcut
 where it already lives in macOS Shortcuts.app, but no new installs can
 be bootstrapped via Trinity itself.
 

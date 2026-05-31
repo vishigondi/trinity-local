@@ -10,12 +10,12 @@ class: live
 
 ## Done — v1.0 ready to ship
 
-**Code (<!-- canonical:test_count -->2441<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62; commit `2bbb333` regenerated `docs/launchpad_example.png` and cleared the formerly-intentional fail)**
+**Code (<!-- canonical:test_count -->2441<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62; commit `ba20182` regenerated `docs/launchpad_example.png` and cleared the formerly-intentional fail)**
 - 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
-  (commits d56cffc → ebc212a). Every launchpad button works
+  (commits d1154be → c6b0bc5). Every launchpad button works
   cross-platform via the extension; macOS Shortcut as tier-2 fallback.
-- Phase 1 v1.0-floor three-tier skill artifact (commits 6e2cd12 →
-  2860688): `skills/trinity/SKILL.md` + schemas + arch doc + 4 new
+- Phase 1 v1.0-floor three-tier skill artifact (commits 18fe38d →
+  d311ef2): `skills/trinity/SKILL.md` + schemas + arch doc + 4 new
   doc-consistency guards. Skill is additive over the existing CLI;
   no `src/trinity_local/` modules touched.
 - Council `ff3da1fa84906791` cited in 4 surfaces (claude.md,
@@ -104,7 +104,7 @@ Per council verdict, deferred:
 - Trust mode + audit log substrate rebuild from scratch
   (`~/.trinity/trust.toml` gating config + CLI + visible indicators).
   The v1.0 library `trinity_local.trust` was retired 2026-05-22
-  (iter #117 of the post-launch sweep, commit `c2573ff`) after audit
+  (iter #117 of the post-launch sweep, commit `0ad1ca5`) after audit
   found zero production imports. The active audit-log surface today
   is `scripts/_runtime.py::audit_log()` — an independent
   implementation that survives the retirement. v1.1 rebuilds the

@@ -84,7 +84,7 @@ immediately want to do it again." Every v1 feature is downstream of that questio
 
 ## What ships in v1
 
-All of the below is **already in the repo** as of CHANGELOG commit `884615f`. v1 work
+All of the below is **already in the repo** as of CHANGELOG commit `fe4ee33`. v1 work
 remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 ### Surfaces
@@ -105,7 +105,7 @@ The original spec wanted 3 tools (council / query_lens / add_pair). Current ship
 4 canonical, 3 v1.5 additions, 1 in-protocol provider loop (`import_provider_memory`).
 The launch-arc `handoff` tool was retired 2026-05-26 (0 production usage); cross-provider
 continuity flows via MCP Resources (`trinity://memories/lens.md`) now.
-(`get_eval_summary` shipped post-#122 and was retired 2026-05-18 in commit `1fed7fc`
+(`get_eval_summary` shipped post-#122 and was retired 2026-05-18 in commit `6a7f176`
 — agents ground via `ask` + picks; eval-summary stays on the launchpad card +
 `eval-show` CLI for direct user inspection. `record_outcome` retired 2026-05-21 —
 chairman's pick is now the supervision signal, fed automatically.) All load-bearing for the
@@ -116,7 +116,7 @@ OR the launch hook. Mapping:
 |---|---|---|
 | `council` | `run_council` | Stable contract |
 | `query_lens` | ~~`search_prompts`~~ retired 2026-05-17 | Substring + recency + replay-value heuristics replaced embedding search on the hot path. Querying the lens now happens implicitly — every council loads `~/.trinity/memories/lens.md` via `get_persona`. |
-| `add_pair` | ~~`record_outcome`~~ retired 2026-05-21 | The MCP rating tool was sunset alongside the rest of the user-rating UX. Chairman's `routing_label.winner` is now the supervision signal, fed automatically into `compute_personal_routing_table()` (commit bb817b6). CLI `council-rate` followed it into retirement on 2026-05-22 (task #134) — full rating retirement, no power-user override; refinement prompts carry the "what should it have been instead" signal inline. |
+| `add_pair` | ~~`record_outcome`~~ retired 2026-05-21 | The MCP rating tool was sunset alongside the rest of the user-rating UX. Chairman's `routing_label.winner` is now the supervision signal, fed automatically into `compute_personal_routing_table()` (commit 44eb934). CLI `council-rate` followed it into retirement on 2026-05-22 (task #134) — full rating retirement, no power-user override; refinement prompts carry the "what should it have been instead" signal inline. |
 | — | `route` | Extended (heuristic + k-NN routing decision, no model call) |
 | — | `get_council_status` | Extended (async polling for in-flight councils) |
 | — | `get_persona` | Extended (reads `lens.md` so harnesses don't re-fetch per call) |
@@ -247,7 +247,7 @@ Launch day = May 13–15, 2026 per the multiple councils that ratified the condi
 
 2. **numpy not FAISS.** Numpy matmul gets ~5ms on a 49k-vector corpus (measured 2026-05-13; was ~28k when the call was first made, scaled linearly with no observable falloff). FAISS would add a heavy native dep for zero observable win. `scorer.toml` knobs (k / weights / thresholds) ship in v1.1.
 
-3. **<!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools shipped (4 canonical + 3 v1.5 additions + 1 in-protocol loop).** The 3-tool subset breaks `get_council_status` (async polling), `get_persona` (lens.md hand-off), and `run_council` (the parallel-dispatch primitive itself). Canonical 4: `route`, `run_council`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. In-protocol provider loop adds `import_provider_memory` (the agent pipes lens / eval signals back into Trinity without copy-paste). (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `1fed7fc` — agents ground via `ask` + picks. `record_outcome` shipped at v1.0 then retired 2026-05-21 — chairman pick is the supervision signal now, fed automatically into the personal routing table. `handoff` shipped at launch then retired 2026-05-26 after 0 production usage — cross-provider continuity now rides MCP Resources at handshake.)
+3. **<!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools shipped (4 canonical + 3 v1.5 additions + 1 in-protocol loop).** The 3-tool subset breaks `get_council_status` (async polling), `get_persona` (lens.md hand-off), and `run_council` (the parallel-dispatch primitive itself). Canonical 4: `route`, `run_council`, `get_persona`, `get_council_status`. v1.5 adds `ask`, `get_picks`, `mark_pick_wrong`. In-protocol provider loop adds `import_provider_memory` (the agent pipes lens / eval signals back into Trinity without copy-paste). (`get_eval_summary` shipped post-#122 then retired 2026-05-18 in commit `6a7f176` — agents ground via `ask` + picks. `record_outcome` shipped at v1.0 then retired 2026-05-21 — chairman pick is the supervision signal now, fed automatically into the personal routing table. `handoff` shipped at launch then retired 2026-05-26 after 0 production usage — cross-provider continuity now rides MCP Resources at handshake.)
 
 4. **`me-card` is the social object, not the radar chart.** Radar charts are commoditized; the me-card paired-tension PNG is unique to Trinity and renders the lens-discovery output as a shareable artifact. Radar stays as a secondary asset.
 

@@ -354,7 +354,7 @@ to this repo.
 27. **A name (or extras key) that claims a capability the code lacks
     becomes a believed fact.** Earned 2026-05-29: `embeddings/backend_mlx.py`
     + the `[mlx]` pyproject extras had used `sentence-transformers` + torch
-    since their *first* commit (`cd35f1c`) — never any Apple MLX — yet the
+    since their *first* commit (`d65176c`) — never any Apple MLX — yet the
     name was convincing enough that even the founder *remembered* "we used
     MLX initially." The misnomer didn't just confuse; it manufactured a
     false institutional memory AND sent debugging down the wrong path (the

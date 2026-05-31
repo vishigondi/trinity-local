@@ -13,7 +13,7 @@ class: historical
 > Remaining: Day 10 ship cut requires a one-time `chrome://extensions →
 > Load Unpacked` user action that can't be automated through MCP; the
 > gemini.google.com adapter shipped 2026-05-22 in the v1.7.5 cleanup
-> pass (commit 441bc28, task #135) — originally v1.7 target, slipped,
+> pass (commit 9d9a91d, task #135) — originally v1.7 target, slipped,
 > then prioritized post-launch per user directive. Adapter handles
 > Google's batchexecute RPC frames + recovers user prompts from
 > outbound request body (Gemini's response is reply-only). Shape-
@@ -62,8 +62,8 @@ returns the expected envelope.
 
 ## Validation log (T-0, 2026-05-15)
 
-After Week 1 of v1.6 shipped (commits `4bd2e0f`, `e2e6720`,
-`2784717`), the `page-hook.js` IIFE was injected into a live
+After Week 1 of v1.6 shipped (commits `ddc9dac`, `87b2261`,
+`2274ec9`), the `page-hook.js` IIFE was injected into a live
 `claude.ai/new` page-context to re-confirm the spec
 assumptions against today's frontend:
 
@@ -94,7 +94,7 @@ without sending a real chat message has been validated.
 
 ## Validation log (T-0, 2026-05-15, chatgpt.com mirror)
 
-After the chatgpt.js adapter shipped (commit `561f17a`), the
+After the chatgpt.js adapter shipped (commit `fb8da3d`), the
 page-hook was injected into a live `chatgpt.com/` page-context
 to verify the same wrapper that works on claude.ai installs
 cleanly on OpenAI's frontend:
@@ -466,22 +466,22 @@ itself.
 
 **Week 1 — claude.ai end-to-end.** ✅ All shipped 2026-05-14/15.
 
-- ✅ Day 1-2 (commit `4bd2e0f`): scaffolded `browser-extension/`
+- ✅ Day 1-2 (commit `ddc9dac`): scaffolded `browser-extension/`
   directory. MV3 manifest + ISOLATED + MAIN content scripts. Tested
   main-world fetch wrapping with a no-op adapter.
-- ✅ Day 3 (commit `4bd2e0f`): `capture_host.py` (~120 LOC). 4 stdio
+- ✅ Day 3 (commit `ddc9dac`): `capture_host.py` (~120 LOC). 4 stdio
   round-trip subprocess tests + AST guard that bans networking
   imports.
-- ✅ Day 4 (commit `4bd2e0f`): `install_extension.py` writes the
+- ✅ Day 4 (commit `ddc9dac`): `install_extension.py` writes the
   Native Messaging manifest. End-to-end smoke wiring is in place;
   the user-facing Load Unpacked + `--extension-id` step is
   documented in `browser-extension/README.md` (manual one-time UI
   action that can't be automated through MCP).
-- ✅ Day 5 (commit `e2e6720`): `claude.js` SSE adapter. 8 fixture
+- ✅ Day 5 (commit `87b2261`): `claude.js` SSE adapter. 8 fixture
   cases run via node against `tests/fixtures/claude_sse_sample
   .txt` — text reconstruction verbatim, conv_id / message_uuid
   extraction, empty-body + truncated-JSON resilience.
-- ✅ Browser validation (commit `b618e40`): page-hook.js IIFE
+- ✅ Browser validation (commit `cb3f969`): page-hook.js IIFE
   injected into a live `claude.ai/new` page at T-0 (2026-05-15);
   wrapper installs cleanly, idempotency flag sets, console fires
   the expected log, no page errors. Re-confirmed the EventSource
@@ -489,13 +489,13 @@ itself.
 
 **Week 2 — chatgpt.com + launchpad surface + ship.** Partially shipped.
 
-- ✅ Day 6-7 (commit `561f17a`): `chatgpt.js` SSE adapter. 10
+- ✅ Day 6-7 (commit `fb8da3d`): `chatgpt.js` SSE adapter. 10
   fixture cases. Same module shape as `claude.js`; handles both
   OpenAI's cumulative-parts shape AND the newer delta-content
   shape, returns whichever accumulates more text. conv_id falls
   back from top-level `conversation_id` to `message.metadata
   .conversation_id`.
-- ✅ Day 7 (commits `07bd828` + `97347c4`): captures flow into the
+- ✅ Day 7 (commits `5516b4d` + `ef2001d`): captures flow into the
   prompt index via two new ingest sources — `browser_claude` (linear
   `chat_messages` shape) and `browser_chatgpt` (`mapping` graph
   walked from `current_node` back to root, then reversed). Both
@@ -503,7 +503,7 @@ itself.
   hot path picks up new captures within the deadline budget. 14
   ingest tests pass through real-parser + real-dispatch path; no
   monkeypatching of the parse layer.
-- ✅ Day 8 (commit `fb9de4c`): Launchpad Surface 33 "Browser
+- ✅ Day 8 (commit `6a6b487`): Launchpad Surface 33 "Browser
   capture" card. Per-provider counts, last-capture timestamp,
   `stale` flag flips warning border when last capture > 24h ago
   (silent-breakage signal). 11 tests; empty-state CTA points at

@@ -73,7 +73,7 @@ correction entirely; 0.5 = neutral.
 
 Pre-fix (2026-05-21): every score came back exactly 0.5 because the
 judge picker alphabet-defaulted to a local MLX provider that returned
-empty stdout. Caught and fixed in commit `ff6af70` — judge now prefers
+empty stdout. Caught and fixed in commit `295f533` — judge now prefers
 cloud chairmen (claude/codex/antigravity in priority order).
 
 ## Headline for the launch tweet/HN

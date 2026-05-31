@@ -62,7 +62,7 @@ context in claude.md "Launch arc" section):
   Each registry's contribution flow is its own task; being in the
   dropdown beats being technically perfect.
 - **#116 Cross-provider benchmark publication** (shipped 2026-05-22,
-  commit `ba41133`; claude card refreshed same day from a fresh N=45
+  commit `88cb265`; claude card refreshed same day from a fresh N=45
   run) — three provider eval cards live at
   `docs/launch_assets/eval_card_claude.png` /
   `eval_card_codex.png` / `eval_card_gemini.png`. Current numbers:

@@ -43,7 +43,7 @@ launch_council = "ask"      # always prompt
 
 Bootstrap a starter file by running the library helper or copying
 the example below. The `trust-init` CLI surface was deferred to v1.1
-in the pre-launch simplification pass (commit 47e8250) — the trust
+in the pre-launch simplification pass (commit 66e5c3e) — the trust
 library at `trinity_local.trust` still ships in v1.7.4, but the user-
 facing CLI returns in v1.1.
 

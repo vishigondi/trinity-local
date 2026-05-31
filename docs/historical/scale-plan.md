@@ -31,7 +31,7 @@ class: historical
 > heuristics on the hot path; `get_eval_summary` retired 2026-05-18 —
 > agents ground via `ask` + picks; `record_outcome` retired 2026-05-21 —
 > chairman pick is now the supervision signal, fed automatically into
-> `compute_personal_routing_table()` (commit bb817b6); `handoff` shipped at
+> `compute_personal_routing_table()` (commit 44eb934); `handoff` shipped at
 > launch then retired 2026-05-26 after 0 production usage — cross-provider
 > continuity now rides MCP Resources at handshake.)
 > v1.5 adds `ask` (cheap default single-call routing via kNN + cortex rules;
@@ -263,8 +263,8 @@ Fix: make the wrapper do runtime venv detection rather than rely on the shebang:
 
 ## 14. Add operator surfaces for background behavior
 
-> Retired 2026-05-18 pre-launch. The watcher subsystem (commit 07ea7da)
-> and the embedding cache (commit cc52b3b) were both killed in the
+> Retired 2026-05-18 pre-launch. The watcher subsystem (commit 64c85fc)
+> and the embedding cache (commit ac8515b) were both killed in the
 > simplification pass. The items below are preserved as historical
 > Phase 0 record only.
 
@@ -664,7 +664,7 @@ On `portal-html` generation, check if `last_update_check` in telemetry settings 
 | `src/trinity_local/config.py` | Soft-fail for read-only commands; add explicit per-command annotation |
 | `src/trinity_local/task_types.py` | ✅ done — single `guess_task_type()` (renamed from `task_kind` per Tier 1 #3). |
 | ~~`src/trinity_local/research/replay.py`~~ | ~~✅ done — drifted duplicate removed; imports from `task_types`.~~ Replaced: the whole `research/` package was deleted in the 2026-05-18 simplification pass (CHANGELOG v1.7.4 entry #5). |
-| ~~`src/trinity_local/shortcut_setup.py`~~ | ✅ retired pre-launch (commit 53db635) — Chrome extension Native Messaging replaced the macOS Shortcut dispatcher. |
+| ~~`src/trinity_local/shortcut_setup.py`~~ | ✅ retired pre-launch (commit ab36d86) — Chrome extension Native Messaging replaced the macOS Shortcut dispatcher. |
 | `src/trinity_local/commands/status.py` | Add watch-loop error count + last error |
 | ~~`src/trinity_local/commands/cache.py`~~ | ~~**New** — `cache-stats`, `cache-clear` subcommands~~ Retired: the persistent embedding cache was dropped 2026-05-17 (see `embeddings/__init__.py` docstring); both CLIs retired with it. |
 | `src/trinity_local/commands/council.py` | Route `council-html` through `write_unified_council_page` |
@@ -855,7 +855,7 @@ For Trinity Local that means:
 > heuristics replaced the embedding-search hot path); `record_outcome`
 > was retired 2026-05-21 alongside the rest of the rating UX (chairman
 > pick is now the supervision signal, fed automatically into
-> `compute_personal_routing_table()` via commit bb817b6). Three tools
+> `compute_personal_routing_table()` via commit 44eb934). Three tools
 > were added: `get_council_status` rounding out the canonical
 > lifecycle to 4, plus v1.5 trio (`ask` cheap default routing,
 > `get_picks` agent introspection, `mark_pick_wrong` user-veto), plus

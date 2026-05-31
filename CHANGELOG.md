@@ -706,7 +706,7 @@ Late-day audit caught that the share workflow — the artifact the
 user's pitch produces — was broken or missing across 5 surfaces.
 4 commits closed all 5 gaps. pyproject bumped 1.7.2 → 1.7.3.
 
-**1. `eval-share` PNG renderer shipped (`fef3d91`).** New module
+**1. `eval-share` PNG renderer shipped (`ca51572`).** New module
 `src/trinity_local/eval_card.py` (~170 LOC) renders an eval run
 result as a 1200×630 PNG with the headline score, per-axis bars
 (REFRAME / COMPRESSION / REDIRECT / SHARPENING), and the install
@@ -715,7 +715,7 @@ artifact the user's pitch directly produces — *"Gemini scored 0.83
 on YOUR kind of question."* CLI: `trinity-local eval-share
 [--target <provider>] [--out <path>] [--open]`. 7 new tests.
 
-**2. `council-share` rewritten as PNG (`fe3b683`).** Prior impl
+**2. `council-share` rewritten as PNG (`a3fa8a5`).** Prior impl
 produced a 379-byte useless HTML redirect to a relative path —
 unusable to any recipient. Pivoted to PNG card shape (matches
 eval-share + me-card visual language). Privacy-safe by
@@ -728,14 +728,14 @@ artifact. Filename `[:8]` slice bug fixed (was producing
 including a privacy-canary assertion.
 
 **3. me-card install URL footer + 4. `review-link` fake-URL fix
-(`20a0315`).** me-card PNG footer now embeds
+(`77d96a1`).** me-card PNG footer now embeds
 `vishigondi.github.io/trinity-local` so a Twitter viewer has a
 path forward. review-link no longer defaults to the unregistered
 `trinity.openclaw.ai/app/review/<id>` URL (which 404'd) — default
 is None; web_url only appears when caller passes explicit
 `--web-base`.
 
-**5. Launchpad "Share PNG" chip (`f33f9ec`).** Every recent-
+**5. Launchpad "Share PNG" chip (`928860f`).** Every recent-
 council card on the launchpad gains a `→ share PNG` chip in the
 existing cross-memory chip row. Click dispatches via macOS
 Shortcut to `trinity-local council-share --council <id> --open`.
@@ -753,9 +753,9 @@ flow with one click.
 ## [v1.7.2 — final public-readiness verification + close] — 2026-05-17
 
 Loop-executed Tier 1–4 of `docs/PUBLIC_READINESS_PLAN.md`. 12 commits
-since v1.7.1 (`7154ab5`, `7cea5b9`, `69d14dc`, `738e8e4`, `7d64819`,
-`80b922c`, `9eb5f72`, `cfbbf05`, `67c5298`, `1f2b0a8`, `4bea46c`,
-`d27d401`). 4-agent re-audit confirms zero residual drift.
+since v1.7.1 (`9184bbc`, `28a44bf`, `d27f721`, `ed35bd0`, `f4bea66`,
+`5ade79f`, `5079904`, `f8a98a5`, `aa026db`, `1774bef`, `e877ce2`,
+`d733807`). 4-agent re-audit confirms zero residual drift.
 
 **Tier 1 HIGH (2 fixed):**
 - H1: `trinity.local/install.sh` vanity URL purged from
@@ -793,7 +793,7 @@ since v1.7.1 (`7154ab5`, `7cea5b9`, `69d14dc`, `738e8e4`, `7d64819`,
 - 0 orphan tests by AST import-resolution.
 - 1 dead guard sunset (`TestInstallSmokeTracksMcpTools` — was
   enforcing parity against `scripts/smoke_install.sh` deleted in
-  commit `8469c6e`; OSError-early-return made it silently dead).
+  commit `8397129`; OSError-early-return made it silently dead).
 
 **V11 final 4-agent re-audit:**
 - 0 architecture drift (M5 fix verified; all 30 modules + 29 core
@@ -899,7 +899,7 @@ Launch architecture ratified by `council_37eca30b6e7010df` (Phase 7,
 load-bearing); antecedents `council_ff3da1fa84906791` (Phase 1) +
 `council_c18f739a0234aa58` (Phase 6).
 
-**Phase 2 — scripts/ shebang substrate** (commits 22ddad5 → b5da65c)
+**Phase 2 — scripts/ shebang substrate** (commits df60ea5 → 5c876d6)
 Six heavy-op scripts with dual interface (shebang-runnable +
 importable): `_runtime.py` (venv bootstrap + audit log + JSON I/O),
 `embed.py` (nomic-embed-text-v1.5 batch), `cluster.py` (k-means +
@@ -908,7 +908,7 @@ bimodality), `descriptor.py` (rejection-signal validators),
 `signature.py` (homonyms + synonyms), `anchor.py` (proper-noun
 recurrence). 44 new tests.
 
-**Phase 6 — trust + audit substrate** (commit d492d0d, council
+**Phase 6 — trust + audit substrate** (commit 5c11495, council
 c18f739a)
 `~/.trinity/trust.toml` with `schema_version = 1` + `[trust.rules]`
 exact tier.operation overrides + `[trust.operations]` +
@@ -919,7 +919,7 @@ TRINITY_ORIGIN_TIER env propagation. Loud failure surfacing on
 audit-write errors. New CLI: trust-init, trust-show, audit-show.
 18 trust tests + 14 runtime tests.
 
-**Phase 7 — integration + ratification** (commit e6d0b35, council
+**Phase 7 — integration + ratification** (commit a99ec1a, council
 37eca30b — load-bearing launch decision)
 12 new tests across two files:
 - test_tier_equivalence.py: scripts/ ↔ trinity_local/ outputs match
@@ -959,7 +959,7 @@ PYTHONHASHSEED values + asserts bit-equal vectors.
 ## [v1.7 launch-arc — three-tier framing locked, Phase 1 v1.0 floor shipped] — 2026-05-16
 
 Self-paced loop iteration after the Phase 4b cross-platform-dispatcher
-work landed (commit a6fe6ad). The user proposed a full 8-phase
+work landed (commit e8a8c77). The user proposed a full 8-phase
 restructure to a skill-primary three-tier architecture (Skill / Pip /
 Chrome Extension) for Monday's launch alongside Gemini 4.
 
@@ -1746,7 +1746,7 @@ six distinct launch-credibility drifts, each one minutes-to-hours
 from public eyes. Same shape: launch copy makes a claim; private
 state of truth doesn't match.
 
-1. **Cited council 404s** (`f354aa8`). docs/launch.md cited two
+1. **Cited council 404s** (`b100034`). docs/launch.md cited two
    specific councils as proof artifacts ("outcome is in the repo:
    council_<id>.json"). Both files lived only in ~/.trinity/
    council_outcomes/ (gitignored). HN readers clicking the
@@ -1757,7 +1757,7 @@ state of truth doesn't match.
    to docs/launch_councils/council_*.json.
    Guard: TestCitedCouncilArtifactsExistInRepo.
 
-2. **Unfilled placeholders** (`4f4a422`). docs/launch.md line 90:
+2. **Unfilled placeholders** (`b3059d7`). docs/launch.md line 90:
    "Trinity Local v1 ships open-source [date]. github.com/<repo>"
    — both literal `[date]` and `<repo>` placeholder slots. Same
    pattern at line 222 ("Repo: <github.com/...>"). Would have
@@ -1769,7 +1769,7 @@ state of truth doesn't match.
    shapes; excludes code-fence contents (CLI examples legitimately
    use `<provider>`).
 
-3. **Dict iterated as list × 3 places** (`e1d712e`). The first
+3. **Dict iterated as list × 3 places** (`b6cd665`). The first
    real-corpus eval-run caught
    `for p in config.providers if p.enabled` — `config.providers`
    is `dict[str, ProviderConfig]`, so iterating yields KEYS
@@ -1778,7 +1778,7 @@ state of truth doesn't match.
    fixed; AST guard added via `inspect.getsource` on the three
    handlers so the shape can't quietly recur.
 
-4. **Install-smoke MCP tool list stale** (`90c498d`). The cold-
+4. **Install-smoke MCP tool list stale** (`12530ee`). The cold-
    install gate (scripts/smoke_install.sh) hardcoded the expected
    MCP tool set at 9 — but today's `get_eval_summary` and `handoff`
    bring the canonical to 11. Fresh `pip install` → build wheel →
@@ -1791,7 +1791,7 @@ state of truth doesn't match.
    from BOTH smoke_install.sh and tests/test_mcp_tools.py, asserts
    symmetric equality.
 
-5. **README wrong GitHub owner + PyPI 404** (`09ebbb9`). README's
+5. **README wrong GitHub owner + PyPI 404** (`b0993fd`). README's
    quickstart `git clone https://github.com/openclaw/trinity-local`
    — the actual remote (per `git remote get-url origin`) is
    `vishigondi`. launch.md/launch-package/MCP_REGISTRY all
@@ -1806,7 +1806,7 @@ state of truth doesn't match.
    for canonical owner, asserts every reference in launch-facing
    docs matches.
 
-6. **README hero install command** (`7998ffc`). Same PyPI-404
+6. **README hero install command** (`1efbc3c`). Same PyPI-404
    shape, but on the README HERO (line 8 — most-visible command
    in the entire repo). `pip install trinity-local && trinity-
    local install-mcp` as the literal first install affordance
@@ -1837,7 +1837,7 @@ Found five more, each on a surface the earlier passes hadn't
 included. Pattern: each new catch needs deeper scanning because
 the obvious surfaces have already been swept.
 
-7. **Stale subcommand references** (`3ed3a60`). A scanner for
+7. **Stale subcommand references** (`3fa43eb`). A scanner for
    "`trinity-local <subcmd>` in launch docs that the CLI doesn't
    have" caught `me-build` (renamed to `lens-build` per task #91).
    The references were in CHANGELOG (legitimate: documents the
@@ -1846,9 +1846,9 @@ the obvious surfaces have already been swept.
    `TestCliCommandsReferencedExistInCli` to lock in the discipline.
 
 8. **Bundled /trinity skill PyPI 404 + stale tool count**
-   (`17adeb3`). The skill is the install path for users hitting
+   (`5da5028`). The skill is the install path for users hitting
    Claude Code without seeing the README first — same shape as the
-   README hero (`7998ffc`), different surface. Three install
+   README hero (`1efbc3c`), different surface. Three install
    commands all named `trinity-local` (PyPI 404). Also claimed "9
    tools" — actually 11. Fixed: git+https form, post-ship caveat,
    updated tool count + descriptions for handoff +
@@ -1856,7 +1856,7 @@ the obvious surfaces have already been swept.
    mirror caught the drift via an existing parity test
    (`test_local_repo_skill_matches_packaged_skill`).
 
-9. **pyproject version + description drift** (`41ef1b7`). Two
+9. **pyproject version + description drift** (`22bc3c4`). Two
    stale surfaces in pyproject.toml that show in
    `pip show trinity-local`:
    - `version = "0.1.0"` but launch tweet 12/12 says "Trinity Local
@@ -1869,7 +1869,7 @@ the obvious surfaces have already been swept.
    `TestPyprojectMatchesLaunchVersion`: asserts major version is 1.x
    AND the description doesn't carry pre-pivot phrases.
 
-10. **Schema $id vanity domain → github raw URL** (`e64408d`).
+10. **Schema $id vanity domain → github raw URL** (`70640e3`).
     The three JSON Schema files (council_outcome, eval_set,
     rejection_signal) used `$id` = trinity-local.dev URLs. Verified
     at T-1 that the domain doesn't resolve (no DNS). JSON Schema
@@ -1882,7 +1882,7 @@ the obvious surfaces have already been swept.
     `launch_sequence_public_flip.md` to memory documenting that
     BOTH GitHub repo + PyPI are external T-0 gates.
 
-11. **"Verifier" reintroduced in README** (`c8ed0cf`). Task #94
+11. **"Verifier" reintroduced in README** (`5332f85`). Task #94
     dropped "verifier" as Trinity's own terminology (the chairman
     SYNTHESIZES, not verifies — productive framing, not gatekeeper).
     One residual line at README:346 survived the rename pass. Subtle
@@ -1891,7 +1891,7 @@ the obvious surfaces have already been swept.
     `TestDroppedTermsAreNotReintroduced` — extensible blocklist
     that future renames can append to.
 
-12. **Founder essay install command** (`ec5bada`). Same PyPI-404
+12. **Founder essay install command** (`2969b45`). Same PyPI-404
     shape as the README hero and the skill, but in the essay's most
     quotable paragraph ("Three commands. Free forever."). Per
     launch-package T-7 sequence, the essay ships to the personal
@@ -2256,12 +2256,12 @@ guard per shipped chip. Test suite from 657 → 714.
 
 Day 1 of the 3-day v1.0 ship window. Yesterday's CHANGELOG entry
 ("Memory viewer + topic graph + nav harmonization") shipped the
-*inspectable* surface. claude.md commit `adc28f9` then extracted
+*inspectable* surface. claude.md commit `1651fce` then extracted
 meta-principles + plotted three forward predictions from 241
 commits of history. This entry covers the trilogy that turned all
 three predictions into working code:
 
-### 1. Drift surfacing (tick #8 — `a723ac2`)
+### 1. Drift surfacing (tick #8 — `1f58b9b`)
 
 `is_core_stale` / `override_count` / `audit_status` / pre-thread-aware
 topics — all four signals already existed but the launchpad never
@@ -2274,7 +2274,7 @@ Surface 15 added to the smoke. The card renders inline above the
 Council card, top of the user's eye path, before they ask a new
 question.
 
-### 2. Action-from-view (tick #9 — `d519d4b`)
+### 2. Action-from-view (tick #9 — `46f2cf1`)
 
 Memory-health hints stopped being prose-only ("run `trinity-local
 distill`") and became click-to-copy chips. Schema gain: each issue
@@ -2288,7 +2288,7 @@ button. Closes 90% of the "see drift → act on it" UX gap with zero
 new infrastructure (full one-click dispatch via macOS Shortcut is
 queued; copy-to-clipboard delivers the value today).
 
-### 3. Cross-memory navigation (tick #10 — `f35f715`)
+### 3. Cross-memory navigation (tick #10 — `c18205f`)
 
 picks.json and routing.json both key by task_type but lived in
 silos. Pure URL plumbing closes the gap:
@@ -2382,17 +2382,17 @@ turns look like alone".
 ### Real-data bugs caught
 
 - **basins.py `prompt_ids[:50]` truncation broke Stage 2/4 of the
-  lens pipeline** (`4abdb41`). `to_dict()` capped serialized
+  lens pipeline** (`70a779e`). `to_dict()` capped serialized
   prompt_ids at 50 "for readable JSON", but `load_basins()`
   round-trips the file back into Basin dataclasses. After save→load,
   `basin_for_prompt(basins, prompt_id)` returned None for any prompt
   beyond #50 — silently mis-tagging the bulk of every multi-prompt
   basin. Drop the cap; topics.json is now a faithful serialization.
-- **memory viewer initially used indigo/violet** (`4abdb41`), which
+- **memory viewer initially used indigo/violet** (`70a779e`), which
   DESIGN.md actually forbids ("Do not introduce purple or neon
   accents"). Switched to the warm-paper palette (forest green +
   warm brown) — identical to launchpad now.
-- **memory viewer required `trinity-local serve`** (`a598a88`).
+- **memory viewer required `trinity-local serve`** (`21078fa`).
   First-shipped version used `fetch('../memories/...')` which modern
   browsers block under `file://`. Inlined the contents the same way
   the council thread manifests do.
@@ -2442,7 +2442,7 @@ catching prod-scale issues.
 
 ### Real-data bugs caught + fixed
 
-- **doctor reported "not seeded" on a 46k-prompt install** (`f7bf19b`).
+- **doctor reported "not seeded" on a 46k-prompt install** (`6e6333c`).
   The old `_check_memory_seeded` / `_check_me_built` read pre-rename
   paths (`~/.trinity/memory/`, `me.md`) that no longer existed after
   the 5-memories restructure. Renamed to `_check_prompts_seeded` /
@@ -2450,7 +2450,7 @@ catching prod-scale issues.
   reports `46099 prompt nodes indexed`, `lens.md present (6431 bytes)`,
   `core.md present (928 bytes)`.
 
-- **vocabulary distillation: 3 bugs in one feature** (`2dfc769`):
+- **vocabulary distillation: 3 bugs in one feature** (`4e96b57`):
   (a) capped `iter_prompt_nodes` saw 0 embedded prompts despite 18k
   present — uncapped walker fix;
   (b) `_two_means_split_variance` OOM'd on 1000+-context tokens
@@ -2460,25 +2460,25 @@ catching prod-scale issues.
   After the three fixes, `vocabulary` produces real signal:
   `assistant↔feature 0.992, com↔https 0.986`.
 
-- **cross_provider_pairs: 350× speedup** (`b511ff6`). Pure-Python
+- **cross_provider_pairs: 350× speedup** (`c051bea`). Pure-Python
   `_cosine` loop on 17.8k×17.8k pairs = ~106 minutes (extrapolated;
   never finished in any earlier session attempt). Vectorized via
   single BLAS matmul per seed — full clustering now runs in 18s.
   Found 249 cross-provider clusters in real data on first runnable
   execution.
 
-- **dream cluster preview surfaced filler** (`862b93e`). After
+- **dream cluster preview surfaced filler** (`2a04f9e`). After
   vectorization made dream actually runnable, top 30 clusters were
   conversational filler ("10 more", "Thank you.", "More options").
   Added `min_prompt_words=6` filter so substantive cross-provider
   questions (NextJS+Vercel streaming, japandi cabinet research,
   modular wet-core den) rank first.
 
-- **basins.compute_basins: same cap bug as vocabulary** (`7cb93a1`).
+- **basins.compute_basins: same cap bug as vocabulary** (`7ffd4cf`).
   Used `iter_prompt_nodes()` capped at 5000 — `lens-build --dry-run`
   reported basins=0 on a populated install. Same fix.
 
-- **Architectural smell caught after 3rd repeat** (`6f50087`).
+- **Architectural smell caught after 3rd repeat** (`236b6c0`).
   After vocabulary, basins, and dream all reinvented the uncapped
   walker, audited and discovered `iter_prompt_nodes(limit=None)` is
   the canonical uncapped API. Removed `_all_prompt_nodes_uncapped`
@@ -2486,12 +2486,12 @@ catching prod-scale issues.
   18k-node parse cost is paid once per process, not 3×.
 
 - **replay-history: top 4/5 candidates were the same scaffolding
-  prompt** (`71c3a83`). "You are extracting durable facts about
+  prompt** (`17dd2d8`). "You are extracting durable facts about
   the user…" appeared 4× in top-5 because no system-prompt filter and
   no text dedup. Added both: skip text starting with "You are " /
   "You will ", dedup by 200-char prefix.
 
-- **Audit caught 5 more silently-buggy capped callers** (`5812c6b`).
+- **Audit caught 5 more silently-buggy capped callers** (`130efcd`).
   Same root-cause as vocabulary/basins. Fixed `bootstrap_pairs`,
   `seed`, `incremental_ingest`, `me/turn_pairs`, `replay`. Each was
   silently missing the older embedded cohort (which contains
@@ -2501,11 +2501,11 @@ catching prod-scale issues.
 
 ### Copy + naming
 
-- **"cortex rule" → "pick" everywhere it refers to data** (`18eb65f`).
+- **"cortex rule" → "pick" everywhere it refers to data** (`f4ec10e`).
   After `mark_pick_wrong` / `picks.json` renames, descriptive copy
   still said "user-veto on a cortex rule". Now "user-veto on a pick".
   `cortex` retained for the LAYER (consolidation process).
-- **core-show CLI** (`2c208f6`). Symmetric with `lens-show`. Prints
+- **core-show CLI** (`5625a2c`). Symmetric with `lens-show`. Prints
   `core.md` verbatim, stderr-only hint when missing (so
   `core-show | pbcopy` doesn't pollute the clipboard).
 - **lens.md header**: pipeline.py was writing `# /me` as the file
@@ -2529,9 +2529,9 @@ catching prod-scale issues.
 
 ### Stats
 
-- 10 commits this evening session (`f7bf19b`, `2dfc769`, `18eb65f`,
-  `8972599`, `b511ff6`, `862b93e`, `7cb93a1`, `6f50087`, `71c3a83`,
-  `5812c6b`, plus this changelog commit).
+- 10 commits this evening session (`6e6333c`, `4e96b57`, `f4ec10e`,
+  `238058d`, `c051bea`, `2a04f9e`, `7ffd4cf`, `236b6c0`, `17dd2d8`,
+  `130efcd`, plus this changelog commit).
 - 657 tests passing (was 654 at session start).
 
 ## [5-memories restructure + polish-iterate + auto-distill] — 2026-05-12 (late PM)
@@ -2553,7 +2553,7 @@ landed. Three load-bearing things ship here:
 ### Five memories + one core
 
 - **`memories/` directory** now holds the durable plural memories
-  (`5-memories restructure` commit `46591e0`):
+  (`5-memories restructure` commit `4070e94`):
     - `lens.md`       — value memory (paired tensions)
     - `picks.json`    — procedural memory (model picks per topic)
     - `routing.json`  — empirical memory (per-category provider scores)
@@ -2568,23 +2568,23 @@ landed. Three load-bearing things ship here:
   `me.md` → `lens.md`, `basins.json` → `topics.json`. All migrate on
   first access; back-compat function names retained.
 
-### Phase 5 distill (commit `46591e0` + follow-ups)
+### Phase 5 distill (commit `4070e94` + follow-ups)
 
 - New `trinity-local distill` CLI + dream Phase 5/5.
 - One flagship call reads the five plural memories + emits one
   paragraph in second person ("You ship leverage over...").
-- **Chairman reads core.md FIRST** (`b5d4d04`): if present, the
+- **Chairman reads core.md FIRST** (`a3bd491`): if present, the
   ~200-char distilled paragraph replaces the full lens in chairman
   context. Falls through to `lens.md` (and explains why) on cold
   installs without `core.md`.
-- **Staleness skip** (`188744a`): `is_core_stale()` compares core.md
+- **Staleness skip** (`33fb73b`): `is_core_stale()` compares core.md
   mtime to every source. If core is newer than all of them, distill
   short-circuits with `skipped=True`. Saves ~$0.05–0.20 of flagship
   cost per redundant invocation.
-- **Auto-distill hooks** (`fcbab35`): `lens-build` and `consolidate`
+- **Auto-distill hooks** (`8edf25d`): `lens-build` and `consolidate`
   call `distill_via_chairman()` on completion. Dry-run paths skip.
 
-### Phase 2.5 vocabulary distillation (commit `d8043b3`)
+### Phase 2.5 vocabulary distillation (commit `b871a64`)
 
 - New `trinity-local vocabulary` CLI + dream Phase 2.5/5.
 - Pure-geometric (no LLM): walks PromptNode embeddings, runs k=2
@@ -2594,48 +2594,48 @@ landed. Three load-bearing things ship here:
 
 ### Polish-iterate end-to-end
 
-- **Detection layer** (`d3650ab`): `is_polish_task(text)` heuristic in
+- **Detection layer** (`79adb17`): `is_polish_task(text)` heuristic in
   `task_types.py`. Two-path matcher tuned for recall: literal phrases
   ("make this better", "tighten this", "any better?") + short
   imperative hints (≤20 words + "shorter"/"simpler"/etc.).
 - **Surfaced in MCP `route()`** as `auto_iterate_recommended: bool` so
   harnesses + the launchpad can offer iteration without us silently
-  changing council mode (`d3650ab`).
-- **Opt-in setting** (`d893b1a`): `polish_auto_iterate: bool = False`
+  changing council mode (`79adb17`).
+- **Opt-in setting** (`f8a9181`): `polish_auto_iterate: bool = False`
   on TelemetrySettings. When ON, council-launch fires consensus-round
   iteration ONLY for polish tasks (vs the existing global
   `auto_chain_enabled` which fires for every council).
 - **CLI toggle**: `trinity-local polish-auto-enable` / `polish-auto-disable`.
-- **Launchpad toggle** (`64332df`): new row in the settings panel
+- **Launchpad toggle** (`cf66b56`): new row in the settings panel
   beneath "Auto-chain new councils" — flip from the UI.
 
 ### Other shipped pieces
 
-- **`freeze_routing_to_disk()`** (`1a3d5f9`) — `routing.json` finally
+- **`freeze_routing_to_disk()`** (`dfe0342`) — `routing.json` finally
   has a writer. Phase 4 of dream calls it after lens-build runs; the
   per-category provider track record is now visible to the chairman
   via core.md without re-walking council_outcomes/ per call.
-- **MCP tool rename** (`218d3e4`): `get_cortex_rules` → `get_picks`;
+- **MCP tool rename** (`4c17ae7`): `get_cortex_rules` → `get_picks`;
   `mark_cortex_rule_wrong` → `mark_pick_wrong`. Clean, no aliases —
   pre-launch.
-- **`tasks/` → `todos/`** (in `b5d4d04`): user-facing on-disk path
+- **`tasks/` → `todos/`** (in `a3bd491`): user-facing on-disk path
   rename to disambiguate from `task_type` (the classifier label).
   Function name `tasks_dir()` kept for internal back-compat.
-- **`me-build` → `lens-build`** (`b5d4d04`, no alias): CLI renamed to
+- **`me-build` → `lens-build`** (`a3bd491`, no alias): CLI renamed to
   match the file at `memories/lens.md`.
-- **"Personal routing table" → "Routing"** (`188744a`): launchpad
+- **"Personal routing table" → "Routing"** (`33fb73b`): launchpad
   eyebrow + footer copy matches the filename (`routing.json`) + the
   brain-analog row in README.
-- **Launchpad core-status badge** (`56b5acd`): `_core_status()` emits
+- **Launchpad core-status badge** (`a176620`): `_core_status()` emits
   `empty` / `missing` / `stale` / `fresh`. Stale + missing render an
   in-card hint inside the Routing card directing the user to
   `trinity-local distill`.
 
 ### Stats
 
-- 23 commits this PM session (`46591e0`, `d8043b3`, `b5d4d04`,
-  `1a3d5f9`, `188744a`, `218d3e4`, `d3650ab`, `d893b1a`, `64332df`,
-  `fcbab35`, `56b5acd`, …).
+- 23 commits this PM session (`4070e94`, `b871a64`, `a3bd491`,
+  `dfe0342`, `33fb73b`, `4c17ae7`, `79adb17`, `f8a9181`, `cf66b56`,
+  `8edf25d`, `a176620`, …).
 - 654 tests passing (was 605 at session start; net +49 across the new
   features).
 - 8/8 browser smoke surfaces green.
@@ -2714,8 +2714,8 @@ and product surface stop fighting each other.
 
 - 611 tests passing (added: 6 thread-manifest regression tests, 4
   launchpad-wrapper tests, 8 dream tests; net +13 from morning).
-- 8 commits this PM session (`369739b`, `d28f2bf`, `92c1927`,
-  `e8a5f21`, `3c44bbd`, `41bd265`, `9a2ef8c`, `7200a9f`, `6940593`).
+- 8 commits this PM session (`16e465d`, `2c741b6`, `f243581`,
+  `0e61a23`, `8fe91b4`, `9d0d396`, `b6e47b1`, `6e8d2b4`, `b80f98a`).
 
 ## [v1.5 cortex Weeks 1–5 shipped] — 2026-05-12
 
@@ -2725,60 +2725,60 @@ makes the routing visible to the user.
 
 ### Added
 
-- **Tool-triggered incremental ingest** (task #39, `9e8af06`).
+- **Tool-triggered incremental ingest** (task #39, `75cf986`).
   MCP `ask` / `search_prompts` now scan transcripts newer than
   `~/.trinity/memory/cursors.json` at the start of each call, bounded
   at 1s. No manual `seed-from-taste-terminal` required to stay fresh.
   CLI: `trinity-local ingest-recent`.
-- **Cortex structured geometric prior** (`c76ce09`). Consolidation
+- **Cortex structured geometric prior** (`fdc227d`). Consolidation
   hands the flagship a tight numeric basin description (geometric
   median via Weiszfeld, coherence via mean-cosine-to-median, manifold
   dim via participation ratio, bimodal flag via excess kurtosis on
   first PC, typicality-ordered evidence) instead of asking it to do
   geometry-in-language. Trust score now has 6 components.
-- **Chairman-audit-mode** (task #47, `1844440`). `consolidate --audit`
+- **Chairman-audit-mode** (task #47, `76e9f8f`). `consolidate --audit`
   runs a second flagship (different provider) to vote on each
   extracted rule. Disagreement demotes trust via the audit_score
   component. Catches both rubber-stamping by the primary chairman and
   silent model regressions. Loud-fails on stderr so a broken audit
-  provider can't silently leave everything "unaudited" (`48a2520`).
-- **Cortex override mechanism** (`377eab8`, `bffa173`, `a7e9e38`).
+  provider can't silently leave everything "unaudited" (`002d61d`).
+- **Cortex override mechanism** (`40bd52a`, `128e5cc`, `71ddd54`).
   User-veto on a rule via `cortex-override` CLI or MCP
   `mark_pick_wrong`. Each click halves effective trust;
   persists across consolidations. Launchpad Health column surfaces
   overridden state with a hover-title computing the exact demotion.
-- **Sigmoid-blended chairman picker** (task #52, `f06dcbb`). Replaces
+- **Sigmoid-blended chairman picker** (task #52, `b3d0a31`). Replaces
   the hard "personal beats global the moment any rated council
   exists" cut with `alpha = sigmoid((n - 5) / 2)` — cold-start uses
   global benchmarks, personalization compounds smoothly.
 - **User-verdict-weighted personal routing table** (task #45,
-  `0bf19bd`). `record_outcome` was the most important tool, but its
+  `68d20b5`). `record_outcome` was the most important tool, but its
   signal was discarded by the aggregator. Now weighted 0.7 over
   chairman scores.
 - **Launchpad surface upgrades**: personalization-% column per
-  task_type (task #40, `41ac8e7`), Health column (audit / bimodal /
-  override badges with hover-titles, `0e8aa31`/`a7e9e38`), "View
-  evidence" chips linking to source councils (`70fa970`).
-- **HF Hub offline default** (`aa1924d`). `main()` pins
+  task_type (task #40, `4bd3e13`), Health column (audit / bimodal /
+  override badges with hover-titles, `170add3`/`71ddd54`), "View
+  evidence" chips linking to source councils (`f0d5579`).
+- **HF Hub offline default** (`5a4f7be`). `main()` pins
   `HF_HUB_OFFLINE=1` so Trinity never makes outbound Hub calls at
   runtime — one-time `huggingface-cli download` pulls the embedding
   model, after which everything runs from cache.
-- **9th MCP tool** (`bffa173`): `mark_pick_wrong` — surface
+- **9th MCP tool** (`128e5cc`): `mark_pick_wrong` — surface
   is now `ask` / `route` / `run_council` / `record_outcome` /
   `search_prompts` / `get_persona` / `get_council_status` /
   `get_picks` / `mark_pick_wrong`.
 
 ### Changed
 
-- **Bimodal cortex rules fall through to kNN** (`a66c360`). v1.5
+- **Bimodal cortex rules fall through to kNN** (`fef4693`). v1.5
   conservative behavior promised in spec but not actually wired —
   now bimodal_flag=True forces fall-through regardless of trust.
-- **`make_flagship_extractor` honors `--provider`** (`12f86d1`).
+- **`make_flagship_extractor` honors `--provider`** (`4055cc2`).
   Found-bug fix: previously hardcoded `dispatch_fn("claude", …)`
   regardless of CLI choice; dispatch shim ignored its provider
   argument. Both ends lied to each other so the bug was invisible
   until traced.
-- **cortex.py split** (`9fcfbee`). Pure-numerical math (Weiszfeld,
+- **cortex.py split** (`dd369df`). Pure-numerical math (Weiszfeld,
   PCA, kurtosis) extracted into `cortex_geometry.py` (304 LOC,
   dependency-free). cortex.py dropped from 1,123 → 825 lines.
 

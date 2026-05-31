@@ -170,7 +170,7 @@ What v1.1 picks up:
   [`historical/trust-mode.md`](historical/trust-mode.md) — `trust.toml`
   schema, `trinity_local.trust` library + 16 tests, `--dangerously-trust-all`
   env-var gate) was retired 2026-05-22 (iter #117 of the post-launch
-  sweep, commit `c2573ff`) after audit found zero production imports
+  sweep, commit `0ad1ca5`) after audit found zero production imports
   — the active audit-log surface is `scripts/_runtime.py::audit_log()`,
   an independent stdlib-only implementation that never went through
   the library. What v1.1 picks up is a clean rebuild: gating config

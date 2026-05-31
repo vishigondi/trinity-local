@@ -82,7 +82,7 @@ the cost of killing it incorrectly is breaking MCP-only agent flows.
   result files are already JSON on disk at `~/.trinity/evals/...`;
   power users can `cat | jq`. Pre-launch dead branch removal.
   Files touched: 2 (eval.py -22 lines, test_evals_runner.py -5 stale
-  args). Tests: 1402 pass, 4 skip (unchanged). Shipped: e5947a0.
+  args). Tests: 1402 pass, 4 skip (unchanged). Shipped: ebf76fd.
 
 - 2026-05-18 (iter 4): user-facing error strings in `me_builder.py`
   referencing removed command `me-build` → **KILL stale refs, replace
@@ -451,32 +451,32 @@ and charge ahead". Six more cleanups shipped:
 - **README streamline pass 2**: 12.1KB → 10.9KB. Trimmed Demo JSON,
   killed duplicate launchpad screenshot, condensed "Your lens" + "For
   tool builders" + "What's next" to one-liners, tightened 2 Objection
-  answers. (Commit: 5e944dc)
+  answers. (Commit: fd5175c)
 
 - **README FAQ adds**: 4 conversion-blocker Q&As (Dreaming comparison,
   Anthropic-build-it-themselves, who-is-behind-this trust, exit-safety).
   README 10.9 → 12.1KB (worth the 1.2KB for the conversion levers).
-  (Commit: 34a9297)
+  (Commit: acfeb91)
 
 - **Launchpad empty-state eval card → KILL**: closes iter-13 PROPOSAL.
   22 LOC removed from launchpad_template.py; Surface 30 smoke updated
-  to skip silently when no eval results exist. (Commit: 3de5cd5)
+  to skip silently when no eval results exist. (Commit: 2f7c3ae)
 
 - **Notifications feature → KILL**: closes iter-9 PROPOSAL. 11 files
   touched, 177 LOC removed. notify() + system-notification platform code
   + 2 CLI subcommands (notifications-enable/disable) + --notify flag on
   watch-once/watch-loop/council-start/council-launch/review + notify_action
   helper + dispatch_registry --notify append + launchpad ingest-once
-  template. open_path() kept (used by 4 commands). (Commit: 8010bc3)
+  template. open_path() kept (used by 4 commands). (Commit: 88f719d)
 
 - **search_prompts MCP tool → KILL**: closes iter-1 PROPOSAL.
   140 LOC across 7 files. Tool count 11 → 10, canonical 6 → 5. Sweep
   through claude.md, docs/spec-v1, docs/product-spec, launch-day FAQs,
-  tests. (Commit: a815995)
+  tests. (Commit: 7cc950b)
 
 - **memory_dir() alias → DROP**: post-rename back-compat cruft retired.
   5 files (cold_start.py + 3 tests + state_paths.py itself). prompts_dir
-  is now the canonical name; legacy alias deleted. (Commit: 5ce4168)
+  is now the canonical name; legacy alias deleted. (Commit: a3a6244)
 
 ## Shipped 2026-05-17 (post-Trinity.app pass)
 
@@ -497,7 +497,7 @@ and charge ahead". Six more cleanups shipped:
   follow-up — visual design pass best done with eyeballs on the actual
   PNGs, not in a structural refactor.
 
-- **Embedding cache retirement**: SHIPPED — see commit cc52b3b.
+- **Embedding cache retirement**: SHIPPED — see commit ac8515b.
   ~200 LOC + persistent state file + 2 CLI surfaces (`cache-stats`,
   `cache-clear`) gone. Trade-off accepted: each offline rebuild pass
   (`dream`, `lens-build`, `vocabulary`, `consolidate`) now re-encodes
@@ -533,7 +533,7 @@ and charge ahead". Six more cleanups shipped:
   fired by the dispatch registry via the Chrome extension's Native
   Messaging host, even though users don't type it). `council-rate`
   was retired 2026-05-22 with the rest of the rating surface (commit
-  4c34757) — chairman's `routing_label.winner` is the supervision
+  998e8c1) — chairman's `routing_label.winner` is the supervision
   signal; no user-action loop. Library shapes (`run_council`,
   `create_council_outcome`, `render_*_prompt`) remain on the
   council_runner / council_runtime imports — the wire shape is
@@ -588,7 +588,7 @@ and charge ahead". Six more cleanups shipped:
   actions don't set it). Tests swept: 5 test files updated, 1 deleted
   (test_phase7_deprecation.py).
 
-  **Pass B (JS surgery)**: SHIPPED 2026-05-18 in commit 0555a25 —
+  **Pass B (JS surgery)**: SHIPPED 2026-05-18 in commit 91fb2f2 —
   dropped `canUseShortcut()` + Tier-2 shortcut branch in
   `__TRINITY_DISPATCH__.dispatch`; reduced `buildShortcutUrl()` to a
   `return ''` no-op so callsites in `launchpad_template.py` and

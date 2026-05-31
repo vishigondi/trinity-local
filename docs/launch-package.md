@@ -50,7 +50,7 @@ memory is your folder. Open source, local-first, MIT.*
 **Three-paragraph pitch (HN top-of-thread length):** see `docs/launch.md` → "Hacker News
 title + opener" — already updated.
 
-**Three-tier framing** (architecture ratified by `council_ff3da1fa84906791`, 2026-05-16):
+**Three-tier framing** (architecture ratified by a launch council, 2026-05-16):
 Skill primary — `/trinity` in Claude Code is the canonical interaction. Pip — the engine
 the skill calls. Chrome extension — optional cross-surface capture + one-click UI. Data
 in `~/.trinity/` is the invariant contract across all three; tiers differ in *how* you

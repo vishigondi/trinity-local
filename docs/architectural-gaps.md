@@ -84,7 +84,7 @@ catching divergence" pattern is a workaround for not having this layer.
 ### Gap B — No retirement registry as code
 
 **Symptom:** Retirement is narrated everywhere, declared nowhere.
-`shortcut-install` retirement (commit 53db635, 2026-05-17) is narrated in:
+`shortcut-install` retirement (commit ab36d86, 2026-05-17) is narrated in:
 - claude.md "## Forward arc" section
 - docs/MIGRATION.md (multiple places, sometimes contradictory — iter #68/#69)
 - docs/simplification_log.md (Pass A entry)
@@ -106,7 +106,7 @@ commit, replacement, reason) but Trinity stores it as unstructured prose.
 RETIRED: dict[str, RetirementRecord] = {
     "shortcut-install": RetirementRecord(
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="install-extension",
         reason="Chrome extension is the cross-platform dispatch path",
         artifact_persists=True,  # macOS Shortcut on existing installs still works
@@ -259,7 +259,7 @@ This was about the DOC + CONSISTENCY layer. claude.md principles #1
 
 # Round 2 — Architectural gaps at the code + product layer
 
-> Added 2026-05-19 after Gaps A/B/C shipped (iter #80 + commit eb0c06d)
+> Added 2026-05-19 after Gaps A/B/C shipped (iter #80 + commit 5599853)
 > and stabilized in iters #81-#83. Re-asked: "look at the meta patterns
 > and claude.md's principles and see if there is a higher level
 > architectural things we are missing." A/B/C were doc-layer. These

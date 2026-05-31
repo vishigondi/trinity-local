@@ -258,7 +258,7 @@ The review UI lives in the **unified council review page**, not a separate Signa
 
 **Post-2026-05-21/22 supervision signal:** the chairman's `routing_label.winner` is the supervision signal — fed automatically into `compute_personal_routing_table()` via `~/.trinity/council_outcomes/<id>.json`. No agent-side rating call is needed. The rating UX (`record_outcome` MCP tool, `council-rate` CLI, `rate_council` dispatch action, the launchpad "Preferred" click affordance) was retired alongside "we are sunsetting user ratings"; the chairman pick is the entire signal now.
 
-The chairman's pick renders as a **"Lens pick"** badge on the winning member card — this replaced the prior user-clickable "Preferred" affordance. The personal routing table aggregation no longer blends user verdicts at 0.7 weight (commit bb817b6); chairman picks are the entire signal.
+The chairman's pick renders as a **"Lens pick"** badge on the winning member card — this replaced the prior user-clickable "Preferred" affordance. The personal routing table aggregation no longer blends user verdicts at 0.7 weight (commit 44eb934); chairman picks are the entire signal.
 
 ### UX pattern
 

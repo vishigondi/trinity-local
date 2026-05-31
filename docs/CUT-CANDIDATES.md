@@ -7,7 +7,7 @@ class: historical
 > Written 2026-05-26 as a pre-launch audit pass. **Status 2026-05-27**:
 > Phases 1 (doc moves), 3 (shortcuts_integration cut), and the
 > Phase-2-pivot (GA4 wiring instead of cut) all landed in commits
-> `a1e059d` + `9c6d256`. Plus the gstack reliability arc shipped 5 new
+> `c99044f` + `90a3f12`. Plus the gstack reliability arc shipped 5 new
 > structural guards. Phases 4 + 5 deferred — see "Deferred work" at
 > the bottom for the unblock path.
 >
@@ -231,19 +231,19 @@ load-bearing wedge.
 
 ### Shipped
 
-- **Category A doc moves (HIGH conf, commit `a1e059d`)**: 11 docs moved
+- **Category A doc moves (HIGH conf, commit `c99044f`)**: 11 docs moved
   to `docs/historical/` + 1 deleted. `docs/` public surface dropped
   from ~11.5k LOC → ~6.5k LOC (-43%).
-- **`shortcuts_integration.py` cut (HIGH conf, commit `a1e059d`)**:
+- **`shortcuts_integration.py` cut (HIGH conf, commit `c99044f`)**:
   47 LOC inert shim deleted; 2 call sites in `council_review.py` and
   `launchpad_data.py` inline the constant.
-- **Telemetry pivot to GA4 (commit `a1e059d`, NOT a cut)**: per user
+- **Telemetry pivot to GA4 (commit `c99044f`, NOT a cut)**: per user
   direction, instead of cutting telemetry we wired it to Google
   Analytics 4 Measurement Protocol (property `539262453`). Default ON
   per the user's pick; honors the existing `telemetry-disable` opt-out.
   Categorical-only — `task_type`, `winner`, `member_count`, `mode` —
   per CLAUDE.md "Architectural commitments" #2.
-- **gstack reliability arc (commit `9c6d256`)**: 5 new structural
+- **gstack reliability arc (commit `90a3f12`)**: 5 new structural
   guards from the garrytan/gstack audit:
   - Pattern 1: Executable retirement denylist driven by
     `retired_names.py` — adding a retirement entry instantly extends
@@ -285,13 +285,13 @@ either landed or got further documented.
   from there; (c) delete the slow seed.py copy + the CLI handler;
   (d) verify lens-build / dream / import-export still pass.
   Estimate: ~90min including test runs.
-- **`adapters` CLI verb — LANDED 2026-05-27** (commit `c8874fb`):
+- **`adapters` CLI verb — LANDED 2026-05-27** (commit `d5cdb8c`):
   the bare-cut item. Delete file + drop from CORE_COMMAND_MODULES +
   register 2 retirement records.
-- **`decision-log` CLI — LANDED 2026-05-27** (commit `2378f73`):
+- **`decision-log` CLI — LANDED 2026-05-27** (commit `b641f55`):
   214 LOC deleted, loader survives so existing decision_log.jsonl
   files keep flowing into lens-build at weight=2.0.
-- **`replay-history` CLI — LANDED 2026-05-27** (commit `d42528d`):
+- **`replay-history` CLI — LANDED 2026-05-27** (commit `f732b6f`):
   298 LOC deleted, launchpad cold-start CTA rewritten to point at
   natural council-launch population path instead of backfill.
 

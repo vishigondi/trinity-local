@@ -207,7 +207,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "_rate_limit_saves": RetirementRecord(
         name="_rate_limit_saves",
         retired_at="2026-05-21",
-        commit="331c75b",
+        commit="f9dafc2",
         replacement="(none — function was orphan; no Vue consumer)",
         reason="launchpad_data._rate_limit_saves() computed a 30-day rate-limit-save count and shipped it into pageData['rateLimitSaves'], but the Vue template never read it. Pre-launch the user explicitly said 'remove this' for the rate-limit-saves card; the UI was deleted but the backend compute survived as orphan. Removed both the function and the pageData injection in the same commit.",
         kind="module",
@@ -215,15 +215,15 @@ RETIRED: dict[str, RetirementRecord] = {
     "pageData.verdictStats": RetirementRecord(
         name="pageData.verdictStats",
         retired_at="2026-05-21",
-        commit="331c75b",
+        commit="f9dafc2",
         replacement="(none — rating-rate signal is moot post-2026-05-22 full rating retirement; doctor._check_verdict_rate also retired)",
-        reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 8f1fd95). doctor._check_verdict_rate kept consuming _verdict_stats() until the full rating-surface retirement on 2026-05-22 (cleanup pass decision #2). With ratings gone, the verdict-capture rate is structurally 0%; surfacing it would be misleading noise. _verdict_stats() compute function may still exist for back-compat but has no live consumers.",
+        reason="The launchpad pageData field stopped being read by Vue when the rating UX was sunset (commit 96b03c7). doctor._check_verdict_rate kept consuming _verdict_stats() until the full rating-surface retirement on 2026-05-22 (cleanup pass decision #2). With ratings gone, the verdict-capture rate is structurally 0%; surfacing it would be misleading noise. _verdict_stats() compute function may still exist for back-compat but has no live consumers.",
         kind="concept",
     ),
     "pageData.rateLimitSaves": RetirementRecord(
         name="pageData.rateLimitSaves",
         retired_at="2026-05-21",
-        commit="331c75b",
+        commit="f9dafc2",
         replacement="(none — see _rate_limit_saves)",
         reason="Companion entry: the pageData field never had a Vue consumer; removed alongside the _rate_limit_saves() function.",
         kind="concept",
@@ -232,15 +232,15 @@ RETIRED: dict[str, RetirementRecord] = {
     "rate_action": RetirementRecord(
         name="rate_action",
         retired_at="2026-05-21",
-        commit="82f56f4",
+        commit="e8c9c4f",
         replacement="(none — chairman pick IS the supervision signal, fed automatically)",
-        reason="The `rate_action` field that route/ask/run_council/get_council_status injected into MCP responses pointed agents at the retired record_outcome tool. With record_outcome retired and chairman pick auto-flowing into the personal routing table (commit bb817b6), the nudge had no destination. Per user direction 'Retire the whole mechanism' — agents don't need a hint to capture a verdict that's already captured. Pillar 4 funnel-widener deferred until a different shape proves out (current default: refinement prompts on the council page surface 'what should the chairman have picked instead' without an agent-side tax).",
+        reason="The `rate_action` field that route/ask/run_council/get_council_status injected into MCP responses pointed agents at the retired record_outcome tool. With record_outcome retired and chairman pick auto-flowing into the personal routing table (commit 44eb934), the nudge had no destination. Per user direction 'Retire the whole mechanism' — agents don't need a hint to capture a verdict that's already captured. Pillar 4 funnel-widener deferred until a different shape proves out (current default: refinement prompts on the council page surface 'what should the chairman have picked instead' without an agent-side tax).",
         kind="concept",
     ),
     "pending_ratings": RetirementRecord(
         name="pending_ratings",
         retired_at="2026-05-21",
-        commit="82f56f4",
+        commit="e8c9c4f",
         replacement="(none — see rate_action)",
         reason="`pending_ratings` was the SECONDARY funnel-widener — surfaced older unrated councils in route/ask responses. Same mechanism, same retirement (the agent-side capture pressure is gone with record_outcome). Launchpad surfaces unrated councils via the existing `unrated` CLI; pending_ratings as an MCP nudge is sunset alongside the rate-action mechanism.",
         kind="concept",
@@ -249,16 +249,16 @@ RETIRED: dict[str, RetirementRecord] = {
     "record_outcome": RetirementRecord(
         name="record_outcome",
         retired_at="2026-05-21",
-        commit="0454b28",
+        commit="809e617",
         replacement="routing_label.winner (chairman pick) as supervision signal; refinement prompts as 'what user wanted differently'",
-        reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit bb817b6) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate followed this retirement one day later on 2026-05-22 (see council-rate entry; full rating retirement, no power-user override remained).",
+        reason="Per user direction 'we are sunsetting user ratings. Full retirement including MCP.' The MCP rating tool pressured agents to interrupt conversations to surface rate prompts. The chairman's pick IS the verdict (per the 2026-05-21 prime directive 'picks the answer YOU would have picked'); compute_personal_routing_table now aggregates from routing_label.winner (commit 44eb934) instead of blending with user_winner. Refinement prompts on each council carry the post-pivot 'what should it have been instead' signal — embedded in the user's natural flow, not a tax. CLI council-rate followed this retirement one day later on 2026-05-22 (see council-rate entry; full rating retirement, no power-user override remained).",
         kind="mcp_tool",
     ),
     # ── 2026-05-21 consistency-sweep retirement ──
     "commands.tasks": RetirementRecord(
         name="commands.tasks",
         retired_at="2026-05-21",
-        commit="bb41bda",
+        commit="064e7ba",
         replacement="(none — task/bundle/launch flows supplanted by the live council architecture)",
         reason="`commands/tasks.py` (90 LOC) held the handle_bundle_create / handle_task_create / handle_launch_create / handle_task_show / handle_task_sync handlers for retired CLIs. The module's own docstring claimed 'Tests still import handle_* for handler-level coverage' but tick 85 audit found ZERO callers across src/ + tests/ — the false-claim docstring outlived the test coverage by months. The actual live substrate (LaunchEvent dataclass, append_launch_event, create_launch_event) survives in council_runtime.py and is exercised by the council pipeline. Pattern #4 + #20: when a CLI retires, the handler module's docstring is the last surface to update; sometimes it never does. Sunset confirmed via AskUserQuestion in tick 85.",
         kind="module",
@@ -266,7 +266,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.depth": RetirementRecord(
         name="commands.depth",
         retired_at="2026-05-21",
-        commit="bb41bda",
+        commit="064e7ba",
         replacement="(none — depth-signal geometry lives in me/depth.py; no caller wants a CLI wrapper)",
         reason="`commands/depth.py` (123 LOC) held the handle_depth_show CLI handler for a CLI that was retired pre-launch. The docstring claimed 'Tests still import handle_depth_show for coverage' but tick 85 audit found ZERO callers in src/ + tests/. The actual geometry primitives (depth_score, corpus_distance, inter_turn_distance, LID) live in `me/depth.py` and ARE actively used by basins.py + lens pipeline. Sunset confirmed via AskUserQuestion in tick 85; the geometry stays.",
         kind="module",
@@ -274,7 +274,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "unrated": RetirementRecord(
         name="unrated",
         retired_at="2026-05-22",
-        commit="4c34757",
+        commit="998e8c1",
         replacement="(none — the unrated funnel widened toward a rating UX that itself is retired; nothing replaces it. compute_personal_routing_table walks council_outcomes/ directly.)",
         reason="`unrated` subcommand listed councils without `user_verdict` so the user could clear the rating backlog. Whole CLI was Pillar 4 'verdict-capture funnel widening' from the forward arc. With ratings retired (decision #2 of 2026-05-22 cleanup pass), there's no backlog to widen.",
         kind="cli",
@@ -282,15 +282,15 @@ RETIRED: dict[str, RetirementRecord] = {
     "_verdict_stats": RetirementRecord(
         name="_verdict_stats",
         retired_at="2026-05-22",
-        commit="fcc2a37",
-        replacement="(none — last consumer doctor._check_verdict_rate was retired in commit 182d5ac; load_council_outcome wipes user_verdict on read so the function would have always returned rated=0 anyway)",
+        commit="9da7149",
+        replacement="(none — last consumer doctor._check_verdict_rate was retired in commit c316727; load_council_outcome wipes user_verdict on read so the function would have always returned rated=0 anyway)",
         reason="Walked council_outcomes/*.json counting how many carried metadata.user_verdict.user_winner. Powered the launchpad verdictStats card (retired 2026-05-21) + doctor._check_verdict_rate health-check (retired 2026-05-22). With ratings fully retired and load_council_outcome stripping user_verdict on every read, the function had zero callers AND would always return rated=0/rate=0.0 on fresh data. 55 LOC dead code + 511 LOC dead tests (tests/test_verdict_stats.py).",
         kind="function",
     ),
     "doctor._check_verdict_rate": RetirementRecord(
         name="doctor._check_verdict_rate",
         retired_at="2026-05-22",
-        commit="182d5ac",
+        commit="c316727",
         replacement="(none — doctor no longer reports a verdict-capture rate; with ratings retired the metric is always 0% which would be noise rather than signal)",
         reason="Soft health check that walked _verdict_stats() and reported what fraction of councils had user_verdict.user_winner set. Pillar-4 'verdict-capture funnel' was the framing. With the full rating retirement on 2026-05-22 (decisions #2 + #7 of cleanup pass: CLI council-rate gone, UI removed, schema clean, wipe-on-read), the metric is structurally 0% on all fresh installs. Tests in tests/test_doctor.py::TestVerdictRateCheck deleted in the same commit.",
         kind="function",
@@ -298,7 +298,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "council-rate": RetirementRecord(
         name="council-rate",
         retired_at="2026-05-22",
-        commit="4c34757",
+        commit="998e8c1",
         replacement="(none — the chairman's routing_label.winner IS the supervision signal; compute_personal_routing_table aggregates from it directly. Refinement prompts on the council page carry 'what should it have been instead' signal inline.)",
         reason="Per user directive 2026-05-22: 'user doesn't have to provide ratings. that's another task for them. use the lens governed council selections.' The whole rating loop violated the thesis (lens > ratings; evaluation easier than generation through lens). MCP `record_outcome` was retired 2026-05-21 for the same reason; CLI `council-rate` was kept as 'power-user override' but the user now confirms full retirement is the right call. Cleanup pass decision #2 in plan-mode session.",
         kind="cli",
@@ -306,7 +306,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.unrated": RetirementRecord(
         name="commands.unrated",
         retired_at="2026-05-22",
-        commit="4c34757",
+        commit="998e8c1",
         replacement="(none — the whole module was purpose-built for the rating-loop funnel widening (Pillar 4 from forward arc). With ratings retired, the unrated backlog has no actionable next step. Chairman pick is the supervision signal.)",
         reason="`commands/unrated.py` listed councils without `user_verdict` so the user could see their rating backlog. Module docstring: 'Closes Pillar 4 (verdict-capture funnel widening)' + 'The 16%-rate problem isn't a UX-flaw-per-click; it's that the user doesn't realize how many councils they haven't rated.' Both motivations are moot once ratings are retired. Cleanup pass decision #2 cascaded retirement.",
         kind="module",
@@ -314,9 +314,9 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.trust": RetirementRecord(
         name="commands.trust",
         retired_at="2026-05-22",
-        commit="5b4185e",
+        commit="8465dd6",
         replacement="(none — trust + audit library lives in `trinity_local.trust`; CLI rebuilt from scratch in v1.1)",
-        reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 2087cfe). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
+        reason="`commands/trust.py` (69 LOC) held handle_audit_show / handle_trust_init / handle_trust_show for CLIs already retired 2026-05-20 (audit-show / trust-init / trust-show, commit 1d84366). Docstring claimed 'handlers stay reachable by tests' but iter #115 audit found ZERO callers in tests/ — `test_trust.py` exercises only the library (load_trust_config / resolve_trust / read_audit_log / write_default_trust_toml), not the CLI handlers. Exact same false-claim-docstring shape as `commands.tasks` (tick 85) and `commands.depth` (tick 85). Same fix: delete the orphan module. Library trinity_local.trust + 16 library tests stay; v1.1 will rebuild the CLI surface fresh when needed. Sunset confirmed via AskUserQuestion in iter #115.",
         kind="module",
     ),
     "implementation-notes.html": RetirementRecord(
@@ -332,7 +332,7 @@ RETIRED: dict[str, RetirementRecord] = {
         retired_at="2026-05-22",
         commit="(see git log — same iter as TRUST-MODE.md sunset follow-on)",
         replacement="(none — v1.1 trust gating will design its own schema fresh; v1.0 shape preserved in docs/historical/trust-mode.md text)",
-        reason="The trust.toml JSON Schema (schemas/trust.schema.json + skills/trinity/schemas/trust.schema.json byte-identical mirror) defined the v1.0 trust.toml gating-config shape. With the trinity_local.trust library retired 2026-05-22 (iter #117) and ~/.trinity/trust.toml having zero consumers, the schemas became orphan reference material. TRUST-MODE.md was moved to docs/historical/ in iter #119 (commit bb32ffa); iter #121 finished the substrate cleanup by deleting the schema files. v1.1 trust-mode rebuild was already explicitly framed as 'from scratch' in iter #120 (commit 501f9fc, three-tier-architecture.md), so preserving the v1.0 schema as forward reference offered no value. The original shape is shown verbatim in the historical doc text if v1.1 contributor wants reference. Sunset confirmed via AskUserQuestion in iter #121 — user picked 'Sunset — delete both files'.",
+        reason="The trust.toml JSON Schema (schemas/trust.schema.json + skills/trinity/schemas/trust.schema.json byte-identical mirror) defined the v1.0 trust.toml gating-config shape. With the trinity_local.trust library retired 2026-05-22 (iter #117) and ~/.trinity/trust.toml having zero consumers, the schemas became orphan reference material. TRUST-MODE.md was moved to docs/historical/ in iter #119 (commit dc2bf48); iter #121 finished the substrate cleanup by deleting the schema files. v1.1 trust-mode rebuild was already explicitly framed as 'from scratch' in iter #120 (commit 21259d0, three-tier-architecture.md), so preserving the v1.0 schema as forward reference offered no value. The original shape is shown verbatim in the historical doc text if v1.1 contributor wants reference. Sunset confirmed via AskUserQuestion in iter #121 — user picked 'Sunset — delete both files'.",
         kind="file",
     ),
     "trinity_local.trust": RetirementRecord(
@@ -340,13 +340,13 @@ RETIRED: dict[str, RetirementRecord] = {
         retired_at="2026-05-22",
         commit="(see git log — same change as the file deletion)",
         replacement="scripts/_runtime.py::audit_log() — the active trust+audit substrate that scripts/embed.py, scripts/cluster.py, scripts/anchor.py, scripts/descriptor.py write through. Independent implementation; never went through trinity_local.trust.",
-        reason="src/trinity_local/trust.py (302 LOC) was a planned-but-deferred Phase 6 'trust mode + audit log' library. The commands.trust retirement on 2026-05-22 (5b4185e) kept the library on the assumption v1.1 would rebuild a CLI on top of it. Iter #117 audit found ZERO production imports — only tests/test_trust.py (270 LOC) exercises the library. Meanwhile the actual ~/.trinity/audit.log writes happen via scripts/_runtime.audit_log(), a separate stdlib-only implementation that the scripts cluster has used all along. The library was duplicate scaffolding, not active substrate. Sunset confirmed via AskUserQuestion in iter #117 of the post-launch consistency sweep — user picked 'Sunset — delete + register retired'. Net delete: 572 LOC (302 library + 270 tests).",
+        reason="src/trinity_local/trust.py (302 LOC) was a planned-but-deferred Phase 6 'trust mode + audit log' library. The commands.trust retirement on 2026-05-22 (8465dd6) kept the library on the assumption v1.1 would rebuild a CLI on top of it. Iter #117 audit found ZERO production imports — only tests/test_trust.py (270 LOC) exercises the library. Meanwhile the actual ~/.trinity/audit.log writes happen via scripts/_runtime.audit_log(), a separate stdlib-only implementation that the scripts cluster has used all along. The library was duplicate scaffolding, not active substrate. Sunset confirmed via AskUserQuestion in iter #117 of the post-launch consistency sweep — user picked 'Sunset — delete + register retired'. Net delete: 572 LOC (302 library + 270 tests).",
         kind="module",
     ),
     "thread_context": RetirementRecord(
         name="thread_context",
         retired_at="2026-05-21",
-        commit="063eb80",
+        commit="55499b8",
         replacement="(none — JS-side inline implementation in launchpad_template.py:2548-2574)",
         reason="Docstring claimed it was the canonical formatter \"used by commands/replay.py + launchpad_template.py\" but tick 81 audit found ZERO Python callers. replay.py uses its own `_build_hidden_context()` with a different format; launchpad_template.py must reimplement in JS because the file:// architecture (claude.md \"File:// is the substrate\") blocks JS from importing Python. The `_strip_thread_context()` reader in launchpad_data.py only PARSES the format, doesn't import the producer. Pure orphan; deleted cleanly with the JS-side comment updated to no longer point at the removed file. Pattern #4: when fixing a bug, audit for its shape — same orphan-module shape as the `feature_extractors` + `training_schema` sunset in tick 57.",
         kind="module",
@@ -355,7 +355,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "models_dir": RetirementRecord(
         name="models_dir",
         retired_at="2026-05-20",
-        commit="0ae3a40",
+        commit="0b82c83",
         replacement="hf_cache_model_path() in backend_mlx (reports HF cache)",
         reason="state_paths helper built ~/.trinity/models/<name>/ but nothing "
                "read the resulting path; the actual model lives in HF cache. "
@@ -368,7 +368,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "~/.trinity/models/": RetirementRecord(
         name="~/.trinity/models/",
         retired_at="2026-05-20",
-        commit="0ae3a40",
+        commit="0b82c83",
         replacement="~/.cache/huggingface/hub/models--nomic-ai--nomic-embed-text-v1.5",
         reason="Directory created as side-effect of the unused models_dir() "
                "helper. Actual nomic weights cached by sentence-transformers "
@@ -377,14 +377,14 @@ RETIRED: dict[str, RetirementRecord] = {
         artifact_persists=True,
     ),
     # ── 2026-05-20 dead-register strip (CLIs that lost their surface earlier) ──
-    # Commit 2087cfe stripped fully-elaborated register() functions for CLIs
+    # Commit 1d84366 stripped fully-elaborated register() functions for CLIs
     # that main.py had already dropped from CORE_COMMAND_MODULES. Each had
     # been silently un-callable for some time before the dead code was
     # removed. retired_at = strip date; "deferred" replacements are explicit.
     "task-create": RetirementRecord(
         name="task-create",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — task/bundle/launch flows supplanted by the live council architecture)",
         reason="Dead register() in commands/tasks.py stripped; user-facing surface had already been orphan after the live-council architecture took over (see commands.tasks module retirement in this registry).",
         kind="cli",
@@ -392,7 +392,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "task-show": RetirementRecord(
         name="task-show",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — see task-create)",
         reason="Companion to task-create; same dead-register strip.",
         kind="cli",
@@ -400,7 +400,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "task-sync": RetirementRecord(
         name="task-sync",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — see task-create)",
         reason="Companion to task-create; same dead-register strip.",
         kind="cli",
@@ -408,7 +408,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "bundle-create": RetirementRecord(
         name="bundle-create",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — bundles are now internal to council_runtime)",
         reason="Dead register() stripped; PromptBundle creation flows through council-start instead of a standalone CLI verb.",
         kind="cli",
@@ -416,7 +416,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "launch-create": RetirementRecord(
         name="launch-create",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — LaunchEvent is internal to council_runtime)",
         reason="Dead register() stripped; launch events were never a user-facing concept post live-council.",
         kind="cli",
@@ -424,7 +424,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "features": RetirementRecord(
         name="features",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="ingest-recent",
         reason="Orphan handler for the retired `ingest` CLI; tool-triggered incremental ingest replaced the manual feature-extraction surface.",
         kind="cli",
@@ -432,7 +432,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "core-show": RetirementRecord(
         name="core-show",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="cat ~/.trinity/core.md",
         reason="Was: print core.md verbatim (symmetry with lens-show). Inlined — users can read the file directly; CLI surface didn't pay its keep.",
         kind="cli",
@@ -440,7 +440,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "depth-show": RetirementRecord(
         name="depth-show",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="(none — depth-signal geometry lives in me/depth.py; no caller wanted a CLI wrapper)",
         reason="Internal vectorized LID metric inspection. No user-facing surface needed it.",
         kind="cli",
@@ -448,7 +448,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "trust-init": RetirementRecord(
         name="trust-init",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="manual ~/.trinity/trust.toml authoring (see docs/historical/trust-mode.md)",
         reason="Trust-CLI surface deferred to v1.1 per the Phase 6 council (council_c18f739a0234aa58). The substrate ITSELF ships in v1.0 — trust.toml schema, audit.log writer, --dangerously-trust-all env-var gate — only the friendly CLI surface is deferred.",
         kind="cli",
@@ -456,7 +456,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "trust-show": RetirementRecord(
         name="trust-show",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="trinity_local.trust.resolve_trust() Python API (see docs/historical/trust-mode.md)",
         reason="Trust-CLI surface deferred to v1.1; library inspection available programmatically until then.",
         kind="cli",
@@ -464,7 +464,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "audit-show": RetirementRecord(
         name="audit-show",
         retired_at="2026-05-20",
-        commit="2087cfe",
+        commit="1d84366",
         replacement="tail ~/.trinity/audit.log | jq (manual until v1.1)",
         reason="Trust-CLI surface deferred to v1.1; audit.log is plain JSONL readable directly. v1.1 picks up `--tier`/`--operation`/`--outcome` filter flags.",
         kind="cli",
@@ -473,7 +473,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "stats": RetirementRecord(
         name="stats",
         retired_at="2026-05-18",
-        commit="eac2227",
+        commit="f1d46f6",
         replacement="(none — launchpad surfaces the same numbers)",
         reason="Off-the-live-product-path marketing-summary CLI; killed in the simplification pass alongside `metric` and the research/ CLIs.",
         kind="cli",
@@ -481,7 +481,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "metric": RetirementRecord(
         name="metric",
         retired_at="2026-05-18",
-        commit="eac2227",
+        commit="f1d46f6",
         replacement="dispatch_health.compute_provider_health() (Python API)",
         reason="The rate-limit-saves CTA on the launchpad retired with the rest of the rating UX; the jsonl is still written by ask.py and read by dispatch_health.py — the CLI was the user-facing surface, now gone.",
         kind="cli",
@@ -489,7 +489,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "council-last": RetirementRecord(
         name="council-last",
         retired_at="2026-05-18",
-        commit="93bfe1a",
+        commit="65b45a8",
         replacement="(none — launchpad filter chips surface recent councils)",
         reason="P0 onboarding shortcut absorbed by launchpad's per-source/per-week filters; users no longer need a CLI to find their last council.",
         kind="cli",
@@ -497,7 +497,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "polish-auto-enable": RetirementRecord(
         name="polish-auto-enable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="(none — polish-shape auto-iterate setting removed)",
         reason="Implicit auto-iteration on polish-shape tasks didn't pay for itself; users prefer explicit `council-iterate --rounds N`.",
         kind="cli",
@@ -505,7 +505,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "polish-auto-disable": RetirementRecord(
         name="polish-auto-disable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="(none — see polish-auto-enable)",
         reason="Companion to polish-auto-enable; both retired together.",
         kind="cli",
@@ -513,7 +513,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "auto-chain-enable": RetirementRecord(
         name="auto-chain-enable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="council-iterate --rounds N",
         reason="Implicit chaining replaced with explicit per-invocation `--rounds` flag; the setting was global state hiding a per-call decision.",
         kind="cli",
@@ -521,7 +521,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "auto-chain-disable": RetirementRecord(
         name="auto-chain-disable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="(none — see auto-chain-enable)",
         reason="Companion to auto-chain-enable; both retired together.",
         kind="cli",
@@ -529,7 +529,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "auto-open-enable": RetirementRecord(
         name="auto-open-enable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="(none — review-page handoff via launchpad)",
         reason="Auto-shell-`open` on council completion was noisy in dev workflows; launchpad's review-link affordance replaced it.",
         kind="cli",
@@ -537,7 +537,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "auto-open-disable": RetirementRecord(
         name="auto-open-disable",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="(none — see auto-open-enable)",
         reason="Companion to auto-open-enable; both retired together.",
         kind="cli",
@@ -545,7 +545,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "cache-stats": RetirementRecord(
         name="cache-stats",
         retired_at="2026-05-18",
-        commit="cc52b3b",
+        commit="ac8515b",
         replacement="(none — persistent embedding cache retired)",
         reason="Cache retired alongside the persistent-embeddings simplification; offline rebuild passes re-encode per run (~2 min on 50k prompts).",
         kind="cli",
@@ -553,7 +553,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "cache-clear": RetirementRecord(
         name="cache-clear",
         retired_at="2026-05-18",
-        commit="cc52b3b",
+        commit="ac8515b",
         replacement="(none — see cache-stats)",
         reason="Companion to cache-stats; cache no longer exists to clear.",
         kind="cli",
@@ -561,7 +561,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "doctor": RetirementRecord(
         name="doctor",
         retired_at="2026-05-18",
-        commit="ef2f328",
+        commit="702da53",
         replacement="status",
         reason="`status` absorbed the role; one canonical health-check entry",
         kind="cli",
@@ -569,7 +569,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "watch-once": RetirementRecord(
         name="watch-once",
         retired_at="2026-05-18",
-        commit="07ea7da",
+        commit="64c85fc",
         replacement="ingest-recent",
         reason="Tool-triggered ingest (Chrome ext + MCP ask) replaces watcher daemon model",
         kind="cli",
@@ -577,7 +577,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "watch-loop": RetirementRecord(
         name="watch-loop",
         retired_at="2026-05-18",
-        commit="07ea7da",
+        commit="64c85fc",
         replacement="ingest-recent",
         reason="See watch-once; same daemon-subsystem retirement",
         kind="cli",
@@ -585,7 +585,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "distill": RetirementRecord(
         name="distill",
         retired_at="2026-05-18",
-        commit="c9b1f9d",
+        commit="3a1734b",
         replacement="dream",
         reason="dream Phase 5 refreshes core.md; standalone distill CLI hidden",
         kind="cli",
@@ -593,7 +593,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "bootstrap-pairs": RetirementRecord(
         name="bootstrap-pairs",
         retired_at="2026-05-18",
-        commit="c4da425",
+        commit="ac75b51",
         replacement="dream",
         reason="dream Phase 2.5 subsumes pair-mining",
         kind="cli",
@@ -601,7 +601,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "me-build": RetirementRecord(
         name="me-build",
         retired_at="2026-05-12",
-        commit="b5d4d04",
+        commit="a3bd491",
         replacement="lens-build",
         reason="Tier 1 #2 rename: me/persona → lens",
         kind="cli",
@@ -609,7 +609,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "merges-show": RetirementRecord(
         name="merges-show",
         retired_at="2026-05-18",
-        commit="3e66465",
+        commit="03860a6",
         replacement="",
         reason="Internal CLI with no skill/launchpad callers; killed in simplification iter 7",
         kind="cli",
@@ -617,16 +617,16 @@ RETIRED: dict[str, RetirementRecord] = {
     "get_eval_summary": RetirementRecord(
         name="get_eval_summary",
         retired_at="2026-05-18",
-        commit="1fed7fc",
+        commit="6a7f176",
         replacement="ask + get_picks",
-        reason="Agents ground 'which model is best for me at X' via the v1.5 trio (ask + picks); the eval-summary surface remains on the launchpad card and `eval-show` CLI for direct user inspection. Bundled into the auto-chain settings retirement (commit 1fed7fc).",
+        reason="Agents ground 'which model is best for me at X' via the v1.5 trio (ask + picks); the eval-summary surface remains on the launchpad card and `eval-show` CLI for direct user inspection. Bundled into the auto-chain settings retirement (commit 6a7f176).",
         kind="mcp_tool",
     ),
     # ── 2026-05-17 macOS Shortcut + Trinity.app retirement ──
     "shortcut-install": RetirementRecord(
         name="shortcut-install",
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="install-extension",
         reason="Chrome extension is the cross-platform dispatch path",
         kind="cli",
@@ -635,7 +635,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "install-app": RetirementRecord(
         name="install-app",
         retired_at="2026-05-17",
-        commit="9c82ded",
+        commit="84c98e5",
         replacement="install-extension",
         reason="Trinity.app wrapper retired; Chrome extension is cross-platform launchpad host",
         kind="cli",
@@ -643,7 +643,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "Trinity.app": RetirementRecord(
         name="Trinity.app",
         retired_at="2026-05-17",
-        commit="9c82ded",
+        commit="84c98e5",
         replacement="install-extension",
         reason="osacompile .app wrapper retired pre-launch",
         kind="file",
@@ -651,7 +651,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "shortcut_setup": RetirementRecord(
         name="shortcut_setup",
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="(none — Chrome extension Native Messaging host is the cross-platform dispatch path)",
         reason="`src/trinity_local/shortcut_setup.py` (325 LOC) held the macOS Shortcut bootstrap logic — `~/.trinity/bin/trinity-dispatch` wrapper writer + .shortcut bundle installer. Companion to the retired `shortcut-install` CLI. The Chrome extension's `capture_host.py` Native Messaging host is the cross-platform replacement; the macOS-only Shortcut dispatcher had no Linux/Windows counterpart. Sunset confirmed via the same Pass-A council that retired Trinity.app. Caught missing from the registry by the post-launch consistency loop 2026-05-23 (iter #29) — claude.md L132 narrates the retirement; the registry should too.",
         kind="module",
@@ -659,7 +659,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "dispatch_runner": RetirementRecord(
         name="dispatch_runner",
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="(none — superseded by capture_host.py Native Messaging dispatch)",
         reason="`src/trinity_local/dispatch_runner.py` (60 LOC) was the runtime executor for the macOS Shortcut dispatcher — read the action manifest, spawn the CLI subprocess, write back the result. Same retirement scope as `shortcut_setup`: cross-platform replacement is the Chrome extension's `capture_host.py` action handler.",
         kind="module",
@@ -669,7 +669,7 @@ RETIRED: dict[str, RetirementRecord] = {
         retired_at="2026-05-27",
         commit="(pending — landing now with parasitism-audit cuts)",
         replacement="src/trinity_local/health_checks.py (same engine, accurate name)",
-        reason="The `doctor` CLI verb was collapsed into `status` pre-launch (commit ef2f328); the engine module survived under its old name `doctor.py` (881 LOC). docs/PARASITISM-AUDIT.md flagged this as a misleading-name parasitism: any reader seeing `doctor.py` reasonably expected retired code, but it's actually the live library `status` calls into. Renamed `src/trinity_local/doctor.py` → `src/trinity_local/health_checks.py` 2026-05-27. Test files renamed in lockstep: `test_doctor.py` → `test_health_checks.py`, `test_doctor_browser_capture.py` → `test_health_checks_browser_capture.py`. All import sites updated. This entry uses the `.py` suffix to disambiguate from the `doctor` CLI-verb entry above (which retired 2026-05-18).",
+        reason="The `doctor` CLI verb was collapsed into `status` pre-launch (commit 702da53); the engine module survived under its old name `doctor.py` (881 LOC). docs/PARASITISM-AUDIT.md flagged this as a misleading-name parasitism: any reader seeing `doctor.py` reasonably expected retired code, but it's actually the live library `status` calls into. Renamed `src/trinity_local/doctor.py` → `src/trinity_local/health_checks.py` 2026-05-27. Test files renamed in lockstep: `test_doctor.py` → `test_health_checks.py`, `test_doctor_browser_capture.py` → `test_health_checks_browser_capture.py`. All import sites updated. This entry uses the `.py` suffix to disambiguate from the `doctor` CLI-verb entry above (which retired 2026-05-18).",
         kind="file",
     ),
     "commands.seed": RetirementRecord(
@@ -691,7 +691,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.replay": RetirementRecord(
         name="commands.replay",
         retired_at="2026-05-27",
-        commit="2378f73",
+        commit="b641f55",
         replacement="(none — the personal routing table populates from normal council usage via compute_personal_routing_table())",
         reason="`src/trinity_local/commands/replay.py` (298 LOC, 1 test) registered the `replay-history` CLI verb. Per CUT-CANDIDATES.md Category C MEDIUM-confidence: 'Power-user verb to replay outcomes against current routing. The signal it produces (would the new router agree with old verdicts?) isn't surfaced anywhere user-facing.' Removed from launchpad UI cold-start CTA (now points at council-launch) + memory-viewer empty state. The natural way to populate the routing table is to use Trinity normally; council outcomes accumulate on disk and aggregate via personal_routing.compute_personal_routing_table().",
         kind="module",
@@ -699,7 +699,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "replay-history": RetirementRecord(
         name="replay-history",
         retired_at="2026-05-27",
-        commit="2378f73",
+        commit="b641f55",
         replacement="trinity-local council-launch (run real councils; routing table builds organically)",
         reason="The `trinity-local replay-history` CLI verb retired alongside its handler. The launchpad cold-start CTA now points users at running real councils instead of backfilling from history.",
         kind="cli",
@@ -707,7 +707,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.decision_log": RetirementRecord(
         name="commands.decision_log",
         retired_at="2026-05-27",
-        commit="c8874fb",
+        commit="d5cdb8c",
         replacement="(none — decision_log.jsonl loader survives in me/decisions.py for back-compat)",
         reason="`src/trinity_local/commands/decision_log.py` (214 LOC, 1 test) registered the `decision-log` CLI verb shipped 2026-05-23 (task #137). Per CUT-CANDIDATES.md Category C: 'Recently shipped... requires the user to interactively log decisions, which adds friction. 3 days post-ship, 0 evidence of organic use. The lens pipeline works without it.' The `me/decisions.py` loader survives so existing `~/.trinity/me/decision_log.jsonl` files (if any user wrote some) still feed lens-build Stage 2 at weight=2.0.",
         kind="module",
@@ -715,7 +715,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "decision-log": RetirementRecord(
         name="decision-log",
         retired_at="2026-05-27",
-        commit="c8874fb",
+        commit="d5cdb8c",
         replacement="(none — see retired_names commands.decision_log)",
         reason="The `trinity-local decision-log` CLI verb retired alongside its handler module. Users wanting to log decisions can write JSONL directly to ~/.trinity/me/decision_log.jsonl by hand — the loader still reads it.",
         kind="cli",
@@ -723,7 +723,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.adapters": RetirementRecord(
         name="commands.adapters",
         retired_at="2026-05-27",
-        commit="6a03d10",
+        commit="0fa5ce1",
         replacement="trinity-local status",
         reason="`src/trinity_local/commands/adapters.py` (35 LOC, 0 tests) registered the `adapters` CLI verb which printed provider-adapter discovery status. `trinity-local status` already covers the same surface and is the canonical health-check entry point. Per `docs/CUT-CANDIDATES.md` Category C HIGH-confidence cut: 'duplicates `status`, zero unique value.' Library module `src/trinity_local/adapters.py` survives — used by status / setup_guidance / launchpad_data.",
         kind="module",
@@ -731,7 +731,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "adapters": RetirementRecord(
         name="adapters",
         retired_at="2026-05-27",
-        commit="6a03d10",
+        commit="0fa5ce1",
         replacement="trinity-local status",
         reason="The `trinity-local adapters` CLI verb retired alongside its handler module. `status` shows the same provider-adapter table.",
         kind="cli",
@@ -739,15 +739,15 @@ RETIRED: dict[str, RetirementRecord] = {
     "shortcuts_integration": RetirementRecord(
         name="shortcuts_integration",
         retired_at="2026-05-26",
-        commit="a1e059d",
+        commit="c99044f",
         replacement="(none — call sites inline the empty-URL pattern directly; JS dispatch already skips tier-2-shortcut when URL is empty)",
-        reason="`src/trinity_local/shortcuts_integration.py` (47 LOC) was the inert shim left behind when the macOS-Shortcut dispatch tier was retired 2026-05-17 (commit 53db635). It returned empty URLs so the launchpad JS dispatch (`launchpad_runtime.js`) would skip tier-2 and route everything through the Chrome extension. The shim was kept so 6 import sites in `council_review.py` + `launchpad_data.py` didn't break. Per `docs/CUT-CANDIDATES.md` Category C (HIGH-confidence cut): the inline 'DEFAULT_SHORTCUT_NAME = \"Trinity Dispatch\"' constant + empty-string URL placeholder is two lines per call site, which is cheaper than maintaining the shim. Module deleted in this commit; call sites updated to inline the constants.",
+        reason="`src/trinity_local/shortcuts_integration.py` (47 LOC) was the inert shim left behind when the macOS-Shortcut dispatch tier was retired 2026-05-17 (commit ab36d86). It returned empty URLs so the launchpad JS dispatch (`launchpad_runtime.js`) would skip tier-2 and route everything through the Chrome extension. The shim was kept so 6 import sites in `council_review.py` + `launchpad_data.py` didn't break. Per `docs/CUT-CANDIDATES.md` Category C (HIGH-confidence cut): the inline 'DEFAULT_SHORTCUT_NAME = \"Trinity Dispatch\"' constant + empty-string URL placeholder is two lines per call site, which is cheaper than maintaining the shim. Module deleted in this commit; call sites updated to inline the constants.",
         kind="module",
     ),
     "commands.shortcuts": RetirementRecord(
         name="commands.shortcuts",
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="(none — CLI surface retired alongside `shortcut-install`)",
         reason="`src/trinity_local/commands/shortcuts.py` (46 LOC) held the `handle_shortcut_install` / `handle_shortcut_status` CLI handlers — registered the `shortcut-install` + `shortcut-status` CLIs that the same Pass A retirement removed. Module went when its CLI surface did. Same shape as later commands/tasks + commands/trust retirements (handler-only orphan modules whose surface was already gone).",
         kind="module",
@@ -755,7 +755,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "search_prompts": RetirementRecord(
         name="search_prompts",
         retired_at="2026-05-17",
-        commit="a815995",
+        commit="7cc950b",
         replacement="substring + recency + replay-value heuristics",
         reason="Embedding-free hot path; ranker/heuristic.py replaces it",
         kind="mcp_tool",
@@ -763,23 +763,23 @@ RETIRED: dict[str, RetirementRecord] = {
     "parse_peer_review_sections": RetirementRecord(
         name="parse_peer_review_sections",
         retired_at="2026-05-06",
-        commit="623f592",
+        commit="e5b78eb",
         replacement="parse_synthesis_sections (council_runtime.py)",
-        reason="Council pipeline simplification — the v1.0 peer-review subsystem (`render_peer_review_prompt` + `parse_peer_review_sections` + `parse_ranking_labels` + `aggregate_peer_rankings`) was an extra round before synthesis, retired in the v1.1 4-iteration council audit (commit 623f592). The surviving `parse_synthesis_sections` (hardened to case-insensitive + numbered variants + `raw` fallback) is the live parser. `docs/scale-plan.md` §10 narrates the retirement but until now it wasn't formally in the registry. Caught by the post-launch consistency loop 2026-05-23 (iter #30) — same doc-vs-registry cross-reference probe that caught iter #29's `shortcut_setup`/`dispatch_runner`/`commands.shortcuts` gap.",
+        reason="Council pipeline simplification — the v1.0 peer-review subsystem (`render_peer_review_prompt` + `parse_peer_review_sections` + `parse_ranking_labels` + `aggregate_peer_rankings`) was an extra round before synthesis, retired in the v1.1 4-iteration council audit (commit e5b78eb). The surviving `parse_synthesis_sections` (hardened to case-insensitive + numbered variants + `raw` fallback) is the live parser. `docs/scale-plan.md` §10 narrates the retirement but until now it wasn't formally in the registry. Caught by the post-launch consistency loop 2026-05-23 (iter #30) — same doc-vs-registry cross-reference probe that caught iter #29's `shortcut_setup`/`dispatch_runner`/`commands.shortcuts` gap.",
         kind="function",
     ),
     "watcher_dir": RetirementRecord(
         name="watcher_dir",
         retired_at="2026-05-18",
-        commit="70bfafa",
+        commit="db5cc78",
         replacement="(none — watcher subsystem killed; MCP `ask` triggers ingestion passively via cursor-based incremental ingest in `watch_runtime.py`)",
-        reason="`watcher_dir()` returned `~/.trinity/watcher/` — the cursor directory for the v1.0 `watch-once` / `watch-loop` CLIs (which were also retired in the same commit). Removed in 70bfafa as part of the state_paths lean (sweep iters Q+R+S+U). state_paths.py L217 still narrates the retirement in a comment but the registry never recorded it. Caught by the source-code-comment-vs-registry probe (iter #31) — same drift class as iters #29 + #30 (registry coverage gap behind retirement-narrating prose).",
+        reason="`watcher_dir()` returned `~/.trinity/watcher/` — the cursor directory for the v1.0 `watch-once` / `watch-loop` CLIs (which were also retired in the same commit). Removed in db5cc78 as part of the state_paths lean (sweep iters Q+R+S+U). state_paths.py L217 still narrates the retirement in a comment but the registry never recorded it. Caught by the source-code-comment-vs-registry probe (iter #31) — same drift class as iters #29 + #30 (registry coverage gap behind retirement-narrating prose).",
         kind="function",
     ),
     "trinity-dispatch": RetirementRecord(
         name="trinity-dispatch",
         retired_at="2026-05-17",
-        commit="53db635",
+        commit="ab36d86",
         replacement="trinity-local-capture-host",
         reason="Chrome extension Native Messaging replaces the macOS Shortcut dispatcher",
         kind="file",
@@ -787,7 +787,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "guess_task_kind": RetirementRecord(
         name="guess_task_kind",
         retired_at="2026-05-20",
-        commit="244d15a",
+        commit="0fdceef",
         replacement="guess_task_type",
         reason="Back-compat alias from task #92 (Tier 1 #3 task_kind → task_type rename). Tick 48 audit found ZERO callers in src/ or tests/ — the comment claiming 'external callers (and a handful of tests) still import' was already untrue at the time of writing. Trinity has no external SDK consumers; internal callers all use guess_task_type directly. Pure dead aliasing.",
         kind="module",
@@ -795,7 +795,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "default_task_kind": RetirementRecord(
         name="default_task_kind",
         retired_at="2026-05-20",
-        commit="ad9abec",
+        commit="a0b054b",
         replacement="(removed, never consumed downstream)",
         reason="`task_kind` was renamed to `task_type` in task #92 (Tier 1 #3), but the `default_task_kind` config field survived as a parsed-but-never-read remnant in AppConfig. No code path read `config.default_task_kind` after the rename — pure dead state. Tick 47 swept it out of the dataclass, config.json, config.example.json, and 5 tests.",
         kind="config_field",
@@ -803,7 +803,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "commands.ingest": RetirementRecord(
         name="commands.ingest",
         retired_at="2026-05-20",
-        commit="4aa7c77",
+        commit="bfe939e",
         replacement="(none — orphan handler for retired `features` CLI)",
         reason="`commands/ingest.py` was the retired-CLI shim for `trinity-local features` (kept importable but unregistered in main.py per pre-launch simplification). Imported from `..feature_extractors`, which tick 57 deleted alongside the v2 trained-coordinator sunset. Tick 58 found the broken import via `python -c 'from trinity_local.commands import ingest'`. Pattern #4 audit-for-shape: tick 57's relative-import grep used 1-dot patterns and missed the 2-dot `from ..feature_extractors` import. The whole file was dead even before the broken import — main.py registered no handler, no tests, no smoke. Deleted cleanly.",
         kind="module",
@@ -811,7 +811,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "training_schema": RetirementRecord(
         name="training_schema",
         retired_at="2026-05-20",
-        commit="d26317f",
+        commit="77c14d3",
         replacement="(none — v2 trained-coordinator path sunset 2026-05-11)",
         reason="262-LOC module defining the v2 trained-coordinator data schema (TranscriptWindow, RoutingExample, etc). The v2 path was sunset 2026-05-11 per claude.md ('reopens only if v1.5 hits a quality ceiling'). Tick 57 audit: ZERO callers across src/ and tests/ — feature_extractors.py was the only importer, and it itself had zero importers. Same shape as the Loop Constitution substrate that was deleted in pre-launch simplification. Architecture preserved in git history + docs/spec-v2.md sunset header.",
         kind="module",
@@ -819,7 +819,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "feature_extractors": RetirementRecord(
         name="feature_extractors",
         retired_at="2026-05-20",
-        commit="d26317f",
+        commit="77c14d3",
         replacement="(none — v2 trained-coordinator path sunset)",
         reason="261-LOC module wrapping the training_schema dataclasses for feature extraction. Zero importers across src/ and tests/. Deleted alongside training_schema.py — same v2-substrate-after-sunset shape.",
         kind="module",
@@ -827,7 +827,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "hard_examples_dir": RetirementRecord(
         name="hard_examples_dir",
         retired_at="2026-05-20",
-        commit="7986c0f",
+        commit="ce37976",
         replacement="(inlined as `research_dir() / 'hard_examples'`)",
         reason="Same Pattern #4 shape as cortex_dir / models_dir — mkdir'd `~/.trinity/research/hard_examples/` on every call but zero callers. The single consumer (knn_advisor.py L60-61) constructs the path inline from `research_dir()`. Tick 52 deleted the helper.",
         kind="module",
@@ -835,7 +835,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "replay_examples_dir": RetirementRecord(
         name="replay_examples_dir",
         retired_at="2026-05-20",
-        commit="7986c0f",
+        commit="ce37976",
         replacement="(inlined as `research_dir() / 'examples'`)",
         reason="Misleading name: returned `research_dir() / 'examples'` (NOT 'replay_examples'). Zero callers; knn_advisor.py L60-61 inlines the path string. Tick 52 deleted alongside hard_examples_dir.",
         kind="module",
@@ -843,7 +843,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "cortex_dir": RetirementRecord(
         name="cortex_dir",
         retired_at="2026-05-20",
-        commit="598ceb4",
+        commit="7312dab",
         replacement="(none — picks.json carries failure_modes + successful_prompts inline)",
         reason="Spec-v1.5 originally described a `~/.trinity/cortex/` subdirectory with separate failure_modes.json + successful_prompts.json files. The shipped architecture embeds those fields INSIDE each RoutingPattern entry in scoreboard/picks.json — no separate cortex/ directory was ever needed. `cortex_dir()` survived as a state_paths helper that mkdir'd an empty `~/.trinity/cortex/` on every call (same ghost-dir shape as the retired `models_dir()` from tick 28). Zero callers in src/ or tests/. Tick 51 deleted the helper.",
         kind="module",
@@ -851,7 +851,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "~/.trinity/cortex/": RetirementRecord(
         name="~/.trinity/cortex/",
         retired_at="2026-05-20",
-        commit="598ceb4",
+        commit="7312dab",
         replacement="~/.trinity/scoreboard/picks.json (inline failure_modes / successful_prompts)",
         reason="Spec-v1.5 § L133-134 described `~/.trinity/cortex/failure_modes.json` + `~/.trinity/cortex/successful_prompts.json` as v1.5 NEW files. The shipped architecture put both fields inline in scoreboard/picks.json's RoutingPattern records. The cortex/ subdirectory was never written by any code path beyond the (zero-caller) `cortex_dir()` helper. Tick 51 sunset both.",
         kind="file",
@@ -859,7 +859,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "~/.trinity/analytics/watch_errors.jsonl": RetirementRecord(
         name="~/.trinity/analytics/watch_errors.jsonl",
         retired_at="2026-05-20",
-        commit="8d42d83",
+        commit="753c74b",
         replacement="(none)",
         reason="Watcher subsystem retired 2026-05-17; no writer remains. Tick 44 swept the dead `_watch_error_summary` reader + status CLI surface that read the never-written file.",
         kind="file",
@@ -868,7 +868,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "task_kind": RetirementRecord(
         name="task_kind",
         retired_at="2026-05-12",
-        commit="22c3064",
+        commit="e7d3238",
         replacement="task_type",
         reason="Tier 1 #3 rename to disambiguate from category (LMArena grouping)",
         kind="concept",
@@ -876,7 +876,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "persona.md": RetirementRecord(
         name="persona.md",
         retired_at="2026-05-12",
-        commit="b5d4d04",
+        commit="a3bd491",
         replacement="lens.md",
         reason="Tier 1 #2 rename: me/persona → lens",
         kind="file",
@@ -884,7 +884,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "TranscriptNode": RetirementRecord(
         name="TranscriptNode",
         retired_at="2026-05-12",
-        commit="623f592",
+        commit="e5b78eb",
         replacement="PromptNode + TurnWindow",
         reason="Tier 2 #5: memory tier collapsed to 2 from 3",
         kind="concept",
@@ -892,7 +892,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "judge": RetirementRecord(
         name="judge",
         retired_at="2026-05-12",
-        commit="623f592",
+        commit="e5b78eb",
         replacement="run_council(responses=[...])",
         reason="Tier 1 #2: pre-supplied member outputs go straight to chairman synthesis",
         kind="mcp_tool",
@@ -900,7 +900,7 @@ RETIRED: dict[str, RetirementRecord] = {
     "personal_routing_table.json": RetirementRecord(
         name="personal_routing_table.json",
         retired_at="2026-05-12",
-        commit="623f592",
+        commit="e5b78eb",
         replacement="compute_personal_routing_table() on demand",
         reason="Tier 1 #3: computed from council_outcomes/ at read time, no durable state",
         kind="file",

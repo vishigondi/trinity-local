@@ -135,7 +135,7 @@ to request headless mode.
   SSE + Google batchexecute/StreamGenerate parsers on the adapter
   registry. Gemini support shipped v1.7.6 (task #135) with the
   StreamGenerate URL pattern added v1.7.7 via `trinity-local extension
-  repair --har` council dogfood (commit 57df3df).
+  repair --har` council dogfood (commit 2f37681).
 - `content-script.js` (ISOLATED world) — bridges `window.postMessage`
   events to `chrome.runtime.sendMessage`. Guards against
   "Extension context invalidated" throws on hot-reload.

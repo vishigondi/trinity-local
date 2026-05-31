@@ -77,7 +77,7 @@ Retired internal functions:
   supervision signal now, computed into the personal routing table
   automatically via `compute_personal_routing_table()` walking
   `~/.trinity/council_outcomes/*.json` on demand.
-- **`get_eval_summary`** — retired 2026-05-18 in commit `1fed7fc`.
+- **`get_eval_summary`** — retired 2026-05-18 in commit `6a7f176`.
   Agents ground via `ask` + `get_picks`; the eval-summary surface
   remains on the launchpad card and `eval-show`.
 - **`judge`** — subsumed by `run_council(responses=[...])`.
