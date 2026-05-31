@@ -223,6 +223,30 @@ class TestUninstall:
         assert "[mcp_servers.trinity-local]" in content
         assert 'args = ["-m", "trinity_local.main", "--mcp"]' in content
 
+    def test_codex_toml_windows_path_round_trips_through_tomllib(self, home: Path):
+        """A Windows interpreter path (backslashes) must produce VALID TOML.
+        A basic (double-quoted) string would mangle `\\P` / `\\x` as escape
+        sequences; the writer uses a literal (single-quoted) string, so tomllib
+        parses it and the command round-trips byte-for-byte."""
+        import pytest as _pytest
+
+        tomllib = _pytest.importorskip("tomllib")  # 3.11+; CI runs 3.12
+        from trinity_local.commands.install import _write_codex_toml_mcp_config
+
+        target = home / ".codex" / "config.toml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        win_cmd = r"C:\Python312\python.exe"
+        assert (
+            _write_codex_toml_mcp_config(
+                target, win_cmd, ["-m", "trinity_local.main", "--mcp"]
+            )
+            is True
+        )
+        parsed = tomllib.loads(target.read_text(encoding="utf-8"))
+        srv = parsed["mcp_servers"]["trinity-local"]
+        assert srv["command"] == win_cmd  # backslashes preserved exactly
+        assert srv["args"] == ["-m", "trinity_local.main", "--mcp"]
+
     def test_codex_toml_preserves_existing_config(self, home: Path, monkeypatch, capsys):
         codex_path = home / ".codex" / "config.toml"
         codex_path.parent.mkdir(parents=True, exist_ok=True)

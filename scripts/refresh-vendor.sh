@@ -30,10 +30,15 @@
 set -euo pipefail
 
 VENDOR_DIR="$(cd "$(dirname "$0")/.." && pwd)/src/trinity_local/data/vendor"
+MANIFEST="$(cd "$(dirname "$0")" && pwd)/vendor-sha256.txt"
 DRY_RUN=0
-if [[ "${1-}" == "--check" ]]; then
-    DRY_RUN=1
-fi
+UPDATE_MANIFEST=0
+case "${1-}" in
+    --check) DRY_RUN=1 ;;
+    --update-manifest) UPDATE_MANIFEST=1 ;;
+esac
+
+_sha256() { shasum -a 256 "$1" | awk '{print $1}'; }
 
 # (target_filename, source_url) pairs. Pin every version.
 URLS=(
@@ -63,9 +68,26 @@ for pair in "${URLS[@]}"; do
     fi
     printf 'fetching %s\n' "$name"
     curl -fsSL "$url" -o "$target.tmp"
+    if [[ $UPDATE_MANIFEST -eq 0 ]]; then
+        expected="$(awk -v n="$name" '$2==n {print $1}' "$MANIFEST")"
+        actual="$(_sha256 "$target.tmp")"
+        if [[ -z "$expected" ]]; then
+            printf 'ERROR: %s is not pinned in %s. Re-run with --update-manifest after a deliberate add/bump.\n' "$name" "$MANIFEST" >&2
+            rm -f "$target.tmp"; exit 1
+        fi
+        if [[ "$expected" != "$actual" ]]; then
+            printf 'ERROR: SHA-256 mismatch for %s\n  expected %s\n  got      %s\nRefusing to overwrite. If this is an intentional version bump, re-run with --update-manifest.\n' "$name" "$expected" "$actual" >&2
+            rm -f "$target.tmp"; exit 1
+        fi
+    fi
     mv "$target.tmp" "$target"
 done
 
+if [[ $UPDATE_MANIFEST -eq 1 ]]; then
+    ( cd "$VENDOR_DIR" && shasum -a 256 *.js | sort -k2 ) > "$MANIFEST"
+    printf '\nRegenerated %s\n' "$MANIFEST"
+fi
+
 if [[ $DRY_RUN -eq 0 ]]; then
-    printf '\nDone. Now run: pytest tests/test_no_cdn_in_rendered_html.py\n'
+    printf '\nDone. Now run: pytest tests/test_no_cdn_in_rendered_html.py tests/test_vendor_integrity.py\n'
 fi

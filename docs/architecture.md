@@ -36,7 +36,7 @@ schema migrations, Chrome Native Messaging dispatch, provider-side memory
 imports, real ModernBERT embeddings when installed, and abstain-gates when only
 the TF-IDF fallback is available.
 
-The current verification surface is <!-- canonical:test_count -->2445<!-- /canonical -->
+The current verification surface is <!-- canonical:test_count -->2447<!-- /canonical -->
 passing tests plus <!-- canonical:skipped_count -->4<!-- /canonical --> gated skips,
 <!-- canonical:doc_consistency_guards -->111<!-- /canonical --> doc-consistency
 guards, and a <!-- canonical:smoke_surface_count -->32<!-- /canonical -->-surface

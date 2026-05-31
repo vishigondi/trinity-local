@@ -434,9 +434,20 @@ def _write_codex_toml_mcp_config(target: Path, command: str, mcp_args: list[str]
     are left untouched.
     """
     import json as _json
+
+    def _toml_str(s: str) -> str:
+        # TOML *literal* string (single quotes) keeps backslashes literal — required
+        # for Windows interpreter paths like C:\Python\python.exe, which a *basic*
+        # (double-quoted) string mangles as escape sequences (\P, \x...) -> invalid
+        # TOML. Fall back to an escaped basic string only if the value itself
+        # contains a single quote (a literal string can't represent that).
+        if "'" not in s:
+            return f"'{s}'"
+        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
     block = (
         "\n[mcp_servers.trinity-local]\n"
-        f'command = "{command}"\n'
+        f"command = {_toml_str(command)}\n"
         f"args = {_json.dumps(mcp_args)}\n"
     )
 
