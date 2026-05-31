@@ -627,6 +627,22 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       background: var(--surface-muted);
     }}
 
+    /* Cheat-sheet variant — the cortex routing rules reframed as a
+       glanceable one-line-per-row list (no header row, tighter padding,
+       arrow column). Keeps the .cortex-rules-table contract the smoke
+       gate reads (first-cell picks.json link + .cortex-topology-chip)
+       while reading as "which model for what" instead of a 6-col grid. */
+    .cortex-cheat-sheet td {{
+      padding: 8px 10px;
+      vertical-align: baseline;
+    }}
+
+    .cortex-cheat-sheet .cheat-arrow {{
+      width: 24px;
+      padding-left: 0;
+      padding-right: 0;
+    }}
+
     .benchmark-unit {{
       font-size: 12px;
       color: var(--text-muted);
@@ -884,26 +900,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </div>
       </section>
 
-      <!-- #252 'Your timeline' — the user's life-chapters (datable topic
-           surges) as a chronological history. Self-hides on a thin/dev-only
-           corpus (empty list). The asymmetric 'no chat tab knows your arc'
-           surface — built from prompt_time, no LLM. -->
-      <section class="card" v-if="pageData.timeline && pageData.timeline.length">
-        <h2 style="margin-top: 4px; font-size: 18px;">🗓 Your timeline</h2>
-        <p class="meta" style="margin-top: 6px;">
-          The arcs your prompts trace through time — auto-detected topic surges,
-          most-substantial first.
-        </p>
-        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
-          <div v-for="ch in pageData.timeline" :key="ch.start"
-               style="display: flex; align-items: baseline; gap: 12px; font-size: 14px;">
-            <span class="mono" style="color: var(--muted, #888); min-width: 130px; flex-shrink: 0;">{{{{ ch.range }}}}</span>
-            <span style="flex: 1;"><b>{{{{ ch.label }}}}</b></span>
-            <span class="meta" style="flex-shrink: 0;">{{{{ ch.prompts }}}} prompts</span>
-          </div>
-        </div>
-      </section>
-
       <!-- Build-deeper-memory card — surfaces ONLY when the user has
            prompts indexed (has signal that would benefit) but the
            modernbert-embed model isn't in their HF cache. Cold install with
@@ -990,134 +986,9 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </p>
       </section>
 
-      <!-- Phase 4 dispatch banner — single global banner that opens
-           when a click hits tier 3 (no extension + no Shortcut) or when
-           the extension is present but install-extension wasn't run.
-           Dismissible; a failed click reopens it. Bias toward the
-           extension path in copy (per launch-arc workstream #1: the
-           extension is the future, Shortcuts is the legacy). -->
-      <section
-        class="card memory-health-card"
-        v-if="dispatchBannerOpen"
-        style="border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.06);"
-      >
-        <div class="eyebrow" style="color: #b57438;">
-          <span v-if="dispatchBannerReason === 'native-host-unavailable'">Extension installed, host not registered</span>
-          <span v-else>No dispatch path is wired up</span>
-        </div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          <span v-if="dispatchBannerReason === 'native-host-unavailable'">
-            Trinity reached the extension but the native host wasn't found
-          </span>
-          <span v-else>
-            Install the Trinity browser extension to dispatch from any platform
-          </span>
-        </h2>
-        <p class="meta" style="margin-top: 8px;" v-if="dispatchBannerReason === 'native-host-unavailable'">
-          The Chrome extension is loaded and responding, but the local helper
-          (<code>trinity-local-capture-host</code>) isn't registered. Run:
-          <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>
-          and reload the launchpad.
-        </p>
-        <p class="meta" style="margin-top: 8px;" v-else>
-          1. Open <code>chrome://extensions</code> in Chrome, enable Developer mode,
-          and load the <code>browser-extension/</code> folder.<br>
-          2. Copy the 32-character ID Chrome assigns.<br>
-          3. Run <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>.
-        </p>
-        <p class="meta" style="margin-top: 8px;">
-          <a href="#" @click.prevent="dismissDispatchBanner">Dismiss</a>
-          — a failed click reopens this.
-        </p>
-      </section>
-
-      <!-- Memory health — only renders when something is stale. Silent
-           on a fresh install. Maps directly to the four signals built
-           into pageData.memoryHealth.issues. -->
-      <section class="card memory-health-card" v-if="memoryHealth && memoryHealth.issues && memoryHealth.issues.length">
-        <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
-          <span>Memory health</span>
-          <!-- "Refresh memory" button (council_1f9cbecd7104f90f priority #3).
-               Per the council verdict: "User's intent is 'don't make me open
-               a terminal' — not 'run LLM calls without my knowledge.' Dream
-               is expensive and surprising. A single button labeled 'Refresh
-               memory' that shows a spinner and then 'Updated' satisfies the
-               intent." Click → dispatches `dream` via Chrome extension →
-               spinner → 'Updated' flash. Explicit user action; nothing
-               auto-fires. -->
-          <button type="button"
-                  class="suggestion-chip"
-                  style="margin-left: auto; padding: 4px 10px; font-size: 12px; cursor: pointer;"
-                  :disabled="refreshMemoryStatus === 'running'"
-                  @click="refreshMemory">
-            <span v-if="refreshMemoryStatus === 'running'">
-              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
-              Refreshing…
-            </span>
-            <span v-else-if="refreshMemoryStatus === 'done'">✓ Updated</span>
-            <span v-else-if="refreshMemoryStatus === 'failed'">⚠ Failed</span>
-            <span v-else>Refresh memory</span>
-          </button>
-          <!-- #147 self-healing UI surface: "Repair extension" button.
-               Fires extension-repair-auto via Chrome extension dispatch.
-               When the capture pipeline has detected a code-patch drift
-               pattern (provider-extended-silence), the dispatched
-               council reads page-hook.js + the diagnosis and proposes
-               a unified-diff patch (no HAR required). When only
-               user-action patterns surface (stale-auth-cookie), the
-               result message tells the user what to refresh manually.
-               When no patterns surface, the result message says
-               "no actionable patterns found." Same async/launch
-               semantics as Refresh memory — finishes on dispatch
-               return, the actual council runs minutes later. -->
-          <button type="button"
-                  class="suggestion-chip"
-                  style="padding: 4px 10px; font-size: 12px; cursor: pointer;"
-                  :disabled="repairExtensionStatus === 'running'"
-                  @click="repairExtension">
-            <span v-if="repairExtensionStatus === 'running'">
-              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
-              Repairing…
-            </span>
-            <span v-else-if="repairExtensionStatus === 'done'">✓ Dispatched</span>
-            <span v-else-if="repairExtensionStatus === 'failed'">⚠ Failed</span>
-            <span v-else>Repair extension</span>
-          </button>
-        </div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          {{{{ memoryHealth.issues.length }}}} memor{{{{ memoryHealth.issues.length === 1 ? 'y' : 'ies' }}}} need{{{{ memoryHealth.issues.length === 1 ? 's' : '' }}}} attention
-          <span class="meta" style="font-weight: 400; font-size: 13px; margin-left: 8px;">·
-            {{{{ memoryHealth.ok_count }}}} of {{{{ memoryHealth.total_count }}}} healthy
-          </span>
-        </h2>
-        <ul class="memory-health-list" style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px;">
-          <li v-for="issue in memoryHealth.issues" :key="issue.name + issue.status"
-              style="display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 6px 6px 0; font-size: 13px; flex-wrap: wrap;">
-            <code style="font-size: 12px; color: var(--accent, #b57438); white-space: nowrap;">{{{{ issue.name }}}}</code>
-            <span class="meta" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7;">{{{{ issue.status }}}}</span>
-            <span style="color: var(--text-primary, #1f1a17); flex: 1; min-width: 200px;">{{{{ issue.hint }}}}</span>
-            <!-- click-to-copy command chip — wraps the existing copyText
-                 helper so the user can paste-and-run with one click
-                 instead of highlight-copy-paste. Per the action-from-view
-                 forward arc: the viewer surfaces drift; the chip closes
-                 the loop. -->
-            <button v-if="issue.command"
-                    type="button"
-                    @click="copyHealthCommand(issue)"
-                    :title="'Copy: ' + issue.command"
-                    style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-primary, #1f1a17); background: var(--bg-base, #f5efe3); border: 1px solid var(--border, #d7ccb9); border-radius: 4px; padding: 4px 10px; cursor: pointer; white-space: nowrap;">
-              <span v-if="copiedKey === 'health-' + issue.name + issue.status">✓ Copied</span>
-              <span v-else>{{{{ issue.command }}}}</span>
-            </button>
-            <a v-if="issue.href"
-               :href="issue.href"
-               style="font-size: 12px; color: var(--accent, #b57438); text-decoration: none; padding: 4px 10px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; white-space: nowrap;">
-              Inspect →
-            </a>
-          </li>
-        </ul>
-      </section>
-
+      <!-- VALUE TIER 1 — primary action. Moved to the top (right after the
+           hero + cold-start install/extension cards) so the launchpad LEADS
+           with the council Ask box instead of burying it below diagnostics. -->
       <section class="launch-grid">
         <article class="card">
           <div class="eyebrow">Council</div>
@@ -1166,9 +1037,16 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
         </article>
       </section>
 
+      <!-- VALUE TIER 2 — "Your model cheat-sheet". The routing patterns
+           reframed from a dense 6-column table into a glanceable list that
+           answers "which model should I use for what". The underlying
+           <table class="cortex-rules-table"> + first-cell picks.json link +
+           .cortex-topology-chip are preserved (smoke Surface 3 / 26 read
+           them); the dense Trust/Health/Why columns collapse into one
+           compact cell + tooltips so each row reads as a cheat-sheet line. -->
       <section class="card" v-if="cortexRules && cortexRules.rules.length">
         <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
-          <span>What Trinity has learned about you</span>
+          <span>Your model cheat-sheet</span>
           <!-- Rebuild chip — same shape as the lens-rebuild chip from
                tick #76 (forward-arc action-from-view). Re-running
                consolidate is what makes new councils produce new rules;
@@ -1183,30 +1061,17 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
             <span v-else>↻ Rebuild</span>
           </button>
         </div>
-        <h2>Routing patterns extracted from your councils</h2>
+        <h2>Which model to use for what</h2>
         <p class="meta">
-          The cortex layer reads {{{{ cortexRules.total_basins }}}} basin{{{{ cortexRules.total_basins === 1 ? '' : 's' }}}} of council outcomes and extracts one routing rule per kind of question. Trust score is computed from sample size, agreement consistency, recency, and basin diversity — it gates when the rule drives `ask` instead of the kNN fallback.
+          One line per kind of question — the model Trinity recommends, learned from your own {{{{ cortexRules.total_basins }}}} basin{{{{ cortexRules.total_basins === 1 ? '' : 's' }}}} of council outcomes. Trust (sample size · agreement · recency · diversity) gates when the rule actually drives <code>ask</code>; low-trust rows are dimmed.
         </p>
-        <table class="routing-table cortex-rules-table" style="margin-top: 16px;">
-          <thead>
-            <tr>
-              <th style="text-align: left;">Kind of question</th>
-              <th>Primary</th>
-              <th>Challenger</th>
-              <th>Trust</th>
-              <th>Health</th>
-              <th style="text-align: left;">Why</th>
-            </tr>
-          </thead>
+        <table class="routing-table cortex-rules-table cortex-cheat-sheet" style="margin-top: 16px;">
           <tbody>
             <!-- Visually demote rules below the use-rule threshold —
                  same correctness rule as the axis-bar opacity (commit
                  0c20656). A rule in the "kNN fallback" band shouldn't
                  render with the same authority as one in the
-                 "use rule" band. The bold score number tempts users
-                 to read low-trust rules as confident claims; opacity
-                 demotion keeps the data visible but says "less
-                 trusted" visually. -->
+                 "use rule" band. -->
             <tr v-for="r in cortexRules.rules"
                 :style="r.trust_score < cortexRules.trust_use_rule ? 'opacity: 0.55;' : null"
                 :title="r.trust_score < cortexRules.trust_use_rule ? 'Low-trust rule (' + r.trust_band + '): more councils needed before this drives routing. ask falls back to kNN match for this basin.' : null">
@@ -1214,7 +1079,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                 <!-- Cross-memory deep-link: basin_id → memory.html with
                      this basin focused. Memory viewer's picks Reader
                      surfaces failure_modes + the routing-scores xlink
-                     this table doesn't show. Plain-text fallback when
+                     this card doesn't show. Plain-text fallback when
                      no basin_id (defensive — shouldn't happen). -->
                 <a v-if="r.basin_id"
                    :href="'../portal_pages/memory.html?file=picks.json&task=' + encodeURIComponent(r.basin_id)"
@@ -1234,22 +1099,23 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                   → topology
                 </a>
               </td>
-              <td><span class="suggestion-chip">{{{{ formatProviderLabel(r.primary) }}}}</span></td>
-              <td><span class="meta">{{{{ r.challenger ? formatProviderLabel(r.challenger) : '—' }}}}</span></td>
+              <td class="cheat-arrow" style="text-align: center; opacity: 0.45;">→</td>
               <td>
-                <strong>{{{{ r.trust_score.toFixed(2) }}}}</strong>
-                <span class="meta" style="display: block; font-size: 11px;">{{{{ r.trust_band }}}}</span>
-              </td>
-              <td>
-                <span class="meta" v-if="ruleHealthLabel(r)" :title="ruleHealthTitle(r)">{{{{ ruleHealthLabel(r) }}}}</span>
-                <span class="meta" v-if="!ruleHealthLabel(r)">—</span>
-              </td>
-              <td class="meta" style="font-size: 13px;">
-                {{{{ r.reason || '—' }}}}
-                <div v-if="r.evidence && r.evidence.length" style="margin-top: 6px;">
-                  <span class="meta" style="font-size: 11px; opacity: 0.7;">
-                    From {{{{ r.n_episodes }}}} councils, view:
-                  </span>
+                <!-- Recommended model + the supporting detail folded into a
+                     hover tooltip so the row stays a one-glance cheat line.
+                     The reason / challenger / health / evidence the dense
+                     table used to spread across 5 columns now lives in the
+                     :title; the bold chip is the answer. -->
+                <span class="suggestion-chip"
+                      :title="(r.reason || '') + (r.challenger ? ' · challenger: ' + formatProviderLabel(r.challenger) : '') + (ruleHealthLabel(r) ? ' · ' + ruleHealthLabel(r) : '')">{{{{ formatProviderLabel(r.primary) }}}}</span>
+                <span class="meta" style="margin-left: 8px; font-size: 12px;"
+                      :title="'Trust ' + r.trust_score.toFixed(2) + ' (' + r.trust_band + '), from ' + r.n_episodes + ' councils'">
+                  trust {{{{ r.trust_score.toFixed(2) }}}} · {{{{ r.trust_band }}}}
+                  <span v-if="r.n_episodes"> · {{{{ r.n_episodes }}}} council{{{{ r.n_episodes === 1 ? '' : 's' }}}}</span>
+                </span>
+                <!-- Evidence chips kept inline but compact — click a council
+                     to see the work behind the recommendation. -->
+                <span v-if="r.evidence && r.evidence.length" style="margin-left: 6px;">
                   <a v-for="cid in r.evidence"
                      :key="cid"
                      :href="evidenceUrl(cid)"
@@ -1258,7 +1124,7 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
                      :title="'Open council ' + cid">
                     {{{{ cid.replace('council_', '').slice(0, 8) }}}}
                   </a>
-                </div>
+                </span>
               </td>
             </tr>
           </tbody>
@@ -1309,10 +1175,10 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card" v-if="personalRoutingTable">
-        <div class="eyebrow">Routing</div>
+        <div class="eyebrow">Cheat-sheet · by task type</div>
         <h2>Who the chairman picks, by task type</h2>
         <p class="meta">
-          From your own {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman synthesizes through your taste lens and picks the answer YOU would have picked. The Best column shows who they picked most often per task type.
+          The same "which model for what" answer, broken out by task type — from your own {{{{ personalRoutingTable.councils_aggregated || 0 }}}} councils. The chairman synthesizes through your taste lens and picks the answer YOU would have picked; the <strong>Best</strong> column is who it picks most often (and how often). The per-provider scores trail behind as supporting detail.
         </p>
         <p class="meta" v-if="coreStatus.state === 'stale'" style="background: rgba(178, 106, 31, 0.08); border-left: 3px solid #b26a1f; padding: 8px 12px; margin-top: 12px; border-radius: 4px;">
           ⚠️ Your <code>core.md</code> is stale — a memory file was updated since the last dream. Run <code>trinity-local dream</code> so the chairman reads the freshest synthesis on the next council.
@@ -1619,171 +1485,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
       </details>
 
-      <!-- Surface 33 (v1.6) — Browser capture activity. Shows per-
-           provider counts + last-capture timestamp. Empty state has
-           a CTA (install the extension); populated state surfaces
-           silent-breakage signal when last capture > 24h ago.
-           Demoted into a <details> 2026-05-21 (council_1f9cbecd7104f90f
-           priority #4). Capture is corpus plumbing; the user's
-           attention belongs on Council + Routing (the prime
-           directive). Stale-capture warning still surfaces inline
-           in the summary so silent breakage isn't hidden by the
-           collapse. -->
-      <details class="demoted-card-wrapper" v-if="pageData.browserCapture" style="margin-bottom: 18px;">
-        <summary style="cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.025); border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 12px;"
-                 :style="pageData.browserCapture.has_data && pageData.browserCapture.stale ? 'background: rgba(196, 121, 31, 0.08);' : ''">
-          <span class="eyebrow" style="margin: 0; padding: 0; opacity: 0.7;">Browser capture</span>
-          <span v-if="pageData.browserCapture.has_data && !pageData.browserCapture.stale" style="font-weight: 500;">
-            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> ·
-            last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
-          </span>
-          <span v-else-if="pageData.browserCapture.has_data && pageData.browserCapture.stale" style="font-weight: 500; color: #c4791f;">
-            ⚠ no captures in 24h · last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
-          </span>
-          <span v-else style="font-weight: 500;">
-            Extension not installed — corpus is missing your web chats
-          </span>
-          <span class="meta" style="margin-left: auto; font-size: 12px;">expand</span>
-        </summary>
-      <section class="card browser-capture-card"
-               v-if="pageData.browserCapture && pageData.browserCapture.has_data"
-               :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);'">
-        <div class="eyebrow" :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
-          Browser capture<span v-if="pageData.browserCapture.captured_24h > 0"> · last 24h</span>
-        </div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          <span v-if="pageData.browserCapture.captured_24h > 0">
-            {{{{ pageData.browserCapture.captured_24h }}}} conversation<span v-if="pageData.browserCapture.captured_24h !== 1">s</span> captured
-          </span>
-          <span v-else>
-            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> captured
-            <span class="meta" style="font-weight: normal;">(none in last 24h)</span>
-          </span>
-          <span style="float: right; font-variant-numeric: tabular-nums;"
-                :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
-            {{{{ pageData.browserCapture.providers.length }}}} provider<span v-if="pageData.browserCapture.providers.length !== 1">s</span>
-          </span>
-        </h2>
-        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
-          <li v-for="row in pageData.browserCapture.providers" :key="row.provider"
-              style="display: grid; grid-template-columns: 140px 60px 1fr 110px; gap: 8px; align-items: center;">
-            <span>{{{{ row.provider }}}}</span>
-            <span class="meta">{{{{ row.count }}}}</span>
-            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
-              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#315c85') + '; border-radius: 3px;'"></span>
-            </span>
-            <!-- Sidebar-sync diff: same data source as the in-provider
-                 auto-sync pill + status CLI's Captures: section. When
-                 missing_count > 0 the user has unsynced threads; the
-                 pill renders them as a click-to-sync trigger in the
-                 browser, but the launchpad surface lets desktop users
-                 see the same signal. Silent when fully synced. -->
-            <span v-if="row.missing_count > 0"
-                  class="meta"
-                  style="text-align: right; color: #c4791f; font-size: 12px;"
-                  :title="'sidebar has ' + row.sidebar_count + ' threads; ' + row.missing_count + ' not yet captured'">
-              {{{{ row.missing_count }}}} unsynced
-            </span>
-          </li>
-        </ul>
-        <p class="meta" style="margin-top: 12px;" v-if="!pageData.browserCapture.stale">
-          Last capture {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago. Run
-          <code>trinity-local ingest-recent</code> to pull new captures into the prompt index.
-        </p>
-        <p class="meta" style="margin-top: 12px; color: #c4791f;" v-else>
-          ⚠ No new captures in the last 24h (last was {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago).
-          Check the service-worker console at <code>chrome://extensions</code> — the extension may have been
-          disabled or the provider may have refactored their API. Details in
-          <code>browser-extension/README.md</code>.
-        </p>
-      </section>
-
-      <section class="card browser-capture-card"
-               v-if="pageData.browserCapture && !pageData.browserCapture.has_data"
-               style="border-left: 3px dashed rgba(49, 92, 133, 0.4); background: rgba(49, 92, 133, 0.02);">
-        <div class="eyebrow" style="color: #315c85;">Browser capture</div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          Capture every Claude / ChatGPT conversation automatically
-        </h2>
-        <p class="meta" style="margin-top: 4px;">
-          Trinity reads transcripts already on your machine — for the chat web UIs that means
-          installing the v1.6 browser extension. One-time, no server, no daemon. Every message
-          you send on claude.ai or chatgpt.com lands in <code>~/.trinity/conversations/</code>
-          and flows into your cortex / lens / picks.
-        </p>
-        <pre class="md-code-block"><code>{{{{ pageData.browserCapture.install_command }}}}</code></pre>
-        <p class="meta" style="margin-top: 8px;">
-          Full ritual in <code>browser-extension/README.md</code>.
-        </p>
-      </section>
-
-      <!-- #148 bulk Takeout import UI — sibling to browser-capture
-           since both are "get conversation data in" surfaces. Two-step
-           flow: (1) user pastes an absolute filesystem path → click
-           Probe → fires import-export-dry-run which prints the detected
-           exports; (2) on confirm → click Import → fires import-export
-           (full ingest). The Probe step exists because the CLI
-           auto-detects multiple sources from a directory, and we want
-           the user to confirm what got detected before paying the
-           embedding cost.
-           Browsers don't expose absolute paths via <input type="file">
-           for security, so paste-path is the simplest UX that works
-           with the existing capture-host action dispatcher (which
-           takes --flag VALUE pairs and runs subprocesses on the
-           user's machine). -->
-      <section class="card import-export-card"
-               style="border-left: 3px solid rgba(49, 92, 133, 0.3);">
-        <div class="eyebrow" style="color: #315c85;">Bulk import (#148)</div>
-        <h2 style="margin-top: 4px; font-size: 18px;">
-          Import old Claude / ChatGPT / Gemini exports
-        </h2>
-        <p class="meta" style="margin-top: 4px; margin-bottom: 12px;">
-          Got a Takeout zip or a <code>conversations.json</code> from years of chats? Paste the path —
-          Trinity auto-detects the export type and indexes everything into your prompt corpus.
-        </p>
-        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-          <input v-model="importPath"
-                 type="text"
-                 placeholder="/Users/you/Downloads/Takeout"
-                 style="flex: 1; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; background: var(--bg-base, #f5efe3);" />
-          <button type="button"
-                  @click="probeImportPath"
-                  :disabled="!importPath || importStatus === 'probing' || importStatus === 'importing'"
-                  class="suggestion-chip"
-                  style="padding: 6px 14px; cursor: pointer; font-size: 13px;">
-            <span v-if="importStatus === 'probing'">Probing…</span>
-            <span v-else>Probe</span>
-          </button>
-        </div>
-        <div v-if="importProbeResult && !importProbeResult.error"
-             style="padding: 10px 12px; background: rgba(45, 106, 79, 0.06); border-left: 3px solid var(--success, #2d6a4f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px;">
-          <strong style="color: var(--success, #2d6a4f);">✓ Detected {{{{ importProbeResult.detected.length }}}} export(s)</strong>
-          <ul style="list-style: none; padding: 8px 0 0; margin: 0; font-size: 12px;">
-            <li v-for="(e, i) in importProbeResult.detected" :key="'imp-' + i"
-                style="font-family: ui-monospace, monospace; opacity: 0.8;">
-              <span style="color: var(--accent, #b57438);">{{{{ e.source }}}}</span> · {{{{ e.hint }}}}
-            </li>
-          </ul>
-          <button type="button"
-                  @click="confirmImport"
-                  :disabled="importStatus === 'importing'"
-                  class="suggestion-chip"
-                  style="padding: 6px 14px; cursor: pointer; font-size: 13px; margin-top: 8px;">
-            <span v-if="importStatus === 'importing'">Importing…</span>
-            <span v-else-if="importStatus === 'imported'">✓ Dispatched</span>
-            <span v-else>Import {{{{ importProbeResult.detected.length }}}} source(s)</span>
-          </button>
-        </div>
-        <div v-if="importProbeResult && importProbeResult.error"
-             style="padding: 10px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px; color: var(--warning, #b26a1f);">
-          ⚠ {{{{ importProbeResult.error }}}}
-          <span v-if="importProbeResult.hint" style="display: block; margin-top: 4px; font-size: 12px; opacity: 0.85; color: var(--text-primary, #1f1a17);">
-            {{{{ importProbeResult.hint }}}}
-          </span>
-        </div>
-      </section>
-      </details>
-
       <section class="card taste-card" v-if="tasteLenses">
         <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
           <span>Your taste, distilled</span>
@@ -2026,40 +1727,6 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
       </section>
 
       <section class="card">
-        <div class="eyebrow">Your lens</div>
-        <h2>The four files that compose your cognitive memory</h2>
-        <p class="meta">
-          One artifact, four levels — read top-down by the chairman on every
-          council. <code>picks.json</code> and <code>routing.json</code> are
-          operational scoreboards (model-selection bookkeeping derived from
-          your verdicts) and surface on the routing card above; they're not
-          part of the lens.
-        </p>
-        <div class="memory-links" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 16px;">
-          <a class="memory-chip" href="../portal_pages/memory.html?file=core.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent-warm); font-size: 13px;">core.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">identity · manifesto paragraph</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=lens.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent-warm); font-size: 13px;">lens.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">value · paired tensions</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=topics.json"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent-warm); font-size: 13px;">topics.json</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">semantic · basins + evidence map</span>
-          </a>
-          <a class="memory-chip" href="../portal_pages/memory.html?file=vocabulary.md"
-             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
-            <code style="color: var(--accent-warm); font-size: 13px;">vocabulary.md</code>
-            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">linguistic · anchors / homonyms / synonyms</span>
-          </a>
-        </div>
-      </section>
-
-      <section class="card">
         <div class="eyebrow">Council history</div>
         <h2>Every council you've run</h2>
         <p class="meta">Click a card to reopen the council. Refinement prompts on each thread are the supervision signal — Trinity learns from how you redirect, not from after-the-fact ratings.</p>
@@ -2095,6 +1762,341 @@ def render_launchpad_html(*, page_data: dict, recent_cards: str, title: str = "T
           No councils match this filter. Clear the search box to see everything.
         </p>
       </section>
+
+      <!-- ─── OPERATIONAL / DIAGNOSTIC TIER ───────────────────────────────
+           Value-first redesign (2026-05-31): everything below the recent-
+           councils card is maintenance + plumbing — timeline, memory health,
+           the dispatch banner, the four cognitive-memory files, and browser
+           capture / bulk import. Kept (each self-hides when irrelevant), just
+           demoted below the value tier. -->
+
+      <!-- #252 'Your timeline' — DEMOTED to the operational/diagnostic tier
+           (value-first redesign). The user's life-chapters (datable topic
+           surges) as a chronological history. Self-hides on a thin/dev-only
+           corpus (empty list). Built from prompt_time, no LLM. -->
+      <section class="card" v-if="pageData.timeline && pageData.timeline.length">
+        <h2 style="margin-top: 4px; font-size: 18px;">🗓 Your timeline</h2>
+        <p class="meta" style="margin-top: 6px;">
+          The arcs your prompts trace through time — auto-detected topic surges,
+          most-substantial first.
+        </p>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+          <div v-for="ch in pageData.timeline" :key="ch.start"
+               style="display: flex; align-items: baseline; gap: 12px; font-size: 14px;">
+            <span class="mono" style="color: var(--muted, #888); min-width: 130px; flex-shrink: 0;">{{{{ ch.range }}}}</span>
+            <span style="flex: 1;"><b>{{{{ ch.label }}}}</b></span>
+            <span class="meta" style="flex-shrink: 0;">{{{{ ch.prompts }}}} prompts</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Memory health — DEMOTED to the operational tier. Only renders when
+           something is stale; silent on a fresh install. Maps directly to the
+           four signals built into pageData.memoryHealth.issues. -->
+      <section class="card memory-health-card" v-if="memoryHealth && memoryHealth.issues && memoryHealth.issues.length">
+        <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
+          <span>Memory health</span>
+          <!-- "Refresh memory" button (council_1f9cbecd7104f90f priority #3).
+               Click → dispatches `dream` via Chrome extension → spinner →
+               'Updated' flash. Explicit user action; nothing auto-fires. -->
+          <button type="button"
+                  class="suggestion-chip"
+                  style="margin-left: auto; padding: 4px 10px; font-size: 12px; cursor: pointer;"
+                  :disabled="refreshMemoryStatus === 'running'"
+                  @click="refreshMemory">
+            <span v-if="refreshMemoryStatus === 'running'">
+              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
+              Refreshing…
+            </span>
+            <span v-else-if="refreshMemoryStatus === 'done'">✓ Updated</span>
+            <span v-else-if="refreshMemoryStatus === 'failed'">⚠ Failed</span>
+            <span v-else>Refresh memory</span>
+          </button>
+          <!-- #147 self-healing UI surface: "Repair extension" button.
+               Fires extension-repair-auto via Chrome extension dispatch. Same
+               async/launch semantics as Refresh memory. -->
+          <button type="button"
+                  class="suggestion-chip"
+                  style="padding: 4px 10px; font-size: 12px; cursor: pointer;"
+                  :disabled="repairExtensionStatus === 'running'"
+                  @click="repairExtension">
+            <span v-if="repairExtensionStatus === 'running'">
+              <span class="spinner" aria-hidden="true" style="display: inline-block; width: 10px; height: 10px; border-width: 1px; vertical-align: -1px; margin-right: 4px;"></span>
+              Repairing…
+            </span>
+            <span v-else-if="repairExtensionStatus === 'done'">✓ Dispatched</span>
+            <span v-else-if="repairExtensionStatus === 'failed'">⚠ Failed</span>
+            <span v-else>Repair extension</span>
+          </button>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          {{{{ memoryHealth.issues.length }}}} memor{{{{ memoryHealth.issues.length === 1 ? 'y' : 'ies' }}}} need{{{{ memoryHealth.issues.length === 1 ? 's' : '' }}}} attention
+          <span class="meta" style="font-weight: 400; font-size: 13px; margin-left: 8px;">·
+            {{{{ memoryHealth.ok_count }}}} of {{{{ memoryHealth.total_count }}}} healthy
+          </span>
+        </h2>
+        <ul class="memory-health-list" style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px;">
+          <li v-for="issue in memoryHealth.issues" :key="issue.name + issue.status"
+              style="display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 6px 6px 0; font-size: 13px; flex-wrap: wrap;">
+            <code style="font-size: 12px; color: var(--accent, #b57438); white-space: nowrap;">{{{{ issue.name }}}}</code>
+            <span class="meta" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7;">{{{{ issue.status }}}}</span>
+            <span style="color: var(--text-primary, #1f1a17); flex: 1; min-width: 200px;">{{{{ issue.hint }}}}</span>
+            <button v-if="issue.command"
+                    type="button"
+                    @click="copyHealthCommand(issue)"
+                    :title="'Copy: ' + issue.command"
+                    style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-primary, #1f1a17); background: var(--bg-base, #f5efe3); border: 1px solid var(--border, #d7ccb9); border-radius: 4px; padding: 4px 10px; cursor: pointer; white-space: nowrap;">
+              <span v-if="copiedKey === 'health-' + issue.name + issue.status">✓ Copied</span>
+              <span v-else>{{{{ issue.command }}}}</span>
+            </button>
+            <a v-if="issue.href"
+               :href="issue.href"
+               style="font-size: 12px; color: var(--accent, #b57438); text-decoration: none; padding: 4px 10px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; white-space: nowrap;">
+              Inspect →
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Phase 4 dispatch banner — DEMOTED to the operational tier. Single
+           global banner that opens when a click hits tier 3 (no extension +
+           no Shortcut) or when the extension is present but install-extension
+           wasn't run. Dismissible; a failed click reopens it. -->
+      <section
+        class="card memory-health-card"
+        v-if="dispatchBannerOpen"
+        style="border-left: 3px solid #b57438; background: rgba(181, 116, 56, 0.06);"
+      >
+        <div class="eyebrow" style="color: #b57438;">
+          <span v-if="dispatchBannerReason === 'native-host-unavailable'">Extension installed, host not registered</span>
+          <span v-else>No dispatch path is wired up</span>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          <span v-if="dispatchBannerReason === 'native-host-unavailable'">
+            Trinity reached the extension but the native host wasn't found
+          </span>
+          <span v-else>
+            Install the Trinity browser extension to dispatch from any platform
+          </span>
+        </h2>
+        <p class="meta" style="margin-top: 8px;" v-if="dispatchBannerReason === 'native-host-unavailable'">
+          The Chrome extension is loaded and responding, but the local helper
+          (<code>trinity-local-capture-host</code>) isn't registered. Run:
+          <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>
+          and reload the launchpad.
+        </p>
+        <p class="meta" style="margin-top: 8px;" v-else>
+          1. Open <code>chrome://extensions</code> in Chrome, enable Developer mode,
+          and load the <code>browser-extension/</code> folder.<br>
+          2. Copy the 32-character ID Chrome assigns.<br>
+          3. Run <code>trinity-local install-extension --extension-id &lt;ID&gt;</code>.
+        </p>
+        <p class="meta" style="margin-top: 8px;">
+          <a href="#" @click.prevent="dismissDispatchBanner">Dismiss</a>
+          — a failed click reopens this.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="eyebrow">Your lens</div>
+        <h2>The four files that compose your cognitive memory</h2>
+        <p class="meta">
+          One artifact, four levels — read top-down by the chairman on every
+          council. <code>picks.json</code> and <code>routing.json</code> are
+          operational scoreboards (model-selection bookkeeping derived from
+          your verdicts) and surface on the routing card above; they're not
+          part of the lens.
+        </p>
+        <div class="memory-links" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 16px;">
+          <a class="memory-chip" href="../portal_pages/memory.html?file=core.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">core.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">identity · manifesto paragraph</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=lens.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">lens.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">value · paired tensions</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=topics.json"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">topics.json</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">semantic · basins + evidence map</span>
+          </a>
+          <a class="memory-chip" href="../portal_pages/memory.html?file=vocabulary.md"
+             style="display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: inherit;">
+            <code style="color: var(--accent-warm); font-size: 13px;">vocabulary.md</code>
+            <span class="meta" style="display: block; font-size: 11px; margin-top: 2px;">linguistic · anchors / homonyms / synonyms</span>
+          </a>
+        </div>
+      </section>
+
+
+      <!-- Surface 33 (v1.6) — Browser capture activity. Shows per-
+           provider counts + last-capture timestamp. Empty state has
+           a CTA (install the extension); populated state surfaces
+           silent-breakage signal when last capture > 24h ago.
+           Demoted into a <details> 2026-05-21 (council_1f9cbecd7104f90f
+           priority #4). Capture is corpus plumbing; the user's
+           attention belongs on Council + Routing (the prime
+           directive). Stale-capture warning still surfaces inline
+           in the summary so silent breakage isn't hidden by the
+           collapse. -->
+      <details class="demoted-card-wrapper" v-if="pageData.browserCapture" style="margin-bottom: 18px;">
+        <summary style="cursor: pointer; padding: 10px 14px; background: rgba(0,0,0,0.025); border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 12px;"
+                 :style="pageData.browserCapture.has_data && pageData.browserCapture.stale ? 'background: rgba(196, 121, 31, 0.08);' : ''">
+          <span class="eyebrow" style="margin: 0; padding: 0; opacity: 0.7;">Browser capture</span>
+          <span v-if="pageData.browserCapture.has_data && !pageData.browserCapture.stale" style="font-weight: 500;">
+            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> ·
+            last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
+          </span>
+          <span v-else-if="pageData.browserCapture.has_data && pageData.browserCapture.stale" style="font-weight: 500; color: #c4791f;">
+            ⚠ no captures in 24h · last {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago
+          </span>
+          <span v-else style="font-weight: 500;">
+            Extension not installed — corpus is missing your web chats
+          </span>
+          <span class="meta" style="margin-left: auto; font-size: 12px;">expand</span>
+        </summary>
+      <section class="card browser-capture-card"
+               v-if="pageData.browserCapture && pageData.browserCapture.has_data"
+               :style="pageData.browserCapture.stale ? 'border-left: 3px solid #c4791f; background: rgba(196, 121, 31, 0.04);' : 'border-left: 3px solid #315c85; background: rgba(49, 92, 133, 0.04);'">
+        <div class="eyebrow" :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
+          Browser capture<span v-if="pageData.browserCapture.captured_24h > 0"> · last 24h</span>
+        </div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          <span v-if="pageData.browserCapture.captured_24h > 0">
+            {{{{ pageData.browserCapture.captured_24h }}}} conversation<span v-if="pageData.browserCapture.captured_24h !== 1">s</span> captured
+          </span>
+          <span v-else>
+            {{{{ pageData.browserCapture.total_captured }}}} conversation<span v-if="pageData.browserCapture.total_captured !== 1">s</span> captured
+            <span class="meta" style="font-weight: normal;">(none in last 24h)</span>
+          </span>
+          <span style="float: right; font-variant-numeric: tabular-nums;"
+                :style="pageData.browserCapture.stale ? 'color: #c4791f;' : 'color: #315c85;'">
+            {{{{ pageData.browserCapture.providers.length }}}} provider<span v-if="pageData.browserCapture.providers.length !== 1">s</span>
+          </span>
+        </h2>
+        <ul style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; font-size: 13px;">
+          <li v-for="row in pageData.browserCapture.providers" :key="row.provider"
+              style="display: grid; grid-template-columns: 140px 60px 1fr 110px; gap: 8px; align-items: center;">
+            <span>{{{{ row.provider }}}}</span>
+            <span class="meta">{{{{ row.count }}}}</span>
+            <span style="position: relative; height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px;">
+              <span :style="'position: absolute; left: 0; top: 0; bottom: 0; width: ' + (row.count / pageData.browserCapture.total_captured * 100) + '%; background: ' + (pageData.browserCapture.stale ? '#c4791f' : '#315c85') + '; border-radius: 3px;'"></span>
+            </span>
+            <!-- Sidebar-sync diff: same data source as the in-provider
+                 auto-sync pill + status CLI's Captures: section. When
+                 missing_count > 0 the user has unsynced threads; the
+                 pill renders them as a click-to-sync trigger in the
+                 browser, but the launchpad surface lets desktop users
+                 see the same signal. Silent when fully synced. -->
+            <span v-if="row.missing_count > 0"
+                  class="meta"
+                  style="text-align: right; color: #c4791f; font-size: 12px;"
+                  :title="'sidebar has ' + row.sidebar_count + ' threads; ' + row.missing_count + ' not yet captured'">
+              {{{{ row.missing_count }}}} unsynced
+            </span>
+          </li>
+        </ul>
+        <p class="meta" style="margin-top: 12px;" v-if="!pageData.browserCapture.stale">
+          Last capture {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago. Run
+          <code>trinity-local ingest-recent</code> to pull new captures into the prompt index.
+        </p>
+        <p class="meta" style="margin-top: 12px; color: #c4791f;" v-else>
+          ⚠ No new captures in the last 24h (last was {{{{ pageData.browserCapture.last_capture_ago_human }}}} ago).
+          Check the service-worker console at <code>chrome://extensions</code> — the extension may have been
+          disabled or the provider may have refactored their API. Details in
+          <code>browser-extension/README.md</code>.
+        </p>
+      </section>
+
+      <section class="card browser-capture-card"
+               v-if="pageData.browserCapture && !pageData.browserCapture.has_data"
+               style="border-left: 3px dashed rgba(49, 92, 133, 0.4); background: rgba(49, 92, 133, 0.02);">
+        <div class="eyebrow" style="color: #315c85;">Browser capture</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Capture every Claude / ChatGPT conversation automatically
+        </h2>
+        <p class="meta" style="margin-top: 4px;">
+          Trinity reads transcripts already on your machine — for the chat web UIs that means
+          installing the v1.6 browser extension. One-time, no server, no daemon. Every message
+          you send on claude.ai or chatgpt.com lands in <code>~/.trinity/conversations/</code>
+          and flows into your cortex / lens / picks.
+        </p>
+        <pre class="md-code-block"><code>{{{{ pageData.browserCapture.install_command }}}}</code></pre>
+        <p class="meta" style="margin-top: 8px;">
+          Full ritual in <code>browser-extension/README.md</code>.
+        </p>
+      </section>
+
+      <!-- #148 bulk Takeout import UI — sibling to browser-capture
+           since both are "get conversation data in" surfaces. Two-step
+           flow: (1) user pastes an absolute filesystem path → click
+           Probe → fires import-export-dry-run which prints the detected
+           exports; (2) on confirm → click Import → fires import-export
+           (full ingest). The Probe step exists because the CLI
+           auto-detects multiple sources from a directory, and we want
+           the user to confirm what got detected before paying the
+           embedding cost.
+           Browsers don't expose absolute paths via <input type="file">
+           for security, so paste-path is the simplest UX that works
+           with the existing capture-host action dispatcher (which
+           takes --flag VALUE pairs and runs subprocesses on the
+           user's machine). -->
+      <section class="card import-export-card"
+               style="border-left: 3px solid rgba(49, 92, 133, 0.3);">
+        <div class="eyebrow" style="color: #315c85;">Bulk import (#148)</div>
+        <h2 style="margin-top: 4px; font-size: 18px;">
+          Import old Claude / ChatGPT / Gemini exports
+        </h2>
+        <p class="meta" style="margin-top: 4px; margin-bottom: 12px;">
+          Got a Takeout zip or a <code>conversations.json</code> from years of chats? Paste the path —
+          Trinity auto-detects the export type and indexes everything into your prompt corpus.
+        </p>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input v-model="importPath"
+                 type="text"
+                 placeholder="/Users/you/Downloads/Takeout"
+                 style="flex: 1; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px; border: 1px solid var(--border, #d7ccb9); border-radius: 4px; background: var(--bg-base, #f5efe3);" />
+          <button type="button"
+                  @click="probeImportPath"
+                  :disabled="!importPath || importStatus === 'probing' || importStatus === 'importing'"
+                  class="suggestion-chip"
+                  style="padding: 6px 14px; cursor: pointer; font-size: 13px;">
+            <span v-if="importStatus === 'probing'">Probing…</span>
+            <span v-else>Probe</span>
+          </button>
+        </div>
+        <div v-if="importProbeResult && !importProbeResult.error"
+             style="padding: 10px 12px; background: rgba(45, 106, 79, 0.06); border-left: 3px solid var(--success, #2d6a4f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px;">
+          <strong style="color: var(--success, #2d6a4f);">✓ Detected {{{{ importProbeResult.detected.length }}}} export(s)</strong>
+          <ul style="list-style: none; padding: 8px 0 0; margin: 0; font-size: 12px;">
+            <li v-for="(e, i) in importProbeResult.detected" :key="'imp-' + i"
+                style="font-family: ui-monospace, monospace; opacity: 0.8;">
+              <span style="color: var(--accent, #b57438);">{{{{ e.source }}}}</span> · {{{{ e.hint }}}}
+            </li>
+          </ul>
+          <button type="button"
+                  @click="confirmImport"
+                  :disabled="importStatus === 'importing'"
+                  class="suggestion-chip"
+                  style="padding: 6px 14px; cursor: pointer; font-size: 13px; margin-top: 8px;">
+            <span v-if="importStatus === 'importing'">Importing…</span>
+            <span v-else-if="importStatus === 'imported'">✓ Dispatched</span>
+            <span v-else>Import {{{{ importProbeResult.detected.length }}}} source(s)</span>
+          </button>
+        </div>
+        <div v-if="importProbeResult && importProbeResult.error"
+             style="padding: 10px 12px; background: rgba(178, 106, 31, 0.06); border-left: 3px solid var(--warning, #b26a1f); border-radius: 0 4px 4px 0; margin-bottom: 10px; font-size: 13px; color: var(--warning, #b26a1f);">
+          ⚠ {{{{ importProbeResult.error }}}}
+          <span v-if="importProbeResult.hint" style="display: block; margin-top: 4px; font-size: 12px; opacity: 0.85; color: var(--text-primary, #1f1a17);">
+            {{{{ importProbeResult.hint }}}}
+          </span>
+        </div>
+      </section>
+      </details>
+
 
       <p class="meta" style="text-align: center; margin-top: 24px; opacity: 0.55; font-size: 12px;" v-if="debugMode">
         Page generated {{{{ pageData.regeneratedAt }}}} · stale? run <code>trinity-local portal-html</code> + Cmd+Shift+R
