@@ -688,7 +688,7 @@ live claims.
 
 Guard: `TestLiveDocsDontHardcodeTestCounts` fails when a `class: live` doc carries a
 bare "<N>-test" / "<N> tests passing" gate number outside a canonical placeholder —
-use `<!-- canonical:test_count -->2441<!-- /canonical -->`. 7 surfaces
+use `<!-- canonical:test_count -->2445<!-- /canonical -->`. 7 surfaces
   migrated to placeholders (claude.md ×3 + product-spec +
   10_hn_faq + launch-package + LAUNCH_CHECKLIST). `python
   scripts/render_docs.py` auto-syncs all surfaces from one
@@ -851,7 +851,7 @@ find an embarrassing seam. 13 commits, all reversible.
   `node_modules/.package-lock.json`.
 - Deleted vestigial empty `package.json` + `package-lock.json` at top
   level — looked like vibes-coded mixed-stack mess.
-- Stripped personal `/Users/openclaw/...` paths from
+- Stripped personal `/Users/<user>/...` paths from
   `tests/test_frontend_flow.py` (input/expected was hardcoded to the
   dev's machine) and `docs/v2-loop-constitution.md` (6 absolute
   paths anchored at the author's $HOME).

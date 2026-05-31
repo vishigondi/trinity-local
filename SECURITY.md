@@ -11,7 +11,10 @@ it's a P0 for us regardless of severity in the traditional security sense.
 
 ## Reporting a vulnerability
 
-Email reports to **security@keepwhatworks.com** with subject `[Trinity Local] <short summary>`.
+Report privately via **GitHub Private Vulnerability Reporting**:
+<https://github.com/vishigondi/trinity-local/security/advisories/new>. This keeps the
+report confidential between you and the maintainer until a fix ships — no email infra
+needed, and you get a private thread plus optional draft advisory.
 
 Include if applicable:
 - Affected Trinity version (`trinity-local --version`)
@@ -19,7 +22,7 @@ Include if applicable:
 - What the user-visible impact is
 - Suggested fix (optional)
 
-We aim to respond within 5 business days. Coordinated disclosure preferred for issues
+We aim to acknowledge within 5 business days. Coordinated disclosure preferred for issues
 that could affect users in the wild.
 
 ## Threat model

@@ -239,7 +239,7 @@ load-bearing wedge.
   `launchpad_data.py` inline the constant.
 - **Telemetry pivot to GA4 (commit `c99044f`, NOT a cut)**: per user
   direction, instead of cutting telemetry we wired it to Google
-  Analytics 4 Measurement Protocol (property `539262453`). Default ON
+  Analytics 4 Measurement Protocol (the project GA4 property). Default ON
   per the user's pick; honors the existing `telemetry-disable` opt-out.
   Categorical-only — `task_type`, `winner`, `member_count`, `mode` —
   per CLAUDE.md "Architectural commitments" #2.

@@ -1076,6 +1076,19 @@ def render_memory_viewer_html() -> str:
           // Strip any <script>/<style>/<iframe> tags before adopting nodes —
           // marked doesn't emit them but a future config change could.
           parsed.querySelectorAll("script,style,iframe,object,embed").forEach(n => n.remove());
+          // Defense-in-depth: drop on*= event handlers and any href/src that
+          // isn't http/https/mailto (kills javascript:/data: stored-XSS).
+          const safeScheme = /^(https?:|mailto:)/i;
+          parsed.querySelectorAll("*").forEach(node => {{
+            for (const attr of Array.from(node.attributes)) {{
+              const name = attr.name.toLowerCase();
+              if (name.startsWith("on")) {{
+                node.removeAttribute(attr.name);
+              }} else if ((name === "href" || name === "src") && !safeScheme.test(attr.value.trim())) {{
+                node.removeAttribute(attr.name);
+              }}
+            }}
+          }});
           while (parsed.body.firstChild) wrap.appendChild(parsed.body.firstChild);
         }} else {{
           // marked failed to load — fall through to raw text in <pre>

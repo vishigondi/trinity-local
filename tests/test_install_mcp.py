@@ -90,6 +90,15 @@ class TestInstallMcp:
         assert "github" in merged["mcpServers"]
         assert "trinity-local" in merged["mcpServers"], "trinity-local was added"
 
+    def test_malformed_existing_config_is_not_clobbered(self, home: Path):
+        from trinity_local.commands.install import _write_json_mcp_config
+        t = home / ".claude.json"
+        bad = "not valid json at all"
+        t.write_text(bad, encoding="utf-8")
+        assert _write_json_mcp_config(t, {"command": "x"}) is False
+        assert t.read_text(encoding="utf-8") == bad
+        assert len(list(home.glob("*.bak"))) == 1
+
     def test_writes_cursor_mcp_config(self, home: Path, monkeypatch, capsys):
         """100-persona audit P16/P92 fix: install-mcp must drop a config
         into ~/.cursor/mcp.json too. Cursor uses the same `mcpServers`

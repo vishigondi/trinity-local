@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
+from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
@@ -374,10 +376,16 @@ def _write_json_mcp_config(target: Path, server_config: dict) -> bool:
     """Merge Trinity's MCP server entry into a JSON config (Claude / Gemini / .mcp.json)."""
     existing: dict = {}
     if target.exists():
+        bak = target.with_name(target.name + "." + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".bak")
         try:
+            shutil.copy2(target, bak)
             existing = json.loads(target.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Error: {target} unreadable/invalid ({exc}); refusing to overwrite. Backup at {bak}.")
+            return False
+        if not isinstance(existing, dict):
+            print(f"Error: {target} is not a JSON object; refusing to overwrite. Backup at {bak}.")
+            return False
 
     servers = existing.setdefault("mcpServers", {})
     servers["trinity-local"] = server_config

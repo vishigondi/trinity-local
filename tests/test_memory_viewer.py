@@ -557,3 +557,31 @@ class TestPicksReaderCrossLinks:
     def test_pick_xlink_class_styled(self, isolated_home):
         html = _render()
         assert ".pick-xlink" in html, "pick-xlink CSS missing"
+
+
+class TestMarkdownSanitizer:
+    """XSS hardening — renderMarkdown adopts marked()'s output into the
+    live DOM. Beyond stripping script/style/iframe/object/embed tags, the
+    sanitizer must also drop on*= event-handler attributes and confine
+    href/src to http/https/mailto so a hand-edited (or imported) memory
+    file can't smuggle an onclick handler or a javascript:/data: URL."""
+
+    def test_strips_event_handler_attributes(self, isolated_home):
+        html = _render()
+        # The sanitizer walks every element and removes on*= attributes.
+        assert 'name.startsWith("on")' in html, (
+            "renderMarkdown no longer strips on*= event-handler attributes "
+            "— stored-XSS via onclick/onerror is reintroduced"
+        )
+
+    def test_restricts_href_and_src_schemes(self, isolated_home):
+        html = _render()
+        # href/src must be gated on an http/https/mailto allowlist, which
+        # drops javascript: and data: URLs.
+        assert "/^(https?:|mailto:)/i" in html, (
+            "renderMarkdown lost the href/src scheme allowlist — "
+            "javascript:/data: URLs are no longer stripped"
+        )
+        assert '(name === "href" || name === "src")' in html, (
+            "renderMarkdown no longer gates href/src attributes by scheme"
+        )

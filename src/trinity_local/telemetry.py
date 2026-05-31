@@ -94,11 +94,10 @@ def telemetry_settings_path() -> Path:
 # Google Analytics 4 Measurement Protocol endpoint. Trinity sends
 # categorical routing labels + install/usage events here when the user
 # has opted in (default ON since 2026-05-27 per docs/CUT-CANDIDATES.md
-# Category C — vishigondi GA4 property 539262453). NO prompt content,
+# Category C — the project's GA4 property). NO prompt content,
 # NO lens text — only the categorical labels documented in CLAUDE.md
 # "Architectural commitments" #2.
 GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect"
-GA4_PROPERTY_ID = "539262453"  # vishigondi/trinity-local GA4 property
 
 
 def _default_endpoint() -> str | None:
@@ -366,7 +365,7 @@ def launchpad_telemetry_state() -> dict[str, Any]:
 # ─── GA4 Measurement Protocol ───────────────────────────────────────────
 #
 # Trinity sends categorical routing labels + install/usage events to GA4
-# property 539262453 when the user has opted in. This is the only outbound
+# when the user has opted in. This is the only outbound
 # data Trinity emits. Per CLAUDE.md "Architectural commitments" #2:
 # NO prompt content, NO lens text, NO user_substitute strings — only the
 # categorical labels (task_type, winner, provider_scores keys).

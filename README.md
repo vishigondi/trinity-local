@@ -34,7 +34,7 @@ That last move — the chairman knowing which split matters to **you** — is th
 
 **Own your taste — the part that compounds.** The council is the painkiller; the lens is the moat. Every council, every rejected answer, every rephrase sharpens a profile of your judgment that no lab can see across competitors (Anthropic can't read your ChatGPT; OpenAI can't read your Claude). The longer you use it, the more the synthesized answer is the one *you* would have written.
 
-**No new app. No service. No API key.** Captures flow *to* your machine; prompts never leave it. Everything else is an MCP server inside the harnesses you already use. **Free for individuals, forever** — MIT, local. (A hosted Trinity-for-Teams is the eventual revenue path; it never gates the individual experience.)
+**No new app. No service. No API key.** Captures flow *to* your machine; Trinity uploads nothing — your transcripts and lens stay on disk. Everything else is an MCP server inside the harnesses you already use. **Free for individuals, forever** — MIT, local. (A hosted Trinity-for-Teams is the eventual revenue path; it never gates the individual experience.)
 
 ## Install
 
@@ -135,10 +135,11 @@ by Aider / Cline / Continue / anything else. Schema:
 
 ## Privacy is the wedge
 
-- **Your prompts and the models' answers never leave your machine.** No exceptions, no opt-in
-  tier that changes this.
-- **Anonymous categorical telemetry is on by default** (Google Analytics 4 property
-  `539262453`). Two payloads, both categorical/numeric only: the per-council event
+- **Trinity uploads nothing.** Your transcripts, prompt history, and lens stay on
+  disk. (Councils dispatch your question to the labs through the CLIs *you* already
+  authenticated — the same path as typing it there yourself — never to a Trinity server.)
+- **Anonymous categorical telemetry is on by default** (Google Analytics 4). Two
+  payloads, both categorical/numeric only: the per-council event
   (`task_type`, `winner`, `member_count`, `mode`) and, from the launchpad, an anonymous
   provider win-rate snapshot (per-provider Elo / wins / total games — no task text). No
   prompt content, no lens text, no user_substitute strings ever. Disable any time with
@@ -192,7 +193,7 @@ The folder is the API. `~/.trinity/memories/lens.md` is Markdown; council outcom
 | Data source | **Your own prompts** | Crowd votes | Test fixtures | n/a (router) | Yours, but no persistence |
 | Cost basis | Your own subscriptions | Hosted | Per-call API | Per-call API | Per-call API |
 | Output | **Structured Routing JSON + your `lens`** | Win-rate ranking | Pass/fail per case | Cheapest route | Three answers + summary |
-| Privacy | **Prompts never upload** | n/a | n/a | Prompts route through their servers | Hosted |
+| Privacy | **Corpus stays on disk** | n/a | n/a | Prompts route through their servers | Hosted |
 | Personalization | **Personal routing table improves with use** | One global ranking | Per-test-suite | None | None |
 | Personal benchmarks | **`eval-run` scores any model against YOUR actual rejections** | Synthetic prompts | Static fixtures | n/a | n/a |
 | Council reads through your lens | **Chairman synthesizes in your voice — distilled from past transcripts** | n/a | n/a | n/a | Generic synthesis |

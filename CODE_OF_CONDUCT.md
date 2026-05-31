@@ -29,8 +29,10 @@ Trinity Local is a small, focused open-source project. Our code of conduct is sh
 
 ## Reporting
 
-If a contributor's behavior violates this code of conduct, email
-**conduct@keepwhatworks.com** with details. Reports stay confidential; we take action
+If a contributor's behavior violates this code of conduct, contact the maintainer
+privately — open a confidential report via GitHub Private Vulnerability Reporting
+(<https://github.com/vishigondi/trinity-local/security/advisories/new>) or email
+**vishigondi@gmail.com** — with details. Reports stay confidential; we take action
 proportional to the offense.
 
 ## Coverage

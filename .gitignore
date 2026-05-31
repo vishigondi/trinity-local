@@ -19,13 +19,20 @@ state/
 .playwright-mcp/
 *.png
 !docs/launchpad_example.png
-!docs/me_card_example.png
 !docs/favicon.png
 !docs/launch_assets/*.png
-!docs/smoke/*.png
 !browser-extension/icons/*.png
 mock_gen.py
 pylint_report.txt
+
+# Personal-data guard (the 2026-05-31 corpus leak): never commit machine-mined
+# corpus briefs or raw ~/.trinity content. Enforcement is the docs/** PII grep in
+# tests/test_doc_count_consistency.py; these patterns are belt-and-suspenders.
+# Screenshots must be regenerated from a SYNTHETIC fixture, not ~/.trinity, so
+# the smoke/me-card PNG re-include exceptions were removed above.
+**/*corpus-gold*
+**/preference_acts*.jsonl
+conversations/
 
 # Node.js artifacts — optional browser-extension smoke-test deps
 node_modules/

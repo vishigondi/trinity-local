@@ -36,9 +36,9 @@ schema migrations, Chrome Native Messaging dispatch, provider-side memory
 imports, real ModernBERT embeddings when installed, and abstain-gates when only
 the TF-IDF fallback is available.
 
-The current verification surface is <!-- canonical:test_count -->2441<!-- /canonical -->
+The current verification surface is <!-- canonical:test_count -->2445<!-- /canonical -->
 passing tests plus <!-- canonical:skipped_count -->4<!-- /canonical --> gated skips,
-<!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency
+<!-- canonical:doc_consistency_guards -->111<!-- /canonical --> doc-consistency
 guards, and a <!-- canonical:smoke_surface_count -->32<!-- /canonical -->-surface
 browser smoke gate. The remaining launch risks are not core council mechanics:
 public repo flip, extension release/ID sequencing, native Windows beyond WSL2,

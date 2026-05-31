@@ -18,8 +18,8 @@ def _filtered(text: str) -> bool:
 
 
 SCAFFOLDING = [
-    "# AGENTS.md instructions for /Users/openclaw/projects/trinity-local\n\n<INSTRUCTIONS>",
-    "<environment_context>\n  <cwd>/Users/openclaw</cwd>\n  <shell>zsh</shell>",
+    "# AGENTS.md instructions for /Users/example/projects/trinity-local\n\n<INSTRUCTIONS>",
+    "<environment_context>\n  <cwd>/Users/example</cwd>\n  <shell>zsh</shell>",
     "Find the idiosyncratic words and frames this human introduces.\n\nDO NOT include",
     "Find structural analogies the human draws BETWEEN UNRELATED DOMAINS.",
     "Find places where the human was WRONG, accepted the correction, and updated.",

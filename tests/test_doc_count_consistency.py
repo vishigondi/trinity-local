@@ -1125,11 +1125,7 @@ class TestLaunchpadScreenshotFreshness:
                 "src/trinity_local/launchpad_template.py",
                 "src/trinity_local/launchpad_data.py",
             ],
-            regen_recipe=(
-                "trinity-local portal-html && trinity-local serve & "
-                "python scripts/browser_smoke.py && "
-                "cp docs/smoke/1-launchpad.png docs/launchpad_example.png"
-            ),
+            regen_recipe="bash scripts/regen_launchpad_example.sh  # synthetic cold-start home, never ~/.trinity",
             # launchpad_template.py is the visual surface — UI changes
             # there MUST land with a refreshed screenshot within 1 day.
             strict_drivers=("src/trinity_local/launchpad_template.py",),
@@ -7289,4 +7285,50 @@ class TestLiveDocsDontHardcodeTestCounts:
             "Live doc hardcodes a test-gate count that will drift. Use the "
             "canonical placeholder (<!-- canonical:test_count -->…) or reword "
             "to drop the number:\n  " + "\n  ".join(offenders)
+        )
+
+
+class TestNoPersonalDataInPublicDocs:
+    """Recurrence guard for the 2026-05-31 corpus leak. Machine-mined corpus
+    content (a financial/employment dossier, raw council JSON, founder home
+    paths + a private repo name + the personal GA4 id) had been committed under
+    docs/ and was served live, byte-for-byte, at keepwhatworks.com. This guard
+    greps the *served* docs/ tree for the structural leak markers so it can
+    never recur.
+
+    Deliberately scoped to UNAMBIGUOUS structural leaks. It does NOT ban the
+    founder's chosen public bio (Mailchimp / IIT / Harvard in the founder
+    narrative) or the OpenClaw brand references in historical specs — only
+    absolute home paths, the private repo name, the personal GA4 property id,
+    the corpus-gold brief artifact, and verbatim taste-signature prompts.
+    """
+
+    DENYLIST = {
+        r"/Users/[A-Za-z0-9_.-]+": "absolute home path (env-specific + username leak)",
+        r"wikihouse": "private repo name",
+        r"539262453": "personal GA4 property id",
+        r"corpus[- ]?gold": "machine-mined corpus brief artifact",
+        r"MAKE EYES AND A NOESE": "verbatim user prompt (taste signature)",
+    }
+    _SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf"}
+
+    def test_docs_tree_has_no_personal_data_markers(self):
+        import re
+        docs = REPO / "docs"
+        hits = []
+        for path in sorted(docs.rglob("*")):
+            if not path.is_file() or path.suffix.lower() in self._SKIP_SUFFIXES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            for pat, why in self.DENYLIST.items():
+                for m in re.finditer(pat, text):
+                    ln = text.count("\n", 0, m.start()) + 1
+                    hits.append(f"{path.relative_to(REPO)}:{ln} -> {m.group(0)!r} ({why})")
+        assert not hits, (
+            "Personal-data markers found in the publicly-served docs/ tree "
+            "(GitHub Pages serves keepwhatworks.com from here byte-for-byte). "
+            "The 2026-05-31 corpus leak must not recur:\n  " + "\n  ".join(hits)
         )

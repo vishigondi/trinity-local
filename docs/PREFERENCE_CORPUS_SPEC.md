@@ -23,7 +23,7 @@ v1 (May 2026) was an honest first cut: three Trinity-shaped JSON schemas (counci
 
 **They're not unrelated.** They're the same substrate at different abstraction levels:
 
-| CoALA layer ([Sumers et al. 2024](https://arxiv.org/html/2603.07670v1)) | Trinity name | Existing standard | What it stores |
+| CoALA layer ([Sumers et al. 2023](https://arxiv.org/abs/2309.02427)) | Trinity name | Existing standard | What it stores |
 |---|---|---|---|
 | Episodic | **transcripts** | (no shared standard yet — MessageList shapes diverge) | Raw conversations across CLIs + web chats |
 | Semantic | **memories** | MCP Resources (read-only context) | Extracted facts/observations from dream |
@@ -279,7 +279,7 @@ v2 is structural; backward-compatible additions don't bump the version, removals
 
 ## Prior art lifted into v2
 
-- **[CoALA / Sumers et al. 2024](https://arxiv.org/html/2603.07670v1)** — four-layer cognitive memory taxonomy (working/episodic/semantic/procedural). Trinity drops "working" (per-MCP-session, ephemeral) and adds "preferential" as the lens layer.
+- **[CoALA / Sumers et al. 2023](https://arxiv.org/abs/2309.02427)** — four-layer cognitive memory taxonomy (working/episodic/semantic/procedural). Trinity drops "working" (per-MCP-session, ephemeral) and adds "preferential" as the lens layer.
 - **[MACLA / S. Forouzandeh, AAMAS 2026](https://github.com/S-Forouzandeh/MACLA-LLM-Agents-AAMAS-2026-Conference)** — the `Procedure` dataclass shape (alpha/beta Beta-Binomial tracker, success/failure contrastive contexts, generalizability score). Trinity adopts the math + structure; not the agent loop. MACLA's `MetaProcedure` composition shape is the reserved target for the post-launch playbooks layer.
 - **[SKILL.md / agentskills.io](https://agentskills.io/specification)** — exact file format for moves. Trinity adds extension frontmatter fields; the core spec is unchanged.
 - **[MCP Resources + Tools](https://modelcontextprotocol.io)** — primitive substrate. Trinity uses both (v1 used only Tools; v2 lit up Resources for the lens-flow path). Prompts primitive considered + dropped — Tools already covers the run_council use case; Prompts would be a brag-line rather than a new capability.

@@ -71,10 +71,10 @@ trinity-local me-card --open --out /tmp/trinity-social-card.png
 
 Then upload via the **Settings → General → Social preview** page in the
 GitHub UI — `gh` doesn't expose this endpoint. If `me-card` isn't ready
-(no lens.md yet), use the existing example as a temporary stand-in:
+(no lens.md yet), generate one on the fly:
 
 ```bash
-open docs/me_card_example.png
+trinity-local me-card --out /tmp/me-card.png && open /tmp/me-card.png
 # manual upload via the GitHub Settings UI
 ```
 
