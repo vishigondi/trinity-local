@@ -35,7 +35,7 @@ Each transcript turn becomes a `PromptNode` row in `~/.trinity/prompts/prompt_no
 
 Cursors in `~/.trinity/prompts/cursors.json` track the newest ingested node per source so re-runs are incremental — you can ingest a 50,000-turn corpus once and then top up each day in seconds.
 
-Every node gets passed through `modernbert-embed-base` (cached locally via Hugging Face Hub, offline by default). If MLX isn't installed it falls back to a stable SHA-1 TF-IDF projection. Same dimensionality either way. This is the only "model" call in the ingest path — no LLM, pure vector math.
+Every node gets passed through `modernbert-embed-base` when a real embedding runtime is available: Apple Silicon uses the MLX-native path, and other platforms can use the torch / sentence-transformers fallback. The model is cached locally via Hugging Face Hub and Trinity pins offline mode during normal startup. If no real embedder is available, Trinity falls back to a stable SHA-1 TF-IDF projection for lexical surfaces, but semantic flows now abstain instead of pretending TF-IDF geometry is meaningful. This is the only model-shaped call in ingest — no LLM, pure local vector math.
 
 ## Dream — the offline synthesis pass
 
@@ -43,9 +43,9 @@ Every node gets passed through `modernbert-embed-base` (cached locally via Huggi
 
 **Phase 1 — Discover.** Find pairs of nodes across providers that are semantically the SAME question (cosine ≥ 0.85). That's how Trinity knows you asked "the same thing" of Claude AND Codex AND Gemini.
 
-**Phase 2 — Topics / basins.** k-means over all embeddings → 20 "subject basins" written to `~/.trinity/memories/topics.json`. Each basin gets a centroid vector and the top-3 representative verbatim prompts. Basins are the substrate the lens grades against.
+**Phase 2 — Topics / basins.** k-means over embeddings writes subject basins to `~/.trinity/memories/topics.json`; the default basin count now scales with corpus size instead of staying fixed at 20. Each basin gets a centroid vector and representative verbatim prompts. Basins are the substrate the lens grades against.
 
-**Phase 2.5 — Vocabulary.** Why it matters downstream: without **homonym** resolution, the chairman applies wrong-context lens to context-shifted words ("shipped" = released vs delivered). Without **synonym** resolution, near-identical rejections split into separate tensions ("refine" vs "tighten") and never cross the ≥3-basin threshold the lens-build stage requires. Vocabulary is the dedup substrate the lens stage depends on.
+**Phase 2.5 — Vocabulary.** Vocabulary now keeps the measured signal: recurring anchors and homonyms. The old synonyms section was cut after real-corpus review showed it mostly captured template co-occurrence, not synonymy.
 
 **Phase 3 — Rejection signals.** For each TurnWindow where you turned around and asked a follow-up, extract WHAT you changed: REFRAME (different question), REDIRECT (different output shape), COMPRESSION (shorter), SHARPENING (more precise). These rejection signals (stored in `~/.trinity/me/preference_acts.jsonl` with trigger=model_miss) are the empirical signal of your taste — the load-bearing input the chairman trains against.
 
@@ -55,13 +55,11 @@ Every node gets passed through `modernbert-embed-base` (cached locally via Huggi
 
 **(Phase 6 — Moves substrate — retired 2026-05-27.)** Trinity originally shipped a procedural-memory layer (4-tier Bayesian gate, alpha/beta posteriors, SKILL.md emission). Running it on real data showed the substrate was structurally dormant: the gate's lexical T1 filtered 100% of candidates because lens tensions and basin patterns live at different vocabulary registers. The conceptual fix was simpler than retuning: **the chairman LLM bridges declarative→procedural at inference time** when it reads `lens.md` during synthesis. Pre-computing moves was JIT-cache for a free operation. Substrate deleted in #184 (-4,400 LOC). See [`retired_names.py`](../src/trinity_local/retired_names.py).
 
-### Phase 1.5 — Trajectory lens (planned, see [#182](https://github.com/vishigondi/trinity-local/issues/182))
+### Phase 1.5 — Trajectory lens
 
+Stage 0 extracts preferences from **single adjacent turn-pairs** — synchronic signal. The trajectory lens adds **arcs across multiple turns within a thread** — diachronic signal. If you pulled a conversation toward concrete examples three times across ten turns, that's a directional preference Stage 0 can't see.
 
-
-Stage 0 today extracts preferences from **single adjacent turn-pairs** — synchronic signal. The trajectory lens extends this to **arcs across multiple turns within a thread** — diachronic signal. If you pulled a conversation toward concrete examples three times across ten turns, that's a directional preference Stage 0 can't see.
-
-This is an asymmetric advantage over Anthropic's Auto-Dream (which curates *within-session* memory) and over the synchronic-only rejection signal. Roadmap target: ship after schema versioning ([#183](https://github.com/vishigondi/trinity-local/issues/183)) so trajectory records can migrate cleanly.
+This shipped in v1.7.55. Detection is deterministic: group model-miss preference acts by originating transcript and record a `TurnArc` when the same rejection kind recurs at least three times in one thread. Aggregated `Trajectory` records land in `~/.trinity/me/arcs.jsonl` and `~/.trinity/me/trajectories.jsonl`; the lens renders a trajectories section when the corpus has enough signal.
 
 ## What you end up with
 
@@ -73,7 +71,7 @@ After a few dream cycles, your `~/.trinity/` looks like:
 ├── memories/
 │   ├── lens.md                   ← paired tensions: how you decide
 │   ├── topics.json               ← 20 subject basins + centroids
-│   └── vocabulary.md             ← homonyms + synonyms
+│   └── vocabulary.md             ← anchors + homonyms
 ├── scoreboard/
 │   ├── picks.json                ← extracted "claude wins on REFRAME" rules
 │   └── routing.json              ← per-task-type win-rate
@@ -124,9 +122,7 @@ The eval is **structurally asymmetric** in your favor: only Trinity sees your cr
 
 ## Schema versioning — today and tomorrow
 
-**Today:** `~/.trinity/` has no explicit version file. Schema growth has been additive-only (new fields default to absent; old code ignores fields it doesn't know). This has held for ~6 months of post-launch evolution but has obvious limits.
-
-**Roadmap ([#183](https://github.com/vishigondi/trinity-local/issues/183)):** `.trinity-version` file at the root; per-shape schema versions registered for PromptNode / RejectionSignal / Move / CouncilOutcome / DreamCalibration; a migration runner that fires on first launch under a new binary. Targeted before any breaking change.
+**Today:** schema versioning is live. `~/.trinity/.trinity-version` stores the recorded schema version, and `run_migrations()` executes at CLI / MCP startup. The first migration backfilled the unified `preference_acts.jsonl` ledger from legacy split stores; future migrations follow the same forward-only pattern and leave the marker at the last successful version if a migration fails.
 
 ## The closed loop — how Trinity gets better
 
@@ -141,5 +137,5 @@ The taste you build with Trinity is the persistent thing across model generation
 - [README](../README.md) — install + the 30-second pitch
 - [CLAUDE.md](../claude.md) — internal architecture, glossary, the 200-line discipline
 - [`three-tier-architecture.md`](three-tier-architecture.md) — on-disk contract (MCP server / pip engine / Chrome extension)
-- [`PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) — the rejection-corpus + Bayesian gate spec
+- [`PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) — historical v2 substrate draft; the live survivor is the unified `preference_acts.jsonl` eval/lens corpus
 - [`scale-plan.md`](historical/scale-plan.md) — long-form roadmap

@@ -62,7 +62,7 @@ trinity-local ingest-recent
 trinity-local dream
 
 # Run a council on a single question
-trinity-local council-launch --task "what is the right caching strategy"
+trinity-local council --task "what is the right caching strategy"
 
 # Personalized eval suite
 trinity-local eval-build

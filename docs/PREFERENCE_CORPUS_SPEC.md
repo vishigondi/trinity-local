@@ -1,9 +1,18 @@
 ---
-class: live
+class: historical
 ---
 
 # Trinity Substrate Spec (v2)
 
+> **Current status (2026-05-30): historical design record.** The moves /
+> AGENTS.md substrate described below was retired on 2026-05-27 in #184 after
+> real-data validation showed the gate was structurally dormant. The live repo
+> keeps the preference-corpus pieces that survived: `council_outcomes/*.json`,
+> the unified `~/.trinity/me/preference_acts.jsonl` ledger, `eval-build` /
+> `eval-run`, and lens delivery through MCP Resources. For current runtime
+> architecture, read [`claude.md`](../claude.md) and
+> [`how-trinity-works.md`](how-trinity-works.md).
+>
 > **Status:** v2 draft — locked May 26, 2026. Supersedes v1 (May 14, 2026). v2 reframes the spec around **two existing standards (SKILL.md, MCP) plus the Trinity-specific extension fields that let cross-provider preference signal flow through them**. v1's JSON Schemas survive as the council-outcome / rejection-signal / eval-set surface; the spec now names what they extend rather than claiming to be its own standard.
 >
 > **The v2 thesis:** skill marketplaces are flat directories of curated procedures. Trinity is a hierarchical substrate with eval-gated promotion between layers, exposed via standards that already ship in 30+ agent tools. The interop story is "we don't invent — we stack."

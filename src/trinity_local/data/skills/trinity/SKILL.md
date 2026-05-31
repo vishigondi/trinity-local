@@ -110,7 +110,7 @@ The agent reading these BEFORE the user types is the wedge — every response is
 
 ## 8. Personalized evals (Trinity vs Claude vs Codex vs Gemini on YOUR kind of question)
 
-After enough councils accumulate (`~/.trinity/me/rejections.jsonl` has ≥50 entries), build a personal eval suite scored against the user's actual lens:
+After enough model-miss preference acts accumulate in `~/.trinity/me/preference_acts.jsonl` (roughly 50+ strong entries), build a personal eval suite scored against the user's actual lens:
 
 ```
 trinity-local eval-build
@@ -122,7 +122,7 @@ The marketing-headline form: "Model X scored 0.YZ on YOUR kind of question." Emp
 
 ## 9. Memory maintenance
 
-- `trinity-local lens-build` — rebuild paired-tension lenses from `me/rejections.jsonl`
+- `trinity-local lens` — rebuild paired-tension lenses from `me/preference_acts.jsonl` plus prompt history (`lens-build` remains an alias)
 - `trinity-local dream` — full memory-rebuild pass (Phase 5 refreshes `~/.trinity/core.md` automatically)
 - `trinity-local consolidate` — extract cortex routing patterns from council outcomes (with `--audit` for second-flagship drift check)
 - `trinity-local cortex-override` — flag a routing rule wrong; halves effective trust per click
@@ -140,7 +140,7 @@ The personal ledger (`~/.trinity/council_outcomes/`) never uploads. If the user 
 
 Suggest these to the user after section 5 succeeds:
 
-> Trinity is set up. Next moves:
+> Trinity is set up. Next steps:
 > - `/council <a hard question>` — dispatch through all three providers, synthesized in your voice
 > - `trinity-local portal-html --open-browser` — the launchpad: recent councils, lens preview, eval leaderboard, topic graph
 > - `trinity-local me-card --open` — render your strongest lens as a sharable PNG
@@ -161,7 +161,7 @@ Four trigger conditions — call `import_provider_memory(kind, payload, dry_run?
 
 **Verifiable test** that you actually called the tool successfully:
 
-- For `kind="eval"`: `wc -l ~/.trinity/me/rejections.jsonl` increments by the number of new (non-duplicate) signals.
+- For `kind="eval"`: `trinity-local lens-acts` shows `ledger: ~/.trinity/me/preference_acts.jsonl`, and `total` increments by the number of new non-duplicate signals.
 - For `kind="lens"`: `cat ~/.trinity/me/lenses.json | jq '.lenses | length'` increments by the number of net-new tensions; existing pole-pairs get evidence-augmented in place.
 
 **Why this compounds**: every iteration of the user's `/loop` (or any session) becomes a signal-engine. The chairman reads `lens.md` + `core.md` on every council; richer lens → sharper future verdicts. Surface-minimal: requires zero new tools beyond the one already shipped (the lane added `import_provider_memory`; the count returned to 8 when `handoff` retired 2026-05-26 in the same window).

@@ -10,7 +10,7 @@ class: live
 
 ## Done — v1.0 ready to ship
 
-**Code (<!-- canonical:test_count -->2437<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62; commit `2bbb333` regenerated `docs/launchpad_example.png` and cleared the formerly-intentional fail)**
+**Code (<!-- canonical:test_count -->2441<!-- /canonical --> tests passing + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped, <!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency guards green — was 1372/36 at this snapshot's 2026-05-16 generation; pre-launch simplification dropped ~80 tests, the consistency sweep added 5 doc-guards through iter #62; commit `2bbb333` regenerated `docs/launchpad_example.png` and cleared the formerly-intentional fail)**
 - 8-phase macOS-Shortcuts → Chrome-extension dispatcher transition
   (commits d56cffc → ebc212a). Every launchpad button works
   cross-platform via the extension; macOS Shortcut as tier-2 fallback.
@@ -63,12 +63,13 @@ launch live.
       `trinity-local status` → `trinity-local dream` → `trinity-local
       portal-html --open-browser`. Time it; if under 8 minutes, the
       "8-minute bar" promise in docs/spec-v1.md holds.
-- [ ] Real-Chrome smoke (the gated test): load the unpacked
-      extension in a fresh Chrome profile, set TRINITY_EXTENSION_ID,
+- [ ] Real-Chrome smoke (the gated test): run
+      `cd browser-extension && npm install`, set TRINITY_EXTENSION_ID,
       run `pytest tests/test_chrome_extension_smoke.py -v` with
-      `TRINITY_CHROME_SMOKE=1`. Wire the puppeteer driver if you
-      want full automation; the structural contract guard already
-      runs in CI without Chrome.
+      `TRINITY_CHROME_SMOKE=1`. The optional Stagehand driver launches
+      local Chrome with the unpacked extension and probes
+      `onMessageExternal`; the structural contract guard already runs
+      in CI without Chrome.
 
 ## Hard-launch final-mile (when ready to flip the gates above)
 

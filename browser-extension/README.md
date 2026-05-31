@@ -81,8 +81,8 @@ clobber the canonical file when both arrive.
 ## How to know it's working
 
 The launchpad (run `trinity-local portal-html`) has a "Browser capture ·
-last 24h" card (Surface 33, shipped). To inspect on disk, `ls
-~/.trinity/conversations/`. If empty after sending a claude.ai message:
+last 24h" card. To inspect on disk, `ls ~/.trinity/conversations/`. If
+empty after sending a claude.ai message:
 
 1. **Check the extension's service worker console** — `chrome://extensions`,
    click "service worker" link under Trinity Local Capture. Should see
@@ -96,6 +96,28 @@ last 24h" card (Surface 33, shipped). To inspect on disk, `ls
 3. **Check the native host process** — when the service worker is
    connected, `ps aux | grep capture-host` shows the Python process
    Chrome spawned. It exits when the service worker disconnects.
+
+## Optional Stagehand smoke
+
+The gated real-Chrome test uses Stagehand only as a local browser
+launcher. It does not call `act()`, `extract()`, Browserbase, or any LLM;
+the assertion is a deterministic `chrome.runtime.sendMessage` ping from
+the launchpad to `background.js`.
+
+```bash
+cd browser-extension
+npm install
+cd ..
+export TRINITY_CHROME_SMOKE=1
+export TRINITY_EXTENSION_ID=<ID_FOR_THIS_BROWSER_EXTENSION_PATH>
+trinity-local install-extension --extension-id "$TRINITY_EXTENSION_ID"
+trinity-local portal-html
+pytest tests/test_chrome_extension_smoke.py -v
+```
+
+By default the smoke launches a visible local Chrome window because MV3
+extension debugging is easier headed. Set `TRINITY_STAGEHAND_HEADLESS=1`
+to request headless mode.
 
 ## Files in this directory
 

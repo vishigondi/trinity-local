@@ -25,6 +25,25 @@ separately, turns each cross-provider pair into a synthetic council, and
 bootstraps your context from your own history before you run a single fresh
 council.
 
+## Where the repo is now
+
+`v<!-- canonical:version -->1.7.110<!-- /canonical -->` is launch-hardened around
+the MCP-first path: `lens`, `council`, `dream`, `status`, and `install` are the
+advertised CLI verbs, while older names stay registered for compatibility with
+launchpad dispatch and existing scripts. The core mechanics are in place:
+<!-- canonical:mcp_tool_count -->8<!-- /canonical --> MCP tools, MCP Resources,
+schema migrations, Chrome Native Messaging dispatch, provider-side memory
+imports, real ModernBERT embeddings when installed, and abstain-gates when only
+the TF-IDF fallback is available.
+
+The current verification surface is <!-- canonical:test_count -->2441<!-- /canonical -->
+passing tests plus <!-- canonical:skipped_count -->4<!-- /canonical --> gated skips,
+<!-- canonical:doc_consistency_guards -->110<!-- /canonical --> doc-consistency
+guards, and a <!-- canonical:smoke_surface_count -->32<!-- /canonical -->-surface
+browser smoke gate. The remaining launch risks are not core council mechanics:
+public repo flip, extension release/ID sequencing, native Windows beyond WSL2,
+fresh-machine install honesty, and the gated real-Chrome smoke.
+
 ## Councils are a GPS — broad when you need coverage, deep when you need conviction
 
 You ask one question; Trinity hands you the right mode. **Broad councils** run
@@ -52,19 +71,26 @@ context across them. Someone outside them has to.
 ## One-paragraph wire diagram
 
 The chairman model synthesizes member outputs, emitting structured Routing JSON
-over every council. Members run in parallel (or in `chain` mode for sequential
-refinement). The personal routing table is computed on demand from
-`~/.trinity/council_outcomes/*.json` — no separate state file. The `lens`
-lens-discovery pipeline (5 stages: turn-pair rejections → basins → decisions → pair-mining → basin
-post-filter) ratifies tensions that span ≥3 topical basins. Stage 0 turn-pair
-gap extraction (REFRAME / COMPRESSION / REDIRECT / SHARPENING) feeds high-signal
-behavioral evidence into decision extraction. Cross-provider continuity now
-flows via MCP Resources — agents read `trinity://memories/lens.md` at session
-handshake, so any harness can pick up the user's voice without an explicit
-hand-off step. (The earlier `handoff` CLI + MCP tool were retired 2026-05-26
-after 0 production usage; see `retired_names.py`.) The `evals/` package
-consumes mined rejections + `lens.md` to produce
-replayable per-rejection-type benchmarks (`eval-build` / `eval-run`). All
+over every council. Members run in parallel or in `chain` mode for sequential
+refinement. The personal routing table is computed on demand from
+`~/.trinity/council_outcomes/*.json` and user verdict overrides in
+`council_feedback.jsonl`.
+
+The `lens` pipeline now centers on the unified
+`~/.trinity/me/preference_acts.jsonl` ledger: Stage 0 mines model-miss acts
+(REFRAME / COMPRESSION / REDIRECT / SHARPENING), explicit decisions and
+provider imports join the same store, and later stages build basins, paired
+tensions, trajectories, correction vectors, and recency-aware registry support.
+Real ModernBERT embeddings power semantic geometry when available; TF-IDF is
+kept as a lexical fallback and semantic flows abstain when real embeddings are
+not loaded.
+
+Cross-provider continuity flows via MCP Resources — agents read
+`trinity://memories/lens.md` at session handshake, so any harness can pick up
+the user's voice without an explicit hand-off step. (The earlier `handoff` CLI
++ MCP tool were retired 2026-05-26 after 0 production usage; see
+`retired_names.py`.) The `evals/` package consumes preference acts + `lens.md`
+to produce replayable personal benchmarks (`eval-build` / `eval-run`). All
 artifact shapes are JSON-Schema-validated and documented in
 [`PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) — adoptable by other
 tools (Aider / Cline / Continue) under CC0 to interop with Trinity's preference

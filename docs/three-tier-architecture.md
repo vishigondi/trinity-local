@@ -125,7 +125,7 @@ dispatch contract; the broader cross-backend matrix lands in v1.1.
 
 Ratified by the council:
 
-- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2437<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
+- `src/trinity_local/` unchanged. <!-- canonical:test_count -->2441<!-- /canonical --> tests stay green (was 1290 at the floor's ratification; the consistency sweep + the Gap A/B/C ship grew the count — see CHANGELOG v1.7.4 sweep section for the delta).
 - `skills/trinity/SKILL.md` (new) — orchestrates the existing CLI via
   Claude Code's bash tool.
 - `skills/trinity/schemas/` (new) — copies of the in-repo schemas
@@ -206,9 +206,10 @@ launch requirement.
   (Tier 3) also writes. v1.0 assumes single active tier per
   directory. v1.1's audit log + file locking lifts this.
 - **Real-Chrome smoke gated**: `tests/test_chrome_extension_smoke.py`
-  is gated behind `TRINITY_CHROME_SMOKE=1` + the user installing the
-  unpacked extension. Static contract guard in
-  `test_phase8_integration.py` catches manifest drift in CI.
+  is gated behind `TRINITY_CHROME_SMOKE=1` + optional Stagehand deps in
+  `browser-extension/`. It launches local Chrome with the unpacked
+  extension. Static contract guard in `test_phase8_integration.py`
+  catches manifest drift in CI.
 - **HF-Hub cold start**: ~3-minute one-time download of
   `modernbert-embed-base` on first embedding call. Surface this in
   SKILL.md Section 3 before the user runs `dream`.

@@ -19,7 +19,7 @@ levels, generated bottom-up from your prompt corpus:
 | identity | `~/.trinity/core.md` | one-paragraph manifesto subsuming the rest | distillation |
 | tensions | `~/.trinity/memories/lens.md` | paired tensions you'd reject vs accept | value |
 | basins | `~/.trinity/memories/topics.json` | subject clusters + evidence map for lens | semantic |
-| language | `~/.trinity/memories/vocabulary.md` | anchors + homonyms + synonyms | linguistic |
+| language | `~/.trinity/memories/vocabulary.md` | anchors + homonyms | linguistic |
 
 ## Scoreboards live alongside (but aren't cognitive memory)
 
@@ -42,7 +42,7 @@ together as one document:
 - `lens.md` tensions below it (with `basins_spanned` chips per pair)
 - `topics.json` rendered as an Obsidian-style force graph over centroid
   cosine similarity, with each basin's most-representative prompts on click
-- `vocabulary.md` anchors + homonyms + synonyms tables
+- `vocabulary.md` anchors + homonyms tables
 
 Scoreboards (`picks.json` / `routing.json`) surface as schema-aware Reader
 views on the launchpad's routing card, not in the lens viewer.

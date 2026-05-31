@@ -52,7 +52,7 @@ CLASSIFICATIONS: dict[str, str] = {
     "docs/teams.md": "live",
     "docs/MCP_REGISTRY_SUBMISSIONS.md": "live",
     "docs/MIGRATION.md": "live",
-    "docs/PREFERENCE_CORPUS_SPEC.md": "live",
+    "docs/PREFERENCE_CORPUS_SPEC.md": "historical",
     "docs/REPO_PUBLIC_RUNBOOK.md": "live",
     "docs/spec-v1.md": "live",
     "docs/three-tier-architecture.md": "live",

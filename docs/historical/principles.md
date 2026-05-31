@@ -15,6 +15,14 @@ Hundreds of commits since April, with the bulk concentrated on the
 2026-05-12 simplification day. The recurring shapes that earned their
 rules by costing time:
 
+2026-05-30 relevance pass: reviewed the imported list against Trinity's
+current code, docs, and launch surfaces. No entries were dropped: the
+principles map to live Trinity risk areas (serialization, `file://`
+launchpad pages, ingest boundaries, real-corpus validation, shared UI,
+smoke guards, numerical pipelines, naming, deployment constraints, and
+generate-and-prune workflows). All 31 principles below remain relevant
+to this repo.
+
 1. **Lossless serialization round-trips.** If `to_dict()` writes,
    `from_dict()` must return the same dataclass. `me/basins.py::Basin.to_dict`
    capped `prompt_ids` at 50 entries "for readable JSON" — `load_basins()`

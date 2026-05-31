@@ -118,9 +118,13 @@ when the library was retired.
   subprocesses — your credentials never leave your machine via
   Trinity, only via the provider CLIs themselves (the same way they
   always have).
-- **No telemetry by default**. Opt in with `trinity-local
-  telemetry-enable`; even then only categorical routing labels leave
-  (task_type, provider_scores, winner) — never prompt content.
+- **Telemetry is credential-gated and no-PII.** The public build has
+  categorical telemetry enabled in config, but it sends nothing unless
+  GA4 credentials or a custom collector are explicitly present in the
+  environment. When configured, the wire boundary allowlists only
+  categorical / numeric routing fields and provider win-rate snapshots
+  — never prompt content, lens text, or user substitutes. Disable with
+  `trinity-local telemetry-disable`.
 
 ## See also
 

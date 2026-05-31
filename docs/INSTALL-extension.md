@@ -135,9 +135,10 @@ substrate Trinity moved away from.
   DOM via content scripts; it never injects user messages or modifies
   the provider UI.
 - **Real-Chrome smoke test is gated**: see
-  `tests/test_chrome_extension_smoke.py` — set `TRINITY_CHROME_SMOKE=1`
-  + load the extension manually before running it. v1.0 shipped the
-  scaffold; the puppeteer driver is post-launch.
+  `tests/test_chrome_extension_smoke.py`. It uses the optional
+  Stagehand driver in `browser-extension/` to launch local Chrome with
+  the unpacked extension, then verifies the launchpad can receive
+  `trinity-pong` through `onMessageExternal`.
 
 ## See also
 

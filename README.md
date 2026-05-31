@@ -237,15 +237,17 @@ pipeline (Stage 0 turn-pair rejections + Stages 1-4 basins→decisions→pair-mi
 
 ## What's next
 
-Trinity Local v1.7.4 shipped May 13–15, 2026; v1.7.5 post-launch cleanup shipped May 22, 2026 (full rating retirement, claude.md cut to 200 lines, Auto-Dream coexistence framing, ⠕ brand mark — see [`CHANGELOG.md`](CHANGELOG.md)). Roadmap in [`docs/historical/spec-v1.5.md`](docs/historical/spec-v1.5.md) (next: June 3, 2026).
+Current repo state: v1.7 line, exact package `v<!-- canonical:version -->1.7.110<!-- /canonical -->` as of May 30, 2026. The shipped surface is MCP-first: `lens`, `council`, `dream`, `status`, and `install` are the advertised CLI verbs; the older `lens-build` / `council-launch` names remain as compatibility aliases for launchpad dispatch and existing scripts. The recent work tightened the launch path: extension auto-wiring, schema migrations, real ModernBERT embeddings, TF-IDF abstain-gates for semantic flows, corpus-purity guards, personal eval integrity, no-PII telemetry gates, and install-wrapper Python fallback. Detailed history lives in [`CHANGELOG.md`](CHANGELOG.md); longer-range ideas are historical context in [`docs/historical/spec-v1.5.md`](docs/historical/spec-v1.5.md) and [`docs/historical/scale-plan.md`](docs/historical/scale-plan.md).
 
 ## Help
 
 | Command | What it does |
 |---|---|
 | `trinity-local status` | Health + scoreboard + recent councils (absorbed `doctor`) |
-| `trinity-local council-launch --task "..."` | Run a council from the terminal |
-| `trinity-local lens-build` | Build your lens from prompt history |
+| `trinity-local council --task "..."` | Run a council from the terminal |
+| `trinity-local lens` | Build your lens from prompt history |
+| `trinity-local dream` | Rebuild the broader local memory layer |
+| `trinity-local install` | Install or repair MCP / extension wiring |
 | `trinity-local me-card` | Render your strongest lens as a PNG |
 | `trinity-local portal-html --open-browser` | Open the launchpad |
 | `trinity-local review-link <council_id> --json` | Mobile-safe review links |

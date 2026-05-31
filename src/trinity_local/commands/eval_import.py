@@ -65,7 +65,7 @@ def register(subparsers):
         "eval-import",
         help=(
             "Merge a provider's JSON-shaped rejection signals (see "
-            "docs/evals-from-provider.md) into ~/.trinity/me/rejections.jsonl."
+            "docs/evals-from-provider.md) into ~/.trinity/me/preference_acts.jsonl."
         ),
     )
     imp.add_argument(
@@ -91,7 +91,7 @@ def register(subparsers):
     imp.add_argument(
         "--dry-run",
         action="store_true",
-        help="Parse + print merge plan; do not write to rejections.jsonl.",
+        help="Parse + print merge plan; do not write to preference_acts.jsonl.",
     )
     imp.add_argument(
         "--json",
@@ -168,8 +168,8 @@ def _provider_dict_to_rejection_signal(
     # provider is folded in so the same quote captured by two
     # providers stays distinct (they often phrase it differently).
     # Prefix is "r" (not "rej") to match the published rejection_signal
-    # schema's ^r_ pattern — the schema is the interop contract for
-    # other tools reading rejections.jsonl, the writer must conform.
+    # schema's ^r_ pattern — the schema is still the interop contract
+    # for model-miss acts stored in preference_acts.jsonl.
     rid = stable_id(
         "r",
         source_provider,
@@ -202,8 +202,7 @@ def _read_existing_ids() -> set[str]:
 
 def _append_signals(signals: list[RejectionSignal]) -> None:
     """Append each provider rejection to the unified ledger as a model_miss
-    act (legacy rejections.jsonl retired in #209). Append-only; the caller
-    dedups by id via `_read_existing_ids`."""
+    act. Append-only; the caller dedups by id via `_read_existing_ids`."""
     from ..me.preference_acts import append_preference_acts, from_rejection
     append_preference_acts([from_rejection(s) for s in signals])
 

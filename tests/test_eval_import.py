@@ -1,9 +1,8 @@
-"""eval-import: provider JSON → rejections.jsonl merge.
+"""eval-import: provider JSON → unified preference-act ledger merge.
 
 Pins schema mapping (REFRAME/REDIRECT/SHARPENING/COMPRESSION axis
 validation), dedup-by-stable-id (same input → same id, second import
-no-ops), and append-only file semantics (matches existing turn_pairs
-producer).
+no-ops), and append-only preference_acts.jsonl semantics.
 """
 from __future__ import annotations
 
@@ -87,7 +86,7 @@ class TestProviderDictMapping:
 
 
 class TestCliEndToEnd:
-    def test_first_import_persists_to_rejections_jsonl(self, home, tmp_path, capsys):
+    def test_first_import_persists_to_preference_acts_jsonl(self, home, tmp_path, capsys):
         payload_file = tmp_path / "evals.json"
         payload_file.write_text(json.dumps(_payload([
             _good_rejection("REFRAME"),
@@ -242,17 +241,17 @@ class TestLedgerDualWrite:
         acts = load_preference_acts()
         assert len(acts) == 2
         assert all(a.trigger == MODEL_MISS for a in acts)
-        # The ledger id matches the rejections.jsonl id (same stable id).
-        rej_ids = {
+        # The persisted ledger id matches the in-memory act id.
+        ledger_ids = {
             json.loads(ln)["id"]
             for ln in preference_acts_path().read_text(encoding="utf-8").splitlines()
         }
-        assert {a.id for a in acts} == rej_ids
+        assert {a.id for a in acts} == ledger_ids
 
     def test_dedup_reads_the_ledger(self, home, tmp_path, capsys):
         # Seed the ledger directly (as a prior lens-build would have), then
         # import the SAME rejection — it must dedup against the ledger even
-        # though rejections.jsonl is empty.
+        # without any legacy split-store file.
         from trinity_local.commands.eval_import import (
             _provider_dict_to_rejection_signal,
         )

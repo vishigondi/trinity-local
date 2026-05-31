@@ -70,10 +70,11 @@ class TestAgentBehaviorBlockPresent:
 
     def test_verifiable_test_named(self, skills):
         """Council eval_seed required a verifiable test for whether the
-        ship worked. The block names both — wc -l for rejections,
-        jq .lenses for lenses."""
+        ship worked. The block names both — lens-acts for the unified
+        preference ledger, jq .lenses for lenses."""
         for path, text in skills:
-            assert "rejections.jsonl" in text, f"{path}: missing rejections.jsonl test target"
+            assert "preference_acts.jsonl" in text, f"{path}: missing preference_acts.jsonl test target"
+            assert "trinity-local lens-acts" in text, f"{path}: missing lens-acts verification command"
             assert "lenses.json" in text, f"{path}: missing lenses.json test target"
 
 

@@ -1,18 +1,17 @@
-"""Gated real-Chrome smoke for the file:// → onMessageExternal path.
+"""Gated real-Chrome smoke for the launchpad → onMessageExternal path.
 
 Council `bf1ab3f4dd70f75e` flagged this as the v1.0 must-add: the
 runtime boundary most likely to break the whole transition. CI
 doesn't have Chrome available, so the test is *gated* behind the
-`TRINITY_CHROME_SMOKE=1` env var and a real extension load.
+`TRINITY_CHROME_SMOKE=1` env var and a real Chrome binary.
 
 To run manually:
 
-  1. In Chrome: chrome://extensions → Developer mode → "Load unpacked"
-     → select `browser-extension/` from this repo.
-  2. Copy the 32-char extension ID Chrome assigns.
-  3. Enable "Allow access to file URLs" on the Trinity extension
-     (Chrome → chrome://extensions → Trinity → toggle).
-  4. Run:
+  1. Install the optional Stagehand driver:
+       cd browser-extension && npm install
+  2. Export the 32-char extension ID for this repo's unpacked
+     `browser-extension/` path.
+  3. Run:
        export TRINITY_CHROME_SMOKE=1
        export TRINITY_EXTENSION_ID=<copied-id>
        trinity-local install-extension --extension-id "$TRINITY_EXTENSION_ID"
@@ -21,8 +20,8 @@ To run manually:
 
 What the test verifies (the bare minimum codex flagged as acceptable):
 
-  - A Chrome binary is launchable.
-  - The local file:// launchpad page loads.
+  - A Chrome binary is launchable through Stagehand's local browser path.
+  - The local launchpad page loads over http://127.0.0.1.
   - A `chrome.runtime.sendMessage(<extensionId>, {type:"trinity-ping"})`
     from that page returns `{ok: true, type: "trinity-pong"}` via the
     extension's onMessageExternal handler (Phase 4 implementation).
@@ -30,14 +29,19 @@ What the test verifies (the bare minimum codex flagged as acceptable):
 This is the one test we don't have that the council said we should.
 It does NOT exercise the full action path (that would require the
 native messaging host to be registered AND launchable — additional
-setup). Pinging proves the extension/file/onMessageExternal triangle
+setup). Pinging proves the extension/launchpad/onMessageExternal triangle
 works; the action path is exercised by test_phase8_integration's
 subprocess-based Native Messaging frame round-trip.
 """
 from __future__ import annotations
 
+import functools
+import http.server
 import os
+import socketserver
+import subprocess
 import shutil
+import threading
 from pathlib import Path
 
 import pytest
@@ -66,6 +70,58 @@ def _find_chrome() -> str | None:
         if c and Path(c).exists():
             return c
     return None
+
+
+class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):  # noqa: A002 - stdlib method name
+        return
+
+
+class _ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+
+class _LaunchpadServer:
+    def __init__(self, root: Path):
+        handler = functools.partial(_QuietHandler, directory=str(root))
+        self._server = _ReusableTCPServer(("127.0.0.1", 0), handler)
+        self.url = (
+            f"http://127.0.0.1:{self._server.server_address[1]}"
+            "/portal_pages/launchpad.html"
+        )
+        self._thread = threading.Thread(
+            target=self._server.serve_forever,
+            name="trinity-launchpad-smoke",
+            daemon=True,
+        )
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=3)
+
+
+def _stagehand_available(ext_dir: Path) -> bool:
+    result = subprocess.run(
+        [
+            "node",
+            "-e",
+            (
+                "import('@browserbasehq/stagehand')"
+                ".then(()=>process.exit(0))"
+                ".catch(()=>process.exit(1))"
+            ),
+        ],
+        cwd=ext_dir,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    return result.returncode == 0
 
 
 def test_chrome_binary_is_available():
@@ -103,33 +159,45 @@ def test_launchpad_file_exists():
 
 @pytest.mark.skipif(
     shutil.which("node") is None,
-    reason="This smoke uses puppeteer-core or playwright via node; install "
-           "node + `npm install puppeteer-core` in browser-extension/.",
+    reason="This smoke uses Stagehand via node; install node first.",
 )
-def test_file_launchpad_can_ping_extension_via_external_message():
-    """The actual smoke. Launches Chrome with the unpacked extension,
-    opens the file:// launchpad, executes a `chrome.runtime.sendMessage`
-    ping in the page context, asserts the trinity-pong response.
+def test_launchpad_can_ping_extension_via_stagehand():
+    """Launch Chrome with the unpacked extension via Stagehand and assert
+    the launchpad can reach background.js through onMessageExternal."""
+    repo = Path(__file__).resolve().parent.parent
+    ext_dir = repo / "browser-extension"
+    if not _stagehand_available(ext_dir):
+        pytest.skip(
+            "Optional Stagehand driver not installed. Run "
+            "`cd browser-extension && npm install`."
+        )
 
-    This is left as a scaffold — wiring the puppeteer driver is the
-    last piece. Sub-steps the driver needs to perform:
+    chrome = _find_chrome()
+    assert chrome, "No Chrome/Chromium binary found. Install Chrome or set $PATH."
 
-      1. Launch Chrome with:
-         --disable-extensions-except=$REPO/browser-extension
-         --load-extension=$REPO/browser-extension
-         --no-first-run
-         --user-data-dir=<temp>
-      2. Open the file:// URL of the launchpad.
-      3. evaluate(`new Promise(resolve => chrome.runtime.sendMessage(
-         "${EXTENSION_ID}", {type:"trinity-ping"}, resolve))`)
-      4. Assert response.ok === true && response.type === "trinity-pong"
+    home = Path(os.environ.get("TRINITY_HOME") or Path.home() / ".trinity")
+    with _LaunchpadServer(home) as server:
+        env = dict(os.environ)
+        env.update({
+            "TRINITY_CHROME_EXECUTABLE_PATH": chrome,
+            "TRINITY_EXTENSION_DIR": str(ext_dir),
+            "TRINITY_LAUNCHPAD_URL": server.url,
+            "TRINITY_STAGEHAND_HEADLESS": os.environ.get(
+                "TRINITY_STAGEHAND_HEADLESS",
+                "0",
+            ),
+        })
+        result = subprocess.run(
+            ["node", str(ext_dir / "smoke-stagehand.mjs")],
+            cwd=repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
 
-    Until the driver is wired (and the user has installed puppeteer-core
-    in browser-extension/), this test xfails — the scaffold is
-    intentional, the council's "one must-add test" verdict tracked.
-    """
-    pytest.xfail(
-        "Puppeteer driver not wired yet. The scaffold and prerequisites "
-        "(env var checks above) ARE the unit of work council "
-        "bf1ab3f4dd70f75e flagged. Wiring the driver is the next tick."
+    assert result.returncode == 0, (
+        "Stagehand Chrome smoke failed.\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
     )

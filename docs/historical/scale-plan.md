@@ -834,7 +834,7 @@ For Trinity Local that means:
 > - **Module names** (8.11 + Critical Files): plan said
 >   `portal_*.py`. Live ships `launchpad_*.py` (Tier 2 #4, task #93).
 > - **Test count target** (8.13 exit criteria): plan said "~150
->   tests after dead-code removal." Live: <!-- canonical:test_count -->2437<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
+>   tests after dead-code removal." Live: <!-- canonical:test_count -->2441<!-- /canonical --> + <!-- canonical:skipped_count -->4<!-- /canonical --> skipped.
 >
 > Refer to claude.md's Architecture section + state-layout diagram
 > for canonical current state.
@@ -1707,3 +1707,130 @@ effort. Top candidates (one each from Themes A-F):
 | 8 | J | "What's new" section in README + version anchor | S | Returning users (P40, P91) can't bridge |
 | 9 | K | Bundle marked/d3/Vue locally | M | Removes the only credible privacy attack on the wedge |
 | 10 | I | Desktop resolves paths/profile per-user at launch | S | Real cross-user leak on shared machines |
+
+---
+
+## Phase 11 — Domain blueprint intake: spatial design (2026-05-30)
+
+Source hygiene: the pasted spatial-design blueprint includes current
+vendor/model/funding claims that are unstable and were not verified in this
+repo pass. Do not quote those claims in public copy or use them as product
+proof until independently sourced. The useful part is the architecture pattern,
+not the market stats.
+
+This belongs in the plan because the real corpus already contains a
+floorplan/product vein (`spatial-design-repo`, OZ real estate, home renovation),
+and because it is a good example of the kind of domain-specific council recipe
+Trinity should learn to route. It does **not** change Trinity's core product
+boundary: Trinity routes, critiques, and remembers; the CAD/3D/rendering stack
+lives in the domain repo or a future plugin.
+
+### Intake decision
+
+Keep:
+
+- the rejection of a monolithic "generate JSON + photoreal render in one
+  prompt" architecture;
+- the canonical-artifact pipeline: constrained structure -> deterministic
+  validation -> procedural preview -> derivative render/export;
+- the idea that domain councils should assign roles with acceptance checks,
+  not ask every provider for one undifferentiated prose answer;
+- artifact-validity evals: schema adherence, validator coverage, repair-loop
+  behavior, unit consistency, coordinate-system handling, and export lineage.
+
+Do not import:
+
+- unverified competitor funding/user-count/model-latency claims;
+- exact adherence/error-reduction percentages without primary sources;
+- Shapely, Three.js, ControlNet, ComfyUI, or Revit as Trinity core
+  dependencies. They are examples for a spatial-design plugin or sibling
+  project, not requirements for the local router.
+
+### Useful architectural lesson
+
+Do not ask one multimodal model to produce both a machine-valid spatial graph
+and a photoreal rendering in one pass. Treat the structural representation as
+canonical and make every visual output derivative.
+
+The robust pipeline shape:
+
+1. **Constrained structural synthesis.** Generate a physical-unit JSON
+   blueprint: footprint, room polygons, wall segments, openings, fixed assets,
+   and requested adjacency/topology. If the runtime supports constrained
+   decoding, use it; otherwise make the schema explicit and assume validation
+   will reject bad payloads.
+2. **Deterministic validation.** Run geometry checks before any rendering:
+   boundary containment, room overlap, wall/opening consistency, furniture
+   collisions, area tolerance, connectivity, and code/accessibility checks
+   where available. Validator errors should be structured enough for a repair
+   turn, not free-text blame.
+3. **Procedural reconstruction.** Build the 2D/3D preview from the canonical
+   JSON, not from a generated image. Persist physical units and handle the
+   2D-canvas/SVG versus WebGL coordinate-axis mismatch explicitly.
+4. **Derivative visualization.** Photoreal or style rendering is a late step
+   conditioned on viewport-derived maps (depth, edges, normals) so materials
+   and lighting can change without moving walls, openings, or furniture.
+5. **Export last.** CAD/BIM/PDF exports compile from the validated structural
+   graph. Never reverse-engineer construction data from a pretty render.
+
+### Trinity implication
+
+Add a future **domain blueprint** primitive: a lightweight council recipe for
+domains where the right answer is not prose but a validated artifact pipeline.
+For spatial design, the recipe should ask providers to fill roles rather than
+all solve the same fuzzy prompt:
+
+| Role | Responsibility | Acceptance check |
+|---|---|---|
+| Layout solver | Propose canonical JSON schema and layout-generation flow | Schema can express rooms, walls, openings, assets, units, and adjacency |
+| Geometry validator | Define deterministic rejection/repair checks | Invalid layouts produce structured error reports |
+| Renderer/exporter | Derive 2D/3D preview, render inputs, and CAD/BIM exports | Visuals and exports come from the same canonical graph |
+| Product critic | Identify where the user should see/edit constraints | UX does not hide physical impossibility behind image quality |
+
+Generic shape:
+
+```python
+@dataclass
+class DomainBlueprint:
+    domain: str
+    canonical_artifact: str
+    roles: list[str]
+    validators: list[str]
+    repair_error_schema: dict[str, str]
+    eval_metrics: list[str]
+    dependency_boundary: str
+```
+
+The important Trinity-owned object is the recipe and routing evidence, not the
+domain engine. A spatial-design engine may run grammar-constrained generation,
+geometry validation, WebGL reconstruction, GPU rendering, and BIM export; the
+Trinity plan should only know how to recognize the task, launch the right
+council template, remember which provider/role combination worked, and score
+answers against artifact-validity criteria.
+
+### Forward ticks
+
+1. **Blueprint schema:** add a tiny on-disk recipe format for domain
+   blueprints: domain label, provider roles, required artifacts, validators,
+   repair-error schema, eval metrics, and "dependencies live outside Trinity"
+   boundary statement.
+2. **Domain card:** when Theme B/J surfaces "Your domains", include
+   `floorplan / spatial design` as a candidate basin only if cohesion is high
+   enough; show it as a routeable domain, not as generic memory trivia.
+3. **Task typing:** add a future `spatial_design` task/domain label for prompts
+   mentioning floorplans, lots, CAD, BIM, room polygons, footprints, SIPs,
+   elevations, or construction exports. Default such tasks to `run_council`
+   when the user asks for architecture, validators, or product direction.
+4. **Council template:** create a saved prompt/blueprint that forces the
+   decoupled pipeline above and explicitly rejects monolithic
+   "JSON plus render in one image-model prompt" proposals.
+5. **Repair-loop contract:** if a domain blueprint emits structured artifacts,
+   require validators to return machine-readable errors that can be sent back
+   for one bounded repair pass. Do not permit open-ended correction loops.
+6. **Plugin boundary:** if implemented, put geometry/render dependencies
+   (Shapely, Three.js, CSG, ComfyUI/GPU workers, Revit/export adapters) in the
+   spatial-design project or plugin. Do not add them to Trinity core.
+7. **Eval shape:** score spatial-design answers on artifact validity:
+   schema adherence, deterministic validation coverage, repair-loop behavior,
+   unit consistency, coordinate-system handling, and whether visualization is
+   derivative from the canonical geometry.

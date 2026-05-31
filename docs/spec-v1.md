@@ -88,8 +88,8 @@ All of the below is **already in the repo** as of CHANGELOG commit `884615f`. v1
 remaining = brand reconciliation + final smoke gate (docker), not new features.
 
 ### Surfaces
-- `trinity-local council-launch` — fan out to Claude/Codex/Antigravity CLIs, chairman synthesizes, returns Routing JSON outcome
-- `trinity-local lens-build` — 5-stage lens-discovery pipeline (Stage 0 turn-pair rejections → basins → decisions → pair-mining → basin post-filter)
+- `trinity-local council` — primary terminal verb for fan-out to Claude/Codex/Antigravity CLIs; chairman synthesizes and returns a Routing JSON outcome. `council-launch` remains as a compatibility alias for existing dispatch paths.
+- `trinity-local lens` — primary terminal verb for the lens pipeline. `lens-build` remains as a compatibility alias for existing dispatch paths.
 - `trinity-local me-card` — render strongest lens as a 1200×630 PNG (the actual social object — see disagreement #4)
 - `trinity-local portal-html` — static launchpad HTML with chart, routing table, recent councils
 - `trinity-local status` — pre-flight cold-install checks
@@ -97,7 +97,7 @@ remaining = brand reconciliation + final smoke gate (docker), not new features.
 - `trinity-local serve` — http.server on 127.0.0.1:8765 rooted at `~/.trinity` (debugging surface)
 - `trinity-local ingest-recent` — incremental transcript ingest (replaces the retired watch-once / watch-loop CLIs; MCP `ask` also fires this passively on every call)
 - ~~`trinity-local handoff <provider>`~~ — *Retired 2026-05-26 (0 production usage). Cross-provider continuity now flows via MCP Resources: agents read `trinity://memories/lens.md` at session handshake, so the user's voice carries between providers without an explicit hand-off verb. Originally shipped as workstream #2, tick #119; see `retired_names.py`.*
-- `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/rejections.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
+- `trinity-local eval-build` / `eval-stats` / `eval-run` — corpus-based eval harness (task #122). `eval-build` produces a personalized eval set from `me/preference_acts.jsonl`; `eval-run --target <provider>` dispatches each prompt then scores via judge against `lens.md`. The empirical benchmark that unblocks launch-arc workstream #3 (cross-provider benchmarks). See [`docs/PREFERENCE_CORPUS_SPEC.md`](PREFERENCE_CORPUS_SPEC.md) for the eval-set schema.
 
 ### MCP tool surface (<!-- canonical:mcp_tool_count -->8<!-- /canonical --> total: 4 canonical + 3 v1.5 + 1 in-protocol loop)
 
@@ -123,15 +123,15 @@ OR the launch hook. Mapping:
 | — | `ask` | v1.5 (single-call routing — the 90% case) |
 | — | `get_picks` | v1.5 (agent-facing introspection into extracted cortex rules) |
 | — | `mark_pick_wrong` | v1.5 (user-veto on a pick from the agent side) |
-| — | `import_provider_memory` | In-protocol provider-side memory loop — agent pipes its own extracted lens/eval signals into Trinity (kind=lens → `lenses.json`, kind=eval → `rejections.jsonl`). CLI mirrors: `lens-prompt`/`lens-import`, `eval-prompt`/`eval-import`. |
+| — | `import_provider_memory` | In-protocol provider-side memory loop — agent pipes its own extracted lens/eval signals into Trinity (kind=lens → `lenses.json` + `orderings.json`, kind=eval → `preference_acts.jsonl`). CLI mirrors: `lens-prompt`/`lens-import`, `eval-prompt`/`eval-import`. |
 | ~~`handoff`~~ | — | *Retired 2026-05-26 — 0 production usage. Cross-provider continuity via MCP Resources at handshake.* |
 
 Stable contract = locked at v1.0. Extended = may evolve in v1.x but won't disappear.
 
-Also new in v1: `run_council` and `get_council_status` responses now carry a
-structured `rate_action` field when an outcome is completed-but-unrated. The
-agent reads its own tool result and surfaces the rating prompt inline (Pillar 4
-funnel stage 6) — no launchpad detour required to widen the verdict-capture rate.
+Rating prompts were retired after launch. `run_council` and
+`get_council_status` now treat the chairman's lens-governed winner as the
+supervision signal; refinements carry "what should change" inline instead of
+writing a separate rating record.
 
 ### Folder layout (the licensable artifact)
 
@@ -148,7 +148,7 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 ├── memories/                 ← three thinking memories (cognitive shape, OUTPUT of dream)
 │   ├── lens.md               ← value — paired tensions you'd reject vs accept
 │   ├── topics.json           ← semantic — subject clusters + evidence map for lens
-│   └── vocabulary.md         ← linguistic — anchors + homonyms + synonyms
+│   └── vocabulary.md         ← linguistic — anchors + homonyms
 ├── core.md                   ← singular distillation of the three above; chairman reads first
 ├── scoreboard/               ← operational scoreboards (NOT cognitive memory)
 │   ├── picks.json            ← extracted model-selection rules per task_type
@@ -156,8 +156,9 @@ funnel stage 6) — no launchpad detour required to widen the verdict-capture ra
 ├── me/                       ← lens-discovery intermediate output
 │   ├── lenses.json
 │   ├── orderings.json
-│   ├── rejections.jsonl
-│   └── decisions.jsonl
+│   ├── preference_acts.jsonl
+│   ├── arcs.jsonl
+│   └── trajectories.jsonl
 ├── portal_pages/launchpad.html  ← the conversion event
 ├── review_pages/             ← per-council review HTML
 ├── evals/                    ← eval-build suites + evals/results/ per-run scores

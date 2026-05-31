@@ -25,10 +25,11 @@ state/
 !docs/smoke/*.png
 !browser-extension/icons/*.png
 mock_gen.py
+pylint_report.txt
 
-# Node.js artifacts — package-lock from the browser-extension build path
+# Node.js artifacts — optional browser-extension smoke-test deps
 node_modules/
+browser-extension/package-lock.json
 .agents/
 launch_councils/
 .antigravitycli/
-
