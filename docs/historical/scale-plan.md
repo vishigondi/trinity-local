@@ -1719,7 +1719,7 @@ proof until independently sourced. The useful part is the architecture pattern,
 not the market stats.
 
 This belongs in the plan because the real corpus already contains a
-floorplan/product vein (`spatial-design-repo`, OZ real estate, home renovation),
+domain-specific spatial-design vein,
 and because it is a good example of the kind of domain-specific council recipe
 Trinity should learn to route. It does **not** change Trinity's core product
 boundary: Trinity routes, critiques, and remembers; the CAD/3D/rendering stack

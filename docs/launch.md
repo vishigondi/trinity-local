@@ -19,7 +19,7 @@ class: live
 > than what the user is pained by (copy-pasting). Below the tweet thread still leans
 > on the copy-paste pain as the recognition hook, but resolves into the twin framing.
 >
-> Prior council ratification: [`council_4f34cd1181d5bd08`](launch_councils/council_4f34cd1181d5bd08.json) (Codex won, high, ledger-first
+> Prior council ratification (Codex won, high, ledger-first
 > reordering). Subsequent user spec elevated the brand from ledger-mechanic to memory-
 > sovereignty; thread updated to lead with the structural argument, not the mechanic.
 
@@ -76,8 +76,7 @@ to Anthropic + Mistral tomorrow, the ledger you built still works. The taste you
 moves with you.
 
 **The recursive demo (9/12).** I ran Trinity's launch council against its own readiness.
-It exposed the failure mode, named the deterministic test, drove the commit. The full
-outcome is in the repo: [`docs/launch_councils/council_d55953003bb29f9d.json`](launch_councils/council_d55953003bb29f9d.json).
+It exposed the failure mode, named the deterministic test, drove the commit.
 Open-source the trail, not just the code.
 
 **Install (10/12).** `curl -fsSL https://raw.githubusercontent.com/vishigondi/trinity-local/main/scripts/install.sh | bash` — clones the engine into `~/.trinity/code/` (with a back-compat symlink at `~/.claude/skills/trinity/` so existing `/trinity` users keep working), drops thin shell wrappers in `~/.local/bin/`, registers MCP in every harness you have. From a fresh terminal OR from inside Claude Code (`/trinity`), you're three commands from a council on your real work. Caveat: Trinity needs the
@@ -142,7 +141,7 @@ visionary voice in 2026.
 >
 > **The cross-provider memory layer the labs are commercially prevented from building.**
 
-**Three tiers** (ratified by `council_ff3da1fa84906791`, 2026-05-16):
+**Three tiers** (ratified by a launch council, 2026-05-16):
 > Skill primary — what you interact with when you type `/trinity` in Claude Code.
 > Pip — the engine the skill calls. Chrome extension — optional cross-surface
 > capture + one-click UI. Data in `~/.trinity/` is invariant across all three;
