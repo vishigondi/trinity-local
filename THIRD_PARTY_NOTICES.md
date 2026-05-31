@@ -99,10 +99,18 @@ Declared in [`pyproject.toml`](pyproject.toml). All are permissively licensed.
 | Package | License |
 |---|---|
 | mlx (Apple Silicon) | MIT |
-| mlx-embeddings (Apple Silicon) | MIT |
+| mlx-embeddings (Apple Silicon) | **GPL-3.0** |
 | sentence-transformers | Apache-2.0 |
 | einops | MIT |
 | torch | BSD-3-Clause |
+
+> **`mlx-embeddings` is GPL-3.0** (copyleft). It is an *optional* dependency of
+> the `[mlx]` extra — Trinity Local (MIT) never bundles or redistributes it; you
+> install it yourself with `pip install 'trinity-local[mlx]'` on Apple Silicon,
+> and Trinity imports it at runtime only if present. If you prefer to avoid GPL
+> entirely, skip the `[mlx]` extra: the cross-platform `sentence-transformers` /
+> `torch` path (Apache-2.0 / BSD-3-Clause) runs the same `modernbert-embed-base`
+> model, just slower than the native Apple-MLX backend.
 
 ### Optional (`[test]` extra)
 

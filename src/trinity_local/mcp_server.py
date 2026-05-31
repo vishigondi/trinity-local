@@ -1657,17 +1657,31 @@ async def _get_council_status(args: dict) -> list[Any]:
 
     council_run_id = args["council_run_id"]
 
+    # Path-safety: council_run_id is joined into a filesystem path below. Reject
+    # path separators / traversal so a crafted or buggy id can't read an
+    # arbitrary .json outside council_outcomes_dir() (defense-in-depth — the MCP
+    # client is trusted-local, but the id should never escape the directory). An
+    # unsafe id matches no real council, so we fall through to the "not found".
+    _id_path_safe = (
+        isinstance(council_run_id, str)
+        and "/" not in council_run_id
+        and "\\" not in council_run_id
+        and ".." not in council_run_id
+    )
+
     # Two storage locations:
     #   - council_outcomes/<id>.json: written ONCE on completion, durable
     #   - portal_pages/status/council_status_<token>.json: updated live during the run
     # `_lookup_council_status` handles both the direct-key and fallback-scan
     # cases; the wait_seconds polling path uses the same helper.
-    status_payload: dict | None = _lookup_council_status(council_run_id)
+    status_payload: dict | None = (
+        _lookup_council_status(council_run_id) if _id_path_safe else None
+    )
 
     outcome_summary: dict | None = None
     outcome_load_error: str | None = None
     outcome_path = council_outcomes_dir() / f"{council_run_id}.json"
-    if outcome_path.exists():
+    if _id_path_safe and outcome_path.exists():
         try:
             outcome = load_council_outcome(council_run_id)
             label = outcome.routing_label

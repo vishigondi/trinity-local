@@ -18,10 +18,10 @@ class: live
   d311ef2): `skills/trinity/SKILL.md` + schemas + arch doc + 4 new
   doc-consistency guards. Skill is additive over the existing CLI;
   no `src/trinity_local/` modules touched.
-- Council `ff3da1fa84906791` cited in 4 surfaces (claude.md,
-  docs/launch.md, docs/launch-package.md, docs/three-tier-architecture.md);
-  outcome JSON copied to docs/launch_councils/ so HN readers resolve
-  the cite.
+- Council `ff3da1fa84906791` was cited in several surfaces; the raw outcome
+  JSON under docs/launch_councils/ was REMOVED in the 2026-05-31 corpus-leak
+  purge (it embedded real lens/tax content). The cites are now plain text
+  references, not clickable files — do NOT re-publish raw council JSON.
 
 **Framing**
 - Hero locked: *"Own your taste. Lives inside Claude Code, Codex
